@@ -1,6 +1,6 @@
 # Base
 [plain-base]
-{cfg} compiler_phase = libextensible_graph.so
+{cfg} compiler_phase = libdata_flow.so
 {omp} compiler_phase = libtlomp-core.so
 {ompbase} compiler_phase = libtlomp-base.so
 

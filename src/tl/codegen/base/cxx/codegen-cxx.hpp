@@ -54,6 +54,8 @@ namespace Codegen
             Ret visit(const Nodecl::BitwiseNot &);
             Ret visit(const Nodecl::BitwiseOr &);
             Ret visit(const Nodecl::BitwiseOrAssignment &);
+            Ret visit(const Nodecl::BitwiseShl &);
+            Ret visit(const Nodecl::BitwiseShlAssignment &);
             Ret visit(const Nodecl::BitwiseXor &);
             Ret visit(const Nodecl::BitwiseXorAssignment &);
             Ret visit(const Nodecl::BooleanLiteral &);
@@ -92,7 +94,7 @@ namespace Codegen
             Ret visit(const Nodecl::DefaultStatement &);
             Ret visit(const Nodecl::Delete &);
             Ret visit(const Nodecl::DeleteArray &);
-            Ret visit(const Nodecl::Derreference &);
+            Ret visit(const Nodecl::Dereference &);
             Ret visit(const Nodecl::Different &);
             Ret visit(const Nodecl::Div &);
             Ret visit(const Nodecl::DivAssignment &);
@@ -151,10 +153,10 @@ namespace Codegen
             Ret visit(const Nodecl::Reference &);
             Ret visit(const Nodecl::ReturnStatement &);
             Ret visit(const Nodecl::Shaping &);
-            Ret visit(const Nodecl::Shl &);
-            Ret visit(const Nodecl::ShlAssignment &);
-            Ret visit(const Nodecl::Shr &);
-            Ret visit(const Nodecl::ShrAssignment &);
+            Ret visit(const Nodecl::BitwiseShr &);
+            Ret visit(const Nodecl::ArithmeticShr &);
+            Ret visit(const Nodecl::BitwiseShrAssignment &);
+            Ret visit(const Nodecl::ArithmeticShrAssignment &);
             Ret visit(const Nodecl::Sizeof &);
             Ret visit(const Nodecl::StringLiteral &);
             Ret visit(const Nodecl::StructuredValue &);
@@ -177,6 +179,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxExplicitInstantiation& node);
             Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
             Ret visit(const Nodecl::CxxUsingNamespace& node);
+            Ret visit(const Nodecl::CxxUsingDecl& node);
             Ret visit(const Nodecl::CxxDepFunctionCall &);
 
             Ret visit(const Nodecl::Verbatim& node);
@@ -280,11 +283,13 @@ namespace Codegen
 
             void define_class_symbol_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-                    int level);
+                    int level,
+                    TL::Scope* scope = NULL);
 
             void define_class_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void declare_friend_symbol(TL::Symbol friend_symbol,
                     TL::Symbol class_symbol);
@@ -294,11 +299,13 @@ namespace Codegen
 
             void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void do_declare_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

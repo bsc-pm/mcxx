@@ -50,8 +50,9 @@ namespace Nodecl
         Ret visit(const Nodecl::BitwiseAnd& n);
         Ret visit(const Nodecl::BitwiseOr& n);
         Ret visit(const Nodecl::BitwiseXor& n);
-        Ret visit(const Nodecl::Shr& n);
-        Ret visit(const Nodecl::Shl& n);
+        Ret visit(const Nodecl::BitwiseShr& n);
+        Ret visit(const Nodecl::ArithmeticShr& n);
+        Ret visit(const Nodecl::BitwiseShl& n);
         Ret visit(const Nodecl::Predecrement& n);
         Ret visit(const Nodecl::Postdecrement& n);
         Ret visit(const Nodecl::Preincrement& n);
@@ -65,12 +66,21 @@ namespace Nodecl
         Ret visit(const Nodecl::ComplexLiteral& n);
         Ret visit(const Nodecl::BooleanLiteral& n);
         Ret visit(const Nodecl::StringLiteral& n);
-        Ret visit(const Nodecl::Derreference& n);
+        Ret visit(const Nodecl::Dereference& n);
         Ret visit(const Nodecl::ArraySubscript& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
+        Ret visit(const Nodecl::Equal& n);
+        Ret visit(const Nodecl::Different& n);
+        Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::LowerOrEqualThan& n);
+        Ret visit(const Nodecl::GreaterThan& n);
+        Ret visit(const Nodecl::GreaterOrEqualThan& n);
+        Ret visit(const Nodecl::ConditionalExpression& n);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::Sizeof& n);
         
     public:
         // *** Constructors *** //

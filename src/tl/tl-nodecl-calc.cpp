@@ -151,7 +151,22 @@ namespace Nodecl
         }
     }
     
-    Calculator::Ret Calculator::visit(const Nodecl::Shr& n)
+    Calculator::Ret Calculator::visit(const Nodecl::BitwiseShr& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_shr(lhs[0], rhs[0]));
+        }
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::ArithmeticShr& n)
     {
         TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
         TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
@@ -166,7 +181,7 @@ namespace Nodecl
         }
     }
     
-    Calculator::Ret Calculator::visit(const Nodecl::Shl& n)
+    Calculator::Ret Calculator::visit(const Nodecl::BitwiseShl& n)
     {
         TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
         TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
@@ -177,7 +192,7 @@ namespace Nodecl
         }
         else
         {
-            return TL::ObjectList<const_value_t*>(1, const_value_shl(lhs[0], rhs[0]));
+            return TL::ObjectList<const_value_t*>(1, const_value_bitshl(lhs[0], rhs[0]));
         }
     }
     
@@ -407,7 +422,7 @@ namespace Nodecl
         return TL::ObjectList<const_value_t*>();
     }
     
-    Calculator::Ret Calculator::visit(const Nodecl::Derreference& n)
+    Calculator::Ret Calculator::visit(const Nodecl::Dereference& n)
     {
         return TL::ObjectList<const_value_t*>();
     }
@@ -442,6 +457,198 @@ namespace Nodecl
     }
     
     Calculator::Ret Calculator::visit(const Nodecl::VirtualFunctionCall& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Equal& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] == rhs[0])
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Different& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] == rhs[0])
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::LowerThan& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] < rhs[0])
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::LowerOrEqualThan& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] == rhs[0])
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::GreaterThan& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] > rhs[0])
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::GreaterOrEqualThan& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (!lhs.empty() && !rhs.empty())
+        {
+            const_value_t* equals;
+            if (lhs[0] >= rhs[0])
+            {
+                equals = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+            }
+            else
+            {
+                equals = const_value_get_zero(/* bytes */ 4, /* signed */ 1);
+            }
+            return TL::ObjectList<const_value_t*>(1, equals);
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::ConditionalExpression& n)
+    {
+        TL::ObjectList<const_value_t*> condition = walk(n.get_condition());
+        
+        if (condition.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            if (condition[0])
+            {
+                TL::ObjectList<const_value_t*> true_val = walk(n.get_true());
+                if (true_val.empty())
+                {
+                    return TL::ObjectList<const_value_t*>();
+                }
+                else
+                {
+                    return TL::ObjectList<const_value_t*>(1, true_val[0]);
+                }
+            }
+            else
+            {
+                TL::ObjectList<const_value_t*> false_val = walk(n.get_false());
+                if (false_val.empty())
+                {
+                    return TL::ObjectList<const_value_t*>();
+                }
+                else
+                {
+                    return TL::ObjectList<const_value_t*>(1, false_val[0]);
+                }
+            }
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Assignment& n)
+    {
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        return rhs;
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::Sizeof& n)
     {
         return TL::ObjectList<const_value_t*>();
     }

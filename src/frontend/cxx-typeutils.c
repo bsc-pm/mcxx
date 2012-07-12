@@ -3992,6 +3992,22 @@ void class_type_add_member(type_t* class_type, scope_entry_t* entry)
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
 }
 
+void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
+
+    class_type->type->class_info->members = entry_list_add_after(class_type->type->class_info->members, position, entry);
+}
+
+void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
+
+    class_type->type->class_info->members = entry_list_add_before(class_type->type->class_info->members, position, entry);
+}
+
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);

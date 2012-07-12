@@ -47,7 +47,8 @@ namespace TL { namespace Nanox {
             }
         }
 
-        if (name == "this")
+        if (IS_CXX_LANGUAGE 
+                && name == "this")
             name = "this_";
 
         std::stringstream ss;
@@ -98,8 +99,17 @@ namespace TL { namespace Nanox {
                     t = t.references_to();
                 }
 
-                outline_info.set_field_type(t.get_pointer_to());
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
+                if (IS_CXX_LANGUAGE
+                        && sym.get_name() == "this")
+                {
+                    outline_info.set_field_type(t.get_unqualified_type());
+                    outline_info.set_in_outline_type(t.get_unqualified_type());
+                }
+                else
+                {
+                    outline_info.set_field_type(t.get_pointer_to());
+                    outline_info.set_in_outline_type(t.get_lvalue_reference_to());
+                }
             }
 
             void visit(const Nodecl::OpenMP::Shared& shared)

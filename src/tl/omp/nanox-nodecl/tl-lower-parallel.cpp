@@ -92,7 +92,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
         delete symbol_map;
 
-        placeholder.integrate(outline_statements_code);
+        placeholder.replace(outline_statements_code);
 
         // This function replaces the current construct
         parallel_spawn(outline_info, construct, num_replicas, outline_name, structure_symbol);

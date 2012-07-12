@@ -1405,7 +1405,7 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile 
            src/tl/Makefile
            src/tl/analysis/Makefile
-           src/tl/analysis/extensible_graph/Makefile
+           src/tl/analysis/data_flow/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
            src/tl/codegen/Makefile 

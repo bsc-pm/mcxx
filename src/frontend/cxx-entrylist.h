@@ -50,6 +50,14 @@ LIBMCXX_EXTERN scope_entry_list_t* entry_list_remove(scope_entry_list_t* list,
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list, 
+        scope_entry_t* position,
+        scope_entry_t* entry);
+
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list, 
+        scope_entry_t* position,
+        scope_entry_t* entry);
+
 LIBMCXX_EXTERN void entry_list_free(scope_entry_list_t* list);
 
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);

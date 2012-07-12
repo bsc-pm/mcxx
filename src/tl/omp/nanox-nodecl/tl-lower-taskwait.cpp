@@ -51,7 +51,7 @@ void LoweringVisitor::fill_dependences_wait(
         return;
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 6001))
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
         Source dependency_regions;
 
@@ -435,7 +435,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
         Source::source_language = SourceLanguage::Current;
     }
 
-    construct.integrate(n);
+    construct.replace(n);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)

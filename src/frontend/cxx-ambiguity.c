@@ -143,12 +143,19 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
             }
         }
     }
-    
+
     if (valid_option < 0)
     {
-        internal_error("Could not solve ambiguity '%s'\nat '%s'\n", 
-                prettyprint_in_buffer(a),
-                ast_location(a));
+        // There are not a valid option. We choose one of them and we check its
+        // tree again (this check will fail)
+        valid_option = 0;
+
+        DEBUG_CODE()
+        {
+            printf("Could not solve ambiguity '%s'\nat '%s'\n",
+                    prettyprint_in_buffer(a),
+                    ast_location(a));
+        }
     }
 
     choose_option(a, valid_option);
@@ -325,10 +332,13 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
     }
     else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
     {
-        nodecl_t nodecl_expr = nodecl_null();
         enter_test_expression();
+
         AST id_expr = ASTSon0(declaration);
-        current_valid = check_expression(id_expr, decl_context, &nodecl_expr);
+        scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, DF_DEPENDENT_TYPENAME);
+        current_valid = (entry_list != NULL);
+        entry_list_free(entry_list);
+
         leave_test_expression();
     }
     else

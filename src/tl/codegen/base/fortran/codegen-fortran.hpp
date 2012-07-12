@@ -76,7 +76,7 @@ namespace Codegen
             void visit(const Nodecl::Assignment& node);
             void visit(const Nodecl::Equal& node);
             void visit(const Nodecl::Different& node);
-            void visit(const Nodecl::Derreference& node);
+            void visit(const Nodecl::Dereference& node);
             void visit(const Nodecl::Reference& node);
             void visit(const Nodecl::ParenthesizedExpression& node);
             void visit(const Nodecl::ArraySubscript& node);

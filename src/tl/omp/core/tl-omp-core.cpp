@@ -253,12 +253,20 @@ namespace TL
 
                     if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false)
                             == DS_SHARED)
-                            && _data_attrib & DS_PRIVATE )
+                            && (_data_attrib & DS_PRIVATE))
                     {
                         std::cerr << _ref_tree.get_locus() << ": warning: data sharing of '" 
                             << data_ref.prettyprint() 
                             << "' was shared but now it is being overriden as private" 
                             << std::endl;
+                    }
+
+                    if (IS_CXX_LANGUAGE
+                            && sym.get_name() == "this"
+                            && (_data_attrib & DS_PRIVATE))
+                    {
+                        std::cerr << _ref_tree.get_locus() << ": warning: 'this' will be shared" << std::endl;
+                        return;
                     }
 
                     if (data_ref.has_symbol())
@@ -479,6 +487,14 @@ namespace TL
                 if (sym.is_member()
                         && !sym.is_static())
                     continue;
+
+                if (IS_CXX_LANGUAGE
+                        && sym.get_name() == "this")
+                {
+                    // 'this' is special
+                    data_sharing.set_data_sharing(sym, DS_SHARED);
+                    continue;
+                }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
@@ -752,7 +768,7 @@ namespace TL
 
             construct
                 .get_statements()
-                .integrate(compound_statement);
+                .replace(compound_statement);
         }
 
         void Core::common_for_handler(Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
@@ -846,6 +862,14 @@ namespace TL
                         || (sym.is_member() 
                             && !sym.is_static()))
                     continue;
+
+                if (IS_CXX_LANGUAGE
+                        && sym.get_name() == "this")
+                {
+                    // 'this' is special
+                    data_sharing.set_data_sharing(sym, DS_SHARED);
+                    continue;
+                }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
@@ -1091,10 +1115,25 @@ namespace TL
                 {
                     Symbol sym = expr.get_symbol();
 
+                    if (!sym.is_variable())
+                    {
+                        std::cerr << expr.get_locus() 
+                            << ": warning: '" 
+                            << expr.prettyprint() 
+                            << "' is not a variable, skipping" 
+                            << std::endl;
+                        continue;
+                    }
+
                     if (sym.is_member()
                             && !sym.is_static())
                     {
-                        std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is a nonstatic-member, skipping" << std::endl;
+                        std::cerr << expr.get_locus() 
+                            << ": warning: '" 
+                            << expr.prettyprint() 
+                            << "' is a nonstatic-member, skipping" 
+                            << std::endl;
+                        continue;
                     }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);

@@ -120,7 +120,7 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        stmt_placeholder.integrate(statements.shallow_copy());
+        stmt_placeholder.replace(statements.shallow_copy());
 
         return critical_code;
     }
@@ -147,7 +147,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase critical_code = emit_critical_region(lock_name, construct, statements);
 
-        construct.integrate(critical_code);
+        construct.replace(critical_code);
     }
 
 } }

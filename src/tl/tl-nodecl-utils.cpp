@@ -265,6 +265,12 @@ namespace Nodecl
         return false;
     }
     
+    
+    bool Utils::nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n )
+    {
+        return n.get_type().is_lvalue_reference( );
+    }
+    
     bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
@@ -293,9 +299,20 @@ namespace Nodecl
     NodeclBase Utils::reduce_expression(NodeclBase n)
     {
         NodeclBase simplified_expr;
-        if (n.is<Symbol>() || n.is<IntegerLiteral>() || n.is<FloatingLiteral>())
+        if (n.is<Symbol>() || n.is<BooleanLiteral>() || n.is<StringLiteral>()
+            || n.is<IntegerLiteral>() || n.is<FloatingLiteral>() || n.is<ComplexLiteral>() 
+            || n.is<Dereference>() || n.is<ClassMemberAccess>())
         {
-            return n;
+            simplified_expr = n;
+        }
+        else if (n.is<List>())
+        {
+            List l = n.as<List>(); List new_l = List::make(NodeclBase::null());
+            for (List::iterator it = l.begin(); it != l.end(); ++it)
+            {
+                new_l.push_back(reduce_expression(*it));
+            }
+            simplified_expr = new_l;
         }
         else if (n.is<Conversion>())
         {
@@ -307,89 +324,94 @@ namespace Nodecl
             }
             simplified_expr = algebraic_simplification(n_conv.get_nest());
         }
+        else if (n.is<Add>())
+        {
+            Add n_add = n.as<Add>();
+            NodeclBase lhs = n_add.get_lhs(); NodeclBase rhs = n_add.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Add::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);
+        }
+        else if (n.is<Minus>())
+        {
+            Minus n_minus = n.as<Minus>();
+            NodeclBase lhs = n_minus.get_lhs(); NodeclBase rhs = n_minus.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);
+        }
+        else if (n.is<Mul>())
+        {
+            Mul n_mul = n.as<Mul>();
+            NodeclBase lhs = n_mul.get_lhs(); NodeclBase rhs = n_mul.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Mul::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);
+        }
+        else if (n.is<Div>())
+        {
+            Div n_div = n.as<Div>();
+            NodeclBase lhs = n_div.get_lhs(); NodeclBase rhs = n_div.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);
+        }
+        else if (n.is<Mod>())
+        {
+            Mod n_mod = n.as<Mod>();
+            NodeclBase lhs = n_mod.get_lhs(); NodeclBase rhs = n_mod.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);
+        }
+        else if (n.is<LowerOrEqualThan>())
+        {
+            LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
+            NodeclBase lhs = n_low_eq.get_lhs(); NodeclBase rhs = n_low_eq.get_rhs();
+            NodeclBase new_lhs = reduce_expression(lhs);
+            NodeclBase new_rhs = reduce_expression(rhs);
+            if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
+            {
+                n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);                
+        }
+        else if (n.is<ArraySubscript>())
+        {
+            ArraySubscript array_subs = n.as<ArraySubscript>();
+            NodeclBase subscripted = array_subs.get_subscripted(); NodeclBase subscripts = array_subs.get_subscripts();
+            NodeclBase new_subscripted = reduce_expression(subscripted);
+            NodeclBase new_subscripts = reduce_expression(subscripts);
+            if (!equal_nodecls(new_subscripted, subscripted) || !equal_nodecls(new_subscripts, subscripts))
+            {
+                n = ArraySubscript::make(new_subscripted, new_subscripts, subscripted.get_type(), n.get_filename(), n.get_line());
+            }
+            simplified_expr = algebraic_simplification(n);  
+        }
         else
         {
-            if (n.is<Add>())
-            {
-                Add n_add = n.as<Add>();
-                NodeclBase lhs = n_add.get_lhs(); NodeclBase rhs = n_add.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Add::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);
-            }
-            else if (n.is<Minus>())
-            {
-                Minus n_minus = n.as<Minus>();
-                NodeclBase lhs = n_minus.get_lhs(); NodeclBase rhs = n_minus.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);
-            }
-            else if (n.is<Mul>())
-            {
-                Mul n_mul = n.as<Mul>();
-                NodeclBase lhs = n_mul.get_lhs(); NodeclBase rhs = n_mul.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Mul::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);
-            }
-            else if (n.is<Div>())
-            {
-                Div n_div = n.as<Div>();
-                NodeclBase lhs = n_div.get_lhs(); NodeclBase rhs = n_div.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);
-            }
-            else if (n.is<Mod>())
-            {
-                Mod n_mod = n.as<Mod>();
-                NodeclBase lhs = n_mod.get_lhs(); NodeclBase rhs = n_mod.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Div::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);
-            }
-            else if (n.is<LowerOrEqualThan>())
-            {
-                LowerOrEqualThan n_low_eq = n.as<LowerOrEqualThan>();
-                NodeclBase lhs = n_low_eq.get_lhs(); NodeclBase rhs = n_low_eq.get_rhs();
-                NodeclBase new_lhs = reduce_expression(lhs);
-                NodeclBase new_rhs = reduce_expression(rhs);
-                if (!equal_nodecls(new_lhs, lhs) || !equal_nodecls(new_rhs, rhs))
-                {
-                    n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
-                }
-                simplified_expr = algebraic_simplification(n);                
-            }
-            else if (n.is<Derreference>())
-            {   // It cannot be a simplificable expression
-                simplified_expr = n;
-            }
-            else
-            {
-                internal_error("Node type '%s' while simplifying algebraic expression '%s' not yet implemented", 
-                               ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
-            }
+            internal_error("Node type '%s' while simplifying algebraic expression '%s' not yet implemented", 
+                            ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
         }
         
         return simplified_expr;
@@ -694,6 +716,101 @@ namespace Nodecl
         }
     }
 
+    namespace 
+    {
+        void simple_replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
+        {
+            // Simple case
+            Nodecl::NodeclBase nodecl_original_parent = dest.get_parent();
+            ::nodecl_replace(dest.get_internal_nodecl(), src.get_internal_nodecl());
+            ::nodecl_set_parent(dest.get_internal_nodecl(), nodecl_original_parent.get_internal_nodecl());
+        }
+    }
+
+    void Utils::replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
+    {
+        ERROR_CONDITION(src.is_null(), "Invalid node", 0);
+
+        if (src.is<Nodecl::List>()
+                && !dest.is<Nodecl::List>())
+        {
+            ERROR_CONDITION(!dest.is_in_list(), "Cannot replace a non-list node by a list if the first is not inside a list", 0);
+            Nodecl::List new_list = src.as<Nodecl::List>();
+
+            List::iterator new_list_it = new_list.begin();
+            simple_replace(dest, *new_list_it);
+            new_list_it++;
+
+            Nodecl::List parent_list = dest.get_parent().as<Nodecl::List>();
+            Nodecl::List::iterator last_it = parent_list.last();
+
+            for (; new_list_it != new_list.end(); new_list_it++)
+            {
+                parent_list.insert(last_it + 1, *new_list_it);
+                // We may have a new last node now
+                last_it = new_list_it->get_parent().as<Nodecl::List>().last();
+            }
+        }
+        else
+        {
+            simple_replace(dest, src);
+        }
+    }
+
+    bool Utils::is_in_list(Nodecl::NodeclBase n)
+    {
+        return (!n.get_parent().is_null()
+                && n.get_parent().is<Nodecl::List>());
+    }
+
+    void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
+    }
+
+    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
+    }
+
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
         if (n.is<Nodecl::List>())
@@ -747,11 +864,13 @@ namespace Nodecl
             case NODECL_MOD:
             case NODECL_MOD_ASSIGNMENT:
                 return "%";
-            case NODECL_SHL:
-            case NODECL_SHL_ASSIGNMENT:
+            case NODECL_BITWISE_SHL:
+            case NODECL_BITWISE_SHL_ASSIGNMENT:
                 return "<<";
-            case NODECL_SHR:
-            case NODECL_SHR_ASSIGNMENT:
+            case NODECL_BITWISE_SHR:
+            case NODECL_BITWISE_SHR_ASSIGNMENT:
+            case NODECL_ARITHMETIC_SHR:
+            case NODECL_ARITHMETIC_SHR_ASSIGNMENT:
                 return ">>";
             case NODECL_BITWISE_AND:
             case NODECL_BITWISE_AND_ASSIGNMENT:
@@ -841,7 +960,62 @@ namespace Nodecl
         Nodecl::List list = current_location.as<Nodecl::List>();
 
         Nodecl::List::iterator it = list.last();
-        list.insert(it, n);
+        list.insert(it+1, n);
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (it->is<Nodecl::CxxDecl>()
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_definitions_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (it->is<Nodecl::CxxDef>()
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_or_definitions_of_entity_at_top_level(TL::Symbol symbol)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if ((it->is<Nodecl::CxxDef>() 
+                        || it->is<Nodecl::CxxDecl>())
+                    && it->get_symbol() == symbol)
+            {
+                result.append(*it);
+            }
+        }
+        return result;
     }
 }
 

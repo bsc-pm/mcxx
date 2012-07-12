@@ -75,8 +75,9 @@ namespace TL { namespace Nanox {
                 case NODECL_BITWISE_AND_ASSIGNMENT:
                 case NODECL_BITWISE_OR_ASSIGNMENT:
                 case NODECL_BITWISE_XOR_ASSIGNMENT:
-                case NODECL_SHL_ASSIGNMENT:
-                case NODECL_SHR_ASSIGNMENT:
+                case NODECL_BITWISE_SHL_ASSIGNMENT:
+                case NODECL_ARITHMETIC_SHR_ASSIGNMENT:
+                case NODECL_BITWISE_SHR_ASSIGNMENT:
                     {
                         Nodecl::NodeclBase lhs = expr.as<Nodecl::AddAssignment>().get_lhs();
 
@@ -382,7 +383,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        construct.integrate(replacements);
+        construct.replace(replacements);
     }
 
 } }

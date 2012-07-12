@@ -152,11 +152,12 @@ expression : literal
            | NODECL_BITWISE_AND([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_SHL([lhs] expression, [rhs] expression) type const-value-opt
-           | NODECL_SHR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_BITWISE_SHL([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_ARITHMETIC_SHR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_BITWISE_SHR([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
-           | NODECL_DERREFERENCE([rhs]expression) type const-value-opt
+           | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt module(vector)
@@ -205,8 +206,9 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_MINUS_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-                  | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
-                  | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+                  | NODECL_BITWISE_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+                  | NODECL_BITWISE_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+                  | NODECL_ARITHMETIC_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
                   | NODECL_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -241,11 +243,12 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
 
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions
-cxx-decl : NODECL_CXX_DECL() symbol
-    | NODECL_CXX_DEF() symbol
-    | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-    | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-    | NODECL_CXX_USING_NAMESPACE([context] context) symbol
+cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
+         | NODECL_CXX_DEF([context] context-opt) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
+         | NODECL_CXX_USING_DECL([context] context) symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)

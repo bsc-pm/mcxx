@@ -133,7 +133,7 @@ namespace TL { namespace OpenMP {
                                 call.get_filename(),
                                 call.get_line());
 
-                        call.integrate(task_call);
+                        call.replace(task_call);
                     }
                 }
             }
@@ -274,7 +274,7 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line());
 
-        directive.integrate(atomic);
+        directive.replace(atomic);
     }
 
     void Base::critical_handler_pre(TL::PragmaCustomStatement) { }
@@ -296,7 +296,7 @@ namespace TL { namespace OpenMP {
                         directive.get_line()));
         }
 
-        directive.integrate(
+        directive.replace(
                 Nodecl::OpenMP::Critical::make(
                     exec_env,
                     directive.get_statements().shallow_copy(),
@@ -307,7 +307,7 @@ namespace TL { namespace OpenMP {
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { }
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive)
     {
-        directive.integrate(
+        directive.replace(
                 Nodecl::OpenMP::BarrierFull::make(directive.get_filename(), directive.get_line())
                 );
     }
@@ -323,7 +323,7 @@ namespace TL { namespace OpenMP {
             expr_list = parameter.get_arguments_as_expressions();
         }
 
-        directive.integrate(
+        directive.replace(
                 Nodecl::OpenMP::FlushMemory::make(
                     Nodecl::List::make(expr_list),
                     directive.get_filename(),
@@ -334,7 +334,7 @@ namespace TL { namespace OpenMP {
     void Base::master_handler_pre(TL::PragmaCustomStatement) { }
     void Base::master_handler_post(TL::PragmaCustomStatement directive)
     {
-        directive.integrate(
+        directive.replace(
                 Nodecl::OpenMP::Master::make(
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
@@ -361,7 +361,7 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line());
 
-            directive.integrate(
+            directive.replace(
                     Nodecl::OpenMP::WaitOnDependences::make(
                         Nodecl::List::make(dep_inout),
                         directive.get_filename(), directive.get_line())
@@ -369,7 +369,7 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            directive.integrate(
+            directive.replace(
                     Nodecl::OpenMP::TaskwaitShallow::make(
                         directive.get_filename(),
                         directive.get_line())
@@ -442,7 +442,7 @@ namespace TL { namespace OpenMP {
                         directive.get_line());
             }
         }
-        directive.integrate(async_code);
+        directive.replace(async_code);
     }
 
     void Base::parallel_handler_pre(TL::PragmaCustomStatement) { }
@@ -494,7 +494,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        directive.integrate(parallel_code);
+        directive.replace(parallel_code);
     }
 
     void Base::single_handler_pre(TL::PragmaCustomStatement) { }
@@ -521,7 +521,7 @@ namespace TL { namespace OpenMP {
                         directive.get_line()));
         }
 
-        directive.integrate(code);
+        directive.replace(code);
     }
 
 
@@ -540,7 +540,7 @@ namespace TL { namespace OpenMP {
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
-        directive.integrate(code);
+        directive.replace(code);
     }
 
     Nodecl::NodeclBase Base::loop_handler_post(
@@ -674,7 +674,7 @@ namespace TL { namespace OpenMP {
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
-        directive.integrate(code);
+        directive.replace(code);
     }
 
     void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive) { }
@@ -732,7 +732,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        directive.integrate(parallel_code);
+        directive.replace(parallel_code);
     }
 
     // Function tasks
@@ -747,7 +747,7 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
     {
-        stmt.integrate(stmt.get_statements());
+        stmt.replace(stmt.get_statements());
     }
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
@@ -905,7 +905,7 @@ namespace TL { namespace OpenMP {
             Source::source_language = SourceLanguage::Current;
         }
 
-        for_code.integrate(new_for_code);
+        for_code.replace(new_for_code);
 
         for_code = new_for_code;
     }
@@ -950,7 +950,7 @@ namespace TL { namespace OpenMP {
                 new_code,
                 for_code);
 
-        directive.get_statements().integrate(new_code);
+        directive.get_statements().replace(new_code);
 
         ERROR_CONDITION(!for_code.is<Nodecl::Context>(), "Invalid tree", 0);
         for_code = for_code.as<Nodecl::Context>().get_in_context();
@@ -960,7 +960,7 @@ namespace TL { namespace OpenMP {
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
         Nodecl::NodeclBase loop_code = loop_handler_post(directive, for_code, barrier_at_end, /* is_combined_worksharing */ false);
-        directive.integrate(loop_code);
+        directive.replace(loop_code);
     }
 
     void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement) { }
@@ -981,7 +981,7 @@ namespace TL { namespace OpenMP {
                 new_code,
                 for_code);
 
-        directive.get_statements().integrate(new_code);
+        directive.get_statements().replace(new_code);
 
         ERROR_CONDITION(!for_code.is<Nodecl::Context>(), "Invalid tree", 0);
         for_code = for_code.as<Nodecl::Context>().get_in_context();
@@ -1032,7 +1032,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        directive.integrate(parallel_code);
+        directive.replace(parallel_code);
     }
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement) { }
@@ -1095,12 +1095,31 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        directive.integrate(parallel_code);
+        directive.replace(parallel_code);
     }
 
-    // Keep these
     void Base::threadprivate_handler_pre(TL::PragmaCustomDirective) { }
-    void Base::threadprivate_handler_post(TL::PragmaCustomDirective) { }
+    void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive) 
+    {
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+
+        TL::ObjectList<Symbol> threadprivate_symbols;
+        ds.get_all_symbols(OpenMP::DS_THREADPRIVATE, threadprivate_symbols);
+
+        for (TL::ObjectList<Symbol>::iterator it = threadprivate_symbols.begin();
+                it != threadprivate_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+
+            // Mark as __thread
+            scope_entry_t* entry = sym.get_internal_symbol();
+
+            entry->entity_specs.is_thread = 1;
+        }
+
+        Nodecl::Utils::remove_from_enclosing_list(directive);
+    }
 
     // Remove
     void Base::declare_reduction_handler_pre(TL::PragmaCustomDirective)

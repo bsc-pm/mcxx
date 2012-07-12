@@ -65,63 +65,24 @@ namespace Nodecl
         }
     }
 
-    void NodeclBase::integrate(Nodecl::NodeclBase new_node) const
+    bool NodeclBase::is_in_list() const
     {
-        if (!this->is<Nodecl::List>())
-        {
-            if (!new_node.is<Nodecl::List>())
-            {
-                // If none is a list, this is a plain replacement
-                this->replace(new_node);
-            }
-            else
-            {
-                Nodecl::NodeclBase parent = this->get_parent();
-                if (!parent.is<Nodecl::List>())
-                {
-                    internal_error("Cannot integrate a list into a node if the parent of the latter is not a list", 0);
-                }
-                Nodecl::List enclosing_list = Utils::get_all_list_from_list_node(parent.as<Nodecl::List>());
+        return Utils::is_in_list(*this);
+    }
 
-                Nodecl::List::iterator it = std::find(enclosing_list.begin(), enclosing_list.end(), *this);
-                ERROR_CONDITION(it == enclosing_list.end(), "Node not found in its list!", 0);
+    void NodeclBase::append_sibling(Nodecl::NodeclBase items) const
+    {
+        Utils::append_items_after(*this, items);
+    }
 
-                Nodecl::List new_list = new_node.as<Nodecl::List>();
-
-                for (Nodecl::List::iterator new_it = new_list.begin();
-                        new_it != new_list.end();
-                        new_it++)
-                {
-                    ERROR_CONDITION(*it == *new_it, "Cannot integrate the same node as the node to be replaced (this)", 0);
-                    enclosing_list.insert(it, *new_it);
-                }
-
-                Utils::remove_from_enclosing_list(*it);
-            }
-        }
-        else
-        {
-            if (new_node.is<Nodecl::List>())
-            {
-                // If both are lists, this is a plain replacement
-                this->replace(new_node);
-            }
-            else
-            {
-                // Replace using a singleton list
-                TL::ObjectList<Nodecl::NodeclBase> single;
-                single.append(new_node);
-
-                Nodecl::List new_list = Nodecl::List::make(new_node);
-
-                this->replace(new_list);
-            }
-        }
+    void NodeclBase::prepend_sibling(Nodecl::NodeclBase items) const
+    {
+        Utils::prepend_items_before(*this, items);
     }
 
     void NodeclBase::replace(Nodecl::NodeclBase new_node) const
     {
-        nodecl_exchange(this->_n, new_node._n);
+        Utils::replace(*this, new_node);
     }
 
     void* NodeclBase::get_internal_tree_address()

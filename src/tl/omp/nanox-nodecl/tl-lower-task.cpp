@@ -90,10 +90,10 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
 
         _map[num_devices] = new_class_symbol;
 
+        TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
+        ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
         {
             // Base field
-            TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
-            ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
 
             TL::Symbol field = class_scope.new_symbol("base");
             field.get_internal_symbol()->kind = SK_VARIABLE;
@@ -156,10 +156,17 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
         if (IS_CXX_LANGUAGE)
         {
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
+                    /* optative context */ nodecl_null(),
                     new_class_symbol,
                     construct.get_filename(),
                     construct.get_line());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
+
+            TL::ObjectList<Nodecl::NodeclBase> defs =
+                Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
+            ERROR_CONDITION(defs.empty(), "No declaration of %s not found!\n", base_class.get_name().c_str());
+
+            // Append to the last declaration
+            defs.back().append_sibling(nodecl_decl);
         }
 
         return new_class_symbol;
@@ -430,7 +437,7 @@ void LoweringVisitor::emit_async_common(
     Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
     delete symbol_map;
 
-    placeholder.integrate(outline_statements_code);
+    placeholder.replace(outline_statements_code);
 
     Source err_name;
     err_name << "err";
@@ -517,16 +524,16 @@ void LoweringVisitor::emit_async_common(
     if (!fill_outline_arguments.empty())
     {
         Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-        fill_outline_arguments_tree.integrate(new_tree);
+        fill_outline_arguments_tree.replace(new_tree);
     }
 
     if (!fill_immediate_arguments.empty())
     {
         Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(fill_immediate_arguments_tree);
-        fill_immediate_arguments_tree.integrate(new_tree);
+        fill_immediate_arguments_tree.replace(new_tree);
     }
 
-    construct.integrate(spawn_code_tree);
+    construct.replace(spawn_code_tree);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
@@ -705,12 +712,26 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
-                        fill_outline_arguments << 
-                            "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            ;
+                        // 'this' is special in C++
+                        if (IS_CXX_LANGUAGE
+                                && (*it)->get_symbol().get_name() == "this")
+                        {
+                            fill_outline_arguments <<
+                                "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                        }
+                        else
+                        {
+                            fill_outline_arguments <<
+                                "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                                ;
+                        }
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
@@ -1078,7 +1099,7 @@ void LoweringVisitor::fill_dependences(
 
     if (num_deps == 0)
     {
-        if (Nanos::Version::interface_is_at_least("master", 6001))
+        if (Nanos::Version::interface_is_at_least("deps_api", 1001))
         {
             result_src << "nanos_data_access_t dependences[1];"
                 ;
@@ -1092,7 +1113,7 @@ void LoweringVisitor::fill_dependences(
         return;
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 6001))
+    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
         Source dependency_regions;
 

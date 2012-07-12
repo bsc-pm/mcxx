@@ -119,11 +119,20 @@ namespace Nodecl {
             NodeclBase(TL::RefPtr<TL::Object>);
 
             // Basic replacement
-            // Do not use this one except if really needed. Use NodeclBase::integrate
+            //
+            // See Utils::replace
             void replace(Nodecl::NodeclBase new_node) const;
 
+            // Current node is in a list
+            bool is_in_list() const;
+
+            // Append/prepend
+            // Note that is_in_list must return true
+            void append_sibling(Nodecl::NodeclBase items) const;
+            void prepend_sibling(Nodecl::NodeclBase items) const;
+
             // Works like replace but handles lists. 
-            void integrate(Nodecl::NodeclBase new_node) const;
+            DEPRECATED void integrate(Nodecl::NodeclBase new_node) const;
 
             // This sets this Nodecls as childs of the current node 
             void rechild(const TL::ObjectList<NodeclBase>& new_childs)
@@ -302,7 +311,7 @@ namespace Nodecl {
                     // --it
                     iterator operator--()
                     {
-                        this->next();
+                        this->previous();
                         return *this;
                     }
 
