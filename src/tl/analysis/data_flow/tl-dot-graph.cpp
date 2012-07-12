@@ -367,8 +367,8 @@ namespace TL
                         {
                             Symbol it_s = it->as<Nodecl::ObjectInit>().get_symbol();
                             aux_str = it_s.get_name() + " = " ;
-                            aux_str += codegen_to_str(it_s.get_initialization().get_internal_nodecl(), 
-                                                      nodecl_retrieve_context(it_s.get_initialization().get_internal_nodecl()));
+                            aux_str += codegen_to_str(it_s.get_value().get_internal_nodecl(), 
+                                                      nodecl_retrieve_context(it_s.get_value().get_internal_nodecl()));
                         }
                         else
                         {    

@@ -1684,7 +1684,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "static ";
     }
 
-    if (symbol.is_extern() && symbol.get_initialization().is_null())
+    if (symbol.is_extern() && symbol.get_value().is_null())
     {
         decl_spec_seq += "extern ";
     }
@@ -1941,7 +1941,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "static ";
     }
 
-    if (symbol.is_extern() && symbol.get_initialization().is_null())
+    if (symbol.is_extern() && symbol.get_value().is_null())
     {
         decl_spec_seq += "extern ";
     }
@@ -3337,7 +3337,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                         it2++)
                 {
                     TL::Symbol &enumerator(*it2);
-                    define_nonnested_entities_in_trees(enumerator.get_initialization());
+                    define_nonnested_entities_in_trees(enumerator.get_value());
                 }
             }
             else if(member.is_class()
@@ -3353,9 +3353,9 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
             {
                 if (member.is_variable()
                         && member.is_static()
-                        && !member.get_initialization().is_null())
+                        && !member.get_value().is_null())
                 {
-                    define_nonnested_entities_in_trees(member.get_initialization());
+                    define_nonnested_entities_in_trees(member.get_value());
                 }
 
                 walk_type_for_symbols(
@@ -4511,7 +4511,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     // non member declarations or member declarations if they have
     // integral or enum type
     char emit_initializer = 0;
-    if (!symbol.get_initialization().is_null()
+    if (!symbol.get_value().is_null()
             && (!symbol.is_member()
                 || (symbol.is_static()
                     && (!state.in_member_declaration
@@ -4527,12 +4527,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     && !symbol.get_scope().is_function_scope()))
                     {
                         // This is a member or nonlocal symbol
-                        define_nonnested_entities_in_trees(symbol.get_initialization());
+                        define_nonnested_entities_in_trees(symbol.get_value());
                     }
         else
         {
             // This is a local symbol
-            define_local_entities_in_trees(symbol.get_initialization());
+            define_local_entities_in_trees(symbol.get_value());
         }
     }
 
@@ -4558,7 +4558,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
-        Nodecl::NodeclBase init = symbol.get_initialization();
+        Nodecl::NodeclBase init = symbol.get_value();
 
         if (is_definition)
         {
@@ -4832,10 +4832,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             indent();
             file << enumerator.get_name();
 
-            if (!enumerator.get_initialization().is_null())
+            if (!enumerator.get_value().is_null())
             {
                 file << " = ";
-                walk(enumerator.get_initialization());
+                walk(enumerator.get_value());
             }
             pop_scope();
         }
@@ -5376,7 +5376,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
         {
             state.walked_symbols.insert(entry);
 
-            define_generic_entities(entry.get_initialization(),
+            define_generic_entities(entry.get_value(),
                     decl_sym_fun,
                     def_sym_fun,
                     define_entities_fun,
@@ -5692,7 +5692,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 it++)
         {
             TL::Symbol &enumerator(*it);
-            (this->*define_entities_in_tree)(enumerator.get_initialization());
+            (this->*define_entities_in_tree)(enumerator.get_value());
         }
     }
     else if (t.is_named_enum())

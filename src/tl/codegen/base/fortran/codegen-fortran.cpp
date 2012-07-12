@@ -336,14 +336,14 @@ namespace Codegen
         TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
-            walk(data_symbol.get_initialization());
+            walk(data_symbol.get_value());
         }
         
         // Could we improve the name of this function?
         TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
-            walk(equivalence_symbol.get_initialization());
+            walk(equivalence_symbol.get_value());
         }
 
         if (entry.is_saved_program_unit())
@@ -542,8 +542,8 @@ namespace Codegen
                 // static int a = 3;
             }
             else if (entry.get_type().is_const()
-                            && !entry.get_initialization().is_null()
-                            && entry.get_initialization().is_constant())
+                            && !entry.get_value().is_null()
+                            && entry.get_value().is_constant())
             {
                 // Do nothing
                 //
@@ -552,7 +552,7 @@ namespace Codegen
             else
             {
                 // Fake an assignment statement
-                if (!entry.get_initialization().is_null())
+                if (!entry.get_value().is_null())
                 {
                     indent();
                     Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
@@ -560,7 +560,7 @@ namespace Codegen
 
                     Nodecl::Assignment assig = Nodecl::Assignment::make(
                             nodecl_sym,
-                            entry.get_initialization().shallow_copy(),
+                            entry.get_value().shallow_copy(),
                             entry.get_type(),
                             node.get_filename(),
                             node.get_line());
@@ -2519,15 +2519,15 @@ OPERATOR_TABLE
                 // static int a = 3;
             }
             else if (entry.get_type().is_const()
-                            && !entry.get_initialization().is_null()
-                            && entry.get_initialization().is_constant())
+                            && !entry.get_value().is_null()
+                            && entry.get_value().is_constant())
             {
                 // Do nothing
                 // const int n = x;
             }
             // This is a VLA
             else if (entry.get_type().is_array()
-                    && entry.get_initialization().is_null())
+                    && entry.get_value().is_null())
             {
                 // Make this an ALLOCATABLE
                 entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
@@ -2535,7 +2535,7 @@ OPERATOR_TABLE
             else
             {
                 // This will be emitted like an assignment
-                traverse_looking_for_symbols(entry.get_initialization(), do_declare, data);
+                traverse_looking_for_symbols(entry.get_value(), do_declare, data);
             }
         }
 
@@ -3006,8 +3006,8 @@ OPERATOR_TABLE
                     && !entry.is_member())
                 attribute_list += ", VOLATILE";
             if (entry.get_type().is_const()
-                    && !entry.get_initialization().is_null()
-                    && entry.get_initialization().is_constant())
+                    && !entry.get_value().is_null()
+                    && entry.get_value().is_constant())
             {
                 attribute_list += ", PARAMETER";
             }
@@ -3038,13 +3038,13 @@ OPERATOR_TABLE
 
             declare_everything_needed_by_the_type(entry.get_type(), entry.get_scope());
 
-            if (!entry.get_initialization().is_null())
+            if (!entry.get_value().is_null())
             {
-                declare_everything_needed(entry.get_initialization());
+                declare_everything_needed(entry.get_value());
 
                 if (entry.is_static()
                         || (entry.get_type().is_const()
-                            && entry.get_initialization().is_constant()))
+                            && entry.get_value().is_constant()))
                 {
                     TL::Type t = entry.get_type();
                     if (t.is_any_reference())
@@ -3052,11 +3052,11 @@ OPERATOR_TABLE
 
                     if (is_fortran_representable_pointer(t))
                     {
-                        initializer = " => " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
+                        initializer = " => " + codegen_to_str(entry.get_value(), entry.get_value().retrieve_context());
                     }
                     else
                     {
-                        initializer = " = " + codegen_to_str(entry.get_initialization(), entry.get_initialization().retrieve_context());
+                        initializer = " = " + codegen_to_str(entry.get_value(), entry.get_value().retrieve_context());
                     }
                 }
             }
@@ -3326,7 +3326,7 @@ OPERATOR_TABLE
                 file << type_spec << " :: " << entry.get_name() << std::endl;
 
 
-                declare_everything_needed(entry.get_initialization(), entry.get_scope());
+                declare_everything_needed(entry.get_value(), entry.get_scope());
 
                 indent();
                 file << entry.get_name() << "(";
@@ -3344,7 +3344,7 @@ OPERATOR_TABLE
                 }
 
                 file << ") = ";
-                walk(entry.get_initialization());
+                walk(entry.get_value());
                 file << "\n";
             }
             else
@@ -3371,7 +3371,7 @@ OPERATOR_TABLE
                     it++)
             {
                 TL::Symbol &component(*it);
-                declare_everything_needed(component.get_initialization(), entry.get_scope());
+                declare_everything_needed(component.get_value(), entry.get_scope());
 
                 if (component.get_type().basic_type().is_class())
                 {
@@ -3509,14 +3509,14 @@ OPERATOR_TABLE
         else if (entry.is_label())
         {
             // This is basically for FORMAT labels
-            if (!entry.get_initialization().is_null())
+            if (!entry.get_value().is_null())
             {
                 indent();
                 file << entry.get_name() << " FORMAT";
 
                 int old_indent_level = get_indent_level();
                 set_indent_level(0);
-                walk(entry.get_initialization());
+                walk(entry.get_value());
                 set_indent_level(old_indent_level);
 
                 file << "\n";
@@ -3539,8 +3539,8 @@ OPERATOR_TABLE
 
             codegen_type(entry.get_type(), type_spec, array_specifier);
 
-            initializer = " = " + codegen_to_str(entry.get_initialization(),
-                    entry.get_initialization().retrieve_context());
+            initializer = " = " + codegen_to_str(entry.get_value(),
+                    entry.get_value().retrieve_context());
 
             // Emit it as a parameter
             indent();
@@ -3659,7 +3659,7 @@ OPERATOR_TABLE
 
         if (entry.is_statement_function_statement())
         {
-            declare_symbols_from_modules_rec(entry.get_initialization(), *sc);
+            declare_symbols_from_modules_rec(entry.get_value(), *sc);
         }
     }
 
@@ -3710,7 +3710,7 @@ OPERATOR_TABLE
                     TL::Symbol &member(*it);
 
                     do_declare_global_entities(member, node, data);
-                    declare_global_entities(member.get_initialization());
+                    declare_global_entities(member.get_value());
                 }
             }
             else if (entry.is_variable())
@@ -3823,13 +3823,13 @@ OPERATOR_TABLE
         TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
-            walk(data_symbol.get_initialization());
+            walk(data_symbol.get_value());
         }
 
         TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
-            walk(equivalence_symbol.get_initialization());
+            walk(equivalence_symbol.get_value());
         }
     }
 
@@ -3857,14 +3857,14 @@ OPERATOR_TABLE
                     && lower_bound.get_symbol().is_valid()
                     && lower_bound.get_symbol().is_saved_expression())
             {
-                lower_bound = lower_bound.get_symbol().get_initialization();
+                lower_bound = lower_bound.get_symbol().get_value();
             }
 
             if (!upper_bound.is_null()
                     && upper_bound.get_symbol().is_valid()
                     && upper_bound.get_symbol().is_saved_expression())
             {
-                upper_bound = upper_bound.get_symbol().get_initialization();
+                upper_bound = upper_bound.get_symbol().get_value();
             }
 
             declare_everything_needed(lower_bound, sc);
@@ -3982,7 +3982,7 @@ OPERATOR_TABLE
 
                     emit_use_statement_if_symbol_comes_from_module(member, sc);
 
-                    declare_symbols_from_modules_rec(member.get_initialization(), sc);
+                    declare_symbols_from_modules_rec(member.get_value(), sc);
                 }
             }
             else if (entry.is_variable())

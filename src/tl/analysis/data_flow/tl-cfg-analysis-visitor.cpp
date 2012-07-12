@@ -155,7 +155,7 @@ namespace Analysis
         Nodecl::Symbol sym_node = Nodecl::Symbol::make(s, n.get_filename(), n.get_line());
         _node->fill_use_def_sets(sym_node, true);
        
-        Nodecl::NodeclBase init = s.get_initialization();
+        Nodecl::NodeclBase init = s.get_value();
         
         if (!init.is_null())
         {

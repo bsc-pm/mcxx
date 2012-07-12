@@ -309,7 +309,7 @@ namespace TL
                 nodecl_t n_sym = nodecl_make_symbol(n.get_symbol().get_internal_symbol(), n.get_filename().c_str(), n.get_line());
                 Nodecl::Symbol nodecl_symbol(n_sym);
                 ObjectList<Node*> init_sym = walk(nodecl_symbol);
-                ObjectList<Node*> init_expr = walk(n.get_symbol().get_initialization());
+                ObjectList<Node*> init_expr = walk(n.get_symbol().get_value());
             
                 if (init_expr.empty())
                 {   // do nothing: The Object Init is not initialized
