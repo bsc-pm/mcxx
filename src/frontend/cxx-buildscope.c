@@ -3537,10 +3537,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_conte
     }
 
     if (entry->entity_specs.is_member
-            && (is_dependent_type(entry->entity_specs.class_type)
-                || (current_class != NULL
-                    && is_dependent_type(current_class->type_information)
-                    && class_type_is_base(entry->entity_specs.class_type, get_user_defined_type(current_class)))))
+            && is_dependent_type(entry->entity_specs.class_type))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
