@@ -1333,7 +1333,7 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
 
 static type_t* advance_dependent_typename(type_t* t);
 
-static type_t* remove_artificial_dependent_typenames(type_t* t)
+static type_t* simplify_types_template_arguments_rec(type_t* t)
 {
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
 
@@ -1341,21 +1341,21 @@ static type_t* remove_artificial_dependent_typenames(type_t* t)
             && dependent_typename_is_artificial(t))
     {
         type_t* dep_typename_type = advance_dependent_typename(t);
-        return get_cv_qualified_type(remove_artificial_dependent_typenames(dep_typename_type), cv_qualif);
+        return get_cv_qualified_type(simplify_types_template_arguments_rec(dep_typename_type), cv_qualif);
     }
-    // else if (is_named_type(t)
-    //         && named_type_get_symbol(t)->kind == SK_TYPEDEF)
-    // {
-    //     return get_cv_qualified_type(remove_artificial_dependent_typenames(named_type_get_symbol(t)->type_information), cv_qualif);
-    // }
+    else if (is_named_type(t)
+            && named_type_get_symbol(t)->kind == SK_TYPEDEF)
+    {
+        return get_cv_qualified_type(simplify_types_template_arguments_rec(named_type_get_symbol(t)->type_information), cv_qualif);
+    }
     else if (is_pointer_type(t))
     {
         return get_cv_qualified_type(get_pointer_type(
-                remove_artificial_dependent_typenames(pointer_type_get_pointee_type(t))), cv_qualif);
+                simplify_types_template_arguments_rec(pointer_type_get_pointee_type(t))), cv_qualif);
     }
     else if (is_pointer_to_member_type(t))
     {
-        type_t* pointee = remove_artificial_dependent_typenames(pointer_type_get_pointee_type(t));
+        type_t* pointee = simplify_types_template_arguments_rec(pointer_type_get_pointee_type(t));
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(t);
 
         return get_cv_qualified_type(get_pointer_to_member_type(pointee, class_symbol), cv_qualif);
@@ -1363,24 +1363,24 @@ static type_t* remove_artificial_dependent_typenames(type_t* t)
     else if (is_lvalue_reference_type(t))
     {
         return get_cv_qualified_type(get_lvalue_reference_type(
-                remove_artificial_dependent_typenames(reference_type_get_referenced_type(t))), cv_qualif);
+                simplify_types_template_arguments_rec(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_rvalue_reference_type(t))
     {
         return get_cv_qualified_type(get_rvalue_reference_type(
-                remove_artificial_dependent_typenames(reference_type_get_referenced_type(t))), cv_qualif);
+                simplify_types_template_arguments_rec(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_array_type(t))
     {
         // Check this
         return get_cv_qualified_type(get_array_type(
-                remove_artificial_dependent_typenames(array_type_get_element_type(t)),
+                simplify_types_template_arguments_rec(array_type_get_element_type(t)),
                 array_type_get_array_size_expr(t),
                 array_type_get_array_size_expr_context(t)), cv_qualif);
     }
     else if (is_function_type(t))
     {
-        type_t* return_type = remove_artificial_dependent_typenames(function_type_get_return_type(t));
+        type_t* return_type = simplify_types_template_arguments_rec(function_type_get_return_type(t));
 
         int i, N = function_type_get_num_parameters(t);
 
@@ -1398,7 +1398,7 @@ static type_t* remove_artificial_dependent_typenames(type_t* t)
 
         for (i = 0; i < N; i++)
         {
-            param_info[i].type_info = remove_artificial_dependent_typenames(function_type_get_parameter_type_num(t, i));
+            param_info[i].type_info = simplify_types_template_arguments_rec(function_type_get_parameter_type_num(t, i));
         }
 
         if (function_type_get_has_ellipsis(t))
@@ -1412,7 +1412,7 @@ static type_t* remove_artificial_dependent_typenames(type_t* t)
     else if (is_vector_type(t))
     {
         return get_cv_qualified_type(get_vector_type(
-                remove_artificial_dependent_typenames(vector_type_get_element_type(t)),
+                simplify_types_template_arguments_rec(vector_type_get_element_type(t)),
                 vector_type_get_vector_size(t)), cv_qualif);
     }
     else
@@ -1435,7 +1435,7 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                 case TPK_TYPE :
                 case TPK_NONTYPE :
                     {
-                        result->arguments[i]->type = remove_artificial_dependent_typenames(result->arguments[i]->type);
+                        result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
                         break;
                     }
                 case TPK_TEMPLATE :
@@ -7953,7 +7953,14 @@ static const char* get_builtin_type_name(type_t* type_info)
                 //         prettyprint_in_buffer(simple_type_info->dependent_nested_name),
                 //         prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
 
-                result = strappend(result, "<template dependent type: [");
+                if (simple_type_info->is_artificial)
+                {
+                    result = strappend(result, "<artificial template dependent type: [");
+                }
+                else
+                {
+                    result = strappend(result, "<template dependent type: [");
+                }
                 result = strappend(result, 
                         get_named_simple_type_name(simple_type_info->dependent_entry));
                 result = strappend(result, "]");
