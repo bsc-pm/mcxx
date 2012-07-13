@@ -1333,29 +1333,29 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
 
 static type_t* advance_dependent_typename(type_t* t);
 
-static type_t* remove_typedefs_for_template_arguments(type_t* t)
+static type_t* remove_artificial_dependent_typenames(type_t* t)
 {
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
 
-    /*if (is_dependent_typename_type(t)
+    if (is_dependent_typename_type(t)
             && dependent_typename_is_artificial(t))
     {
         type_t* dep_typename_type = advance_dependent_typename(t);
-        return get_cv_qualified_type(remove_typedefs_for_template_arguments(dep_typename_type), cv_qualif);
+        return get_cv_qualified_type(remove_artificial_dependent_typenames(dep_typename_type), cv_qualif);
     }
-    else*/ if (is_named_type(t)
-            && named_type_get_symbol(t)->kind == SK_TYPEDEF)
-    {
-        return get_cv_qualified_type(remove_typedefs_for_template_arguments(named_type_get_symbol(t)->type_information), cv_qualif);
-    }
+    // else if (is_named_type(t)
+    //         && named_type_get_symbol(t)->kind == SK_TYPEDEF)
+    // {
+    //     return get_cv_qualified_type(remove_artificial_dependent_typenames(named_type_get_symbol(t)->type_information), cv_qualif);
+    // }
     else if (is_pointer_type(t))
     {
         return get_cv_qualified_type(get_pointer_type(
-                remove_typedefs_for_template_arguments(pointer_type_get_pointee_type(t))), cv_qualif);
+                remove_artificial_dependent_typenames(pointer_type_get_pointee_type(t))), cv_qualif);
     }
     else if (is_pointer_to_member_type(t))
     {
-        type_t* pointee = remove_typedefs_for_template_arguments(pointer_type_get_pointee_type(t));
+        type_t* pointee = remove_artificial_dependent_typenames(pointer_type_get_pointee_type(t));
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(t);
 
         return get_cv_qualified_type(get_pointer_to_member_type(pointee, class_symbol), cv_qualif);
@@ -1363,24 +1363,24 @@ static type_t* remove_typedefs_for_template_arguments(type_t* t)
     else if (is_lvalue_reference_type(t))
     {
         return get_cv_qualified_type(get_lvalue_reference_type(
-                remove_typedefs_for_template_arguments(reference_type_get_referenced_type(t))), cv_qualif);
+                remove_artificial_dependent_typenames(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_rvalue_reference_type(t))
     {
         return get_cv_qualified_type(get_rvalue_reference_type(
-                remove_typedefs_for_template_arguments(reference_type_get_referenced_type(t))), cv_qualif);
+                remove_artificial_dependent_typenames(reference_type_get_referenced_type(t))), cv_qualif);
     }
     else if (is_array_type(t))
     {
         // Check this
         return get_cv_qualified_type(get_array_type(
-                remove_typedefs_for_template_arguments(array_type_get_element_type(t)),
+                remove_artificial_dependent_typenames(array_type_get_element_type(t)),
                 array_type_get_array_size_expr(t),
                 array_type_get_array_size_expr_context(t)), cv_qualif);
     }
     else if (is_function_type(t))
     {
-        type_t* return_type = remove_typedefs_for_template_arguments(function_type_get_return_type(t));
+        type_t* return_type = remove_artificial_dependent_typenames(function_type_get_return_type(t));
 
         int i, N = function_type_get_num_parameters(t);
 
@@ -1398,7 +1398,7 @@ static type_t* remove_typedefs_for_template_arguments(type_t* t)
 
         for (i = 0; i < N; i++)
         {
-            param_info[i].type_info = remove_typedefs_for_template_arguments(function_type_get_parameter_type_num(t, i));
+            param_info[i].type_info = remove_artificial_dependent_typenames(function_type_get_parameter_type_num(t, i));
         }
 
         if (function_type_get_has_ellipsis(t))
@@ -1412,7 +1412,7 @@ static type_t* remove_typedefs_for_template_arguments(type_t* t)
     else if (is_vector_type(t))
     {
         return get_cv_qualified_type(get_vector_type(
-                remove_typedefs_for_template_arguments(vector_type_get_element_type(t)),
+                remove_artificial_dependent_typenames(vector_type_get_element_type(t)),
                 vector_type_get_vector_size(t)), cv_qualif);
     }
     else
@@ -1435,10 +1435,10 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                 case TPK_TYPE :
                 case TPK_NONTYPE :
                     {
-                        result->arguments[i]->type = remove_typedefs_for_template_arguments(result->arguments[i]->type);
+                        result->arguments[i]->type = remove_artificial_dependent_typenames(result->arguments[i]->type);
                         break;
                     }
-                case TPK_TEMPLATE : 
+                case TPK_TEMPLATE :
                     {
                         break;
                     }
@@ -4354,24 +4354,6 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    // {
-    //     DEBUG_CODE()
-    //     {
-    //         fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a an artificial dependent typename\n");
-    //     }
-    //     // Try to advance dependent typenames if we are comparing a
-    //     // dependent typename with another non dependent one
-    //     // FIXME - There are cases where this should not be attempted
-    //     if (is_dependent_typename_type(t1))
-    //     {
-    //         t1 = advance_dependent_typename(t1);
-    //     }
-    //     if (is_dependent_typename_type(t2))
-    //     {
-    //         t2 = advance_dependent_typename(t2);
-    //     }
-    // }
-
     if (t1->kind != t2->kind)
     {
         return 0;
@@ -4414,22 +4396,30 @@ char equivalent_types(type_t* t1, type_t* t2)
 
     // Second attempt if one of the types is an artificial dependent typename
     if (!result
-            && ((is_dependent_typename_type(t1) 
+            && ((is_dependent_typename_type(t1)
                     && dependent_typename_is_artificial(t1))
-                || (is_dependent_typename_type(t2) 
+                || (is_dependent_typename_type(t2)
                     && dependent_typename_is_artificial(t2))))
     {
-        if (is_dependent_typename_type(t1) 
+        type_t* orig_t1 = t1;
+        type_t* orig_t2 = t2;
+        if (is_dependent_typename_type(t1)
                 && dependent_typename_is_artificial(t1))
         {
             t1 = advance_dependent_typename(t1);
         }
-        if (is_dependent_typename_type(t2) 
+        if (is_dependent_typename_type(t2)
                 && dependent_typename_is_artificial(t2))
         {
             t2 = advance_dependent_typename(t2);
         }
-        return equivalent_types(t1, t2);
+
+        // Try hard to avoid infinite recursion (should never happen though)
+        if (!((t1 == orig_t1)
+                    && (t2 == orig_t2)))
+        {
+            return equivalent_types(t1, t2);
+        }
     }
 
     result &= equivalent_cv_qualification(cv_qualifier_t1, cv_qualifier_t2);

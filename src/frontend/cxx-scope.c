@@ -722,6 +722,38 @@ static void build_dependent_parts_for_symbol_rec(
         scope_entry_t** dependent_entry,
         nodecl_t* nodecl_output);
 
+static char class_is_in_lexical_scope(decl_context_t decl_context, 
+        scope_entry_t* class_symbol)
+{
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+    if (class_symbol->entity_specs.is_injected_class_name)
+    {
+        class_symbol = named_type_get_symbol(class_symbol->entity_specs.class_type);
+    }
+
+    if (decl_context.class_scope == NULL)
+        return 0;
+
+    scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+
+
+    if (class_symbol == class_in_scope)
+    {
+        return 1;
+    }
+    else
+    {
+        type_t* enclosing_class = class_type_get_enclosing_class_type(class_in_scope->type_information);
+        if (enclosing_class != NULL)
+        {
+            decl_context_t class_context = class_type_get_inner_context(enclosing_class);
+            return class_is_in_lexical_scope(class_context, class_symbol);
+        }
+    }
+
+    return 0;
+}
+
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
@@ -3666,7 +3698,9 @@ void print_template_parameter_list(template_parameter_list_t* template_parameter
 scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
         nodecl_t nodecl_name, decl_flags_t decl_flags);
 
-static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_simple_name(
+        decl_context_t decl_context,
+        decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
@@ -3688,35 +3722,51 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
 
     scope_entry_list_t* result = name_lookup(decl_context, name, decl_flags, filename, line);
 
-    scope_entry_t* head = NULL;
-    if (result != NULL
-            && BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
-            && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
-            && (head = entry_list_head(result))->entity_specs.is_member
-            && !head->entity_specs.is_injected_class_name
-            && is_dependent_type(head->entity_specs.class_type))
+    if (result != NULL)
     {
-        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
-        new_sym->kind = SK_DEPENDENT_ENTITY;
-        new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
-        new_sym->decl_context = decl_context;
-        new_sym->file = filename;
-        new_sym->line = line;
-        new_sym->type_information = build_dependent_typename_for_entry(
-                named_type_get_symbol(head->entity_specs.class_type),
-                nodecl_name,
-                filename,
-                line);
+        scope_entry_t* head = entry_list_head(result);
 
-        entry_list_free(result);
+        if (head->entity_specs.is_injected_class_name)
+        {
+            head = named_type_get_symbol(head->entity_specs.class_type);
+        }
 
-        return entry_list_new(new_sym);
+        if (head->entity_specs.is_member)
+        {
+            if (class_is_in_lexical_scope(top_level_decl_context,
+                        named_type_get_symbol(head->entity_specs.class_type)))
+            {
+                // Do nothing if the class is in scope
+            }
+            else if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+                    //FIXME -> ????? !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
+                    && is_dependent_type(head->entity_specs.class_type))
+            {
+                scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                new_sym->kind = SK_DEPENDENT_ENTITY;
+                new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
+                new_sym->decl_context = decl_context;
+                new_sym->file = filename;
+                new_sym->line = line;
+                new_sym->type_information = build_dependent_typename_for_entry(
+                        named_type_get_symbol(head->entity_specs.class_type),
+                        nodecl_name,
+                        filename,
+                        line);
+
+                entry_list_free(result);
+
+                return entry_list_new(new_sym);
+            }
+        }
     }
 
     return result;
 }
 
-static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_simple_name_in_class(
+        decl_context_t decl_context,
+        decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
@@ -3734,7 +3784,11 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl
         name = strappend("constructor ", name);
     }
 
-    if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+    if (class_is_in_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry))
+    {
+        // Do nothing if the class is in lexical scope
+    }
+    else if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
             && is_dependent_type(decl_context.current_scope->related_entry->type_information))
     {
         scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
@@ -3757,7 +3811,9 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl
             filename, line);
 }
 
-static scope_entry_list_t* query_nodecl_simple_name_in_namespace(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_simple_name_in_namespace(
+        decl_context_t decl_context,
+        decl_context_t top_level_decl_context UNUSED_PARAMETER,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
@@ -3772,9 +3828,16 @@ static scope_entry_list_t* query_nodecl_simple_name_in_namespace(decl_context_t 
             line);
 }
 
-scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context, 
-        nodecl_t nodecl_name, decl_flags_t decl_flags,
-        scope_entry_list_t* (*query_fun_nodecl)(decl_context_t, nodecl_t, decl_flags_t)
+scope_entry_list_t* query_nodecl_template_id(
+        decl_context_t decl_context, 
+        decl_context_t top_level_decl_context, 
+        nodecl_t nodecl_name, 
+        decl_flags_t decl_flags,
+        scope_entry_list_t* (*query_fun_nodecl)(
+            decl_context_t current_context, 
+            decl_context_t top_level_decl_context, 
+            nodecl_t, 
+            decl_flags_t)
         )
 {
     nodecl_t simple_name = nodecl_get_child(nodecl_name, 0);
@@ -3784,7 +3847,10 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
     if (template_parameters == NULL)
         return NULL;
 
-    scope_entry_list_t* entry_list = query_fun_nodecl(decl_context, simple_name, 
+    scope_entry_list_t* entry_list = query_fun_nodecl(
+            decl_context, 
+            top_level_decl_context,
+            simple_name, 
             decl_flags);
 
     // Ignore injected class name
@@ -4044,6 +4110,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 current_entry_list = query_nodecl_simple_name_in_class(
                         current_context,
+                        decl_context,
                         current_name,
                         nested_flags);
             }
@@ -4051,6 +4118,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 current_entry_list = query_nodecl_template_id(
                         current_context,
+                        decl_context,
                         current_name, nested_flags,
                         query_nodecl_simple_name_in_class);
             }
@@ -4061,12 +4129,15 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 current_entry_list = query_nodecl_simple_name_in_namespace(
                         current_context,
+                        decl_context,
                         current_name,
                         nested_flags);
             }
             else
             {
-                current_entry_list = query_nodecl_template_id(current_context,
+                current_entry_list = query_nodecl_template_id(
+                        current_context,
+                        decl_context,
                         current_name, nested_flags,
                         query_nodecl_simple_name_in_namespace);
             }
@@ -4140,7 +4211,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             {
                 type_t* class_type = current_symbol->type_information;
 
-                if (template_class_needs_to_be_instantiated(current_symbol))
+                if (class_is_in_lexical_scope(decl_context, current_symbol))
+                {
+                    // Do nothing if the class is in lexical scope
+                }
+                else if (template_class_needs_to_be_instantiated(current_symbol))
                 {
                     instantiate_template_class_if_needed(current_symbol, current_symbol->decl_context,
                             nodecl_get_filename(current_name), nodecl_get_line(current_name));
@@ -4226,12 +4301,15 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         {
             result = query_nodecl_simple_name_in_namespace(
                     current_context,
+                    decl_context,
                     last_name,
                     decl_flags);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_TEMPLATE_ID)
         {
-            result = query_nodecl_template_id(current_context,
+            result = query_nodecl_template_id(
+                    current_context,
+                    decl_context,
                     last_name, decl_flags,
                     query_nodecl_simple_name_in_namespace);
         }
@@ -4255,13 +4333,17 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         {
             result = query_nodecl_simple_name_in_class(
                     current_context,
+                    decl_context,
                     last_name,
                     decl_flags);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_TEMPLATE_ID)
         {
-            result = query_nodecl_template_id(current_context,
-                    last_name, decl_flags,
+            result = query_nodecl_template_id(
+                    current_context,
+                    decl_context,
+                    last_name, 
+                    decl_flags,
                     query_nodecl_simple_name_in_class);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
@@ -4406,14 +4488,18 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
             {
                 return query_nodecl_simple_name_in_class(
                         class_type_get_inner_context(class_symbol->type_information), 
-                        nodecl_name, decl_flags);
+                        decl_context,
+                        nodecl_name, 
+                        decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_TEMPLATE_ID:
             {
                 return query_nodecl_template_id(
                         class_type_get_inner_context(class_symbol->type_information), 
-                        nodecl_name, decl_flags, 
+                        decl_context,
+                        nodecl_name, 
+                        decl_flags, 
                         query_nodecl_simple_name_in_class);
                 break;
             }
@@ -4474,12 +4560,12 @@ scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
     {
         case NODECL_CXX_DEP_NAME_SIMPLE:
             {
-                return query_nodecl_simple_name(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_simple_name(decl_context, decl_context, nodecl_name, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_TEMPLATE_ID:
             {
-                return query_nodecl_template_id(decl_context, nodecl_name, decl_flags, 
+                return query_nodecl_template_id(decl_context, decl_context, nodecl_name, decl_flags, 
                         query_nodecl_simple_name);
                 break;
             }

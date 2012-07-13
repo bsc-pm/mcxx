@@ -129,7 +129,9 @@ static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
-static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type_info,
+static void gather_type_spec_from_dependent_typename(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
 static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
@@ -2058,8 +2060,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_SIMPLE_TYPE_SPEC :
             gather_type_spec_from_simple_type_specifier(a, simple_type_info, gather_info, decl_context);
             break;
-        case AST_ELABORATED_TYPENAME_SPEC : 
-            gather_type_spec_from_dependent_typename(a, simple_type_info, decl_context);
+        case AST_ELABORATED_TYPENAME_SPEC :
+            gather_type_spec_from_dependent_typename(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ENUM_SPECIFIER :
         case AST_GCC_ENUM_SPECIFIER :
@@ -3391,7 +3393,9 @@ static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* depende
      return dependent_entry_is_same_class_base_or_nested(dependent_entry, class_in_scope);
 }
 
-static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
+static void gather_type_spec_from_dependent_typename(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     DEBUG_CODE()
@@ -3417,7 +3421,6 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
 
     if (result == NULL)
     {
-        // This should never happen...
         if (!checking_ambiguity())
         {
             error_printf("%s: typename '%s' not found\n", 
@@ -3429,20 +3432,24 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     }
 
     scope_entry_t* entry = entry_list_head(result);
-
-    entry_list_free(result);
-
+    // Peek the list to see if it is a dependent typename
     if (entry->kind != SK_DEPENDENT_ENTITY)
     {
-        *type_info = get_user_defined_type(entry);
-
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Dependent typename refers to an existing type '%s'\n", print_declarator(*type_info));
         }
 
+        // Follow the usual path here
+        common_gather_type_spec_from_simple_type_specifier(a,
+                decl_context,
+                type_info,
+                gather_info,
+                result);
         return;
     }
+
+    entry_list_free(result);
 
     DEBUG_CODE()
     {
@@ -3474,7 +3481,8 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     *type_info = entry->type_information;
 }
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_context_t decl_context,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, 
+        decl_context_t decl_context UNUSED_PARAMETER,
         type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
     if (query_results == NULL)
@@ -3529,12 +3537,6 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_conte
     }
 
     entry_list_free(query_results);
-
-    scope_entry_t* current_class = NULL;
-    if (decl_context.class_scope != NULL)
-    {
-        current_class = decl_context.class_scope->related_entry;
-    }
 
     if (entry->entity_specs.is_member
             && is_dependent_type(entry->entity_specs.class_type))
