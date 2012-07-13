@@ -323,8 +323,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (!nodecl_is_null(member_of_template->value))
                 {
                     nodecl_t new_expr = instantiate_expression(member_of_template->value, context_of_being_instantiated);
-                    
-                    // Update the value of the new instantiated member 
+
+                    // Update the value of the new instantiated member
                     new_member->value = new_expr;
 
                     if (nodecl_get_kind(new_expr) == NODECL_CXX_INITIALIZER
@@ -332,8 +332,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
                             || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
                     {
-                        check_initialization_nodecl(new_expr, context_of_being_instantiated, get_unqualified_type(new_member->type_information), 
-                                &new_member->value);
+                        check_nodecl_initialization(new_expr, context_of_being_instantiated,
+                                get_unqualified_type(new_member->type_information), &new_member->value);
                     }
                     else
                     {

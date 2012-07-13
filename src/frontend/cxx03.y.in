@@ -4175,17 +4175,13 @@ direct_new_declarator : '[' expression ']'
 }
 ;
 
-new_initializer : '(' ')'
+new_initializer : parent_initializer_ctor
 {
-	$$ = ASTMake1(AST_NEW_INITIALIZER, NULL, $1.token_file, $1.token_line, NULL);
-}
-| '(' expression_list ')'
-{
-	$$ = ASTMake1(AST_NEW_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
+	$$ = $1;
 }
 | braced_init_list
 {
-	$$ = ASTMake1(AST_NEW_INITIALIZER, $1, ASTFileName($1), ASTLine($1), NULL);
+	$$ = $1;
 }
 ;
 

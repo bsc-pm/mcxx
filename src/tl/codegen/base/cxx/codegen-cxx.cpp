@@ -2344,8 +2344,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
 {
-    Nodecl::NodeclBase structured_value = node.get_init();
-    ERROR_CONDITION(structured_value.is_null(), "New lacks structured value", 0);
+    Nodecl::NodeclBase initializer = node.get_init();
+    ERROR_CONDITION(initializer.is_null(), "New lacks initializer", 0);
 
     Nodecl::NodeclBase placement = node.get_placement();
     // Nodecl::NodeclBase operator_new = nodecl_get_child(node, 2);
@@ -2362,17 +2362,127 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         file << ")";
     }
 
-    TL::Type t = structured_value.get_type();
+    Nodecl::NodeclBase type = node.get_init_real_type();
+    TL::Type init_real_type = type.get_type();
 
-    if (!t.is_array())
+    file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+
+    // new[] cannot have an initializer, so just print the init_real_type
+    if (init_real_type.is_array())
+        return;
+
+    if (initializer.is<Nodecl::CxxEqualInitializer>()
+            || initializer.is<Nodecl::CxxBracedInitializer>()
+            || initializer.is<Nodecl::CxxParenthesizedInitializer>())
     {
-        walk(structured_value);
+        // Dependent cases are always printed verbatim
+        walk(initializer);
+    }
+    else if (IS_CXX03_LANGUAGE
+            && init_real_type.is_aggregate()
+            && initializer.is<Nodecl::StructuredValue>())
+    {
+        // int a[] = { 1, 2, 3 };
+        // struct foo { int x; int y; } a = {1, 2};
+        //
+        // Note that C++11 allows struct foo { int x; int y; } a{1,2};
+        file << " = ";
+
+        bool old = state.inside_structured_value;
+        state.inside_structured_value = true;
+        walk(initializer);
+        state.inside_structured_value = old;
+    }
+    else if (init_real_type.is_array()
+            && !initializer.is<Nodecl::StructuredValue>())
+    {
+        // Only for char and wchar_t
+        // const char c[] = "1234";
+        file << " = ";
+        walk(initializer);
+    }
+    else if (init_real_type.is_array()
+            && initializer.is<Nodecl::StructuredValue>())
+    {
+        // char c = { 'a' };
+        // int x = { 1 };
+        file << " = ";
+        bool old = state.inside_structured_value;
+        state.inside_structured_value = true;
+        walk(initializer);
+        state.inside_structured_value = old;
+    }
+    else if (state.in_condition)
+    {
+        // This is something like if (bool foo = expression)
+        file << " = ";
+        walk(initializer);
     }
     else
     {
-        // new[] cannot have an initializer, so just print the type
-        file << this->get_declaration(t, this->get_current_scope(),  "");
+        file << "(";
+        // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+        if (nodecl_calls_to_constructor(initializer, init_real_type))
+        {
+            Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+            if (!constructor_args.empty());
+            {
+                for (Nodecl::List::iterator it = constructor_args.begin();
+                        it != constructor_args.end();
+                        it++)
+                {
+                    if (it != constructor_args.begin())
+                        file << ", ";
+                    Nodecl::NodeclBase current(*it);
+                    // Here we add extra parentheses lest the direct-initialization looked like
+                    // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                    //
+                    // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                    // "function (pointer to function() returning A) returning A"
+                    // [extra blanks added for clarity in the example above]
+                    file << "(";
+                    walk(current);
+                    file << ")";
+                }
+            }
+        }
+        else
+        {
+            // This is crazy
+            if (initializer.is<Nodecl::Comma>())
+            {
+                file << "(";
+            }
+            walk(initializer);
+            if (initializer.is<Nodecl::Comma>())
+            {
+                file << ")";
+            }
+        }
+        file << ")";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
+{
+    Nodecl::NodeclBase initializer = node.get_init();
+    ERROR_CONDITION(initializer.is_null(), "Dependent new lacks initializer", 0);
+
+    if (node.get_text() == "global")
+        file << "::";
+
+    file << "new ";
+
+    Nodecl::NodeclBase type = node.get_init_real_type();
+    TL::Type init_real_type = type.get_type();
+
+   file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+
+    // new[] cannot have an initializer, so just print the type
+    if (init_real_type.is_array())
+        return;
+
+    walk(initializer);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)

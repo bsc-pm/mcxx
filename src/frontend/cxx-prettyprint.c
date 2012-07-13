@@ -83,7 +83,6 @@ HANDLER_PROTOTYPE(sizeof_typeid_handler);
 HANDLER_PROTOTYPE(new_expression_handler);
 HANDLER_PROTOTYPE(new_type_id_handler);
 HANDLER_PROTOTYPE(new_type_id_expr_handler);
-HANDLER_PROTOTYPE(new_initializer_handler);
 HANDLER_PROTOTYPE(delete_expression_handler);
 HANDLER_PROTOTYPE(array_subscript_handler);
 HANDLER_PROTOTYPE(function_call_handler);
@@ -345,7 +344,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID, new_type_id_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID_EXPR, new_type_id_expr_handler, NULL),
-    NODE_HANDLER(AST_NEW_INITIALIZER, new_initializer_handler, NULL),
     NODE_HANDLER(AST_DELETE_EXPR, delete_expression_handler, NULL),
     NODE_HANDLER(AST_DELETE_ARRAY_EXPR, delete_expression_handler, NULL),
     NODE_HANDLER(AST_ARRAY_SUBSCRIPT, array_subscript_handler, NULL),
@@ -1201,16 +1199,6 @@ static void new_type_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         token_fprintf(f, a, pt_ctx, " ");
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
-}
-
-static void new_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "(");
-    if (ASTSon0(a) != NULL)
-    {
-        list_handler(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, pt_ctx, ")");
 }
 
 static void delete_expression_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

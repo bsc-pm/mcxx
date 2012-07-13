@@ -6880,7 +6880,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
 static void check_new_expression_impl(
         nodecl_t nodecl_placement_list, 
-        nodecl_t nodecl_init_list, 
+        nodecl_t nodecl_initializer, 
         type_t* new_type, 
         char is_global,
         decl_context_t decl_context,
@@ -6891,13 +6891,10 @@ static void check_new_expression_impl(
     if (is_dependent_type(new_type))
     {
         // The new type is dependent
-        *nodecl_output = nodecl_make_new(
-                nodecl_make_cxx_explicit_type_cast(nodecl_init_list, 
-                    new_type, 
-                    filename, line), 
-                nodecl_placement_list,
-                /* allocation function */ nodecl_null(),
-                get_unknown_dependent_type(), 
+        *nodecl_output = nodecl_make_cxx_dep_new(
+                nodecl_initializer,
+                nodecl_make_type(new_type, filename, line),
+                new_type,
                 is_global ? "global" : "",
                 filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -7160,21 +7157,10 @@ static void check_new_expression_impl(
     nodecl_t nodecl_init_out = nodecl_null();
 
     // Verify the initializer
-    check_nodecl_parenthesized_initializer(nodecl_init_list,
+    check_nodecl_initialization(nodecl_initializer,
             decl_context,
             new_type,
-            /* is_explicit */ 1,
             &nodecl_init_out);
-
-    // We should ensure that nodecl_init_out is a structured value
-    if (nodecl_get_kind(nodecl_init_out) != NODECL_STRUCTURED_VALUE)
-    {
-        nodecl_init_out = nodecl_make_structured_value(
-                nodecl_make_list_1(nodecl_init_out),
-                new_type,
-                filename,
-                line);
-    }
 
     type_t* synthesized_type = new_type;
 
@@ -7188,7 +7174,8 @@ static void check_new_expression_impl(
     }
 
     nodecl_t nodecl_new = nodecl_make_new(
-            nodecl_init_out, 
+            nodecl_init_out,
+            nodecl_make_type(new_type, filename, line),
             nodecl_placement_list_out,
             nodecl_allocation_function,
             synthesized_type,
@@ -7197,6 +7184,8 @@ static void check_new_expression_impl(
 
     *nodecl_output = nodecl_new;
 }
+
+static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -7244,32 +7233,23 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     type_t* declarator_type = NULL;
     compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, &dummy_nodecl_output);
 
-    nodecl_t nodecl_init_list = nodecl_null();
+    nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
     {
-        AST expression_list = ASTSon0(new_initializer);
-
-        if (expression_list != NULL)
-        {
-            if (!check_list_of_expressions(expression_list, decl_context, &nodecl_init_list))
-            {
-                nodecl_free(nodecl_init_list);
-                nodecl_free(nodecl_placement);
-
-                *nodecl_output = nodecl_make_err_expr(filename, line);
-                return;
-            }
-        }
+        compute_nodecl_initialization(new_initializer, decl_context, &nodecl_initializer);
     }
-    nodecl_init_list = nodecl_make_cxx_parenthesized_initializer(nodecl_init_list, filename, line);
+    else
+    {
+        nodecl_initializer = nodecl_make_cxx_parenthesized_initializer(nodecl_initializer, filename, line);
+    }
 
-    check_new_expression_impl(nodecl_placement, 
-            nodecl_init_list, 
-            declarator_type, 
+    check_new_expression_impl(nodecl_placement,
+            nodecl_initializer,
+            declarator_type,
             /* is_global */ global_op != NULL,
-            decl_context, 
-            filename, 
-            line, 
+            decl_context,
+            filename,
+            line,
             nodecl_output);
 }
 
@@ -11273,6 +11253,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     if (direct_initializer_is_dependent)
     {
         *nodecl_output = direct_initializer;
+        nodecl_set_type(*nodecl_output, declared_type);
         return;
     }
 
@@ -11976,7 +11957,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
 }
 
-void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     switch (ASTType(initializer))
     {
@@ -12259,7 +12240,7 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
     }
 }
 
-void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
+void check_nodecl_initialization(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
 {
     if (nodecl_is_err_expr(nodecl_initializer))
     {
@@ -12281,8 +12262,7 @@ void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t dec
             }
         case NODECL_CXX_PARENTHESIZED_INITIALIZER:
             {
-                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type, 
-                        /* is_explicit */ 0, nodecl_output);
+                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type, /* is_explicit */ 0, nodecl_output);
                 break;
             }
         default:
@@ -12351,8 +12331,8 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
         return 1;
     }
 
-    check_initialization_nodecl(nodecl_init, decl_context, declared_type, nodecl_output);
-    
+    check_nodecl_initialization(nodecl_init, decl_context, declared_type, nodecl_output);
+
     DEBUG_CODE()
     {
         if (!nodecl_is_err_expr(*nodecl_output))
