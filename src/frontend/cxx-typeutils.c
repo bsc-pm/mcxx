@@ -1337,17 +1337,13 @@ static type_t* remove_typedefs_for_template_arguments(type_t* t)
 {
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
 
-    if (is_dependent_typename_type(t)
+    /*if (is_dependent_typename_type(t)
             && dependent_typename_is_artificial(t))
     {
         type_t* dep_typename_type = advance_dependent_typename(t);
-        if (is_dependent_type(dep_typename_type))
-        {
-            return t;
-        }
         return get_cv_qualified_type(remove_typedefs_for_template_arguments(dep_typename_type), cv_qualif);
     }
-    else if (is_named_type(t)
+    else*/ if (is_named_type(t)
             && named_type_get_symbol(t)->kind == SK_TYPEDEF)
     {
         return get_cv_qualified_type(remove_typedefs_for_template_arguments(named_type_get_symbol(t)->type_information), cv_qualif);
@@ -4358,25 +4354,23 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    if ((is_dependent_typename_type(t1) && dependent_typename_is_artificial(t1))
-            || (is_dependent_typename_type(t2) && dependent_typename_is_artificial(t2)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a an artificial dependent typename\n");
-        }
-        // Try to advance dependent typenames if we are comparing a
-        // dependent typename with another non dependent one
-        // FIXME - There are cases where this should not be attempted
-        if (is_dependent_typename_type(t1))
-        {
-            t1 = advance_dependent_typename(t1);
-        }
-        if (is_dependent_typename_type(t2))
-        {
-            t2 = advance_dependent_typename(t2);
-        }
-    }
+    // {
+    //     DEBUG_CODE()
+    //     {
+    //         fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a an artificial dependent typename\n");
+    //     }
+    //     // Try to advance dependent typenames if we are comparing a
+    //     // dependent typename with another non dependent one
+    //     // FIXME - There are cases where this should not be attempted
+    //     if (is_dependent_typename_type(t1))
+    //     {
+    //         t1 = advance_dependent_typename(t1);
+    //     }
+    //     if (is_dependent_typename_type(t2))
+    //     {
+    //         t2 = advance_dependent_typename(t2);
+    //     }
+    // }
 
     if (t1->kind != t2->kind)
     {
@@ -4418,7 +4412,28 @@ char equivalent_types(type_t* t1, type_t* t2)
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
 
+    // Second attempt if one of the types is an artificial dependent typename
+    if (!result
+            && ((is_dependent_typename_type(t1) 
+                    && dependent_typename_is_artificial(t1))
+                || (is_dependent_typename_type(t2) 
+                    && dependent_typename_is_artificial(t2))))
+    {
+        if (is_dependent_typename_type(t1) 
+                && dependent_typename_is_artificial(t1))
+        {
+            t1 = advance_dependent_typename(t1);
+        }
+        if (is_dependent_typename_type(t2) 
+                && dependent_typename_is_artificial(t2))
+        {
+            t2 = advance_dependent_typename(t2);
+        }
+        return equivalent_types(t1, t2);
+    }
+
     result &= equivalent_cv_qualification(cv_qualifier_t1, cv_qualifier_t2);
+
 
     return result;
 }
@@ -5237,6 +5252,7 @@ static type_t* advance_dependent_typename(type_t* t)
      cv_qualifier_t cv_qualif = get_cv_qualifier(t);
  
      ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+     ERROR_CONDITION(!dependent_typename_is_artificial(t), "A non artificial dependent typename cannot be advanced", 0);
  
      scope_entry_t* dependent_entry = NULL;
      nodecl_t nodecl_dependent_parts = nodecl_null();
@@ -5254,7 +5270,8 @@ static type_t* advance_dependent_typename(type_t* t)
                  print_declarator(result));
      }
  
-     if (is_dependent_typename_type(result))
+     if (is_dependent_typename_type(result)
+             && dependent_typename_is_artificial(result))
      {
          scope_entry_t* new_dependent_entry = NULL;
          dependent_typename_get_components(result, &new_dependent_entry, &nodecl_dependent_parts);

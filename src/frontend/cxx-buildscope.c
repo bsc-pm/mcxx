@@ -3417,6 +3417,23 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
                 prettyprint_in_buffer(a), ast_location(a));
     }
 
+     scope_entry_t* dependent_entry = NULL;
+     nodecl_t nodecl_dependent_parts = nodecl_null();
+
+     dependent_typename_get_components(entry->type_information, &dependent_entry, &nodecl_dependent_parts);
+
+    // If this dependent typename has an entry symbol which is the same as the
+    // current class mark it as artificial dependent typename
+     if (decl_context.class_scope != NULL
+             && dependent_entry->kind == SK_CLASS
+             && ((decl_context.class_scope->related_entry == dependent_entry)
+                 || class_type_is_base(
+                     dependent_entry->type_information, 
+                     decl_context.class_scope->related_entry->type_information)))
+    {
+        dependent_typename_set_is_artificial(entry->type_information, 1);
+    }
+
     *type_info = entry->type_information;
 }
 
