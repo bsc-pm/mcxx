@@ -722,6 +722,28 @@ static void build_dependent_parts_for_symbol_rec(
         scope_entry_t** dependent_entry,
         nodecl_t* nodecl_output);
 
+static char class_has_dependent_bases(scope_entry_t* class_symbol)
+{
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+    int num_bases = class_type_get_num_bases(class_symbol->type_information);
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        char current_base_is_virtual = 0;
+        char current_base_is_dependent = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        class_type_get_base_num(class_symbol->type_information, i,
+                &current_base_is_virtual,
+                &current_base_is_dependent,
+                &access_specifier);
+
+        if (current_base_is_dependent)
+            return 1;
+    }
+
+    return 0;
+}
+
 static char class_is_in_lexical_scope(decl_context_t decl_context, 
         scope_entry_t* class_symbol)
 {
@@ -3733,13 +3755,14 @@ static scope_entry_list_t* query_nodecl_simple_name(
 
         if (head->entity_specs.is_member)
         {
-            if (class_is_in_lexical_scope(top_level_decl_context,
-                        named_type_get_symbol(head->entity_specs.class_type)))
+            if (class_is_in_lexical_scope(top_level_decl_context, 
+                        named_type_get_symbol(head->entity_specs.class_type))
+                    && !class_has_dependent_bases(named_type_get_symbol(head->entity_specs.class_type)))
             {
                 // Do nothing if the class is in scope
             }
             else if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
-                    //FIXME -> ????? !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
+                    && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
                     && is_dependent_type(head->entity_specs.class_type))
             {
                 scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
@@ -3784,7 +3807,10 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         name = strappend("constructor ", name);
     }
 
-    if (class_is_in_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry))
+    if (class_is_in_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry)
+            // Do not give up if there are dependent bases as they might be
+            // providing this entity during instantiation
+            && !class_has_dependent_bases(decl_context.current_scope->related_entry))
     {
         // Do nothing if the class is in lexical scope
     }
