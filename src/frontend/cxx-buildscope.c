@@ -3353,6 +3353,44 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     }
 }
 
+static char dependent_entry_is_same_class_base_or_nested(scope_entry_t* dependent_entry, 
+        scope_entry_t* current_class)
+{
+    type_t* enclosing_class = NULL;
+    if ((current_class == dependent_entry)
+            || class_type_is_base(
+                dependent_entry->type_information, 
+                current_class->type_information))
+    {
+        return 1;
+    }
+    else if ((enclosing_class = class_type_get_enclosing_class_type(current_class->type_information)))
+    {
+        scope_entry_t* enclosing_class_symbol = named_type_get_symbol(enclosing_class);
+        return dependent_entry_is_same_class_base_or_nested(dependent_entry, enclosing_class_symbol);
+    }
+    return 0;
+}
+
+static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* dependent_typename,
+        decl_context_t decl_context)
+{
+     if (decl_context.class_scope == NULL)
+         return 0;
+
+     scope_entry_t* dependent_entry = NULL;
+     nodecl_t nodecl_dependent_parts = nodecl_null();
+
+     dependent_typename_get_components(dependent_typename, &dependent_entry, &nodecl_dependent_parts);
+
+     if (dependent_entry->kind != SK_CLASS)
+         return 0;
+
+     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+
+     return dependent_entry_is_same_class_base_or_nested(dependent_entry, class_in_scope);
+}
+
 static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
         decl_context_t decl_context)
 {
@@ -3417,19 +3455,18 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
                 prettyprint_in_buffer(a), ast_location(a));
     }
 
-     scope_entry_t* dependent_entry = NULL;
-     nodecl_t nodecl_dependent_parts = nodecl_null();
-
-     dependent_typename_get_components(entry->type_information, &dependent_entry, &nodecl_dependent_parts);
-
-    // If this dependent typename has an entry symbol which is the same as the
-    // current class mark it as artificial dependent typename
-     if (decl_context.class_scope != NULL
-             && dependent_entry->kind == SK_CLASS
-             && ((decl_context.class_scope->related_entry == dependent_entry)
-                 || class_type_is_base(
-                     dependent_entry->type_information, 
-                     decl_context.class_scope->related_entry->type_information)))
+    // In this case
+    //
+    // template <typename T>
+    // struct A
+    // {
+    //    typedef T X;
+    //    typename A<T>::X f();
+    // };
+    //
+    // We want 'typename A<T>::X' be flagged as an artificial symbol since its dependent typename
+    // entry is an enclosing class
+    if (entry_of_dependent_typename_is_in_an_enclosing_class(entry->type_information, decl_context))
     {
         dependent_typename_set_is_artificial(entry->type_information, 1);
     }
@@ -6544,18 +6581,38 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     *declarator_type = get_error_type();
                     return;
                 }
-                else
-                {
-                    // Update the entity context, inheriting the template_scope
-                    entity_context = entry_list_head(symbols)->decl_context;
-                    entity_context.template_parameters = decl_context.template_parameters;
 
-                    if (prototype_context != NULL)
-                    {
-                        prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
-                        prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
-                        prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
-                    }
+                // Update the entity context, inheriting the template_scope
+                entity_context = entry_list_head(symbols)->decl_context;
+                entity_context.template_parameters = decl_context.template_parameters;
+
+                if (prototype_context != NULL)
+                {
+                    prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
+                    prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
+                    prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
+                }
+
+                scope_entry_t* entry = entry_list_head(symbols);
+
+                // For these cases
+                //
+                // template <typename T>
+                // struct A
+                // {
+                //   typedef T X;
+                //   X f();
+                // };
+                //
+                // template <typename T>
+                // typename A<T>::X A<T>::f() { }
+                //
+                // We want 'typename A<T>::X' be flagged as artificial because it is a dependent typename
+                // inside the class where the declared name belongs
+                if (is_dependent_typename_type(*declarator_type)
+                        && entry_of_dependent_typename_is_in_an_enclosing_class(*declarator_type, entry->decl_context))
+                {
+                    dependent_typename_set_is_artificial(*declarator_type, 1);
                 }
 
                 entry_list_free(symbols);
