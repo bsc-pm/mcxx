@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 template < typename T>
@@ -43,7 +41,7 @@ struct B
 };
 
 template < typename T>
-struct A 
+struct A
 {
     typedef typename B<T>::K self;
     A(const self &) {}
