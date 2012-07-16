@@ -4033,14 +4033,23 @@ scope_entry_list_t* query_nodecl_template_id(
     }
 }
 
+typedef
+struct same_type_conversion_info_tag
+{
+    type_t* t;
+    decl_context_t decl_context;
+} same_type_conversion_t;
+
 static char same_type_conversion(scope_entry_t* entry, void *p)
 {
     if (entry->kind == SK_FUNCTION)
     {
-        type_t* t = (type_t*)p;
+        struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
+        type_t* t = same_info->t;
+        decl_context_t decl_context = same_info->decl_context;
 
         type_t* conversion_type = function_type_get_return_type(entry->type_information);
-        return equivalent_types(conversion_type, t);
+        return equivalent_types_in_context(conversion_type, t, decl_context);
     }
     else if (entry->kind == SK_TEMPLATE)
     {
@@ -4052,7 +4061,9 @@ static char same_type_conversion(scope_entry_t* entry, void *p)
     }
 }
 
-static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_conversion_name(
+        decl_context_t decl_context,
+        decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
@@ -4074,28 +4085,28 @@ static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_cont
     decl_context_t class_context = decl_context;
     class_context.current_scope = class_context.class_scope;
 
-   AST type_specifier_seq = ASTSon0(type_id);
-   AST type_spec = ASTSon1(type_specifier_seq);
+    AST type_specifier_seq = ASTSon0(type_id);
+    AST type_spec = ASTSon1(type_specifier_seq);
 
-   //FIXME: The type specifier may be a struct/class
-   if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
-   {
-       AST id_expression = ASTSon0(type_spec);
+    //FIXME: The type specifier may be a struct/class
+    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+    {
+        AST id_expression = ASTSon0(type_spec);
 
-       decl_context_t expression_context =
-           nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
+        decl_context_t expression_context =
+            nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
 
-       nodecl_t nodecl_id_expression = nodecl_null();
-       compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+        nodecl_t nodecl_id_expression = nodecl_null();
+        compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
 
-       ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
-   }
+        ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+    }
 
     type_t* t = compute_type_for_type_id_tree(type_id, class_context);
     if (t == NULL)
     {
         // Try the current scope
-        t = compute_type_for_type_id_tree(type_id, decl_context);
+        t = compute_type_for_type_id_tree(type_id, top_level_decl_context);
 
         if (t == NULL)
         {
@@ -4110,7 +4121,12 @@ static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_cont
 
     scope_entry_list_t* entry_list = query_name_in_scope(class_context.class_scope, "$.operator");
 
-    scope_entry_list_t* result = filter_symbol_using_predicate(entry_list, same_type_conversion, t);
+    struct same_type_conversion_info_tag same_info;
+    same_info.t = t;
+    // I guess the appropiate one is the class context!
+    same_info.decl_context = class_context;
+
+    scope_entry_list_t* result = filter_symbol_using_predicate(entry_list, same_type_conversion, &same_info);
 
     entry_list_free(entry_list);
 
@@ -4411,7 +4427,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
         {
-            result = query_nodecl_conversion_name(current_context,
+            result = query_nodecl_conversion_name(current_context, decl_context,
                     last_name, decl_flags);
         }
         else
@@ -4570,6 +4586,7 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
             {
                 return query_nodecl_conversion_name(
                         class_type_get_inner_context(class_symbol->type_information), 
+                        decl_context,
                         nodecl_name, decl_flags);
                 break;
             }
@@ -4634,7 +4651,7 @@ scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
             }
         case NODECL_CXX_DEP_NAME_CONVERSION:
             {
-                return query_nodecl_conversion_name(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_conversion_name(decl_context, decl_context, nodecl_name, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_NAME_NESTED:
