@@ -744,7 +744,7 @@ static char class_has_dependent_bases(scope_entry_t* class_symbol)
     return 0;
 }
 
-static char class_is_in_lexical_scope(decl_context_t decl_context, 
+char class_is_in_lexical_scope(decl_context_t decl_context, 
         scope_entry_t* class_symbol)
 {
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
@@ -1315,9 +1315,6 @@ type_t* build_dependent_typename_for_entry(
     dependent_parts = nodecl_make_cxx_dep_name_nested(dependent_parts, filename, line);
 
     type_t* result = get_dependent_typename_type_from_parts(dependent_entry, dependent_parts);
-
-    // Mark this dependent typename as an artificial one.
-    dependent_typename_set_is_artificial(result, 1);
 
     return result;
 }

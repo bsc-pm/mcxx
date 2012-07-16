@@ -3462,22 +3462,6 @@ static void gather_type_spec_from_dependent_typename(AST a,
                 prettyprint_in_buffer(a), ast_location(a));
     }
 
-    // In this case
-    //
-    // template <typename T>
-    // struct A
-    // {
-    //    typedef T X;
-    //    typename A<T>::X f();
-    // };
-    //
-    // We want 'typename A<T>::X' be flagged as an artificial symbol since its dependent typename
-    // entry is an enclosing class
-    if (entry_of_dependent_typename_is_in_an_enclosing_class(entry->type_information, decl_context))
-    {
-        dependent_typename_set_is_artificial(entry->type_information, 1);
-    }
-
     *type_info = entry->type_information;
 }
 
@@ -6584,28 +6568,6 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
                 }
 
-                scope_entry_t* entry = entry_list_head(symbols);
-
-                // For these cases
-                //
-                // template <typename T>
-                // struct A
-                // {
-                //   typedef T X;
-                //   X f();
-                // };
-                //
-                // template <typename T>
-                // typename A<T>::X A<T>::f() { }
-                //
-                // We want 'typename A<T>::X' be flagged as artificial because it is a dependent typename
-                // inside the class where the declared name belongs
-                if (is_dependent_typename_type(*declarator_type)
-                        && entry_of_dependent_typename_is_in_an_enclosing_class(*declarator_type, entry->decl_context))
-                {
-                    dependent_typename_set_is_artificial(*declarator_type, 1);
-                }
-
                 entry_list_free(symbols);
             }
 
@@ -8845,7 +8807,7 @@ static char find_function_declaration(AST declarator_id,
 
         type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
-        found_equal = equivalent_types(function_type_being_declared, considered_type);
+        found_equal = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
         if (found_equal)
         {
             equal_entry = considered_symbol;

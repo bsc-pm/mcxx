@@ -252,6 +252,9 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_contex
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);
 
+LIBMCXX_EXTERN char class_is_in_lexical_scope(decl_context_t decl_context, 
+        scope_entry_t* class_symbol);
+
 LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
 
 MCXX_END_DECLS

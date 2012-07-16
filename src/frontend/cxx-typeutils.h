@@ -104,14 +104,10 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dep
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
 LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
-// Artificial flag for a dependent typename it means that it aliases something we know.
-//
-// In general dependent typenames should not advance through uninstantiated (dependent) templates
-// except for some cases where we really know where they come from (inside classes we DO know).
-//
-// Only artificial typenames can be advanced at most one step through dependent templates
+#if 0
 LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_artificial);
 LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
+#endif
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
@@ -202,6 +198,8 @@ LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
+LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_context_t decl_context);
+// This one uses the global context of the current compiled file
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
