@@ -4522,13 +4522,28 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
         case STK_BUILTIN_TYPE :
             result = equivalent_builtin_type(p_t1, p_t2, decl_context);
             break;
-        case STK_TEMPLATE_TYPE :
-            /* Fall-through */
         case STK_CLASS :
+            {
+                if (p_t1->info->is_template_specialized_type
+                        && p_t2->info->is_template_specialized_type
+                        && p_t1->related_template_type == p_t2->related_template_type)
+                {
+                    template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
+                    template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
+                    result = same_template_parameter_list(tpl1, tpl2, decl_context);
+                }
+                else
+                {
+                    result = (t1 == t2);
+                }
+                break;
+            }
+        case STK_TEMPLATE_TYPE :
             /* Fall-through */
         case STK_ENUM :
             // Pointer comparison MUST work
             // (if not, something is broken)
+
             result = (t1 == t2);
             break;
         case STK_INDIRECT :
