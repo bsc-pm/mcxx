@@ -25,30 +25,32 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_ANALYSIS_COMMON_HPP
-#define TL_ANALYSIS_COMMON_HPP
 
-#include "tl-functor.hpp"
-#include "tl-extensible-graph.hpp"
-#include "tl-node.hpp"
-#include "tl-nodecl.hpp"
+#ifndef TL_CONSTANTS_ANALYSIS_PHASE_HPP
+#define TL_CONSTANTS_ANALYSIS_PHASE_HPP
+
+#include "tl-objectlist.hpp"
+#include "tl-compilerphase.hpp"
 
 namespace TL
 {
     namespace Analysis
     {
-        class ExtensibleGraph;
-        
-        Nodecl::List get_func_call_args(Nodecl::NodeclBase func_call);
-        std::map<Symbol, Nodecl::NodeclBase> map_reference_params_to_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph);
-        ObjectList<Symbol> get_reference_params(ExtensibleGraph* called_func_graph);
-        ObjectList<Nodecl::NodeclBase> get_reference_params_and_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph, 
-                                                                     ObjectList<Symbol>& ref_params);
-        ObjectList<Nodecl::NodeclBase> get_non_reference_args(Nodecl::NodeclBase func_call, ExtensibleGraph* called_func_graph);
-        ExtensibleGraph* find_function_for_ipa(Symbol s, ObjectList<ExtensibleGraph*> cfgs);
-        
-        void print_function_call_nest(ExtensibleGraph *graph);
+        //! Phase that allows several analysis of code
+        class LIBTL_CLASS ConstantsAnalysisPhase : public CompilerPhase
+        {
+            public:
+                //! Constructor of this phase
+                ConstantsAnalysisPhase();
+                
+                //! Entry point of the phase
+                /*!
+                This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
+                depending on the language of the code
+                */
+                virtual void run(TL::DTO& dto);
+        };
     }
 }
 
-#endif      // TL_ANALYSIS_COMMON_HPP
+#endif  // TL_CONSTANTS_ANALYSIS_PHASE_HPP

@@ -24,23 +24,28 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = data_flow
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libpcfg.la
+
+libpcfg_la_CFLAGS = $(tl_cflags)
+libpcfg_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../common -I $(srcdir)/../constants -I $(srcdir)/../loops
+libpcfg_la_LDFLAGS = $(tl_ldflags)
+libpcfg_la_LIBADD = $(tl_libadd) ../../../libtl.la ../common/libanalysis_utils.la
 
 END=
 
-DIST_SUBDIRS=data_flow \
-             $(END)
+EXTRA_DIST =
 
-# lib_LTLIBRARIES = libanalysis.la
-# 
-# EXTRA_DIST=Makefile.phases \
-# $(END)
-# 
-# libanalysis_la_CFLAGS = $(tl_cflags)
-# libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/.. -I $(srcdir)/pcfg
-# libanalysis_la_LDFLAGS = $(tl_ldflags)
-# libanalysis_la_LIBADD = $(tl_libadd) ./pcfg/libpcfg.la
+libpcfg_la_SOURCES = \
+   tl-edge.hpp \
+   tl-edge.cpp \
+   tl-node.hpp \
+   tl-node.cpp \
+   tl-extensible-graph.hpp \
+   tl-extensible-graph.cpp \
+   tl-pcfg-visitor.hpp \
+   tl-pcfg-visitor.cpp \
+   tl-dot-graph.cpp \
+   $(END)
 
-# libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-#                          tl-analysis-singleton.cpp \
-#                          $(END)

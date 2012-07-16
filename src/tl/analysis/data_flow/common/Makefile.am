@@ -24,23 +24,25 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = data_flow
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libanalysis_utils.la
+
+libanalysis_utils_la_CFLAGS = $(tl_cflags)
+libanalysis_utils_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../
+libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
+libanalysis_utils_la_LIBADD = $(tl_libadd) ../../../libtl.la
 
 END=
 
-DIST_SUBDIRS=data_flow \
-             $(END)
+EXTRA_DIST =
 
-# lib_LTLIBRARIES = libanalysis.la
-# 
-# EXTRA_DIST=Makefile.phases \
-# $(END)
-# 
-# libanalysis_la_CFLAGS = $(tl_cflags)
-# libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/.. -I $(srcdir)/pcfg
-# libanalysis_la_LDFLAGS = $(tl_ldflags)
-# libanalysis_la_LIBADD = $(tl_libadd) ./pcfg/libpcfg.la
+libanalysis_utils_la_SOURCES = \
+   tl-extended-symbol.hpp \
+   tl-extended-symbol.cpp \
+   tl-extended-symbol-utils.hpp \
+   tl-extended-symbol-utils.cpp \
+   tl-analysis-utils.hpp \
+   tl-analysis-utils.cpp \
+   $(END)
 
-# libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-#                          tl-analysis-singleton.cpp \
-#                          $(END)

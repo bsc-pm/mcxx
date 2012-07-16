@@ -24,50 +24,35 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+# include ../../Makefile.phases
 
-phases_LTLIBRARIES = libdata_flow.la
+SUBDIRS = common pcfg constants loops .
 
-libdata_flow_la_CFLAGS = $(tl_cflags)
-libdata_flow_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
-libdata_flow_la_LDFLAGS = $(tl_ldflags)
-libdata_flow_la_LIBADD = $(tl_libadd) ../../libtl.la
-
-END=
-
-EXTRA_DIST =
-
-libdata_flow_la_SOURCES = \
-   tl-structures.hpp \
-   tl-analysis-common.hpp \
-   tl-analysis-common.cpp \
-   tl-analysis-singleton.hpp \
-   tl-analysis-singleton.cpp \
-   tl-analysis-phase.hpp \
-   tl-analysis-phase.cpp \
-   tl-cfg-analysis-visitor.hpp \
-   tl-cfg-analysis-visitor.cpp \
-   tl-cfg-renaming-visitor.hpp \
-   tl-cfg-renaming-visitor.cpp \
-   tl-cfg-visitor.hpp \
-   tl-cfg-visitor.cpp \
-   tl-edge.hpp \
-   tl-edge.cpp \
-   tl-node.hpp \
-   tl-node.cpp \
-   tl-extensible-graph.hpp \
-   tl-extensible-graph.cpp \
-   tl-extended-symbol.hpp \
-   tl-extended-symbol.cpp \
-   tl-reaching-definitions.cpp \
-   tl-iv-analysis.cpp \
-   tl-loop-analysis.hpp \
-   tl-loop-analysis.cpp \
-   tl-cfg-constants-analysis.hpp \
-   tl-cfg-constants-analysis.cpp \
-   tl-analysis-utils.hpp \
-   tl-static-analysis.hpp \
-   tl-static-analysis.cpp \
-   tl-dot-graph.cpp \
-   $(END)
+# END=
+# 
+# DIST_SUBDIRS=common\
+#              pcfg \
+#              constants \
+#              $(END)
+# 
+# phases_LTLIBRARIES = libdata_flow.la
+#              
+# libdata_flow_la_CFLAGS = $(tl_cflags)
+# libdata_flow_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
+# libdata_flow_la_LDFLAGS = $(tl_ldflags)
+# libdata_flow_la_LIBADD = $(tl_libadd) ../../libtl.la
+# 
+# 
+# EXTRA_DIST =
+# 
+# libdata_flow_la_SOURCES = \
+#    tl-analysis-common.hpp \
+#    tl-analysis-common.cpp \
+#    tl-analysis-singleton.hpp \
+#    tl-analysis-singleton.cpp \
+#    tl-cfg-analysis-visitor.hpp \
+#    tl-cfg-analysis-visitor.cpp \
+#    tl-static-analysis.hpp \
+#    tl-static-analysis.cpp \
+#    $(END)
 

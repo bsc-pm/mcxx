@@ -46,31 +46,6 @@ namespace TL
         
         // *** NODE *** //
         
-        void Node::fill_use_def_sets(Nodecl::NodeclBase n, bool defined)
-        {
-            ExtendedSymbol s(n);
-            if (defined)
-            {
-                set_killed_var(ExtendedSymbol(n));
-            }
-            else
-            {
-                ext_sym_set killed_vars = get_killed_vars();
-                if (!killed_vars.contains(s))
-                {
-                    set_ue_var(s);
-                }
-            }
-        }   
-    
-        void Node::fill_use_def_sets(Nodecl::List n_l, bool defined)
-        {
-            for(Nodecl::List::iterator it = n_l.begin(); it != n_l.end(); ++it)
-            {
-                fill_use_def_sets(*it, defined);
-            }
-        }
-        
         StaticAnalysis::StaticAnalysis(LoopAnalysis* loop_analysis)
             :_loop_analysis(loop_analysis), _next_sync(NULL), _simultaneous_tasks(),
             _firstprivate_vars(), _private_vars(), _shared_vars()

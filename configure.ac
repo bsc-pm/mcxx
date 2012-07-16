@@ -1406,6 +1406,11 @@ AC_CONFIG_FILES([Makefile
            src/tl/Makefile
            src/tl/analysis/Makefile
            src/tl/analysis/data_flow/Makefile
+           src/tl/analysis/data_flow/common/Makefile
+           src/tl/analysis/data_flow/constants/Makefile
+           src/tl/analysis/data_flow/loops/Makefile
+           src/tl/analysis/data_flow/pcfg/Makefile
+           src/tl/analysis/data_flow/use-def/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
            src/tl/codegen/Makefile 

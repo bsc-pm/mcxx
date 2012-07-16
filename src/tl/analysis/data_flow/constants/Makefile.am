@@ -24,23 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = data_flow
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libconstants_analysis.la
+
+libconstants_analysis_la_CFLAGS = $(tl_cflags)
+libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libconstants_analysis_la_LDFLAGS = $(tl_ldflags)
+libconstants_analysis_la_LIBADD = $(tl_libadd) ../../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-DIST_SUBDIRS=data_flow \
-             $(END)
+EXTRA_DIST =
 
-# lib_LTLIBRARIES = libanalysis.la
-# 
-# EXTRA_DIST=Makefile.phases \
-# $(END)
-# 
-# libanalysis_la_CFLAGS = $(tl_cflags)
-# libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/.. -I $(srcdir)/pcfg
-# libanalysis_la_LDFLAGS = $(tl_ldflags)
-# libanalysis_la_LIBADD = $(tl_libadd) ./pcfg/libpcfg.la
+libconstants_analysis_la_SOURCES = \
+                                   tl-constants-analysis.hpp \
+                                   tl-constants-analysis.cpp \
+                                   tl-constants-analysis-phase.hpp \
+                                   tl-constants-analysis-phase.hpp \
+                                   $(END)
 
-# libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-#                          tl-analysis-singleton.cpp \
-#                          $(END)

@@ -32,10 +32,9 @@
 #include "tl-cfg-visitor.hpp"
 #include "tl-static-analysis.hpp"
 
-namespace TL
-{
-    namespace Analysis
-    {
+namespace TL {
+namespace Analysis {
+    
         AnalysisPhase::AnalysisPhase( )
         {
             set_phase_name("Experimental phase for analysis");
@@ -61,11 +60,11 @@ namespace TL
 //                 std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
 //                 for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
 //                 {
-//                     std::cerr << "  ==> Graph '" << (*it)->get_name() << "'" << std::endl;
-//                     ObjectList<var_usage_t*> glob_vars = (*it)->get_global_variables();
-//                     for(ObjectList<var_usage_t*>::iterator it = glob_vars.begin(); it != glob_vars.end(); ++it)
+//                     std::cerr << "  ==> Graph '" << it->get_name() << "'" << std::endl;
+//                     ObjectList<ExtendedSymbolUsage> glob_vars = (*it)->get_global_variables();
+//                     for(ObjectList<ExtendedSymbolUsage>::iterator it_es = glob_vars.begin(); it_es != glob_vars.end(); ++it)
 //                     {
-//                         std::cerr << "       - " << (*it)->get_nodecl().prettyprint() << std::endl;
+//                         std::cerr << "       - " << it_es->get_nodecl().prettyprint() << std::endl;
 //                     }
 //                 }
 //             }
@@ -156,7 +155,7 @@ namespace TL
 //                     (*it)->print_graph_to_dot();
 //             }
         }
-    }
+}
 }
 
 EXPORT_PHASE(TL::Analysis::AnalysisPhase);
