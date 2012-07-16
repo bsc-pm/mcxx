@@ -1257,11 +1257,6 @@ static void build_dependent_parts_for_symbol_rec(
     {
         enclosing = class_type_get_enclosing_class_type(entry->type_information);
     }
-    else
-    {
-        if (entry->entity_specs.is_member)
-            enclosing = entry->entity_specs.class_type;
-    }
 
     if (enclosing != NULL
             && is_dependent_type(enclosing))
