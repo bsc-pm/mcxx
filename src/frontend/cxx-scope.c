@@ -744,6 +744,36 @@ static char class_has_dependent_bases(scope_entry_t* class_symbol)
     return 0;
 }
 
+char symbol_is_member_of_dependent_class(scope_entry_t* entry)
+{
+    return entry->entity_specs.is_member 
+        && is_dependent_type(entry->entity_specs.class_type);
+}
+
+char symbol_is_local_of_dependent_function(scope_entry_t* entry)
+{
+    return entry->decl_context.current_scope->kind == BLOCK_SCOPE
+        && entry->decl_context.current_scope->related_entry->kind == SK_FUNCTION
+        && (is_dependent_type(entry->decl_context.current_scope->related_entry->type_information)
+                || symbol_is_member_of_dependent_class(entry));
+}
+
+scope_entry_t* get_function_or_class_where_symbol_depends(scope_entry_t* entry)
+{
+    if (symbol_is_member_of_dependent_class(entry))
+    {
+        return named_type_get_symbol(entry->entity_specs.class_type);
+    }
+    else if (symbol_is_local_of_dependent_function(entry))
+    {
+        return entry->decl_context.current_scope->related_entry;
+    }
+    else
+    {
+        internal_error("This symbol is not in a dependent class or function\n", 0);
+    }
+}
+
 char class_is_in_lexical_scope(decl_context_t decl_context, 
         scope_entry_t* class_symbol)
 {
@@ -1220,8 +1250,18 @@ static void build_dependent_parts_for_symbol_rec(
         scope_entry_t** dependent_entry,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid symbol", 0);
-    type_t* enclosing = class_type_get_enclosing_class_type(entry->type_information);
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_FUNCTION, "Invalid symbol", 0);
+    type_t* enclosing = NULL;
+
+    if (entry->kind == SK_CLASS)
+    {
+        enclosing = class_type_get_enclosing_class_type(entry->type_information);
+    }
+    else
+    {
+        if (entry->entity_specs.is_member)
+            enclosing = entry->entity_specs.class_type;
+    }
 
     if (enclosing != NULL
             && is_dependent_type(enclosing))

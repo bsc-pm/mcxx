@@ -3355,6 +3355,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     }
 }
 
+#if 0
 static char dependent_entry_is_same_class_base_or_nested(scope_entry_t* dependent_entry, 
         scope_entry_t* current_class)
 {
@@ -3392,6 +3393,7 @@ static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* depende
 
      return dependent_entry_is_same_class_base_or_nested(dependent_entry, class_in_scope);
 }
+#endif
 
 static void gather_type_spec_from_dependent_typename(AST a, 
         type_t** type_info,
@@ -3522,8 +3524,10 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     entry_list_free(query_results);
 
-    if (entry->entity_specs.is_member
-            && is_dependent_type(entry->entity_specs.class_type))
+    // If this is a member of a dependent class or a local entity of a template
+    // function crat a dependent typename for it
+    if (symbol_is_member_of_dependent_class(entry)
+            || symbol_is_local_of_dependent_function(entry))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -3547,7 +3551,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
         // Craft a dependent typename since we will need it later for proper updates
         (*type_info) = build_dependent_typename_for_entry(
-                named_type_get_symbol(entry->entity_specs.class_type),
+                get_function_or_class_where_symbol_depends(entry),
                 nodecl_name,
                 ast_get_filename(a),
                 ast_get_line(a));

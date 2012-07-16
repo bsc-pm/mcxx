@@ -4362,27 +4362,6 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    // Second attempt if one of the types is an artificial dependent typename
-    // if (!result
-    //         && ((is_dependent_typename_type(t1)
-    //                 && dependent_typename_is_artificial(t1))
-    //             || (is_dependent_typename_type(t2)
-    //                 && dependent_typename_is_artificial(t2))))
-    // {
-    //     type_t* orig_t1 = t1;
-    //     type_t* orig_t2 = t2;
-    //     if (is_dependent_typename_type(t1)
-    //             && dependent_typename_is_artificial(t1))
-    //     {
-    //         t1 = advance_dependent_typename_if_in_context(t1);
-    //     }
-    //     if (is_dependent_typename_type(t2)
-    //             && dependent_typename_is_artificial(t2))
-    //     {
-    //         t2 = advance_dependent_typename_if_in_context(t2);
-    //     }
-    // }
-
     if (is_dependent_typename_type(t1))
     {
         t1 = advance_dependent_typename_if_in_context(t1, decl_context);
@@ -4528,9 +4507,18 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                         && p_t2->info->is_template_specialized_type
                         && p_t1->related_template_type == p_t2->related_template_type)
                 {
-                    template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
-                    template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
-                    result = same_template_parameter_list(tpl1, tpl2, decl_context);
+                    if (template_type_get_template_parameters(p_t1->related_template_type)->num_parameters == 0
+                            && template_type_get_template_parameters(p_t2->related_template_type)->num_parameters == 0)
+                    {
+                        // For 0-parameterized template types, equality is by pointer
+                        result = (t1 == t2);
+                    }
+                    else
+                    {
+                        template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
+                        template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
+                        result = same_template_parameter_list(tpl1, tpl2, decl_context);
+                    }
                 }
                 else
                 {
@@ -5458,7 +5446,6 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         return 1;
     }
 
-
     DEBUG_CODE()
     {
         fprintf(stderr , "TYPEUTILS: Comparing template dependent typenames '%s' and '%s'\n",
@@ -5473,17 +5460,6 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
             &dependent_entry_1,
             &dependent_parts_1);
 
-    type_t* type_to_compare_1 = NULL;
-    if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
-    {
-        // T::x where T is a type template parameter
-        type_to_compare_1 = get_user_defined_type(dependent_entry_1);
-    }
-    else
-    {
-        type_to_compare_1 = dependent_entry_1->type_information;
-    }
-
     scope_entry_t* dependent_entry_2 = NULL;
     nodecl_t dependent_parts_2 = nodecl_null();
 
@@ -5491,28 +5467,62 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
             &dependent_entry_2,
             &dependent_parts_2);
 
-    type_t* type_to_compare_2 = NULL;
-    if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
-    {
-        type_to_compare_2 = get_user_defined_type(dependent_entry_2);
-    }
-    else
-    {
-        type_to_compare_2 = dependent_entry_2->type_information;
-    }
 
-    if (equivalent_types_in_context(type_to_compare_1, type_to_compare_2, decl_context))
-    {
-        return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2, decl_context);
-    }
-    else
+    // The dependent entries are functions, they must be the same
+    if (dependent_entry_1->kind == SK_FUNCTION
+            && dependent_entry_2->kind == SK_FUNCTION)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUTILS: Dependent entry is different\n");
+            fprintf(stderr, "TYPEUTILS: Both dependent entries are functions\n");
         }
-        return 0;
+        if (dependent_entry_1 != dependent_entry_2)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: But they are not the same\n");
+            }
+            return 0;
+        }
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Both functions are the same function\n");
+        }
     }
+    else
+    {
+        type_t* type_to_compare_1 = NULL;
+        if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            // T::x where T is a type template parameter
+            type_to_compare_1 = get_user_defined_type(dependent_entry_1);
+        }
+        else
+        {
+            type_to_compare_1 = dependent_entry_1->type_information;
+        }
+
+        type_t* type_to_compare_2 = NULL;
+        if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            type_to_compare_2 = get_user_defined_type(dependent_entry_2);
+        }
+        else
+        {
+            type_to_compare_2 = dependent_entry_2->type_information;
+        }
+
+        if (!equivalent_types_in_context(type_to_compare_1, type_to_compare_2, decl_context))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Dependent entry is different\n");
+            }
+            return 0;
+        }
+    }
+
+    return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2, decl_context);
 }
 
 char is_builtin_type(type_t* t)
@@ -6966,14 +6976,27 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
             {
                 char is_dependent = 0;
                 int max_qualif_level = 0;
-                result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
-                        decl_context,
-                        &is_dependent,
-                        &max_qualif_level);
+
+                char is_local_typename = 0;
+                // Local typenames start from a function so the function cannot
+                // be emitted actually. 'typename' (or other elaborated type
+                // prefix) cannot be emitted either
+                if (simple_type->dependent_entry->kind != SK_FUNCTION)
+                {
+                    result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
+                            decl_context,
+                            &is_dependent,
+                            &max_qualif_level);
+                }
+                else
+                {
+                    is_local_typename = 1;
+                }
 
                 nodecl_t  nodecl_parts = simple_type->dependent_parts;
 
-                if (is_dependent 
+                if (is_dependent
+                        && !is_local_typename
                         && !nodecl_is_null(nodecl_parts))
                 {
                     enum type_tag_t kind = get_dependent_entry_kind(t);
@@ -7032,7 +7055,9 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
 
                         const char* name = nodecl_get_text(simple_current_part);
 
-                        result = strappend(result, "::");
+                        if (!is_local_typename)
+                            result = strappend(result, "::");
+
                         if (template_parameters != NULL && is_dependent)
                         {
                             result = strappend(result, "template ");
@@ -7087,6 +7112,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
 
                             result = strappend(result, ">");
                         }
+
+                        // At this moment we do not allow nesting of types in
+                        // local dependent typenames
+                        if (is_local_typename)
+                            break;
                     }
                 }
 
