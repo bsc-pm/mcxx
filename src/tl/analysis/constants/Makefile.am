@@ -24,9 +24,8 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-# include ../../Makefile.phases
+include ../../Makefile.phases
 
-<<<<<<< Updated upstream:src/tl/analysis/constants/Makefile.am
 phases_LTLIBRARIES = libconstants_analysis.la
 
 libconstants_analysis_la_CFLAGS = $(tl_cflags)
@@ -42,35 +41,3 @@ libconstants_analysis_la_SOURCES = \
                                    tl-constants-analysis-phase.hpp \
                                    tl-constants-analysis-phase.hpp \
                                    $(END)
-=======
-SUBDIRS = common pcfg constants loops .
-
-# END=
-# 
-# DIST_SUBDIRS=common\
-#              pcfg \
-#              constants \
-#              $(END)
-# 
-# phases_LTLIBRARIES = libdata_flow.la
-#              
-# libdata_flow_la_CFLAGS = $(tl_cflags)
-# libdata_flow_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
-# libdata_flow_la_LDFLAGS = $(tl_ldflags)
-# libdata_flow_la_LIBADD = $(tl_libadd) ../../libtl.la
-# 
-# 
-# EXTRA_DIST =
-# 
-# libdata_flow_la_SOURCES = \
-#    tl-analysis-common.hpp \
-#    tl-analysis-common.cpp \
-#    tl-analysis-singleton.hpp \
-#    tl-analysis-singleton.cpp \
-#    tl-cfg-analysis-visitor.hpp \
-#    tl-cfg-analysis-visitor.cpp \
-#    tl-static-analysis.hpp \
-#    tl-static-analysis.cpp \
-#    $(END)
->>>>>>> Stashed changes:src/tl/analysis/data_flow/Makefile.am
-

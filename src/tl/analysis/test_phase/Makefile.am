@@ -35,7 +35,7 @@ libtest_analysis_la_LIBADD = $(tl_libadd) ../singleton/libanalysis_singleton.la
 
 END=
 
-libconstants_analysis_la_SOURCES = \
+libtest_analysis_la_SOURCES = \
                                    tl-test-analysis-phase.hpp \
                                    tl-test-analysis-phase.hpp \
                                    $(END)

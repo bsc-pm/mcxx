@@ -1405,24 +1405,12 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile
            src/tl/Makefile
            src/tl/analysis/Makefile
-<<<<<<< Updated upstream
            src/tl/analysis/common/Makefile
            src/tl/analysis/pcfg/Makefile
            src/tl/analysis/constants/Makefile
            src/tl/analysis/loops/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
-=======
-           src/tl/analysis/data_flow/Makefile
-           src/tl/analysis/data_flow/common/Makefile
-           src/tl/analysis/data_flow/constants/Makefile
-           src/tl/analysis/data_flow/loops/Makefile
-           src/tl/analysis/data_flow/pcfg/Makefile
-           src/tl/analysis/data_flow/use-def/Makefile
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
            src/tl/codegen/Makefile

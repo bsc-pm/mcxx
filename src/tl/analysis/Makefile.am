@@ -28,7 +28,6 @@ SUBDIRS = common pcfg constants loops singleton
 
 END=
 
-<<<<<<< Updated upstream
 DIST_SUBDIRS= common \
               pcfg \
               constants \
@@ -36,25 +35,3 @@ DIST_SUBDIRS= common \
               singleton \
               test_phase \
               $(END)
-=======
-DIST_SUBDIRS=data_flow \
-             $(END)
-
-lib_LTLIBRARIES = libanalysis.la
-
-EXTRA_DIST=Makefile.phases \
-$(END)
-
-libanalysis_la_CFLAGS = $(tl_cflags)
-libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/..
-libanalysis_la_LDFLAGS = $(tl_ldflags)
-libanalysis_la_LIBADD = $(tl_libadd)
-
-libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-                         tl-analysis-singleton.cpp \
-<<<<<<< Updated upstream
-                         $(END)
->>>>>>> Stashed changes
-=======
-                         $(END)
->>>>>>> Stashed changes
