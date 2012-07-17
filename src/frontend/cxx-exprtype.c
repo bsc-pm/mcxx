@@ -5448,7 +5448,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
         *nodecl_output = nodecl_make_symbol(entry, filename, line);
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
             *nodecl_output = nodecl_make_class_member_access(
                     accessor,
                     *nodecl_output,
@@ -5512,6 +5512,35 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 {
     compute_symbol_type(expr, decl_context, nodecl_output);
 }
+
+static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
+{
+    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
+        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
+
+        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
+
+        return nodecl_make_class_member_access(integrated_nodecl,
+                accessor_symbol,
+                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
+                nodecl_get_filename(integrated_nodecl),
+                nodecl_get_line(integrated_nodecl));
+    }
+    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
+    {
+        return nodecl_make_class_member_access(base, accessor, 
+                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
+                nodecl_get_filename(base),
+                nodecl_get_line(base));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
 
 static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
         scope_entry_list_t* entry_list, 
@@ -5598,7 +5627,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         scope_entry_t* accessing_symbol = entry;
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
             nodecl_access_to_symbol = nodecl_make_class_member_access(
                     accessor,
                     nodecl_access_to_symbol,
@@ -5646,11 +5675,11 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                *nodecl_output =
-                    nodecl_make_class_member_access(nodecl_this_derref,
-                            nodecl_access_to_symbol,
-                            qualified_data_member_type,
-                            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+                *nodecl_output = integrate_field_accesses(
+                        nodecl_this_derref,
+                        nodecl_access_to_symbol);
+                nodecl_set_type(*nodecl_output, qualified_data_member_type);
+                nodecl_set_location(*nodecl_output, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             }
             else
             {
@@ -9159,33 +9188,6 @@ static void check_templated_member_access(AST templated_member_access, decl_cont
     check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
 
-static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
-{
-    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
-    {
-        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
-        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
-
-        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
-
-        return nodecl_make_class_member_access(integrated_nodecl,
-                accessor_symbol,
-                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
-                nodecl_get_filename(integrated_nodecl),
-                nodecl_get_line(integrated_nodecl));
-    }
-    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
-    {
-        return nodecl_make_class_member_access(base, accessor, 
-                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
-                nodecl_get_filename(base),
-                nodecl_get_line(base));
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
-    }
-}
 
 static char is_pseudo_destructor_id(decl_context_t decl_context,
         type_t* accessed_type,
@@ -9611,9 +9613,8 @@ static void check_nodecl_member_access(
         nodecl_t nodecl_field = nodecl_accessed_out;
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-            nodecl_field = integrate_field_accesses(nodecl_field, 
-                    accessor);
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
+            nodecl_field = integrate_field_accesses(nodecl_field, accessor);
         }
 
         ok = 1;
@@ -9640,9 +9641,8 @@ static void check_nodecl_member_access(
             nodecl_t nodecl_field = nodecl_accessed_out;
             if (entry->entity_specs.is_member_of_anonymous)
             {
-                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                nodecl_field = integrate_field_accesses(nodecl_field, 
-                        accessor);
+                nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
+                nodecl_field = integrate_field_accesses(nodecl_field, accessor);
             }
 
             *nodecl_output = nodecl_make_class_member_access(
