@@ -5628,7 +5628,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             }
 
             if (this_symbol != NULL
-                    && class_type_is_base(entry->entity_specs.class_type, this_type))
+                    && class_type_is_base(accessing_symbol->entity_specs.class_type, this_type))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
