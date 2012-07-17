@@ -5603,7 +5603,7 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     }
 }
 
-static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context, 
+static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context,
         scope_entry_t* class_symbol,
         scope_entry_t* accessor_symbol)
 {
@@ -5618,7 +5618,7 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         if (!member->entity_specs.is_member_of_anonymous)
         {
             member->entity_specs.is_member_of_anonymous = 1;
-            member->entity_specs.anonymous_accessor = 
+            member->entity_specs.anonymous_accessor =
                 nodecl_make_symbol(accessor_symbol,
                         accessor_symbol->file,
                         accessor_symbol->line);
@@ -5626,16 +5626,19 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         else
         {
             member->entity_specs.is_member_of_anonymous = 1;
-            nodecl_t nodecl_accessor = 
-                nodecl_make_class_member_access(
-                        nodecl_make_symbol(accessor_symbol,
-                            accessor_symbol->file,
-                            accessor_symbol->line), 
-                        member->entity_specs.anonymous_accessor,
-                        lvalue_ref(member->type_information),
-                        accessor_symbol->file,
-                        accessor_symbol->line);
-            nodecl_set_symbol(nodecl_accessor, accessor_symbol);
+
+            nodecl_t nodecl_symbol = nodecl_make_symbol(accessor_symbol,
+                             accessor_symbol->file,
+                             accessor_symbol->line);
+            nodecl_set_type(nodecl_symbol, lvalue_ref(accessor_symbol->type_information));
+
+            nodecl_t nodecl_accessor = cxx_integrate_field_accesses(nodecl_symbol,
+                    member->entity_specs.anonymous_accessor);
+            nodecl_set_type(nodecl_accessor, lvalue_ref(member->type_information));
+            nodecl_set_location(nodecl_accessor,
+                         accessor_symbol->file,
+                         accessor_symbol->line);
+
             member->entity_specs.anonymous_accessor = nodecl_accessor;
         }
         insert_entry(enclosing_context.current_scope, member);
@@ -5646,7 +5649,7 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
                 && is_named_class_type(member->type_information)
                 && named_type_get_symbol(member->type_information)->entity_specs.is_anonymous_union)
         {
-            insert_symbols_in_enclosing_context(enclosing_context, 
+            insert_symbols_in_enclosing_context(enclosing_context,
                     named_type_get_symbol(member->type_information),
                     accessor_symbol);
         }
@@ -5683,6 +5686,7 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessor_symbol->kind = SK_VARIABLE;
     accessor_symbol->file = class_symbol->file;
     accessor_symbol->line = class_symbol->line;
+    accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
     class_symbol->entity_specs.anonymous_accessor = 
         nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);

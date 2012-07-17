@@ -5513,24 +5513,28 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     compute_symbol_type(expr, decl_context, nodecl_output);
 }
 
-static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
+nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
 {
     if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
     {
         nodecl_t accessor_base = nodecl_get_child(accessor, 0);
         nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
+        ERROR_CONDITION(nodecl_get_kind(accessor_symbol) != NODECL_SYMBOL, "Invalid tree when integrating field accesses", 0);
 
-        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
+        nodecl_t integrated_nodecl = cxx_integrate_field_accesses(base, accessor_base);
 
-        return nodecl_make_class_member_access(integrated_nodecl,
-                accessor_symbol,
+        return nodecl_make_class_member_access(
+                integrated_nodecl,
+                nodecl_shallow_copy(accessor_symbol),
                 lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
                 nodecl_get_filename(integrated_nodecl),
                 nodecl_get_line(integrated_nodecl));
     }
     else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
     {
-        return nodecl_make_class_member_access(base, accessor, 
+        return nodecl_make_class_member_access(
+                nodecl_shallow_copy(base),
+                nodecl_shallow_copy(accessor),
                 lvalue_ref(nodecl_get_symbol(accessor)->type_information),
                 nodecl_get_filename(base),
                 nodecl_get_line(base));
@@ -5628,13 +5632,23 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         if (entry->entity_specs.is_member_of_anonymous)
         {
             nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
+
+            // Find the accessing symbol
+            nodecl_t nodecl_symbol_of_accessor = accessor;
+            while (nodecl_get_kind(nodecl_symbol_of_accessor) == NODECL_CLASS_MEMBER_ACCESS)
+            {
+                nodecl_symbol_of_accessor = nodecl_get_child(nodecl_symbol_of_accessor, 0);
+            }
+
+            accessing_symbol = nodecl_get_symbol(nodecl_symbol_of_accessor);
+            ERROR_CONDITION(accessing_symbol == NULL, "Symbol of accessor not found", 0);
+
             nodecl_access_to_symbol = nodecl_make_class_member_access(
                     accessor,
                     nodecl_access_to_symbol,
                     lvalue_ref(entry->type_information),
                     nodecl_get_filename(nodecl_name),
                     nodecl_get_line(nodecl_name));
-            accessing_symbol = nodecl_get_symbol(accessor);
         }
 
         if (!accessing_symbol->entity_specs.is_member
@@ -5675,7 +5689,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                *nodecl_output = integrate_field_accesses(
+                *nodecl_output = cxx_integrate_field_accesses(
                         nodecl_this_derref,
                         nodecl_access_to_symbol);
                 nodecl_set_type(*nodecl_output, qualified_data_member_type);
@@ -9613,8 +9627,8 @@ static void check_nodecl_member_access(
         nodecl_t nodecl_field = nodecl_accessed_out;
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
-            nodecl_field = integrate_field_accesses(nodecl_field, accessor);
+            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
         ok = 1;
@@ -9641,8 +9655,8 @@ static void check_nodecl_member_access(
             nodecl_t nodecl_field = nodecl_accessed_out;
             if (entry->entity_specs.is_member_of_anonymous)
             {
-                nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
-                nodecl_field = integrate_field_accesses(nodecl_field, accessor);
+                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
             }
 
             *nodecl_output = nodecl_make_class_member_access(
