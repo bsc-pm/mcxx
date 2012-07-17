@@ -2889,7 +2889,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     if (!is_dependent_type(arg_type))
                     {
                         standard_conversion_t scs_conv;
-                        if (!standard_conversion_between_types(&scs_conv, arg_type, dest_type))
+                        if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(dest_type)))
                         {
                             DEBUG_CODE()
                             {
@@ -2897,11 +2897,11 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             }
                             if (!checking_ambiguity())
                             {
-                                error_printf("%s:%d: error: cannot convert type '%s' of template argument type %d to "
-                                        "the type '%s' of its template parameter\n",
+                                error_printf("%s:%d: error: type '%s' of template argument %d cannot be converted to "
+                                        "type '%s' of the corresponding template parameter\n",
                                         filename, line, 
                                         print_type_str(arg_type, template_name_context),
-                                        i,
+                                        i + 1,
                                         print_type_str(dest_type, template_name_context));
                             }
                             return NULL;
