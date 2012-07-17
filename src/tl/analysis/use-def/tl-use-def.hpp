@@ -24,33 +24,31 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_USE_DEF_HPP
+#define TL_USE_DEF_HPP
 
+#include "tl-node.hpp"
 
-#ifndef TL_ANALYSIS_PHASE_HPP
-#define TL_ANALYSIS_PHASE_HPP
-
-#include "tl-objectlist.hpp"
-#include "tl-compilerphase.hpp"
-
-namespace TL
-{
-    namespace Analysis
-    {
-        //! Phase that allows several analysis of code
-        class LIBTL_CLASS AnalysisPhase : public CompilerPhase
-        {
-            public:
-                //! Constructor of this phase
-                AnalysisPhase();
-                
-                //! Entry point of the phase
-                /*!
-                This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
-                depending on the language of the code
-                */
-                virtual void run(TL::DTO& dto);
-        };
-    }
+namespace TL  {
+namespace Analysis {
+    
+    
+    //!This class implements the computation of Use-Definition chains over a PCFG
+    class LIBTL_CLASS UseDef {
+        
+        
+        void fill_use_def_sets( Nodecl::NodeclBase n, bool defined );
+        
+        void fill_use_def_sets( Nodecl::List n_l, bool defined );
+    
+        ObjectList<Utils::ext_sym_set> get_use_def_over_nodes( Node* current );
+    
+        //!Propagate the Use-Def information from inner nodes to outer nodes
+        void set_graph_node_use_def( Node* outer_node );
+        
+    };
+    
+}
 }
 
-#endif  // TL_ANALYSIS_PHASE_HPP
+#endif      // TL_USE_DEF_HPP

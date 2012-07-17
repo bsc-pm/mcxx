@@ -24,37 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg constants loops singleton
+include ../../Makefile.phases
+
+lib_LTLIBRARIES = libloops_analysis.la
+
+libloops_analysis_la_CFLAGS = $(tl_cflags)
+libloops_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libloops_analysis_la_LDFLAGS = $(tl_ldflags)
+libloops_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-<<<<<<< Updated upstream
-DIST_SUBDIRS= common \
-              pcfg \
-              constants \
-              loops \
-              singleton \
-              test_phase \
-              $(END)
-=======
-DIST_SUBDIRS=data_flow \
-             $(END)
+libloops_analysis_la_SOURCES = \
+                               tl-renaming-visitor.hpp \
+                               tl-renaming-visitor.cpp \
+                               tl-iv-analysis.hpp \
+                               tl-iv-analysis.cpp \
+                               $(END)
 
-lib_LTLIBRARIES = libanalysis.la
-
-EXTRA_DIST=Makefile.phases \
-$(END)
-
-libanalysis_la_CFLAGS = $(tl_cflags)
-libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/..
-libanalysis_la_LDFLAGS = $(tl_ldflags)
-libanalysis_la_LIBADD = $(tl_libadd)
-
-libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-                         tl-analysis-singleton.cpp \
-<<<<<<< Updated upstream
-                         $(END)
->>>>>>> Stashed changes
-=======
-                         $(END)
->>>>>>> Stashed changes
+#    tl-loop-analysis.hpp
+#    tl-loop-analysis.cpp

@@ -26,6 +26,23 @@
 
 # include ../../Makefile.phases
 
+<<<<<<< Updated upstream:src/tl/analysis/constants/Makefile.am
+phases_LTLIBRARIES = libconstants_analysis.la
+
+libconstants_analysis_la_CFLAGS = $(tl_cflags)
+libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libconstants_analysis_la_LDFLAGS = $(tl_ldflags)
+libconstants_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
+
+END=
+
+libconstants_analysis_la_SOURCES = \
+                                   tl-constants-analysis.hpp \
+                                   tl-constants-analysis.cpp \
+                                   tl-constants-analysis-phase.hpp \
+                                   tl-constants-analysis-phase.hpp \
+                                   $(END)
+=======
 SUBDIRS = common pcfg constants loops .
 
 # END=
@@ -55,4 +72,5 @@ SUBDIRS = common pcfg constants loops .
 #    tl-static-analysis.hpp \
 #    tl-static-analysis.cpp \
 #    $(END)
+>>>>>>> Stashed changes:src/tl/analysis/data_flow/Makefile.am
 

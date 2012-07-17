@@ -24,28 +24,19 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../../Makefile.phases
+include ../../Makefile.phases
 
-phases_LTLIBRARIES = libpcfg.la
+lib_LTLIBRARIES= libuse_def.la
 
-libpcfg_la_CFLAGS = $(tl_cflags)
-libpcfg_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../common -I $(srcdir)/../constants -I $(srcdir)/../loops
-libpcfg_la_LDFLAGS = $(tl_ldflags)
-libpcfg_la_LIBADD = $(tl_libadd) ../../../libtl.la ../common/libanalysis_utils.la
+libuse_def_la_CFLAGS= $(tl_cflags)
+libuse_def_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../pcfg
+libuse_def_la_LDFLAGS= $(tl_ldflags)
+libuse_def_la_LIBADD= $(tl_libadd) ../../../libtl.la ../pcfg/libpcfg.la
 
 END=
 
-EXTRA_DIST =
-
-libpcfg_la_SOURCES = \
-   tl-edge.hpp \
-   tl-edge.cpp \
-   tl-node.hpp \
-   tl-node.cpp \
-   tl-extensible-graph.hpp \
-   tl-extensible-graph.cpp \
-   tl-pcfg-visitor.hpp \
-   tl-pcfg-visitor.cpp \
-   tl-dot-graph.cpp \
-   $(END)
+libuse_def_la_SOURCES= \
+                       tl-use-def.hpp \
+                       tl-use-def.cpp \
+                       $(END)
 

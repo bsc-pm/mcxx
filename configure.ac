@@ -19,7 +19,7 @@ AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability])
 
 dnl Enable silent rules if available
 supported_silent_rules=1
-m4_ifdef([AM_SILENT_RULES], 
+m4_ifdef([AM_SILENT_RULES],
         [AM_SILENT_RULES([yes])],
         [supported_silent_rules=0])
 
@@ -76,7 +76,7 @@ dnl --------------------- Basic toolchain setup -----------------
 CC_FOR_BUILD=$CC
 dnl If we are cross compiling ensure that we are using
 dnl the proper build cc
-if test x$cross_compiling = xyes; 
+if test x$cross_compiling = xyes;
 then
      dnl This will only work with gcc
      CC_FOR_BUILD=gcc
@@ -93,7 +93,7 @@ AC_COMPILE_IFELSE(
       #if __GNUC__ <= 3
        #error "Too old compiler"
       #endif
-   
+
       #if __GNUC__ == 4
        #if __GNUC_MINOR__ <= 0
         #error "Too old compiler"
@@ -119,7 +119,7 @@ dnl ----- SQLITE - Required only for fortran ---
 PKG_PROG_PKG_CONFIG
 
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
-                  [], 
+                  [],
                   AC_MSG_ERROR([Fortran support requires sqlite 3.6.16]))
 
 AC_SUBST([sqlite3_CFLAGS])
@@ -257,7 +257,7 @@ then
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
-   
+
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
 fi
 
@@ -304,7 +304,7 @@ AC_ARG_ENABLE([nanox-regions],
     # Autodetect by checking headers
     nanos_h_interface_is_at_least_6000=no
     nanos_h=$nanox_include/nanos.h
-    if test -e $nanos_h ; 
+    if test -e $nanos_h ;
     then
         pragma_nanos_interface=`$SED -ne '/^\s*#\s*pragma\s\+nanos\s\+interface\s\+family\s*(\s*master\s*)/p' $nanos_h`
         nanox_family_version=`echo $pragma_nanos_interface | sed -e 's/^.*version(\(@<:@0-9@:>@\+\)).*$/\1/'`
@@ -415,7 +415,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 	])
 
 if test x$gpu_enabled = xyes ; then
-    if test -d "$CUDADIR" ; 
+    if test -d "$CUDADIR" ;
     then
         AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
         if test x$NVCC = x ; then
@@ -424,7 +424,7 @@ if test x$gpu_enabled = xyes ; then
         else
             CUDA_INCLUDES="$CUDADIR/include"
             CUDA_LIBS="$CUDADIR/lib"
-            if test -d "$CUDADIR/lib64" ; 
+            if test -d "$CUDADIR/lib64" ;
             then
                 CUDA_LIBS="$CUDADIR/lib64"
             fi
@@ -517,7 +517,7 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
-   if test ! x$is_enabled_tl_omp_nanox = xyes; 
+   if test ! x$is_enabled_tl_omp_nanox = xyes;
    then
       TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
    fi
@@ -770,7 +770,7 @@ AC_SUBST([NEBELUNG_LIBS])
 dnl --------------------- End Support for Nebelung ---------------------
 
 dnl --------------------- Superscalar support ---------------------
- 
+
 superscalar_include="${prefix}/include"
 superscalar_lib="${prefix}/lib"
 SUPERSCALAR_INCLUDES="${superscalar_include}"
@@ -845,7 +845,7 @@ AC_ARG_WITH([superscalar-runtime-api-version],
         fi
     ]
 )
- 
+
 if test x$is_enabled_tl_superscalar = xyes;
 then
    AC_ARG_WITH([superscalar],
@@ -869,15 +869,15 @@ then
             superscalar_lib="${withval}"
            ]
    )
- 
+
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.superscalar 50.config.ss_valgrind"
    COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
 fi
-     
+
 SUPERSCALAR_INCLUDES="${superscalar_include}"
 SUPERSCALAR_LIBS="${superscalar_lib}"
- 
+
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
@@ -1179,7 +1179,7 @@ then
             fi
           ]
   )
-  
+
   AC_CHECK_PROG(GPERF, gperf, gperf, no)
   if test x$GPERF = xno;
   then
@@ -1217,7 +1217,7 @@ default_type_environ=""
 AC_MSG_CHECKING([default typing environment])
 
 AC_ARG_WITH([type-environment],
-        AS_HELP_STRING([--with-type-environment=type_environment], 
+        AS_HELP_STRING([--with-type-environment=type_environment],
             [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64 and linux-spu]),
         [
            if test x"$withval" != x;
@@ -1317,7 +1317,7 @@ have_float_128="no"
 quadmath_LIBS=""
 AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
 
-if test x$have_float_128 = xyes; 
+if test x$have_float_128 = xyes;
 then
  AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
  quadmath_LIBS="-lquadmath"
@@ -1337,7 +1337,7 @@ AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 
 
 AC_CONFIG_LIBOBJ_DIR([gnulib])
 
-AC_CHECK_FUNC([mkdtemp], 
+AC_CHECK_FUNC([mkdtemp],
         [
         AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available])
         ],
@@ -1347,7 +1347,7 @@ AC_CHECK_FUNC([mkdtemp],
         ]
         )
 
-AC_CHECK_FUNC([strsignal], 
+AC_CHECK_FUNC([strsignal],
         [
         AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
         ],
@@ -1394,51 +1394,63 @@ AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
-AC_CONFIG_FILES([Makefile 
+AC_CONFIG_FILES([Makefile
            gnulib/Makefile
            lib/Makefile
-           src/Makefile 
-           src/driver/Makefile 
-           src/driver/fortran/Makefile 
-           src/frontend/Makefile 
-           src/frontend/fortran/Makefile 
-           src/mcxx_tl/Makefile 
+           src/Makefile
+           src/driver/Makefile
+           src/driver/fortran/Makefile
+           src/frontend/Makefile
+           src/frontend/fortran/Makefile
+           src/mcxx_tl/Makefile
            src/tl/Makefile
            src/tl/analysis/Makefile
+<<<<<<< Updated upstream
+           src/tl/analysis/common/Makefile
+           src/tl/analysis/pcfg/Makefile
+           src/tl/analysis/constants/Makefile
+           src/tl/analysis/loops/Makefile
+           src/tl/analysis/singleton/Makefile
+           src/tl/analysis/test_phase/Makefile
+=======
            src/tl/analysis/data_flow/Makefile
            src/tl/analysis/data_flow/common/Makefile
            src/tl/analysis/data_flow/constants/Makefile
            src/tl/analysis/data_flow/loops/Makefile
            src/tl/analysis/data_flow/pcfg/Makefile
            src/tl/analysis/data_flow/use-def/Makefile
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
-           src/tl/codegen/Makefile 
-           src/tl/codegen/common/Makefile 
-           src/tl/codegen/base/Makefile 
-           src/tl/codegen/base/cxx/Makefile 
-           src/tl/codegen/base/fortran/Makefile 
-           src/tl/codegen/base/legacy_cxx/Makefile 
-           src/tl/codegen/base/legacy_fortran/Makefile 
-           src/tl/omp/Makefile 
+           src/tl/codegen/Makefile
+           src/tl/codegen/common/Makefile
+           src/tl/codegen/base/Makefile
+           src/tl/codegen/base/cxx/Makefile
+           src/tl/codegen/base/fortran/Makefile
+           src/tl/codegen/base/legacy_cxx/Makefile
+           src/tl/codegen/base/legacy_fortran/Makefile
+           src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
-           src/tl/omp/fun-tasks/Makefile 
-           src/tl/omp/profile/Makefile 
-           src/tl/omp/ss2omp/Makefile 
-           src/tl/omp/nanos-common/Makefile 
-           src/tl/omp/nanox-nodecl/Makefile 
-           src/tl/omp/nanox/Makefile 
-           src/tl/omp/nanox/devices/Makefile 
-           src/tl/omp/nanox/devices/common/Makefile    
-           src/tl/omp/nanox/devices/smp/Makefile    
+           src/tl/omp/fun-tasks/Makefile
+           src/tl/omp/profile/Makefile
+           src/tl/omp/ss2omp/Makefile
+           src/tl/omp/nanos-common/Makefile
+           src/tl/omp/nanox-nodecl/Makefile
+           src/tl/omp/nanox/Makefile
+           src/tl/omp/nanox/devices/Makefile
+           src/tl/omp/nanox/devices/common/Makefile
+           src/tl/omp/nanox/devices/smp/Makefile
            src/tl/omp/nanox/devices/smp_numa/Makefile
            src/tl/omp/nanox/devices/smp_ocl/Makefile
-           src/tl/omp/nanox/devices/cuda/Makefile 
+           src/tl/omp/nanox/devices/cuda/Makefile
            src/tl/omp/nanox/devices/gpu/Makefile
-           src/tl/omp/nanos4/Makefile 
-           src/tl/instr/Makefile 
-           src/tl/instr_pthreads/Makefile 
+           src/tl/omp/nanos4/Makefile
+           src/tl/instr/Makefile
+           src/tl/instr_pthreads/Makefile
            src/tl/stm_func/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1498,7 +1510,7 @@ then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
 
-  if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
+  if test ! -e "$nanox_include" -o ! -d "$nanox_include";
   then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
@@ -1540,11 +1552,11 @@ then
 fi
 echo ""
 
-if test x$flex_good = xno; 
+if test x$flex_good = xno;
 then
   AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
 fi
-if test x$bison_good = xno; 
+if test x$bison_good = xno;
 then
   AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
 fi

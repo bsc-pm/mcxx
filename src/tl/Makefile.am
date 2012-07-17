@@ -25,12 +25,12 @@
 ##########################################################################
 
 SUBDIRS = . codegen omp analysis
-# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
+# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@
 
 END=
 
 DIST_SUBDIRS=analysis \
-			 omp \
+             omp \
              superscalar \
              instr \
              instr_pthreads \
@@ -40,13 +40,13 @@ DIST_SUBDIRS=analysis \
              hlt \
              ss_valgrind \
              manip \
-			 codegen \
+             codegen \
              $(END)
 
 lib_LTLIBRARIES = libtl.la
 
 BUILT_SOURCES=
-BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h 
+BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h
 BUILT_SOURCES += tl-lexer-tokens.hpp
 
 BUILT_SOURCES += tl-nodecl-visitor.hpp
@@ -150,14 +150,14 @@ libtl_la_SOURCES = \
     tl-handler.cpp \
     tl-predicateutils.hpp \
     tl-predicateutils.cpp \
-	tl-clauses-info.hpp \
-	tl-clauses-info.cpp \
-	tl-pragmasupport.hpp \
-	tl-pragmasupport.cpp \
-	tl-datareference.hpp \
-	tl-datareference.cpp \
-	tl-replace.hpp \
-	tl-replace.cpp \
+    tl-clauses-info.hpp \
+    tl-clauses-info.cpp \
+    tl-pragmasupport.hpp \
+    tl-pragmasupport.cpp \
+    tl-datareference.hpp \
+    tl-datareference.cpp \
+    tl-replace.hpp \
+    tl-replace.cpp \
     tl-modules-fwd.hpp \
     tl-modules.hpp \
     tl-modules.cpp \

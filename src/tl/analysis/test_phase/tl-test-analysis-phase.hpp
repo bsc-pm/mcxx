@@ -24,8 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_DATA_FLOW_PHASE_HPP
-#define TL_DATA_FLOW_PHASE_HPP
+
+
+#ifndef TL_ANALYSIS_PHASE_HPP
+#define TL_ANALYSIS_PHASE_HPP
 
 #include "tl-objectlist.hpp"
 #include "tl-compilerphase.hpp"
@@ -34,28 +36,17 @@ namespace TL
 {
     namespace Analysis
     {
-        //!This phase performs different data-flow analysis
-        /*!Further analysis and optimizations requiere this phase to be executed previously
-        * The analysis and optimizations implemented in this phase are:
-        * - Parallel Control Flow Analysis: This generates a PCFG
-        * - Use-Definition analysis
-        * - Constant propagation and folding
-        * - Unreachable code elimination
-        * - Common subexpression elimination
-        */ 
-        class LIBTL_CLASS DataFlowPhase : public CompilerPhase
+        //! Phase that allows testing compiler analysis
+        class LIBTL_CLASS TestAnalysisPhase : public CompilerPhase
         {
             public:
-                //!Constructor of this phase
-                DataFlowPhase();
+                //! Constructor of this phase
+                TestAnalysisPhase();
                 
                 //!Entry point of the phase
-                /*!This function gets the different FunctionDefinitions / ProgramUnits of the DTO,
-                 * depending on the language of the code
-                 */
                 virtual void run(TL::DTO& dto);
         };
     }
 }
 
-#endif  // TL_FLOW_PHASE_HPP
+#endif  // TL_ANALYSIS_PHASE_HPP

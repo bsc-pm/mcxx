@@ -24,23 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../../Makefile.phases
+include ../../Makefile.phases
 
-phases_LTLIBRARIES = libconstants_analysis.la
+lib_LTLIBRARIES = libpcfg.la
 
-libconstants_analysis_la_CFLAGS = $(tl_cflags)
-libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
-libconstants_analysis_la_LDFLAGS = $(tl_ldflags)
-libconstants_analysis_la_LIBADD = $(tl_libadd) ../../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
+COMMON_FLAGS= $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../constants -I $(srcdir)/../loops
+
+libpcfg_la_CFLAGS = $(COMMON_FLAGS)
+libpcfg_la_CXXFLAGS = $(COMMON_FLAGS)
+libpcfg_la_LDFLAGS = $(tl_ldflags)
+libpcfg_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la
 
 END=
 
-EXTRA_DIST =
-
-libconstants_analysis_la_SOURCES = \
-                                   tl-constants-analysis.hpp \
-                                   tl-constants-analysis.cpp \
-                                   tl-constants-analysis-phase.hpp \
-                                   tl-constants-analysis-phase.hpp \
-                                   $(END)
-
+libpcfg_la_SOURCES= \
+                    tl-edge.hpp \
+                    tl-edge.cpp \
+                    tl-node.hpp \
+                    tl-node.cpp \
+                    tl-extensible-graph.hpp \
+                    tl-extensible-graph.cpp \
+                    tl-pcfg-visitor.hpp \
+                    tl-pcfg-visitor.cpp \
+                    tl-dot-graph.cpp \
+                    $(END)

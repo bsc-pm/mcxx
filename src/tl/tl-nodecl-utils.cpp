@@ -265,7 +265,6 @@ namespace Nodecl
         return false;
     }
     
-    
     bool Utils::nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
     {
         bool res = false;
@@ -326,6 +325,136 @@ namespace Nodecl
             || n.is<Nodecl::ArithmeticShrAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( )
             || n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseAndAssignment>( ) 
             || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Add>( ) || n.is<Nodecl::Minus>( )
+            || n.is<Nodecl::Mul>( ) || n.is<Nodecl::Div>( )
+            || n.is<Nodecl::Mod>( ) || n.is<Nodecl::Plus>( )
+            || n.is<Nodecl::Preincrement>( ) || n.is<Nodecl::Postincrement>( ) 
+            || n.is<Nodecl::Predecrement>( ) || n.is<Nodecl::Postdecrement>( )
+            || nodecl_is_assignment_op( n ) || /* Fortran */ n.is<Nodecl::Power>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_comparison_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Equal>( ) || n.is<Nodecl::Different>( )
+            || n.is<Nodecl::LowerThan>( ) || n.is<Nodecl::GreaterThan>( )
+            || n.is<Nodecl::LowerOrEqualThan>( ) || n.is<Nodecl::GreaterOrEqualThan>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_logical_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::LogicalAnd>( ) || n.is<Nodecl::LogicalOr>( ) 
+            || n.is<Nodecl::LogicalNot>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_bitwise_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::BitwiseAnd>( ) || n.is<Nodecl::BitwiseOr>( )
+            || n.is<Nodecl::BitwiseXor>( ) || n.is<Nodecl::BitwiseNot>( ) 
+            || n.is<Nodecl::Shr>( ) || n.is<Nodecl::Shl>( ))
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_assignment_op ( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Assignment>( ) || n.is<Nodecl::AddAssignment>( )
+            || n.is<Nodecl::MinusAssignment>( ) || n.is<Nodecl::DivAssignment>( )
+            || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( )
+            || n.is<Nodecl::ShrAssignment>( ) || n.is<Nodecl::ShlAssignment>( )
+            || n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( )
+            || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Add>( ) || n.is<Nodecl::Minus>( )
+            || n.is<Nodecl::Mul>( ) || n.is<Nodecl::Div>( )
+            || n.is<Nodecl::Mod>( ) || n.is<Nodecl::Plus>( )
+            || n.is<Nodecl::Preincrement>( ) || n.is<Nodecl::Postincrement>( ) 
+            || n.is<Nodecl::Predecrement>( ) || n.is<Nodecl::Postdecrement>( )
+            || nodecl_is_assignment_op( n ) || /* Fortran */ n.is<Nodecl::Power>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_comparison_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Equal>( ) || n.is<Nodecl::Different>( )
+            || n.is<Nodecl::LowerThan>( ) || n.is<Nodecl::GreaterThan>( )
+            || n.is<Nodecl::LowerOrEqualThan>( ) || n.is<Nodecl::GreaterOrEqualThan>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_logical_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::LogicalAnd>( ) || n.is<Nodecl::LogicalOr>( ) 
+            || n.is<Nodecl::LogicalNot>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_bitwise_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::BitwiseAnd>( ) || n.is<Nodecl::BitwiseOr>( )
+            || n.is<Nodecl::BitwiseXor>( ) || n.is<Nodecl::BitwiseNot>( ) 
+            || n.is<Nodecl::Shr>( ) || n.is<Nodecl::Shl>( ))
+        {
+            res = true;
+        }
+        return res;
+    }
+    
+    bool nodecl_is_assignment_op ( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Assignment>( ) || n.is<Nodecl::AddAssignment>( )
+            || n.is<Nodecl::MinusAssignment>( ) || n.is<Nodecl::DivAssignment>( )
+            || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( )
+            || n.is<Nodecl::ShrAssignment>( ) || n.is<Nodecl::ShlAssignment>( )
+            || n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( )
+            || n.is<Nodecl::BitwiseXorAssignment>( ) )
         {
             res = true;
         }

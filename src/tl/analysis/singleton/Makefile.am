@@ -24,25 +24,20 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../../Makefile.phases
+include ../../Makefile.phases
 
-phases_LTLIBRARIES = libanalysis_utils.la
-
-libanalysis_utils_la_CFLAGS = $(tl_cflags)
-libanalysis_utils_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../
-libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
-libanalysis_utils_la_LIBADD = $(tl_libadd) ../../../libtl.la
+lib_LTLIBRARIES= libanalysis_singleton.la
 
 END=
 
-EXTRA_DIST =
+libanalysis_singleton_la_CFLAGS= $(tl_cflags)
+libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../.. -I $(srcdir)/../common -I $(srcdir)/../pcfg \
+                                                -I $(srcdir)/../constants -I $(srcdir)/../loops
+libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
+libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
+                                              ../constants/libconstants_analysis.la ../loops/libloops_analysis.la
 
-libanalysis_utils_la_SOURCES = \
-   tl-extended-symbol.hpp \
-   tl-extended-symbol.cpp \
-   tl-extended-symbol-utils.hpp \
-   tl-extended-symbol-utils.cpp \
-   tl-analysis-utils.hpp \
-   tl-analysis-utils.cpp \
-   $(END)
-
+libanalysis_singleton_la_SOURCES= \
+                                tl-analysis-singleton.hpp \
+                                tl-analysis-singleton.cpp \
+                                $(END)

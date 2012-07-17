@@ -24,37 +24,55 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg constants loops singleton
+# include ../../Makefile.phases
+
+<<<<<<< Updated upstream:src/tl/analysis/common/Makefile.am
+lib_LTLIBRARIES = libanalysis_utils.la
+
+libanalysis_utils_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../../
+libanalysis_utils_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
+libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
+libanalysis_utils_la_LIBADD = $(tl_libadd) ../../libtl.la
 
 END=
 
-<<<<<<< Updated upstream
-DIST_SUBDIRS= common \
-              pcfg \
-              constants \
-              loops \
-              singleton \
-              test_phase \
-              $(END)
+libanalysis_utils_la_SOURCES= \
+                              tl-extended-symbol.hpp \
+                              tl-extended-symbol.cpp \
+                              tl-extended-symbol-utils.hpp \
+                              tl-extended-symbol-utils.cpp \
+                              tl-analysis-utils.hpp \
+                              tl-analysis-utils.cpp \
+                              $(END)
 =======
-DIST_SUBDIRS=data_flow \
-             $(END)
+SUBDIRS = common pcfg constants loops .
 
-lib_LTLIBRARIES = libanalysis.la
+# END=
+# 
+# DIST_SUBDIRS=common\
+#              pcfg \
+#              constants \
+#              $(END)
+# 
+# phases_LTLIBRARIES = libdata_flow.la
+#              
+# libdata_flow_la_CFLAGS = $(tl_cflags)
+# libdata_flow_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
+# libdata_flow_la_LDFLAGS = $(tl_ldflags)
+# libdata_flow_la_LIBADD = $(tl_libadd) ../../libtl.la
+# 
+# 
+# EXTRA_DIST =
+# 
+# libdata_flow_la_SOURCES = \
+#    tl-analysis-common.hpp \
+#    tl-analysis-common.cpp \
+#    tl-analysis-singleton.hpp \
+#    tl-analysis-singleton.cpp \
+#    tl-cfg-analysis-visitor.hpp \
+#    tl-cfg-analysis-visitor.cpp \
+#    tl-static-analysis.hpp \
+#    tl-static-analysis.cpp \
+#    $(END)
 
-EXTRA_DIST=Makefile.phases \
-$(END)
-
-libanalysis_la_CFLAGS = $(tl_cflags)
-libanalysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/..
-libanalysis_la_LDFLAGS = $(tl_ldflags)
-libanalysis_la_LIBADD = $(tl_libadd)
-
-libanalysis_la_SOURCES = tl-analysis-singleton.hpp \
-                         tl-analysis-singleton.cpp \
-<<<<<<< Updated upstream
-                         $(END)
->>>>>>> Stashed changes
-=======
-                         $(END)
->>>>>>> Stashed changes
+>>>>>>> Stashed changes:src/tl/analysis/data_flow/Makefile.am

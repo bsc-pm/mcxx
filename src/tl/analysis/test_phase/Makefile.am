@@ -24,25 +24,19 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../../Makefile.phases
+include ../../Makefile.phases
 
-phases_LTLIBRARIES = libloops_analysis.la
+phases_LTLIBRARIES = libtest_analysis.la
 
-libloops_analysis_la_CFLAGS = $(tl_cflags)
-libloops_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
-libloops_analysis_la_LDFLAGS = $(tl_ldflags)
-libloops_analysis_la_LIBADD = $(tl_libadd) ../../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
+libtest_analysis_la_CFLAGS = $(tl_cflags)
+libtest_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../singleton
+libtest_analysis_la_LDFLAGS = $(tl_ldflags)
+libtest_analysis_la_LIBADD = $(tl_libadd) ../singleton/libanalysis_singleton.la
 
 END=
 
-EXTRA_DIST =
+libconstants_analysis_la_SOURCES = \
+                                   tl-test-analysis-phase.hpp \
+                                   tl-test-analysis-phase.hpp \
+                                   $(END)
 
-libloops_analysis_la_SOURCES = \
-                               tl-renaming-visitor.hpp \
-                               tl-renaming-visitor.cpp \
-                               tl-iv-analysis.hpp \
-                               tl-iv-analysis.cpp \
-                               $(END)
-
-#    tl-loop-analysis.hpp
-#    tl-loop-analysis.cpp
