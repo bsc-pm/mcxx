@@ -187,18 +187,22 @@ namespace TL { namespace Nanox {
         // Build the structure
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        Source extended_outline_distribute_loop_source;
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        emit_outline(outline_info, statements,
+                outline_name, structure_symbol, 
+                outline_placeholder,
+                symbol_map);
 
+        Source extended_outline_distribute_loop_source;
         extended_outline_distribute_loop_source
             << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << outline_distribute_loop_source
             ;
 
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        emit_outline(outline_info, statements,
-                extended_outline_distribute_loop_source,
-                outline_name, structure_symbol, symbol_map);
+        outline_placeholder.replace(
+                extended_outline_distribute_loop_source.parse_statement(outline_placeholder));
 
         // Now complete the placeholders
         if (IS_FORTRAN_LANGUAGE)

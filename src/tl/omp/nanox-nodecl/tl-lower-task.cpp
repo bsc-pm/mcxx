@@ -419,12 +419,9 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // Outline
-    Source outline_source;
-    Nodecl::NodeclBase placeholder;
-    outline_source << statement_placeholder(placeholder);
-
+    Nodecl::NodeclBase outline_placeholder;
     Nodecl::Utils::SymbolMap *symbol_map = NULL;
-    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
+    emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
 
     if (IS_FORTRAN_LANGUAGE)
     {
@@ -434,10 +431,10 @@ void LoweringVisitor::emit_async_common(
                 outline_info.get_unpacked_function_symbol());
     }
 
-    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
     delete symbol_map;
 
-    placeholder.replace(outline_statements_code);
+    outline_placeholder.replace(outline_statements_code);
 
     Source err_name;
     err_name << "err";
