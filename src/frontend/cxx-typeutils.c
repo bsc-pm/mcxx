@@ -6483,12 +6483,14 @@ static char declarator_needs_parentheses(type_t* type_info)
     return result;
 }
 
-char is_function_or_template_function_name(scope_entry_t* entry, void* p UNUSED_PARAMETER)
+char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER)
 {
     return (entry->kind == SK_FUNCTION
             || (entry->kind == SK_TEMPLATE
                 && (named_type_get_symbol(
-                        template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION)));
+                        template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION))
+            || (entry->kind == SK_VARIABLE
+                && entry->entity_specs.is_extern));
 }
 
 static const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context,
@@ -6511,7 +6513,7 @@ static const char* get_simple_type_name_string_internal_common(scope_entry_t* en
     {
         // It may happen that a function is hiding our typename in this scope
         scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
-        entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+        entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name_or_extern_variable, NULL);
 
         // It seems somebody is hiding our name in this scope
         if (entry_list != NULL)

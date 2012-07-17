@@ -6938,7 +6938,8 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
 
             // It may happen that a function is hiding our typename in this scope
             scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name);
-            entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+            entry_list = filter_symbol_using_predicate(entry_list,
+                    is_function_or_template_function_name_or_extern_variable, NULL);
 
             // It seems somebody is hiding our name in this scope
             if (entry_list != NULL)
