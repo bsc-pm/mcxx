@@ -363,6 +363,7 @@ void ast_dump_graphviz(AST a, FILE* f)
     fprintf(f, "digraph mcxx_ast { \n");
     // fprintf(f, "   nodesep=0.5;\n");
     // fprintf(f, "   splines=polyline;\n");
+    fprintf(f, "   ordering=out;\n");
     fprintf(f, "   colorscheme=ColorBrewer;\n");
     fprintf(f, "   node [layer=\"all\"];\n");
 	fprintf(f, "   edge [layer=\"all\"];\n");
