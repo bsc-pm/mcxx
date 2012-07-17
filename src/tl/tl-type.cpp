@@ -1127,6 +1127,10 @@ namespace TL
 
         return result;
     }
+    TemplateParameters Type::unresolved_overloaded_type_get_explicit_template_arguments()
+    {
+        return ::unresolved_overloaded_type_get_explicit_template_arguments(_type_info);
+    }
 
     //! Returns all the builtins of the type system
     ObjectList<Type> Type::get_integer_types()

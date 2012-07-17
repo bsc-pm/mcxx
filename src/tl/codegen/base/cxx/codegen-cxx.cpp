@@ -2943,11 +2943,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         }
         else if (entry.is_function())
         {
-            // If we are visiting the called entity of a function call, the template arguments
-            // (if any) will be added by 'visit_function_call_form_template_id' function
-            file << this->get_qualified_name(entry,
-                    this->get_current_scope(),
-                    /* without template id */ state.visiting_called_entity_of_function_call);
+            if (node.get_type().is_valid()
+                    && node.get_type().is_unresolved_overload())
+            {
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope().get_decl_context(),
+                        /* without_template_id */ true);
+
+                TL::TemplateParameters template_arguments =
+                    node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
+
+                if (template_arguments.is_valid())
+                {
+                    file << ::template_arguments_to_str(
+                            template_arguments.get_internal_template_parameter_list(),
+                            /* first_template_argument_to_be_printed */ 0,
+                            /* print_first_level_bracket */ 1,
+                            this->get_current_scope().get_decl_context());
+                }
+            }
+            else
+            {
+                // If we are visiting the called entity of a function call, the template arguments
+                // (if any) will be added by 'visit_function_call_form_template_id' function
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope(),
+                        /* without template id */ state.visiting_called_entity_of_function_call);
+            }
         }
         else if (!entry.is_dependent_entity())
         {
