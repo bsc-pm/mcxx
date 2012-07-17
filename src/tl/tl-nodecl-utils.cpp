@@ -723,7 +723,17 @@ namespace Nodecl
             // Simple case
             Nodecl::NodeclBase nodecl_original_parent = dest.get_parent();
             ::nodecl_replace(dest.get_internal_nodecl(), src.get_internal_nodecl());
+
+            // Reparent new children of dest
             ::nodecl_set_parent(dest.get_internal_nodecl(), nodecl_original_parent.get_internal_nodecl());
+            for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            {
+                nodecl_t child = nodecl_get_child(dest.get_internal_nodecl(), i);
+                if (!nodecl_is_null(child))
+                {
+                    ::nodecl_set_parent(nodecl_get_child(dest.get_internal_nodecl(), i), dest.get_internal_nodecl());
+                }
+            }
         }
     }
 
