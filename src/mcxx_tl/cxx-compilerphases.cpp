@@ -125,7 +125,7 @@ namespace TL
 
                     }
 
-                    if (!ast_check(translation_unit->parsed_tree))
+                    if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                     {
                         internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
                                 phase->get_phase_name().c_str());
@@ -210,7 +210,7 @@ namespace TL
 
                     }
 
-                    if (!ast_check(translation_unit->parsed_tree))
+                    if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                     {
                         internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
                                 phase->get_phase_name().c_str());
