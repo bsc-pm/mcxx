@@ -24,11 +24,9 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-
-#include <cassert>
-
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
+#include "tl-constants-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
 
 namespace TL {
@@ -39,65 +37,73 @@ namespace Analysis {
 
     // Private constructor
     AnalysisSingleton::AnalysisSingleton( TL::DTO& dto )
-        : _dto( dto ), _states( ), _pcfgs( ), _state( ), _pcfg( )
+        : _dto( dto ), _non_inlined_pcfgs( ), _non_inlined_states( ), _inlined_pcfgs( ), _inlined_states( )
     {}
 
     // Single instance constructor
-    AnalysisSingleton* AnalysisSingleton::get_analysis()
+    AnalysisSingleton* AnalysisSingleton::get_analysis( TL::DTO& dto )
     {
         if ( !_analysis )
-            _analysis = new AnalysisSingleton( );
+            _analysis = new AnalysisSingleton( dto );
         return _analysis;
     }
 
     // Public destructor
     AnalysisSingleton::~AnalysisSingleton( )
     {
-        delete _dto;
-        _pcfgs.clear( );
-        _states.clear( );
         delete _analysis;
+        _non_inlined_pcfgs.clear( );
+        _non_inlined_states.clear( );
+        _inlined_pcfgs.clear( );
+        _inlined_states.clear( );
     }
 
-    void AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool ipa )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool inline_pcfg )
     {
-        std::string pcfg_name = Utils::generate_hashed_name( ast );
-        if ( !ipa && _pcfgs.find( pcfg_name ) != _pcfgs.end( ) )
-        {   // Only create the PCFG if it has not been created previously
-            return;
-        }
+        // Get all functions in \ast
+        Utils::TopLevelVisitor tlv;
+        tlv.walk_functions( ast );
 
-        // Create the PCFG
-        ExtensibleGraph* pcfg = new ExtensibleGraph( pcfg_name, ast.retrieve_context( ) );
-        PCFGVisitor v( pcfg );
-        v.build_pcfg( ast );
+        ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
+        ObjectList<ExtensibleGraph*> pcfgs;
 
-        // Store the pcfg in the proper member depending on the analysis, whether it is IPA or not
-        Analysis_st empty_analysis_state;
-        if( ipa )
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
         {
-            _pcfg = pcfg;
-            _state = empty_analysis_state;
-        }
-        else
-        {   // Add the graph to the member maps
-            _pcfgs[pcfg_name] = pcfg;
-            _states[pcfg_name] = empty_analysis_state;
+            std::string pcfg_name = Utils::generate_hashed_name( *it );
+
+            // Only create the PCFG if it has not been created previously
+            if( ( inline_pcfg && _inlined_pcfgs.find( pcfg_name ) == _inlined_pcfgs.end( ) )
+                || ( !inline_pcfg && _non_inlined_pcfgs.find( pcfg_name ) == _non_inlined_pcfgs.end( ) ) )
+            {
+                // Create the PCFG
+                PCFGVisitor v( pcfg_name, it->retrieve_context( ), inline_pcfg );
+                ExtensibleGraph* pcfg = v.build_pcfg( ast );
+
+                // Store the pcfg in the proper member depending on the analysis, whether it is IPA or not
+                Analysis_st empty_analysis_state;
+                if( inline_pcfg )
+                {
+                    _inlined_pcfgs[pcfg_name] = pcfg;
+                    _inlined_states[pcfg_name] = empty_analysis_state;
+                }
+                else
+                {   // Add the graph to the member maps
+                    _non_inlined_pcfgs[pcfg_name] = pcfg;
+                    _non_inlined_states[pcfg_name] = empty_analysis_state;
+                }
+            }
         }
     }
 
-    void AnalysisSingleton::conditional_constant_propagation( Nodecl::NodeclBase ast, bool ipa )
+    void AnalysisSingleton::conditional_constant_propagation( )
     {
-        std::string pcfg_name = Utils::generate_hashed_name( ast );
-        if ( _pcfgs.find( pcfg_name ) == _pcfgs.end( ) )
-        {   // Create the PCFG if it has not been created previously
-            parallel_control_flow_graph( ast );
-        }
+        ConstantsAnalysisPhase::run( _dto );
+    }
 
-        assert( _pcfgs.find( pcfg_name ) != _pcfgs.end( ) );
-        ConstantsAnalysisPhase::run( dto );
+    void AnalysisSingleton::conditional_constant_propagation( ExtensibleGraph* pcfg, bool ipa )
+    {
         ConditionalConstantAnalysis ca( ipa );
-        ca.conditional_constant_propagation( _pcfgs[pcfg_name] );
+        ca.conditional_constant_propagation( pcfg );
     }
 
     void AnalysisSingleton::expression_canonicalization( Nodecl::NodeclBase ast )
@@ -120,21 +126,14 @@ namespace Analysis {
 
     }
 
-
-
-    ExtensibleGraph* AnalysisSingleton::get_pcfg( )
+    ObjectList<ExtensibleGraph*> get_ipa_pcfgs( )
     {
-        return _pcfg;
+
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::get_pcfgs( )
+    ObjectList<ExtensibleGraph*> get_non_ipa_pcfgs( )
     {
-        ObjectList<ExtensibleGraph*> pcfgs;
-        for (Analysis_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it)
-        {
-            pcfgs.append( it->second );
-        }
-        return pcfgs;
+
     }
 
 }

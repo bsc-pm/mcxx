@@ -1,6 +1,6 @@
 # Base
 [plain-base]
-{cfg} compiler_phase = libdata_flow.so
+{analysis} compiler_phase = libtest_analysis.so
 {omp} compiler_phase = libtlomp-core.so
 {ompbase} compiler_phase = libtlomp-base.so
 
@@ -11,29 +11,29 @@ options =
 preprocessor_name = gcc
 preprocessor_options = -E
 compiler_name = gcc
-compiler_options = 
+compiler_options =
 linker_name = gcc
-linker_options = 
+linker_options =
 
 [plaincxx : plain-base]
 language = C++
-options = 
+options =
 preprocessor_name = g++
-preprocessor_options = -E 
+preprocessor_options = -E
 compiler_name = g++
-compiler_options = 
+compiler_options =
 linker_name = g++
-linker_options = 
+linker_options =
 
 [plainfc : plain-base]
 language = Fortran
-options = 
+options =
 {openmp} options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = gfortran
 fortran_preprocessor_options = -cpp -E
 compiler_name = gfortran
-compiler_options = 
+compiler_options =
 linker_name = gfortran
-linker_options = 
+linker_options =
 
 [plainf95 : plainfc]

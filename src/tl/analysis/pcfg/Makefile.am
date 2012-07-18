@@ -42,6 +42,7 @@ libpcfg_la_SOURCES= \
                     tl-edge.cpp \
                     tl-node.hpp \
                     tl-node.cpp \
+                    tl-pcfg-utils.hpp \
                     tl-extensible-graph.hpp \
                     tl-extensible-graph.cpp \
                     tl-pcfg-visitor.hpp \

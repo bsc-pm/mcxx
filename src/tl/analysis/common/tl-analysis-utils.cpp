@@ -24,9 +24,10 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#include <cassert>
 #include <sstream>
 
+#include "cxx-codegen.h"
+#include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-nodecl.hpp"
 
@@ -185,75 +186,96 @@ namespace Utils {
 
 
     // *********************************************************************** //
-    // ************************ Main function Visitor ************************ //
+    // ************************ Top Level Visitor ************************ //
 
     Nodecl::NodeclBase find_main_function( Nodecl::NodeclBase ast )
     {
-        MainFunctionVisitor mv;
-        mv.walk( ast );
-        return mv.get_main( );
+        TopLevelVisitor tlv;
+        tlv.walk( ast );
+        return tlv.get_main( );
     }
 
-    MainFunctionVisitor::MainFunctionVisitor( )
-        : _main ( Nodecl::NodeclBase::null( ) )
+    TopLevelVisitor::TopLevelVisitor( )
+        : _main ( Nodecl::NodeclBase::null( ) ), _functions( )
     {}
 
-    Nodecl::NodeclBase MainFunctionVisitor::get_main( )
+    Nodecl::NodeclBase TopLevelVisitor::get_main( ) const
     {
         return _main;
     }
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::AsmDefinition& n ) {}
+    ObjectList<Nodecl::NodeclBase> TopLevelVisitor::get_functions( ) const
+    {
+        return _functions;
+    }
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::GccAsmDefinition& n ) {}
+    void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
+    {
+        walk( n );
+    }
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::GccAsmSpec& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    {
+        std::cerr << "Unhandled node while CFG construction '"
+        << codegen_to_str( n.get_internal_nodecl( ),
+                           nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
+        << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        return Ret( );
+    }
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::GccBuiltinVaArg& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxDecl& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxDef& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxExplicitInstantiation& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccBuiltinVaArg& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDecl& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxUsingNamespace& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::CxxUsingDecl& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
 
-    AssignedExtSymVisitor::Ret MainFunctionVisitor::visit( const Nodecl::FunctionCode& n )
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
+
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
+
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingDecl& n ) {}
+
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
     {
         Symbol sym = n.get_symbol( );
-        assert( sym.is_valid( ) );
+        ASSERT_MESSAGE( sym.is_valid( ), "TopLevelVisitor::FunctionCode node has an invalid symbol", 0 );
 
         std::string name = sym.get_name( );
         if ( name == "main" )
             _main = n;
+
+        _functions.append( n );
     }
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::GxxTrait& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::ObjectInit& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::PragmaCustomDeclaration& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::PragmaCustomDirective& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::PreprocessorLine& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PreprocessorLine& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::SourceComment& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::SourceComment& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::Text& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Text& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::UnknownPragma& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UnknownPragma& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::UpcSyncStatement& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UpcSyncStatement& n ) {}
 
-    AssignedExtSymVisitor::Ret visit( const Nodecl::Verbatim& n ) {}
+    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
-    // ********************** END main function Visitor ********************** //
+    // ************************ END top level Visitor ************************ //
     // *********************************************************************** //
 }
 }

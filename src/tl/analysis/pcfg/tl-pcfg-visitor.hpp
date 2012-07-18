@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option ) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -34,96 +34,45 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-node.hpp"
+#include "tl-pcfg-utils.hpp"
 
 
 namespace TL {
 namespace Analysis {
-    
-    struct loop_control_nodes_t {
-        Node* init;
-        Node* cond;
-        Node* next;
-        
-        loop_control_nodes_t() 
-            : init(NULL), cond(NULL), next(NULL)
-        {}
-        
-        loop_control_nodes_t( const loop_control_nodes_t& loop_control)
-        {
-            init = loop_control.init;
-            cond = loop_control.cond;
-            next = loop_control.next;
-        }
-        
-        void clear()
-        {
-            init = NULL;
-            cond = NULL;
-            next = NULL;
-        }
-        
-        bool is_empty()
-        {
-            return ((init==NULL) && (cond==NULL) && (next==NULL));
-        }
-    };
-    
-    struct try_block_nodes_t {
-        ObjectList<Node*> handler_parents;
-        ObjectList<Node*> handler_exits;
-        int nhandlers;
-        
-        try_block_nodes_t()
-            : handler_parents(), handler_exits(), nhandlers(-1)
-        {}
-        
-        try_block_nodes_t( const try_block_nodes_t& try_block)
-        {
-            handler_parents = try_block.handler_parents;
-            handler_exits = try_block.handler_exits;
-        }
-        
-        void clear()
-        {
-            handler_parents.clear();
-            handler_exits.clear();
-            nhandlers = -1;
-        }  
-    };
-    
+
     struct clause_t {
         std::string clause;
         ObjectList<Nodecl::NodeclBase> args;
-        
+
         clause_t()
             : clause(), args()
         {}
-        
+
         clause_t(std::string s)
             : clause(s), args()
         {}
-        
+
         clause_t( const clause_t& c)
         {
             clause = c.clause;
             args = c.args;
         }
-    };    
-    
+    };
+
     struct pragma_t {
         ObjectList<Nodecl::NodeclBase> params;
         ObjectList<struct clause_t> clauses;
-        
+
         pragma_t()
             : params(), clauses()
         {}
-        
+
         pragma_t( const pragma_t& p)
         {
             params = p.params;
             clauses = p.clauses;
         }
-        
+
         bool has_clause(std::string s)
         {
             for (ObjectList<struct clause_t>::iterator it = clauses.begin();
@@ -132,67 +81,67 @@ namespace Analysis {
             {
                 if (it->clause == s) return true;
             }
-            
+
             return false;
         }
     };
-    
+
     struct omp_pragma_sections_t {
         ObjectList<Node*> section_parents;
         ObjectList<Node*> sections_exits;
-        
+
         omp_pragma_sections_t(ObjectList<Node*> parents)
             : section_parents(parents), sections_exits()
         {}
-        
+
         omp_pragma_sections_t( const omp_pragma_sections_t& sections)
         {
             section_parents = sections.section_parents;
             sections_exits = sections.sections_exits;
         }
-    };  
+    };
 
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
-        
-        // *** All these variables are used while building of the graphs *** //
-        
-        ExtensibleGraph* _current_pcfg;
-        
+
+        ExtensibleGraph* _pcfg;     /*!< Actual PCFG which is being built during the visit */
+
+        bool _inline;               /*!< Boolean indicating whether function call nodes must be
+                                         substituted by the PCFG corresponding to its code, when possible */
+
+        PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
+
+        // *** All these members are used while building of the graphs *** //
+
         std::stack<Nodecl::NodeclBase> _context_s;
-        
-        ObjectList<Node*> _return_nodes;
-        
-        std::stack<struct loop_control_nodes_t> _loop_info_s;
-    
-        ObjectList<struct try_block_nodes_t> _actual_try_info;
-        
+
         std::stack<struct pragma_t> _pragma_info_s;
-    
+
         std::stack<struct omp_pragma_sections_t> _omp_sections_info;
-        
+
         std::stack<Node*> _switch_cond_s;
-        
+
         ObjectList<Symbol> _visited_functions;
-        
+
+
         //! This method creates a list with the nodes in an specific subgraph
         /*!
         * \param node First node to be traversed. The method will visit all nodes from here.
         */
         void compute_catch_parents(Node* node);
-        
+
         //! This method finds the parent nodes in a sequence of connected nodes
         /*!
          * The method fails when the sub-graph has more than one entry node.
          * Since this method is used specifically to collapse the nodes created while building the node of an expression
-         * we expect to find only one entry node. 
+         * we expect to find only one entry node.
          * (We don't refer a node of BASIC_ENTRY_NODE type, but the first node in the sub-graph)
          * \param actual_node Node we are computing in this moment
          * \return The entry node of a sub-graph
          */
         ObjectList<Node*> get_first_nodes(Node* actual_node);
-        
+
         //! This method merges a list of nodes containing an Expression into one
         /*!
         * The way the method merges the nodes depends on the kind of the nodes to be merged:
@@ -200,9 +149,9 @@ namespace Analysis {
         * \param n Nodecl containing a Expression which will be wrapped in the new node
         * \param nodes_l List of nodes containing the different parts of an expression
         * \return The new node created
-        */        
+        */
         Node* merge_nodes(Nodecl::NodeclBase n, ObjectList<Node*> nodes_l);
-        
+
         //! This is a wrapper method of #merge_nodes for the case having only one or two nodes to be merged
         /*!
         * \param n Nodecl containing a Expression which will be wrapped in the new node
@@ -210,7 +159,7 @@ namespace Analysis {
         * \param second Pointer to the node containing other part of the new node
         */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
-        
+
         //! This a wrapper method of #merge_nodes for the case we are merging an array subscript
         /*!
         * Since the subscripts are built form left to right, we may not have a nodecl containing the whole subscript
@@ -218,111 +167,144 @@ namespace Analysis {
         * \param subscript Pointer to the node containing the actual subscript
         */
         Node* merge_nodes(Node* subscripted, Node* subscript);
-    
+
+
+
+        // ************************************************************************************** //
+        // ********************************** Visiting methods ********************************** //
+
+        //! This method implements the visitor for binary nodecls
+        /*!
+         * The nodes wrapped in this visitor method are:
+         *   Add, AddAssignment, ArithmeticShr, ArithmeticShrAssignment, Assignment,
+         *   BitwiseAnd, BitwiseAndAssignment, BitwiseOr, BitwiseOrAssignment,
+         *   BitwiseShl, BitwiseShlAssignment, BitwiseShr, BitwiseShrAssignment,
+         *   BitwiseXor, BitwiseXorAssignment, ClassMemberAccess, Concat, Different,
+         *   Div, DivAssignment, Equal, GreaterOrEqualThan, GreaterThan, LogicalAnd,
+         *   LogicalOr, LowerOrEqualThan, LowerThan, MinusAssignment, Mod, ModAssignment,
+         *   Mul, MulAssignment, Offset, Offsetof, Power
+         * \param lhs Nodecl to be visited
+         * \param lhs Left-hand side of the nodecl
+         * \param rhs Right-hand side of the nodecl
+         */
+        Ret visit_binary_node( const Nodecl::NodeclBase& n,
+                               const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+
+        //! This method implements the visitor for a CaseStatement and for DefaultStatement
+        /*!
+         * \param n Nodecl containing the Case or the Default Statement
+         * \return The graph node created while the Statement has been parsed
+         */
+        Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::NodeclBase& case_val );
+
+        //! This method implements the visitor for nodecls generating a unique node containing itself
+        /*!
+         * The nodes wrapped in this visitor method are:
+         *   BooleanLiteral, ComplexLiteral, EmptyStatement, FloatingLiteral,
+         *   IntegerLiteral, StringLiteral, Symbol, Type
+         * \param n The nodecl
+         */
+        Ret visit_literal_node( const Nodecl::NodeclBase& n );
+
+        //! This method implements the visitor for unary nodecls
+        /*!
+         * The nodes wrapped in this visitor method are:
+         *   BitwiseNot, Cast, Delete, DeleteArray, Dereference, LogicalNot, Neg, New, Plus,
+         *   Postdecrement, Postincrement, Predecrement, Preincrement, Reference, Sizeof,
+         *   Typeid
+         * \param rhs Right-hand side
+         */
+        Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+
         //! This method build the graph node containing the CFG of a task
         /*!
         * The method stores the graph node into the list #_task_graphs_l
-        * We can place the task any where in the graph taking into account that the position must 
+        * We can place the task any where in the graph taking into account that the position must
         * respect the initial dependences
         */
         template <typename T>
         Ret create_task_graph( const T& n );
-        
+
         //! This method implements the visitor for a VirtualFunctionCall and a FunctionCall
         /*!
          * \param n Nodecl containinf the VirtualFunctionCall or the FunctionCall
          * \return The graph node created while the function call has been parsed
          */
         template <typename T>
-        Ret function_call_visit( const T& n );
-        
-        //! This method implements the visitor for a CaseStatement and for DefaultStatement
-        /*!
-         * \param n Nodecl containing the Case or the Default Statement
-         * \return The graph node created while the Statement has been parsed
-         */
-        template <typename T>
-        Ret visit_case_or_default( const T& n );
-        
+        Ret visit_function_call( const T& n );
+
         template<typename T>
         Ret visit_pragma_construct( const T& n );
-        
-        
+
+        // ******************************** END visiting methods ******************************** //
+        // ************************************************************************************** //
+
+
+
         // ************************* IPA ************************* //
-            
+
         //! Computes the liveness information of each node regarding only its inner statements
         /*!
             A variable is Killed (X) when it is defined before than used in X.
             A variable is Upper Exposed (X) when it is used before than defined in X.
             */
         void gather_live_initial_information(Node* actual);
-        
+
         //! Sets the initial liveness information of the node.
         /*!
         * The method computes the used and defined variables of a node taking into account only
         * the inner statements.
         */
         void set_live_initial_information(Node* node);
-            
+
         bool propagate_use_rec(Node* actual);
-        
+
         bool func_has_cyclic_calls_rec(Symbol reach_func, Symbol stop_func, ExtensibleGraph * graph);
-        
-        
+
+
     public:
-        
+
         // ************************************************************************************** //
         // ************************************ Constructors ************************************ //
-        //! Default constructor
-        /*!
-        * This method is used when we want to perform the analysis from the Analyisis phase
-        */
-        PCFGVisitor();
-        
-        //! Constructor which built a CFG
-        /*!
-        * This method is used when we want to perform the analysis starting from any piece of code.
-        * Not necessarily from a TopLevel or a FunctionCode node.
-        */        
-        PCFGVisitor(ExtensibleGraph* pcfg);
-        
+
+        //! Constructor building an empty PCFG
+        PCFGVisitor( std::string name, Scope context, bool inline_pcfg,
+                     PCFGVisitUtils* utils = new PCFGVisitUtils( ) );
+
         // ********************************** END constructors ********************************** //
         // ************************************************************************************** //
-        
-        
-        
+
+
+
         // ************************************************************************************** //
         // ******************************** Non-visiting methods ******************************** //
-        
-        void build_pcfg( const Nodecl::NodeclBase& n );
-        
-        void set_actual_cfg(ExtensibleGraph* graph);
 
-        void analyse_induction_variables( ExtensibleGraph* graph );
+        ExtensibleGraph* build_pcfg( const Nodecl::NodeclBase& n );
+
+        void set_actual_pcfg(ExtensibleGraph* graph);
 
         // ****************************** END non-visiting methods ****************************** //
         // ************************************************************************************** //
-        
-        
-        
-        
+
+
+
         // ************************* IPA ************************* //
         //! Computes the define-use chain of a node
         void compute_use_def_chains(Node* node);
-        
+
         //! Analyse loops and ranged access to variables. Recomputes use-def and reaching definitions
         //! with the info of iterated accesses
         void analyse_loops(Node* node);
-        
+
         //! Once the use-def chains are calculated for every graph, we are able to recalculate the use-def of every function call
-        bool propagate_use_def_ipa(Node* node);        
-        
+        bool propagate_use_def_ipa(Node* node);
+
         bool func_has_cyclic_calls(Symbol actual_func, ExtensibleGraph* graph);
-        
-        
+
+
         // ************************************************************************************** //
         // ********************************** Visiting methods ********************************** //
-        
+
         Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::AddAssignment& n );
@@ -422,7 +404,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
         Ret visit( const Nodecl::WhileStatement& n );
-        
+
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
     };

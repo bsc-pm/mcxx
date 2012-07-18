@@ -30,6 +30,9 @@
 #include "tl-extended-symbol.hpp"
 #include "tl-nodecl-visitor.hpp"
 
+#define VERBOSE ( CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
+                  CURRENT_CONFIGURATION->debug_options.enable_debug_code )
+
 namespace TL {
 namespace Analysis {
 namespace Utils {
@@ -101,22 +104,28 @@ namespace Utils {
         Ret visit( const Nodecl::Symbol& n );
     };
 
-    //! Visitor to get the main function of a program, if it exists
-    class LIBTL_CLASS MainFunctionVisitor : public Nodecl::ExhaustiveVisitor<void>
+    //! Visitor to visit Top Level nodes
+    //! It also recognizes the main function in C/C++ codes if it exists
+    class LIBTL_CLASS TopLevelVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
         // ******* Class attributes ******* //
         Nodecl::NodeclBase _main;
+        ObjectList<Nodecl::NodeclBase> _functions;
 
     public:
         // ********* Constructors ********* //
         //! Constructor
-        MainFunctionVisitor( );
+        TopLevelVisitor( );
 
         // ****** Getters and setters ****** //
-        Nodecl::NodeclBase get_main( );
+        Nodecl::NodeclBase get_main( ) const;
+        ObjectList<Nodecl::NodeclBase> get_functions( ) const;
 
         // ******** Visiting methods ******* //
+
+        void walk_functions( const Nodecl::NodeclBase& n );
+
         //! Visiting methods
         /*!We re-implement all TopLevel nodecl to avoid continue visiting in case
          * the main function has already been found.
@@ -130,6 +139,7 @@ namespace Utils {
          *                            AsmDefinition, GccAsmDefinition, GccAsmSpec, UpcSyncStatement
          *                            GccBuiltinVaArg, GxxTrait, Text
          */
+        Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret visit( const Nodecl::AsmDefinition& n );
         Ret visit( const Nodecl::GccAsmDefinition& n );
         Ret visit( const Nodecl::GccAsmSpec& n );

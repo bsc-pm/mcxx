@@ -29,6 +29,7 @@
 
 #include <map>
 
+#include "tl-constants-analysis-phase.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-extensible-graph.hpp"
 
@@ -65,18 +66,18 @@ namespace Analysis {
         // ************************************************************************** //
         // *************************** Private attributes *************************** //
 
+        static AnalysisSingleton* _analysis;
+
+        // Translation Unit used when analysis are called as phases
         DTO& _dto;
 
-        // Variables used when PCFGS are created independently
-        Analysis_state_map _states;
-        Analysis_pcfg_map _pcfgs;   // Set of pcfgs created.
-                                    // Needed for IPA analysis in PCFGVisitor class
+        // Variables used when one PCFGs are created mantaining called functions
+        Analysis_pcfg_map _non_inlined_pcfgs;   // Set of ipa PCFGs created.
+        Analysis_state_map _non_inlined_states; // State of each ipa PCFG analysis
 
-        // Variables used when one PCFG is created for the whole program
-        Analysis_st _state;
-        ExtensibleGraph* _pcfg;
-
-        static AnalysisSingleton* _analysis;
+        // Variables used when PCFGS are created inlining PCFGs of called functions
+        Analysis_pcfg_map _inlined_pcfgs;   // Set of ipa PCFGs created.
+        Analysis_state_map _inlined_states; // State of each ipa PCFG analysis
 
         // ************************* End private attributes ************************* //
         // ************************************************************************** //
@@ -107,7 +108,7 @@ namespace Analysis {
         ~AnalysisSingleton( );
 
         //!Single instance constructor
-        static AnalysisSingleton* get_analysis( );
+        static AnalysisSingleton* get_analysis( TL::DTO& dto );
 
         // ************************* End singleton methods ************************** //
         // ************************************************************************** //
@@ -118,28 +119,31 @@ namespace Analysis {
         // **************************** Analysis methods **************************** //
 
         /*!This analysis creates a Parallel Control Flow Graph from \ast
-         * \param ast Tree containing the programm to construct the PCFG of
-         * \param ipa Boolean indicating whether the Function Call nodes must be substituted by the called functions code
-         * \return The actual PCFG created
+         * \param ast Tree containing the code to construct the PCFG(s)
+         * \param ipa Boolean indicating whether Function Call nodes must be substituted by the called functions code
+         * \return A list with the created PCFG(s)
          */
-        void parallel_control_flow_graph( Nodecl::NodeclBase ast, bool ipa = false );
+        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast, bool inline_pcfg );
 
-        /*!This optimization performs Conditional Constant Propagation (CCP) over the AST represented by \ast
+        /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
          * that takes conditional branches into account applying Unreachable Code Elimination.
-         * @param ast Tree where applying Constant Propagation Optimization
+         * @param pcfg PCFG where applying Constant Propagation Optimization
          * @param ipa Boolan indicating whether this analysis is Inter-procedural or not
          *            It is 'false' by default. Value 'true' is allowed only in case the ast contains a C/C++ main function.
          */
-        void conditional_constant_propagation ( Nodecl::NodeclBase ast, bool ipa = false );
+        void conditional_constant_propagation( ExtensibleGraph* pcfg, bool ipa = false );
 
-        void expression_canonicalization ( Nodecl::NodeclBase ast );
+        //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
+        void conditional_constant_propagation( );
 
-        void use_def ( Nodecl::NodeclBase ast );
+        void expression_canonicalization( Nodecl::NodeclBase ast );
 
-        void liveness ( Nodecl::NodeclBase ast );
+        void use_def( Nodecl::NodeclBase ast );
 
-        void induction_variables ( Nodecl::NodeclBase ast );
+        void liveness( Nodecl::NodeclBase ast );
+
+        void induction_variables( Nodecl::NodeclBase ast );
 
         // ************************** End analysis methods ************************** //
         // ************************************************************************** //
@@ -149,9 +153,9 @@ namespace Analysis {
         // ************************************************************************** //
         // *************************** Getters and setters ************************** //
 
-        ExtensibleGraph* get_pcfg( );
+        ObjectList<ExtensibleGraph*> get_inlined_pcfgs( );
 
-        ObjectList<ExtensibleGraph*> get_pcfgs( );
+        ObjectList<ExtensibleGraph*> get_non_inlined_pcfgs( );
 
         // ************************* End getters and setters ************************ //
         // ************************************************************************** //
