@@ -6234,7 +6234,7 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
     if (is_bool_type(no_ref(t1)))
     {
         if (is_arithmetic_type(no_ref(t2))
-                    && is_arithmetic_type(no_ref(t3)))
+                && is_arithmetic_type(no_ref(t3)))
         {
             return 1;
         }
@@ -6251,6 +6251,16 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
                 && equivalent_types(
                     get_unqualified_type(no_ref(t2)), 
                     get_unqualified_type(no_ref(t3))))
+        {
+            return 1;
+        }
+        else if (is_pointer_type(no_ref(t2)) != is_pointer_type(no_ref(t3))
+                && is_zero_type(t2) != is_zero_type(t3))
+        {
+            return 1;
+        }
+        else if (is_pointer_to_member_type(no_ref(t2)) != is_pointer_to_member_type(no_ref(t3))
+                && is_zero_type(t2) != is_zero_type(t3))
         {
             return 1;
         }
@@ -6501,8 +6511,10 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             return;
         }
 
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && (is_class_type(no_ref(second_type)) 
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type)))
+                && (is_class_type(no_ref(second_type))
                     || is_class_type(no_ref(third_type))))
         {
             /*
@@ -6566,13 +6578,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
          * is used there to force a conversion
 
          */
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && ((is_class_type(no_ref(second_type))
-                        || is_class_type(no_ref(third_type)))
-                    || (is_enum_type(no_ref(second_type))
-                        || is_enum_type(no_ref(third_type)))
-                    )
-                )
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type))))
         {
             builtin_operators_set_t builtin_set;
 
@@ -6726,7 +6734,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
 
     if (is_lvalue_reference_type(second_type)
             && is_lvalue_reference_type(third_type)
-            && equivalent_types(no_ref(second_type), no_ref(third_type)))
+            && equivalent_types(
+                get_unqualified_type(no_ref(second_type)),
+                get_unqualified_type(no_ref(third_type))))
     {
         final_type = lvalue_ref(final_type);
     }
