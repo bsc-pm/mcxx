@@ -14,3 +14,7 @@ linker_options =
 codegen_phase = libcodegen-cxx.so
 target_options[mfc] = no_sublink embed
 target_options[mf95] = no_sublink embed
+target_options[imfc] = no_sublink embed
+target_options[imf95] = no_sublink embed
+target_options[xlmfc] = no_sublink embed
+target_options[xlmf95] = no_sublink embed

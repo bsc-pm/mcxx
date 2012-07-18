@@ -613,6 +613,21 @@ then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
    fi
 
+   dnl Check Intel Fortran
+   AC_PATH_PROG([IFORT], [ifort], [])
+   if test x$IFORT != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} imfc imf95"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+   fi
+
+   dnl IBM Fortran
+   AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+   if test x$IFORT != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+   fi
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
