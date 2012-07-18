@@ -623,7 +623,7 @@ then
 
    dnl IBM Fortran
    AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
-   if test x$IXLF != x;
+   if test x$XLF != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
