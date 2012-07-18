@@ -27,8 +27,10 @@ config_edit = \
      -e 's|@RPATH_PARAMETER[@]|$(RPATH_PARAMETER)|g' \
      -e 's|@ICC[@]|$(ICC)|g' \
      -e 's|@ICPC[@]|$(ICPC)|g' \
+     -e 's|@IFORT[@]|$(IFORT)|g' \
      -e 's|@GXLC[@]|$(GXLC)|g' \
      -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
+     -e 's|@XLF[@]|$(XLF)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
     $(END)

@@ -468,10 +468,7 @@ namespace TL { namespace Nanox {
             )
     {
         empty_stmt = Nodecl::EmptyStatement::make("", 0);
-        TL::ObjectList<Nodecl::NodeclBase> stmt_list_;
-        stmt_list_.append(empty_stmt);
-
-        Nodecl::List stmt_list = Nodecl::List::make(stmt_list_);
+        Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
@@ -552,9 +549,9 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::emit_outline(OutlineInfo& outline_info,
             Nodecl::NodeclBase original_statements,
-            Source body_source,
             const std::string& outline_name,
             TL::Symbol structure_symbol,
+            Nodecl::NodeclBase& outline_placeholder,
             Nodecl::Utils::SymbolMap* &symbol_map)
     {
         TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -698,7 +695,6 @@ namespace TL { namespace Nanox {
 
         outline_info.set_unpacked_function_symbol(unpacked_function);
 
-        // FIXME - C++ static for members and such
         ObjectList<std::string> structure_name;
         structure_name.append("args");
         ObjectList<TL::Type> structure_type;
@@ -740,7 +736,6 @@ namespace TL { namespace Nanox {
                 unpacked_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-        Nodecl::NodeclBase body_placeholder;
         Source unpacked_source;
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -750,7 +745,7 @@ namespace TL { namespace Nanox {
         unpacked_source
             << extra_declarations
             << private_entities
-            << statement_placeholder(body_placeholder)
+            << statement_placeholder(outline_placeholder)
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -811,18 +806,6 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.replace(new_unpacked_body);
-
-        FORTRAN_LANGUAGE()
-        {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
-        }
-        Nodecl::NodeclBase outline_body_code = body_source.parse_statement(body_placeholder);
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-        body_placeholder.replace(outline_body_code);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function, 

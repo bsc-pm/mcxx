@@ -31,19 +31,16 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
-struct B
-{
-    typedef A<T> K;
-};
-
-template < typename T>
 struct A
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+     struct B
+     {
+         typedef int X;
+     };
+    template <typename T = float>
+    struct D
+    {
+    };
+    typedef B::X C;
 };

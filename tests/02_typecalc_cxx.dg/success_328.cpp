@@ -31,19 +31,13 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
-struct B
+typedef unsigned long int size_t;
+class ref_counted
 {
-    typedef A<T> K;
-};
-
-template < typename T>
-struct A
-{
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+    protected:
+        ref_counted()
+            : count(new ::size_t(1)) {}
+    private:
+        ::size_t *count;
 };

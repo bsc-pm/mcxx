@@ -45,7 +45,9 @@ CONFIG_FILES =  \
        50.config.omp.profiling \
        50.config.omp.fortran \
        55.config.omp.intel \
+       55.config.omp.intel.fortran \
        55.config.omp.ibm \
+       55.config.omp.ibm.fortran \
        55.config.omp.nvidia \
        10.config.sscc-common \
        50.config.sscc \

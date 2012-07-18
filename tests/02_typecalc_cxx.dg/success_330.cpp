@@ -31,19 +31,23 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
-
-template < typename T>
-struct B
+namespace std
 {
-    typedef A<T> K;
+    typedef unsigned long size_t;
+}
+class parser_id
+{
+    public:
+        bool operator==(parser_id const& x) const { return p == x.p; }
+        bool operator!=(parser_id const& x) const { return !(*this == x); }
+        bool operator<(parser_id const& x) const { return p < x.p; }
+        std::size_t to_long() const { return l; }
+    private:
+
+        union
+        {
+            void const* p;
+            std::size_t l;
+        };
 };
 
-template < typename T>
-struct A
-{
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
-};

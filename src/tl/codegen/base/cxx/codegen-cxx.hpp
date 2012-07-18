@@ -83,6 +83,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameConversion &);
             Ret visit(const Nodecl::CxxDepNameNested &);
             Ret visit(const Nodecl::CxxDepNameSimple &);
+            Ret visit(const Nodecl::CxxDepNew &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
             Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
@@ -108,7 +109,6 @@ namespace Codegen
             Ret visit(const Nodecl::ForStatement &);
             Ret visit(const Nodecl::FunctionCall &);
             Ret visit(const Nodecl::FunctionCode &);
-            Ret visit(const Nodecl::TemplateFunctionCode &);
             Ret visit(const Nodecl::GotoStatement &);
             Ret visit(const Nodecl::GreaterOrEqualThan &);
             Ret visit(const Nodecl::GreaterThan &);
@@ -125,6 +125,7 @@ namespace Codegen
             Ret visit(const Nodecl::LowerThan &);
             Ret visit(const Nodecl::MemberInit &);
             Ret visit(const Nodecl::Minus &);
+            Ret visit(const Nodecl::MinusAssignment &);
             Ret visit(const Nodecl::Mod &);
             Ret visit(const Nodecl::ModAssignment &);
             Ret visit(const Nodecl::Mul &);
@@ -160,9 +161,9 @@ namespace Codegen
             Ret visit(const Nodecl::Sizeof &);
             Ret visit(const Nodecl::StringLiteral &);
             Ret visit(const Nodecl::StructuredValue &);
-            Ret visit(const Nodecl::MinusAssignment &);
             Ret visit(const Nodecl::SwitchStatement &);
             Ret visit(const Nodecl::Symbol &);
+            Ret visit(const Nodecl::TemplateFunctionCode &);
             Ret visit(const Nodecl::Text &);
             Ret visit(const Nodecl::Throw &);
             Ret visit(const Nodecl::TopLevel &);
@@ -216,6 +217,8 @@ namespace Codegen
 
                 bool in_member_declaration;
 
+                bool in_forwarded_member_declaration;
+
                 bool in_dependent_template_function_code;
 
                 bool inside_structured_value;
@@ -256,6 +259,7 @@ namespace Codegen
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
+                    in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
                     inside_structured_value(false),
                     do_not_emit_other_declarations(IS_CXX_LANGUAGE),

@@ -31,19 +31,11 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
-struct B
-{
-    typedef A<T> K;
-};
+typedef unsigned char uint8_t;
 
-template < typename T>
-struct A
+void foo()
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
-};
+    char * array = new char[20];
+    delete[](uint8_t*)array;
+}

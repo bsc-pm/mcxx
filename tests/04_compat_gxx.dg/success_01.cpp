@@ -25,25 +25,23 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
-struct B
-{
-    typedef A<T> K;
-};
+typedef unsigned int uint32_t;
 
-template < typename T>
-struct A
+struct COFFSymbol_disk
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+    union
+    {
+        char st_name[8];
+        struct
+        {
+            uint32_t st_zero;
+            uint32_t st_offset;
+        };
+    };
 };

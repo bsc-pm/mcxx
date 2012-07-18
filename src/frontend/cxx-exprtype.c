@@ -5448,7 +5448,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
         *nodecl_output = nodecl_make_symbol(entry, filename, line);
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
             *nodecl_output = nodecl_make_class_member_access(
                     accessor,
                     *nodecl_output,
@@ -5512,6 +5512,39 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 {
     compute_symbol_type(expr, decl_context, nodecl_output);
 }
+
+nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
+{
+    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
+        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
+        ERROR_CONDITION(nodecl_get_kind(accessor_symbol) != NODECL_SYMBOL, "Invalid tree when integrating field accesses", 0);
+
+        nodecl_t integrated_nodecl = cxx_integrate_field_accesses(base, accessor_base);
+
+        return nodecl_make_class_member_access(
+                integrated_nodecl,
+                nodecl_shallow_copy(accessor_symbol),
+                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
+                nodecl_get_filename(integrated_nodecl),
+                nodecl_get_line(integrated_nodecl));
+    }
+    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
+    {
+        return nodecl_make_class_member_access(
+                nodecl_shallow_copy(base),
+                nodecl_shallow_copy(accessor),
+                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
+                nodecl_get_filename(base),
+                nodecl_get_line(base));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
 
 static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
         scope_entry_list_t* entry_list, 
@@ -5598,14 +5631,24 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         scope_entry_t* accessing_symbol = entry;
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
+
+            // Find the accessing symbol
+            nodecl_t nodecl_symbol_of_accessor = accessor;
+            while (nodecl_get_kind(nodecl_symbol_of_accessor) == NODECL_CLASS_MEMBER_ACCESS)
+            {
+                nodecl_symbol_of_accessor = nodecl_get_child(nodecl_symbol_of_accessor, 0);
+            }
+
+            accessing_symbol = nodecl_get_symbol(nodecl_symbol_of_accessor);
+            ERROR_CONDITION(accessing_symbol == NULL, "Symbol of accessor not found", 0);
+
             nodecl_access_to_symbol = nodecl_make_class_member_access(
                     accessor,
                     nodecl_access_to_symbol,
                     lvalue_ref(entry->type_information),
                     nodecl_get_filename(nodecl_name),
                     nodecl_get_line(nodecl_name));
-            accessing_symbol = nodecl_get_symbol(accessor);
         }
 
         if (!accessing_symbol->entity_specs.is_member
@@ -5628,7 +5671,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             }
 
             if (this_symbol != NULL
-                    && class_type_is_base(entry->entity_specs.class_type, this_type))
+                    && class_type_is_base(accessing_symbol->entity_specs.class_type, this_type))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
@@ -5646,11 +5689,11 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                *nodecl_output =
-                    nodecl_make_class_member_access(nodecl_this_derref,
-                            nodecl_access_to_symbol,
-                            qualified_data_member_type,
-                            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+                *nodecl_output = cxx_integrate_field_accesses(
+                        nodecl_this_derref,
+                        nodecl_access_to_symbol);
+                nodecl_set_type(*nodecl_output, qualified_data_member_type);
+                nodecl_set_location(*nodecl_output, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             }
             else
             {
@@ -6191,7 +6234,7 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
     if (is_bool_type(no_ref(t1)))
     {
         if (is_arithmetic_type(no_ref(t2))
-                    && is_arithmetic_type(no_ref(t3)))
+                && is_arithmetic_type(no_ref(t3)))
         {
             return 1;
         }
@@ -6208,6 +6251,16 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
                 && equivalent_types(
                     get_unqualified_type(no_ref(t2)), 
                     get_unqualified_type(no_ref(t3))))
+        {
+            return 1;
+        }
+        else if (is_pointer_type(no_ref(t2)) != is_pointer_type(no_ref(t3))
+                && is_zero_type(t2) != is_zero_type(t3))
+        {
+            return 1;
+        }
+        else if (is_pointer_to_member_type(no_ref(t2)) != is_pointer_to_member_type(no_ref(t3))
+                && is_zero_type(t2) != is_zero_type(t3))
         {
             return 1;
         }
@@ -6458,8 +6511,10 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             return;
         }
 
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && (is_class_type(no_ref(second_type)) 
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type)))
+                && (is_class_type(no_ref(second_type))
                     || is_class_type(no_ref(third_type))))
         {
             /*
@@ -6523,13 +6578,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
          * is used there to force a conversion
 
          */
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && ((is_class_type(no_ref(second_type))
-                        || is_class_type(no_ref(third_type)))
-                    || (is_enum_type(no_ref(second_type))
-                        || is_enum_type(no_ref(third_type)))
-                    )
-                )
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type))))
         {
             builtin_operators_set_t builtin_set;
 
@@ -6683,7 +6734,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
 
     if (is_lvalue_reference_type(second_type)
             && is_lvalue_reference_type(third_type)
-            && equivalent_types(no_ref(second_type), no_ref(third_type)))
+            && equivalent_types(
+                get_unqualified_type(no_ref(second_type)),
+                get_unqualified_type(no_ref(third_type))))
     {
         final_type = lvalue_ref(final_type);
     }
@@ -6880,7 +6933,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
 static void check_new_expression_impl(
         nodecl_t nodecl_placement_list, 
-        nodecl_t nodecl_init_list, 
+        nodecl_t nodecl_initializer, 
         type_t* new_type, 
         char is_global,
         decl_context_t decl_context,
@@ -6891,13 +6944,10 @@ static void check_new_expression_impl(
     if (is_dependent_type(new_type))
     {
         // The new type is dependent
-        *nodecl_output = nodecl_make_new(
-                nodecl_make_cxx_explicit_type_cast(nodecl_init_list, 
-                    new_type, 
-                    filename, line), 
-                nodecl_placement_list,
-                /* allocation function */ nodecl_null(),
-                get_unknown_dependent_type(), 
+        *nodecl_output = nodecl_make_cxx_dep_new(
+                nodecl_initializer,
+                nodecl_make_type(new_type, filename, line),
+                new_type,
                 is_global ? "global" : "",
                 filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -7160,21 +7210,10 @@ static void check_new_expression_impl(
     nodecl_t nodecl_init_out = nodecl_null();
 
     // Verify the initializer
-    check_nodecl_parenthesized_initializer(nodecl_init_list,
+    check_nodecl_initialization(nodecl_initializer,
             decl_context,
             new_type,
-            /* is_explicit */ 1,
             &nodecl_init_out);
-
-    // We should ensure that nodecl_init_out is a structured value
-    if (nodecl_get_kind(nodecl_init_out) != NODECL_STRUCTURED_VALUE)
-    {
-        nodecl_init_out = nodecl_make_structured_value(
-                nodecl_make_list_1(nodecl_init_out),
-                new_type,
-                filename,
-                line);
-    }
 
     type_t* synthesized_type = new_type;
 
@@ -7188,7 +7227,8 @@ static void check_new_expression_impl(
     }
 
     nodecl_t nodecl_new = nodecl_make_new(
-            nodecl_init_out, 
+            nodecl_init_out,
+            nodecl_make_type(new_type, filename, line),
             nodecl_placement_list_out,
             nodecl_allocation_function,
             synthesized_type,
@@ -7197,6 +7237,8 @@ static void check_new_expression_impl(
 
     *nodecl_output = nodecl_new;
 }
+
+static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -7244,32 +7286,23 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     type_t* declarator_type = NULL;
     compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, &dummy_nodecl_output);
 
-    nodecl_t nodecl_init_list = nodecl_null();
+    nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
     {
-        AST expression_list = ASTSon0(new_initializer);
-
-        if (expression_list != NULL)
-        {
-            if (!check_list_of_expressions(expression_list, decl_context, &nodecl_init_list))
-            {
-                nodecl_free(nodecl_init_list);
-                nodecl_free(nodecl_placement);
-
-                *nodecl_output = nodecl_make_err_expr(filename, line);
-                return;
-            }
-        }
+        compute_nodecl_initialization(new_initializer, decl_context, &nodecl_initializer);
     }
-    nodecl_init_list = nodecl_make_cxx_parenthesized_initializer(nodecl_init_list, filename, line);
+    else
+    {
+        nodecl_initializer = nodecl_make_cxx_parenthesized_initializer(nodecl_initializer, filename, line);
+    }
 
-    check_new_expression_impl(nodecl_placement, 
-            nodecl_init_list, 
-            declarator_type, 
+    check_new_expression_impl(nodecl_placement,
+            nodecl_initializer,
+            declarator_type,
             /* is_global */ global_op != NULL,
-            decl_context, 
-            filename, 
-            line, 
+            decl_context,
+            filename,
+            line,
             nodecl_output);
 }
 
@@ -7351,8 +7384,6 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
-
-        nodecl_set_type(nodecl_deleted_expr, full_type);
     }
 
     if (is_array_delete)
@@ -9181,33 +9212,6 @@ static void check_templated_member_access(AST templated_member_access, decl_cont
     check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
 
-static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
-{
-    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
-    {
-        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
-        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
-
-        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
-
-        return nodecl_make_class_member_access(integrated_nodecl,
-                accessor_symbol,
-                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
-                nodecl_get_filename(integrated_nodecl),
-                nodecl_get_line(integrated_nodecl));
-    }
-    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
-    {
-        return nodecl_make_class_member_access(base, accessor, 
-                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
-                nodecl_get_filename(base),
-                nodecl_get_line(base));
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
-    }
-}
 
 static char is_pseudo_destructor_id(decl_context_t decl_context,
         type_t* accessed_type,
@@ -9634,8 +9638,7 @@ static void check_nodecl_member_access(
         if (entry->entity_specs.is_member_of_anonymous)
         {
             nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-            nodecl_field = integrate_field_accesses(nodecl_field, 
-                    accessor);
+            nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
         ok = 1;
@@ -9663,8 +9666,7 @@ static void check_nodecl_member_access(
             if (entry->entity_specs.is_member_of_anonymous)
             {
                 nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                nodecl_field = integrate_field_accesses(nodecl_field, 
-                        accessor);
+                nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
             }
 
             *nodecl_output = nodecl_make_class_member_access(
@@ -11275,6 +11277,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     if (direct_initializer_is_dependent)
     {
         *nodecl_output = direct_initializer;
+        nodecl_set_type(*nodecl_output, declared_type);
         return;
     }
 
@@ -11978,7 +11981,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
 }
 
-void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     switch (ASTType(initializer))
     {
@@ -12261,7 +12264,7 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
     }
 }
 
-void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
+void check_nodecl_initialization(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
 {
     if (nodecl_is_err_expr(nodecl_initializer))
     {
@@ -12283,8 +12286,7 @@ void check_initialization_nodecl(nodecl_t nodecl_initializer, decl_context_t dec
             }
         case NODECL_CXX_PARENTHESIZED_INITIALIZER:
             {
-                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type, 
-                        /* is_explicit */ 0, nodecl_output);
+                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type, /* is_explicit */ 0, nodecl_output);
                 break;
             }
         default:
@@ -12353,8 +12355,8 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
         return 1;
     }
 
-    check_initialization_nodecl(nodecl_init, decl_context, declared_type, nodecl_output);
-    
+    check_nodecl_initialization(nodecl_init, decl_context, declared_type, nodecl_output);
+
     DEBUG_CODE()
     {
         if (!nodecl_is_err_expr(*nodecl_output))

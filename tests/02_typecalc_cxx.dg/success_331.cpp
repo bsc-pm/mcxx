@@ -31,19 +31,14 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
-
-template < typename T>
-struct B
+extern "C"
 {
-    typedef A<T> K;
-};
+  extern long int timezone;
+}
 
-template < typename T>
-struct A
+struct timezone
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+    int tz_minuteswest;
+    int tz_dsttime;
 };
+typedef struct timezone *__restrict __timezone_ptr_t;

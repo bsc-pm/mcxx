@@ -31,19 +31,33 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
-struct B
-{
-    typedef A<T> K;
-};
+template < typename _T >
+struct C
+{};
 
-template < typename T>
+
 struct A
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+    template<typename  _T >
+    void foo(const C<_T> & a);
 };
+
+template<class T >
+T * manage(T * obj)
+{
+    return obj;
+}
+
+struct B
+{
+    template<typename  _T >
+        B(const C<_T>  & column);
+};
+
+template<typename  _T >
+void A::foo(const C<_T> & a)
+{
+
+    B*const b = manage(new B(a));
+}

@@ -31,19 +31,53 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
+template <typename T>
+struct A { };
 
-template < typename T>
+template <typename T>
 struct B
 {
-    typedef A<T> K;
+    typedef typename A<T>::X1 X;
+
+    X* fa_1();
+    X* fa_2();
+    X* fa_3();
+
+    typename B<T>::X* fb_1();
+    typename B<T>::X* fb_2();
+    typename B<T>::X* fb_3();
+
+    typename A<T>::X1* fc_1();
+    typename A<T>::X1* fc_2();
+    typename A<T>::X1* fc_3();
 };
 
-template < typename T>
-struct A
-{
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
-};
+// --
+template <typename T>
+typename B<T>::X* B<T>::fa_1() { }
+
+template <typename T>
+typename B<T>::X* B<T>::fa_2() { }
+
+template <typename T>
+typename A<T>::X1* B<T>::fa_3() { }
+
+// --
+template <typename T>
+typename B<T>::X* B<T>::fb_1() { }
+
+template <typename T>
+typename B<T>::X* B<T>::fb_2() { }
+
+template <typename T>
+typename A<T>::X1* B<T>::fb_3() { }
+
+// --
+template <typename T>
+typename B<T>::X* B<T>::fc_1() { }
+
+template <typename T>
+typename B<T>::X* B<T>::fc_2() { }
+
+template <typename T>
+typename A<T>::X1* B<T>::fc_3() { }

@@ -31,19 +31,53 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template < typename T>
-struct A;
 
-template < typename T>
+struct A
+{};
+
+template < typename _T >
+struct C
+{
+    C(_T y);
+};
+
+template < typename _T >
 struct B
 {
-    typedef A<T> K;
+    B(C<_T>* c);
 };
 
-template < typename T>
-struct A
+struct D
 {
-    typedef typename B<T>::K self;
-    A(const self &) {}
-    A(const A &) {}
+    D(C<A>* a);
 };
+
+void bar()
+{
+    A* a1 = new A;
+    A* a2(new A);
+    A* a3 = new A();
+    A* a4 (new A());
+
+    int *t = new int();
+
+    D* d = new D(new C<A>(*a1));
+}
+
+template < typename _T >
+void foo()
+{
+    _T x;
+
+    A* a1 = new A;
+    A* a2(new A);
+    A* a3 = new A();
+    A* a4 (new A());
+
+    C<_T>* ptrC1 = new C<_T>(x);
+    C<_T>* ptrC2(new C<_T>(x));
+
+    B<_T> b1 = B<_T>(new C<_T>(x));
+    B<_T> b2 (B<_T>(new C<_T>(x)));
+    int *t = new int();
+}

@@ -64,17 +64,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void emit_outline(OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
-                Source body_source,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 // out
+                Nodecl::NodeclBase& outline_placeholder,
                 Nodecl::Utils::SymbolMap* &symbol_map);
-#if 0
-        void emit_outline(OutlineInfo& outline_info,
-                Nodecl::NodeclBase body,
-                const std::string& outline_name,
-                TL::Symbol structure_symbol);
-#endif
+
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
             OutlineDataItem& outline_data_item);

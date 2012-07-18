@@ -139,6 +139,11 @@ namespace TL
 
         void Interface::run(TL::DTO& dto)
         {
+            // For Fortran we have already traversed the C preprocessed file in
+            // the prerun of Nanos++ Nodecl
+            if (IS_FORTRAN_LANGUAGE)
+                return;
+
             // Run looking up for every "#pragma nanos"
             Nodecl::NodeclBase top_level = dto["nodecl"];
             this->Interface::walk(top_level);

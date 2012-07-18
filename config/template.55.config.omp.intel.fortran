@@ -1,0 +1,11 @@
+[imfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @IFORT@
+fortran_preprocessor_options = -P
+compiler_name = @IFORT@
+compiler_options = -recursive
+linker_name = @IFORT@
+linker_options =
+
+[imf95 : imfc]

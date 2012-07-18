@@ -129,7 +129,9 @@ static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
-static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type_info,
+static void gather_type_spec_from_dependent_typename(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
 static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
@@ -2058,8 +2060,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_SIMPLE_TYPE_SPEC :
             gather_type_spec_from_simple_type_specifier(a, simple_type_info, gather_info, decl_context);
             break;
-        case AST_ELABORATED_TYPENAME_SPEC : 
-            gather_type_spec_from_dependent_typename(a, simple_type_info, decl_context);
+        case AST_ELABORATED_TYPENAME_SPEC :
+            gather_type_spec_from_dependent_typename(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ENUM_SPECIFIER :
         case AST_GCC_ENUM_SPECIFIER :
@@ -3353,7 +3355,49 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     }
 }
 
-static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
+#if 0
+static char dependent_entry_is_same_class_base_or_nested(scope_entry_t* dependent_entry, 
+        scope_entry_t* current_class)
+{
+    type_t* enclosing_class = NULL;
+    if ((current_class == dependent_entry)
+            || class_type_is_base(
+                dependent_entry->type_information, 
+                current_class->type_information))
+    {
+        return 1;
+    }
+    else if ((enclosing_class = class_type_get_enclosing_class_type(current_class->type_information)))
+    {
+        scope_entry_t* enclosing_class_symbol = named_type_get_symbol(enclosing_class);
+        return dependent_entry_is_same_class_base_or_nested(dependent_entry, enclosing_class_symbol);
+    }
+    return 0;
+}
+
+static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* dependent_typename,
+        decl_context_t decl_context)
+{
+     if (decl_context.class_scope == NULL)
+         return 0;
+
+     scope_entry_t* dependent_entry = NULL;
+     nodecl_t nodecl_dependent_parts = nodecl_null();
+
+     dependent_typename_get_components(dependent_typename, &dependent_entry, &nodecl_dependent_parts);
+
+     if (dependent_entry->kind != SK_CLASS)
+         return 0;
+
+     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+
+     return dependent_entry_is_same_class_base_or_nested(dependent_entry, class_in_scope);
+}
+#endif
+
+static void gather_type_spec_from_dependent_typename(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     DEBUG_CODE()
@@ -3379,7 +3423,6 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
 
     if (result == NULL)
     {
-        // This should never happen...
         if (!checking_ambiguity())
         {
             error_printf("%s: typename '%s' not found\n", 
@@ -3391,20 +3434,24 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     }
 
     scope_entry_t* entry = entry_list_head(result);
-
-    entry_list_free(result);
-
+    // Peek the list to see if it is a dependent typename
     if (entry->kind != SK_DEPENDENT_ENTITY)
     {
-        *type_info = get_user_defined_type(entry);
-
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Dependent typename refers to an existing type '%s'\n", print_declarator(*type_info));
         }
 
+        // Follow the usual path here
+        common_gather_type_spec_from_simple_type_specifier(a,
+                decl_context,
+                type_info,
+                gather_info,
+                result);
         return;
     }
+
+    entry_list_free(result);
 
     DEBUG_CODE()
     {
@@ -3420,7 +3467,8 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     *type_info = entry->type_information;
 }
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_context_t decl_context,
+static void common_gather_type_spec_from_simple_type_specifier(AST a, 
+        decl_context_t decl_context UNUSED_PARAMETER,
         type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
     if (query_results == NULL)
@@ -3476,17 +3524,10 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_conte
 
     entry_list_free(query_results);
 
-    scope_entry_t* current_class = NULL;
-    if (decl_context.class_scope != NULL)
-    {
-        current_class = decl_context.class_scope->related_entry;
-    }
-
-    if (entry->entity_specs.is_member
-            && (is_dependent_type(entry->entity_specs.class_type)
-                || (current_class != NULL
-                    && is_dependent_type(current_class->type_information)
-                    && class_type_is_base(entry->entity_specs.class_type, get_user_defined_type(current_class)))))
+    // If this is a member of a dependent class or a local entity of a template
+    // function crat a dependent typename for it
+    if (symbol_is_member_of_dependent_class(entry)
+            || symbol_is_local_of_dependent_function(entry))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -3510,7 +3551,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a, decl_conte
 
         // Craft a dependent typename since we will need it later for proper updates
         (*type_info) = build_dependent_typename_for_entry(
-                named_type_get_symbol(entry->entity_specs.class_type),
+                get_function_or_class_where_symbol_depends(entry),
                 nodecl_name,
                 ast_get_filename(a),
                 ast_get_line(a));
@@ -5562,7 +5603,7 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     }
 }
 
-static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context, 
+static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context,
         scope_entry_t* class_symbol,
         scope_entry_t* accessor_symbol)
 {
@@ -5577,7 +5618,7 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         if (!member->entity_specs.is_member_of_anonymous)
         {
             member->entity_specs.is_member_of_anonymous = 1;
-            member->entity_specs.anonymous_accessor = 
+            member->entity_specs.anonymous_accessor =
                 nodecl_make_symbol(accessor_symbol,
                         accessor_symbol->file,
                         accessor_symbol->line);
@@ -5585,16 +5626,19 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         else
         {
             member->entity_specs.is_member_of_anonymous = 1;
-            nodecl_t nodecl_accessor = 
-                nodecl_make_class_member_access(
-                        nodecl_make_symbol(accessor_symbol,
-                            accessor_symbol->file,
-                            accessor_symbol->line), 
-                        member->entity_specs.anonymous_accessor,
-                        lvalue_ref(member->type_information),
-                        accessor_symbol->file,
-                        accessor_symbol->line);
-            nodecl_set_symbol(nodecl_accessor, accessor_symbol);
+
+            nodecl_t nodecl_symbol = nodecl_make_symbol(accessor_symbol,
+                             accessor_symbol->file,
+                             accessor_symbol->line);
+            nodecl_set_type(nodecl_symbol, lvalue_ref(accessor_symbol->type_information));
+
+            nodecl_t nodecl_accessor = cxx_integrate_field_accesses(nodecl_symbol,
+                    member->entity_specs.anonymous_accessor);
+            nodecl_set_type(nodecl_accessor, lvalue_ref(member->type_information));
+            nodecl_set_location(nodecl_accessor,
+                         accessor_symbol->file,
+                         accessor_symbol->line);
+
             member->entity_specs.anonymous_accessor = nodecl_accessor;
         }
         insert_entry(enclosing_context.current_scope, member);
@@ -5605,7 +5649,7 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
                 && is_named_class_type(member->type_information)
                 && named_type_get_symbol(member->type_information)->entity_specs.is_anonymous_union)
         {
-            insert_symbols_in_enclosing_context(enclosing_context, 
+            insert_symbols_in_enclosing_context(enclosing_context,
                     named_type_get_symbol(member->type_information),
                     accessor_symbol);
         }
@@ -5642,6 +5686,7 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessor_symbol->kind = SK_VARIABLE;
     accessor_symbol->file = class_symbol->file;
     accessor_symbol->line = class_symbol->line;
+    accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
     class_symbol->entity_specs.anonymous_accessor = 
         nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);
@@ -6159,15 +6204,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         inner_decl_context = new_class_context(decl_context, class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
-        C_LANGUAGE()
-        {
-            class_entry->entity_specs.is_anonymous_union = gather_info->no_declarators;
-        }
-        CXX_LANGUAGE()
-        {
-            class_entry->entity_specs.is_anonymous_union = (class_kind == TT_UNION
-                    && gather_info->no_declarators);
-        }
+        class_entry->entity_specs.is_anonymous_union = gather_info->no_declarators;
     }
 
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
@@ -6187,7 +6224,20 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
+        CXX_LANGUAGE()
+        {
+            // If this member has been declared before, we want to update the order
+            // in the member list to try to help codegen member declaration
+            scope_entry_list_t* updated_member_list =
+                entry_list_remove(class_type_get_members(enclosing_class_type), class_entry);
+
+            class_type_set_members(enclosing_class_type, updated_member_list);
+            entry_list_free(updated_member_list);
+        }
+
         class_type_add_member(enclosing_class_type, class_entry);
+
         CXX_LANGUAGE()
         {
             class_entry->entity_specs.is_member = 1;
@@ -6527,18 +6577,16 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     *declarator_type = get_error_type();
                     return;
                 }
-                else
-                {
-                    // Update the entity context, inheriting the template_scope
-                    entity_context = entry_list_head(symbols)->decl_context;
-                    entity_context.template_parameters = decl_context.template_parameters;
 
-                    if (prototype_context != NULL)
-                    {
-                        prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
-                        prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
-                        prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
-                    }
+                // Update the entity context, inheriting the template_scope
+                entity_context = entry_list_head(symbols)->decl_context;
+                entity_context.template_parameters = decl_context.template_parameters;
+
+                if (prototype_context != NULL)
+                {
+                    prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
+                    prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
+                    prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
                 }
 
                 entry_list_free(symbols);
@@ -8780,7 +8828,7 @@ static char find_function_declaration(AST declarator_id,
 
         type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
-        found_equal = equivalent_types(function_type_being_declared, considered_type);
+        found_equal = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
         if (found_equal)
         {
             equal_entry = considered_symbol;

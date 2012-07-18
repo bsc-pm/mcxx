@@ -220,14 +220,17 @@ void LoweringVisitor::fill_dependences_wait(
                     }
                     
                     // All but 0 (contiguous) are handled here
-                    fill_dimensions(num_dimensions, 
-                            num_dimensions,
-                            current_dep_num,
-                            dimension_sizes, 
-                            dependency_type, 
-                            dims_description,
-                            dependency_regions,
-                            dep_expr.retrieve_context());
+                    if (num_dimensions > 1)
+                    {
+                        fill_dimensions(num_dimensions, 
+                                /* current_dim */ num_dimensions,
+                                current_dep_num,
+                                dimension_sizes, 
+                                dependency_type, 
+                                dims_description,
+                                dependency_regions,
+                                dep_expr.retrieve_context());
+                    }
                 }
 
                 if (num_dimensions == 0) 
@@ -247,13 +250,13 @@ void LoweringVisitor::fill_dependences_wait(
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     result_src
-                        << "dependences[" << current_dep_num << "].address = (void*)" << dep_expr_addr << ";"
+                        << "dependences[" << current_dep_num << "].address = " << dep_expr_addr << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "dependences[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
+                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
                         << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
                         << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
-                        << "dependences[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
+                        << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
                 }
             }

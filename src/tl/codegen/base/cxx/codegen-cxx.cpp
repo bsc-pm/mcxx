@@ -1794,7 +1794,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_scope(symbol.get_scope());
+        push_scope(function_scope);
         inc_indent();
 
         indent();
@@ -2065,7 +2065,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_scope(symbol.get_scope());
+        push_scope(symbol_scope);
         inc_indent();
 
         indent();
@@ -2344,8 +2344,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
 {
-    Nodecl::NodeclBase structured_value = node.get_init();
-    ERROR_CONDITION(structured_value.is_null(), "New lacks structured value", 0);
+    Nodecl::NodeclBase initializer = node.get_init();
+    ERROR_CONDITION(initializer.is_null(), "New lacks initializer", 0);
 
     Nodecl::NodeclBase placement = node.get_placement();
     // Nodecl::NodeclBase operator_new = nodecl_get_child(node, 2);
@@ -2362,17 +2362,127 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         file << ")";
     }
 
-    TL::Type t = structured_value.get_type();
+    Nodecl::NodeclBase type = node.get_init_real_type();
+    TL::Type init_real_type = type.get_type();
 
-    if (!t.is_array())
+    file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+
+    // new[] cannot have an initializer, so just print the init_real_type
+    if (init_real_type.is_array())
+        return;
+
+    if (initializer.is<Nodecl::CxxEqualInitializer>()
+            || initializer.is<Nodecl::CxxBracedInitializer>()
+            || initializer.is<Nodecl::CxxParenthesizedInitializer>())
     {
-        walk(structured_value);
+        // Dependent cases are always printed verbatim
+        walk(initializer);
+    }
+    else if (IS_CXX03_LANGUAGE
+            && init_real_type.is_aggregate()
+            && initializer.is<Nodecl::StructuredValue>())
+    {
+        // int a[] = { 1, 2, 3 };
+        // struct foo { int x; int y; } a = {1, 2};
+        //
+        // Note that C++11 allows struct foo { int x; int y; } a{1,2};
+        file << " = ";
+
+        bool old = state.inside_structured_value;
+        state.inside_structured_value = true;
+        walk(initializer);
+        state.inside_structured_value = old;
+    }
+    else if (init_real_type.is_array()
+            && !initializer.is<Nodecl::StructuredValue>())
+    {
+        // Only for char and wchar_t
+        // const char c[] = "1234";
+        file << " = ";
+        walk(initializer);
+    }
+    else if (init_real_type.is_array()
+            && initializer.is<Nodecl::StructuredValue>())
+    {
+        // char c = { 'a' };
+        // int x = { 1 };
+        file << " = ";
+        bool old = state.inside_structured_value;
+        state.inside_structured_value = true;
+        walk(initializer);
+        state.inside_structured_value = old;
+    }
+    else if (state.in_condition)
+    {
+        // This is something like if (bool foo = expression)
+        file << " = ";
+        walk(initializer);
     }
     else
     {
-        // new[] cannot have an initializer, so just print the type
-        file << this->get_declaration(t, this->get_current_scope(),  "");
+        file << "(";
+        // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+        if (nodecl_calls_to_constructor(initializer, init_real_type))
+        {
+            Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+            if (!constructor_args.empty());
+            {
+                for (Nodecl::List::iterator it = constructor_args.begin();
+                        it != constructor_args.end();
+                        it++)
+                {
+                    if (it != constructor_args.begin())
+                        file << ", ";
+                    Nodecl::NodeclBase current(*it);
+                    // Here we add extra parentheses lest the direct-initialization looked like
+                    // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                    //
+                    // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                    // "function (pointer to function() returning A) returning A"
+                    // [extra blanks added for clarity in the example above]
+                    file << "(";
+                    walk(current);
+                    file << ")";
+                }
+            }
+        }
+        else
+        {
+            // This is crazy
+            if (initializer.is<Nodecl::Comma>())
+            {
+                file << "(";
+            }
+            walk(initializer);
+            if (initializer.is<Nodecl::Comma>())
+            {
+                file << ")";
+            }
+        }
+        file << ")";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
+{
+    Nodecl::NodeclBase initializer = node.get_init();
+    ERROR_CONDITION(initializer.is_null(), "Dependent new lacks initializer", 0);
+
+    if (node.get_text() == "global")
+        file << "::";
+
+    file << "new ";
+
+    Nodecl::NodeclBase type = node.get_init_real_type();
+    TL::Type init_real_type = type.get_type();
+
+   file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+
+    // new[] cannot have an initializer, so just print the type
+    if (init_real_type.is_array())
+        return;
+
+    walk(initializer);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
@@ -2803,7 +2913,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 {
     TL::Symbol entry = node.get_symbol();
 
-    if (entry.is_member())
+    if (entry.is_member()
+            && !state.do_not_emit_other_declarations)
     {
         do_define_symbol(entry.get_class_type().get_symbol(),
                 &CxxBase::declare_symbol_always,
@@ -2832,11 +2943,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         }
         else if (entry.is_function())
         {
-            // If we are visiting the called entity of a function call, the template arguments
-            // (if any) will be added by 'visit_function_call_form_template_id' function
-            file << this->get_qualified_name(entry,
-                    this->get_current_scope(),
-                    /* without template id */ state.visiting_called_entity_of_function_call);
+            if (node.get_type().is_valid()
+                    && node.get_type().is_unresolved_overload())
+            {
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope().get_decl_context(),
+                        /* without_template_id */ true);
+
+                TL::TemplateParameters template_arguments =
+                    node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
+
+                if (template_arguments.is_valid())
+                {
+                    file << ::template_arguments_to_str(
+                            template_arguments.get_internal_template_parameter_list(),
+                            /* first_template_argument_to_be_printed */ 0,
+                            /* print_first_level_bracket */ 1,
+                            this->get_current_scope().get_decl_context());
+                }
+            }
+            else
+            {
+                // If we are visiting the called entity of a function call, the template arguments
+                // (if any) will be added by 'visit_function_call_form_template_id' function
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope(),
+                        /* without template id */ state.visiting_called_entity_of_function_call);
+            }
         }
         else if (!entry.is_dependent_entity())
         {
@@ -3729,9 +3862,74 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << "{\n";
     }
 
-    // 2. Now declare members
+    // 2. Now declare members:
+    // 2.1 We need to forward declare all member classes (only for C++) because
+    // the member list does not contain enough information to decide in what
+    // order we should generate the members
     TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
     access_specifier_t current_access_spec = default_access_spec;
+
+    CXX_LANGUAGE()
+    {
+        state.in_forwarded_member_declaration = true;
+        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                it != members.end();
+                it++)
+        {
+            TL::Symbol &member(*it);
+            if (!member.is_class())
+                continue;
+
+            if (!member.is_defined_inside_class())
+                continue;
+
+            CXX_LANGUAGE()
+            {
+                access_specifier_t access_spec = member.get_access_specifier();
+                inc_indent();
+                if (current_access_spec != access_spec)
+                {
+                    current_access_spec = access_spec;
+
+                    indent();
+                    if (current_access_spec == AS_PUBLIC)
+                    {
+                        file << "public:\n";
+                    }
+                    else if (current_access_spec == AS_PRIVATE)
+                    {
+                        file << "private:\n";
+                    }
+                    else if (current_access_spec == AS_PROTECTED)
+                    {
+                        file << "protected:\n";
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
+                }
+            }
+
+            inc_indent();
+
+            char old_in_member_declaration = state.in_member_declaration;
+            state.in_member_declaration = 1;
+
+            do_declare_symbol(member,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
+
+            state.in_member_declaration = old_in_member_declaration;
+
+            dec_indent();
+            dec_indent();
+        }
+
+        state.in_forwarded_member_declaration = false;
+    }
+
+    // 2.2 Declare members as usual
     for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
             it != members.end();
             it++)
@@ -4931,6 +5129,13 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             define_symbol_if_nonnested(class_entry);
         }
+
+        // If the member symbol has been defined inside a class and
+        // and this class is not currently being defined we do nothing
+        if (symbol.is_defined_inside_class() &&
+                (state.classes_being_defined.empty()
+                        || (state.classes_being_defined.back() != class_entry)))
+            return;
     }
 
     // We only generate user declared code
@@ -5078,25 +5283,31 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                          : symbol.get_type().template_specialized_type_get_template_parameters();
                     }
 
-                    codegen_template_header(template_parameters, /*show default values*/ true);
+                    codegen_template_header(template_parameters,
+                            /* show_default_values */ !state.in_forwarded_member_declaration);
                 }
             }
 
-            // A union inside a class always must be defined
-            if (class_key == "union" &&
-                    symbol.get_scope().is_class_scope())
+            // A union inside a class must be defined if its not a forward
+            // member declaration
+            if (class_key == "union"
+                    && symbol.get_scope().is_class_scope()
+                    && !state.in_forwarded_member_declaration)
             {
                 (this->*def_sym_fun)(symbol);
                 return;
             }
 
-            indent();
-            file << class_key << " " << symbol.get_name();
-
-            if (is_template_specialized
-                    && !is_primary_template)
+            if (!symbol.is_anonymous_union())
             {
-                file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                indent();
+                file << class_key << " " << symbol.get_name();
+
+                if (is_template_specialized
+                        && !is_primary_template)
+                {
+                    file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                }
             }
         }
 
@@ -6827,7 +7038,8 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
 
             // It may happen that a function is hiding our typename in this scope
             scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name);
-            entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+            entry_list = filter_symbol_using_predicate(entry_list,
+                    is_function_or_template_function_name_or_extern_variable, NULL);
 
             // It seems somebody is hiding our name in this scope
             if (entry_list != NULL)

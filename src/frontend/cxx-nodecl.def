@@ -221,7 +221,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_ALIGNOF([align_type]type) type const-value-opt
                   | NODECL_OFFSET([base]expression, [offset]expression) type const-value-opt
                   | NODECL_TYPEID([arg]type-or-expr) type const-value-opt
-                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text const-value-opt
+                  | NODECL_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text const-value-opt
                   | NODECL_DELETE([rhs]expression) type const-value-opt
                   | NODECL_DELETE_ARRAY([rhs]expression) type const-value-opt
                   | NODECL_POINTER_TO_MEMBER() symbol type const-value-opt
@@ -288,6 +288,7 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
     | NODECL_CXX_DEP_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
+    | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt) type text
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
