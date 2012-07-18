@@ -3862,9 +3862,74 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << "{\n";
     }
 
-    // 2. Now declare members
+    // 2. Now declare members:
+    // 2.1 We need to forward declare all member classes (only for C++) because
+    // the member list does not contain enough information to decide in what
+    // order we should generate the members
     TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
     access_specifier_t current_access_spec = default_access_spec;
+
+    CXX_LANGUAGE()
+    {
+        state.in_forwarded_member_declaration = true;
+        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                it != members.end();
+                it++)
+        {
+            TL::Symbol &member(*it);
+            if (!member.is_class())
+                continue;
+
+            if (!member.is_defined_inside_class())
+                continue;
+
+            CXX_LANGUAGE()
+            {
+                access_specifier_t access_spec = member.get_access_specifier();
+                inc_indent();
+                if (current_access_spec != access_spec)
+                {
+                    current_access_spec = access_spec;
+
+                    indent();
+                    if (current_access_spec == AS_PUBLIC)
+                    {
+                        file << "public:\n";
+                    }
+                    else if (current_access_spec == AS_PRIVATE)
+                    {
+                        file << "private:\n";
+                    }
+                    else if (current_access_spec == AS_PROTECTED)
+                    {
+                        file << "protected:\n";
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
+                }
+            }
+
+            inc_indent();
+
+            char old_in_member_declaration = state.in_member_declaration;
+            state.in_member_declaration = 1;
+
+            do_declare_symbol(member,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
+
+            state.in_member_declaration = old_in_member_declaration;
+
+            dec_indent();
+            dec_indent();
+        }
+
+        state.in_forwarded_member_declaration = false;
+    }
+
+    // 2.2 Declare members as usual
     for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
             it != members.end();
             it++)
@@ -5064,6 +5129,13 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             define_symbol_if_nonnested(class_entry);
         }
+
+        // If the member symbol has been defined inside a class and
+        // and this class is not currently being defined we do nothing
+        if (symbol.is_defined_inside_class() &&
+                (state.classes_being_defined.empty()
+                        || (state.classes_being_defined.back() != class_entry)))
+            return;
     }
 
     // We only generate user declared code
@@ -5211,25 +5283,31 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                          : symbol.get_type().template_specialized_type_get_template_parameters();
                     }
 
-                    codegen_template_header(template_parameters, /*show default values*/ true);
+                    codegen_template_header(template_parameters,
+                            /* show_default_values */ !state.in_forwarded_member_declaration);
                 }
             }
 
-            // A union inside a class always must be defined
-            if (class_key == "union" &&
-                    symbol.get_scope().is_class_scope())
+            // A union inside a class must be defined if its not a forward
+            // member declaration
+            if (class_key == "union"
+                    && symbol.get_scope().is_class_scope()
+                    && !state.in_forwarded_member_declaration)
             {
                 (this->*def_sym_fun)(symbol);
                 return;
             }
 
-            indent();
-            file << class_key << " " << symbol.get_name();
-
-            if (is_template_specialized
-                    && !is_primary_template)
+            if (!symbol.is_anonymous_union())
             {
-                file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                indent();
+                file << class_key << " " << symbol.get_name();
+
+                if (is_template_specialized
+                        && !is_primary_template)
+                {
+                    file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                }
             }
         }
 

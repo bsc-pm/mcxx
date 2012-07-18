@@ -217,6 +217,8 @@ namespace Codegen
 
                 bool in_member_declaration;
 
+                bool in_forwarded_member_declaration;
+
                 bool in_dependent_template_function_code;
 
                 bool inside_structured_value;
@@ -257,6 +259,7 @@ namespace Codegen
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
+                    in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
                     inside_structured_value(false),
                     do_not_emit_other_declarations(IS_CXX_LANGUAGE),

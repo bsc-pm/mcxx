@@ -456,6 +456,7 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int nu
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_members(type_t* t);
+LIBMCXX_EXTERN void class_type_set_members(type_t* t, scope_entry_list_t* new_member_list);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_static_data_members(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_member_functions(type_t* t);

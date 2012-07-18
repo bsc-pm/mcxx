@@ -6224,7 +6224,20 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
+        CXX_LANGUAGE()
+        {
+            // If this member has been declared before, we want to update the order
+            // in the member list to try to help codegen member declaration
+            scope_entry_list_t* updated_member_list =
+                entry_list_remove(class_type_get_members(enclosing_class_type), class_entry);
+
+            class_type_set_members(enclosing_class_type, updated_member_list);
+            entry_list_free(updated_member_list);
+        }
+
         class_type_add_member(enclosing_class_type, class_entry);
+
         CXX_LANGUAGE()
         {
             class_entry->entity_specs.is_member = 1;

@@ -3760,6 +3760,17 @@ scope_entry_list_t* class_type_get_members(type_t* t)
     return entry_list_copy(members);
 }
 
+void class_type_set_members(type_t* t, scope_entry_list_t* new_member_list)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    // Dealloc the old list of members
+    entry_list_free(t->type->class_info->members);
+
+    t->type->class_info->members = entry_list_copy(new_member_list);
+}
+
 static scope_entry_list_t* _class_type_get_members_pred(type_t* t, void* data, char (*fun)(scope_entry_t*, void*))
 {
     scope_entry_list_t* members = _class_type_get_members(t);
