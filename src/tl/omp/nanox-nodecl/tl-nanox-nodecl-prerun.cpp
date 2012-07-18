@@ -67,6 +67,7 @@ void Lowering::pre_run(DTO& dto)
     }
 
     // We add -x c since we want /dev/null be preprocessed as an empty C file
+    // FIXME - This is very gcc specific
     preprocessor_options[num_args - 3] = "-x";
     preprocessor_options[num_args - 2] = "c";
     preprocessor_options[num_args - 1] = NULL;
@@ -108,7 +109,7 @@ void Lowering::pre_run(DTO& dto)
     new_tree = Nodecl::TopLevel::make(new_tree);
 
     // Run Nanos::Interface on this header to get
-    // the pragma information
+    // the pragma mcxx information
     Nanos::Interface interface;
     interface.walk(new_tree);
 
