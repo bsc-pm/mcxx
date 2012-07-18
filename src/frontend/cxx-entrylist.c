@@ -56,7 +56,7 @@ scope_entry_list_t* entry_list_new(scope_entry_t* entry)
     return result;
 }
 
-static void entry_list_add_to_pos(scope_entry_list_t* list, 
+static void entry_list_add_to_pos_rec(scope_entry_list_t* list, 
         scope_entry_t* entry, int num_pos)
 {
     if (num_pos < NUM_IMMEDIATE)
@@ -67,41 +67,55 @@ static void entry_list_add_to_pos(scope_entry_list_t* list,
     {
         if (list->next != NULL)
         {
-            entry_list_add_to_pos(list->next, entry, num_pos - NUM_IMMEDIATE);
+            entry_list_add_to_pos_rec(list->next, entry, num_pos - NUM_IMMEDIATE);
         }
         else
         {
             scope_entry_list_t* new_entry_list = entry_list_allocate();
             list->next = new_entry_list;
-            entry_list_add_to_pos(new_entry_list, entry, num_pos - NUM_IMMEDIATE);
+            entry_list_add_to_pos_rec(new_entry_list, entry, num_pos - NUM_IMMEDIATE);
         }
     }
 }
 
-static scope_entry_list_t* entry_list_prepend_rec(scope_entry_list_t* list, 
+static scope_entry_list_t* entry_list_prepend_rec(scope_entry_list_t* list,
         scope_entry_t* entry,
         int num_items)
 {
-    scope_entry_t* last = list->list[NUM_IMMEDIATE - 1];
-    int i;
-    // -2 because we do not want to write past the last element
-    for (i = NUM_IMMEDIATE - 2; i >= 0; i--)
+    if (list == NULL)
     {
-        list->list[i+1] = list->list[i];
+        scope_entry_list_t* new_entry_list = entry_list_allocate();
+        new_entry_list->list[0] = entry;
+        return new_entry_list;
     }
-    list->list[0] = entry;
+    else
+    {
+        scope_entry_t* last = list->list[NUM_IMMEDIATE - 1];
+        int i;
+        // -2 because we do not want to write past the last element
+        for (i = NUM_IMMEDIATE - 2; i >= 0; i--)
+        {
+            list->list[i+1] = list->list[i];
+        }
+        list->list[0] = entry;
+
+        if (num_items >= NUM_IMMEDIATE)
+        {
+            list->next = entry_list_prepend_rec(list->next, last, num_items - NUM_IMMEDIATE);
+        }
+        return list;
+    }
+}
+
+scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list,
+        scope_entry_t* entry)
+{
+    scope_entry_list_t* result = entry_list_prepend_rec(list, entry, list->num_items_list);
     list->num_items_list++;
-
-    if (num_items >= NUM_IMMEDIATE)
-    {
-        list->next = entry_list_prepend(list->next, last);
-        //  FIXME: shouldn't this be?
-        // list->next = entry_list_prepend_rec(list, entry, num_items - NUM_IMMEDIATE);
-    }
-    return list;
+    return result;
 }
 
-scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list, 
+scope_entry_list_t* entry_list_add(scope_entry_list_t* list,
         scope_entry_t* entry)
 {
     if (list == NULL)
@@ -110,27 +124,14 @@ scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list,
     }
     else
     {
-        return entry_list_prepend_rec(list, entry, list->num_items_list);
-    }
-}
-
-scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
-        scope_entry_t* entry)
-{
-    if (list == NULL)
-    {
-        return entry_list_new(entry);
-    }
-    else
-    {
-        entry_list_add_to_pos(list, entry, list->num_items_list);
+        entry_list_add_to_pos_rec(list, entry, list->num_items_list);
         list->num_items_list++;
 
         return list;
     }
 }
 
-scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
+scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list,
         scope_entry_t* entry)
 {
     scope_entry_list_iterator_t* it = NULL;
@@ -174,7 +175,7 @@ static void insert_and_shift_right(scope_entry_list_t* entry_list, int pos,
     else if (entry_list->next == NULL && keep != NULL)
     {
         entry_list->next = entry_list_allocate();
-        entry_list_add_to_pos(entry_list->next, keep, 0);
+        entry_list_add_to_pos_rec(entry_list->next, keep, 0);
     }
 }
 
@@ -215,7 +216,7 @@ scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list,
             else
             {
                 list->next = entry_list_allocate();
-                entry_list_add_to_pos(list->next, entry, 0);
+                entry_list_add_to_pos_rec(list->next, entry, 0);
             }
         }
     }
@@ -498,7 +499,8 @@ static scope_entry_t* shift_left_all_elements_from_pos(scope_entry_list_t* entry
     return entry_list->list[0];
 }
 
-scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entry_t* entry)
+
+static scope_entry_list_t* entry_list_remove_rec(scope_entry_list_t* entry_list, scope_entry_t* entry, int* number_of_matches)
 {
     if (entry_list == NULL)
         return entry_list;
@@ -508,17 +510,26 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
     {
         if (entry_list->list[i] == entry)
         {
+            (*number_of_matches)++;
             shift_left_all_elements_from_pos(entry_list, i);
         }
     }
 
-    entry_list_remove(entry_list->next, entry);
-
-    entry_list->num_items_list--;
-
+    entry_list_remove_rec(entry_list->next, entry, number_of_matches);
     return entry_list;
 }
 
+scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entry_t* entry)
+{
+    if (entry_list == NULL)
+        return entry_list;
+
+    int number_of_matches = 0;
+    entry_list_remove_rec(entry_list, entry, &number_of_matches);
+
+    entry_list->num_items_list -= number_of_matches;
+    return entry_list;
+}
 
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {
