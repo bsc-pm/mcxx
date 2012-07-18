@@ -1278,20 +1278,25 @@ void LoweringVisitor::fill_dependences(
                             << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
                             ;
                     }
-                    
-                    // All but 0 (contiguous) are handled here
-                    fill_dimensions(num_dimensions, 
-                            num_dimensions,
-                            current_dep_num,
-                            dimension_sizes, 
-                            dependency_type, 
-                            dims_description,
-                            dependency_regions,
-                            dep_expr.retrieve_context());
+
+                    if (num_dimensions > 1)
+                    {
+                        // All the remaining dimensions (but 0) are filled here
+                        fill_dimensions(
+                                num_dimensions,
+                                /* current_dim */ num_dimensions,
+                                current_dep_num,
+                                dimension_sizes,
+                                dependency_type,
+                                dims_description,
+                                dependency_regions,
+                                dep_expr.retrieve_context());
+                    }
                 }
 
-                if (num_dimensions == 0) 
-                    num_dimensions++;
+                int num_dimension_items = num_dimensions;
+                if (num_dimension_items == 0) 
+                    num_dimension_items = 1;
 
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
@@ -1300,7 +1305,7 @@ void LoweringVisitor::fill_dependences(
                         << "{"
                         << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
                         << dependency_flags << ", "
-                        << num_dimensions << ", "
+                        << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num
                         << "}";
                 }
@@ -1309,11 +1314,10 @@ void LoweringVisitor::fill_dependences(
                     result_src
                         << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << (*it)->get_field_name() << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "dependences[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
+                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
                         << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
-                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
-                        << "dependences[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
+                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
                         ;
                 }
             }
@@ -1382,14 +1386,8 @@ void LoweringVisitor::fill_dependences(
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
                         ;
-                    
-                    // if (Nanos::Version::interface_is_at_least("master", 5001))
-                    {
-                        result_src
-                            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
-                            ;
-                    }
                 }
 
                 Source dep_expr_addr;
@@ -1434,7 +1432,10 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
-void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+void LoweringVisitor::fill_dimensions(
+        int n_dims, 
+        int current_dim, 
+        int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 
@@ -1442,9 +1443,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
         Scope sc)
 {
     // We do not handle the contiguous dimension here
-    if (actual_dim > 0)
+    if (current_dim > 0)
     {
-        fill_dimensions(n_dims, actual_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+        fill_dimensions(n_dims, current_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase lb, ub, size;
@@ -1460,7 +1461,7 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].shallow_copy());
+        dimension_size << as_expression(dim_sizes[n_dims - current_dim - 1].shallow_copy());
         dimension_lower_bound << as_expression(lb.shallow_copy());
         dimension_accessed_length << as_expression(size.shallow_copy());
 
@@ -1477,9 +1478,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
         else if (IS_FORTRAN_LANGUAGE)
         {
             dependency_regions_code
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].accessed_length = " << dimension_accessed_length << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].accessed_length = " << dimension_accessed_length << ";"
                 ;
         }
     }
