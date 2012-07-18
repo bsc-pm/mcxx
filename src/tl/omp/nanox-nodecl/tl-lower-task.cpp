@@ -986,7 +986,8 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
     return num_copies;
 }
 
-static void fill_dimensions(int n_dims, 
+static void fill_dimensions(
+        int n_dims, 
         int actual_dim, 
         int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
@@ -1117,8 +1118,8 @@ void LoweringVisitor::fill_dependences(
         result_src
             << dependency_regions
             << "nanos_data_access_t dependences[" << num_deps << "]"
-            ; 
-        
+            ;
+
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
@@ -1204,6 +1205,7 @@ void LoweringVisitor::fill_dependences(
 
                 if (num_dimensions == 0)
                 {
+                    // This is a scalar
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
                     dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
@@ -1233,6 +1235,7 @@ void LoweringVisitor::fill_dependences(
                 }
                 else
                 {
+                    // This an array
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
                     // Compute the contiguous array type
@@ -1312,12 +1315,14 @@ void LoweringVisitor::fill_dependences(
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     result_src
-                        << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << (*it)->get_field_name() << ";"
+                        << "dependences[" << current_dep_num << "].address = "
+                                   << "(*" << arguments_accessor << (*it)->get_field_name() << ");"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
                         << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
                         << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+                        << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
                 }
             }
