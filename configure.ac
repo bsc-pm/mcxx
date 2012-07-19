@@ -1097,9 +1097,10 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
-           tests/config/mercurium-omp
-           tests/config/mercurium-simd
            tests/config/mercurium-nanox
+           tests/config/mercurium-omp
+           tests/config/mercurium-ompss
+           tests/config/mercurium-simd
            tests/config/mercurium-cuda
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium

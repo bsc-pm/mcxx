@@ -1,0 +1,4 @@
+#!@BASH@
+
+# Choose ompss programming model
+exec @abs_builddir@mercurium-nanox ompss

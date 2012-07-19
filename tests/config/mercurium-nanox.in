@@ -1,25 +1,13 @@
 #!@BASH@
 
-with_regions="no"
+PROGRAMMING_MODEL=$1
 
-if [ x$1 = xregions ];
+if [ ! "$PROGRAMMING_MODEL" = "" ];
 then
-    with_regions="yes"
+    PROGRAMMING_MODEL="--${PROGRAMMING_MODEL}"
 fi
 
 if [ -z "@NANOX_INCLUDES@" ];
-then
-
-cat <<EOF
-test_ignore=yes
-EOF
-  
-exit
-
-fi
-
-# If Nanos++ and superscalar but no regions and regions were requested, exit
-if [ $with_regions = yes -a "@NANOX_REGIONS@" = "no" ];
 then
 
 cat <<EOF
@@ -38,29 +26,19 @@ MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests -
 MFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
-if [ ! -z "@NANOX_INCLUDES@" ];
-then
+COMMON_NANOX_CFLAGS=-DNANOX
 
 cat <<EOF
-compile_versions="\${compile_versions} nanox_plain nanox_no_xlate"
+compile_versions="\${compile_versions} nanox_plain"
 
-#plain
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 test_FC_nanox_plain="\${MFC}"
 
-test_CFLAGS_nanox_plain="-std=gnu99"
-test_CXXFLAGS_nanox_plain=""
+test_CFLAGS_nanox_plain="${PROGRAMMING_MODEL} -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_plain="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 
-#no_xlate
-
-test_CC_nanox_no_xlate="\${MCC}"
-test_CXX_nanox_no_xlate="\${MCXX}"
-test_FC_nanox_no_xlate="\${MFC}"
-
-test_CFLAGS_nanox_no_xlate="-std=gnu99 --variable=do_not_create_translation_function:1"
-test_CXXFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
-test_FFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
+test_LDFLAGS_nanox_plain="-L@abs_top_builddir@/lib -lperish"
 
 EOF
 
@@ -76,9 +54,16 @@ test_FC_nanox_instrument="\${MFC}"
 
 test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
 test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
-test_FFLAGS_nanox_instrument="\${test_FFLAGS_nanox_plain} --instrument"
+
+test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@/lib -lperish"
 EOF
 
 fi
 
-fi
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_2thread="OMP_NUM_THREADS='2'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
+EOF
