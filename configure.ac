@@ -250,7 +250,6 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   # TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
@@ -1066,7 +1065,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
-           src/tl/omp/fun-tasks/Makefile 
            src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanos-common/Makefile 

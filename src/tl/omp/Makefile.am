@@ -30,7 +30,6 @@ END=
 
 DIST_SUBDIRS=base \
              core \
-             fun-tasks \
              nanos-common \
              nanox \
              nanox-nodecl \
