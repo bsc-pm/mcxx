@@ -201,13 +201,14 @@ namespace TL {
                         ::fortran_get_rank0_type(return_type.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                     );
         }
+        TL::Type argument_type = return_type;
         return_type = return_type.get_pointer_to();
 
         ObjectList<std::string> parameter_names;
         parameter_names.append("nanox_target_phony");
 
         ObjectList<TL::Type> parameter_types;
-        parameter_types.append(t.get_lvalue_reference_to());
+        parameter_types.append(argument_type.get_lvalue_reference_to());
 
         TL::Symbol result = new_function_symbol(
                 CURRENT_COMPILED_FILE->global_decl_context,
