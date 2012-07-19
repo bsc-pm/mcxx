@@ -33,7 +33,6 @@ DIST_SUBDIRS=analysis \
 			 omp \
              superscalar \
              instr \
-             instr_pthreads \
              stm_func \
              examples \
              testing \

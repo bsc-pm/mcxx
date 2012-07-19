@@ -1373,7 +1373,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox/devices/gpu/Makefile
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
-           src/tl/instr_pthreads/Makefile 
            src/tl/stm_func/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
