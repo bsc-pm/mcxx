@@ -25,7 +25,6 @@
 ##########################################################################
 
 SUBDIRS = . codegen omp analysis
-# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
 END=
 
