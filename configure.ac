@@ -631,85 +631,6 @@ then
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
-dnl --------------------- Support for Nebelung ---------------------
-
-is_enabled_tl_nebelung="no"
-AC_MSG_CHECKING([if enabled Nebelung STM TL support])
-AC_ARG_ENABLE([tl-nebelung],
-  AS_HELP_STRING([--enable-tl-nebelung], [Enables generation of Nebelung STM TL support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_nebelung="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_nebelung="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_nebelung="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-nebelung_include=""
-nebelung_lib=""
-NEBELUNG_LIBS=""
-NEBELUNG_INCLUDES=""
-if test x$is_enabled_tl_nebelung = xyes;
-then
-   AC_ARG_WITH([nebelung],
-           AS_HELP_STRING([--with-nebelung=dir], [Directory of Nebelung installation]),
-           [
-            nebelung_include="${withval}/include"
-            nebelung_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([nebelung-include],
-           AS_HELP_STRING([--with-nebelung-include=dir], [Directory of Nebelung headers]),
-           [
-            nebelung_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([nebelung-lib],
-           AS_HELP_STRING([--with-nebelung-lib=dir], [Directory of Nebelung libraries]),
-           [
-            nebelung_lib="${withval}"
-           ]
-   )
-
-   if test x$nanos4_include = x -o x$nanos4_lib = x;
-   then
-      AC_MSG_ERROR([Nebelung support requires '--with-nanos4=dir'. See --help.])
-   fi
-
-   if test x$nebelung_include = x -o x$nebelung_lib = x;
-   then
-      AC_MSG_ERROR([Nebelung support requires '--with-nebelung=dir'. See --help.])
-   fi
-
-   NEBELUNG_INCLUDES="-I ${nebelung_include} -include nebelung.h"
-   NEBELUNG_LIBS="-L ${nebelung_lib} -lnebelung"
-
-   TL_EXTENSIONS="${TL_EXTENSIONS} stm_func"
-
-   COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.stm_nebelung"
-fi
-
-AC_SUBST([NEBELUNG_INCLUDES])
-AC_SUBST([NEBELUNG_LIBS])
-
-dnl --------------------- End Support for Nebelung ---------------------
-
-dnl --------------------- Installation of binaries in pkgdir ---------------------
 
 is_enabled_pkgdir_install="no"
 
@@ -1321,13 +1242,6 @@ if test x$is_enabled_tl_instr = xyes;
 then
   echo "   Mintaka includes :" $mintaka_include
   echo "   Mintaka libraries:" $mintaka_lib
-fi
-echo ""
-echo " * Nebelung :" $is_enabled_tl_nebelung
-if test x$is_enabled_tl_nebelung = xyes;
-then
-  echo "   Nebelung includes :" $nebelung_include
-  echo "   Nebelung libraries:" $nebelung_lib
 fi
 echo ""
 
