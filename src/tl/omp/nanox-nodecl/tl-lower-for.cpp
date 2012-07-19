@@ -188,6 +188,7 @@ namespace TL { namespace Nanox {
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
         Nodecl::NodeclBase outline_placeholder;
+
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
         emit_outline(outline_info, statements,
                 outline_name, structure_symbol, 
@@ -201,8 +202,18 @@ namespace TL { namespace Nanox {
             << outline_distribute_loop_source
             ;
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::C;
+        }
+
         outline_placeholder.replace(
                 extended_outline_distribute_loop_source.parse_statement(outline_placeholder));
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         // Now complete the placeholders
         if (IS_FORTRAN_LANGUAGE)
