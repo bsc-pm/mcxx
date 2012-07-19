@@ -1105,9 +1105,6 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-simd
            tests/config/mercurium-nanox
            tests/config/mercurium-cuda
-           tests/config/mercurium-ss
-           tests/config/mercurium-ss2omp
-           tests/config/mercurium-stm
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
@@ -1148,13 +1145,6 @@ fi
 echo "   GPU testing enabled:" $gpu_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
-echo ""
-echo " * Mintaka :" $is_enabled_tl_instr
-if test x$is_enabled_tl_instr = xyes;
-then
-  echo "   Mintaka includes :" $mintaka_include
-  echo "   Mintaka libraries:" $mintaka_lib
-fi
 echo ""
 
 if test x$flex_good = xno; 
