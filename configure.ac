@@ -1169,7 +1169,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
-           src/tl/ss_valgrind/Makefile
            support/Makefile
            support/iso_fortran/Makefile
            support/openmp/Makefile

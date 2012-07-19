@@ -34,7 +34,6 @@ DIST_SUBDIRS=analysis \
              examples \
              testing \
              hlt \
-             ss_valgrind \
              manip \
 			 codegen \
              $(END)
