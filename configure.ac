@@ -454,83 +454,6 @@ AC_SUBST([gpu_valid])
 
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
-dnl --------------------- Support for OpenMP Nanos4 (to extinguish) ---------------------
-
-is_enabled_tl_omp_nanos4="no"
-
-AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos 4])
-AC_ARG_ENABLE([tl-openmp-nanos4],
-  AS_HELP_STRING([--enable-tl-openmp-nanos4], [Enables support of OpenMP TL for Nanos 4]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_omp_nanos4="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_omp_nanos4="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_omp_nanos4="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-nanos4_include=""
-nanos4_lib=""
-NANOS4_INCLUDES=""
-NANOS4_LIBS=""
-if test x$is_enabled_tl_omp_nanos4 = xyes;
-then
-   AC_ARG_WITH([nanos4],
-           AS_HELP_STRING([--with-nanos4=dir], [Directory of NANOS 4 installation]),
-           [
-            nanos4_include="${withval}/include"
-            nanos4_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([nanos4-include],
-           AS_HELP_STRING([--with-nanos4-include=dir], [Directory of NANOS 4 headers]),
-           [
-            nanos4_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([nanos4-lib],
-           AS_HELP_STRING([--with-nanos4-lib=dir], [Directory of NANOS 4 libraries]),
-           [
-            nanos4_lib="${withval}"
-           ]
-   )
-
-   if test x$nanos4_include = x -o x$nanos4_lib = x;
-   then
-      AC_MSG_ERROR([OpenMP support requires '--with-nanos4=dir'. See --help.])
-   fi
-
-   NANOS4_INCLUDES="${nanos4_include}"
-   NANOS4_LIBS="${nanos4_lib}"
-
-   if test ! x$is_enabled_tl_omp_nanox = xyes; 
-   then
-      TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
-   fi
-
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
-# mcxx always gets installed
-   COMPILER_NAMES="${COMPILER_NAMES} mcc"
-fi
-
-AC_SUBST([NANOS4_INCLUDES])
-AC_SUBST([NANOS4_LIBS])
-
-dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
 dnl --------------------- OpenMP profile mode ---------------------
 
@@ -560,8 +483,7 @@ AC_ARG_ENABLE([tl-openmp-profile],
 )
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-if test x$is_enabled_tl_omp_nanos4 = xyes \
-      -o x$is_enabled_tl_omp_nanox = xyes \
+if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
@@ -1159,7 +1081,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox/devices/smp_ocl/Makefile
            src/tl/omp/nanox/devices/cuda/Makefile 
            src/tl/omp/nanox/devices/gpu/Makefile
-           src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1183,7 +1104,6 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-simd
            tests/config/mercurium-nanox
-           tests/config/mercurium-nanos4
            tests/config/mercurium-cuda
            tests/config/mercurium-ss
            tests/config/mercurium-ss2omp
@@ -1226,13 +1146,6 @@ then
 fi
 
 echo "   GPU testing enabled:" $gpu_valid
-echo ""
-echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4
-if test x$is_enabled_tl_omp_nanos4 = xyes;
-then
-  echo "   Nanos 4 includes :" $nanos4_include
-  echo "   Nanos 4 libraries:" $nanos4_lib
-fi
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
