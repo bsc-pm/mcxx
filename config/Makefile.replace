@@ -6,9 +6,6 @@ config_edit = \
      -e 's|@ACOLIB_LIBS[@]|$(ACOLIB_LIBS)|g' \
      -e 's|@ACOTES_MSF_INCLUDES[@]|$(ACOTES_MSF_INCLUDES)|g' \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
-     -e 's|@INSTRUMENTATION_PHASE[@]|$(INSTRUMENTATION_PHASE)|g' \
-     -e 's|@MINTAKA_INCLUDES[@]|$(MINTAKA_INCLUDES)|g' \
-     -e 's|@MINTAKA_LIBS[@]|$(MINTAKA_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \

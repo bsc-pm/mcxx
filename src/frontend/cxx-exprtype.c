@@ -6255,7 +6255,7 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
             return 1;
         }
         else if (is_pointer_type(no_ref(t2)) != is_pointer_type(no_ref(t3))
-                && is_zero_type(t2) != is_zero_type(t3))
+                && is_zero_type(no_ref(t2)) != is_zero_type(no_ref(t3)))
         {
             return 1;
         }
@@ -6580,7 +6580,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
          */
         if (!equivalent_types(
                     get_unqualified_type(no_ref(second_type)),
-                    get_unqualified_type(no_ref(third_type))))
+                    get_unqualified_type(no_ref(third_type)))
+                && (is_class_type(no_ref(second_type))
+                    || is_class_type(no_ref(third_type))))
         {
             builtin_operators_set_t builtin_set;
 

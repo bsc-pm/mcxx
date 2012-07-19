@@ -29,19 +29,14 @@ END=
 include vectorizer/Sources.am
 
 SUBDIRS = . codegen omp analysis
-# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
 DIST_SUBDIRS=analysis \
              vectorizer \
 			 omp \
-             superscalar \
              instr \
-             instr_pthreads \
-             stm_func \
              examples \
              testing \
              hlt \
-             ss_valgrind \
              manip \
 			 codegen \
              $(END)
