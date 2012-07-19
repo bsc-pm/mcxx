@@ -6321,7 +6321,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_LOGICAL_OR:
             return -15;
         case NODECL_CONDITIONAL_EXPRESSION:
-            return -16;
         case NODECL_ASSIGNMENT:
         case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
@@ -6335,9 +6334,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_BITWISE_OR_ASSIGNMENT:
         case NODECL_BITWISE_XOR_ASSIGNMENT:
         case NODECL_THROW:
-            return -17;
+            return -16;
         case NODECL_COMMA:
-            return -18;
+            return -17;
         default:
             // Lowest priority possible. This is a conservative approach that
             // will work always albeit it will introduce some unnecessary
