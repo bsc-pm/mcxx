@@ -150,6 +150,10 @@ const char* nodecl_expr_to_source(nodecl_t n);
 // Build from AST_NODECL_LITERAL
 nodecl_t nodecl_make_from_ast_nodecl_literal(AST);
 
+// Placeholders
+AST* nodecl_get_placeholder(nodecl_t n);
+void nodecl_set_placeholder(nodecl_t n, AST* p);
+
 MCXX_END_DECLS
 
 #endif // CXX_NODECL_H
