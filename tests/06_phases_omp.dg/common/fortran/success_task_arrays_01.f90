@@ -20,6 +20,7 @@ PROGRAM P
     B = 1
 
     CALL S(A, B, 4)
+    !$OMP TASKWAIT
     DO I = 1, 10
       IF (A(I) /= 1) STOP 1
       IF (B(I) /= 4) STOP 2
