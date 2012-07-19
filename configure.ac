@@ -709,128 +709,6 @@ AC_SUBST([NEBELUNG_LIBS])
 
 dnl --------------------- End Support for Nebelung ---------------------
 
-dnl --------------------- Superscalar support ---------------------
- 
-superscalar_include="${prefix}/include"
-superscalar_lib="${prefix}/lib"
-SUPERSCALAR_INCLUDES="${superscalar_include}"
-SUPERSCALAR_LIBS="$superscalar_lib"
-
-is_enabled_tl_superscalar="no"
-is_explicitly_enabled_tl_superscalar="no"
-
-AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
-AC_ARG_ENABLE([tl-superscalar],
-  AS_HELP_STRING([--enable-tl-superscalar], [Enables generation of Cell/SMP superscalar TL support]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        is_enabled_tl_superscalar="yes"
-        is_explicitly_enabled_tl_superscalar="yes"
-        AC_MSG_RESULT([yes])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_superscalar="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    if test x$is_enabled_openmpt = xyes;
-    then
-      is_enabled_tl_superscalar="yes"
-      AC_MSG_RESULT([yes, (ENCORE)])
-    else
-      is_enabled_tl_superscalar="no"
-      AC_MSG_RESULT([no])
-    fi
-  ]
-)
-
-ENABLE_SUPERSCALAR=$is_enabled_tl_superscalar
-AC_SUBST([ENABLE_SUPERSCALAR])
-
-ENABLE_SUPERSCALAR_TESTS=$is_explicitly_enabled_tl_superscalar
-AC_SUBST([ENABLE_SUPERSCALAR_TESTS])
-
-AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
-AC_ARG_WITH([superscalar-runtime-api-version],
-    AS_HELP_STRING([--with-superscalar-runtime-api-version=VERSION], [Selects the version number of the Cell/SMP superscalar internal runtime API]),
-    [
-        if test $is_enabled_tl_superscalar = "yes" ; then
-            case $withval in
-            3|4|5)
-                use_tl_superscalar_version=$withval
-                ;;
-            *)
-                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 3, 4 and 5.])
-                ;;
-            esac
-        else
-            use_tl_superscalar_version=none
-        fi
-    ],
-    [
-        if test $is_enabled_tl_superscalar = "yes" ; then
-            if test x$is_enabled_openmpt = xyes;
-            then
-                use_tl_superscalar_version=5
-            else
-                use_tl_superscalar_version=3
-            fi
-        else
-            use_tl_superscalar_version=none
-        fi
-    ]
-)
- 
-if test x$is_enabled_tl_superscalar = xyes;
-then
-   AC_ARG_WITH([superscalar],
-           AS_HELP_STRING([--with-superscalar=dir], [Directory of Cell/SMP superscalar installation]),
-           [
-            superscalar_include="${withval}/include"
-            superscalar_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([superscalar-include],
-           AS_HELP_STRING([--with-superscalar-include=dir], [Directory of Cell/SMP superscalar headers]),
-           [
-            superscalar_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([superscalar-lib],
-           AS_HELP_STRING([--with-superscalar-lib=dir], [Directory of Cell/SMP superscalar libraries]),
-           [
-            superscalar_lib="${withval}"
-           ]
-   )
- 
-   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.superscalar 50.config.ss_valgrind"
-   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
-fi
-     
-SUPERSCALAR_INCLUDES="${superscalar_include}"
-SUPERSCALAR_LIBS="${superscalar_lib}"
- 
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
-AC_MSG_RESULT([$use_tl_superscalar_version])
-
-superscalar_version=$use_tl_superscalar_version
-AC_SUBST([superscalar_version])
-
-AC_SUBST([SUPERSCALAR_INCLUDES])
-AC_SUBST([SUPERSCALAR_LIBS])
-
-dnl --------------------- End of superscalar support ---------------------
-
 dnl --------------------- Installation of binaries in pkgdir ---------------------
 
 is_enabled_pkgdir_install="no"
@@ -861,17 +739,6 @@ AC_ARG_ENABLE([pkgdir-install],
 AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes")
 
 dnl --------------------- End of Installation of binaries in pkgdir ---------------------
-
-dnl ----------------------- Superscalar and Nanox allow SS2 --------------------------------------
-if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
-      "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
-then
-    :
-   # TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
-   # INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.sscc-common 50.config.sscc 50.config.sscxx"
-   # COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
-fi
-dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 
 dnl ---------------------- TL examples ----------------------------
 is_enabled_tl_examples="no"
@@ -1381,7 +1248,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
-           src/tl/superscalar/Makefile
            src/tl/ss_valgrind/Makefile
            support/Makefile
            support/iso_fortran/Makefile
@@ -1462,14 +1328,6 @@ if test x$is_enabled_tl_nebelung = xyes;
 then
   echo "   Nebelung includes :" $nebelung_include
   echo "   Nebelung libraries:" $nebelung_lib
-fi
-echo ""
-echo " * Superscalar :" $is_enabled_tl_superscalar
-if test x$is_enabled_tl_superscalar = xyes;
-then
-  echo "   CELL/SMP superscalar version :" $use_tl_superscalar_version
-  echo "   CELL/SMP superscalar includes :" $superscalar_include
-  echo "   CELL/SMP superscalar libraries:" $superscalar_lib
 fi
 echo ""
 

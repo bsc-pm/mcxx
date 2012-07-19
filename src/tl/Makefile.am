@@ -31,7 +31,6 @@ END=
 
 DIST_SUBDIRS=analysis \
 			 omp \
-             superscalar \
              instr \
              examples \
              testing \
