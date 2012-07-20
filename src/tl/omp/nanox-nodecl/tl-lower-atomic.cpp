@@ -161,7 +161,7 @@ namespace TL { namespace Nanox {
                     || op_kind == NODECL_PREDECREMENT // --x
                     || op_kind == NODECL_POSTDECREMENT) // x--
             {
-                lhs << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().shallow_copy());
+                lhs << as_expression(expr.as<Nodecl::Preincrement>().get_rhs());
                 rhs << "1";
 
                 if (op_kind == NODECL_PREDECREMENT
@@ -177,11 +177,11 @@ namespace TL { namespace Nanox {
             }
             else
             {
-                lhs << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().shallow_copy());
+                lhs << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs());
                 op << Nodecl::Utils::get_elemental_operator_of_binary_expression(expr);
 
                 temporary
-                    << type << " __temp = " << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy()) << ";";
+                    << type << " __temp = " << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs()) << ";";
                 rhs << "__temp";
             }
 
@@ -255,7 +255,7 @@ namespace TL { namespace Nanox {
                         internal_error("Code unreachable", 0);
                 }
 
-                critical_source << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs().shallow_copy()) << "), 1);"
+                critical_source << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs()) << "), 1);"
                     ;
             }
             // No need to check the other case as allowed_expressions_critical
@@ -321,8 +321,8 @@ namespace TL { namespace Nanox {
                 critical_source
                     << "{"
                     << as_type(expr.as<Nodecl::AddAssignment>().get_rhs().get_type()) << "__tmp = "
-                        << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy()) << ";"
-                    << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs().shallow_copy()) << "), __tmp);"
+                        << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs()) << ";"
+                    << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
                     << "}"
                     ;
             }

@@ -675,7 +675,7 @@ namespace TL { namespace Nanox {
                         std::string name = (*it)->get_symbol().get_name();
 
                         private_entities
-                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
                             ;
 
                         break;
