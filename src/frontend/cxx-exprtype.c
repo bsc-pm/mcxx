@@ -877,7 +877,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // Special nodes
         case AST_NODECL_LITERAL:
             {
-                *nodecl_output = nodecl_make_from_ast_nodecl_literal(expression);
+                // Make sure we copy it, otherwise under ambiguity
+                // the same trees would be wrongly handled
+                *nodecl_output = nodecl_shallow_copy(nodecl_make_from_ast_nodecl_literal(expression));
                 break;
             }
         case AST_DIMENSION_STR:
