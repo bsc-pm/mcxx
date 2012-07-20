@@ -14752,6 +14752,12 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         {
             result = argument->value;
         }
+        else if (argument->kind == SK_TEMPLATE_PARAMETER)
+        {
+            result = nodecl_make_symbol(argument, nodecl_get_filename(node), nodecl_get_line(node));
+            nodecl_set_type(result, nodecl_get_type(node));
+            nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        }
         else
         {
             result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
