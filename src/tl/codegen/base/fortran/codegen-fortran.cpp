@@ -659,8 +659,10 @@ namespace Codegen
         walk(lhs); \
         file << " = "; \
         walk(lhs); \
-        file << _operand; \
+        file <<  _operand; \
+        file << "("; \
         walk(rhs); \
+        file << ")"; \
     }
 OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
