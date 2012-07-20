@@ -144,33 +144,37 @@ namespace TL {
                 "", 0);
     }
 
-    namespace {
-        void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
+    namespace 
+    {
+        TL::Type get_assumed_shape_array(TL::Type t)
         {
             if (t.is_array())
             {
-                fill_extra_ref_assumed_size(extra_ref, t.array_element());
+                Nodecl::NodeclBase lower, upper;
 
-                Source current_dims;
-                Nodecl::NodeclBase lower_bound, upper_bound;
-                t.array_get_bounds(lower_bound, upper_bound);
+                t.array_get_bounds(lower, upper);
 
-                if (lower_bound.is_null())
+                TL::Type element_type = get_assumed_shape_array(t.array_element());
+
+                if (lower.is_null()
+                        || lower.is_constant())
                 {
-                    current_dims << "1:1";
-                }
-                else if (upper_bound.is_null())
-                {
-                    current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
+                    return element_type.get_array_to_with_descriptor(
+                            lower.shallow_copy(),
+                            Nodecl::NodeclBase::null(),
+                            CURRENT_COMPILED_FILE->global_decl_context);
                 }
                 else
                 {
-                    current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
+                    internal_error("Non constant lower bound for shaped arrays not implemented yet", 0);
                 }
-
-                extra_ref.append_with_separator(current_dims, ",");
+            }
+            else
+            {
+                return t;
             }
         }
+
     }
 
     // This is for Fortran only
@@ -201,11 +205,12 @@ namespace TL {
                         ::fortran_get_rank0_type(return_type.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                     );
         }
-        TL::Type argument_type = return_type;
         return_type = return_type.get_pointer_to();
 
         ObjectList<std::string> parameter_names;
         parameter_names.append("nanox_target_phony");
+
+        TL::Type argument_type = get_assumed_shape_array(t);
 
         ObjectList<TL::Type> parameter_types;
         parameter_types.append(argument_type.get_lvalue_reference_to());
@@ -272,15 +277,6 @@ namespace TL {
             << "TARGET :: nanox_target_phony\n" // This is despicable, I know :)
             << "nanox_pointer_phony => nanox_target_phony" << extra_ref << "\n"
             ;
-
-        if (t.is_array()
-                && !t.array_requires_descriptor()
-                && t.array_get_size().is_null())
-        {
-            Source array_section;
-            fill_extra_ref_assumed_size(array_section, t);
-            extra_ref << "(" << array_section << ")";
-        }
 
         Nodecl::NodeclBase new_body = body_src.parse_statement(empty_stmt);
         empty_stmt.replace(new_body);
