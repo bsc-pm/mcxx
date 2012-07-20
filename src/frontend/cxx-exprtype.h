@@ -124,6 +124,8 @@ LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr,
         type_t* declared_type, 
         nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 // Like nodecl_make_function_call but takes care of virtual function calls
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, nodecl_t, type_t*, const char* filename, int line);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line);

@@ -222,6 +222,10 @@ LIBMCXX_EXTERN void compute_nodecl_name_from_nested_name(AST nested_part,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void compute_nodecl_name_from_nested_part(AST nested_part,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context,
         nodecl_t* nodecl_output);
 LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op, 

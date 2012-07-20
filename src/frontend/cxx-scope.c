@@ -4818,6 +4818,11 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
     while (nested_it != NULL)
     {
         nodecl_t current = nodecl_null();
+        if (ASTType(nested_it) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_nested_part(nested_it, decl_context);
+        }
+
         AST nested_name = ASTSon0(nested_it);
         compute_nodecl_name_from_unqualified_id(nested_name, 
                 decl_context,

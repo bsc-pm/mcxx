@@ -61,8 +61,8 @@ LIBMCXX_EXTERN void solve_ambiguous_parameter_decl(AST parameter_declaration, de
 LIBMCXX_EXTERN void solve_ambiguous_exception_decl(AST exception_decl, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_type_specifier(AST type_specifier, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_function_header(AST function_header, decl_context_t decl_context);
-
 LIBMCXX_EXTERN void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_nested_part(AST a, decl_context_t decl_context);
 
 // To be deprecated
 LIBMCXX_EXTERN char check_type_id_tree(AST type_id, decl_context_t decl_context);

@@ -1281,8 +1281,23 @@ void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_contex
 }
 
 
+static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context, void* info UNUSED_PARAMETER)
 {
+    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "invalid kind\n", 0);
+    nodecl_t nodecl_nested_part;
+    enter_test_expression();
+    compute_nodecl_name_from_nested_part(a, decl_context, &nodecl_nested_part);
+    leave_test_expression();
+    return !nodecl_is_err_expr(nodecl_nested_part);
+}
 
+void solve_ambiguous_nested_part(AST a, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(a, decl_context, /* info */ NULL,
+            solve_ambiguous_nested_part_check_interpretation,
+            /* choose_interpretation */ NULL,
+            /* fallback */ NULL);
+}
 
 static char solve_ambiguous_init_declarator_check_interpretation(AST a,
         decl_context_t decl_context,
