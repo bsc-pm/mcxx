@@ -1830,7 +1830,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Type symbol_type = symbol.get_type();
 
-    if (!state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
         walk_type_for_symbols(
                 symbol_type,
@@ -1871,7 +1871,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
-    if (!state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
         bool has_ellipsis = false;
         TL::ObjectList<TL::Type> parameter_list = symbol_type.parameters(has_ellipsis);
@@ -2462,13 +2462,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
-    if (!state.do_not_emit_other_declarations)
+
+    C_LANGUAGE()
     {
         walk_type_for_symbols(sym.get_type(),
                 &CxxBase::declare_symbol_always,
                 &CxxBase::define_symbol_always,
                 &CxxBase::define_all_entities_in_trees);
     }
+
     state.must_be_object_init.erase(sym);
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
@@ -2887,12 +2889,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 {
     TL::Symbol entry = node.get_symbol();
 
-    if (entry.is_member()
-            && !state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
-        do_define_symbol(entry.get_class_type().get_symbol(),
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
+        if (entry.is_member())
+        {
+            do_define_symbol(entry.get_class_type().get_symbol(),
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
+        }
     }
 
     bool must_derref = is_non_language_reference_variable(entry)
@@ -4146,7 +4150,8 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
 
     // This indirectly fills state.pending_nested_types_to_define
     TL::ObjectList<TL::Symbol> symbols_defined_inside_class;
-    if (!state.do_not_emit_other_declarations)
+
+    C_LANGUAGE()
     {
         symbols_defined_inside_class =
             define_required_before_class(symbol, decl_sym_fun, def_sym_fun);
@@ -5256,7 +5261,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         if (symbol.is_friend_declared())
             return;
 
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(
                     symbol.get_type(),
@@ -5264,6 +5269,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     &CxxBase::define_symbol_if_nonlocal,
                     &CxxBase::define_nonprototype_entities_in_trees);
         }
+
         char is_primary_template = 0;
         bool requires_extern_linkage = false;
         CXX_LANGUAGE()
@@ -5495,7 +5501,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     if (entry.is_valid()
             && entry.get_type().is_valid())
     {
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(entry.get_type(),
                 decl_sym_fun,
@@ -5524,7 +5530,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     TL::Type type = node.get_type();
     if (type.is_valid())
     {
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(
                 type,

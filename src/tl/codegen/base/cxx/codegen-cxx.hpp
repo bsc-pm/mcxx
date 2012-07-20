@@ -223,8 +223,6 @@ namespace Codegen
 
                 bool inside_structured_value;
 
-                bool do_not_emit_other_declarations;
-
                 // States whether we are visiting the called entity of a function call
                 bool visiting_called_entity_of_function_call;
 
@@ -262,7 +260,6 @@ namespace Codegen
                     in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
                     inside_structured_value(false),
-                    do_not_emit_other_declarations(IS_CXX_LANGUAGE),
                     visiting_called_entity_of_function_call(false),
                     classes_being_defined(),
                     walked_types(),
