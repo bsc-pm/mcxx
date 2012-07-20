@@ -1630,33 +1630,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         }
     }
 
-    if (!state.do_not_emit_other_declarations)
-    {
-        walk_type_for_symbols(symbol_type.returns(),
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always,
-                &CxxBase::define_nonlocal_entities_in_trees);
-    }
-
     state.current_symbol = symbol;
-
-    if (!state.do_not_emit_other_declarations)
-    {
-        bool has_ellipsis = false;
-        TL::ObjectList<TL::Type> parameter_list = symbol_type.parameters(has_ellipsis);
-
-        for (TL::ObjectList<TL::Type>::iterator it = parameter_list.begin();
-                it != parameter_list.end();
-                it++)
-        {
-            walk_type_for_symbols(*it,
-                    &CxxBase::declare_symbol_always,
-                    &CxxBase::define_symbol_always,
-                    &CxxBase::define_nonlocal_entities_in_trees);
-        }
-
-        define_nonlocal_entities_in_trees(statement);
-    }
 
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
@@ -4924,20 +4898,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
 
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
-    {
-        if (!state.do_not_emit_other_declarations)
-        {
-            //We may need to define or declare the template arguments
-            TL::TemplateParameters template_arguments =
-                symbol.get_type().template_specialized_type_get_template_arguments();
-
-            declare_all_in_template_arguments(
-                    template_arguments,
-                    decl_sym_fun,
-                    def_sym_fun);
-        }
         return;
-    }
 
     if (symbol.is_dependent_entity())
     {
@@ -5095,18 +5056,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
     {
-        if (!state.do_not_emit_other_declarations)
-        {
-            //We may need to define or declare the template arguments
-            TL::TemplateParameters template_arguments =
-                symbol.get_type().template_specialized_type_get_template_arguments();
-
-            declare_all_in_template_arguments(
-                    template_arguments,
-                    decl_sym_fun,
-                    def_sym_fun);
-        }
-
         set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
         //We must declare ONLY the primary template
@@ -5210,32 +5159,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 else
                 {
                     is_primary_template = 1;
-                }
-
-                TL::TemplateParameters template_arguments =
-                    symbol.get_type().template_specialized_type_get_template_arguments();
-                if (!state.do_not_emit_other_declarations)
-                {
-                    declare_all_in_template_arguments(
-                            template_arguments,
-                            decl_sym_fun,
-                            def_sym_fun);
-
-                    if (!symbol.get_type().class_type_is_complete_independent()
-                            && !symbol.get_type().class_type_is_incomplete_independent())
-                    {
-                        // If this is dependent and it is not the primary template do
-                        // not continue, declaring the primary should have been enough
-                        //
-                        // This may happen for template functions which implicitly name
-                        // dependent specializations (such as those defined using
-                        // default template arguments). It also may be caused by a bug
-                        // in the frontend, though
-                        if (!is_primary_template)
-                        {
-                            return;
-                        }
-                    }
                 }
             }
 
@@ -6764,11 +6687,6 @@ void CxxBase::codegen_template_header(
         return;
     }
 
-    // First traversal to ensure that everything is declared
-    if (!state.do_not_emit_other_declarations)
-    {
-        declare_all_in_template_header(template_parameters);
-    }
     file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
