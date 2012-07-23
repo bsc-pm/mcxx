@@ -190,6 +190,9 @@ void CxxBase::visit(const Nodecl::Reference &node)
     if (is_non_language_reference_variable(rhs))
     {
         state.do_not_derref_rebindable_reference = true;
+
+        // Emit a casting here
+        file << "(" << this->get_declaration(node.get_type(), this->get_current_scope(), "") << ") ";
     }
     else
     {
