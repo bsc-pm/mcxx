@@ -213,25 +213,25 @@ namespace TL { namespace Nanox {
                     }
                 };
 
-                TL::Type assumed_array_descriptor = BuildArray::get_assumed_array(t);
-
-                int rank = ::fortran_get_rank_of_type(t.get_internal_type());
-                TL::Type deferred_array_descriptor = TL::Type(
-                        ::fortran_get_n_ranked_type_with_descriptor(
-                            ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
-                        );
-
                 switch (data_item.get_sharing())
                 {
                     case OutlineDataItem::SHARING_PRIVATE:
                         {
-                            data_item.set_in_outline_type(assumed_array_descriptor);
+                            // We can use the original array type, even if VLA
+                            data_item.set_in_outline_type(t);
                             // Since it does not appear in the structure, void is enough
                             data_item.set_field_type(Type::get_void_type());
                             break;
                         }
                     case OutlineDataItem::SHARING_CAPTURE:
                         {
+                            TL::Type assumed_array_descriptor = BuildArray::get_assumed_array(t);
+                            int rank = ::fortran_get_rank_of_type(t.get_internal_type());
+                            TL::Type deferred_array_descriptor = TL::Type(
+                                    ::fortran_get_n_ranked_type_with_descriptor(
+                                        ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
+                                    );
+
                             data_item.set_in_outline_type(assumed_array_descriptor.get_lvalue_reference_to());
                             data_item.set_field_type(deferred_array_descriptor);
 
@@ -241,6 +241,12 @@ namespace TL { namespace Nanox {
                         }
                     case OutlineDataItem::SHARING_SHARED:
                         {
+                            int rank = ::fortran_get_rank_of_type(t.get_internal_type());
+                            TL::Type deferred_array_descriptor = TL::Type(
+                                    ::fortran_get_n_ranked_type_with_descriptor(
+                                        ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
+                                    );
+
                             data_item.set_in_outline_type(deferred_array_descriptor.get_pointer_to().get_lvalue_reference_to());
                             data_item.set_field_type(deferred_array_descriptor.get_pointer_to());
                             break;
@@ -379,10 +385,6 @@ namespace TL { namespace Nanox {
                     related_symbol.get_class_type().get_internal_type(), 
                     related_symbol.get_internal_symbol(),
                     new_class_symbol.get_internal_symbol());
-
-            // ::class_type_add_member(
-            //         related_symbol.get_class_type().get_internal_type(), 
-            //         new_class_symbol.get_internal_symbol());
         }
         else if (related_symbol.is_in_module())
         {
