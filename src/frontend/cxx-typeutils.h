@@ -683,7 +683,9 @@ LIBMCXX_EXTERN size_t get_type_t_size(void);
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
 LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
 
-LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, void *info, scope_entry_t *(*map)(scope_entry_t*, void*));
+LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
+        decl_context_t new_decl_context,
+        symbol_map_t* symbol_map);
 
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];

@@ -84,8 +84,9 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-visitor.h \
   cxx-nodecl-visitor.c \
   cxx-nodecl-shallow-copy.c \
-  cxx-nodecl-deep-copy-base.c \
+  cxx-nodecl-deep-copy-fwd.h \
   cxx-nodecl-deep-copy.h \
+  cxx-nodecl-deep-copy-base.c \
   cxx-nodecl-deep-copy.c \
   cxx-symbol-deep-copy-entity-specs.c \
   cxx-symbol-deep-copy.h \

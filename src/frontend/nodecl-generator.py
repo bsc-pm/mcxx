@@ -1308,6 +1308,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
 
 def generate_c_deep_copy_def(rule_map):
     print "#include \"cxx-nodecl.h\""
+    print "#include \"cxx-nodecl-deep-copy.h\""
     print "#include \"cxx-nodecl-output.h\""
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-utils.h\""
@@ -1316,12 +1317,18 @@ def generate_c_deep_copy_def(rule_map):
 
     print """
 
-nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (map)(scope_entry_t*, void* info));
+nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
+   symbol_map_t* symbol_map,
+   symbol_map_t** synth_symbol_map);
 
-nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void* info))
+nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
+   symbol_map_t* symbol_map,
+   symbol_map_t** synth_symbol_map)
 {
     if (nodecl_is_null(n))
         return nodecl_null();
+
+    *synth_symbol_map = symbol_map;
     switch (nodecl_get_kind(n))
     {
         case AST_NODE_LIST:
@@ -1332,7 +1339,8 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void*
           int i;
           for (i = 0; i < num_items; i++)
           {
-                  result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context, info, map));
+                  result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context,
+                          *synth_symbol_map, synth_symbol_map));
           }
           return result;
           break;
@@ -1350,14 +1358,14 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void*
         print "       {"
 
         if (node[0] == "NODECL_CONTEXT"):
-            print "          return nodecl_deep_copy_context(n, new_decl_context, info, map);"
+            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
             print "       }"
             continue
 
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, info, map);" % (i, i)
+            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map);" % (i, i)
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 
@@ -1366,7 +1374,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context, void*
         has_attr = lambda x : needs_attr(x) or may_have_attr(x)
 
         if has_attr("symbol"):
-            print "scope_entry_t* symbol = map(nodecl_get_symbol(n), info);"
+            print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
         if needs_attr("symbol"):
             factory_arguments.append("symbol")
 
