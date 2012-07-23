@@ -554,6 +554,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         ;
 
 
+#if 0
     intel_builtins_src
     //SSE2
         << "__attribute__((vector_size(16))) char           __builtin_ia32_pabsb128 (__attribute__((vector_size(16))) char);"
@@ -600,6 +601,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "__attribute__((vector_size(16))) double         __builtin_ia32_roundpd(__attribute__((vector_size(16))) double, const int);"
         << "__attribute__((vector_size(16))) double         __builtin_ia32_blendvpd(__attribute__((vector_size(16))) double, __attribute__((vector_size(16))) double, __attribute__((vector_size(16))) double);"
         ;
+#endif
 
  
     default_specific_functions_src
@@ -800,7 +802,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
     //Global parsing
     scalar_functions_src.parse_global(translation_unit, scope_link);
-    intel_builtins_src.parse_global(translation_unit, scope_link);
+    // intel_builtins_src.parse_global(translation_unit, scope_link);
     default_specific_functions_src.parse_global(translation_unit, scope_link);
     conversions_src.parse_global(translation_unit, scope_link);
     indexation_src.parse_global(translation_unit, scope_link);
