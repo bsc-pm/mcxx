@@ -1325,10 +1325,10 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
    symbol_map_t* symbol_map,
    symbol_map_t** synth_symbol_map)
 {
+    *synth_symbol_map = symbol_map;
+
     if (nodecl_is_null(n))
         return nodecl_null();
-
-    *synth_symbol_map = symbol_map;
     switch (nodecl_get_kind(n))
     {
         case AST_NODE_LIST:
