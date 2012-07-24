@@ -52,6 +52,8 @@ struct nodecl_expr_info_tag
     scope_entry_t* symbol;
 
     template_parameter_list_t* template_parameters;
+
+    AST* placeholder;
 } nodecl_expr_info_t;
 
 #define LANG_EXPRESSION_INFO "lang.expression_info"
@@ -85,6 +87,9 @@ NODECL_EXPR_GET_PTR(const_value_t, constant, const_val)
 
 // static template_parameter_list_t* nodecl_expr_get_template_parameters(AST expr)
 NODECL_EXPR_GET_PTR(template_parameter_list_t, template_parameters, template_parameters)
+
+// static AST* nodecl_expr_get_placeholder(AST expr)
+NODECL_EXPR_GET_PTR(AST, placeholder, placeholder);
 
 char nodecl_expr_is_constant(AST expr)
 {
@@ -121,6 +126,9 @@ NODECL_EXPR_SET_PTR(const_value_t, constant, const_val)
     
 // static void nodecl_expr_set_template_parameters(AST expr, template_parameter_list_t* template_params)
 NODECL_EXPR_SET_PTR(template_parameter_list_t, template_parameters, template_parameters)
+
+// static void nodecl_expr_set_placeholder(AST expr, AST* template_params)
+NODECL_EXPR_SET_PTR(AST, placeholder, placeholder);
 
 // Public routines
 nodecl_t nodecl_null(void)
@@ -524,6 +532,13 @@ void nodecl_replace(nodecl_t old_node, nodecl_t new_node)
     }
 
     ast_replace(old_node.tree, new_node.tree);
+
+    // If the new node is a placeholder, transfer it to point to old_node
+    AST *p = nodecl_get_placeholder(new_node);
+    if (p != NULL)
+    {
+        *p = old_node.tree;
+    }
 }
 
 #if 0
@@ -661,6 +676,17 @@ size_t nodecl_hash_table(nodecl_t key)
     }
     
     return hash;
+}
+
+// Placeholder
+void nodecl_set_placeholder(nodecl_t n, AST* p)
+{
+    nodecl_expr_set_placeholder(n.tree, p);
+}
+
+AST* nodecl_get_placeholder(nodecl_t n)
+{
+    return nodecl_expr_get_placeholder(n.tree);
 }
 
 // Sourceify

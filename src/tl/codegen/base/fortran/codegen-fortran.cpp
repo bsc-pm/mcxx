@@ -74,6 +74,28 @@ namespace Codegen
         return result;
     }
 
+    namespace
+    {
+        std::string to_binary(unsigned int t)
+        {
+            std::string result;
+            if (t == 0)
+            {
+                result = "0";
+            }
+            else
+            {
+                while (t != 0)
+                {
+                    result.insert(0, (t & 1) ? "1" : "0");
+                    t >>= 1;
+                }
+            }
+
+            return result;
+        }
+    }
+
     class PreCodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
         public:
@@ -637,8 +659,10 @@ namespace Codegen
         walk(lhs); \
         file << " = "; \
         walk(lhs); \
-        file << _operand; \
+        file <<  _operand; \
+        file << "("; \
         walk(rhs); \
+        file << ")"; \
     }
 OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
@@ -879,7 +903,7 @@ OPERATOR_TABLE
                         if (num_items > 0)
                             file << ", ";
 
-                        file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+                        file << "B'" << to_binary(bitfield_pack) << "'";
                         num_items++;
 
                         // Get current offset and compute the number of bytes
@@ -919,7 +943,7 @@ OPERATOR_TABLE
                 if (num_items > 0)
                     file << ", ";
 
-                file << std::hex << "Z'" << bitfield_pack << "'" << std::dec;
+                file << "B'" << to_binary(bitfield_pack) << "'";
 
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now

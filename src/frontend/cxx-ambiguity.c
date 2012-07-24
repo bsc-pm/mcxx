@@ -524,23 +524,12 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
 static int solve_ambiguous_statement_choose_interpretation(AST current_interpretation, AST previous_interpretation, 
         decl_context_t decl_context UNUSED_PARAMETER, void * p UNUSED_PARAMETER)
 {
-    int either;
-    if ((either = either_type(current_interpretation, previous_interpretation, 
-                    AST_EXPRESSION, AST_SIMPLE_DECLARATION)))
-    {
-        // Favour the expression
-        if (either > 0)
-        {
-            // The expression is the first
-            return -1;
-        }
-        else
-        {
-            // The expression is the second
-            return 1;
-        }
-    }
-    return 0;
+    // favor the AST_EXPRESSION
+    return either_type(
+            previous_interpretation,
+            current_interpretation,
+            AST_SIMPLE_DECLARATION,
+            AST_EXPRESSION);
 }
 
 static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
@@ -1292,57 +1281,54 @@ void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_contex
 }
 
 
+static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context, void* info UNUSED_PARAMETER)
+{
+    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "invalid kind\n", 0);
+    nodecl_t nodecl_nested_part;
+    enter_test_expression();
+    compute_nodecl_name_from_nested_part(a, decl_context, &nodecl_nested_part);
+    leave_test_expression();
+    return !nodecl_is_err_expr(nodecl_nested_part);
+}
+
+void solve_ambiguous_nested_part(AST a, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(a, decl_context, /* info */ NULL,
+            solve_ambiguous_nested_part_check_interpretation,
+            /* choose_interpretation */ NULL,
+            /* fallback */ NULL);
+}
+
+static char solve_ambiguous_init_declarator_check_interpretation(AST a,
+        decl_context_t decl_context,
+        void* info UNUSED_PARAMETER)
+{
+    return check_init_declarator(a, decl_context);
+}
+
+static int solve_ambiguous_init_declarator_choose_interpretation(
+        AST current_interpretation,
+        AST previous_interpretation,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void *p UNUSED_PARAMETER)
+{
+    AST previous_choice_declarator = ASTSon0(previous_interpretation);
+    AST current_choice_declarator = ASTSon0(current_interpretation);
+
+    // Favor the AST_DECLARATOR_ID_EXPR
+    return either_type(
+            ASTSon0(previous_choice_declarator),
+            ASTSon0(current_choice_declarator),
+            AST_DECLARATOR_FUNC,
+            AST_DECLARATOR_ID_EXPR);
+}
+
 void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
 {
-    int correct_choice = -1;
-    int i;
-
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
-    {
-        AST init_declarator = ast_get_ambiguity(a, i);
-
-        if (check_init_declarator(init_declarator, decl_context))
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-            }
-            else
-            {
-                // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
-                // function declaration
-
-                AST previous_choice = ast_get_ambiguity(a, correct_choice);
-                AST previous_choice_declarator = ASTSon0(previous_choice);
-
-                AST current_choice_declarator = ASTSon0(init_declarator);
-
-                int either;
-                if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
-                            AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
-                {
-                    // Always favor function declarations
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                    }
-                }
-                else
-                {
-                    internal_error("More than one valid choice!\n", 0);
-                }
-            }
-        }
-    }
-
-    if (correct_choice < 0)
-    {
-        internal_error("Unsolved ambiguity\n", 0);
-    }
-    else
-    {
-        choose_option(a, correct_choice);
-    }
+    solve_ambiguity_generic(a, decl_context, /* info */ NULL,
+        solve_ambiguous_init_declarator_check_interpretation,
+        solve_ambiguous_init_declarator_choose_interpretation,
+        /* fallback */ NULL);
 }
 
 // Like solve_ambiguous_init_declarator but does not fail

@@ -480,8 +480,10 @@ run_gen_test ()
 
    if [ "$test_generator" ]; then
       debug "Using version generator $test_generator"
+      export TEST_LANGUAGE=$type
       export TEST_SOURCE=$source
       $basedir/$test_generator > $tmpfile
+      unset TEST_LANGUAGE
       unset TEST_SOURCE
       source $tmpfile >> $logfile
       if [ "$compile_versions" -a ! "$test_ignore" ]; then

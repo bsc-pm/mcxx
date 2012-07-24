@@ -736,10 +736,10 @@ void LoweringVisitor::fill_arguments(
                         Type t = (*it)->get_shared_expression().get_type();
 
                         fill_outline_arguments 
-                            << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
+                            << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
                         fill_immediate_arguments 
-                            << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
+                            << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
                         break;
                     }
@@ -793,7 +793,6 @@ void LoweringVisitor::fill_arguments(
                                     && t.array_get_size().is_null())
                             {
                                 // This is an assumed-size
-                                // extra_ref << "(1:1)";
                                 Source array_section;
                                 fill_extra_ref_assumed_size(array_section, t);
                                 extra_ref << "(" << array_section << ")";
@@ -834,11 +833,11 @@ void LoweringVisitor::fill_arguments(
                         {
                             fill_outline_arguments << 
                                 "ol_args %" << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression().shallow_copy()) << "\n"
+                                << as_expression( (*it)->get_shared_expression()) << "\n"
                                 ;
                             fill_immediate_arguments << 
                                 "imm_args % " << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
+                                << as_expression( (*it)->get_shared_expression()) << "\n"
                                 ;
                         }
                         else
@@ -848,11 +847,11 @@ void LoweringVisitor::fill_arguments(
 
                             fill_outline_arguments << 
                                 "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy()) << ")\n"
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
                                 ;
                             fill_immediate_arguments << 
                                 "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ")\n"
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
                                 ;
                         }
 
@@ -1208,7 +1207,7 @@ void LoweringVisitor::fill_dependences(
                     // This is a scalar
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1]) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -1257,9 +1256,9 @@ void LoweringVisitor::fill_dependences(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -1466,9 +1465,9 @@ void LoweringVisitor::fill_dimensions(
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - current_dim - 1].shallow_copy());
-        dimension_lower_bound << as_expression(lb.shallow_copy());
-        dimension_accessed_length << as_expression(size.shallow_copy());
+        dimension_size << as_expression(dim_sizes[n_dims - current_dim - 1]);
+        dimension_lower_bound << as_expression(lb);
+        dimension_accessed_length << as_expression(size);
 
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)

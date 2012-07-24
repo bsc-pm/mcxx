@@ -1,25 +1,13 @@
 #!@BASH@
 
-with_regions="no"
+PROGRAMMING_MODEL=$1
 
-if [ x$1 = xregions ];
+if [ ! "$PROGRAMMING_MODEL" = "" ];
 then
-    with_regions="yes"
+    PROGRAMMING_MODEL="--${PROGRAMMING_MODEL}"
 fi
 
 if [ -z "@NANOX_INCLUDES@" ];
-then
-
-cat <<EOF
-test_ignore=yes
-EOF
-  
-exit
-
-fi
-
-# If Nanos++ and superscalar but no regions and regions were requested, exit
-if [ $with_regions = yes -a "@NANOX_REGIONS@" = "no" ];
 then
 
 cat <<EOF
@@ -38,31 +26,94 @@ MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests -
 MFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
-if [ ! -z "@NANOX_INCLUDES@" ];
-then
+COMMON_NANOX_CFLAGS=-DNANOX
 
 cat <<EOF
-compile_versions="\${compile_versions} nanox_plain nanox_no_xlate"
+compile_versions="\${compile_versions} nanox_mercurium"
 
-#plain
-test_CC_nanox_plain="\${MCC}"
-test_CXX_nanox_plain="\${MCXX}"
-test_FC_nanox_plain="\${MFC}"
+test_CC_nanox_mercurium="\${MCC}"
+test_CXX_nanox_mercurium="\${MCXX}"
+test_FC_nanox_mercurium="\${MFC}"
 
-test_CFLAGS_nanox_plain="-std=gnu99"
-test_CXXFLAGS_nanox_plain=""
+test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 
-#no_xlate
-
-test_CC_nanox_no_xlate="\${MCC}"
-test_CXX_nanox_no_xlate="\${MCXX}"
-test_FC_nanox_no_xlate="\${MFC}"
-
-test_CFLAGS_nanox_no_xlate="-std=gnu99 --variable=do_not_create_translation_function:1"
-test_CXXFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
-test_FFLAGS_nanox_no_xlate="--variable=do_not_create_translation_function:1"
+test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
 
 EOF
+
+if [ "$TEST_LANGUAGE" = "c" ];
+then
+  if [ ! -z "@ICC@" ];
+  then
+cat <<EOF
+IMCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_imcc"
+test_CC_nanox_imcc="\${IMCC}"
+test_CFLAGS_nanox_imcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+
+  if [ ! -z "@GXLC@" ];
+  then
+cat <<EOF
+XLMCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=xlmcc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_xlmcc"
+test_CC_nanox_xlmcc="\${XLMCC}"
+test_CFLAGS_nanox_xlmcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_LDFLAGS_nanox_xlmcc="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+fi
+
+if [ "$TEST_LANGUAGE" = "cpp" ];
+then
+  if [ ! -z "@ICPC@" ];
+  then
+cat <<EOF
+IMCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_imcxx"
+test_CXX_nanox_imcxx="\${IMCXX}"
+test_CXXFLAGS_nanox_imcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_LDFLAGS_nanox_imcxx="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+
+  if [ ! -z "@GXLCXX@" ];
+  then
+cat <<EOF
+XLMCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_xlmcxx"
+test_CXX_nanox_xlmcxx="\${XLMCXX}"
+test_CXXFLAGS_nanox_xlmcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_LDFLAGS_nanox_xlmcxx="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+fi
+
+if [ "$TEST_LANGUAGE" = "fortran" ];
+then
+  if [ ! -z "@IFORT@" ];
+  then
+cat <<EOF
+IMFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_imfc"
+test_FC_nanox_imfc="\${IMFC}"
+test_LDFLAGS_nanox_imfc="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+
+  if [ ! -z "@XLF@" ];
+  then
+cat <<EOF
+XLMFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_xlmfc"
+test_FC_nanox_xlmfc="\${XLMFC}"
+test_LDFLAGS_nanox_xlmfc="-L@abs_top_builddir@/lib -lperish"
+EOF
+  fi
+fi
 
 if [ ! -z "@NANOX_INSTRUMENTATION@" ];
 then
@@ -74,11 +125,18 @@ test_CC_nanox_instrument="\${MCC}"
 test_CXX_nanox_instrument="\${MCXX}"
 test_FC_nanox_instrument="\${MFC}"
 
-test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
-test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
-test_FFLAGS_nanox_instrument="\${test_FFLAGS_nanox_plain} --instrument"
+test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_mercurium} --instrument"
+test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_mercurium} --instrument"
+
+test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@/lib -lperish"
 EOF
 
 fi
 
-fi
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_2thread="OMP_NUM_THREADS='2'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
+EOF

@@ -103,11 +103,41 @@ namespace Nodecl
 
         struct SymbolMap
         {
+            private:
+                struct adaptor_symbol_map_t : symbol_map_t
+                {
+                    SymbolMap* obj;
+                };
+
+                adaptor_symbol_map_t _adaptor_symbol_map;
+
+                static scope_entry_t* adaptor_symbol_map_fun(symbol_map_t* sym_map, scope_entry_t *symbol_entry)
+                {
+                    adaptor_symbol_map_t* adaptor_symbol_map = (adaptor_symbol_map_t*)sym_map;
+
+                    return adaptor_symbol_map->obj->map(symbol_entry).get_internal_symbol();
+                }
+
+                static void adaptor_symbol_map_dtor(symbol_map_t* sym_map) { }
+            public:
+
+            symbol_map_t* get_symbol_map()
+            {
+                return &_adaptor_symbol_map;
+            }
+
             virtual TL::Symbol map(TL::Symbol) = 0;
 
-            static scope_entry_t* adapter(scope_entry_t* source, void *symbol_map_obj);
+            SymbolMap()
+            {
+                _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                _adaptor_symbol_map.obj = this;
+            }
 
-            virtual ~SymbolMap() { }
+            virtual ~SymbolMap()
+            {
+            }
         };
 
         struct SimpleSymbolMap : public SymbolMap
@@ -139,38 +169,27 @@ namespace Nodecl
             private:
                 SymbolMap* _orig_symbol_map;
 
-                void *_out_info;
-                scope_entry_t* (*_out_map_info)(scope_entry_t*, void*);
-                void (*_free_closure)(void*);
+                symbol_map_t* _out_map_info;
 
             public:
                 FortranProgramUnitSymbolMap(SymbolMap* original_symbol_map,
                         TL::Symbol source_program_unit,
                         TL::Symbol target_program_unit)
                     : _orig_symbol_map(original_symbol_map),
-                    _out_info(NULL),
-                    _out_map_info(NULL),
-                    _free_closure(NULL)
+                    _out_map_info(NULL)
                 {
                     // Copy Fortran functions
                     copy_fortran_program_unit(
                             target_program_unit.get_internal_symbol(),
                             source_program_unit.get_internal_symbol(),
-                            &_out_info,
-                            &_out_map_info,
-                            &_free_closure);
+                            &_out_map_info);
                 }
 
-                ~FortranProgramUnitSymbolMap()
-                {
-                    _free_closure(_out_info);
-                    ::free(_out_info);
-                    delete _orig_symbol_map;
-                }
+                virtual ~FortranProgramUnitSymbolMap() { }
 
                 virtual TL::Symbol map(TL::Symbol s)
                 {
-                    TL::Symbol m = _out_map_info(s.get_internal_symbol(), _out_info);
+                    TL::Symbol m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
                     if (s == m)
                     {
                         m = _orig_symbol_map->map(s);

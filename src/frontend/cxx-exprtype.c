@@ -355,7 +355,6 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
 static void check_binary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_throw_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output);
 static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -878,7 +877,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // Special nodes
         case AST_NODECL_LITERAL:
             {
-                *nodecl_output = nodecl_make_from_ast_nodecl_literal(expression);
+                // Make sure we copy it, otherwise under ambiguity
+                // the same trees would be wrongly handled
+                *nodecl_output = nodecl_shallow_copy(nodecl_make_from_ast_nodecl_literal(expression));
                 break;
             }
         case AST_DIMENSION_STR:
@@ -9741,7 +9742,7 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t *
 
 
 // This checks that a template-id-expr is feasible in an expression
-static void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     cxx_common_name_check(expr, decl_context, nodecl_output);
 }
@@ -14751,6 +14752,12 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         if (argument->kind == SK_VARIABLE)
         {
             result = argument->value;
+        }
+        else if (argument->kind == SK_TEMPLATE_PARAMETER)
+        {
+            result = nodecl_make_symbol(argument, nodecl_get_filename(node), nodecl_get_line(node));
+            nodecl_set_type(result, nodecl_get_type(node));
+            nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
         }
         else
         {

@@ -460,7 +460,7 @@ def print_deep_copy_entity_specs(lines):
     print "#include \"string_utils.h\""
 
     print """
-    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source, decl_context_t decl_context, void* info, scope_entry_t* (*map)(scope_entry_t*, void*))
+    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source, decl_context_t decl_context, symbol_map_t* symbol_map)
     {
     """
     for l in lines:
@@ -474,11 +474,11 @@ def print_deep_copy_entity_specs(lines):
       elif (_type == "scope"):
           print "dest->entity_specs.%s = decl_context;" % (name)
       elif (_type == "nodecl"):
-          print "dest->entity_specs.%s = nodecl_deep_copy(source->entity_specs.%s, decl_context, info, map);" % (name, name)
+          print "dest->entity_specs.%s = nodecl_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
       elif (_type == "type"):
-          print "dest->entity_specs.%s = type_deep_copy(source->entity_specs.%s, decl_context, info, map);" % (name, name)
+          print "dest->entity_specs.%s = type_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
       elif (_type == "symbol"):
-          print "dest->entity_specs.%s = map(source->entity_specs.%s, info);" % (name, name)
+          print "dest->entity_specs.%s = symbol_map->map(symbol_map, source->entity_specs.%s);" % (name, name)
       elif (_type == "string"):
           print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
       elif (_type.startswith("typeof")):
@@ -505,22 +505,22 @@ def print_deep_copy_entity_specs(lines):
           print "for (i = 0; i < N; i++)"
           print "{"
           if type_name == "symbol":
-              print "scope_entry_t* copied = map(source->entity_specs.%s[i], info);" % (list_name)
+              print "scope_entry_t* copied = symbol_map->map(symbol_map, source->entity_specs.%s[i]);" % (list_name)
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "type":
-              print "type_t* copied = type_deep_copy(source->entity_specs.%s[i], decl_context, info, map);" % (list_name)
+              print "type_t* copied = type_deep_copy(source->entity_specs.%s[i], decl_context, symbol_map);" % (list_name)
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "default_argument_info_t*":
                   print "default_argument_info_t* source_default_arg = source->entity_specs.%s[i];" % (list_name)
                   print "default_argument_info_t* copied = calloc(1, sizeof(*copied));"
-                  print "copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, info, map);"
+                  print "copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
                   print "copied->context = decl_context;"
                   print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "gather_gcc_attribute_t":
               print "gather_gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
               print "gather_gcc_attribute_t copied;"
               print "copied.attribute_name = source_gcc_attr.attribute_name;"
-              print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, info, map);"
+              print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, symbol_map);"
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           else:
               sys.stderr.write("%s: warning: not handling type array of type '%s'\n" % (sys.argv[0], _type))

@@ -291,8 +291,7 @@ namespace TL { namespace Nanox {
             it->get_internal_symbol()->type_information =
                 type_deep_copy(it->get_internal_symbol()->type_information,
                        function_context,
-                       symbol_map,
-                       Nodecl::Utils::SymbolMap::adapter);
+                       symbol_map->get_symbol_map());
         }
         // Update types of privates (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
@@ -302,8 +301,7 @@ namespace TL { namespace Nanox {
             it->get_internal_symbol()->type_information =
                 type_deep_copy(it->get_internal_symbol()->type_information,
                        function_context,
-                       symbol_map,
-                       Nodecl::Utils::SymbolMap::adapter);
+                       symbol_map->get_symbol_map());
         }
 
         // Now everything is set to register the function
@@ -675,7 +673,7 @@ namespace TL { namespace Nanox {
                         std::string name = (*it)->get_symbol().get_name();
 
                         private_entities
-                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity().shallow_copy() ) << ";"
+                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
                             ;
 
                         break;
