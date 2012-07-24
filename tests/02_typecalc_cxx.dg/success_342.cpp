@@ -24,23 +24,16 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_PHASE_HPP
-#define CODEGEN_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
-#include "codegen-common.hpp"
 
-namespace Codegen
-{
-    class CodegenPhase : public TL::CompilerPhase, public CodegenVisitor
-    {
-        virtual void run(TL::DTO& dto);
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-        public:
-            virtual void handle_parameter(int n, void* data);
-    };
 
-    CodegenPhase& get_current();
-}
+template < bool _b >
+struct A {};
 
-#endif // CODEGEN_PHASE_HPP
+A < (2 > 1) > a1;

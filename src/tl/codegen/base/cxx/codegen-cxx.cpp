@@ -38,7 +38,6 @@ MCXX_END_DECLS
 #endif
 
 #include "cxx-printscope.h"
-
 namespace Codegen {
 
 std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
@@ -49,6 +48,9 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     // Keep the state and reset it
     State old_state = state;
     state = State();
+
+    state.nontype_template_argument_needs_parentheses =
+        old_state.nontype_template_argument_needs_parentheses;
 
     decl_context_t decl_context = this->get_current_scope().get_decl_context();
 
@@ -87,6 +89,24 @@ void CxxBase::pop_scope()
     _scope_stack.pop_back();
 }
 
+void CxxBase::handle_parameter(int n, void* data)
+{
+     switch (n)
+     {
+         case CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT:
+             {
+                 ERROR_CONDITION(data == NULL, "data cannot be NULL\n", 0);
+                 state.nontype_template_argument_needs_parentheses = *((char *)data);
+                 break;
+             };
+         default:
+             {
+                 internal_error("undefined codegen parameter\n", 0);
+                 break;
+             };
+     }
+}
+
 TL::Scope CxxBase::get_current_scope() const
 {
     return _scope_stack.back();
@@ -115,24 +135,24 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Different, " != ") \
     BINARY_EXPRESSION(LowerThan, " < ") \
     BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
-    BINARY_EXPRESSION(GreaterThan, " > ") \
-    BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION_EX(GreaterThan, " > ") \
+    BINARY_EXPRESSION_EX(GreaterOrEqualThan, " >= ") \
     BINARY_EXPRESSION(LogicalAnd, " && ") \
     BINARY_EXPRESSION(LogicalOr, " || ") \
     BINARY_EXPRESSION(BitwiseAnd, " & ") \
     BINARY_EXPRESSION(BitwiseOr, " | ") \
     BINARY_EXPRESSION(BitwiseXor, " ^ ") \
     BINARY_EXPRESSION(BitwiseShl, " << ") \
-    BINARY_EXPRESSION(BitwiseShr, " >> ") \
-    BINARY_EXPRESSION(ArithmeticShr, " >> ") \
+    BINARY_EXPRESSION_EX(BitwiseShr, " >> ") \
+    BINARY_EXPRESSION_EX(ArithmeticShr, " >> ") \
     BINARY_EXPRESSION_ASSIG(Assignment, " = ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " *= ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " /= ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " += ") \
     BINARY_EXPRESSION_ASSIG(MinusAssignment, " -= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseShlAssignment, " <<= ") \
-    BINARY_EXPRESSION_ASSIG(BitwiseShrAssignment, " >>= ") \
-    BINARY_EXPRESSION_ASSIG(ArithmeticShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG_EX(BitwiseShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG_EX(ArithmeticShrAssignment, " >>= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseAndAssignment, " &= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseOrAssignment, " |= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseXorAssignment, " ^= ") \
@@ -232,70 +252,119 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        Nodecl::NodeclBase lhs = node.children()[0]; \
-        Nodecl::NodeclBase rhs = node.children()[1]; \
-        char needs_parentheses = operand_has_lower_priority(node, lhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(lhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        file << _operand; \
-        needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(rhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
+        BINARY_EXPRESSION_IMPL(_name, _operand) \
     }
+
+#define BINARY_EXPRESSION_IMPL(_name, _operand) \
+   Nodecl::NodeclBase lhs = node.children()[0]; \
+   Nodecl::NodeclBase rhs = node.children()[1]; \
+   char needs_parentheses = operand_has_lower_priority(node, lhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(lhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   file << _operand; \
+   needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(rhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   }
+
+// In some cases (i. e. when the operator of a binary expression contains the
+// character '>') nontype template arguments may need an extra parentheses
+// Example:
+//      template < bool b>
+//      struct A {};
+//      A < (3 > 2) > a;
+#define BINARY_EXPRESSION_EX(_name, _operand) \
+    void CxxBase::visit(const Nodecl::_name& node) \
+    { \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << "("; \
+        }\
+        BINARY_EXPRESSION_IMPL(_name, _operand) \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << ")"; \
+        }\
+    }
+
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        Nodecl::NodeclBase lhs = node.children()[0]; \
-        Nodecl::NodeclBase rhs = node.children()[1]; \
-        if (state.in_condition && state.condition_top == node) \
-        { \
-            file << "("; \
-        } \
-        char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(lhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        file << _operand; \
-        needs_parentheses = operand_has_lower_priority(node, rhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(rhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        if (state.in_condition && state.condition_top == node) \
-        { \
-            file << ")"; \
-        } \
+        BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
     }
+
+#define BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+   Nodecl::NodeclBase lhs = node.children()[0]; \
+   Nodecl::NodeclBase rhs = node.children()[1]; \
+   if (state.in_condition && state.condition_top == node) \
+   { \
+       file << "("; \
+   } \
+   char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(lhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   file << _operand; \
+   needs_parentheses = operand_has_lower_priority(node, rhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(rhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   if (state.in_condition && state.condition_top == node) \
+   { \
+       file << ")"; \
+   } \
+
+// In some cases (i. e. when the operator of a binary expression assignment
+// contains the character '>') nontype template arguments may need an extra
+// parentheses
+#define BINARY_EXPRESSION_ASSIG_EX(_name, _operand) \
+    void CxxBase::visit(const Nodecl::_name& node) \
+    { \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << "("; \
+        }\
+        BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << ")"; \
+        }\
+    }
+
 OPERATOR_TABLE
 #undef POSTFIX_UNARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+#undef BINARY_EXPRESSION_IMPL
+#undef BINARY_EXPRESSION_EX
 #undef BINARY_EXPRESSION_ASSIG
+#undef BINARY_EXPRESSION_ASSIG_IMPL
+#undef BINARY_EXPRESSION_ASSIG_EX
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {

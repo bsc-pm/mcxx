@@ -44,6 +44,8 @@ namespace Codegen
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
+            void handle_parameter(int n, void* data);
+
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
@@ -221,6 +223,8 @@ namespace Codegen
 
                 bool in_dependent_template_function_code;
 
+                bool nontype_template_argument_needs_parentheses;
+
                 bool inside_structured_value;
 
                 // States whether we are visiting the called entity of a function call
@@ -259,6 +263,7 @@ namespace Codegen
                     in_member_declaration(false),
                     in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
+                    nontype_template_argument_needs_parentheses(false),
                     inside_structured_value(false),
                     visiting_called_entity_of_function_call(false),
                     classes_being_defined(),

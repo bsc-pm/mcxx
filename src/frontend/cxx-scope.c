@@ -3001,7 +3001,20 @@ static const char* template_arguments_to_str_ex(
                 }
             case TPK_NONTYPE:
                 {
+                    // The first unparenthesized '>' indicates the end of
+                    // template arguments. For this reason, in some cases we
+                    // need to parenthesize this template argument.
+                    char codegen_of_nontype_template_argument;
+
+                    codegen_of_nontype_template_argument = 1;
+                    codegen_set_parameter(CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT,
+                            (void*)&codegen_of_nontype_template_argument);
+
                     argument_str = codegen_to_str(argument->value, decl_context);
+
+                    codegen_of_nontype_template_argument = 0;
+                    codegen_set_parameter(CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT,
+                            (void*)&codegen_of_nontype_template_argument);
                     break;
                 }
             case TPK_TEMPLATE:
