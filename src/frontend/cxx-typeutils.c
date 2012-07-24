@@ -7509,19 +7509,24 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
-                if (declarator_needs_parentheses(type_info))
+                const char* class_name =
+                        get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context);
+
+                char needs_parentheses = declarator_needs_parentheses(type_info)
+                    || (class_name != NULL && class_name[0] == ':');
+
+                if (needs_parentheses)
                 {
                     (*left) = strappend((*left), "(");
                 }
 
-                (*left) = strappend((*left),
-                        get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context));
+                (*left) = strappend((*left), class_name);
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
-                if (declarator_needs_parentheses(type_info))
+                if (needs_parentheses)
                 {
                     (*right) = strappend(")", (*right));
                 }
