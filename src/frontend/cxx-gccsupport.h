@@ -56,6 +56,10 @@ LIBMCXX_EXTERN void common_check_gxx_type_traits(type_t* lhs_type,
         int line,
         nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void keep_gcc_attributes_in_symbol(
+        scope_entry_t* entry,
+        gather_decl_spec_t* gather_info);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCSUPPORT_H
