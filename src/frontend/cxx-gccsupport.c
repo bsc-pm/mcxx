@@ -572,13 +572,15 @@ void keep_gcc_attributes_in_symbol(
             if (found)
             {
                 // Update with the freshest value 
-                entry->entity_specs.gcc_attributes[j].expression_list = gather_info->gcc_attributes[i].expression_list;
+                entry->entity_specs.gcc_attributes[j-1].expression_list = gather_info->gcc_attributes[i].expression_list;
             }
             else
             {
-                P_LIST_ADD(entry->entity_specs.gcc_attributes,
-                        entry->entity_specs.num_gcc_attributes,
-                        gather_info->gcc_attributes[i]);
+                entry->entity_specs.num_gcc_attributes++;
+
+                entry->entity_specs.gcc_attributes = realloc(entry->entity_specs.gcc_attributes,
+                        sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
+                entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
             }
         }
     }
