@@ -4721,6 +4721,13 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     file << " = ";
                     walk(init);
                 }
+                // Workaround for g++ <=4.5, >=4.7 (4.6 seems to work fine, but we'll do it anyways)
+                else if (nodecl_expr_is_value_dependent(init.get_internal_nodecl())
+                        && symbol.get_type().is_integral_type())
+                {
+                    file << " = ";
+                    walk(init);
+                }
                 else
                 {
                     file << "(";
