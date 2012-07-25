@@ -17,6 +17,8 @@ void symbol_deep_copy(scope_entry_t* dest,
     ERROR_CONDITION(source->kind == SK_CLASS, "Local class replication not implemented yet", 0);
     ERROR_CONDITION(source->kind == SK_NAMESPACE, "Namespaces should not be replicated!", 0);
 
+    // Note that context is not copied, thus this symbol should already have a
+    // meaningful context for itself
     dest->kind = source->kind;
 
     dest->defined = source->defined;

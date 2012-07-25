@@ -1309,6 +1309,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
 def generate_c_deep_copy_def(rule_map):
     print "#include \"cxx-nodecl.h\""
     print "#include \"cxx-nodecl-deep-copy.h\""
+    print "#include \"cxx-symbol-deep-copy.h\""
     print "#include \"cxx-nodecl-output.h\""
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-utils.h\""
@@ -1357,10 +1358,14 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       case %s:" % (node[0])
         print "       {"
 
-        if (node[0] == "NODECL_CONTEXT"):
+        copying_function = False
+
+        if node[0] == "NODECL_CONTEXT":
             print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
             print "       }"
             continue
+        elif node[0] == "NODECL_FUNCTION_CODE":
+            copying_function = True
 
         factory_arguments = []
         i = 0
@@ -1374,7 +1379,18 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         has_attr = lambda x : needs_attr(x) or may_have_attr(x)
 
         if has_attr("symbol"):
-            print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
+            if copying_function:
+                print "scope_entry_t* orig_symbol = nodecl_get_symbol(n);"
+                print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, orig_symbol);"
+                print "if (symbol == orig_symbol)"
+                print "{"
+                print    "symbol = calloc(1, sizeof(*symbol));"
+                print    "symbol->symbol_name = orig_symbol->symbol_name;"
+                print    "symbol->decl_context = orig_symbol->decl_context;"
+                print "}"
+                print "symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, symbol_map);"
+            else:
+                print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
         if needs_attr("symbol"):
             factory_arguments.append("symbol")
 
