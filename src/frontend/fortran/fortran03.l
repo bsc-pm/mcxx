@@ -785,6 +785,11 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	// This blank must be eaten
 }
 
+"," {
+	parse_token_text();
+    RETURN_TOKEN(',');
+}
+
 }
 
 <pragma_custom_var_list>{

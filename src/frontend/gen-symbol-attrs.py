@@ -512,9 +512,13 @@ def print_deep_copy_entity_specs(lines):
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "default_argument_info_t*":
                   print "default_argument_info_t* source_default_arg = source->entity_specs.%s[i];" % (list_name)
-                  print "default_argument_info_t* copied = calloc(1, sizeof(*copied));"
-                  print "copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
-                  print "copied->context = decl_context;"
+                  print "default_argument_info_t* copied = NULL;"
+                  print "if (source_default_arg != NULL)"
+                  print "{"
+                  print "  copied = calloc(1, sizeof(*copied));"
+                  print "  copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
+                  print "  copied->context = decl_context;"
+                  print "}"
                   print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "gather_gcc_attribute_t":
               print "gather_gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
