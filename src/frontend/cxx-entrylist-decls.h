@@ -30,6 +30,7 @@
 #define CXX_ENTRYLIST_DECLS_H
 
 typedef struct scope_entry_list_tag scope_entry_list_t;
+typedef struct scope_entry_list_node_tag scope_entry_list_node_t;
 typedef struct scope_entry_list_iterator_tag scope_entry_list_iterator_t;
 
 #endif

@@ -24,23 +24,25 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_PHASE_HPP
-#define CODEGEN_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
-#include "codegen-common.hpp"
 
-namespace Codegen
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+template < void (*__nontype_tpl_param_1_0__)() >
+struct instantiate
 {
-    class CodegenPhase : public TL::CompilerPhase, public CodegenVisitor
-    {
-        virtual void run(TL::DTO& dto);
+};
+template <typename T>
+struct C
+{
+    static void foo();
+};
 
-        public:
-            virtual void handle_parameter(int n, void* data);
-    };
-
-    CodegenPhase& get_current();
+    template < typename Model >
+inline void function_requires(Model *)
+{
+    typedef instantiate< &C<int>::foo > boost_concept_check43;
 }
-
-#endif // CODEGEN_PHASE_HPP

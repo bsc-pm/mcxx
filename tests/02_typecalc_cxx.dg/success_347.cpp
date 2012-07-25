@@ -24,23 +24,47 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_PHASE_HPP
-#define CODEGEN_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
-#include "codegen-common.hpp"
 
-namespace Codegen
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+
+
+void f(bool a, bool b, bool c, bool d);
+void g1()
 {
-    class CodegenPhase : public TL::CompilerPhase, public CodegenVisitor
-    {
-        virtual void run(TL::DTO& dto);
-
-        public:
-            virtual void handle_parameter(int n, void* data);
-    };
-
-    CodegenPhase& get_current();
+    f(true, true, true, true);
 }
-
-#endif // CODEGEN_PHASE_HPP
+void f(bool a, bool b, bool c, bool d = false);
+void g2()
+{
+    f(true, true, true, true);
+    f(true, true, true);
+}
+void f(bool a, bool b, bool c = false, bool d);
+void g3()
+{
+    f(true, true, true, true);
+    f(true, true, true);
+    f(true, true);
+}
+void f(bool a, bool b = false, bool c, bool d);
+void g4()
+{
+    f(true, true, true, true);
+    f(true, true, true);
+    f(true, true);
+    f(true);
+}
+void f(bool a = false, bool b, bool c, bool d);
+void g5()
+{
+    f(true, true, true, true);
+    f(true, true, true);
+    f(true, true);
+    f(true);
+    f();
+}

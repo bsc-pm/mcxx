@@ -50,8 +50,6 @@ namespace TL { namespace Nanox {
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
             for_code
-                << "while (nanos_item_loop.execute)"
-                << "{"
                 ;
 
             if (range.get_step().is_constant())
@@ -59,6 +57,11 @@ namespace TL { namespace Nanox {
                 const_value_t* cval = range.get_step().get_constant();
 
                 Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
+
+                for_code
+                    << "while (nanos_item_loop.execute)"
+                    << "{"
+                    ;
 
                 if (const_value_is_positive(cval))
                 {
@@ -84,37 +87,44 @@ namespace TL { namespace Nanox {
                     << statement_placeholder(placeholder1)
                     << "}"
                     ;
+
+                for_code
+                    << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    << "}"
+                    ;
             }
             else
             {
-
                 for_code
                     << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                    <<    ind_var.get_name() << " <= nanos_item_loop.upper;"
-                    <<    ind_var.get_name() << " += nanos_step)"
-                    <<    "{"
-                    <<    statement_placeholder(placeholder1)
-                    <<    "}"
+                    <<   "while (nanos_item_loop.execute)"
+                    <<   "{"
+                    <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<         ind_var.get_name() << " <= nanos_item_loop.upper;"
+                    <<         ind_var.get_name() << " += nanos_step)"
+                    <<       "{"
+                    <<       statement_placeholder(placeholder1)
+                    <<       "}"
+                    <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    <<   "}"
                     << "}"
                     << "else"
                     << "{"
-                    <<    "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                    <<    ind_var.get_name() << " >= nanos_item_loop.upper;"
-                    <<    ind_var.get_name() << " += nanos_step)"
-                    <<    "{"
-                    <<    statement_placeholder(placeholder2)
-                    <<    "}"
+                    <<   "while (nanos_item_loop.execute)"
+                    <<   "{"
+                    <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    <<         ind_var.get_name() << " >= nanos_item_loop.upper;"
+                    <<         ind_var.get_name() << " += nanos_step)"
+                    <<       "{"
+                    <<          statement_placeholder(placeholder2)
+                    <<       "}"
+                    <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    <<   "}"
                     << "}"
                     ;
             }
-
-            for_code
-                << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
-                << "}"
-                ;
         }
         else if (ranges.size() > 1)
         {
@@ -207,8 +217,7 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::C;
         }
 
-        outline_placeholder.replace(
-                extended_outline_distribute_loop_source.parse_statement(outline_placeholder));
+        Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
 
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -224,16 +233,15 @@ namespace TL { namespace Nanox {
                     outline_info.get_unpacked_function_symbol());
         }
 
-        outline_placeholder1.replace(
-                Nodecl::Utils::deep_copy(statements, outline_placeholder1, *symbol_map)
-                );
+        outline_placeholder1.replace(statements.shallow_copy());
 
         if (!outline_placeholder2.is_null())
         {
-            outline_placeholder2.replace(
-                    Nodecl::Utils::deep_copy(statements, outline_placeholder2, *symbol_map)
-                    );
+            outline_placeholder2.replace(statements.shallow_copy());
         }
+
+        // Update symbols
+        outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
 
         delete symbol_map; symbol_map = NULL;
 

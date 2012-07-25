@@ -1639,7 +1639,7 @@ OPERATOR_TABLE
         dec_indent();
         indent();
 
-        file << "END DO\n";
+        file << "END DO";
         if (!node.get_loop_name().is_null())
         {
             file << " ";

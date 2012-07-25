@@ -3137,7 +3137,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             return;
         }
         // We only update the template parameters of decl_context of the class symbol if:
-        //  1. The class has not been defined (we want to store the template parameters its definition!)
+        //  1. The class has not been defined (we want to store the template parameters of its definition!)
         //  2. It is a template specialized class
         //  3. It is not a explicit instantiation (they have not template parameters!)
         if (!class_entry->defined
@@ -12360,12 +12360,10 @@ static void build_scope_implicit_compound_statement(AST list,
     }
     else
     {
+        // Do not create a context node for this one
         *nodecl_output = nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
-                        ),
-                    decl_context, ASTFileName(list), ASTLine(list)));
+                nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
+                );
     }
 }
 

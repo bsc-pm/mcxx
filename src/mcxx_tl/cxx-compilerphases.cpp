@@ -700,4 +700,13 @@ extern "C"
     {
         TL::CompilerPhaseRunner::phases_help(config);
     }
+
+    void codegen_set_parameter(int n, void *data)
+    {
+        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
+                "Codegen phase has not been loaded yet for this configuration", 0);
+
+        Codegen::CodegenPhase* codegen_phase = reinterpret_cast<Codegen::CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
+        codegen_phase->handle_parameter(n, data);
+    }
 }

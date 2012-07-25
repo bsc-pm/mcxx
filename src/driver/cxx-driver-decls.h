@@ -39,6 +39,12 @@
 
 MCXX_BEGIN_DECLS
 
+typedef enum codegen_parameter_tag
+{
+    CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT = 0,
+}
+codegen_parameter_t;
+
 // Kind of source 
 #define BITMAP(X) (1<<X)
 typedef enum source_kind_tag

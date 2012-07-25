@@ -3220,6 +3220,10 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
     {
         // Always the left one in this case
         type_t* result = no_ref(lhs_type);
+        if (is_enum_type(result))
+        {
+            result = enum_type_get_underlying_type(result);
+        }
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
