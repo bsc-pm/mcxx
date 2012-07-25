@@ -12360,12 +12360,10 @@ static void build_scope_implicit_compound_statement(AST list,
     }
     else
     {
+        // Do not create a context node for this one
         *nodecl_output = nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
-                        ),
-                    decl_context, ASTFileName(list), ASTLine(list)));
+                nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
+                );
     }
 }
 
