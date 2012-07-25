@@ -564,25 +564,34 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         if (new_template_type == NULL)
                             return;
 
-                        template_parameter_list_t *template_args =
-                            template_specialized_type_get_template_arguments(member_of_template->type_information);
+                        template_parameter_list_t *template_params = duplicate_template_argument_list(
+                                template_specialized_type_get_template_parameters(member_of_template->type_information));
 
-                        template_parameter_list_t *new_template_args = duplicate_template_argument_list(template_args);
+                        template_params->enclosing = context_of_being_instantiated.template_parameters;
 
-                        for (i = 0; i < new_template_args->num_parameters; i++)
+                        template_parameter_list_t *template_args = duplicate_template_argument_list(
+                                template_specialized_type_get_template_arguments(member_of_template->type_information));
+
+                        template_args->enclosing = context_of_being_instantiated.template_parameters;
+
+                        for (i = 0; i < template_args->num_parameters; i++)
                         {
-                            new_template_args->arguments[i] = update_template_parameter_value(
+                            template_args->arguments[i] = update_template_parameter_value(
                                     template_args->arguments[i],
                                     context_of_being_instantiated, filename, line);
                         }
 
                         // Now ask a new specialization
                         type_t* new_template_specialized_type = template_type_get_specialized_type_after_type(new_template_type,
-                                new_template_args,
+                                template_args,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,
-                                member_of_template->file, 
+                                member_of_template->file,
                                 member_of_template->line);
+
+                        template_specialized_type_update_template_parameters(
+                               named_type_get_symbol(new_template_specialized_type)->type_information,
+                                template_params);
 
                         named_type_get_symbol(new_template_specialized_type)->entity_specs.is_instantiable = 1;
                         named_type_get_symbol(new_template_specialized_type)->entity_specs.is_user_declared = 0;
