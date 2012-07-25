@@ -217,8 +217,7 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::C;
         }
 
-        outline_placeholder.replace(
-                extended_outline_distribute_loop_source.parse_statement(outline_placeholder));
+        Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
 
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -234,16 +233,15 @@ namespace TL { namespace Nanox {
                     outline_info.get_unpacked_function_symbol());
         }
 
-        outline_placeholder1.replace(
-                Nodecl::Utils::deep_copy(statements, outline_placeholder1, *symbol_map)
-                );
+        outline_placeholder1.replace(statements.shallow_copy());
 
         if (!outline_placeholder2.is_null())
         {
-            outline_placeholder2.replace(
-                    Nodecl::Utils::deep_copy(statements, outline_placeholder2, *symbol_map)
-                    );
+            outline_placeholder2.replace(statements.shallow_copy());
         }
+
+        // Update symbols
+        outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
 
         delete symbol_map; symbol_map = NULL;
 
