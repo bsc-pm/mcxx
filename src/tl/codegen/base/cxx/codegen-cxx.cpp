@@ -207,7 +207,11 @@ void CxxBase::visit(const Nodecl::Reference &node)
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
-    if (is_non_language_reference_variable(rhs))
+    if (rhs.get_type().is_rebindable_reference())
+    {
+        state.do_not_derref_rebindable_reference = true;
+    }
+    else if (is_non_language_reference_variable(rhs))
     {
         state.do_not_derref_rebindable_reference = true;
 
