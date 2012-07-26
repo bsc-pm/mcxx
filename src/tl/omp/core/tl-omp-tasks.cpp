@@ -675,8 +675,23 @@ namespace TL
             }
             task_info.set_has_task_priority(has_priority);
 
+            std::string devices("");
+            if (!target_info.get_device_list().empty())
+            {
+                ObjectList<std::string> device_list = target_info.get_device_list();
+                if (device_list.size() == 1)
+                {
+                    devices = " for device '" + device_list.front() + "'";
+                }
+                else
+                {
+                    devices = " for devices '" + TL::concat_strings(device_list, ", ") + "'";
+                }
+            }
+
             std::cerr << construct.get_ast().get_locus()
-                << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
+                << ": note: adding task function '" << function_sym.get_name() << "'"
+                << devices << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
 
