@@ -3289,6 +3289,10 @@ OPERATOR_TABLE
                         state.in_interface = old_in_interface;
 
                         pop_declaration_status();
+
+                        // Mark it as defined (note that pop_declaration_status
+                        // would make us forget that fact)
+                        set_codegen_status(iface, CODEGEN_STATUS_DEFINED);
                     }
                 }
                 dec_indent();
@@ -4806,7 +4810,6 @@ OPERATOR_TABLE
 
         return result;
     }
-
 
     void FortranBase::push_declaration_status()
     {
