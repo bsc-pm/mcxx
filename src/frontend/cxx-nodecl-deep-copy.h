@@ -6,8 +6,6 @@
 
 MCXX_BEGIN_DECLS
 
-typedef struct symbol_map_tag symbol_map_t;
-
 struct symbol_map_tag
 {
     scope_entry_t* (*map)(symbol_map_t*, scope_entry_t*);
