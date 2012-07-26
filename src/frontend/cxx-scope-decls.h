@@ -84,17 +84,23 @@ enum decl_flags_tag
     // type-specifier is expected and a special name 'constructor class-name'
     // is used when looking up in the scope
     DF_CONSTRUCTOR = BITMAP(1),
+    // Enables special lookup for 'struct X'
+    DF_STRUCT = BITMAP(2),
+    // Enables special lookup for 'class X'
+    DF_CLASS = BITMAP(3),
+    // Enables special lookup for 'union X'
+    DF_UNION = BITMAP(4),
+    // Enables special lookup for 'enum X'
+    DF_ENUM = BITMAP(5),
     // Allows redefinition of an identifier already defined, used in compiler
     // phases since they might need to redeclare something
-    DF_ALLOW_REDEFINITION = BITMAP(5),
+    DF_ALLOW_REDEFINITION = BITMAP(6),
     // We are looking up a label
-    DF_LABEL = BITMAP(6), 
+    DF_LABEL = BITMAP(7), 
     // Lookup will consider only the current scope
-    DF_ONLY_CURRENT_SCOPE = BITMAP(7),
+    DF_ONLY_CURRENT_SCOPE = BITMAP(8),
     // Disables examining dependent types (used for dependent typenames)
-    DF_DEPENDENT_TYPENAME = BITMAP(8),
-    // Enables weird lookup for 'struct X'/'union X'/'enum X'
-    DF_ELABORATED_NAME = BITMAP(9),
+    DF_DEPENDENT_TYPENAME = BITMAP(9),
     // The queries will ignore the friend declarations
     DF_IGNORE_FRIEND_DECL = BITMAP(10),
     // The queries will not create dependent entities for unqualified names

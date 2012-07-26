@@ -1394,22 +1394,6 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
     return result.entry_list;
 }
 
-static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
-{
-    // Filter the types
-    enum cxx_symbol_kind type_filter[] = {
-        SK_ENUM ,
-        SK_CLASS ,
-        SK_TYPEDEF ,
-        SK_TEMPLATE_TYPE_PARAMETER,
-        SK_TEMPLATE_TEMPLATE_PARAMETER,
-        SK_TEMPLATE,
-        SK_GCC_BUILTIN_TYPE
-    };
-
-    return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
-}
-
 static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
 {
     fprintf(stderr, "%s:%d: error: ambiguity in reference to '%s'\n", filename, line, 
@@ -1466,6 +1450,24 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
                 && (hiding_name == NULL
                     || (hiding_name->decl_context.current_scope == entry->decl_context.current_scope)))
         {
+            hiding_name = entry;
+        }
+        // Bit special case: two or more typedefs sharing the same name and type
+        // Example:
+        //      namespace N {
+        //          typedef unsigned int size_t;
+        //      }
+        //      using namespace N;
+        //      typedef unsigned int size_t;
+        //
+        //      size_t var;
+        //
+        else if (entry->kind == SK_TYPEDEF
+                && (hiding_name == NULL
+                    || (hiding_name->kind == SK_TYPEDEF
+                        && equivalent_types(hiding_name->type_information, entry->type_information))))
+        {
+            hiding_name = entry;
         }
         else
         {
@@ -1526,6 +1528,7 @@ char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
 static scope_entry_list_t* unqualified_query_in_namespace(
         scope_entry_t* namespace,
         const char* name,
+        decl_flags_t decl_flags,
         int num_associated_namespaces, 
         associated_namespace_t* associated_namespaces,
         const char* filename, int line)
@@ -1555,10 +1558,45 @@ static scope_entry_list_t* unqualified_query_in_namespace(
             entry_list_free(old_grand_result);
             entry_list_free(result);
 
+            // Are we looking for an elaborated class specifier?
+            if (BITMAP_TEST(decl_flags, DF_STRUCT)
+                    || BITMAP_TEST(decl_flags, DF_CLASS)
+                    || BITMAP_TEST(decl_flags, DF_UNION))
+            {
+                enum cxx_symbol_kind type_filter[] = {
+                    SK_CLASS,
+                    SK_TYPEDEF,
+                    SK_TEMPLATE_TYPE_PARAMETER,
+                    SK_TEMPLATE_TEMPLATE_PARAMETER,
+                    SK_TEMPLATE,
+                    SK_GCC_BUILTIN_TYPE
+                };
+
+                scope_entry_list_t* old_result = grand_result;
+                grand_result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+                entry_list_free(old_result);
+            }
+
+            // Are we looking for an elaborated enum specifier?
+            if (BITMAP_TEST(decl_flags, DF_ENUM))
+            {
+                enum cxx_symbol_kind type_filter[] = {
+                    SK_ENUM,
+                    SK_TYPEDEF,
+                    SK_TEMPLATE_TYPE_PARAMETER,
+                    SK_TEMPLATE_TEMPLATE_PARAMETER,
+                    SK_TEMPLATE,
+                    SK_GCC_BUILTIN_TYPE
+                };
+
+                scope_entry_list_t* old_result = grand_result;
+                grand_result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+                entry_list_free(old_result);
+            }
+
             check_for_naming_ambiguity(grand_result, filename, line);
         }
     }
-
     return grand_result;
 }
 
@@ -1612,6 +1650,42 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
         grand_result = entry_list_merge_aliases(old_grand_result, result);
         entry_list_free(old_grand_result);
         entry_list_free(result);
+
+        // Are we looking for an elaborated class specifier?
+        if (BITMAP_TEST(decl_flags, DF_STRUCT)
+                || BITMAP_TEST(decl_flags, DF_CLASS)
+                || BITMAP_TEST(decl_flags, DF_UNION))
+        {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_CLASS,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
+            scope_entry_list_t* old_result = grand_result;
+            grand_result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+            entry_list_free(old_result);
+        }
+
+        // Are we looking for an elaborated enum specifier?
+        if (BITMAP_TEST(decl_flags, DF_ENUM))
+        {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_ENUM,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
+            scope_entry_list_t* old_result = grand_result;
+            grand_result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+            entry_list_free(old_result);
+        }
 
         check_for_naming_ambiguity(grand_result, filename, line);
     }
@@ -1744,7 +1818,9 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         {
             result = unqualified_query_in_namespace(
                     current_scope->related_entry,
-                    name, num_associated_namespaces,
+                    name,
+                    decl_flags,
+                    num_associated_namespaces,
                     associated_namespaces, 
                     filename, line);
         }
@@ -1756,13 +1832,42 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
         if (BITMAP_TEST(decl_flags, DF_IGNORE_FRIEND_DECL))
         {
+            scope_entry_list_t* old_result = result;
             result = filter_friend_declared(result);
+            entry_list_free(old_result);
         }
 
-        if (BITMAP_TEST(decl_flags, DF_ELABORATED_NAME))
+        if (BITMAP_TEST(decl_flags, DF_STRUCT)
+                || BITMAP_TEST(decl_flags, DF_CLASS)
+                || BITMAP_TEST(decl_flags, DF_UNION))
         {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_CLASS,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
             scope_entry_list_t* old_result = result;
-            result = filter_any_non_type(old_result);
+            result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+            entry_list_free(old_result);
+        }
+
+        if (BITMAP_TEST(decl_flags, DF_ENUM))
+        {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_ENUM,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
+            scope_entry_list_t* old_result = result;
+            result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
             entry_list_free(old_result);
         }
 
@@ -3410,7 +3515,7 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context,
             scope_entry_list_t* old_result = result;
             scope_entry_list_t* current_namespace = unqualified_query_in_namespace(
                     current_scope->related_entry,
-                    name, num_associated_namespaces,
+                    name, decl_flags, num_associated_namespaces,
                     associated_namespaces, filename, line);
             result = entry_list_merge(old_result, current_namespace);
 
@@ -3427,10 +3532,37 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context,
             entry_list_free(current_scope_list);
         }
 
-        if (BITMAP_TEST(decl_flags, DF_ELABORATED_NAME))
+        if (BITMAP_TEST(decl_flags, DF_STRUCT)
+                || BITMAP_TEST(decl_flags, DF_CLASS)
+                || BITMAP_TEST(decl_flags, DF_UNION))
         {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_CLASS,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
             scope_entry_list_t* old_result = result;
-            result = filter_any_non_type(old_result);
+            result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+            entry_list_free(old_result);
+        }
+
+        if (BITMAP_TEST(decl_flags, DF_ENUM))
+        {
+            enum cxx_symbol_kind type_filter[] = {
+                SK_ENUM,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE,
+                SK_GCC_BUILTIN_TYPE
+            };
+
+            scope_entry_list_t* old_result = result;
+            result = filter_symbol_kind_set(old_result, STATIC_ARRAY_LENGTH(type_filter), type_filter);
             entry_list_free(old_result);
         }
 
