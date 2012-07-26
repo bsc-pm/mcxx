@@ -6018,8 +6018,8 @@ static scope_entry_t* build_scope_single_interface_specification(
     return entry;
 }
 
-static void build_scope_interface_block(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_interface_block(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     AST interface_stmt = ASTSon0(a);
@@ -6035,6 +6035,43 @@ static void build_scope_interface_block(AST a,
 
     scope_entry_t** related_symbols = NULL;
     int num_related_symbols = 0;
+
+    scope_entry_t* generic_spec_sym = NULL;
+    if (generic_spec != NULL)
+    {
+        const char* name = get_name_of_generic_spec(generic_spec);
+        generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
+
+        if (generic_spec_sym == NULL
+                || generic_spec_sym->entity_specs.from_module)
+        {
+            generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
+
+            // If this name is not related to a specific interface, make it void
+            generic_spec_sym->type_information = get_void_type();
+
+            generic_spec_sym->file = ASTFileName(generic_spec);
+            generic_spec_sym->line = ASTLine(generic_spec);
+        }
+
+        if (generic_spec_sym->kind != SK_UNDEFINED
+                && (generic_spec_sym->kind != SK_FUNCTION
+                    || !generic_spec_sym->entity_specs.is_generic_spec))
+        {
+            error_printf("%s: error: redefining symbol '%s'\n",
+                    ast_location(generic_spec),
+                    name);
+            return;
+        }
+
+        // The symbol won't be unknown anymore
+        remove_untyped_symbol(decl_context, generic_spec_sym);
+
+        generic_spec_sym->kind = SK_FUNCTION;
+        generic_spec_sym->entity_specs.is_generic_spec = 1;
+        generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
+        remove_unknown_kind_symbol(decl_context, generic_spec_sym);
+    }
 
     if (interface_specification_seq != NULL)
     {
@@ -6055,47 +6092,14 @@ static void build_scope_interface_block(AST a,
 
             if (!nodecl_is_null(nodecl_pragma))
             {
-                *nodecl_output = nodecl_append_to_list(*nodecl_output, 
+                *nodecl_output = nodecl_append_to_list(*nodecl_output,
                         nodecl_pragma);
             }
         }
     }
 
-    if (generic_spec != NULL)
+    if (generic_spec_sym != NULL)
     {
-        const char* name = get_name_of_generic_spec(generic_spec);
-        scope_entry_t* generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
-
-        if (generic_spec_sym == NULL
-                || generic_spec_sym->entity_specs.from_module)
-        {
-            generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
-
-            // If this name is not related to a specific interface, make it void
-            generic_spec_sym->type_information = get_void_type();
-
-            generic_spec_sym->file = ASTFileName(generic_spec);
-            generic_spec_sym->line = ASTLine(generic_spec);
-        }
-
-        if (generic_spec_sym->kind != SK_UNDEFINED
-                && (generic_spec_sym->kind != SK_FUNCTION
-                    || !generic_spec_sym->entity_specs.is_generic_spec))
-        {
-            error_printf("%s: error: redefining symbol '%s'\n", 
-                    ast_location(generic_spec),
-                    name);
-            return;
-        }
-
-        // The symbol won't be unknown anymore
-        remove_untyped_symbol(decl_context, generic_spec_sym);
-        
-        generic_spec_sym->kind = SK_FUNCTION;
-        generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
-        remove_unknown_kind_symbol(decl_context, generic_spec_sym);
-
         int i;
         for (i = 0; i < num_related_symbols; i++)
         {
