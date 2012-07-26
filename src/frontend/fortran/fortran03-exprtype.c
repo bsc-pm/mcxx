@@ -1821,7 +1821,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     all_components_are_const = 0;
                 }
 
-                initialization_expressions[i] = member->value;
+                initialization_expressions[i] = nodecl_shallow_copy(member->value);
             }
         }
 
