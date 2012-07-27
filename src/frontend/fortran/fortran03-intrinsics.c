@@ -279,6 +279,7 @@ FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -1317,7 +1318,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
 
-    REGISTER_CUSTOM_INTRINSIC_1("dfloat", fortran_get_doubleprecision_type(), fortran_get_default_integer_type());
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
     REGISTER_CUSTOM_INTRINSIC_1("sngl", fortran_get_default_real_type(), fortran_get_doubleprecision_type());
@@ -4389,6 +4389,23 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("float", 
                 fortran_get_default_real_type(),
+                t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("dfloat", 
+                fortran_get_doubleprecision_type(),
                 t0);
     }
     return NULL;
