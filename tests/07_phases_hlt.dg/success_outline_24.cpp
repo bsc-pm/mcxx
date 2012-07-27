@@ -28,35 +28,21 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
-
+test_generator=07_phases_hlt.dg/mercurium
 </testinfo>
 */
 
-
-#include<assert.h>
-
-int j_value;
-
+template <typename _T>
 struct A
 {
-    A(int i, int j = 2, int z = 3)
-    {
-        j_value = j;
-    }
+    void f(_T t);
 };
 
-struct B
+template <typename _Q>
+void A<_Q>::f(_Q q)
 {
-    A a;
-    B(int i, int j) : a(i, j)
+#pragma hlt outline packed
     {
-        assert(j_value == j);
+        q = 0;
     }
-};
-
-int main()
-{
-    A a(1, 2);
-    B b(1, 5);
 }

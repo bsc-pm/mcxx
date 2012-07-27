@@ -1,0 +1,3 @@
+#!@BASH@
+
+exec @abs_top_builddir@/tests/config/mercurium run

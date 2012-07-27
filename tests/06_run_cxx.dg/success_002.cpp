@@ -29,34 +29,29 @@
 /*
 <testinfo>
 test_generator=config/mercurium-run
-
 </testinfo>
 */
 
 
+#include<new>
 #include<assert.h>
 
-int j_value;
-
+template <typename T>
 struct A
 {
-    A(int i, int j = 2, int z = 3)
-    {
-        j_value = j;
-    }
+    T x;
+    A(T n) : x(n) {}
 };
 
-struct B
+template < typename T1, typename T2>
+A<T1>* f(T1 n, T2 c)
 {
-    A a;
-    B(int i, int j) : a(i, j)
-    {
-        assert(j_value == j);
-    }
-};
+    return (new (c) A<T1>(n));
+}
 
 int main()
 {
-    A a(1, 2);
-    B b(1, 5);
+    char c[sizeof(A<int>)];
+    A<int>* a = f(42, c);
+    assert(a->x == 42);
 }

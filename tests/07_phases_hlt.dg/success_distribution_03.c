@@ -28,35 +28,20 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
-
+test_generator=07_phases_hlt.dg/mercurium
 </testinfo>
 */
 
-
-#include<assert.h>
-
-int j_value;
-
-struct A
+void f(void)
 {
-    A(int i, int j = 2, int z = 3)
+    int a[100], b[100];
+
+    int i;
+    int t;
+#pragma hlt distribute expand(t)
+    for (i = 0; i < 100; i++)
     {
-        j_value = j;
+        t = a[i] + 1;
+        b[i] = t * 2;
     }
-};
-
-struct B
-{
-    A a;
-    B(int i, int j) : a(i, j)
-    {
-        assert(j_value == j);
-    }
-};
-
-int main()
-{
-    A a(1, 2);
-    B b(1, 5);
 }

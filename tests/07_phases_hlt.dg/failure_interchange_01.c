@@ -28,35 +28,23 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
-
+test_generator=07_phases_hlt.dg/mercurium
+test_compile_fail=yes
 </testinfo>
 */
 
-
-#include<assert.h>
-
-int j_value;
-
-struct A
+void f(void)
 {
-    A(int i, int j = 2, int z = 3)
+    int i, j, k;
+    int **a;
+
+#pragma hlt interchange permutation(2, 1)
+    for (i = 0; i < 100; i++)
     {
-        j_value = j;
+        k = 3;
+        for (j = 0; j < 200; j++)
+        {
+            a[i][j] = i + j;
+        }
     }
-};
-
-struct B
-{
-    A a;
-    B(int i, int j) : a(i, j)
-    {
-        assert(j_value == j);
-    }
-};
-
-int main()
-{
-    A a(1, 2);
-    B b(1, 5);
 }
