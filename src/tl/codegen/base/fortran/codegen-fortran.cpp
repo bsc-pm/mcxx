@@ -1274,7 +1274,9 @@ OPERATOR_TABLE
         file << ")";
     }
 
-    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type)
+    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
+            TL::Symbol called_symbol,
+            TL::Type function_type)
     {
         Nodecl::List l = arguments.as<Nodecl::List>();
 
@@ -1299,7 +1301,8 @@ OPERATOR_TABLE
                 arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
             }
 
-            if (!keyword.is_null())
+            if (!keyword.is_null()
+                    && !called_symbol.is_statement_function_statement())
             {
                 parameter_type = keyword.get_symbol().get_type();
                 if (!keyword.get_symbol().not_to_be_printed())
@@ -1401,7 +1404,7 @@ OPERATOR_TABLE
 
 
             file << entry.get_name() << "(";
-            codegen_function_call_arguments(arguments, function_type);
+            codegen_function_call_arguments(arguments, called.get_symbol(), function_type);
             file << ")";
         }
         else
