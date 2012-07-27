@@ -62,7 +62,7 @@ namespace Analysis {
             TopLevelVisitor tlv;
             tlv.visit( ast );
             ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
-            pcfgs = ExtensibleGraph::parallel_control_flow_graph( functions, /* inline called functions' PCFG */ true );
+            pcfgs = PCFGVisitor::parallel_control_flow_graph( functions, /* inline called functions' PCFG */ true );
 
             //!Apply Conditional Constant Propagation
             if ( VERBOSE )
@@ -79,7 +79,7 @@ namespace Analysis {
             if ( VERBOSE )
                 std::cerr << std::endl << "Building a unique PCFG for the program unit" << std::endl;
 
-            pcfgs = ExtensibleGraph::parallel_control_flow_graph( main_func, /* inline called functions' PCFG */ true );
+            pcfgs = PCFGVisitor::parallel_control_flow_graph( main_func, /* inline called functions' PCFG */ true );
 
             //!Apply Conditional Constant Propagation
             if ( VERBOSE )

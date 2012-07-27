@@ -62,7 +62,6 @@ namespace Analysis {
         : _handler_parents( ), _handler_children( ), _nhandlers( -1 )
     {}
 
-    //! Copy constructor
     PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& loop_ctrl)
     {
         _handler_parents = loop_ctrl._handler_parents;
@@ -70,7 +69,6 @@ namespace Analysis {
         _shandlers = loop_ctrl._nhandlers;
     }
 
-    //! Destructor
     PCFGTryBlock::~PCFGTryBlock()
     {
         ~_handler_parents;
@@ -83,12 +81,55 @@ namespace Analysis {
 
 
     // ************************************************************************************** //
+    // ***************************** PCFG OmpSs pragma classes ****************************** //
+
+    PCFGClause::PCFGClause( )
+        : _clause( "" ), _args( )
+    {}
+
+    PCFGClause( std::string c )
+    {
+        : _clause( c ), _args( )
+    }
+
+    PCFGClause( const PCFGClause& c )
+    {
+        _clause = c._clause;
+        _args = c._args;
+    }
+
+    PCFGPragma::PCFGPragma( )
+        : _params( ), _clauses( )
+    {}
+
+    PCFGPragma::PCFGPragma( const pragma_t& p )
+    {
+        _params = p._params;
+        _clauses = p._clauses;
+    }
+
+    bool PCFGPragma::has_clause( std::string c )
+    {
+        for (ObjectList<PCFGClause>::iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
+        {
+            if ( it->_clause == s )
+                return true;
+        }
+        return false;
+    }
+
+    // **************************** END PCFG OmpSs pragma classes *************************** //
+    // ************************************************************************************** //
+
+
+
+    // ************************************************************************************** //
     // ********************************** PCFG utils class ********************************** //
 
     PCFGVisitUtils::PCFGVisitUtils( )
         : _last_nodes( ), _return_nodes( ), _outer_nodes( ),
           _continue_nodes( ), _break_nodes( ), _labeled_nodes( ), _goto_nodes( ),
-          _nested_loop_nodes( ), _tryblock_nodes( ), _nid( -1 )
+          _nested_loop_nodes( ), _tryblock_nodes( ), _pragma_nodes( ), _nid( -1 )
     {}
 
     // ************************************************************************************** //

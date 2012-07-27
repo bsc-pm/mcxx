@@ -47,8 +47,7 @@ namespace Analysis {
 
     PCFGVisitor::PCFGVisitor( std::string name, Scope context, bool inline_pcfg, PCFGVisitUtils* utils )
         : _pcfg( new ExtensibleGraph( name, context, utils ) ), _inline( inline_pcfg ), _utils( utils ),
-          _context_s( ), _pragma_info_s( ), _omp_sections_info( ),
-          _switch_cond_s( ), _visited_functions( )
+          _context_s( ), _omp_sections_info( ), _switch_cond_s( ), _visited_functions( )
     {}
 
     // ********************************** END constructors ********************************** //
@@ -64,7 +63,7 @@ namespace Analysis {
         _pcfg = graph;
     }
 
-    ExtensibleGraph* PCFGVisitor::build_pcfg( const Nodecl::NodeclBase& n )
+    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n )
     {
         // Visit the nodes in \n
         walk( n );
@@ -81,6 +80,30 @@ namespace Analysis {
         _pcfg->dress_up_graph( );
 
         return _pcfg;
+    }
+
+    ObjectList<ExtensibleGraph*> PCFGVisitor::parallel_control_flow_graph( ObjectList<Nodecl::NodeclBase> functions )
+    {
+        ObjectList<ExtensibleGraph*> result;
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
+        {
+            // Visit the nodes in \n
+            walk( *it );
+
+            // Complete the exit node
+            Node* pcfg_exit = _pcfg->_graph->get_graph_exit_node( );
+            pcfg_exit->set_id( ++_utils->_nid );
+
+            // Connect the exit nodes to the exit node of the current graph
+            _pcfg->connect_nodes( _utils->_last_nodes, pcfg_exit );
+            _pcfg->connect_nodes( _utils->_return_nodes, pcfg_exit );
+            _utils->_return_nodes.clear( );
+
+            _pcfg->dress_up_graph( );
+
+            result.append( _pcfg );
+        }
+        return result;
     }
 
     // ****************************** END non-visiting methods ****************************** //
@@ -409,30 +432,30 @@ namespace Analysis {
             Edge* e = _pcfg->connect_nodes( _switch_cond_s.top( ), case_stmts[0], CASE_EDGE );
             if( e != NULL )
             {   // The edge between the nodes did not exist previously
-            label.append( case_val );
-            e->set_data( _EDGE_LABEL, label );
+                label.append( case_val );
+                e->set_data( _EDGE_LABEL, label );
 
-            if( case_stmts.back( )->get_type( ) != BASIC_BREAK_NODE )
-            {
-                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
-            }
+                if( case_stmts.back( )->get_type( ) != BASIC_BREAK_NODE )
+                {
+                    _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
+                }
             }
             else
             {   // If the nodes where already connected, then the edge must have two labels
-            ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
-            for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( );
-                it != case_entry_edges.end( ); ++it )
-                {
-                    if( ( *it )->get_source( )->get_id( ) == _switch_cond_s.top( )->get_id( ) )
+                ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
+                for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( );
+                     it != case_entry_edges.end( ); ++it )
                     {
-                        e = *it;
-                        break;
+                        if( ( *it )->get_source( )->get_id( ) == _switch_cond_s.top( )->get_id( ) )
+                        {
+                            e = *it;
+                            break;
+                        }
                     }
-                }
 
-                label.append( e->get_data<nodecl_t>( _EDGE_LABEL ) );
-            label.append( case_val );
-            e->set_data( _EDGE_LABEL, label );
+                    label.append( e->get_data<nodecl_t>( _EDGE_LABEL ) );
+                label.append( case_val );
+                e->set_data( _EDGE_LABEL, label );
             }
         }
         else
@@ -447,95 +470,13 @@ namespace Analysis {
         return ObjectList<Node*>( 1, basic_node );
     }
 
-
-    template <typename T>
-    PCFGVisitor::Ret PCFGVisitor::create_task_graph( const T& n )
+    PCFGVisitor::Ret PCFGVisitor::visit_taskwait( )
     {
-        ObjectList<Node*> previous_nodes;
-
-        struct pragma_t actual_pragma;
-        _pragma_info_s.push( actual_pragma );
-
-        Node* task_graph_node;
-        if( n.template is<Nodecl::PragmaCustomDeclaration>( ) )
-        {   // We must build here a new Extensible Graph
-            // FIXME We should use here a new PCFGVisitor, not create directly an ExtensibleGraph
-//             ExtensibleGraph* last_pcfg = _pcfg;
-//             _pcfg = new ExtensibleGraph( "pragma_" + n.get_symbol( ).get_name( ), n.retrieve_context( ) );
-//
-//             Symbol next_sym = n.get_symbol( );
-//             if( next_sym.is_function( ) )
-//             {
-//                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol( );
-//                 Nodecl::FunctionCode func( next_sym_->entity_specs.function_code );
-//                 Nodecl::Context ctx = func.get_statements( ).as<Nodecl::Context>( );
-//
-//                 task_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_pragma_line( ), TASK, ctx );
-//                 task_graph_node->set_task_function( next_sym );
-//                 int n_connects = _utils->_last_nodes.size( );
-//                 _pcfg->connect_nodes( _utils->_last_nodes, task_graph_node,
-//                                       ObjectList<Edge_type>( n_connects, ALWAYS_EDGE ),
-//                                       ObjectList<std::string>( n_connects, "" ), /*is task*/ true );
-//                 _utils->_last_nodes.clear( );
-//                 _utils->_last_nodes.append( task_graph_node->get_graph_entry_node( ) );
-//
-//                 walk( n.get_pragma_line( ) );  // This visit computes information associated to the Task node,
-//                 // but do not create any additional node
-//
-//                 walk( func.get_statements( ) );
-//
-//                 Node* task_graph_exit = task_graph_node->get_graph_exit_node( );
-//                 task_graph_exit->set_id( ++( _utils->_nid ) );
-//                 _pcfg->connect_nodes( _utils->_last_nodes, task_graph_exit );
-//                 _utils->_outer_nodes.pop( );
-//                 _pcfg->_task_nodes_l.append( task_graph_node );
-//
-//                 Node* graph_entry = _pcfg->_graph->get_graph_entry_node( );
-//                 Node* graph_exit = _pcfg->_graph->get_graph_exit_node( );
-//                 graph_exit->set_id( ++( _utils->_nid ) );
-//
-//                 _pcfg->connect_nodes( graph_entry, graph_exit );
-//
-//                 //                     _pcfg->dress_up_graph();
-//
-//                 // FIXME We need to add the new pcfg "_pcfg" to the list of cfgs in Analysis (singleton class)
-//                 //                     _cfgs.append(_pcfg);
-//
-//                 _pcfg = last_pcfg;
-//             }
-//             else
-//             {   // Nothing to do. Variable declarations do not create any graph
-//                 internal_error("Pragma tasks declaration not related to a function not yet implemented", 0);
-//             }
-        }
-        else
-        {   // PragmaCustomStatement
-            previous_nodes = _utils->_last_nodes;
-            task_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_pragma_line( ), TASK,
-                                                        _context_s.top( ) );
-            int n_connects = _utils->_last_nodes.size( );
-            _pcfg->connect_nodes( _utils->_last_nodes, task_graph_node,
-                                  ObjectList<Edge_type>( n_connects, ALWAYS_EDGE ), ObjectList<std::string>( n_connects, "" ),
-                                  /*is task*/ true );
-            _utils->_last_nodes.clear( );
-            _utils->_last_nodes.append( task_graph_node->get_graph_entry_node( ) );
-
-            walk( n.get_pragma_line( ) );  // This visit computes information associated to the Task node,
-                                           // but do not create any additional node
-
-            Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>( );
-            walk( n_stmt.get_statements( ) );
-
-            Node* graph_exit = task_graph_node->get_graph_exit_node( );
-            graph_exit->set_id( ++( _utils->_nid ) );
-            _pcfg->connect_nodes( _utils->_last_nodes, graph_exit );
-            _utils->_outer_nodes.pop( );
-            _pcfg->_task_nodes_l.append( task_graph_node );
-
-            _utils->_last_nodes = previous_nodes;
-        }
-
-        return ObjectList<Node*>( 1, task_graph_node );
+        Node* taskwait_node = new Node( _utils->_nid, TASKWAIT_NODE, _utils->_outer_nodes.top( ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
+        _utils->_last_nodes.clear( );
+        _utils->_last_nodes.append( taskwait_node );
+        return PCFGVisitor::Ret( );
     }
 
     template <typename T>
@@ -582,8 +523,8 @@ namespace Analysis {
     PCFGVisitor::Ret PCFGVisitor::visit_pragma_construct( const T& n )
     {
         // Built a new object in the pragma stack to store its relative info
-        struct pragma_t actual_pragma;
-        _pragma_info_s.push( actual_pragma );
+        PCFGPragma current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
 
         std::string pragma = n.get_pragma_line( ).get_text( );
 
@@ -686,7 +627,7 @@ namespace Analysis {
                 _omp_sections_info.pop( );
             }
 
-            if( pragma_is_worksharing( pragma ) && !_pragma_info_s.top( ).has_clause( "nowait" ) )
+            if( pragma_is_worksharing( pragma ) && !_utils->_pragma_nodes.top( ).has_clause( "nowait" ) )
             {   // We include here a Barrier node after the pragma statement
                 _pcfg->create_barrier_node( pragma_graph_node );
             }
@@ -1517,6 +1458,287 @@ namespace Analysis {
         return visit_binary_node( n, n.get_offset_type( ), n.get_designator( ) );
     }
 
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Atomic& n )
+    {
+        walk( n.get_name( ) );
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
+    {   // No deeper Nodecls
+        _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierWait& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
+    {
+        walk( n.get_input_copies( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
+    {
+        walk( n.get_inout_copies( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
+    {
+        walk( n.get_output_copies( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Critical& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CriticalName& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
+    {
+        walk( n.get_in_deps( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
+    {
+        walk( n.get_inout_deps( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
+    {
+        walk( n.get_out_deps( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
+    {
+        walk( n.get_capturated_symbols( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushMemory& n )
+    {
+        walk( n.get_expressions( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::For& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_ranges( ) );
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
+    {
+        walk( n.get_lower( ) );
+        walk( n.get_upper( ) );
+        walk( n.get_step( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
+    {
+        walk( n.get_condition( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Master& n )
+    {
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Parallel& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_num_replicas( ) );
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
+    {
+        walk( n.get_priority( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
+    {
+        walk( n.get_private_symbols( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
+    {
+        walk( n.get_reductions( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
+    {
+        walk( n.get_reductor( ) );
+        walk( n.get_reduced_symbol( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
+    {
+        walk( n.get_chunk( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Sections& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_regions( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
+    {
+        walk( get_shared_symbols( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_statements( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Task& n )
+    {
+
+
+
+
+
+
+
+
+        PCFGPragma current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+
+        ObjectList<Node*> previous_nodes;
+        Node* task_graph_node;
+        if( n.template is<Nodecl::PragmaCustomDeclaration>( ) )
+        {   // We must build here a new Extensible Graph
+        // FIXME We should use here a new PCFGVisitor, not create directly an ExtensibleGraph
+        //             ExtensibleGraph* last_pcfg = _pcfg;
+        //             _pcfg = new ExtensibleGraph( "pragma_" + n.get_symbol( ).get_name( ), n.retrieve_context( ) );
+        //
+        //             Symbol next_sym = n.get_symbol( );
+        //             if( next_sym.is_function( ) )
+        //             {
+            //                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol( );
+            //                 Nodecl::FunctionCode func( next_sym_->entity_specs.function_code );
+            //                 Nodecl::Context ctx = func.get_statements( ).as<Nodecl::Context>( );
+            //
+            //                 task_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_pragma_line( ), TASK, ctx );
+            //                 task_graph_node->set_task_function( next_sym );
+            //                 int n_connects = _utils->_last_nodes.size( );
+            //                 _pcfg->connect_nodes( _utils->_last_nodes, task_graph_node,
+            //                                       ObjectList<Edge_type>( n_connects, ALWAYS_EDGE ),
+            //                                       ObjectList<std::string>( n_connects, "" ), /*is task*/ true );
+            //                 _utils->_last_nodes.clear( );
+            //                 _utils->_last_nodes.append( task_graph_node->get_graph_entry_node( ) );
+            //
+            //                 walk( n.get_pragma_line( ) );  // This visit computes information associated to the Task node,
+            //                 // but do not create any additional node
+            //
+            //                 walk( func.get_statements( ) );
+            //
+            //                 Node* task_graph_exit = task_graph_node->get_graph_exit_node( );
+            //                 task_graph_exit->set_id( ++( _utils->_nid ) );
+            //                 _pcfg->connect_nodes( _utils->_last_nodes, task_graph_exit );
+            //                 _utils->_outer_nodes.pop( );
+            //                 _pcfg->_task_nodes_l.append( task_graph_node );
+            //
+            //                 Node* graph_entry = _pcfg->_graph->get_graph_entry_node( );
+            //                 Node* graph_exit = _pcfg->_graph->get_graph_exit_node( );
+            //                 graph_exit->set_id( ++( _utils->_nid ) );
+            //
+            //                 _pcfg->connect_nodes( graph_entry, graph_exit );
+            //
+            //                 //                     _pcfg->dress_up_graph();
+            //
+            //                 // FIXME We need to add the new pcfg "_pcfg" to the list of cfgs in Analysis (singleton class)
+            //                 //                     _cfgs.append(_pcfg);
+            //
+            //                 _pcfg = last_pcfg;
+            //             }
+            //             else
+            //             {   // Nothing to do. Variable declarations do not create any graph
+            //                 internal_error("Pragma tasks declaration not related to a function not yet implemented", 0);
+            //             }
+        }
+        else
+        {   // PragmaCustomStatement
+            previous_nodes = _utils->_last_nodes;
+            task_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_pragma_line( ), TASK,
+                                                        _context_s.top( ) );
+            int n_connects = _utils->_last_nodes.size( );
+            _pcfg->connect_nodes( _utils->_last_nodes, task_graph_node,
+                                ObjectList<Edge_type>( n_connects, ALWAYS_EDGE ), ObjectList<std::string>( n_connects, "" ),
+                                /*is task*/ true );
+            _utils->_last_nodes.append = ObjectList<Node*>(1, task_graph_node->get_graph_entry_node( ) );)
+
+            walk( n.get_environment( ) );   // This visit computes information associated to the Task node,
+                                            // but do not create any additional node
+
+            walk( n.get_statements( ) );
+
+            Node* graph_exit = task_graph_node->get_graph_exit_node( );
+            graph_exit->set_id( ++( _utils->_nid ) );
+            _pcfg->connect_nodes( _utils->_last_nodes, graph_exit );
+            _utils->_outer_nodes.pop( );
+            _pcfg->_utils->_task_nodes.append( task_graph_node );
+
+            _utils->_last_nodes = previous_nodes;
+        }
+
+        return ObjectList<Node*>( 1, task_graph_node );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    {
+        walk( n.get_environment( ) );
+        walk( n.get_call( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
+    {
+        return visit_taskwait( );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitShallow& n )
+    {
+        return visit_taskwait( );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Untied& n )
+    {   // No deeper Nodecls
+
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
+    {
+        walk(n.get_environment())
+    }
+
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Plus& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
@@ -1557,41 +1779,33 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaClauseArg& n )
     {
-        _pragma_info_s.top( ).clauses.back( ).args.append( n );
+        _utils->_pragma_nodes.top( )._clauses.back( )._args.append( n );
         return PCFGVisitor::Ret( );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaContext& n )
+    {
+        internal_error( "PragmaConstext not yet implemented \n", 0 );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomClause& n )
     {
-        struct clause_t actual_clause( n.get_text( ) );
-        _pragma_info_s.top( ).clauses.append( actual_clause );
-        walk( n.get_arguments( ) );    // This call fills _pragma_info_s with the arguments of the actual clause
+        PCFGClause actual_clause( n.get_text( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
+        walk( n.get_arguments( ) );    // This call fills _utils->_pragma_nodes with the arguments of the actual clause
         return PCFGVisitor::Ret( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomDeclaration& n )
     {
-        return visit_pragma_construct( n );
+        walk( n.get_pragma_line( ) );
+        walk( n.get_nested_pragma( ) );
+        walk( n.get_context_of_decl( ) );
+        walk( n.get_context_of_parameters( ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
-        std::string pragma_line = n.get_pragma_line( ).get_text( );
-        if( pragma_line == "barrier" )
-        {
-            _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
-        }
-        else if( pragma_line == "taskwait" )
-        {
-            Node* taskwait_node = new Node( _utils->_nid, TASKWAIT_NODE, _utils->_outer_nodes.top( ) );
-            _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
-            _utils->_last_nodes.clear( );
-            _utils->_last_nodes.append( taskwait_node );
-        }
-        else
-        {
-            internal_error( "Unexpected directive '%s' found while building the CFG.", pragma_line.c_str( ) );
-        }
         return PCFGVisitor::Ret( );
     }
 
@@ -1599,23 +1813,23 @@ namespace Analysis {
     {
         // Get the empty clause as 'parameters'
         // We create conservatively a 'clause_t'. If no arguments has been found, then we remove it
-        struct clause_t actual_clause( n.get_text( ) );
-        _pragma_info_s.top( ).clauses.append( actual_clause );
+        PCFGClause actual_clause( n.get_text( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
         walk( n.get_parameters( ) );
-        if( _pragma_info_s.top( ).clauses.back( ).args.empty( ) )
+        if( _utils->_pragma_nodes.top( )._clauses.back( )._args.empty( ) )
         {
-            _pragma_info_s.top( ).clauses.erase( _pragma_info_s.top( ).clauses.end( ) - 1 );
+            _utils->_pragma_nodes.top( )._clauses.erase( _utils->_pragma_nodes.top( )._clauses.end( ) - 1 );
         }
 
         // Get the rest of clauses
-        walk( n.get_clauses( ) );  // This method fills _pragma_info_s with the clauses of the actual pragma
+        walk( n.get_clauses( ) );  // This method fills _utils->_pragma_nodes with the clauses of the actual pragma
 
         return PCFGVisitor::Ret( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-        return visit_pragma_construct(n);
+
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Predecrement& n )

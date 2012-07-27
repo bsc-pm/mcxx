@@ -59,6 +59,9 @@ namespace Analysis {
          */
         Scope _sc;
 
+
+
+
         /*!While building the CFG, this list keeps information about which variables appear in the graph
          * But no information about their usage is stored
          * When IPA is performed, then the proper information about the usage is stored

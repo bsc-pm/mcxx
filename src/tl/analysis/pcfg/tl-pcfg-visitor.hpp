@@ -40,52 +40,6 @@
 namespace TL {
 namespace Analysis {
 
-    struct clause_t {
-        std::string clause;
-        ObjectList<Nodecl::NodeclBase> args;
-
-        clause_t()
-            : clause(), args()
-        {}
-
-        clause_t(std::string s)
-            : clause(s), args()
-        {}
-
-        clause_t( const clause_t& c)
-        {
-            clause = c.clause;
-            args = c.args;
-        }
-    };
-
-    struct pragma_t {
-        ObjectList<Nodecl::NodeclBase> params;
-        ObjectList<struct clause_t> clauses;
-
-        pragma_t()
-            : params(), clauses()
-        {}
-
-        pragma_t( const pragma_t& p)
-        {
-            params = p.params;
-            clauses = p.clauses;
-        }
-
-        bool has_clause(std::string s)
-        {
-            for (ObjectList<struct clause_t>::iterator it = clauses.begin();
-                it != clauses.end();
-                ++it)
-            {
-                if (it->clause == s) return true;
-            }
-
-            return false;
-        }
-    };
-
     struct omp_pragma_sections_t {
         ObjectList<Node*> section_parents;
         ObjectList<Node*> sections_exits;
@@ -115,8 +69,6 @@ namespace Analysis {
         // *** All these members are used while building of the graphs *** //
 
         std::stack<Nodecl::NodeclBase> _context_s;
-
-        std::stack<struct pragma_t> _pragma_info_s;
 
         std::stack<struct omp_pragma_sections_t> _omp_sections_info;
 
@@ -206,6 +158,9 @@ namespace Analysis {
          */
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
 
+        //! This method implements the visitor for any kind of taskwait: TaskwaitDeep, TaskwaitShallow
+        Ret visit_taskwait( );
+
         //! This method implements the visitor for unary nodecls
         /*!
          * The nodes wrapped in this visitor method are:
@@ -279,7 +234,10 @@ namespace Analysis {
         // ************************************************************************************** //
         // ******************************** Non-visiting methods ******************************** //
 
-        ExtensibleGraph* build_pcfg( const Nodecl::NodeclBase& n );
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
+
+        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( ObjectList<Nodecl::NodeclBase> functions );
+
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -376,12 +334,49 @@ namespace Analysis {
         Ret visit( const Nodecl::ObjectInit& n );
         Ret visit( const Nodecl::Offset& n );
         Ret visit( const Nodecl::Offsetof& n );
+        Ret visit( const Nodecl::OpenMP::Atomic& n );
+        Ret visit( const Nodecl::OpenMP::BarrierAtEnd& n );
+        Ret visit( const Nodecl::OpenMP::BarrierFull& n );
+        Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
+        Ret visit( const Nodecl::OpenMP::BarrierWait& n );
+        Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
+        Ret visit( const Nodecl::OpenMP::CopyIn& n );
+        Ret visit( const Nodecl::OpenMP::CopyInout& n );
+        Ret visit( const Nodecl::OpenMP::CopyOut& n );
+        Ret visit( const Nodecl::OpenMP::Critical& n );
+        Ret visit( const Nodecl::OpenMP::CriticalName& n );
+        Ret visit( const Nodecl::OpenMP::DepIn& n );
+        Ret visit( const Nodecl::OpenMP::DepInout& n );
+        Ret visit( const Nodecl::OpenMP::DepOut& n );
+        Ret visit( const Nodecl::OpenMP::Firstprivate& n );
+        Ret visit( const Nodecl::OpenMP::FlushMemory& n );
+        Ret visit( const Nodecl::OpenMP::For& n );
+        Ret visit( const Nodecl::OpenMP::ForRange& n );
+        Ret visit( const Nodecl::OpenMP::If& n );
+        Ret visit( const Nodecl::OpenMP::Master& n );
+        Ret visit( const Nodecl::OpenMP::Parallel& n );
+        Ret visit( const Nodecl::OpenMP::Priority& n );
+        Ret visit( const Nodecl::OpenMP::Private& n );
+        Ret visit( const Nodecl::OpenMP::Reduction& n );
+        Ret visit( const Nodecl::OpenMP::ReductionItem& n );
+        Ret visit( const Nodecl::OpenMP::Schedule& n );
+        Ret visit( const Nodecl::OpenMP::Sections& n );
+        Ret visit( const Nodecl::OpenMP::Shared& n );
+        Ret visit( const Nodecl::OpenMP::Single& n );
+        Ret visit( const Nodecl::OpenMP::Target& n );
+        Ret visit( const Nodecl::OpenMP::Task& n );
+        Ret visit( const Nodecl::OpenMP::TaskCall& n );
+        Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
+        Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
+        Ret visit( const Nodecl::OpenMP::Untied& n );
+        Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
         Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
         Ret visit( const Nodecl::PragmaClauseArg& n );
+        Ret visit( const Nodecl::PragmaContext& n );
         Ret visit( const Nodecl::PragmaCustomClause& n );
         Ret visit( const Nodecl::PragmaCustomDeclaration& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );

@@ -77,7 +77,7 @@ namespace Analysis {
             {
                 // Create the PCFG
                 PCFGVisitor v( pcfg_name, it->retrieve_context( ), inline_pcfg );
-                ExtensibleGraph* pcfg = v.build_pcfg( ast );
+                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( ast );
 
                 // Store the pcfg in the proper member depending on the analysis, whether it is IPA or not
                 Analysis_st empty_analysis_state;

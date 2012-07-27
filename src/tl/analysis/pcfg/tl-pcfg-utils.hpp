@@ -46,10 +46,10 @@ namespace Analysis {
         PCFGLoopControl( );
 
         //! Copy constructor
-        PCFGLoopControl( const PCFGLoopControl& loop_ctrl);
+        PCFGLoopControl( const PCFGLoopControl& loop_ctrl );
 
         //! Destructor
-        ~PCFGLoopControl();
+        ~PCFGLoopControl( );
 
     friend class PCFGVisitor;
     };
@@ -75,15 +75,66 @@ namespace Analysis {
         PCFGTryBlock( );
 
         //! Copy constructor
-        PCFGTryBlock( const PCFGTryBlock& loop_ctrl);
+        PCFGTryBlock( const PCFGTryBlock& loop_ctrl );
 
         //! Destructor
-        ~PCFGTryBlock();
+        ~PCFGTryBlock( );
 
     friend class PCFGVisitor;
     };
 
     // ****************************** END PCFG Try block class ****************************** //
+    // ************************************************************************************** //
+
+
+
+    // ************************************************************************************** //
+    // ***************************** PCFG OmpSs pragma classes ****************************** //
+
+//     struct clause_t
+    class PCFGClause {
+    private:
+        std::string _clause;
+        ObjectList<Nodecl::NodeclBase> _args;
+
+    public:
+        //! Empty constructor
+        PCFGClause( );
+
+        //! Constructor
+        PCFGClause( std::string c );
+
+        //! Copy constructor
+        PCFGClause( const PCFGClause& c );
+
+    friend class PCFGVisitor;
+    };
+
+//     struct pragma_t
+    //! Class storing information about nodes in a try-block
+    class PCFGPragma
+    {
+    private:
+        ObjectList<Nodecl::NodeclBase> _params;
+        ObjectList<PCFGClause> _clauses;
+
+    public:
+        //! Empty constructor
+        PCFGPragma( );
+
+        //! Copy constructor
+        PCFGPragma( const PCFGTryBlock& loop_ctrl );
+
+        //! Destructor
+        ~PCFGPragma( );
+
+        //! Consultant
+        bool has_clause( std::string c );
+
+    friend class PCFGVisitor;
+    };
+
+    // **************************** END PCFG OmpSs pragma classes *************************** //
     // ************************************************************************************** //
 
 
@@ -122,6 +173,8 @@ namespace Analysis {
         std::stack<PCFGLoopControl*> _nested_loop_nodes;
         ObjectList<PCFGTryBlock*> _tryblock_nodes;
 
+        //! Stack to keep track of current nested OmpSs pragmas
+        std::stack<PCFGPragma> _pragma_nodes;
 
         //! Counter used to create a unique key for each new node
         int _nid;
