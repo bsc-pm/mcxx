@@ -2523,6 +2523,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
 
     file << "new ";
 
+    Nodecl::NodeclBase placement = node.get_placement();
+    if (!placement.is_null())
+    {
+        file << "(";
+        walk_expression_list(placement.as<Nodecl::List>());
+        file << ")";
+    }
+
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
