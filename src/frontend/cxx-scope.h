@@ -222,6 +222,10 @@ LIBMCXX_EXTERN void compute_nodecl_name_from_nested_name(AST nested_part,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void compute_nodecl_name_from_nested_part(AST nested_part,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context,
         nodecl_t* nodecl_output);
 LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op, 
@@ -251,6 +255,11 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_contex
 
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);
+LIBMCXX_EXTERN char class_is_in_lexical_scope(decl_context_t decl_context, 
+        scope_entry_t* class_symbol);
+LIBMCXX_EXTERN char symbol_is_member_of_dependent_class(scope_entry_t* entry);
+LIBMCXX_EXTERN char symbol_is_local_of_dependent_function(scope_entry_t* entry);
+LIBMCXX_EXTERN scope_entry_t* get_function_or_class_where_symbol_depends(scope_entry_t* entry);
 
 LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
 

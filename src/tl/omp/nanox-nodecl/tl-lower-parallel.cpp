@@ -60,14 +60,14 @@ namespace TL { namespace Nanox {
         std::string outline_name = get_outline_name(function_symbol);
 
         Source outline_source, reduction_code, reduction_initialization;
-        Nodecl::NodeclBase placeholder;
+        Nodecl::NodeclBase inner_placeholder;
         outline_source
             << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "err = nanos_enter_team();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << reduction_initialization
-            << statement_placeholder(placeholder)
+            << statement_placeholder(inner_placeholder)
             << reduction_code
             << "err = nanos_omp_barrier();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -78,8 +78,23 @@ namespace TL { namespace Nanox {
         reduction_initialization << reduction_initialization_code(outline_info, construct);
         reduction_code << perform_partial_reduction(outline_info);
 
+        Nodecl::NodeclBase outline_placeholder;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
+        emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::C;
+        }
+
+        outline_placeholder.replace(
+                outline_source.parse_statement(outline_placeholder)
+                );
+        
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -89,10 +104,10 @@ namespace TL { namespace Nanox {
                     outline_info.get_unpacked_function_symbol());
         }
 
-        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, inner_placeholder, *symbol_map);
         delete symbol_map;
 
-        placeholder.replace(outline_statements_code);
+        inner_placeholder.replace(outline_statements_code);
 
         // This function replaces the current construct
         parallel_spawn(outline_info, construct, num_replicas, outline_name, structure_symbol);

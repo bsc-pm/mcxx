@@ -43,6 +43,7 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-diagnostic.h"
+#include "cxx-nodecl-checker.h"
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
@@ -125,7 +126,7 @@ namespace TL
 
                     }
 
-                    if (!ast_check(translation_unit->parsed_tree))
+                    if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                     {
                         internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
                                 phase->get_phase_name().c_str());
@@ -201,7 +202,7 @@ namespace TL
                     {
                         fprintf(stderr, "COMPILERPHASES: Phase '%s' has been run\n", phase->get_phase_name().c_str());
                     }
-                    
+
                     // For consistency, check the tree
                     DEBUG_CODE()
                     {
@@ -210,7 +211,8 @@ namespace TL
 
                     }
 
-                    if (!ast_check(translation_unit->parsed_tree))
+                    // Check the tree
+                    if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                     {
                         internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
                                 phase->get_phase_name().c_str());
@@ -224,6 +226,7 @@ namespace TL
 
                         }
                     }
+                    nodecl_check_tree(nodecl_get_ast(translation_unit->nodecl));
 
                     DEBUG_CODE()
                     {
@@ -699,5 +702,14 @@ extern "C"
     void phases_help(compilation_configuration_t* config)
     {
         TL::CompilerPhaseRunner::phases_help(config);
+    }
+
+    void codegen_set_parameter(int n, void *data)
+    {
+        ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
+                "Codegen phase has not been loaded yet for this configuration", 0);
+
+        Codegen::CodegenPhase* codegen_phase = reinterpret_cast<Codegen::CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
+        codegen_phase->handle_parameter(n, data);
     }
 }

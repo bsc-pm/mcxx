@@ -35,6 +35,9 @@ namespace Codegen
     class CodegenPhase : public TL::CompilerPhase, public CodegenVisitor
     {
         virtual void run(TL::DTO& dto);
+
+        public:
+            virtual void handle_parameter(int n, void* data);
     };
 
     CodegenPhase& get_current();

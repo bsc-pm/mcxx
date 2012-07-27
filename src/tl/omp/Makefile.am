@@ -30,9 +30,7 @@ END=
 
 DIST_SUBDIRS=base \
              core \
-             fun-tasks \
              nanos-common \
-             nanos4 \
              nanox \
              nanox-nodecl \
              ss2omp \

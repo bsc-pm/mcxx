@@ -35,28 +35,43 @@
 
 unsigned long long _bytes_entry_lists;
 
+struct scope_entry_list_node_tag
+{
+    scope_entry_t* list[NUM_IMMEDIATE];
+    scope_entry_list_node_t* next;
+};
+
 struct scope_entry_list_tag
 {
     unsigned short num_items_list;
-    scope_entry_t* list[NUM_IMMEDIATE];
-    scope_entry_list_t* next;
+    scope_entry_list_node_t* next;
 };
+
+static scope_entry_list_node_t* entry_list_node_allocate(void)
+{
+    return counted_calloc(1, sizeof(scope_entry_list_node_t), &_bytes_entry_lists);
+}
 
 static scope_entry_list_t* entry_list_allocate(void)
 {
-    return counted_calloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
+    scope_entry_list_t* new_entry_list =
+        counted_calloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
+
+    new_entry_list->next = entry_list_node_allocate();
+
+    return new_entry_list;
 }
 
 scope_entry_list_t* entry_list_new(scope_entry_t* entry)
 {
     scope_entry_list_t* result = entry_list_allocate();
     result->num_items_list = 1;
-    result->list[0] = entry;
+    result->next->list[0] = entry;
 
     return result;
 }
 
-static void entry_list_add_to_pos(scope_entry_list_t* list, 
+static void entry_list_add_to_pos_rec(scope_entry_list_node_t* list,
         scope_entry_t* entry, int num_pos)
 {
     if (num_pos < NUM_IMMEDIATE)
@@ -67,41 +82,67 @@ static void entry_list_add_to_pos(scope_entry_list_t* list,
     {
         if (list->next != NULL)
         {
-            entry_list_add_to_pos(list->next, entry, num_pos - NUM_IMMEDIATE);
+            entry_list_add_to_pos_rec(list->next, entry, num_pos - NUM_IMMEDIATE);
         }
         else
         {
-            scope_entry_list_t* new_entry_list = entry_list_allocate();
-            list->next = new_entry_list;
-            entry_list_add_to_pos(new_entry_list, entry, num_pos - NUM_IMMEDIATE);
+            // We need to create a new entry_list_node
+            scope_entry_list_node_t* new_node = entry_list_node_allocate();
+            list->next = new_node;
+            entry_list_add_to_pos_rec(list->next, entry, num_pos - NUM_IMMEDIATE);
         }
     }
 }
 
-static scope_entry_list_t* entry_list_prepend_rec(scope_entry_list_t* list, 
+static scope_entry_list_node_t* entry_list_prepend_rec(scope_entry_list_node_t* list,
         scope_entry_t* entry,
         int num_items)
 {
-    scope_entry_t* last = list->list[NUM_IMMEDIATE - 1];
-    int i;
-    // -2 because we do not want to write past the last element
-    for (i = NUM_IMMEDIATE - 2; i >= 0; i--)
+    if (list == NULL)
     {
-        list->list[i+1] = list->list[i];
+        scope_entry_list_node_t* new_entry_list = entry_list_node_allocate();
+        new_entry_list->list[0] = entry;
+        return new_entry_list;
     }
-    list->list[0] = entry;
-    list->num_items_list++;
+    else
+    {
+        scope_entry_t* last = list->list[NUM_IMMEDIATE - 1];
+        int i;
+        // -2 because we do not want to write past the last element
+        for (i = NUM_IMMEDIATE - 2; i >= 0; i--)
+        {
+            list->list[i+1] = list->list[i];
+        }
+        list->list[0] = entry;
 
-    if (num_items >= NUM_IMMEDIATE)
-    {
-        list->next = entry_list_prepend(list->next, last);
-        //  FIXME: shouldn't this be?
-        // list->next = entry_list_prepend_rec(list, entry, num_items - NUM_IMMEDIATE);
+        if (num_items >= NUM_IMMEDIATE)
+        {
+            list->next = entry_list_prepend_rec(list->next, last, num_items - NUM_IMMEDIATE);
+        }
+        return list;
     }
-    return list;
 }
 
-scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list, 
+scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list,
+        scope_entry_t* entry)
+{
+    scope_entry_list_t* result = NULL;
+    if (list == NULL)
+    {
+        result = entry_list_allocate();
+        result->next->list[0] = entry;
+        result->num_items_list = 1;
+        return result;
+    }
+    else
+    {
+        list->next = entry_list_prepend_rec(list->next, entry, list->num_items_list);
+        list->num_items_list++;
+        return list;
+    }
+}
+
+scope_entry_list_t* entry_list_add(scope_entry_list_t* list,
         scope_entry_t* entry)
 {
     if (list == NULL)
@@ -110,27 +151,14 @@ scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list,
     }
     else
     {
-        return entry_list_prepend_rec(list, entry, list->num_items_list);
-    }
-}
-
-scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
-        scope_entry_t* entry)
-{
-    if (list == NULL)
-    {
-        return entry_list_new(entry);
-    }
-    else
-    {
-        entry_list_add_to_pos(list, entry, list->num_items_list);
+        entry_list_add_to_pos_rec(list->next, entry, list->num_items_list);
         list->num_items_list++;
 
         return list;
     }
 }
 
-scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
+scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list,
         scope_entry_t* entry)
 {
     scope_entry_list_iterator_t* it = NULL;
@@ -151,7 +179,7 @@ scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list,
     return entry_list_add(list, entry);
 }
 
-static void insert_and_shift_right(scope_entry_list_t* entry_list, int pos,
+static void insert_and_shift_right(scope_entry_list_node_t* entry_list, int pos,
         scope_entry_t* new_entry)
 {
     if (entry_list == NULL)
@@ -173,23 +201,23 @@ static void insert_and_shift_right(scope_entry_list_t* entry_list, int pos,
     }
     else if (entry_list->next == NULL && keep != NULL)
     {
-        entry_list->next = entry_list_allocate();
-        entry_list_add_to_pos(entry_list->next, keep, 0);
+        entry_list->next = entry_list_node_allocate();
+        entry_list_add_to_pos_rec(entry_list->next, keep, 0);
     }
 }
 
-scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list, 
+static char entry_list_add_after_rec(scope_entry_list_node_t* list,
         scope_entry_t* position,
         scope_entry_t* entry)
 {
     if (list == NULL)
-        return list;
+        return 0;
 
     char found = 0;
     int j;
     for (j = 0; j < NUM_IMMEDIATE; j++)
     {
-        if (list->list[j] == position)
+        if (list->next->list[j] == position)
         {
             found = 1;
             break;
@@ -198,39 +226,55 @@ scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list,
 
     if (!found)
     {
-        entry_list_add_after(list->next, position, entry);
-    }
-    else
-    {
-        if (j < (NUM_IMMEDIATE-1))
-        {
-            insert_and_shift_right(list, j+1, entry);
-        }
-        else
-        {
-            if (list->next != NULL)
-            {
-                insert_and_shift_right(list->next, 0, entry);
-            }
-            else
-            {
-                list->next = entry_list_allocate();
-                entry_list_add_to_pos(list->next, entry, 0);
-            }
-        }
+        // The current node does not contain the symbol 'position'.
+        // Try with the next node.
+        return entry_list_add_after_rec(list->next, position, entry);
     }
 
-    list->num_items_list++;
+    // The symbol 'position' has been found
+
+    // If this symbol is not in the last position of the current node we add
+    // entry in the current node
+    if (j < (NUM_IMMEDIATE-1))
+    {
+        insert_and_shift_right(list, j+1, entry);
+    }
+    // Otherwise, the symbol should be added in the next node
+    else
+    {
+        //if the next node exists, we add the 'entry' symbol to its list
+        if (list->next != NULL)
+        {
+            insert_and_shift_right(list->next, 0, entry);
+        }
+        // Otherwise, we create a new node and add 'entry' symbol to its list
+        else
+        {
+            list->next = entry_list_node_allocate();
+            entry_list_add_to_pos_rec(list->next, entry, 0);
+        }
+    }
+    return 1;
+}
+
+scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list,
+        scope_entry_t* position,
+        scope_entry_t* entry)
+{
+    char added_an_element = entry_list_add_after_rec(list->next, position, entry);
+
+    if (added_an_element)
+        list->num_items_list++;
 
     return list;
 }
 
-scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list, 
+static char entry_list_add_before_rec(scope_entry_list_node_t* list,
         scope_entry_t* position,
         scope_entry_t* entry)
 {
     if (list == NULL)
-        return list;
+        return 0;
 
     char found = 0;
     int j;
@@ -245,14 +289,24 @@ scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list,
 
     if (!found)
     {
-        entry_list_add_before(list->next, position, entry);
-    }
-    else
-    {
-        insert_and_shift_right(list, j, entry);
+        return entry_list_add_before_rec(list->next, position, entry);
     }
 
-    list->num_items_list++;
+    // The symbol 'position' has been found
+
+    insert_and_shift_right(list, j, entry);
+
+    return 1;
+}
+
+scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list,
+        scope_entry_t* position,
+        scope_entry_t* entry)
+{
+    char added_an_element = entry_list_add_before_rec(list->next, position, entry);
+
+    if (added_an_element)
+        list->num_items_list++;
 
     return list;
 }
@@ -272,18 +326,23 @@ scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
 
     return result;
 }
+static void entry_list_node_free(scope_entry_list_node_t* list)
+{
+    if (list == NULL)
+        return;
+
+    entry_list_node_free(list->next);
+    memset(list, 0, sizeof(*list));
+    free(list);
+}
 
 void entry_list_free(scope_entry_list_t* list)
 {
     if (list == NULL)
         return;
 
-    entry_list_free(list->next);
-
+    entry_list_node_free(list->next);
     memset(list, 0, sizeof(*list));
-    // Magic number to quickly pinpoint double freed lists
-    list->num_items_list = 0xCEBA;
-
     free(list);
 }
 
@@ -299,7 +358,7 @@ int entry_list_size(const scope_entry_list_t* list)
 
 scope_entry_t* entry_list_head(const scope_entry_list_t* list)
 {
-    return list->list[0];
+    return list->next->list[0];
 }
 
 // -
@@ -308,7 +367,7 @@ struct scope_entry_list_iterator_tag
 {
     int current_pos;
     int total_pos;
-    const scope_entry_list_t* current_list;
+    const scope_entry_list_node_t* current_list;
     const scope_entry_list_t* first_list;
 };
 
@@ -320,8 +379,8 @@ static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
 scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
 {
     scope_entry_list_iterator_t* result = entry_list_iterator_allocate();
-    result->current_list = list;
     result->first_list = list;
+    result->current_list = (list != NULL) ? list->next : NULL;
     result->current_pos = 0;
     result->total_pos = 0;
 
@@ -482,12 +541,13 @@ char entry_list_contains(const scope_entry_list_t* list,
     return result;
 }
 
-static scope_entry_t* shift_left_all_elements_from_pos(scope_entry_list_t* entry_list, int pos)
+static scope_entry_t* shift_left_all_elements_from_pos(scope_entry_list_node_t* entry_list, int pos)
 {
     if (entry_list == NULL)
         return NULL;
 
     int j;
+    scope_entry_t* first_element = entry_list->list[0];
     for (j = pos + 1; j < NUM_IMMEDIATE; j++)
     {
         entry_list->list[j - 1] = entry_list->list[j];
@@ -495,7 +555,27 @@ static scope_entry_t* shift_left_all_elements_from_pos(scope_entry_list_t* entry
 
     entry_list->list[NUM_IMMEDIATE - 1] = shift_left_all_elements_from_pos(entry_list->next, 0);
 
-    return entry_list->list[0];
+    return first_element;
+}
+
+
+static int entry_list_remove_rec(scope_entry_list_node_t* entry_list, scope_entry_t* entry)
+{
+    if (entry_list == NULL)
+        return 0;
+
+    int i;
+    int number_of_matches = 0;
+    for (i = 0; i < NUM_IMMEDIATE; i++)
+    {
+        if (entry_list->list[i] == entry)
+        {
+            number_of_matches++;
+            shift_left_all_elements_from_pos(entry_list, i);
+        }
+    }
+
+    return (entry_list_remove_rec(entry_list->next, entry) + number_of_matches);
 }
 
 scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entry_t* entry)
@@ -503,22 +583,11 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
     if (entry_list == NULL)
         return entry_list;
 
-    int i;
-    for (i = 0; i < NUM_IMMEDIATE; i++)
-    {
-        if (entry_list->list[i] == entry)
-        {
-            shift_left_all_elements_from_pos(entry_list, i);
-        }
-    }
+    int number_of_matches = entry_list_remove_rec(entry_list->next, entry);
 
-    entry_list_remove(entry_list->next, entry);
-
-    entry_list->num_items_list--;
-
+    entry_list->num_items_list -= number_of_matches;
     return entry_list;
 }
-
 
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {

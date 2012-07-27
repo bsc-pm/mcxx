@@ -43,14 +43,11 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-libraries
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
+	chmod +x config/mercurium-nanox
 	chmod +x config/mercurium-omp
+	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-simd
 	chmod +x config/mercurium-cuda
-	chmod +x config/mercurium-nanos4
-	chmod +x config/mercurium-nanox
-	chmod +x config/mercurium-ss
-	chmod +x config/mercurium-ss2omp
-	chmod +x config/mercurium-stm
 #	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
 

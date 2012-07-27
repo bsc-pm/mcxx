@@ -6,14 +6,18 @@
 
 MCXX_BEGIN_DECLS
 
-nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t, void* info, scope_entry_t* (map)(scope_entry_t*, void*));
+struct symbol_map_tag
+{
+    scope_entry_t* (*map)(symbol_map_t*, scope_entry_t*);
+    void (*dtor)(symbol_map_t*);
+};
+
+nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t, symbol_map_t*);
 
 // Copies local entities like functions 
 void copy_fortran_program_unit(scope_entry_t* new_program_unit,
         scope_entry_t* original_program_unit,
-        void **out_info,
-        scope_entry_t* (**out_map)(scope_entry_t*, void*),
-        void (**free_fun)(void*));
+        symbol_map_t** out_symbol_map);
 
 MCXX_END_DECLS
 

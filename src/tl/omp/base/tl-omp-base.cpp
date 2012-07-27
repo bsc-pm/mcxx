@@ -767,14 +767,9 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::List tasks = statements.as<Nodecl::List>();
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            // In C/C++ there is an extra compound statement right after #pragma omp sections
-            ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
-
-            tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
-        }
+        // There is an extra compound statement right after #pragma omp sections
+        ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
+        tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
 
         Source new_context_source;
         new_context_source
@@ -804,11 +799,11 @@ namespace TL { namespace OpenMP {
         for_source
             << "for (omp_section_id_ = 0; omp_section_id_ < " << tasks.size() << "; omp_section_id_++)"
             << "{"
-            << "switch (omp_section_id_)"
-            << "{"
-            <<  section_seq
-            << "default: { abort(); } break;"
-            << "}"
+            <<    "switch (omp_section_id_)"
+            <<    "{"
+            <<      section_seq
+            <<      (!IS_FORTRAN_LANGUAGE ? "default : { abort(); break; }" : "")
+            <<    "}"
             << "}"
             ;
 
@@ -823,7 +818,8 @@ namespace TL { namespace OpenMP {
             section_seq
                 << "case " << section_idx << " : "
                 << as_statement( p.get_statements().shallow_copy() )
-                << "break;"
+                // This is due to an infelicity of EXIT in Fortran
+                << (!IS_FORTRAN_LANGUAGE ? "break;" : "")
                 ;
         }
 

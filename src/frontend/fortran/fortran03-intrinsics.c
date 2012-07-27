@@ -786,9 +786,30 @@ static char specific_keyword_check(
     return ok;
 }
 
-static scope_entry_t* get_intrinsic_symbol_(const char* name, 
-        type_t* result_type, 
-        int num_types, type_t** types, 
+static type_t* fix_type_for_intrinsic_parameters(type_t* t)
+{
+    if (is_lvalue_reference_type(t))
+    {
+        return get_lvalue_reference_type(
+                fix_type_for_intrinsic_parameters(reference_type_get_referenced_type(t))
+                );
+    }
+    else if (fortran_is_array_type(t))
+    {
+        int n = fortran_get_rank_of_type(t);
+        type_t* rank0 = fortran_get_rank0_type(t);
+
+        return fortran_get_n_ranked_type(rank0, n, CURRENT_COMPILED_FILE->global_decl_context);
+    }
+    else
+    {
+        return t;
+    }
+}
+
+static scope_entry_t* get_intrinsic_symbol_(const char* name,
+        type_t* result_type,
+        int num_types, type_t** types,
         decl_context_t decl_context,
         char is_elemental,
         char is_pure,
@@ -796,6 +817,12 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         char is_inquiry UNUSED_PARAMETER)
 {
     ERROR_CONDITION(result_type == NULL, "This should be void", 0);
+
+     int i;
+     for (i = 0; i < num_types; i++)
+     {
+         types[i] = fix_type_for_intrinsic_parameters(types[i]);
+     }
 
     intrinsic_descr_t descr;
     descr.name = name;
@@ -830,7 +857,6 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 
         parameter_info_t param_info[num_types + 1];
         memset(param_info, 0, sizeof(param_info));
-        int i;
         for (i = 0; i < num_types; i++)
         {
             ERROR_CONDITION((types[i] == NULL), "Invalid description of builtin", 0);

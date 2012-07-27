@@ -38,7 +38,6 @@ MCXX_END_DECLS
 #endif
 
 #include "cxx-printscope.h"
-
 namespace Codegen {
 
 std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
@@ -49,6 +48,9 @@ std::string CxxBase::codegen(const Nodecl::NodeclBase &n)
     // Keep the state and reset it
     State old_state = state;
     state = State();
+
+    state.nontype_template_argument_needs_parentheses =
+        old_state.nontype_template_argument_needs_parentheses;
 
     decl_context_t decl_context = this->get_current_scope().get_decl_context();
 
@@ -87,6 +89,24 @@ void CxxBase::pop_scope()
     _scope_stack.pop_back();
 }
 
+void CxxBase::handle_parameter(int n, void* data)
+{
+     switch (n)
+     {
+         case CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT:
+             {
+                 ERROR_CONDITION(data == NULL, "data cannot be NULL\n", 0);
+                 state.nontype_template_argument_needs_parentheses = *((char *)data);
+                 break;
+             };
+         default:
+             {
+                 internal_error("undefined codegen parameter\n", 0);
+                 break;
+             };
+     }
+}
+
 TL::Scope CxxBase::get_current_scope() const
 {
     return _scope_stack.back();
@@ -115,24 +135,24 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Different, " != ") \
     BINARY_EXPRESSION(LowerThan, " < ") \
     BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
-    BINARY_EXPRESSION(GreaterThan, " > ") \
-    BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION_EX(GreaterThan, " > ") \
+    BINARY_EXPRESSION_EX(GreaterOrEqualThan, " >= ") \
     BINARY_EXPRESSION(LogicalAnd, " && ") \
     BINARY_EXPRESSION(LogicalOr, " || ") \
     BINARY_EXPRESSION(BitwiseAnd, " & ") \
     BINARY_EXPRESSION(BitwiseOr, " | ") \
     BINARY_EXPRESSION(BitwiseXor, " ^ ") \
     BINARY_EXPRESSION(BitwiseShl, " << ") \
-    BINARY_EXPRESSION(BitwiseShr, " >> ") \
-    BINARY_EXPRESSION(ArithmeticShr, " >> ") \
+    BINARY_EXPRESSION_EX(BitwiseShr, " >> ") \
+    BINARY_EXPRESSION_EX(ArithmeticShr, " >> ") \
     BINARY_EXPRESSION_ASSIG(Assignment, " = ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " *= ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " /= ") \
     BINARY_EXPRESSION_ASSIG(AddAssignment, " += ") \
     BINARY_EXPRESSION_ASSIG(MinusAssignment, " -= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseShlAssignment, " <<= ") \
-    BINARY_EXPRESSION_ASSIG(BitwiseShrAssignment, " >>= ") \
-    BINARY_EXPRESSION_ASSIG(ArithmeticShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG_EX(BitwiseShrAssignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG_EX(ArithmeticShrAssignment, " >>= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseAndAssignment, " &= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseOrAssignment, " |= ") \
     BINARY_EXPRESSION_ASSIG(BitwiseXorAssignment, " ^= ") \
@@ -187,9 +207,16 @@ void CxxBase::visit(const Nodecl::Reference &node)
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
-    if (is_non_language_reference_variable(rhs))
+    if (rhs.get_type().is_rebindable_reference())
     {
         state.do_not_derref_rebindable_reference = true;
+    }
+    else if (is_non_language_reference_variable(rhs))
+    {
+        state.do_not_derref_rebindable_reference = true;
+
+        // Emit a casting here
+        file << "(" << this->get_declaration(node.get_type(), this->get_current_scope(), "") << ") ";
     }
     else
     {
@@ -229,70 +256,119 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        Nodecl::NodeclBase lhs = node.children()[0]; \
-        Nodecl::NodeclBase rhs = node.children()[1]; \
-        char needs_parentheses = operand_has_lower_priority(node, lhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(lhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        file << _operand; \
-        needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(rhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
+        BINARY_EXPRESSION_IMPL(_name, _operand) \
     }
+
+#define BINARY_EXPRESSION_IMPL(_name, _operand) \
+   Nodecl::NodeclBase lhs = node.children()[0]; \
+   Nodecl::NodeclBase rhs = node.children()[1]; \
+   char needs_parentheses = operand_has_lower_priority(node, lhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(lhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   file << _operand; \
+   needs_parentheses = operand_has_lower_priority(node, rhs) || same_operation(node, rhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(rhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   }
+
+// In some cases (i. e. when the operator of a binary expression contains the
+// character '>') nontype template arguments may need an extra parentheses
+// Example:
+//      template < bool b>
+//      struct A {};
+//      A < (3 > 2) > a;
+#define BINARY_EXPRESSION_EX(_name, _operand) \
+    void CxxBase::visit(const Nodecl::_name& node) \
+    { \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << "("; \
+        }\
+        BINARY_EXPRESSION_IMPL(_name, _operand) \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << ")"; \
+        }\
+    }
+
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        Nodecl::NodeclBase lhs = node.children()[0]; \
-        Nodecl::NodeclBase rhs = node.children()[1]; \
-        if (state.in_condition && state.condition_top == node) \
-        { \
-            file << "("; \
-        } \
-        char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(lhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        file << _operand; \
-        needs_parentheses = operand_has_lower_priority(node, rhs); \
-        if (needs_parentheses) \
-        { \
-            file << "("; \
-        } \
-        walk(rhs); \
-        if (needs_parentheses) \
-        { \
-            file << ")"; \
-        } \
-        if (state.in_condition && state.condition_top == node) \
-        { \
-            file << ")"; \
-        } \
+        BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
     }
+
+#define BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+   Nodecl::NodeclBase lhs = node.children()[0]; \
+   Nodecl::NodeclBase rhs = node.children()[1]; \
+   if (state.in_condition && state.condition_top == node) \
+   { \
+       file << "("; \
+   } \
+   char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(lhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   file << _operand; \
+   needs_parentheses = operand_has_lower_priority(node, rhs); \
+   if (needs_parentheses) \
+   { \
+       file << "("; \
+   } \
+   walk(rhs); \
+   if (needs_parentheses) \
+   { \
+       file << ")"; \
+   } \
+   if (state.in_condition && state.condition_top == node) \
+   { \
+       file << ")"; \
+   } \
+
+// In some cases (i. e. when the operator of a binary expression assignment
+// contains the character '>') nontype template arguments may need an extra
+// parentheses
+#define BINARY_EXPRESSION_ASSIG_EX(_name, _operand) \
+    void CxxBase::visit(const Nodecl::_name& node) \
+    { \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << "("; \
+        }\
+        BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+        if (state.nontype_template_argument_needs_parentheses) \
+        {\
+            file << ")"; \
+        }\
+    }
+
 OPERATOR_TABLE
 #undef POSTFIX_UNARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+#undef BINARY_EXPRESSION_IMPL
+#undef BINARY_EXPRESSION_EX
 #undef BINARY_EXPRESSION_ASSIG
+#undef BINARY_EXPRESSION_ASSIG_IMPL
+#undef BINARY_EXPRESSION_ASSIG_EX
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
@@ -1630,33 +1706,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         }
     }
 
-    if (!state.do_not_emit_other_declarations)
-    {
-        walk_type_for_symbols(symbol_type.returns(),
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always,
-                &CxxBase::define_nonlocal_entities_in_trees);
-    }
-
     state.current_symbol = symbol;
-
-    if (!state.do_not_emit_other_declarations)
-    {
-        bool has_ellipsis = false;
-        TL::ObjectList<TL::Type> parameter_list = symbol_type.parameters(has_ellipsis);
-
-        for (TL::ObjectList<TL::Type>::iterator it = parameter_list.begin();
-                it != parameter_list.end();
-                it++)
-        {
-            walk_type_for_symbols(*it,
-                    &CxxBase::declare_symbol_always,
-                    &CxxBase::define_symbol_always,
-                    &CxxBase::define_nonlocal_entities_in_trees);
-        }
-
-        define_nonlocal_entities_in_trees(statement);
-    }
 
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
@@ -1856,7 +1906,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     TL::Type symbol_type = symbol.get_type();
 
-    if (!state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
         walk_type_for_symbols(
                 symbol_type,
@@ -1897,7 +1947,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
-    if (!state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
         bool has_ellipsis = false;
         TL::ObjectList<TL::Type> parameter_list = symbol_type.parameters(has_ellipsis);
@@ -2488,13 +2538,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::ObjectInit& node)
 {
     TL::Symbol sym = node.get_symbol();
-    if (!state.do_not_emit_other_declarations)
+
+    C_LANGUAGE()
     {
         walk_type_for_symbols(sym.get_type(),
                 &CxxBase::declare_symbol_always,
                 &CxxBase::define_symbol_always,
                 &CxxBase::define_all_entities_in_trees);
     }
+
     state.must_be_object_init.erase(sym);
     do_define_symbol(sym,
             &CxxBase::declare_symbol_always,
@@ -2913,12 +2965,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
 {
     TL::Symbol entry = node.get_symbol();
 
-    if (entry.is_member()
-            && !state.do_not_emit_other_declarations)
+    C_LANGUAGE()
     {
-        do_define_symbol(entry.get_class_type().get_symbol(),
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
+        if (entry.is_member())
+        {
+            do_define_symbol(entry.get_class_type().get_symbol(),
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
+        }
     }
 
     bool must_derref = is_non_language_reference_variable(entry)
@@ -2943,11 +2997,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
         }
         else if (entry.is_function())
         {
-            // If we are visiting the called entity of a function call, the template arguments
-            // (if any) will be added by 'visit_function_call_form_template_id' function
-            file << this->get_qualified_name(entry,
-                    this->get_current_scope(),
-                    /* without template id */ state.visiting_called_entity_of_function_call);
+            if (node.get_type().is_valid()
+                    && node.get_type().is_unresolved_overload())
+            {
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope().get_decl_context(),
+                        /* without_template_id */ true);
+
+                TL::TemplateParameters template_arguments =
+                    node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
+
+                if (template_arguments.is_valid())
+                {
+                    file << ::template_arguments_to_str(
+                            template_arguments.get_internal_template_parameter_list(),
+                            /* first_template_argument_to_be_printed */ 0,
+                            /* print_first_level_bracket */ 1,
+                            this->get_current_scope().get_decl_context());
+                }
+            }
+            else
+            {
+                // If we are visiting the called entity of a function call, the template arguments
+                // (if any) will be added by 'visit_function_call_form_template_id' function
+                file << this->get_qualified_name(entry,
+                        this->get_current_scope(),
+                        /* without template id */ state.visiting_called_entity_of_function_call);
+            }
         }
         else if (!entry.is_dependent_entity())
         {
@@ -3379,6 +3455,8 @@ bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbo
     return false;
 }
 
+
+
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -3392,52 +3470,15 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
     if (symbol.is_class())
     {
-        if (symbol.get_type().is_template_specialized_type())
-        {
-            TL::TemplateParameters template_arguments = symbol.get_type().template_specialized_type_get_template_arguments();
-            declare_all_in_template_arguments(
-                    template_arguments,
-                    decl_sym_fun,
-                    def_sym_fun);
-
-            TL::Type template_type = symbol.get_type().get_related_template_type();
-            TL::Type primary_template = template_type.get_primary_template();
-            TL::Symbol primary_symbol = primary_template.get_symbol();
-
-            if (primary_symbol != symbol)
-            {
-                TL::Type t = primary_symbol.get_type();
-
-                if (::is_complete_type(t.get_internal_type()))
-                {
-                    define_symbol_if_nonnested(primary_symbol);
-                }
-                else
-                {
-                    declare_symbol_if_nonnested(primary_symbol);
-                }
-            }
-        }
-
-        TL::ObjectList<TL::Type::BaseInfo> bases = symbol.get_type().get_bases();
-            // We need to define all the bases first
-        for (TL::ObjectList<TL::Type::BaseInfo>::iterator it = bases.begin();
-                it != bases.end();
-                it++)
-        {
-            TL::Symbol &base_class(it->base);
-            define_symbol_if_nonnested(base_class);
-        }
-
-
         TL::ObjectList<TL::Symbol> members = symbol.get_type().get_all_members();
         for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
                 it != members.end();
                 it++)
         {
             TL::Symbol &member(*it);
-            if (member.is_using_symbol() ||
-                    (member.is_class() && !member.is_defined_inside_class()))
+
+            if (member.is_class()
+                    && !member.is_defined_inside_class())
                 continue;
 
             if (member.is_enum())
@@ -3451,8 +3492,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                     define_nonnested_entities_in_trees(enumerator.get_value());
                 }
             }
-            else if(member.is_class()
-                    || member.is_typedef())
+            else if(member.is_class())
             {
                 walk_type_for_symbols(
                         member.get_type(),
@@ -3501,71 +3541,9 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 }
             }
         }
-
-
-        TL::ObjectList<TL::Symbol> friends = symbol.get_type().class_get_friends();
-        for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
-                it != friends.end();
-                it++)
-        {
-            TL::Symbol &_friend(*it);
-
-            if (_friend.is_class()
-                    && _friend.is_member())
-                continue;
-
-
-            if (_friend.is_class())
-            {
-                (this->*decl_sym_fun)(_friend);
-            }
-            else
-            {
-                walk_type_for_symbols(
-                        _friend.get_type(),
-                        &CxxBase::declare_symbol_if_nonnested,
-                        &CxxBase::define_symbol_if_nonnested,
-                        &CxxBase::define_nonnested_entities_in_trees);
-            }
-
-
-            if (_friend.is_dependent_friend_function())
-            {
-                // In the field related symbol are stored the feasible candidates for this function
-                // We should declare it
-                TL::ObjectList<TL::Symbol> candidate_functions = _friend.get_related_symbols();
-                for (TL::ObjectList<TL::Symbol>::iterator it2 = candidate_functions.begin();
-                        it2 != candidate_functions.end();
-                        it2++)
-                {
-
-                    TL::Symbol &_func(*it2);
-
-                    if (_func.is_template())
-                    {
-                        _func = _func.get_type().get_primary_template().get_symbol();
-                    }
-
-                    walk_type_for_symbols(
-                            _func.get_type(),
-                            &CxxBase::declare_symbol_if_nonnested,
-                            &CxxBase::define_symbol_if_nonnested,
-                            &CxxBase::define_nonnested_entities_in_trees);
-
-                    declare_symbol_if_nonnested(_func);
-                }
-            }
-
-            if (!_friend.is_friend_declared())
-            {
-                // ??? Try defining?
-                declare_symbol_if_nonnested(_friend);
-            }
-        }
     }
     else if (symbol.is_enum()
             || symbol.is_enumerator()
-            || symbol.is_typedef()
             || symbol.is_variable())
     {
         walk_type_for_symbols(
@@ -3840,9 +3818,74 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << "{\n";
     }
 
-    // 2. Now declare members
+    // 2. Now declare members:
+    // 2.1 We need to forward declare all member classes (only for C++) because
+    // the member list does not contain enough information to decide in what
+    // order we should generate the members
     TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
     access_specifier_t current_access_spec = default_access_spec;
+
+    CXX_LANGUAGE()
+    {
+        state.in_forwarded_member_declaration = true;
+        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                it != members.end();
+                it++)
+        {
+            TL::Symbol &member(*it);
+            if (!member.is_class())
+                continue;
+
+            if (!member.is_defined_inside_class())
+                continue;
+
+            CXX_LANGUAGE()
+            {
+                access_specifier_t access_spec = member.get_access_specifier();
+                inc_indent();
+                if (current_access_spec != access_spec)
+                {
+                    current_access_spec = access_spec;
+
+                    indent();
+                    if (current_access_spec == AS_PUBLIC)
+                    {
+                        file << "public:\n";
+                    }
+                    else if (current_access_spec == AS_PRIVATE)
+                    {
+                        file << "private:\n";
+                    }
+                    else if (current_access_spec == AS_PROTECTED)
+                    {
+                        file << "protected:\n";
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
+                }
+            }
+
+            inc_indent();
+
+            char old_in_member_declaration = state.in_member_declaration;
+            state.in_member_declaration = 1;
+
+            do_declare_symbol(member,
+                    &CxxBase::declare_symbol_always,
+                    &CxxBase::define_symbol_always);
+
+            state.in_member_declaration = old_in_member_declaration;
+
+            dec_indent();
+            dec_indent();
+        }
+
+        state.in_forwarded_member_declaration = false;
+    }
+
+    // 2.2 Declare members as usual
     for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
             it != members.end();
             it++)
@@ -4085,7 +4128,8 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
 
     // This indirectly fills state.pending_nested_types_to_define
     TL::ObjectList<TL::Symbol> symbols_defined_inside_class;
-    if (!state.do_not_emit_other_declarations)
+
+    C_LANGUAGE()
     {
         symbols_defined_inside_class =
             define_required_before_class(symbol, decl_sym_fun, def_sym_fun);
@@ -4750,6 +4794,13 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     file << " = ";
                     walk(init);
                 }
+                // Workaround for g++ <=4.5, >=4.7 (4.6 seems to work fine, but we'll do it anyways)
+                else if (nodecl_expr_is_value_dependent(init.get_internal_nodecl())
+                        && symbol.get_type().is_integral_type())
+                {
+                    file << " = ";
+                    walk(init);
+                }
                 else
                 {
                     file << "(";
@@ -4837,20 +4888,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
 
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
-    {
-        if (!state.do_not_emit_other_declarations)
-        {
-            //We may need to define or declare the template arguments
-            TL::TemplateParameters template_arguments =
-                symbol.get_type().template_specialized_type_get_template_arguments();
-
-            declare_all_in_template_arguments(
-                    template_arguments,
-                    decl_sym_fun,
-                    def_sym_fun);
-        }
         return;
-    }
 
     if (symbol.is_dependent_entity())
     {
@@ -5008,18 +5046,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     if (symbol.get_type().is_template_specialized_type()
             && !symbol.is_user_declared())
     {
-        if (!state.do_not_emit_other_declarations)
-        {
-            //We may need to define or declare the template arguments
-            TL::TemplateParameters template_arguments =
-                symbol.get_type().template_specialized_type_get_template_arguments();
-
-            declare_all_in_template_arguments(
-                    template_arguments,
-                    decl_sym_fun,
-                    def_sym_fun);
-        }
-
         set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
         //We must declare ONLY the primary template
@@ -5042,6 +5068,13 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             define_symbol_if_nonnested(class_entry);
         }
+
+        // If the member symbol has been defined inside a class and
+        // and this class is not currently being defined we do nothing
+        if (symbol.is_defined_inside_class() &&
+                (state.classes_being_defined.empty()
+                        || (state.classes_being_defined.back() != class_entry)))
+            return;
     }
 
     // We only generate user declared code
@@ -5117,32 +5150,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 {
                     is_primary_template = 1;
                 }
-
-                TL::TemplateParameters template_arguments =
-                    symbol.get_type().template_specialized_type_get_template_arguments();
-                if (!state.do_not_emit_other_declarations)
-                {
-                    declare_all_in_template_arguments(
-                            template_arguments,
-                            decl_sym_fun,
-                            def_sym_fun);
-
-                    if (!symbol.get_type().class_type_is_complete_independent()
-                            && !symbol.get_type().class_type_is_incomplete_independent())
-                    {
-                        // If this is dependent and it is not the primary template do
-                        // not continue, declaring the primary should have been enough
-                        //
-                        // This may happen for template functions which implicitly name
-                        // dependent specializations (such as those defined using
-                        // default template arguments). It also may be caused by a bug
-                        // in the frontend, though
-                        if (!is_primary_template)
-                        {
-                            return;
-                        }
-                    }
-                }
             }
 
             std::string class_key;
@@ -5189,25 +5196,31 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                          : symbol.get_type().template_specialized_type_get_template_parameters();
                     }
 
-                    codegen_template_header(template_parameters, /*show default values*/ true);
+                    codegen_template_header(template_parameters,
+                            /* show_default_values */ !state.in_forwarded_member_declaration);
                 }
             }
 
-            // A union inside a class always must be defined
-            if (class_key == "union" &&
-                    symbol.get_scope().is_class_scope())
+            // A union inside a class must be defined if its not a forward
+            // member declaration
+            if (class_key == "union"
+                    && symbol.get_scope().is_class_scope()
+                    && !state.in_forwarded_member_declaration)
             {
                 (this->*def_sym_fun)(symbol);
                 return;
             }
 
-            indent();
-            file << class_key << " " << symbol.get_name();
-
-            if (is_template_specialized
-                    && !is_primary_template)
+            if (!symbol.is_anonymous_union())
             {
-                file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                indent();
+                file << class_key << " " << symbol.get_name();
+
+                if (is_template_specialized
+                        && !is_primary_template)
+                {
+                    file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
+                }
             }
         }
 
@@ -5233,7 +5246,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         if (symbol.is_friend_declared())
             return;
 
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(
                     symbol.get_type(),
@@ -5241,6 +5254,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     &CxxBase::define_symbol_if_nonlocal,
                     &CxxBase::define_nonprototype_entities_in_trees);
         }
+
         char is_primary_template = 0;
         bool requires_extern_linkage = false;
         CXX_LANGUAGE()
@@ -5472,7 +5486,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     if (entry.is_valid()
             && entry.get_type().is_valid())
     {
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(entry.get_type(),
                 decl_sym_fun,
@@ -5501,7 +5515,7 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     TL::Type type = node.get_type();
     if (type.is_valid())
     {
-        if (!state.do_not_emit_other_declarations)
+        C_LANGUAGE()
         {
             walk_type_for_symbols(
                 type,
@@ -6221,7 +6235,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_LOGICAL_OR:
             return -15;
         case NODECL_CONDITIONAL_EXPRESSION:
-            return -16;
         case NODECL_ASSIGNMENT:
         case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
@@ -6235,9 +6248,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_BITWISE_OR_ASSIGNMENT:
         case NODECL_BITWISE_XOR_ASSIGNMENT:
         case NODECL_THROW:
-            return -17;
+            return -16;
         case NODECL_COMMA:
-            return -18;
+            return -17;
         default:
             // Lowest priority possible. This is a conservative approach that
             // will work always albeit it will introduce some unnecessary
@@ -6488,120 +6501,6 @@ std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)
     return ::unmangle_symbol_name(symbol.get_internal_symbol());
 }
 
-void CxxBase::declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
-        void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-        void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
-{
-    int i, n = template_arguments.get_num_parameters();
-
-    for (i = 0; i < n; i++)
-    {
-        TL::TemplateArgument argument = template_arguments.get_argument_num(i);
-
-        switch (argument.get_kind())
-        {
-            case TPK_TYPE:
-                {
-                    walk_type_for_symbols(
-                            argument.get_type(),
-                            decl_sym_fun,
-                            def_sym_fun,
-                            &CxxBase::define_nonnested_entities_in_trees);
-                    break;
-                }
-            case TPK_NONTYPE:
-                {
-                    walk_type_for_symbols(
-                            argument.get_type(),
-                            decl_sym_fun,
-                            def_sym_fun,
-                            &CxxBase::define_nonnested_entities_in_trees);
-                    define_nonnested_entities_in_trees(argument.get_value());
-                    break;
-                }
-            case TPK_TEMPLATE:
-                {
-                    TL::Symbol template_symbol = argument.get_type().get_symbol();
-                    TL::Type primary_type = template_symbol.get_type().get_primary_template();
-                    TL::Symbol primary_symbol = primary_type.get_symbol();
-                    (this->*decl_sym_fun)(primary_symbol);
-                    break;
-                }
-            default:
-                {
-                    internal_error("Code unreachable", 0);
-                }
-        }
-    }
-}
-
-void CxxBase::declare_all_in_template_header(TL::TemplateParameters template_parameters)
-{
-    for (int i = 0; i < template_parameters.get_num_parameters(); i++)
-    {
-        std::pair<TL::Symbol,
-            TL::TemplateParameters::TemplateParameterKind>
-                tpl_param = template_parameters.get_parameter_num(i);
-        TL::Symbol symbol = tpl_param.first;
-
-        switch (tpl_param.second)
-        {
-            case TPK_NONTYPE:
-                {
-                    walk_type_for_symbols(
-                            tpl_param.first.get_type(),
-                            &CxxBase::declare_symbol_if_nonnested,
-                            &CxxBase::define_symbol_if_nonnested,
-                            &CxxBase::define_nonnested_entities_in_trees);
-                    break;
-                }
-            case TPK_TYPE:
-            case TPK_TEMPLATE:
-                {
-                    break;
-                }
-            default:
-                {
-                    internal_error("Invalid template parameter kind", 0);
-                }
-        }
-
-        if (template_parameters.has_argument(i))
-        {
-            TL::TemplateArgument temp_arg =
-                template_parameters.get_argument_num(i);
-            if (temp_arg.is_default())
-            {
-                switch (tpl_param.second)
-                {
-                    case TPK_TYPE:
-                        {
-                            TL::Type temp_arg_type = temp_arg.get_type();
-                            walk_type_for_symbols(
-                                    temp_arg_type,
-                                    &CxxBase::declare_symbol_if_nonnested,
-                                    &CxxBase::define_symbol_if_nonnested,
-                                    &CxxBase::define_nonnested_entities_in_trees);
-
-                            break;
-                        }
-                    case TPK_TEMPLATE:
-                    case TPK_NONTYPE:
-                        {
-                            Nodecl::NodeclBase nodecl_arg = temp_arg.get_value();
-                            define_all_entities_in_trees(nodecl_arg);
-                            break;
-                        }
-                    default:
-                        {
-                            internal_error("code unreachable", 0);
-                        }
-                }
-            }
-        }
-    }
-}
-
 void CxxBase::codegen_template_headers_bounded(
         TL::TemplateParameters template_parameters,
         TL::TemplateParameters lim,
@@ -6665,11 +6564,6 @@ void CxxBase::codegen_template_header(
         return;
     }
 
-    // First traversal to ensure that everything is declared
-    if (!state.do_not_emit_other_declarations)
-    {
-        declare_all_in_template_header(template_parameters);
-    }
     file << "template < ";
     for (int i = 0; i < template_parameters.get_num_parameters(); i++)
     {
@@ -6938,7 +6832,8 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
 
             // It may happen that a function is hiding our typename in this scope
             scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name);
-            entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name, NULL);
+            entry_list = filter_symbol_using_predicate(entry_list,
+                    is_function_or_template_function_name_or_extern_variable, NULL);
 
             // It seems somebody is hiding our name in this scope
             if (entry_list != NULL)

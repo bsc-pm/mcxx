@@ -1109,29 +1109,40 @@ namespace TL
                 Nodecl::NodeclBase& expr(*it);
                 if (!expr.has_symbol())
                 {
-                    std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is not an id-expression, skipping" << std::endl;
+                        std::cerr << expr.get_locus()
+                            << ": warning: '"
+                            << expr.prettyprint()
+                            << "' cannot be used in this clause, skipping"
+                            << std::endl;
                 }
                 else
                 {
                     Symbol sym = expr.get_symbol();
 
-                    if (!sym.is_variable())
+                    if (sym.is_fortran_common())
                     {
-                        std::cerr << expr.get_locus() 
-                            << ": warning: '" 
-                            << expr.prettyprint() 
-                            << "' is not a variable, skipping" 
-                            << std::endl;
-                        continue;
                     }
-
-                    if (sym.is_member()
-                            && !sym.is_static())
+                    else if (sym.is_variable())
                     {
-                        std::cerr << expr.get_locus() 
-                            << ": warning: '" 
-                            << expr.prettyprint() 
-                            << "' is a nonstatic-member, skipping" 
+                        if (sym.is_member()
+                                && !sym.is_static())
+                        {
+                            std::cerr << expr.get_locus()
+                                << ": warning: '"
+                                << expr.prettyprint()
+                                << "' is a nonstatic-member, skipping"
+                                << std::endl;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        std::cerr << expr.get_locus()
+                            << ": warning: '"
+                            << expr.prettyprint()
+                            << "' is not a variable"
+                            << (IS_FORTRAN_LANGUAGE ? " nor a COMMON name" : "")
+                            <<", skipping"
                             << std::endl;
                         continue;
                     }

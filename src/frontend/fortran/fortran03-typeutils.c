@@ -464,9 +464,9 @@ type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type)
                     array_type_get_array_size_expr_context(array_type),
                     // Why did we do this so difficult?
                     nodecl_make_range(
-                        array_type_get_region_lower_bound(array_type),
-                        array_type_get_region_upper_bound(array_type),
-                        array_type_get_region_stride(array_type),
+                        nodecl_shallow_copy(array_type_get_region_lower_bound(array_type)),
+                        nodecl_shallow_copy(array_type_get_region_upper_bound(array_type)),
+                        nodecl_shallow_copy(array_type_get_region_stride(array_type)),
                         fortran_get_default_integer_type(),
                         "", 0),
                     array_type_get_region_size_expr_context(array_type)

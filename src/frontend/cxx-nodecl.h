@@ -31,6 +31,7 @@
 #include "cxx-cexpr-fwd.h"
 #include "cxx-scope-fwd.h"
 #include "cxx-nodecl-decls.h"
+#include "cxx-nodecl-deep-copy-fwd.h"
 
 MCXX_BEGIN_DECLS
 
@@ -46,7 +47,7 @@ AST nodecl_get_ast(nodecl_t t);
 nodecl_t nodecl_shallow_copy(nodecl_t t);
 
 // Replicates the tree and duplicates bound variables. Free variables may be replaced using the given map
-nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, void *info, scope_entry_t* (*map)(scope_entry_t*, void* info));
+nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, symbol_map_t* symbol_map);
 
 // Parent
 nodecl_t nodecl_get_parent(nodecl_t t);
@@ -149,6 +150,10 @@ const char* nodecl_expr_to_source(nodecl_t n);
 
 // Build from AST_NODECL_LITERAL
 nodecl_t nodecl_make_from_ast_nodecl_literal(AST);
+
+// Placeholders
+AST* nodecl_get_placeholder(nodecl_t n);
+void nodecl_set_placeholder(nodecl_t n, AST* p);
 
 MCXX_END_DECLS
 

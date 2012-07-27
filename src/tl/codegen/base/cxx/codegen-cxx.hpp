@@ -44,6 +44,8 @@ namespace Codegen
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
+            void handle_parameter(int n, void* data);
+
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
@@ -217,11 +219,13 @@ namespace Codegen
 
                 bool in_member_declaration;
 
+                bool in_forwarded_member_declaration;
+
                 bool in_dependent_template_function_code;
 
-                bool inside_structured_value;
+                bool nontype_template_argument_needs_parentheses;
 
-                bool do_not_emit_other_declarations;
+                bool inside_structured_value;
 
                 // States whether we are visiting the called entity of a function call
                 bool visiting_called_entity_of_function_call;
@@ -257,9 +261,10 @@ namespace Codegen
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
                     in_member_declaration(false),
+                    in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
+                    nontype_template_argument_needs_parentheses(false),
                     inside_structured_value(false),
-                    do_not_emit_other_declarations(IS_CXX_LANGUAGE),
                     visiting_called_entity_of_function_call(false),
                     classes_being_defined(),
                     walked_types(),
@@ -431,12 +436,6 @@ namespace Codegen
             static bool nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
-
-            void declare_all_in_template_arguments(TL::TemplateParameters template_arguments,
-                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol));
-
-            void declare_all_in_template_header(TL::TemplateParameters template_arguments);
 
             void codegen_template_headers_all_levels(
                     TL::TemplateParameters template_parameters,

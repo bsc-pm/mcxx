@@ -419,12 +419,9 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // Outline
-    Source outline_source;
-    Nodecl::NodeclBase placeholder;
-    outline_source << statement_placeholder(placeholder);
-
+    Nodecl::NodeclBase outline_placeholder;
     Nodecl::Utils::SymbolMap *symbol_map = NULL;
-    emit_outline(outline_info, statements, outline_source, outline_name, structure_symbol, symbol_map);
+    emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
 
     if (IS_FORTRAN_LANGUAGE)
     {
@@ -434,10 +431,10 @@ void LoweringVisitor::emit_async_common(
                 outline_info.get_unpacked_function_symbol());
     }
 
-    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, placeholder, *symbol_map);
+    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
     delete symbol_map;
 
-    placeholder.replace(outline_statements_code);
+    outline_placeholder.replace(outline_statements_code);
 
     Source err_name;
     err_name << "err";
@@ -739,10 +736,10 @@ void LoweringVisitor::fill_arguments(
                         Type t = (*it)->get_shared_expression().get_type();
 
                         fill_outline_arguments 
-                            << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
+                            << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
                         fill_immediate_arguments 
-                            << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ";"
+                            << "imm_args." << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
                         break;
                     }
@@ -796,7 +793,6 @@ void LoweringVisitor::fill_arguments(
                                     && t.array_get_size().is_null())
                             {
                                 // This is an assumed-size
-                                // extra_ref << "(1:1)";
                                 Source array_section;
                                 fill_extra_ref_assumed_size(array_section, t);
                                 extra_ref << "(" << array_section << ")";
@@ -837,11 +833,11 @@ void LoweringVisitor::fill_arguments(
                         {
                             fill_outline_arguments << 
                                 "ol_args %" << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression().shallow_copy()) << "\n"
+                                << as_expression( (*it)->get_shared_expression()) << "\n"
                                 ;
                             fill_immediate_arguments << 
                                 "imm_args % " << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression().shallow_copy() ) << "\n"
+                                << as_expression( (*it)->get_shared_expression()) << "\n"
                                 ;
                         }
                         else
@@ -851,11 +847,11 @@ void LoweringVisitor::fill_arguments(
 
                             fill_outline_arguments << 
                                 "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy()) << ")\n"
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
                                 ;
                             fill_immediate_arguments << 
                                 "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression().shallow_copy() ) << ")\n"
+                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
                                 ;
                         }
 
@@ -989,7 +985,8 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
     return num_copies;
 }
 
-static void fill_dimensions(int n_dims, 
+static void fill_dimensions(
+        int n_dims, 
         int actual_dim, 
         int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
@@ -1120,8 +1117,8 @@ void LoweringVisitor::fill_dependences(
         result_src
             << dependency_regions
             << "nanos_data_access_t dependences[" << num_deps << "]"
-            ; 
-        
+            ;
+
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
@@ -1207,9 +1204,10 @@ void LoweringVisitor::fill_dependences(
 
                 if (num_dimensions == 0)
                 {
+                    // This is a scalar
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy()) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1]) << "* sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -1236,6 +1234,7 @@ void LoweringVisitor::fill_dependences(
                 }
                 else
                 {
+                    // This an array
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
                     // Compute the contiguous array type
@@ -1257,9 +1256,9 @@ void LoweringVisitor::fill_dependences(
                         size = contiguous_array_type.array_get_size();
                     }
 
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1].shallow_copy());
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb.shallow_copy());
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size.shallow_copy());
+                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
+                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
+                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
 
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
@@ -1281,20 +1280,25 @@ void LoweringVisitor::fill_dependences(
                             << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
                             ;
                     }
-                    
-                    // All but 0 (contiguous) are handled here
-                    fill_dimensions(num_dimensions, 
-                            num_dimensions,
-                            current_dep_num,
-                            dimension_sizes, 
-                            dependency_type, 
-                            dims_description,
-                            dependency_regions,
-                            dep_expr.retrieve_context());
+
+                    if (num_dimensions > 1)
+                    {
+                        // All the remaining dimensions (but 0) are filled here
+                        fill_dimensions(
+                                num_dimensions,
+                                /* current_dim */ num_dimensions,
+                                current_dep_num,
+                                dimension_sizes,
+                                dependency_type,
+                                dims_description,
+                                dependency_regions,
+                                dep_expr.retrieve_context());
+                    }
                 }
 
-                if (num_dimensions == 0) 
-                    num_dimensions++;
+                int num_dimension_items = num_dimensions;
+                if (num_dimension_items == 0) 
+                    num_dimension_items = 1;
 
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
@@ -1303,20 +1307,21 @@ void LoweringVisitor::fill_dependences(
                         << "{"
                         << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
                         << dependency_flags << ", "
-                        << num_dimensions << ", "
+                        << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num
                         << "}";
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     result_src
-                        << "dependences[" << current_dep_num << "].address = (void*)" << arguments_accessor << (*it)->get_field_name() << ";"
+                        << "dependences[" << current_dep_num << "].address = "
+                                   << "(*" << arguments_accessor << (*it)->get_field_name() << ");"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "dependences[" << current_dep_num << "].flags.output" << dependency_flags_out << ";"
+                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
                         << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
-                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
-                        << "dependences[" << current_dep_num << "].dimensions = dimensions_" << current_dep_num << ";"
+                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+                        << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
                 }
             }
@@ -1385,14 +1390,8 @@ void LoweringVisitor::fill_dependences(
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
                         ;
-                    
-                    // if (Nanos::Version::interface_is_at_least("master", 5001))
-                    {
-                        result_src
-                            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
-                            ;
-                    }
                 }
 
                 Source dep_expr_addr;
@@ -1437,7 +1436,10 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
-void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+void LoweringVisitor::fill_dimensions(
+        int n_dims, 
+        int current_dim, 
+        int current_dep_num,
         Nodecl::NodeclBase * dim_sizes, 
         Type dep_type, 
         Source& dims_description, 
@@ -1445,9 +1447,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
         Scope sc)
 {
     // We do not handle the contiguous dimension here
-    if (actual_dim > 0)
+    if (current_dim > 0)
     {
-        fill_dimensions(n_dims, actual_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+        fill_dimensions(n_dims, current_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase lb, ub, size;
@@ -1463,9 +1465,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - actual_dim - 1].shallow_copy());
-        dimension_lower_bound << as_expression(lb.shallow_copy());
-        dimension_accessed_length << as_expression(size.shallow_copy());
+        dimension_size << as_expression(dim_sizes[n_dims - current_dim - 1]);
+        dimension_lower_bound << as_expression(lb);
+        dimension_accessed_length << as_expression(size);
 
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
@@ -1480,9 +1482,9 @@ void LoweringVisitor::fill_dimensions(int n_dims, int actual_dim, int current_de
         else if (IS_FORTRAN_LANGUAGE)
         {
             dependency_regions_code
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[" << actual_dim << "].accessed_length = " << dimension_accessed_length << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim << "].accessed_length = " << dimension_accessed_length << ";"
                 ;
         }
     }

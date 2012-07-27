@@ -1,6 +1,6 @@
 #!@BASH@
 
-@abs_top_builddir@/tests/config/mercurium-extensions
+@abs_top_builddir@/tests/config/mercurium
 
 cat<<EOF
 test_CXXFLAGS="\${test_CXXFLAGS} --env=linux-i386"

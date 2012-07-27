@@ -47,6 +47,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-prettyprint-internal.h"
 #include "cxx-diagnostic.h"
+#include "cxx-codegen.h"
 
 #include "fortran/fortran03-prettyprint.h"
 
@@ -220,6 +221,7 @@ HANDLER_PROTOTYPE(gxx_type_traits);
 // Mercurium extensions
 HANDLER_PROTOTYPE(array_section_handler);
 HANDLER_PROTOTYPE(shaping_expression_handler);
+HANDLER_PROTOTYPE(nodecl_literal_handler);
 
 // UPC 1.2
 HANDLER_PROTOTYPE(upc_forall_header);
@@ -559,6 +561,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, ":"),
     NODE_HANDLER(AST_ARRAY_SECTION_SIZE, array_section_handler, ";"),
     NODE_HANDLER(AST_SHAPING_EXPRESSION, shaping_expression_handler, NULL),
+    NODE_HANDLER(AST_NODECL_LITERAL, nodecl_literal_handler, NULL),
     // UPC 1.2
     NODE_HANDLER(AST_UPC_LOCALSIZEOF, upc_sizeof_expr, "local"),
     NODE_HANDLER(AST_UPC_BLOCKSIZEOF, upc_sizeof_expr, "block"),
@@ -2658,6 +2661,12 @@ static void shaping_expression_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, " ");
 
     prettyprint_level(f, ASTSon1(a), pt_ctx);
+}
+
+static void nodecl_literal_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    nodecl_t nodecl = nodecl_make_from_ast_nodecl_literal(a);
+    token_fprintf(f, a, pt_ctx, "%s", codegen_to_str(nodecl, CURRENT_COMPILED_FILE->global_decl_context));
 }
 
 static void gxx_type_traits(FILE* f, AST a, prettyprint_context_t* pt_ctx)

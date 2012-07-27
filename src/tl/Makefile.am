@@ -25,20 +25,15 @@
 ##########################################################################
 
 SUBDIRS = . codegen omp analysis
-# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@
 
 END=
 
 DIST_SUBDIRS=analysis \
              omp \
-             superscalar \
              instr \
-             instr_pthreads \
-             stm_func \
              examples \
              testing \
              hlt \
-             ss_valgrind \
              manip \
              codegen \
              $(END)

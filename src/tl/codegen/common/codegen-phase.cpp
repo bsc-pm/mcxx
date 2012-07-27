@@ -38,7 +38,8 @@ namespace Codegen
 
         this->codegen_top_level(n, f);
     }
-
+    void CodegenPhase::handle_parameter(int n, void* data)
+    {}
 }
 
 Codegen::CodegenPhase& Codegen::get_current()

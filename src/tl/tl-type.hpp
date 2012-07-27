@@ -584,6 +584,9 @@ namespace TL
               */
             ObjectList<Symbol> get_unresolved_overload_set();
 
+            //! Get the explicit template arguments of an unresolved overload type
+            TemplateParameters unresolved_overloaded_type_get_explicit_template_arguments();
+
             //! States whether the type is a dependent one
             /*!
              * Symbol t below will have a dependent type

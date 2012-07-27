@@ -67,6 +67,7 @@ struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
 
 #define MAX_PRAGMA_CONSTRUCT_STACK 64
 static const char* pragma_construct_stack[MAX_PRAGMA_CONSTRUCT_STACK] = { 0 };
+static const char* format_pragma_string(const char* c);
 static int pragma_construct_stack_idx = 0;
 
 #define MAX_NONBLOCK_DO_STACK 64
@@ -685,13 +686,13 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
                     {
                         if (strcmp(pragma_construct_stack[pragma_construct_stack_idx-1], longest_match) != 0)
                         {
-                            running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s %s'\n", 
+                            running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
                                     fortran_scanning_now->current_filename, 
                                     fortran_scanning_now->line_number,
                                     strtoupper(current_pragma_prefix), 
                                     strtoupper(longest_match),
-                                    strtoupper(yytext),
-                                    strtoupper(pragma_construct_stack[pragma_construct_stack_idx - 1]));
+                                    strtoupper(current_pragma_prefix), 
+                                    strtoupper(format_pragma_string(pragma_construct_stack[pragma_construct_stack_idx - 1])));
                         }
                         else
                         {
@@ -782,6 +783,11 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 [ \t] {
 	// This blank must be eaten
+}
+
+"," {
+	parse_token_text();
+    RETURN_TOKEN(',');
 }
 
 }
@@ -3114,6 +3120,25 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
     }
 
     return longest_match;
+}
+
+static const char* format_pragma_string(const char* c)
+{
+    char *tmp = strdup(c);
+
+    char* p = tmp;
+
+    while (*p != '\0')
+    {
+        if (*p == '|')
+            *p = ' ';
+        p++;
+    }
+
+    const char* res = uniquestr(tmp);
+    free(tmp);
+
+    return res;
 }
 
 // Shut up the compiler

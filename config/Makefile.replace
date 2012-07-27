@@ -6,9 +6,6 @@ config_edit = \
      -e 's|@ACOLIB_LIBS[@]|$(ACOLIB_LIBS)|g' \
      -e 's|@ACOTES_MSF_INCLUDES[@]|$(ACOTES_MSF_INCLUDES)|g' \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
-     -e 's|@INSTRUMENTATION_PHASE[@]|$(INSTRUMENTATION_PHASE)|g' \
-     -e 's|@MINTAKA_INCLUDES[@]|$(MINTAKA_INCLUDES)|g' \
-     -e 's|@MINTAKA_LIBS[@]|$(MINTAKA_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
@@ -27,8 +24,10 @@ config_edit = \
      -e 's|@RPATH_PARAMETER[@]|$(RPATH_PARAMETER)|g' \
      -e 's|@ICC[@]|$(ICC)|g' \
      -e 's|@ICPC[@]|$(ICPC)|g' \
+     -e 's|@IFORT[@]|$(IFORT)|g' \
      -e 's|@GXLC[@]|$(GXLC)|g' \
      -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
+     -e 's|@XLF[@]|$(XLF)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
     $(END)

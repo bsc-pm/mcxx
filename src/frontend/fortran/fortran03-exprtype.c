@@ -1821,7 +1821,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     all_components_are_const = 0;
                 }
 
-                initialization_expressions[i] = member->value;
+                initialization_expressions[i] = nodecl_shallow_copy(member->value);
             }
         }
 
@@ -3536,7 +3536,9 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
 static void check_nodecl_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    *nodecl_output = nodecl_make_from_ast_nodecl_literal(expr);
+    // Make sure we copy it, otherwise under ambiguity
+    // the same trees would be wrongly handled
+    *nodecl_output = nodecl_shallow_copy(nodecl_make_from_ast_nodecl_literal(expr));
 }
 
 static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)

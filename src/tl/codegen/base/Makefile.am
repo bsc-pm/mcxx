@@ -26,4 +26,4 @@
 
 SUBDIRS=cxx fortran
 
-DIST_SUBDIRS=cxx fortran legacy_cxx legacy_fortran
+DIST_SUBDIRS=cxx fortran

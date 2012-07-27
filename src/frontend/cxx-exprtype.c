@@ -355,7 +355,6 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
 static void check_binary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_throw_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output);
 static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -878,7 +877,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // Special nodes
         case AST_NODECL_LITERAL:
             {
-                *nodecl_output = nodecl_make_from_ast_nodecl_literal(expression);
+                // Make sure we copy it, otherwise under ambiguity
+                // the same trees would be wrongly handled
+                *nodecl_output = nodecl_shallow_copy(nodecl_make_from_ast_nodecl_literal(expression));
                 break;
             }
         case AST_DIMENSION_STR:
@@ -3219,6 +3220,10 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
     {
         // Always the left one in this case
         type_t* result = no_ref(lhs_type);
+        if (is_enum_type(result))
+        {
+            result = enum_type_get_underlying_type(result);
+        }
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -5448,7 +5453,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
         *nodecl_output = nodecl_make_symbol(entry, filename, line);
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
             *nodecl_output = nodecl_make_class_member_access(
                     accessor,
                     *nodecl_output,
@@ -5512,6 +5517,39 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 {
     compute_symbol_type(expr, decl_context, nodecl_output);
 }
+
+nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
+{
+    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
+        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
+        ERROR_CONDITION(nodecl_get_kind(accessor_symbol) != NODECL_SYMBOL, "Invalid tree when integrating field accesses", 0);
+
+        nodecl_t integrated_nodecl = cxx_integrate_field_accesses(base, accessor_base);
+
+        return nodecl_make_class_member_access(
+                integrated_nodecl,
+                nodecl_shallow_copy(accessor_symbol),
+                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
+                nodecl_get_filename(integrated_nodecl),
+                nodecl_get_line(integrated_nodecl));
+    }
+    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
+    {
+        return nodecl_make_class_member_access(
+                nodecl_shallow_copy(base),
+                nodecl_shallow_copy(accessor),
+                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
+                nodecl_get_filename(base),
+                nodecl_get_line(base));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
 
 static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
         scope_entry_list_t* entry_list, 
@@ -5598,14 +5636,24 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         scope_entry_t* accessing_symbol = entry;
         if (entry->entity_specs.is_member_of_anonymous)
         {
-            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
+
+            // Find the accessing symbol
+            nodecl_t nodecl_symbol_of_accessor = accessor;
+            while (nodecl_get_kind(nodecl_symbol_of_accessor) == NODECL_CLASS_MEMBER_ACCESS)
+            {
+                nodecl_symbol_of_accessor = nodecl_get_child(nodecl_symbol_of_accessor, 0);
+            }
+
+            accessing_symbol = nodecl_get_symbol(nodecl_symbol_of_accessor);
+            ERROR_CONDITION(accessing_symbol == NULL, "Symbol of accessor not found", 0);
+
             nodecl_access_to_symbol = nodecl_make_class_member_access(
                     accessor,
                     nodecl_access_to_symbol,
                     lvalue_ref(entry->type_information),
                     nodecl_get_filename(nodecl_name),
                     nodecl_get_line(nodecl_name));
-            accessing_symbol = nodecl_get_symbol(accessor);
         }
 
         if (!accessing_symbol->entity_specs.is_member
@@ -5628,7 +5676,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             }
 
             if (this_symbol != NULL
-                    && class_type_is_base(entry->entity_specs.class_type, this_type))
+                    && class_type_is_base(accessing_symbol->entity_specs.class_type, this_type))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
@@ -5646,11 +5694,11 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                *nodecl_output =
-                    nodecl_make_class_member_access(nodecl_this_derref,
-                            nodecl_access_to_symbol,
-                            qualified_data_member_type,
-                            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+                *nodecl_output = cxx_integrate_field_accesses(
+                        nodecl_this_derref,
+                        nodecl_access_to_symbol);
+                nodecl_set_type(*nodecl_output, qualified_data_member_type);
+                nodecl_set_location(*nodecl_output, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             }
             else
             {
@@ -6191,7 +6239,7 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
     if (is_bool_type(no_ref(t1)))
     {
         if (is_arithmetic_type(no_ref(t2))
-                    && is_arithmetic_type(no_ref(t3)))
+                && is_arithmetic_type(no_ref(t3)))
         {
             return 1;
         }
@@ -6208,6 +6256,16 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
                 && equivalent_types(
                     get_unqualified_type(no_ref(t2)), 
                     get_unqualified_type(no_ref(t3))))
+        {
+            return 1;
+        }
+        else if (is_pointer_type(no_ref(t2)) != is_pointer_type(no_ref(t3))
+                && is_zero_type(no_ref(t2)) != is_zero_type(no_ref(t3)))
+        {
+            return 1;
+        }
+        else if (is_pointer_to_member_type(no_ref(t2)) != is_pointer_to_member_type(no_ref(t3))
+                && is_zero_type(t2) != is_zero_type(t3))
         {
             return 1;
         }
@@ -6458,8 +6516,10 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             return;
         }
 
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && (is_class_type(no_ref(second_type)) 
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type)))
+                && (is_class_type(no_ref(second_type))
                     || is_class_type(no_ref(third_type))))
         {
             /*
@@ -6523,13 +6583,11 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
          * is used there to force a conversion
 
          */
-        if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && ((is_class_type(no_ref(second_type))
-                        || is_class_type(no_ref(third_type)))
-                    || (is_enum_type(no_ref(second_type))
-                        || is_enum_type(no_ref(third_type)))
-                    )
-                )
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(second_type)),
+                    get_unqualified_type(no_ref(third_type)))
+                && (is_class_type(no_ref(second_type))
+                    || is_class_type(no_ref(third_type))))
         {
             builtin_operators_set_t builtin_set;
 
@@ -6683,7 +6741,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
 
     if (is_lvalue_reference_type(second_type)
             && is_lvalue_reference_type(third_type)
-            && equivalent_types(no_ref(second_type), no_ref(third_type)))
+            && equivalent_types(
+                get_unqualified_type(no_ref(second_type)),
+                get_unqualified_type(no_ref(third_type))))
     {
         final_type = lvalue_ref(final_type);
     }
@@ -9159,33 +9219,6 @@ static void check_templated_member_access(AST templated_member_access, decl_cont
     check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
 
-static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
-{
-    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
-    {
-        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
-        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
-
-        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
-
-        return nodecl_make_class_member_access(integrated_nodecl,
-                accessor_symbol,
-                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
-                nodecl_get_filename(integrated_nodecl),
-                nodecl_get_line(integrated_nodecl));
-    }
-    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
-    {
-        return nodecl_make_class_member_access(base, accessor, 
-                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
-                nodecl_get_filename(base),
-                nodecl_get_line(base));
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
-    }
-}
 
 static char is_pseudo_destructor_id(decl_context_t decl_context,
         type_t* accessed_type,
@@ -9612,8 +9645,7 @@ static void check_nodecl_member_access(
         if (entry->entity_specs.is_member_of_anonymous)
         {
             nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-            nodecl_field = integrate_field_accesses(nodecl_field, 
-                    accessor);
+            nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
         ok = 1;
@@ -9641,8 +9673,7 @@ static void check_nodecl_member_access(
             if (entry->entity_specs.is_member_of_anonymous)
             {
                 nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                nodecl_field = integrate_field_accesses(nodecl_field, 
-                        accessor);
+                nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
             }
 
             *nodecl_output = nodecl_make_class_member_access(
@@ -9715,7 +9746,7 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t *
 
 
 // This checks that a template-id-expr is feasible in an expression
-static void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     cxx_common_name_check(expr, decl_context, nodecl_output);
 }
@@ -14725,6 +14756,12 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         if (argument->kind == SK_VARIABLE)
         {
             result = argument->value;
+        }
+        else if (argument->kind == SK_TEMPLATE_PARAMETER)
+        {
+            result = nodecl_make_symbol(argument, nodecl_get_filename(node), nodecl_get_line(node));
+            nodecl_set_type(result, nodecl_get_type(node));
+            nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
         }
         else
         {

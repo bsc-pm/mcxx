@@ -59,6 +59,8 @@ void check_statement_placeholder(AST placeholder, decl_context_t decl_context UN
 
     nodecl_t empty_stmt = nodecl_make_empty_statement(ASTFileName(placeholder), ASTLine(placeholder));
 
+    nodecl_set_placeholder(empty_stmt, p);
+
     *p = nodecl_get_ast(empty_stmt);
 
     *nodecl_output = nodecl_make_list_1(_nodecl_wrap(*p));

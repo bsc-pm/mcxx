@@ -35,8 +35,6 @@ CONFIG_MCXX=\
 # We need a dist hook to keep these files in sync with their template.*
 # see below
 CONFIG_FILES =  \
-       50.config.acotes \
-       50.config.acotes-msf \
        50.config.cuda \
        50.config.gpu \
        50.config.ocl \
@@ -45,15 +43,11 @@ CONFIG_FILES =  \
        50.config.omp.profiling \
        50.config.omp.fortran \
        55.config.omp.intel \
+       55.config.omp.intel.fortran \
        55.config.omp.ibm \
+       55.config.omp.ibm.fortran \
        55.config.omp.nvidia \
-       10.config.sscc-common \
-       50.config.sscc \
-       50.config.sscxx \
        00.config.plain \
-       50.config.stm_nebelung \
-       50.config.superscalar \
-       50.config.ss_valgrind \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
