@@ -391,13 +391,11 @@ critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-
 
 # inline task
 task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
-                | task-call
 
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
-# Futures?
-# expression : task-call
+expression : task-call
 
 exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FIRSTPRIVATE([captured_symbols]name-seq)
