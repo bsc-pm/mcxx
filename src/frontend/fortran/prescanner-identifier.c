@@ -338,7 +338,6 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 
 	int parenthesis_level = 0;
 	char in_string = 0, delim = 0;
-
 	// We start working in the first statement
 	int current_sentence = 0;
 	char* start_current_sentence = p;
@@ -347,7 +346,12 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	{
 		if (!in_string)
 		{
-			if ((*p == '\"') || (*p == '\''))
+			if (*p == '!')
+			{
+				// A comment starts here
+				break;
+			}
+			else if ((*p == '\"') || (*p == '\''))
 			{
 				delim = *p;
 				in_string = 1;
