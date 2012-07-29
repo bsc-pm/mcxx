@@ -66,6 +66,33 @@ char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* node
     return !nodecl_is_err_expr(*nodecl_output);
 }
 
+static int _checking_array_expression = 0;
+static void fortran_push_checking_array_expression(void)
+{
+    _checking_array_expression++;
+}
+
+static void fortran_pop_checking_array_expression(void)
+{
+    _checking_array_expression--;
+    ERROR_CONDITION(_checking_array_expression < 0, 
+            "Invalid value %d for _checking_array_expression", _checking_array_expression);
+}
+
+static char fortran_checking_array_expression(void)
+{
+    return _checking_array_expression != 0;
+}
+
+char fortran_check_array_bounds_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    fortran_push_checking_array_expression();
+    fortran_check_expression_impl_(a, decl_context, nodecl_output);
+    fortran_pop_checking_array_expression();
+
+    return !nodecl_is_err_expr(*nodecl_output);
+}
+
 typedef void (*check_expression_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
 typedef struct check_expression_handler_tag
 {
@@ -1821,7 +1848,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     all_components_are_const = 0;
                 }
 
-                initialization_expressions[i] = member->value;
+                initialization_expressions[i] = nodecl_shallow_copy(member->value);
             }
         }
 
@@ -3843,49 +3870,65 @@ static void check_symbol_name_as_a_variable(
     }
 
     if (is_void_type(no_ref(entry->type_information))
-            && entry->entity_specs.is_parameter
+            && entry->entity_specs.is_implicit_basic_type
             && is_implicit_none(decl_context))
     {
-        // Special case for this (incorrect but tolerated) case
-        //
-        // SUBROUTINE S(A, N)
-        //    IMPLICIT NONE
-        //
-        //    INTEGER :: A(N+1)
-        //    INTEGER :: N
-        //    ...
+        if (entry->entity_specs.is_parameter
+                && fortran_checking_array_expression())
+        {
+            // Special case for this (incorrect but tolerated) case
+            //
+            // SUBROUTINE S(A, N)
+            //    IMPLICIT NONE
+            //
+            //    INTEGER :: A(N+1)
+            //    INTEGER :: N
+            //    ...
 
-        // We currently do not have any mean to remember that the usage of this
-        // variable involves some information for it. What we can do, though
-        // is set it a type and mark it as implicitly defined (even though we are under
-        // IMPLICIT NONE)
-        entry->type_information = get_lvalue_reference_type(fortran_get_default_integer_type());
-        entry->entity_specs.is_implicit_basic_type = 1;
+            // We currently do not have any mean to remember that the usage of this
+            // variable involves some information for it. What we can do, though
+            // is set it a type and mark it as implicitly defined (even though we are under
+            // IMPLICIT NONE)
+            entry->type_information = get_lvalue_reference_type(fortran_get_default_integer_type());
+            entry->entity_specs.is_implicit_basic_type = 1;
 
-        // Being unable to remember that this must be an integer hinders us to detect
-        // the following (100% wrong) case
-        //
-        // SUBROUTINE S(A, N)
-        //    IMPLICIT NONE
-        //
-        //    INTEGER :: A(N+1)
-        //    REAL :: N         ! Error: N is used in a way that cannot have this type
-        //                      ! We will not detect this case!
-        //
-        // Note that this extension is utterly broken since we could write this
-        //
-        // SUBROUTINE S(N)
-        //    IMPLICIT NONE
-        //
-        //    INTEGER :: A(KIND(N))   ! Aha...
-        //    INTEGER(KIND=8) :: N    ! What now?
-        //
-        // Every compiler will react on a different way. Some will assume a default kind for N (i.e. 4)
-        // some others will complain of KIND(N) (though they do not in the case of 'N + 1', etc)
-        //
-        // Any approach is not driven by the standard, so anything we do is
-        // both OK and wrong at the same time
+            // Being unable to remember that this must be an integer hinders us to detect
+            // the following (100% wrong) case
+            //
+            // SUBROUTINE S(A, N)
+            //    IMPLICIT NONE
+            //
+            //    INTEGER :: A(N+1)
+            //    REAL :: N         ! Error: N is used in a way that cannot have this type
+            //                      ! We will not detect this case!
+            //
+            // Note that this extension is utterly broken since we could write this
+            //
+            // SUBROUTINE S(N)
+            //    IMPLICIT NONE
+            //
+            //    INTEGER :: A(KIND(N))   ! Aha...
+            //    INTEGER(KIND=8) :: N    ! What now?
+            //
+            // Every compiler will react on a different way. Some will assume a default kind for N (i.e. 4)
+            // some others will complain of KIND(N) (though they do not in the case of 'N + 1', etc)
+            //
+            // Any approach is not driven by the standard, so anything we do is
+            // both OK and wrong at the same time
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: symbol '%s' has no IMPLICIT type\n", 
+                        ast_location(sym),
+                        entry->symbol_name);
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(sym), ASTLine(sym));
+            return;
+        }
     }
+
 
     *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
     if (!is_const_qualified_type(no_ref(entry->type_information)))

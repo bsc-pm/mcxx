@@ -91,6 +91,11 @@ namespace TL
                 std::string original_reductor_name;
                 std::copy(current_argument.begin(), split_colon, std::back_inserter(original_reductor_name));
 
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    original_reductor_name = strtolower(original_reductor_name.c_str());
+                }
+
                 std::string remainder_arg;
                 std::copy(split_colon + 1, current_argument.end(), std::back_inserter(remainder_arg));
 

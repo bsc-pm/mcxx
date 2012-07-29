@@ -43,6 +43,7 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-diagnostic.h"
+#include "cxx-nodecl-checker.h"
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
@@ -201,7 +202,7 @@ namespace TL
                     {
                         fprintf(stderr, "COMPILERPHASES: Phase '%s' has been run\n", phase->get_phase_name().c_str());
                     }
-                    
+
                     // For consistency, check the tree
                     DEBUG_CODE()
                     {
@@ -210,6 +211,7 @@ namespace TL
 
                     }
 
+                    // Check the tree
                     if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                     {
                         internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
@@ -224,6 +226,7 @@ namespace TL
 
                         }
                     }
+                    nodecl_check_tree(nodecl_get_ast(translation_unit->nodecl));
 
                     DEBUG_CODE()
                     {

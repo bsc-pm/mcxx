@@ -288,7 +288,7 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
     | NODECL_CXX_DEP_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
-    | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt) type text
+    | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -403,13 +403,11 @@ critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-
 
 # inline task
 task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
-                | task-call
 
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
-# Futures?
-# expression : task-call
+expression : task-call
 
 exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FIRSTPRIVATE([captured_symbols]name-seq)

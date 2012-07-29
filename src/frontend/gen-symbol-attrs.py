@@ -469,6 +469,9 @@ def print_deep_copy_entity_specs(lines):
       if (name[0] == "*"):
           name = name[1:]
           continue
+      if name == "function_code":
+          print "// We do not copy function code!"
+          continue
       if _type in ["bool", "integer"]:
           print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
       elif (_type == "scope"):

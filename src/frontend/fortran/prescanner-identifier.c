@@ -155,10 +155,10 @@ statements_information_t statements_info[] =
 	STATEMENT_INFO(ST_CALL, 0, 1, "call"),
 	STATEMENT_INFO(ST_CLOSE, 0, 0, "close"),
 	STATEMENT_INFO(ST_CONTINUE, 0, 0, "continue"),
-	STATEMENT_INFO(ST_CYCLE, 0, 0, "cycle"),
+	STATEMENT_INFO(ST_CYCLE, 0, 1, "cycle"),
 	STATEMENT_INFO(ST_DEALLOCATE, 0, 0, "deallocate"),
 	STATEMENT_INFO(ST_ENDFILE, 0, 1, "endfile"),
-	STATEMENT_INFO(ST_EXIT, 0, 0, "exit"),
+	STATEMENT_INFO(ST_EXIT, 0, 1, "exit"),
 	STATEMENT_INFO(ST_GOTO, 0, 1, "goto"),
 	STATEMENT_INFO(ST_LABEL_ASSIGN, 0, 1, "assign"),
 	STATEMENT_INFO(ST_INQUIRE, 0, 0, "inquire"),
@@ -338,7 +338,6 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 
 	int parenthesis_level = 0;
 	char in_string = 0, delim = 0;
-
 	// We start working in the first statement
 	int current_sentence = 0;
 	char* start_current_sentence = p;
@@ -347,7 +346,12 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	{
 		if (!in_string)
 		{
-			if ((*p == '\"') || (*p == '\''))
+			if (*p == '!')
+			{
+				// A comment starts here
+				break;
+			}
+			else if ((*p == '\"') || (*p == '\''))
 			{
 				delim = *p;
 				in_string = 1;

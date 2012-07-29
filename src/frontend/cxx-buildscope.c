@@ -2402,24 +2402,27 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
-
+    decl_flags_t class_kind_flag = DF_NONE;
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = TT_CLASS;
+                class_kind_flag = DF_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = TT_STRUCT;
+                class_kind_flag = DF_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = TT_UNION;
+                class_kind_flag = DF_UNION;
                 class_kind_name = "union";
                 break;
             }
@@ -2435,7 +2438,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
     if (is_unqualified_id_expression(id_expression))
     {
-        decl_flags |= DF_ELABORATED_NAME;
+        decl_flags |= class_kind_flag;
     }
 
     // decl_context_query is a new decl_context_t created  for the queries
@@ -2751,24 +2754,27 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
-
+    decl_flags_t class_kind_flag = DF_NONE;
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = TT_CLASS;
+                class_kind_flag = DF_CLASS;
                 class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = TT_STRUCT;
+                class_kind_flag = DF_STRUCT;
                 class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = TT_UNION;
+                class_kind_flag = DF_UNION;
                 class_kind_name = "union";
                 break;
             }
@@ -2790,7 +2796,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     if (is_unqualified_id_expression(id_expression))
     {
-        decl_flags |= DF_ELABORATED_NAME;
+        decl_flags |= class_kind_flag;
     }
 
     char is_friend_class_declaration =
@@ -3203,7 +3209,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
     if (is_unqualified_id_expression(id_expression))
     {
-        decl_flags |= DF_ELABORATED_NAME;
+        decl_flags |= DF_ENUM;
     }
 
     CXX_LANGUAGE()

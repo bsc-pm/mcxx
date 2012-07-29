@@ -226,7 +226,7 @@ FORTRAN_GENERIC_INTRINSIC(present, "A", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(product, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(radix, "X", I, simplify_radix) \
 FORTRAN_GENERIC_INTRINSIC(random_number, "HARVEST", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(random_seed, "SIZE,PUT,GET", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(random_seed, "?SIZE,?PUT,?GET", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(range, "X", I, simplify_range) \
 FORTRAN_GENERIC_INTRINSIC(real, "A,?KIND", E, simplify_real) \
 FORTRAN_GENERIC_INTRINSIC(float, "A", E, simplify_float) \
@@ -279,6 +279,7 @@ FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -786,9 +787,30 @@ static char specific_keyword_check(
     return ok;
 }
 
-static scope_entry_t* get_intrinsic_symbol_(const char* name, 
-        type_t* result_type, 
-        int num_types, type_t** types, 
+static type_t* fix_type_for_intrinsic_parameters(type_t* t)
+{
+    if (is_lvalue_reference_type(t))
+    {
+        return get_lvalue_reference_type(
+                fix_type_for_intrinsic_parameters(reference_type_get_referenced_type(t))
+                );
+    }
+    else if (fortran_is_array_type(t))
+    {
+        int n = fortran_get_rank_of_type(t);
+        type_t* rank0 = fortran_get_rank0_type(t);
+
+        return fortran_get_n_ranked_type(rank0, n, CURRENT_COMPILED_FILE->global_decl_context);
+    }
+    else
+    {
+        return t;
+    }
+}
+
+static scope_entry_t* get_intrinsic_symbol_(const char* name,
+        type_t* result_type,
+        int num_types, type_t** types,
         decl_context_t decl_context,
         char is_elemental,
         char is_pure,
@@ -796,6 +818,12 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         char is_inquiry UNUSED_PARAMETER)
 {
     ERROR_CONDITION(result_type == NULL, "This should be void", 0);
+
+     int i;
+     for (i = 0; i < num_types; i++)
+     {
+         types[i] = fix_type_for_intrinsic_parameters(types[i]);
+     }
 
     intrinsic_descr_t descr;
     descr.name = name;
@@ -830,7 +858,6 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 
         parameter_info_t param_info[num_types + 1];
         memset(param_info, 0, sizeof(param_info));
-        int i;
         for (i = 0; i < num_types; i++)
         {
             ERROR_CONDITION((types[i] == NULL), "Invalid description of builtin", 0);
@@ -1291,7 +1318,6 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
 
-    REGISTER_CUSTOM_INTRINSIC_1("dfloat", fortran_get_doubleprecision_type(), fortran_get_default_integer_type());
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
     REGISTER_CUSTOM_INTRINSIC_1("sngl", fortran_get_default_real_type(), fortran_get_doubleprecision_type());
@@ -4363,6 +4389,23 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("float", 
                 fortran_get_default_real_type(),
+                t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("dfloat", 
+                fortran_get_doubleprecision_type(),
                 t0);
     }
     return NULL;

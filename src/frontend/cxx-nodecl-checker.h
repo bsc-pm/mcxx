@@ -29,6 +29,14 @@
 
 #include "cxx-asttype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void nodecl_check_tree(AST a);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // CXX_NODECL_CHECKER_H
