@@ -368,6 +368,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         // Immediate
         copy_imm_data << "(nanos_copy_data_t*)0";
 
+        if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+        {
+            copy_decl << "nanos_region_dimension_internal_t* nanos_copies_region_buffer = (nanos_region_dimension_internal_t*)0;"
+                ;
+            copy_immediate_setup << "nanos_region_dimension_internal_t nanos_copies_imm_region_buffer[1];";
+                ;
+        }
+
         if (Nanos::Version::interface_is_at_least("master", 5005))
         {
             C_LANGUAGE()
