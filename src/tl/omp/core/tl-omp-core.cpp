@@ -614,7 +614,7 @@ namespace TL
                         }
                         else
                         {
-                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
+                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line().shallow_copy();
                         }
 
                         TL::ObjectList<Nodecl::NodeclBase> singleton_list;
