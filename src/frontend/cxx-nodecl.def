@@ -431,7 +431,9 @@ for-range : NODECL_OPEN_M_P*FOR_RANGE([lower]expression, [upper]expression, [ste
 atomic-construct : NODECL_OPEN_M_P*ATOMIC([name]name-opt, [statements]statement-seq)
 
 # sections
-sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [regions]statement-seq)
+sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [sections]section-construct-seq)
+
+section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
 synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environment-seq-opt)
 # First level of async

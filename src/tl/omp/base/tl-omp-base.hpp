@@ -71,21 +71,17 @@ namespace TL
                 Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
 
-                // void loop_handler_pre(TL::PragmaCustomStatement);
-                Nodecl::NodeclBase loop_handler_post(TL::PragmaCustomStatement directive, 
+                Nodecl::NodeclBase loop_handler_post(
+                        TL::PragmaCustomStatement directive, 
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
                         bool is_combined_worksharing);
 
-                void lower_sections_into_switch(
-                        Nodecl::NodeclBase directive,
-                        Nodecl::NodeclBase statements,
-                        // modified
-                        OpenMP::DataSharingEnvironment &ds,
-                        // output
-                        Nodecl::NodeclBase& new_code,
-                        Nodecl::NodeclBase& for_code
-                        );
+                Nodecl::NodeclBase sections_handler_common(
+                        TL::PragmaCustomStatement directive,
+                        Nodecl::NodeclBase statement,
+                        bool barrier_at_end,
+                        bool is_combined_worksharing);
         };
     }
 }
