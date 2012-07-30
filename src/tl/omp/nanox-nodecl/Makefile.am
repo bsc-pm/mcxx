@@ -56,6 +56,7 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-barrier.cpp \
 								 tl-lower-parallel.cpp \
 								 tl-lower-for.cpp \
+								 tl-lower-sections.cpp \
 								 tl-lower-critical.cpp \
 								 tl-lower-flush.cpp \
 								 tl-lower-atomic.cpp \

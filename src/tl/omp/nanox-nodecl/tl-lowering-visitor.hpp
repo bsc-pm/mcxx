@@ -48,6 +48,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Critical& construct);
         virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
+        virtual void visit(const Nodecl::OpenMP::Sections& construct);
 
     private:
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
