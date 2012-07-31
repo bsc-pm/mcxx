@@ -112,6 +112,24 @@ namespace TL { namespace Nanox {
                 }
             }
 
+            void visit(const Nodecl::OpenMP::Auto& shared)
+            {
+                Nodecl::List l = shared.get_auto_symbols().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
+                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n", 
+                            it->get_locus().c_str(),
+                            sym.get_name().c_str());
+                }
+                if (!l.empty())
+                {
+                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus().c_str());
+                }
+            }
+
             void visit(const Nodecl::OpenMP::Shared& shared)
             {
                 Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();

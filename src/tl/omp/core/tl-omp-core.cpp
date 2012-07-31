@@ -384,6 +384,7 @@ namespace TL
                     { "none", (DataSharingAttribute)DS_NONE },
                     { "shared", (DataSharingAttribute)DS_SHARED },
                     { "firstprivate", (DataSharingAttribute)DS_FIRSTPRIVATE },
+                    { "auto", (DataSharingAttribute)DS_AUTO },
                     { NULL, (DataSharingAttribute)DS_UNDEFINED },
                 };
 

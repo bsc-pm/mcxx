@@ -1142,6 +1142,10 @@ namespace TL { namespace OpenMP {
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Auto>(
+                data_sharing_env, OpenMP::DS_AUTO,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
