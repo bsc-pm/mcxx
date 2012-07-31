@@ -82,6 +82,11 @@ namespace TL
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
                         bool is_combined_worksharing);
+
+                Nodecl::NodeclBase honour_if_clause(
+                        TL::PragmaCustomLine pragma_line,
+                        TL::PragmaCustomStatement directive,
+                        Nodecl::NodeclBase openmp_construct);
         };
     }
 }
