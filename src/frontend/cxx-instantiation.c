@@ -394,7 +394,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     P_LIST_ADD((*enum_map), (*num_items_enum_map), new_map);
                 }
 
-                member_of_template->type_information = new_type;
+                new_member->type_information = new_type;
 
                 ERROR_CONDITION(member_of_template->expression_value == NULL,
                         "An enumerator always has a related expression", 0);
