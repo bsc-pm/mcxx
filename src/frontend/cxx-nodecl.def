@@ -398,7 +398,9 @@ task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [ca
 expression : task-call
 
 exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
-                 | NODECL_OPEN_M_P*FIRSTPRIVATE([captured_symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRSTPRIVATE([firstprivate_symbols]name-seq)
+                 | NODECL_OPEN_M_P*LASTPRIVATE([lastprivate_symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([firstlastprivate_symbols]name-seq)
                  | NODECL_OPEN_M_P*SHARED([shared_symbols]name-seq)
                  | NODECL_OPEN_M_P*PRIVATE([private_symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([auto_symbols]name-seq)

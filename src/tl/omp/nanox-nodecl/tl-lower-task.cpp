@@ -631,6 +631,7 @@ void LoweringVisitor::fill_arguments(
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                                 == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
@@ -707,6 +708,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_PRIVATE:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         // 'this' is special in C++
@@ -770,6 +772,7 @@ void LoweringVisitor::fill_arguments(
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         fill_outline_arguments << 
                             "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
@@ -780,6 +783,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_PRIVATE:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
                     {
                         Source extra_ref;

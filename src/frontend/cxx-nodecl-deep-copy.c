@@ -235,8 +235,9 @@ void copy_fortran_program_unit(scope_entry_t* new_program_unit,
     nested_symbol_map_t *nested_symbol_map = new_nested_symbol_map(get_empty_map());
 
     decl_context_t new_block_context_ = new_program_unit->related_decl_context;
-    scope_t* block_scope = original_program_unit->related_decl_context.current_scope;
+    scope_t* block_scope = original_program_unit->related_decl_context.block_scope;
 
+    // - Block scope
     closure_hash_t *closure_info = calloc(1, sizeof(*closure_info));
     memset(closure_info, 0, sizeof(*closure_info));
 

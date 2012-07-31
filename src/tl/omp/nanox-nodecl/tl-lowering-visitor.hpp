@@ -203,6 +203,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source emit_allocate_statement(TL::Symbol sym, 
                 int &lower_bound_index, int &upper_bound_index);
+
+        Source update_lastprivates(OutlineInfo& outline_info);
 };
 
 } }

@@ -169,7 +169,9 @@ const char* fortran_print_type_str(type_t* t)
     }
     else 
     {
-        internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t));
+        char* non_printable;
+        uniquestr_sprintf(&non_printable, "non-fortran type '%s'", print_declarator(t));
+        return non_printable;
     }
 
     if (is_pointer)

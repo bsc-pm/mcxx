@@ -26,6 +26,7 @@
 
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-calc.hpp"
+#include "tl-counters.hpp"
 #include "tl-predicateutils.hpp"
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
@@ -1016,6 +1017,126 @@ namespace Nodecl
             }
         }
         return result;
+    }
+
+    struct LabelVisitor : ExhaustiveVisitor<void>
+    {
+        Utils::SimpleSymbolMap &_symbol_map;
+        TL::Scope _sc;
+        LabelVisitor(Utils::SimpleSymbolMap& symbol_map, TL::ReferenceScope ref_scope)
+            : _symbol_map(symbol_map), _sc(ref_scope.get_scope()) { }
+
+        void insert_new_label_symbol(TL::Symbol sym)
+        {
+            TL::Counter &counter = TL::CounterManager::get_counter("label_visitor");
+
+            std::string register_name, symbol_name;
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                std::string label_name = sym.get_name();
+
+                for (std::string::iterator it = label_name.begin(); it != label_name.end(); it++)
+                {
+                    // If this is not a numeric label give up
+                    if (!(('0' <= (*it)) &&
+                                ((*it) <= '9')))
+                    {
+                        std::cerr << "NOT A NUMERIC LABEL! |" << label_name << "|" << std::endl;
+                        return;
+                    }
+                }
+
+                int x;
+                {
+                    std::stringstream ss;
+                    ss.str(label_name);
+
+                    ss >> x;
+                }
+
+                // FIXME - Make this more robust!
+                // Add 10000 to this label
+                x += 10000 + (int)counter;
+
+                std::stringstream ss;
+                ss << x;
+
+                symbol_name = ss.str();
+                register_name = ".label_" + symbol_name;
+            }
+            else
+            {
+                std::stringstream ss;
+                ss << symbol_name << "_" << (int)counter;
+
+                symbol_name = ss.str();
+                register_name = symbol_name;
+            }
+            counter++;
+
+            decl_context_t decl_context = _sc.get_decl_context();
+            scope_entry_t * new_label = ::new_symbol(decl_context, decl_context.function_scope, uniquestr(register_name.c_str()));
+            new_label->symbol_name = uniquestr(symbol_name.c_str());
+            new_label->kind = SK_LABEL;
+            new_label->value = nodecl_shallow_copy(sym.get_value().get_internal_nodecl());
+
+            _symbol_map.add_map(sym, new_label);
+        }
+
+        void visit(const Nodecl::Symbol &node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            // FORMAT references
+            if (IS_FORTRAN_LANGUAGE
+                    && sym.is_label()
+                    && !sym.get_value().is_null())
+            {
+                insert_new_label_symbol(sym);
+            }
+        }
+
+        void visit(const Nodecl::LabeledStatement& stmt)
+        {
+            walk(stmt.get_statement());
+
+            TL::Symbol sym = stmt.get_symbol();
+            if (sym.is_label())
+            {
+                insert_new_label_symbol(sym);
+            }
+        }
+    };
+
+    Utils::LabelSymbolMap::LabelSymbolMap(
+            Utils::SymbolMap* original_symbol_map, 
+            Nodecl::NodeclBase code,
+            TL::ReferenceScope ref_scope)
+        : _orig_symbol_map(original_symbol_map)
+    {
+        LabelVisitor visitor(_current_map, ref_scope);
+        visitor.walk(code);
+    }
+
+    void Utils::update_symbols(Nodecl::NodeclBase node, SymbolMap& m)
+    {
+        if (node.is_null())
+            return;
+
+        TL::Symbol sym = node.get_symbol();
+        if (!sym.is_valid())
+            return;
+
+        node.set_symbol(m.map(sym));
+
+        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            update_symbols(*it, m);
+        }
+
+
     }
 }
 

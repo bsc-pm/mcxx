@@ -988,13 +988,26 @@ namespace TL { namespace OpenMP {
                 data_sharing_env, OpenMP::DS_SHARED,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        // Keep privates as privates, though
+        // First, Last and FirstLast privates will be shared inside a combined worksharing
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_LASTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        // Privates are kept as privates, though
         make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
+        make_data_sharing_list<Nodecl::OpenMP::Auto>(
+                data_sharing_env, OpenMP::DS_AUTO,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
 
@@ -1070,6 +1083,14 @@ namespace TL { namespace OpenMP {
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Firstprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::Lastprivate>(
+                data_sharing_env, OpenMP::DS_LASTPRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
+        make_data_sharing_list<Nodecl::OpenMP::FirstLastprivate>(
+                data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Auto>(
