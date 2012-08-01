@@ -6339,10 +6339,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->entity_specs.is_instantiated = 1;
     }
 
+    linkage_push(NULL, /* is_braced */ 1);
+
     scope_entry_list_t* declared_symbols = NULL;
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info, nodecl_output, &declared_symbols);
     entry_list_free(declared_symbols);
+
+    linkage_pop();
+
 
     class_entry->defined = 1;
 
