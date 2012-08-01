@@ -2998,9 +2998,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
     }
     CXX_LANGUAGE()
     {
-        if (entry.is_builtin())
+        if (entry.is_builtin()
+                // Builtins cannot be qualified
+                || (entry.is_function() && entry.is_friend_declared()))
         {
-            // Builtins cannot be qualified
             file << entry.get_name();
         }
         else if (entry.is_function())
@@ -4153,13 +4154,6 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
 void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
 {
     ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
-
-    //The user did not declare it, ignore it
-    if (friend_symbol.is_friend_declared() &&
-            !(friend_symbol.is_dependent_friend_class() ||
-                friend_symbol.is_dependent_friend_function() ||
-                friend_symbol.is_template()))
-        return;
 
     bool is_template_friend_declaration = false,
          is_primary_template = false;
