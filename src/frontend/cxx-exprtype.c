@@ -8401,31 +8401,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         }
     }
 
-    // A koenig lookup may find a friend function declaration symbol and this symbol has not been defined by the user
-    //
-    // Example:
-    // namespace N
-    // {
-    //     class A
-    //     {
-    //         friend void f(int, const A&);
-    //     };
-    //     void g()
-    //     {
-    //         A a;
-    //         f(3,a); // Koenig
-    //     }
-    // }
-    if (success_koenig_lookup)
-    {
-        scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
-        // We want to declare it
-        if (called_symbol != NULL)
-        {
-            called_symbol->entity_specs.is_friend_declared = 0;
-        }
-    }
-
     if (nodecl_expr_is_type_dependent(nodecl_called)
             // It may be value dependent if we are calling a nontype template
             // parameter with type pointer to function
