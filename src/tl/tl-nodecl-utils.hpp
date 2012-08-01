@@ -194,8 +194,40 @@ namespace Nodecl
 
                 virtual TL::Symbol map(TL::Symbol s)
                 {
-                    TL::Symbol m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
-                    if (s == m)
+                    TL::Symbol m = s;
+                    if (_out_map_info != NULL)
+                    {
+                        m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
+                    }
+                    if (s == m
+                            && _orig_symbol_map != NULL)
+                    {
+                        m = _orig_symbol_map->map(s);
+                    }
+                    return m;
+                }
+        };
+
+        struct LabelSymbolMap : public SymbolMap
+        {
+            private:
+                SymbolMap* _orig_symbol_map;
+
+                SimpleSymbolMap _current_map;
+
+            public:
+                LabelSymbolMap(
+                        SymbolMap* original_symbol_map, 
+                        Nodecl::NodeclBase code,
+                        TL::ReferenceScope ref_scope);
+
+                virtual ~LabelSymbolMap() { }
+
+                virtual TL::Symbol map(TL::Symbol s)
+                {
+                    TL::Symbol m = _current_map.map(s);
+                    if (s == m
+                            && _orig_symbol_map != NULL)
                     {
                         m = _orig_symbol_map->map(s);
                     }
@@ -205,6 +237,9 @@ namespace Nodecl
 
 
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
+
+        // This updates symbols in the given tree using a symbol map
+        void update_symbols(Nodecl::NodeclBase orig, SymbolMap& map);
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);

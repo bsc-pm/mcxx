@@ -41,6 +41,8 @@ MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+LIBMF03_EXTERN char fortran_check_array_bounds_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 LIBMF03_EXTERN void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 

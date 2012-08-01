@@ -256,7 +256,9 @@ namespace Codegen
             void codegen_comma_separated_list(Nodecl::NodeclBase);
             void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
 
-            void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type);
+            void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
+                    TL::Symbol called_symbol,
+                    TL::Type function_type);
 
             void do_declare_symbol(TL::Symbol entry, Nodecl::NodeclBase, void*);
             void do_declare_symbol_in_scope(TL::Symbol entry, Nodecl::NodeclBase, void*);
@@ -344,6 +346,7 @@ namespace Codegen
             bool entry_is_in_scope(TL::Symbol entry, TL::Scope sc);
 
             bool module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target);
+            bool symbol_is_public_in_module(TL::Symbol current_module, TL::Symbol entry);
     };
 }
 

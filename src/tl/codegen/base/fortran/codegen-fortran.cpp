@@ -1274,7 +1274,9 @@ OPERATOR_TABLE
         file << ")";
     }
 
-    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, TL::Type function_type)
+    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
+            TL::Symbol called_symbol,
+            TL::Type function_type)
     {
         Nodecl::List l = arguments.as<Nodecl::List>();
 
@@ -1299,7 +1301,8 @@ OPERATOR_TABLE
                 arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
             }
 
-            if (!keyword.is_null())
+            if (!keyword.is_null()
+                    && !called_symbol.is_statement_function_statement())
             {
                 parameter_type = keyword.get_symbol().get_type();
                 if (!keyword.get_symbol().not_to_be_printed())
@@ -1401,7 +1404,7 @@ OPERATOR_TABLE
 
 
             file << entry.get_name() << "(";
-            codegen_function_call_arguments(arguments, function_type);
+            codegen_function_call_arguments(arguments, called.get_symbol(), function_type);
             file << ")";
         }
         else
@@ -4112,6 +4115,26 @@ OPERATOR_TABLE
         return found;
     }
 
+    bool FortranBase::symbol_is_public_in_module(TL::Symbol current_module, TL::Symbol entry)
+    {
+        TL::ObjectList<TL::Symbol> module_symbols = current_module.get_related_symbols();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = module_symbols.begin();
+                it != module_symbols.end();
+                it++)
+        {
+            if (it->is_from_module()
+                    && (it->aliased_from_module() == entry.aliased_from_module())
+                    // Sometimes we don't mark things as explicitly public so
+                    // checking if they are private is safer
+                    && (it->get_access_specifier() != AS_PRIVATE
+                        || current_module.get_access_specifier() != AS_PRIVATE))
+                return true;
+        }
+
+        return false;
+    }
+
     void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc)
     {
         ERROR_CONDITION(!entry.is_from_module(),
@@ -4137,7 +4160,8 @@ OPERATOR_TABLE
                     it != used_modules_list.end();
                     it++)
             {
-                if (module_can_be_reached(*it, module))
+                if (module_can_be_reached(*it, module)
+                        && symbol_is_public_in_module(*it, entry))
                 {
                     // Use this module
                     module = *it;
@@ -4176,7 +4200,7 @@ OPERATOR_TABLE
                 << ", ONLY: " 
                 << entry.get_name() 
                 << " => "
-                << get_generic_specifier_str(entry.get_internal_symbol()->entity_specs.alias_to->symbol_name)
+                << get_generic_specifier_str(entry.aliased_from_module().get_name())
                 << "\n";
         }
 

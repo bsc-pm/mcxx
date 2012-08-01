@@ -276,7 +276,7 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
     | NODECL_CXX_DEP_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
-    | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt) type text
+    | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -391,18 +391,19 @@ critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-
 
 # inline task
 task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
-                | task-call
 
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
-# Futures?
-# expression : task-call
+expression : task-call
 
 exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
-                 | NODECL_OPEN_M_P*FIRSTPRIVATE([captured_symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRSTPRIVATE([firstprivate_symbols]name-seq)
+                 | NODECL_OPEN_M_P*LASTPRIVATE([lastprivate_symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([firstlastprivate_symbols]name-seq)
                  | NODECL_OPEN_M_P*SHARED([shared_symbols]name-seq)
                  | NODECL_OPEN_M_P*PRIVATE([private_symbols]name-seq)
+                 | NODECL_OPEN_M_P*AUTO([auto_symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
@@ -433,7 +434,9 @@ for-range : NODECL_OPEN_M_P*FOR_RANGE([lower]expression, [upper]expression, [ste
 atomic-construct : NODECL_OPEN_M_P*ATOMIC([name]name-opt, [statements]statement-seq)
 
 # sections
-sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [regions]statement-seq)
+sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [sections]section-construct-seq)
+
+section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
 synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environment-seq-opt)
 # First level of async

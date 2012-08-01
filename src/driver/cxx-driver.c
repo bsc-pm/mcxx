@@ -3497,8 +3497,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     int prescanner_args = count_null_ended_array((void**)CURRENT_CONFIGURATION->prescanner_options);
 
     int num_arguments = prescanner_args;
-    // -q input -o output
-    num_arguments += 5;
+    // -r dir -l -q input -o output
+    num_arguments += 7;
     // NULL
     num_arguments += 1;
 
@@ -3536,6 +3536,16 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
     }
 
+    // Temporal directory for regenerated includes
+    temporal_file_t prescanner_include_output = new_temporal_dir();
+    P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs,
+            CURRENT_CONFIGURATION->num_include_dirs,
+            uniquestr(prescanner_include_output->name));
+
+    prescanner_options[i] = uniquestr("-r");
+    i++;
+    prescanner_options[i] = uniquestr(prescanner_include_output->name);
+    i++;
     prescanner_options[i] = uniquestr("-l");
     i++;
     prescanner_options[i] = uniquestr("-q");

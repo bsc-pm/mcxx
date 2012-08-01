@@ -6948,18 +6948,6 @@ static void check_new_expression_impl(
         int line,
         nodecl_t* nodecl_output)
 {
-    if (is_dependent_type(new_type))
-    {
-        // The new type is dependent
-        *nodecl_output = nodecl_make_cxx_dep_new(
-                nodecl_initializer,
-                nodecl_make_type(new_type, filename, line),
-                new_type,
-                is_global ? "global" : "",
-                filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
 
     char is_new_array = is_array_type(new_type);
 
@@ -6991,228 +6979,241 @@ static void check_new_expression_impl(
         free(nodecl_list);
     }
 
-    nodecl_t nodecl_allocation_function = nodecl_null();
-    nodecl_t nodecl_placement_list_out = nodecl_null();
-
     if (has_dependent_placement_args)
     {
         // Well, not all the whole new is type dependent but the placement arguments are
         nodecl_expr_set_is_type_dependent(nodecl_placement_list, 1);
     }
+
+    if (is_dependent_type(new_type)
+            || has_dependent_placement_args)
+    {
+        // The new type is dependent
+        *nodecl_output = nodecl_make_cxx_dep_new(
+                nodecl_initializer,
+                nodecl_make_type(new_type, filename, line),
+                nodecl_placement_list,
+                new_type,
+                is_global ? "global" : "",
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    nodecl_t nodecl_allocation_function = nodecl_null();
+    nodecl_t nodecl_placement_list_out = nodecl_null();
+
+    // At least the size_t parameter (+1 because we may need an implicit)
+    int num_arguments = 2;
+    // Note: arguments[0] will be left as NULL since 'operator new' is
+    // always static if it is a member function
+    arguments[1] = get_size_t_type();
+    num_arguments += num_placement_items;
+
+    decl_context_t op_new_context = decl_context;
+
+    if (is_class_type(new_type)
+            && !is_global)
+    {
+        // Instantiate the class if needed
+        if (is_named_class_type(new_type))
+        {
+            scope_entry_t* symbol = named_type_get_symbol(new_type);
+            instantiate_template_class_if_needed(symbol, decl_context, filename, line);
+        }
+
+        op_new_context = class_type_get_inner_context(new_type);
+    }
     else 
     {
-        // At least the size_t parameter (+1 because we may need an implicit)
-        int num_arguments = 2;
-        // Note: arguments[0] will be left as NULL since 'operator new' is
-        // always static if it is a member function
-        arguments[1] = get_size_t_type();
-        num_arguments += num_placement_items;
+        // Use the global scope
+        op_new_context.current_scope = op_new_context.global_scope;
+    }
 
-        decl_context_t op_new_context = decl_context;
+    static AST operation_new_tree = NULL;
+    if (operation_new_tree == NULL)
+    {
+        operation_new_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_NEW_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    }
 
-        if (is_class_type(new_type)
-                && !is_global)
+    static AST operation_new_array_tree = NULL;
+    if (operation_new_array_tree == NULL)
+    {
+        operation_new_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_NEW_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    }
+
+    AST called_operation_new_tree = operation_new_tree;
+
+    if (is_new_array)
+    {
+        called_operation_new_tree = operation_new_array_tree;
+    }
+
+    scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
+
+    if (operator_new_list == NULL)
+    {
+        if (!checking_ambiguity())
         {
-            // Instantiate the class if needed
-            if (is_named_class_type(new_type))
+            error_printf("%s:%d: error: no suitable '%s' has been found in the scope\n",
+                    filename, line,
+                    prettyprint_in_buffer(called_operation_new_tree));
+        }
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    candidate_t* candidate_set = NULL;
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(operator_new_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* orig_entry = entry_list_iterator_current(it);
+        scope_entry_t* entry = entry_advance_aliases(orig_entry);
+        if (entry->entity_specs.is_member)
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    orig_entry,
+                    num_arguments,
+                    arguments);
+        }
+        else
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    orig_entry,
+                    num_arguments - 1,
+                    arguments + 1);
+        }
+    }
+    entry_list_iterator_free(it);
+
+    scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
+            decl_context, filename, line,
+            conversors);
+
+    if (chosen_operator_new == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            // Format a nice message
+            const char* argument_call = uniquestr("");
+
+            argument_call = strappend(argument_call, "operator new");
+            if (is_new_array)
             {
-                scope_entry_t* symbol = named_type_get_symbol(new_type);
-                instantiate_template_class_if_needed(symbol, decl_context, filename, line);
+                argument_call = strappend(argument_call, "[]");
             }
+            argument_call = strappend(argument_call, "(");
 
-            op_new_context = class_type_get_inner_context(new_type);
-        }
-        else 
-        {
-            // Use the global scope
-            op_new_context.current_scope = op_new_context.global_scope;
-        }
-
-        static AST operation_new_tree = NULL;
-        if (operation_new_tree == NULL)
-        {
-            operation_new_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_NEW_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
-        }
-
-        static AST operation_new_array_tree = NULL;
-        if (operation_new_array_tree == NULL)
-        {
-            operation_new_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_NEW_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
-        }
-
-        AST called_operation_new_tree = operation_new_tree;
-
-        if (is_new_array)
-        {
-            called_operation_new_tree = operation_new_array_tree;
-        }
-
-        scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
-
-        if (operator_new_list == NULL)
-        {
-            if (!checking_ambiguity())
+            int i;
+            for (i = 1; i < num_arguments; i++)
             {
-                error_printf("%s:%d: error: no suitable '%s' has been found in the scope\n",
-                        filename, line,
-                        prettyprint_in_buffer(called_operation_new_tree));
+                argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
+                if ((i + 1) < num_arguments)
+                {
+                    argument_call = strappend(argument_call, ", ");
+                }
             }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
+            argument_call = strappend(argument_call, ")");
 
-        candidate_t* candidate_set = NULL;
-        scope_entry_list_iterator_t *it = NULL;
-        for (it = entry_list_iterator_begin(operator_new_list);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
+            error_printf("%s:%d: error: no suitable '%s' found for new-expression\n",
+                    filename, line,
+                    argument_call);
+
+            diagnostic_candidates(operator_new_list, filename, line);
+            entry_list_free(operator_new_list);
+        }
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    if (function_has_been_deleted(decl_context, chosen_operator_new, filename, line))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    // Store conversions
+    if (!nodecl_is_null(nodecl_placement_list))
+    {
+        int num_items = 0, i;
+        nodecl_t* list = nodecl_unpack_list(nodecl_placement_list, &num_items);
+
+        for (i = 0; i < num_items; i++)
         {
-            scope_entry_t* orig_entry = entry_list_iterator_current(it);
-            scope_entry_t* entry = entry_advance_aliases(orig_entry);
-            if (entry->entity_specs.is_member)
+            int j = i + 2;
+
+            nodecl_t nodecl_expr = list[i];
+
+            type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
+
+            if (is_class_type(param_type))
             {
-                candidate_set = add_to_candidate_set(candidate_set,
-                        orig_entry,
-                        num_arguments,
-                        arguments);
+                check_nodecl_expr_initializer(nodecl_expr, decl_context, param_type, &nodecl_expr);
             }
             else
             {
-                candidate_set = add_to_candidate_set(candidate_set,
-                        orig_entry,
-                        num_arguments - 1,
-                        arguments + 1);
-            }
-        }
-        entry_list_iterator_free(it);
-
-        scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
-                decl_context, filename, line,
-                conversors);
-
-        if (chosen_operator_new == NULL)
-        {
-            if (!checking_ambiguity())
-            {
-                // Format a nice message
-                const char* argument_call = uniquestr("");
-
-                argument_call = strappend(argument_call, "operator new");
-                if (is_new_array)
+                if (conversors[j] != NULL)
                 {
-                    argument_call = strappend(argument_call, "[]");
-                }
-                argument_call = strappend(argument_call, "(");
-
-                int i;
-                for (i = 1; i < num_arguments; i++)
-                {
-                    argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
-                    if ((i + 1) < num_arguments)
+                    if (function_has_been_deleted(decl_context, conversors[j], filename, line))
                     {
-                        argument_call = strappend(argument_call, ", ");
+                        *nodecl_output = nodecl_make_err_expr(filename, line);
+                        return;
                     }
-                }
-                argument_call = strappend(argument_call, ")");
 
-                error_printf("%s:%d: error: no suitable '%s' found for new-expression\n",
-                        filename, line,
-                        argument_call);
-
-                diagnostic_candidates(operator_new_list, filename, line);
-                entry_list_free(operator_new_list);
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
-
-        if (function_has_been_deleted(decl_context, chosen_operator_new, filename, line))
-        {
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
-
-        // Store conversions
-        if (!nodecl_is_null(nodecl_placement_list))
-        {
-            int num_items = 0, i;
-            nodecl_t* list = nodecl_unpack_list(nodecl_placement_list, &num_items);
-
-            for (i = 0; i < num_items; i++)
-            {
-                int j = i + 2;
-
-                nodecl_t nodecl_expr = list[i];
-
-                type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
-
-                if (is_class_type(param_type))
-                {
-                    check_nodecl_expr_initializer(nodecl_expr, decl_context, param_type, &nodecl_expr);
-                }
-                else
-                {
-                    if (conversors[j] != NULL)
-                    {
-                        if (function_has_been_deleted(decl_context, conversors[j], filename, line))
-                        {
-                            *nodecl_output = nodecl_make_err_expr(filename, line);
-                            return;
-                        }
-
-                        nodecl_expr = cxx_nodecl_make_function_call(
-                                nodecl_make_symbol(conversors[j], nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
-                                nodecl_make_list_1(nodecl_expr),
-                                nodecl_make_cxx_function_form_implicit(
-                                    nodecl_get_filename(nodecl_expr), 
-                                    nodecl_get_line(nodecl_expr)),
-                                actual_type_of_conversor(conversors[j]),
-                                nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
-                    }
-                    else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
-                    {
-                        type_t* arg_type = nodecl_get_type(nodecl_expr);
-
-                        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-                        scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                                unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                                no_ref(arg_type),
-                                decl_context,
+                    nodecl_expr = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversors[j], nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
+                            nodecl_make_list_1(nodecl_expr),
+                            nodecl_make_cxx_function_form_implicit(
                                 nodecl_get_filename(nodecl_expr), 
-                                nodecl_get_line(nodecl_expr));
+                                nodecl_get_line(nodecl_expr)),
+                            actual_type_of_conversor(conversors[j]),
+                            nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+                }
+                else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
+                {
+                    type_t* arg_type = nodecl_get_type(nodecl_expr);
 
-                        ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
+                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
+                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+                            no_ref(arg_type),
+                            decl_context,
+                            nodecl_get_filename(nodecl_expr), 
+                            nodecl_get_line(nodecl_expr));
 
-                        if (!solved_function->entity_specs.is_member
-                                || solved_function->entity_specs.is_static)
-                        {
-                            nodecl_expr =
-                                nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
-                            nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-                        }
-                        else
-                        {
-                            nodecl_expr =
-                                nodecl_make_pointer_to_member(solved_function, 
-                                        get_lvalue_reference_type(
-                                            get_pointer_to_member_type(solved_function->type_information,
-                                                named_type_get_symbol(solved_function->entity_specs.class_type))),
-                                        nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
-                        }
+                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+                    if (!solved_function->entity_specs.is_member
+                            || solved_function->entity_specs.is_static)
+                    {
+                        nodecl_expr =
+                            nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+                        nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
+                    }
+                    else
+                    {
+                        nodecl_expr =
+                            nodecl_make_pointer_to_member(solved_function, 
+                                    get_lvalue_reference_type(
+                                        get_pointer_to_member_type(solved_function->type_information,
+                                            named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                    nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
                     }
                 }
-
-                nodecl_placement_list_out = nodecl_append_to_list(nodecl_placement_list_out,
-                        nodecl_expr);
             }
 
-            free(list);
+            nodecl_placement_list_out = nodecl_append_to_list(nodecl_placement_list_out,
+                    nodecl_expr);
         }
 
-        nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, filename, line);
+        free(list);
     }
+
+    nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, filename, line);
 
     nodecl_t nodecl_init_out = nodecl_null();
 

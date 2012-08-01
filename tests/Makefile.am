@@ -48,6 +48,7 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-simd
 	chmod +x config/mercurium-cuda
+	chmod +x config/mercurium-run
 #	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
 

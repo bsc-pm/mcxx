@@ -1099,6 +1099,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-run
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
@@ -1110,7 +1111,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
-           tests/06_phases_hlt.dg/mercurium
+           tests/07_phases_hlt.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile

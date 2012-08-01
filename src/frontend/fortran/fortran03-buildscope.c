@@ -3161,7 +3161,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 && (ASTType(lower_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
-            fortran_check_expression(lower_bound_tree, decl_context, &lower_bound);
+            fortran_check_array_bounds_expression(lower_bound_tree, decl_context, &lower_bound);
 
             if (!nodecl_is_err_expr(lower_bound)
                     && !is_integer_type(no_ref(nodecl_get_type(lower_bound))))
@@ -3180,7 +3180,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 && (ASTType(upper_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
-            fortran_check_expression(upper_bound_tree, decl_context, &upper_bound);
+            fortran_check_array_bounds_expression(upper_bound_tree, decl_context, &upper_bound);
 
             if (!nodecl_is_err_expr(upper_bound)
                     && !is_integer_type(no_ref(nodecl_get_type(upper_bound))))

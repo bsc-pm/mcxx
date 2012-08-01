@@ -41,7 +41,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2)
     {
-        Source for_code, reduction_code, reduction_initialization, barrier_code;
+        Source for_code, reduction_code, lastprivate_code, reduction_initialization, barrier_code;
         if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
@@ -89,6 +89,7 @@ namespace TL { namespace Nanox {
                     ;
 
                 for_code
+                    << lastprivate_code
                     << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
                     << "}"
                     ;
@@ -107,6 +108,7 @@ namespace TL { namespace Nanox {
                     <<       "{"
                     <<       statement_placeholder(placeholder1)
                     <<       "}"
+                    <<       lastprivate_code
                     <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
@@ -120,6 +122,7 @@ namespace TL { namespace Nanox {
                     <<       "{"
                     <<          statement_placeholder(placeholder2)
                     <<       "}"
+                    <<       lastprivate_code
                     <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
@@ -152,6 +155,7 @@ namespace TL { namespace Nanox {
 
         reduction_initialization << reduction_initialization_code(outline_info, construct);
         reduction_code << perform_partial_reduction(outline_info);
+        lastprivate_code << update_lastprivates(outline_info);
 
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
@@ -224,23 +228,24 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        // Now complete the placeholders
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Copy FUNCTIONs and other local stuff
+            // Copy FUNCTIONs and other local stuff needed in Fortran
             symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
                     function_symbol,
                     outline_info.get_unpacked_function_symbol());
         }
 
-        outline_placeholder1.replace(statements.shallow_copy());
+        // Duplicate labels
+        Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, statements, outline_placeholder);
+        outline_placeholder1.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder1, label_symbol_map1));
 
         if (!outline_placeholder2.is_null())
         {
-            outline_placeholder2.replace(statements.shallow_copy());
+            Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, statements, outline_placeholder);
+            outline_placeholder2.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder2, label_symbol_map2));
         }
 
-        // Update symbols
         outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
 
         delete symbol_map; symbol_map = NULL;
@@ -280,6 +285,42 @@ namespace TL { namespace Nanox {
                 outline_distribute_loop_source,
                 outline_placeholder1,
                 outline_placeholder2);
+    }
+
+    Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info)
+    {
+        Source lastprivate_updates;
+
+        TL::ObjectList<OutlineDataItem*> outline_data_items = outline_info.get_data_items();
+
+        int num_items = 0;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = outline_data_items.begin();
+                it != outline_data_items.end();
+                it++)
+        {
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE
+                    || ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE))
+            {
+                lastprivate_updates
+                    << (*it)->get_symbol().get_name() << " = p_" << (*it)->get_symbol().get_name() << ";"
+                    ;
+                num_items++;
+            }
+        }
+
+        Source lastprivate_code;
+
+        if (num_items > 0)
+        {
+            lastprivate_code
+                << "if (nanos_item_loop.last)"
+                << "{"
+                <<     lastprivate_updates
+                << "}"
+                ;
+        }
+
+        return lastprivate_code;
     }
 
 } }

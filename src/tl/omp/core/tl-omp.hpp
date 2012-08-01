@@ -88,6 +88,9 @@ namespace TL
             //! Special to state no data sharing
             DS_NONE = BITMAP(8),
 
+            //! Auto data sharing
+            DS_AUTO = BITMAP(9),
+
             //! States that the data sharing is implicit. Special attribute that makes no difference
             DS_IMPLICIT = BITMAP(15)
         };
