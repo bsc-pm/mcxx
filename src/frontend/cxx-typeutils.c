@@ -8748,20 +8748,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         dest = vector_type_get_element_type(dest);
     }
 
-    // Lower complex types
-    // char dest_is_complex = 0;
-    if (is_complex_type(dest))
-    {
-        // dest_is_complex = 1;
-        dest = complex_type_get_base_type(dest);
-    }
-    // char orig_is_complex = 0;
-    if (is_complex_type(orig))
-    {
-        // orig_is_complex = 1;
-        orig = complex_type_get_base_type(orig);
-    }
-
     // Second kind of conversion
     //
     //   integral promotions
@@ -9007,6 +8993,78 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying boolean conversion\n");
             }
             (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        // _Complex cases
+        else if (is_floating_type(orig)
+                && !is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_double_type(complex_type_get_base_type(dest))
+                        && is_float_type(orig))
+                    || (is_long_double_type(complex_type_get_base_type(dest))
+                        && (is_float_type(orig)
+                            || is_double_type(orig)))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying float to complex promotion\n");
+            }
+            (*result).conv[1] = SCI_FLOAT_TO_COMPLEX_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_floating_type(complex_type_get_base_type(orig))
+                        && is_integer_type(complex_type_get_base_type(dest)))
+                    || (is_integer_type(complex_type_get_base_type(orig))
+                        && is_floating_type(complex_type_get_base_type(dest)))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(orig)
+                && !is_complex_type(orig)
+                && is_complex_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying float to complex conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOAT_TO_COMPLEX_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_double_type(complex_type_get_base_type(dest))
+                        && is_float_type(complex_type_get_base_type(orig)))
+                    || (is_long_double_type(complex_type_get_base_type(dest))
+                        && (is_float_type(complex_type_get_base_type(orig))
+                            || is_double_type(complex_type_get_base_type(orig))))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex promotion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex conversion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
