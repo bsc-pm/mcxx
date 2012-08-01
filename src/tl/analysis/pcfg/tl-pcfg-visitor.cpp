@@ -47,7 +47,7 @@ namespace Analysis {
 
     PCFGVisitor::PCFGVisitor( std::string name, Scope context, bool inline_pcfg, PCFGVisitUtils* utils )
         : _pcfg( new ExtensibleGraph( name, context, utils ) ), _inline( inline_pcfg ), _utils( utils ),
-          _context_s( ), _omp_sections_info( ), _switch_cond_s( ), _visited_functions( )
+          _context_s( ), _switch_cond_s( ), _visited_functions( )
     {}
 
     // ********************************** END constructors ********************************** //
@@ -107,22 +107,6 @@ namespace Analysis {
     }
 
     // ****************************** END non-visiting methods ****************************** //
-    // ************************************************************************************** //
-
-
-
-    // ************************************************************************************** //
-    // *********************************** Static methods *********************************** //
-
-    static bool pragma_is_worksharing(std::string pragma)
-    {
-        return (pragma == "parallel" || pragma == "for" || pragma == "parallel for"
-        || pragma == "workshare" || pragma == "parallel workshare"
-        || pragma == "sections" || pragma == "parallel sections"
-        || pragma == "single");
-    }
-
-    // ********************************* END static methods ********************************* //
     // ************************************************************************************** //
 
 
@@ -536,7 +520,7 @@ namespace Analysis {
         {
             if( pragma == "section" )
             {
-                _utils->_last_nodes = _omp_sections_info.top( ).section_parents;
+                _utils->_last_nodes = _utils->_sections_nodes.top( )._parents;
             }
 
             Node* pragma_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_pragma_line( ), OMP_PRAGMA );
@@ -572,8 +556,8 @@ namespace Analysis {
 
             if( pragma == "sections" || pragma == "parallel sections" )
             {   // push a new struct in the stack to store info about entries and exits
-                struct omp_pragma_sections_t actual_sections_info( _utils->_last_nodes );
-                _omp_sections_info.push( actual_sections_info );
+                PCFGSections actual_sections_info( _utils->_last_nodes );
+                _utils->_sections_nodes.push( actual_sections_info );
 
                 if( n.template is<Nodecl::PragmaCustomDeclaration>( ) )
                 {
@@ -619,12 +603,12 @@ namespace Analysis {
 
             if( pragma == "section" )
             {
-                _omp_sections_info.top( ).sections_exits.append( pragma_graph_node );
+                _utils->_sections_nodes.top( )._exits.append( pragma_graph_node );
             }
             else if( pragma == "sections" || pragma == "parallel sections" )
             {
-                _utils->_last_nodes = _omp_sections_info.top( ).sections_exits;
-                _omp_sections_info.pop( );
+                _utils->_last_nodes = _utils->_sections_nodes.top( )._exits;
+                _utils->_sections_nodes.pop( );
             }
 
             if( pragma_is_worksharing( pragma ) && !_utils->_pragma_nodes.top( ).has_clause( "nowait" ) )
@@ -1518,6 +1502,9 @@ namespace Analysis {
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
     {
         walk( n.get_in_deps( ) );
+        PCFGClause actual_clause( n.get_text( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
+        return PCFGVisitor::Ret( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
@@ -1532,7 +1519,7 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
-        walk( n.get_captured_symbols( ) );
+        walk( n.get_firstprivate_symbols( ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushMemory& n )
@@ -1600,7 +1587,7 @@ namespace Analysis {
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Sections& n )
     {
         walk( n.get_environment( ) );
-        walk( n.get_regions( ) );
+        walk( n.get_sections( ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
@@ -1785,23 +1772,25 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaContext& n )
     {
-        internal_error( "PragmaConstext not yet implemented \n", 0 );
+        internal_error( "PragmaContext not yet implemented \n", 0 );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomClause& n )
     {
-        PCFGClause actual_clause( n.get_text( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
-        walk( n.get_arguments( ) );    // This call fills _utils->_pragma_nodes with the arguments of the actual clause
-        return PCFGVisitor::Ret( );
+        internal_error( "PragmaCustomClause not yet implemented \n", 0 );
+//         PCFGClause actual_clause( n.get_text( ) );
+//         _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
+//         walk( n.get_arguments( ) );    // This call fills _utils->_pragma_nodes with the arguments of the actual clause
+//         return PCFGVisitor::Ret( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomDeclaration& n )
     {
-        walk( n.get_pragma_line( ) );
-        walk( n.get_nested_pragma( ) );
-        walk( n.get_context_of_decl( ) );
-        walk( n.get_context_of_parameters( ) );
+        internal_error( "PragmaCustomDeclaration not yet implemented \n", 0 );
+//         walk( n.get_pragma_line( ) );
+//         walk( n.get_nested_pragma( ) );
+//         walk( n.get_context_of_decl( ) );
+//         walk( n.get_context_of_parameters( ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
@@ -1811,25 +1800,27 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomLine& n )
     {
-        // Get the empty clause as 'parameters'
-        // We create conservatively a 'clause_t'. If no arguments has been found, then we remove it
-        PCFGClause actual_clause( n.get_text( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
-        walk( n.get_parameters( ) );
-        if( _utils->_pragma_nodes.top( )._clauses.back( )._args.empty( ) )
-        {
-            _utils->_pragma_nodes.top( )._clauses.erase( _utils->_pragma_nodes.top( )._clauses.end( ) - 1 );
-        }
+        internal_error( "PragmaCustomLine not yet implemented \n", 0 );
 
-        // Get the rest of clauses
-        walk( n.get_clauses( ) );  // This method fills _utils->_pragma_nodes with the clauses of the actual pragma
+//         // Get the empty clause as 'parameters'
+//         // We create conservatively a 'clause_t'. If no arguments has been found, then we remove it
+//         PCFGClause actual_clause( n.get_text( ) );
+//         _utils->_pragma_nodes.top( )._clauses.append( actual_clause );
+//         walk( n.get_parameters( ) );
+//         if( _utils->_pragma_nodes.top( )._clauses.back( )._args.empty( ) )
+//         {
+//             _utils->_pragma_nodes.top( )._clauses.erase( _utils->_pragma_nodes.top( )._clauses.end( ) - 1 );
+//         }
+//
+//         // Get the rest of clauses
+//         walk( n.get_clauses( ) );  // This method fills _utils->_pragma_nodes with the clauses of the actual pragma
 
         return PCFGVisitor::Ret( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-
+        internal_error( "PragmaCustomStatemente not yet implemented \n", 0 );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Predecrement& n )

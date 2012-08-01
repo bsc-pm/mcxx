@@ -75,7 +75,7 @@ namespace Analysis {
         PCFGTryBlock( );
 
         //! Copy constructor
-        PCFGTryBlock( const PCFGTryBlock& loop_ctrl );
+        PCFGTryBlock( const PCFGTryBlock& try_block );
 
         //! Destructor
         ~PCFGTryBlock( );
@@ -91,10 +91,27 @@ namespace Analysis {
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
-//     struct clause_t
+    enum Clause {
+        IF,
+        FIRSTPRIVATE,
+        SHARED,
+        PRIVATE,
+        REDUCTION,
+        DEP_IN,
+        DEP_OUT,
+        DEP_INOUT,
+        COPY_IN,
+        COPY_OUT,
+        COPY_INOUT,
+        SCHEDULE,
+        TARGET,
+        PRIORITY,
+        UNTIED
+    };
+
     class PCFGClause {
     private:
-        std::string _clause;
+        Clause _clause;
         ObjectList<Nodecl::NodeclBase> _args;
 
     public:
@@ -105,12 +122,11 @@ namespace Analysis {
         PCFGClause( std::string c );
 
         //! Copy constructor
-        PCFGClause( const PCFGClause& c );
+        PCFGClause( const PCFGClause& clause );
 
     friend class PCFGVisitor;
     };
 
-//     struct pragma_t
     //! Class storing information about nodes in a try-block
     class PCFGPragma
     {
@@ -123,13 +139,28 @@ namespace Analysis {
         PCFGPragma( );
 
         //! Copy constructor
-        PCFGPragma( const PCFGTryBlock& loop_ctrl );
+        PCFGPragma( const PCFGPragma& pragma );
 
         //! Destructor
         ~PCFGPragma( );
 
         //! Consultant
-        bool has_clause( std::string c );
+        bool has_clause( std::string clause );
+
+    friend class PCFGVisitor;
+    };
+
+    class PCFGSections {
+    private:
+        ObjectList<Node*> _parents;
+        ObjectList<Node*> _exits;
+
+    public:
+        //! Constructor
+        PCFGSections( );
+
+        //! Copy constructor
+        PCFGSections( const PCFGSections& sections );
 
     friend class PCFGVisitor;
     };
@@ -175,6 +206,9 @@ namespace Analysis {
 
         //! Stack to keep track of current nested OmpSs pragmas
         std::stack<PCFGPragma> _pragma_nodes;
+
+        //! Stack to keep information of sections nodes
+        std::stack<PCFGSections> _sections_nodes;
 
         //! Counter used to create a unique key for each new node
         int _nid;

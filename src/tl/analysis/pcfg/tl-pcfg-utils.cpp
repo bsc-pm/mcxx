@@ -62,14 +62,14 @@ namespace Analysis {
         : _handler_parents( ), _handler_children( ), _nhandlers( -1 )
     {}
 
-    PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& loop_ctrl)
+    PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& try_block )
     {
         _handler_parents = loop_ctrl._handler_parents;
         _handler_children = loop_ctrl._handler_children;
         _shandlers = loop_ctrl._nhandlers;
     }
 
-    PCFGTryBlock::~PCFGTryBlock()
+    PCFGTryBlock::~PCFGTryBlock( )
     {
         ~_handler_parents;
         ~_handler_children;
@@ -108,14 +108,25 @@ namespace Analysis {
         _clauses = p._clauses;
     }
 
-    bool PCFGPragma::has_clause( std::string c )
+    bool PCFGPragma::has_clause( std::string clause )
     {
         for (ObjectList<PCFGClause>::iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
         {
-            if ( it->_clause == s )
+            if ( it->_clause == clause )
                 return true;
         }
         return false;
+    }
+
+
+    PCFGSections::PCFGSections( )
+        : _parents( ), _exits( )
+    {}
+
+    PCFGSections( const PCFGSections& sections )
+    {
+        _parents = section._parents;
+        _exits = section._exits;
     }
 
     // **************************** END PCFG OmpSs pragma classes *************************** //
@@ -129,7 +140,7 @@ namespace Analysis {
     PCFGVisitUtils::PCFGVisitUtils( )
         : _last_nodes( ), _return_nodes( ), _outer_nodes( ),
           _continue_nodes( ), _break_nodes( ), _labeled_nodes( ), _goto_nodes( ),
-          _nested_loop_nodes( ), _tryblock_nodes( ), _pragma_nodes( ), _nid( -1 )
+          _nested_loop_nodes( ), _tryblock_nodes( ), _pragma_nodes( ), _sections_nodes( ), _nid( -1 )
     {}
 
     // ************************************************************************************** //

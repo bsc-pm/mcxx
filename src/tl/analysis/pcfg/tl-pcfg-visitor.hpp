@@ -40,21 +40,6 @@
 namespace TL {
 namespace Analysis {
 
-    struct omp_pragma_sections_t {
-        ObjectList<Node*> section_parents;
-        ObjectList<Node*> sections_exits;
-
-        omp_pragma_sections_t(ObjectList<Node*> parents)
-            : section_parents(parents), sections_exits()
-        {}
-
-        omp_pragma_sections_t( const omp_pragma_sections_t& sections)
-        {
-            section_parents = sections.section_parents;
-            sections_exits = sections.sections_exits;
-        }
-    };
-
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
@@ -69,8 +54,6 @@ namespace Analysis {
         // *** All these members are used while building of the graphs *** //
 
         std::stack<Nodecl::NodeclBase> _context_s;
-
-        std::stack<struct omp_pragma_sections_t> _omp_sections_info;
 
         std::stack<Node*> _switch_cond_s;
 
