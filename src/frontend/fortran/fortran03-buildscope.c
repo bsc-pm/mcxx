@@ -4757,11 +4757,19 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
         else if (class_name->kind != SK_CLASS)
         {
-            error_printf("%s: error: name '%s' is not a type name\n", 
-                    ast_location(name),
-                    ASTText(name));
-            // Give up
-            return;
+            if (class_name->decl_context.current_scope != class_name->decl_context.global_scope)
+            {
+                error_printf("%s: error: name '%s' is not a type name\n", 
+                        ast_location(name),
+                        ASTText(name));
+                // Give up
+                return;
+            }
+            else
+            {
+                // This is a non-class name coming from the global scope. Hide it
+                class_name = NULL;
+            }
         }
         else if (class_name->defined)
         {

@@ -10092,10 +10092,27 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 ERROR_CONDITION(parameter_position < 0, "Parameter not found", 0);
 
-                parameter_info[parameter_position].type_info = 
-                    entry->type_information;
-                parameter_info[parameter_position].nonadjusted_type_info = 
-                    entry->type_information;
+                type_t* adjusted_type_info = entry->type_information;
+                // If the original type is a typedef then we want to ignore
+                // all the indirections
+                adjusted_type_info = advance_over_typedefs(adjusted_type_info);
+
+                // function to pointer-to-function standard conversion
+                if (is_function_type(adjusted_type_info))
+                {
+                    adjusted_type_info = get_pointer_type(adjusted_type_info);
+                }
+                // Array to pointer standard conversion
+                else if (is_array_type(adjusted_type_info))
+                {
+                    adjusted_type_info = array_type_get_element_type(adjusted_type_info);
+                    adjusted_type_info = get_pointer_type(adjusted_type_info);
+                }
+
+                adjusted_type_info = get_unqualified_type(adjusted_type_info);
+
+                parameter_info[parameter_position].type_info = adjusted_type_info;
+                parameter_info[parameter_position].nonadjusted_type_info = entry->type_information;
 
                 i++;
             }
