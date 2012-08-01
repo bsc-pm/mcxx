@@ -13513,10 +13513,10 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
     if (nodecl_is_null(nodecl_lower) && (is_array_type(indexed_type) || is_pointer_type(indexed_type))) 
-        nodecl_lower = array_type_get_array_lower_bound(indexed_type);
+        nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
-        nodecl_upper = array_type_get_array_upper_bound(indexed_type);
+        nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
 
 #define MAX_NESTING_OF_ARRAY_REGIONS (16)
 
@@ -13606,13 +13606,19 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         type_t* current_array_type = advanced_types[i - 1];
        
-        nodecl_t array_lower_bound = array_type_get_array_lower_bound(current_array_type);
-        nodecl_t array_upper_bound = array_type_get_array_upper_bound(current_array_type);
-        nodecl_t array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
-        nodecl_t array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
-        nodecl_t array_region_stride = array_type_get_region_stride(current_array_type);
-        nodecl_t array_region_range = nodecl_make_range(array_region_lower_bound, array_region_upper_bound, array_region_stride,
-                                                        current_array_type, filename, line);
+        nodecl_t array_lower_bound = nodecl_shallow_copy(array_type_get_array_lower_bound(current_array_type));
+        nodecl_t array_upper_bound = nodecl_shallow_copy(array_type_get_array_upper_bound(current_array_type));
+        nodecl_t array_region_lower_bound = nodecl_shallow_copy(array_type_get_region_lower_bound(current_array_type));
+        nodecl_t array_region_upper_bound = nodecl_shallow_copy(array_type_get_region_upper_bound(current_array_type));
+        nodecl_t array_region_stride = nodecl_shallow_copy(array_type_get_region_stride(current_array_type));
+
+        nodecl_t array_region_range = nodecl_make_range(
+                array_region_lower_bound, 
+                array_region_upper_bound, 
+                array_region_stride,
+                current_array_type, 
+                filename, 
+                line);
         
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
 
