@@ -6790,9 +6790,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     ERROR_CONDITION(sym == NULL, "Invalid symbol", 0);
 
     const char* result = NULL;
-    if (_this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
-       && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
-            || sym->kind == SK_ENUM))
+    if (IS_CXX_LANGUAGE
+            && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
+            && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
+                || sym->kind == SK_ENUM))
     {
         result = sym->symbol_name;
 
@@ -6834,8 +6835,9 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             result = strappend("typename ", result);
         }
 
-        if (sym->kind == SK_CLASS
-                || sym->kind == SK_ENUM)
+        if (IS_CXX_LANGUAGE
+                && (sym->kind == SK_CLASS
+                    || sym->kind == SK_ENUM))
         {
 
             // It may happen that a function is hiding our typename in this scope
