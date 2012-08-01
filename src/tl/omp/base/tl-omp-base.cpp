@@ -176,6 +176,11 @@ namespace TL { namespace OpenMP {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
 
+        register_parameter("omp_dry_run",
+                "Disables OpenMP transformation",
+                _openmp_dry_run,
+                "0");
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -202,12 +207,22 @@ namespace TL { namespace OpenMP {
     void Base::pre_run(TL::DTO& dto)
     {
         _core.pre_run(dto);
+
+        // Do nothing once we have analyzed everything
+        if (_openmp_dry_run != "0")
+            return;
+
         this->PragmaCustomCompilerPhase::pre_run(dto);
     }
 
     void Base::run(TL::DTO& dto)
     {
         _core.run(dto);
+
+        // Do nothing once we have analyzed everything
+        if (_openmp_dry_run != "0")
+            return;
+
         this->PragmaCustomCompilerPhase::run(dto);
 
         RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);

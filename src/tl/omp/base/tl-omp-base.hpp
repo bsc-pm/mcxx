@@ -50,6 +50,8 @@ namespace TL
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
+                std::string _openmp_dry_run;
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \

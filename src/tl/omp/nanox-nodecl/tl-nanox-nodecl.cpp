@@ -40,10 +40,22 @@ namespace TL { namespace Nanox {
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
+
+        register_parameter("omp_dry_run",
+                "Disables OpenMP transformation",
+                _openmp_dry_run,
+                "0");
     }
 
     void Lowering::run(DTO& dto)
     {
+        if (_openmp_dry_run != "0")
+        {
+            std::cerr << "Not running Nanos++ phase (by request)" << std::endl;
+            return;
+        }
+
+
         std::cerr << "Nanos++ phase" << std::endl;
 
         Nodecl::NodeclBase n = dto["nodecl"];

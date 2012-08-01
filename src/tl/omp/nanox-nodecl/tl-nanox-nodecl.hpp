@@ -42,6 +42,7 @@ namespace TL { namespace Nanox {
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);
 
+            std::string _openmp_dry_run;
     };
 
 } } 
