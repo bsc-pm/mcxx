@@ -1169,7 +1169,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         {
             return 1;
         }
-        
+
         /*
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
@@ -1177,6 +1177,23 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         if (equivalent_types(scs1.orig, scs2.orig))
             // Both SCSs have same source type
         {
+            /*
+             * GCC extension:
+             *  A conversion from scalar arithmetic type to complex is worse than a
+             *  conversion between scalar arithmetic types
+             */
+            if (is_arithmetic_type(scs1.orig)
+                    && !is_complex_type(scs1.orig)
+
+                    && is_arithmetic_type(no_ref(scs1.dest))
+                    && !is_complex_type(no_ref(scs1.dest))
+
+                    && is_complex_type(no_ref(scs2.dest))
+                    )
+            {
+                return 1;
+            }
+
             // If both target types are the same, regardless the qualification,
             // this rank won't be better
             if (equivalent_types(get_unqualified_type(no_ref(scs1.dest)), get_unqualified_type(no_ref(scs2.dest)))
