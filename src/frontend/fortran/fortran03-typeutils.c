@@ -169,7 +169,7 @@ const char* fortran_print_type_str(type_t* t)
     }
     else 
     {
-        char* non_printable;
+        const char* non_printable = NULL;
         uniquestr_sprintf(&non_printable, "non-fortran type '%s'", print_declarator(t));
         return non_printable;
     }
