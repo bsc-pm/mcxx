@@ -71,7 +71,7 @@ endif
 check-local : do-check preserve-check-log
 
 fortran-check : prepare-check
-	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)/01_fortran.dg $(BETS_DIRS)/06_phases_openmp.dg/common/fortran
+	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)/01_fortran.dg $(BETS_DIRS)/07_phases_omp.dg/common/fortran
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
