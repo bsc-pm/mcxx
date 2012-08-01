@@ -9177,8 +9177,20 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
     nodecl_t nodecl_lhs = nodecl_null();
     check_expression_impl_(lhs, decl_context, &nodecl_lhs);
 
+    if (nodecl_is_err_expr(nodecl_lhs))
+    {
+        *nodecl_output = nodecl_lhs;
+        return;
+    }
+
     nodecl_t nodecl_rhs = nodecl_null();
     check_expression_impl_(rhs, decl_context, &nodecl_rhs);
+
+    if (nodecl_is_err_expr(nodecl_rhs))
+    {
+        *nodecl_output = nodecl_rhs;
+        return;
+    }
 
     check_nodecl_comma_operand(nodecl_lhs, nodecl_rhs, decl_context,
             nodecl_output,
