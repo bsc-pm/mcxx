@@ -8369,7 +8369,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     scope_entry_list_t* candidates = NULL;
     template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
-    char success_koenig_lookup = 1;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
         char can_succeed = 1;
@@ -8380,7 +8379,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL && can_succeed)
         {
             // Try a plain lookup
-            success_koenig_lookup = 0;
             candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
