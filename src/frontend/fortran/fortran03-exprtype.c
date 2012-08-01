@@ -4535,6 +4535,7 @@ static void cast_initialization(
             int i;
             int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
             type_t* element_type = array_type_get_element_type(initialized_type);
+            type_t* rank0_type = fortran_get_rank0_type(initialized_type);
 
             if (size > 0)
             {
@@ -4552,7 +4553,7 @@ static void cast_initialization(
 
                 if (nodecl_output != NULL)
                 {
-                    *nodecl_output = const_value_to_nodecl(*casted_const);
+                    *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
                 }
             }
         }
