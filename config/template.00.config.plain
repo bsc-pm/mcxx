@@ -1,8 +1,7 @@
 # Base
 [plain-base]
+{openmp} compiler_phase = libtlomp-base.so
 {analysis} compiler_phase = libtest_analysis.so
-{omp} compiler_phase = libtlomp-core.so
-{ompbase} compiler_phase = libtlomp-base.so
 
 # Plain profile
 [plaincc : plain-base]
