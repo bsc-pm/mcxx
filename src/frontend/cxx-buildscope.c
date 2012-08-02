@@ -11323,6 +11323,19 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
 
+    if (entry->entity_specs.is_friend
+            && is_template_specialized_type(entry->type_information)
+            && !gather_info.is_template)
+    {
+        if(!checking_ambiguity())
+        {
+            error_printf("%s: error: defining explicit specialization '%s' in friend declaration\n",
+                    ast_location(declarator_name),
+                    prettyprint_in_buffer(declarator_name));
+        }
+        return NULL;
+    }
+
     update_member_function_info(declarator_name, is_constructor, entry, class_type);
 
     DEBUG_CODE()
