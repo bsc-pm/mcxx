@@ -964,7 +964,7 @@ AC_CHECK_HEADERS(string.h)
 dnl -- Check if our GCC supports __int128
 have_int128=no
 
-AC_CHECK_TYPE([__int128], [have_int128=yes], [] [])
+AC_CHECK_TYPE([__int128], [have_int128=yes])
 
 if test x$have_int128 = xyes; 
 then
