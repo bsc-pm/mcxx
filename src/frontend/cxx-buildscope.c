@@ -2520,28 +2520,34 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
     const char* class_name = NULL;
-    if (ASTType(id_expression) == AST_SYMBOL)
+    switch (ASTType(id_expression))
     {
-        class_name = ASTText(id_expression);
-    }
-    else if (ASTType(id_expression) == AST_TEMPLATE_ID)
-    {
-        class_name = ASTText(ASTSon0(id_expression));
-    }
-    else if (ASTType(id_expression) == AST_QUALIFIED_ID)
-    {
-        class_name = ASTText(ASTSon2(id_expression));
-    }
-    else
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: invalid class specifier '%s'\n",
-                    ast_location(id_expression),
-                    prettyprint_in_buffer(id_expression));
-        }
-        *type_info = get_error_type();
-        return;
+        case AST_SYMBOL:
+            {
+                class_name = ASTText(id_expression);
+                break;
+            }
+        case AST_TEMPLATE_ID:
+            {
+                class_name = ASTText(ASTSon0(id_expression));
+                break;
+            }
+        case AST_QUALIFIED_ID:
+            {
+                class_name = ASTText(ASTSon2(id_expression));
+                break;
+            }
+        default:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: invalid class specifier '%s'\n",
+                            ast_location(id_expression),
+                            prettyprint_in_buffer(id_expression));
+                }
+                *type_info = get_error_type();
+                return;
+            }
     }
 
     C_LANGUAGE()
