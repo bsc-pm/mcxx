@@ -1211,7 +1211,7 @@ void LoweringVisitor::fill_dependences(
                     // This is a scalar
                     Source dimension_size, dimension_lower_bound, dimension_accessed_length;
 
-                    dimension_size << as_expression(dimension_sizes[num_dimensions - 1]) << "* sizeof(" << base_type_name << ")";
+                    dimension_size << "sizeof(" << base_type_name << ")";
                     dimension_lower_bound << "0";
                     dimension_accessed_length << dimension_size;
 
@@ -1451,7 +1451,7 @@ void LoweringVisitor::fill_dimensions(
         Scope sc)
 {
     // We do not handle the contiguous dimension here
-    if (current_dim > 0)
+    if (current_dim > 1)
     {
         fill_dimensions(n_dims, current_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
@@ -1469,7 +1469,7 @@ void LoweringVisitor::fill_dimensions(
             size = dep_type.array_get_size();
         }
 
-        dimension_size << as_expression(dim_sizes[n_dims - current_dim - 1]);
+        dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
         dimension_lower_bound << as_expression(lb);
         dimension_accessed_length << as_expression(size);
 
@@ -1486,9 +1486,9 @@ void LoweringVisitor::fill_dimensions(
         else if (IS_FORTRAN_LANGUAGE)
         {
             dependency_regions_code
-                << "dimensions_" << current_dep_num << "[" << current_dim << "].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim << "].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim << "].accessed_length = " << dimension_accessed_length << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
                 ;
         }
     }
