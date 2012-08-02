@@ -82,6 +82,16 @@ LIBMCXX_EXTERN type_t* get_void_type(void);
 LIBMCXX_EXTERN type_t* get_double_type(void);
 LIBMCXX_EXTERN type_t* get_long_double_type(void);
 
+// __int128
+LIBMCXX_EXTERN type_t* get_signed_int128_type(void);
+LIBMCXX_EXTERN type_t* get_unsigned_int128_type(void);
+
+// __float128
+LIBMCXX_EXTERN type_t* get_float128_type(void);
+
+// "short" float / half float
+LIBMCXX_EXTERN type_t* get_float16_type(void);
+
 LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 
 /* Fortran specialities */

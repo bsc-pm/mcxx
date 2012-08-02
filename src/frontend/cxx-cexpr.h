@@ -51,16 +51,24 @@ MCXX_END_DECLS
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN const_value_t* const_value_get_integer(uint64_t value, int num_bytes, char sign);
+#ifdef HAVE_INT128
+typedef unsigned __int128 cvalue_uint_t;
+typedef signed __int128   cvalue_int_t;
+#else
+typedef uint64_t cvalue_uint_t;
+typedef int64_t  cvalue_int_t;
+#endif
 
-LIBMCXX_EXTERN const_value_t* const_value_get_signed_int(uint64_t value);
-LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign);
 
-LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_int(uint64_t value);
-LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_int(cvalue_uint_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_int(cvalue_uint_t value);
 
-LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long_int(uint64_t value);
-LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_int(cvalue_uint_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_int(cvalue_uint_t value);
+
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long_int(cvalue_uint_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long_int(cvalue_uint_t value);
 
 LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);
@@ -79,6 +87,9 @@ LIBMCXX_EXTERN const_value_t* const_value_get_long_double(long double ld);
 LIBMCXX_EXTERN const_value_t* const_value_get_float128(__float128 ld);
 #endif
 
+#ifdef HAVE_INT128
+LIBMCXX_EXTERN unsigned __int128 const_value_cast_to_16(const_value_t* val);
+#endif
 LIBMCXX_EXTERN uint64_t const_value_cast_to_8(const_value_t* val);
 LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
@@ -106,7 +117,7 @@ LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_value_t* val);
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type_from_list_of_types(
-        uint64_t value,
+        cvalue_uint_t value,
         int num_types,
         type_t** types);
 
