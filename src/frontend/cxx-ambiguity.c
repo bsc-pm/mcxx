@@ -1662,20 +1662,9 @@ static char check_for_template_argument_list(AST argument_list, decl_context_t d
             else if (ASTType(template_argument) == AST_TEMPLATE_TYPE_ARGUMENT)
             {
                 AST type_id = ASTSon0(template_argument);
-
-                AST type_specifier = ASTSon0(type_id);
-                AST abstract_declarator = ASTSon1(type_id);
-
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                type_t* simple_type_info = NULL;
-                build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                        decl_context);
-
-                type_t* declarator_type = NULL;
-                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                        &declarator_type, decl_context);
+                char valid_template_argument = check_for_type_id_tree(type_id, decl_context);
+                if (!valid_template_argument)
+                    return 0;
             }
         }
     }
