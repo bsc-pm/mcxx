@@ -1388,7 +1388,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
                 print    "symbol->symbol_name = orig_symbol->symbol_name;"
                 print    "symbol->decl_context = orig_symbol->decl_context;"
                 print "}"
-                print "symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, symbol_map);"
+                print "symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, (*synth_symbol_map));"
             else:
                 print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
         if needs_attr("symbol"):
