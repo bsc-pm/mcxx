@@ -648,7 +648,7 @@ namespace TL
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
-            get_data_explicit_attributes(pragma_line, data_sharing);
+            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
 
             get_dependences_info(pragma_line, data_sharing);
 

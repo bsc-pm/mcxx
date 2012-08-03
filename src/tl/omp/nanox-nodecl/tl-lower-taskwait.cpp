@@ -91,6 +91,7 @@ void LoweringVisitor::fill_dependences_wait(
                        dependency_flags_in,
                        dependency_flags_out,
                        dependency_flags_concurrent,
+                       dependency_flags_commutative,
                        dependency_size;
 
                 Source dep_expr_addr;
@@ -111,10 +112,14 @@ void LoweringVisitor::fill_dependences_wait(
                 int num_dimensions = dependency_type.get_num_dimensions();
 
                 int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+                int commutative = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
 
-                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) || concurrent);
-                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) || concurrent);
+                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) 
+                        || concurrent || commutative);
+                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) 
+                        || concurrent || commutative);
                 dependency_flags_concurrent << concurrent;
+                dependency_flags_commutative << commutative;
                 //
                 // Compute the base type of the dependency and the array containing the size of each dimension
                 Type dependency_base_type = dependency_type;
@@ -254,7 +259,8 @@ void LoweringVisitor::fill_dependences_wait(
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
                         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_concurrent << ";"
+                        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
                         << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions << ";"
                         << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
@@ -303,6 +309,7 @@ void LoweringVisitor::fill_dependences_wait(
                        dependency_flags_in,
                        dependency_flags_out,
                        dependency_flags_concurrent,
+                       dependency_flags_commutative,
                        dependency_size;
 
                 Source dep_expr_addr;
@@ -379,9 +386,12 @@ void LoweringVisitor::fill_dependences_wait(
                 }
 
                 int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+                int commutative = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
 
-                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) || concurrent);
-                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) || concurrent);
+                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) 
+                        || concurrent || commutative);
+                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) 
+                        || concurrent || commutative);
                 dependency_flags_concurrent << concurrent;
 
                 dependency_init.append_with_separator(current_dependency_init, ",");

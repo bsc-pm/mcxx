@@ -134,6 +134,12 @@ struct type_environment_tag
     // long double
     floating_type_info_t* long_double_info;
 
+    // half float
+    floating_type_info_t* float16_info;
+
+    // float128
+    floating_type_info_t* float128_info;
+
     // pointer (to data)
     _size_t sizeof_pointer;
     _size_t alignof_pointer;

@@ -326,7 +326,8 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->is_private())
+            // Privates are ignored here
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
                 continue;
 
             TL::Symbol field = class_scope.new_symbol((*it)->get_field_name());

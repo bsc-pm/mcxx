@@ -411,7 +411,18 @@ namespace TL
     void Source::switch_language(source_language_t& lang)
     {
         lang = CURRENT_CONFIGURATION->source_language;
-        switch ((int)Source::source_language.get_language())
+
+        SourceLanguage::L new_lang = Source::source_language.get_language();
+        if ((new_lang == SourceLanguage::C
+                || new_lang == SourceLanguage::CPlusPlus)
+                && lang == SOURCE_LANGUAGE_FORTRAN)
+        {
+            // Make sure that we preserve parentheses in C/C++
+            // if this code is going to be used for Fortran
+            CURRENT_CONFIGURATION->preserve_parentheses = 1;
+        }
+
+        switch (new_lang)
         {
             case SourceLanguage::C :
             {
@@ -437,6 +448,13 @@ namespace TL
 
     void Source::restore_language(source_language_t lang)
     {
+        if ((CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX
+                || CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX)
+                && lang == SOURCE_LANGUAGE_FORTRAN)
+        {
+            // Restore preserve parentheses for consistency
+            CURRENT_CONFIGURATION->preserve_parentheses = 0;
+        }
         CURRENT_CONFIGURATION->source_language = lang;
     }
 

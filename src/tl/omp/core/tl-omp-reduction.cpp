@@ -35,7 +35,8 @@ namespace TL
     {
         void Core::get_reduction_symbols(
                 TL::PragmaCustomLine construct,
-                TL::PragmaCustomClause clause, 
+                TL::PragmaCustomClause clause,
+                const ObjectList<Symbol>& symbols_in_construct,
                 ObjectList<ReductionSymbol>& sym_list)
         {
             DEBUG_CODE()
@@ -121,6 +122,13 @@ namespace TL
                         running_error("%s: error: variable '%s' in reduction clause is not valid\n",
                                 construct.get_locus().c_str(),
                                 var_tree.prettyprint().c_str());
+                    }
+
+                    if (!symbols_in_construct.contains(var_sym))
+                    {
+                        std::cerr << var_tree.get_locus() << ": warning: ignoring reduction variable '" << var_sym.get_name() << "' "
+                            "since it does not appear in the construct" << std::endl;
+                        continue;
                     }
 
                     Type var_type = var_sym.get_type();

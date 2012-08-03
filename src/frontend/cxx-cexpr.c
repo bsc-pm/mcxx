@@ -91,8 +91,8 @@ struct const_value_tag
     union
     {
         // CVK_INTEGER
-        uint64_t i;
-        int64_t si;
+        cvalue_uint_t  i;
+        cvalue_int_t si;
         // CVK_FLOAT
         float f;
         // CVK_DOUBLE
@@ -123,7 +123,7 @@ typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
 static const_value_hash_t _hash_pool[MCXX_MAX_BYTES_INTEGER * 2] = { { (const_value_hash_bucket_t*)0 } };
 
-const_value_t* const_value_get_integer(uint64_t value, int num_bytes, char sign)
+const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
@@ -162,13 +162,13 @@ const_value_t* const_value_get_integer(uint64_t value, int num_bytes, char sign)
 }
 
 #define GET_SIGNED_INTEGER(type)  \
-const_value_t* const_value_get_signed_##type ( uint64_t value ) \
+const_value_t* const_value_get_signed_##type ( cvalue_uint_t value ) \
 { \
     return const_value_get_integer(value, type_get_size(get_signed_##type##_type ( ) ), 1); \
 }
 
 #define GET_UNSIGNED_INTEGER(type)  \
-const_value_t* const_value_get_unsigned_##type ( uint64_t value ) \
+const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
 { \
     return const_value_get_integer(value, type_get_size(get_unsigned_##type##_type ( ) ), 0); \
 } \
@@ -590,6 +590,28 @@ uint64_t const_value_cast_to_8(const_value_t* val)
     }
 }
 
+#ifdef HAVE_INT128
+unsigned __int128 const_value_cast_to_16(const_value_t* val)
+{
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return val->value.f128;
+#endif
+        OTHER_KIND;
+    }
+}
+#endif
+
 uint32_t const_value_cast_to_4(const_value_t* val)
 {
     switch (val->kind)
@@ -684,35 +706,35 @@ char const_value_is_signed(const_value_t* val)
 struct type_mask_tag
 {
     type_t* type;
-    uint64_t mask;
+    cvalue_uint_t mask;
 };
 
-static uint64_t safe_compute_bitmask(
+static cvalue_uint_t safe_compute_bitmask(
         char is_signed,
         size_t size_in_bytes)
 {
-    uint64_t bitmask = 0;
+    cvalue_uint_t bitmask = 0;
     size_t shift = 8 * size_in_bytes;
 
     if (is_signed)
         shift--;
 
-    if (shift < (sizeof(uint64_t) * 8))
+    if (shift < (sizeof(cvalue_uint_t) * 8))
     {
-        bitmask = (~(uint64_t)0) << shift;
+        bitmask = (~(cvalue_uint_t)0) << shift;
     }
 
     return bitmask;
 }
 
-static uint64_t safe_compute_bitmask_of_type(type_t* t)
+static cvalue_uint_t safe_compute_bitmask_of_type(type_t* t)
 {
     return safe_compute_bitmask(is_signed_integral_type(t), type_get_size(t));
 }
 
 static type_t* get_minimal_integer_for_value_(
         char is_signed, 
-        uint64_t value,
+        cvalue_uint_t value,
         struct type_mask_tag* unsigned_type_mask,
         struct type_mask_tag* signed_positive_type_mask,
         struct type_mask_tag* signed_negative_type_mask)
@@ -735,7 +757,8 @@ static type_t* get_minimal_integer_for_value_(
     }
     else
     {
-        char is_negative = (value & ((uint64_t)1 << 63)) >> 63;
+        const int NBITS_1 = (sizeof(cvalue_uint_t)*8 - 1);
+        char is_negative = (value & ((cvalue_uint_t)1 << NBITS_1)) >> NBITS_1;
 
         if (!is_negative)
         {
@@ -775,13 +798,18 @@ static type_t* get_minimal_integer_for_value_(
     return NULL;
 }
 
-static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed, uint64_t value)
+static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed, cvalue_uint_t value)
 {
     struct type_mask_tag unsigned_type_mask[] =
     {
         { get_unsigned_int_type(),           safe_compute_bitmask_of_type(get_unsigned_int_type())      },
         { get_unsigned_long_int_type(),      safe_compute_bitmask_of_type(get_unsigned_long_int_type()) },
-        { get_unsigned_long_long_int_type(), 0 },
+#ifdef HAVE_INT128
+        { get_unsigned_long_long_int_type(), safe_compute_bitmask_of_type(get_unsigned_long_long_int_type()) },
+        { get_unsigned_int128_type(), 0                                                                  },
+#else
+        { get_unsigned_long_long_int_type(), 0                                                           },
+#endif
         // Sentinel
         { NULL, 0 },
     };
@@ -790,7 +818,12 @@ static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed,
     {
         { get_signed_int_type(),           safe_compute_bitmask_of_type(get_signed_int_type())           },
         { get_signed_long_int_type(),      safe_compute_bitmask_of_type(get_signed_long_int_type())      },
+#ifdef HAVE_INT128
         { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+        { get_signed_int128_type(),        safe_compute_bitmask_of_type(get_signed_int128_type())        },
+#else
+        { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+#endif
         // Sentinel
         { NULL, 0 },
     };
@@ -800,6 +833,12 @@ static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed,
         { get_signed_int_type(),           safe_compute_bitmask_of_type(get_signed_int_type())       },
         { get_signed_long_int_type(),      safe_compute_bitmask_of_type(get_signed_long_int_type())  },
         { get_signed_long_long_int_type(), 0 },
+#ifdef HAVE_INT128
+        { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+        { get_signed_int128_type(),        0 },
+#else
+        { get_signed_long_long_int_type(), 0 },
+#endif 
         // Sentinel
         { NULL, 0 },
     };
@@ -811,7 +850,7 @@ static type_t* get_minimal_integer_for_value_at_least_signed_int(char is_signed,
             signed_negative_type_mask);
 }
 
-static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
+static type_t* get_minimal_integer_for_value(char is_signed, cvalue_uint_t value)
 {
     struct type_mask_tag unsigned_type_mask[] =
     {
@@ -819,7 +858,12 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
         { get_unsigned_short_int_type(),     safe_compute_bitmask_of_type(get_unsigned_short_int_type()) },
         { get_unsigned_int_type(),           safe_compute_bitmask_of_type(get_unsigned_int_type())       },
         { get_unsigned_long_int_type(),      safe_compute_bitmask_of_type(get_unsigned_long_int_type())  },
-        { get_unsigned_long_long_int_type(), 0 },
+#ifdef HAVE_INT128
+        { get_unsigned_long_long_int_type(), safe_compute_bitmask_of_type(get_unsigned_long_long_int_type()) },
+        { get_unsigned_int128_type(), 0                                                                  },
+#else
+        { get_unsigned_long_long_int_type(), 0                                                           },
+#endif
         // Sentinel
         { NULL, 0 },
     };
@@ -831,18 +875,28 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
         { get_signed_short_int_type(),     safe_compute_bitmask_of_type(get_signed_short_int_type())     },
         { get_signed_int_type(),           safe_compute_bitmask_of_type(get_signed_int_type())           },
         { get_signed_long_int_type(),      safe_compute_bitmask_of_type(get_signed_long_int_type())      },
+#ifdef HAVE_INT128
         { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+        { get_signed_int128_type(),        safe_compute_bitmask_of_type(get_signed_int128_type())        },
+#else
+        { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+#endif
         // Sentinel
         { NULL, 0 },
     };
 
     struct type_mask_tag signed_negative_type_mask[] =
     {
-        { get_signed_char_type(),          (safe_compute_bitmask_of_type(get_signed_char_type())     ) },
-        { get_signed_short_int_type(),     (safe_compute_bitmask_of_type(get_signed_short_int_type())) },
-        { get_signed_int_type(),           (safe_compute_bitmask_of_type(get_signed_int_type())      ) },
-        { get_signed_long_int_type(),      (safe_compute_bitmask_of_type(get_signed_long_int_type()) ) },
+        { get_signed_char_type(),          safe_compute_bitmask_of_type(get_signed_char_type())      },
+        { get_signed_short_int_type(),     safe_compute_bitmask_of_type(get_signed_short_int_type()) },
+        { get_signed_int_type(),           safe_compute_bitmask_of_type(get_signed_int_type())       },
+        { get_signed_long_int_type(),      safe_compute_bitmask_of_type(get_signed_long_int_type())  },
+#ifdef HAVE_INT128
+        { get_signed_long_long_int_type(), safe_compute_bitmask_of_type(get_signed_long_long_int_type()) },
+        { get_signed_int128_type(),        0 },
+#else
         { get_signed_long_long_int_type(), 0 },
+#endif 
         // Sentinel
         { NULL, 0 },
     };
@@ -855,7 +909,7 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
 }
 
 type_t* const_value_get_minimal_integer_type_from_list_of_types(
-        uint64_t value,
+        cvalue_uint_t value,
         int num_types,
         type_t** types)
 {
@@ -924,6 +978,9 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 type_t* t = integer_type;
                 if (t == NULL)
                     t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
+
+                ERROR_CONDITION(t == NULL, "Invalid type for integer constant", 0);
+
                 if (is_bool_type(t))
                 {
                     return nodecl_make_boolean_literal(t, v, NULL, 0);
@@ -1269,8 +1326,8 @@ const_value_t* integer_type_get_minimum(type_t* t)
             || is_signed_long_long_int_type(t)
             || is_signed_int_type(t))
     {
-        uint64_t mask = ~(uint64_t)0;
-        mask >>= (64 - type_get_size(t)*8 + 1);
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (sizeof(cvalue_uint_t) - type_get_size(t)*8 + 1);
         return const_value_get_integer(~mask, type_get_size(t), /* sign */ 1);
     }
 
@@ -1291,11 +1348,11 @@ const_value_t* integer_type_get_maximum(type_t* t)
             || is_unsigned_long_long_int_type(t)
             || is_unsigned_int_type(t))
     {
-        uint64_t mask = ~(uint64_t)0;
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
 
         if (type_get_size(t) < 8)
         {
-            mask &= ~(~(uint64_t)0 << (type_get_size(t) * 8));
+            mask &= ~(~(cvalue_uint_t)0 << (type_get_size(t) * 8));
         }
 
         return const_value_get_integer(mask, type_get_size(t), /* sign */ 0);
@@ -1306,8 +1363,8 @@ const_value_t* integer_type_get_maximum(type_t* t)
             || is_signed_long_long_int_type(t)
             || is_signed_int_type(t))
     {
-        uint64_t mask = ~(uint64_t)0;
-        mask >>= (64 - type_get_size(t)*8 + 1);
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (sizeof(cvalue_uint_t) - type_get_size(t)*8 + 1);
         return const_value_get_integer(mask, type_get_size(t), /* sign */ 1);
     }
 
@@ -1615,10 +1672,10 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
        int bytes = 0; char sign = 0; \
        common_bytes(v1, v2, &bytes, &sign); \
-       uint64_t value = 0; \
+       cvalue_uint_t value = 0; \
        if (sign) \
        { \
-           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
+           (*((cvalue_int_t*)&value)) = v1->value.si _binop v2->value.si; \
        } \
        else \
        { \
@@ -2094,10 +2151,10 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
        int bytes = 0; char sign = 0; \
        common_bytes(v1, v2, &bytes, &sign); \
-       uint64_t value = 0; \
+       cvalue_uint_t value = 0; \
        if (sign) \
        { \
-           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
+           (*((cvalue_int_t*)&value)) = v1->value.si _binop v2->value.si; \
        } \
        else \
        { \
@@ -2172,10 +2229,10 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
        int bytes = 0; char sign = 0; \
        common_bytes(v1, v2, &bytes, &sign); \
-       uint64_t value = 0; \
+       cvalue_uint_t value = 0; \
        if (sign) \
        { \
-           *(int64_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
+           *(cvalue_int_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
        } \
        else \
        { \
@@ -2441,10 +2498,10 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
        int bytes = 0; char sign = 0; \
        common_bytes(v1, v2, &bytes, &sign); \
-       uint64_t value = 0; \
+       cvalue_uint_t value = 0; \
        if (sign) \
        { \
-           (*((int64_t*)&value)) = v1->value.si _binop v2->value.si; \
+           (*((cvalue_int_t*)&value)) = v1->value.si _binop v2->value.si; \
        } \
        else \
        { \
@@ -2519,10 +2576,10 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     { \
        int bytes = 0; char sign = 0; \
        common_bytes(v1, v2, &bytes, &sign); \
-       uint64_t value = 0; \
+       cvalue_uint_t value = 0; \
        if (sign) \
        { \
-           *(int64_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
+           *(cvalue_int_t*)&value = _func ## s ( v1->value.si, v2->value.si); \
        } \
        else \
        { \
@@ -2622,25 +2679,25 @@ BINOP_FUN_REL(gte, >=)
 BINOP_FUN_REL(eq, ==)
 BINOP_FUN_REL(neq, !=)
 
-static uint64_t arith_powu(uint64_t a, uint64_t b)
+static cvalue_uint_t arith_powu(cvalue_uint_t a, cvalue_uint_t b)
 {
     if (b == 0)
     {
         return 1;
     }
-    else if ((b & (uint64_t)1) == (uint64_t)1) // odd
+    else if ((b & (cvalue_uint_t)1) == (cvalue_uint_t)1) // odd
     {
-        uint64_t k = arith_powu(a, (b-1) >> 1);
+        cvalue_uint_t k = arith_powu(a, (b-1) >> 1);
         return a * k * k;
     }
     else // even
     {
-        uint64_t k = arith_powu(a, b >> 1);
+        cvalue_uint_t k = arith_powu(a, b >> 1);
         return k * k;
     }
 }
 
-static int64_t arith_pows(int64_t a, int64_t b)
+static cvalue_int_t arith_pows(cvalue_int_t a, cvalue_int_t b)
 {
     if (b == 0)
     {
@@ -2650,14 +2707,14 @@ static int64_t arith_pows(int64_t a, int64_t b)
     {
         return 1 / arith_pows(a, -b);
     }
-    else if ((b & (int64_t)1) == (int64_t)1) // odd
+    else if ((b & (cvalue_int_t)1) == (cvalue_int_t)1) // odd
     {
-        int64_t k = arith_powu(a, (b-1) >> 1);
+        cvalue_int_t k = arith_powu(a, (b-1) >> 1);
         return a * k * k;
     }
     else // even
     {
-        int64_t k = arith_powu(a, b >> 1);
+        cvalue_int_t k = arith_powu(a, b >> 1);
         return k * k;
     }
 }
@@ -2692,7 +2749,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
     if (v1->kind == CVK_INTEGER) \
     { \
-        uint64_t value = 0; \
+        cvalue_uint_t value = 0; \
         if (v1->sign) \
         { \
             value = _unop v1->value.si; \
@@ -2724,7 +2781,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
     if (v1->kind == CVK_INTEGER) \
     { \
-        uint64_t value = 0; \
+        cvalue_uint_t value = 0; \
         if (v1->sign) \
         { \
             value = _unop v1->value.si; \

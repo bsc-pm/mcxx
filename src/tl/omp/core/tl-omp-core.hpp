@@ -97,12 +97,17 @@ namespace TL
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
 
-                void get_clause_symbols(PragmaCustomClause clause, 
-                        ObjectList<DataReference>& sym_list, 
+                void get_clause_symbols(
+                        PragmaCustomClause clause, 
+                        const TL::ObjectList<TL::Symbol> &symbols_in_construct,
+                        ObjectList<DataReference>& data_ref_list,
                         bool allow_extended_references = false);
                 void get_reduction_symbols(TL::PragmaCustomLine construct, 
-                        PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
+                        PragmaCustomClause clause, 
+                        const TL::ObjectList<TL::Symbol> &symbols_in_construct,
+                        ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(TL::PragmaCustomLine construct,
+                        Nodecl::NodeclBase statements,
                         DataSharingEnvironment& data_sharing);
                 void get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                         DataSharingAttribute default_data_attr, 

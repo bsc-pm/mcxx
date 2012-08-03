@@ -623,9 +623,9 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
         synthesized_type = fortran_rebuild_array_type(synthesized_type, lhs_type);
     }
 
-    nodecl_t nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
-    
-    nodecl_set_location_as(nodecl_stride, nodecl_lower);
+    nodecl_t nodecl_stride = const_value_to_nodecl(
+            const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+    nodecl_set_location(nodecl_stride, ASTFileName(expr), ASTLine(expr));
 
     char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DEREFERENCE);
 
@@ -4535,6 +4535,7 @@ static void cast_initialization(
             int i;
             int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
             type_t* element_type = array_type_get_element_type(initialized_type);
+            type_t* rank0_type = fortran_get_rank0_type(initialized_type);
 
             if (size > 0)
             {
@@ -4552,7 +4553,7 @@ static void cast_initialization(
 
                 if (nodecl_output != NULL)
                 {
-                    *nodecl_output = const_value_to_nodecl(*casted_const);
+                    *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
                 }
             }
         }

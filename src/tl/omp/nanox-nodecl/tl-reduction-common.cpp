@@ -294,13 +294,13 @@ namespace TL { namespace Nanox {
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
                     reduction_code
-                        << "rdv_" << (*it)->get_field_name() << "[omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
+                        << "rdv_" << (*it)->get_field_name() << "[nanos_omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
                         ;
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     reduction_code
-                        << "(*rdv_" << (*it)->get_field_name() << ")[omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
+                        << "(*rdv_" << (*it)->get_field_name() << ")[nanos_omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
                         ;
                 }
                 else

@@ -771,7 +771,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     // Compute user defined conversions by means of constructors
-    if(is_class_type(no_ref(dest)))
+    if (is_class_type(no_ref(dest)))
     {
         DEBUG_CODE()
         {
@@ -798,6 +798,22 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         }
 
         scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
+
+        int num_constructors = entry_list_size(constructors);
+
+        // Best info
+        scope_entry_t* best_valid_constructor = NULL;
+        standard_conversion_t best_initial_sc; // so far
+
+        // All valids info
+        scope_entry_t* valid_constructors[num_constructors];
+        memset(valid_constructors, 0, sizeof(valid_constructors));
+
+        standard_conversion_t valid_initial_scs[num_constructors];
+        memset(valid_initial_scs, 0, sizeof(valid_initial_scs));
+
+        int num_valid_constructors = 0;
+
         scope_entry_list_iterator_t* it;
         for (it = entry_list_iterator_begin(constructors);
                 !entry_list_iterator_end(it);
@@ -900,34 +916,65 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                             print_declarator(orig),
                             print_declarator(conversion_source_type));
                 }
-                standard_conversion_t second_sc;
-                if (standard_conversion_between_types(&second_sc, class_type, dest))
+
+                valid_constructors[num_valid_constructors] = constructor;
+                valid_initial_scs[num_valid_constructors] = first_sc;
+
+                if (num_valid_constructors == 0
+                        || standard_conversion_is_better(first_sc, best_initial_sc))
                 {
-                    implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
-                    num_user_defined_conversions++;
+                    best_initial_sc = first_sc;
+                    best_valid_constructor = constructor;
+                }
 
-                    current->kind = ICSK_USER_DEFINED;
-                    current->first_sc = first_sc;
-                    current->conversor = constructor;
-                    current->second_sc = second_sc;
+                num_valid_constructors++;
+            }
+        }
 
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
-                                "ICS:     SCS1: %s -> %s\n"
-                                "ICS:     Conversion function: %s (%s:%d)\n"
-                                "ICS:     SCS2: %s -> %s\n",
-                                print_declarator(current->first_sc.orig),
-                                print_declarator(current->first_sc.dest),
-                                current->conversor->symbol_name,
-                                current->conversor->file,
-                                current->conversor->line,
-                                print_declarator(current->second_sc.orig),
-                                print_declarator(current->second_sc.dest));
-                    }
+        // Now review the potential constructors
+        int i;
+        for (i = 0; i < num_valid_constructors; i++)
+        {
+            if (best_valid_constructor != valid_constructors[i])
+            {
+                if (!standard_conversion_is_better(best_initial_sc, valid_initial_scs[i]))
+                {
+                    // It turns the better initial sc was not the best one after all
+                    best_valid_constructor = NULL;
                 }
             }
         }
+
+        if (best_valid_constructor != NULL)
+        {
+            standard_conversion_t second_sc;
+            if (standard_conversion_between_types(&second_sc, class_type, dest))
+            {
+                implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
+                num_user_defined_conversions++;
+
+                current->kind = ICSK_USER_DEFINED;
+                current->first_sc = best_initial_sc;
+                current->conversor = best_valid_constructor;
+                current->second_sc = second_sc;
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
+                            "ICS:     SCS1: %s -> %s\n"
+                            "ICS:     Conversion function: %s (%s:%d)\n"
+                            "ICS:     SCS2: %s -> %s\n",
+                            print_declarator(current->first_sc.orig),
+                            print_declarator(current->first_sc.dest),
+                            current->conversor->symbol_name,
+                            current->conversor->file,
+                            current->conversor->line,
+                            print_declarator(current->second_sc.orig),
+                            print_declarator(current->second_sc.dest));
+                }
+            }
+        }
+
         entry_list_iterator_free(it);
         entry_list_free(constructors);
     }
@@ -1120,7 +1167,12 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
 
     if (scs.conv[1] == SCI_INTEGRAL_PROMOTION
             || scs.conv[1] == SCI_VECTOR_INTEGRAL_PROMOTION
-            || scs.conv[1] == SCI_FLOATING_PROMOTION)
+            || scs.conv[1] == SCI_FLOATING_PROMOTION
+            || scs.conv[1] == SCI_FLOAT_TO_COMPLEX_PROMOTION
+            || scs.conv[1] == SCI_COMPLEX_PROMOTION
+            || scs.conv[1] == SCI_COMPLEX_FLOATING_INTEGRAL_CONVERSION
+            || scs.conv[1] == SCI_FLOAT_TO_COMPLEX_CONVERSION
+            || scs.conv[1] == SCI_COMPLEX_CONVERSION)
     {
         result = SCR_PROMOTION;
     }
@@ -1170,7 +1222,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         {
             return 1;
         }
-        
+
         /*
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
@@ -1178,6 +1230,23 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         if (equivalent_types(scs1.orig, scs2.orig))
             // Both SCSs have same source type
         {
+            /*
+             * GCC extension:
+             *  A conversion from scalar arithmetic type to complex is worse than a
+             *  conversion between scalar arithmetic types
+             */
+            if (is_arithmetic_type(scs1.orig)
+                    && !is_complex_type(scs1.orig)
+
+                    && is_arithmetic_type(no_ref(scs1.dest))
+                    && !is_complex_type(no_ref(scs1.dest))
+
+                    && is_complex_type(no_ref(scs2.dest))
+                    )
+            {
+                return 1;
+            }
+
             // If both target types are the same, regardless the qualification,
             // this rank won't be better
             if (equivalent_types(get_unqualified_type(no_ref(scs1.dest)), get_unqualified_type(no_ref(scs2.dest)))

@@ -190,7 +190,9 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
         }
 
-        void Core::get_clause_symbols(PragmaCustomClause clause, 
+        void Core::get_clause_symbols(
+                PragmaCustomClause clause, 
+                const TL::ObjectList<TL::Symbol> &symbols_in_construct,
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)
         {
@@ -217,10 +219,17 @@ namespace TL
                     {
                         Symbol base_sym = data_ref.get_base_symbol();
 
+                        if (!symbols_in_construct.contains(base_sym))
+                        {
+                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since it does not appear in the construct" << std::endl;
+                            continue;
+                        }
+
                         if (base_sym.is_member()
                                 && !base_sym.is_static())
                         {
-                            std::cerr << data_ref.get_locus() << ": ignoring: '" << data_ref.prettyprint()
+                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
                                 << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
                             continue;
                         }
@@ -298,65 +307,68 @@ namespace TL
         };
 
         void Core::get_data_explicit_attributes(TL::PragmaCustomLine construct, 
+                Nodecl::NodeclBase statements,
                 DataSharingEnvironment& data_sharing)
         {
+            TL::ObjectList<TL::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols(statements);
+
             ObjectList<DataReference> shared_references;
-            get_clause_symbols(construct.get_clause("shared"), shared_references);
+            get_clause_symbols(construct.get_clause("shared"), nonlocal_symbols, shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_SHARED));
 
             ObjectList<DataReference> private_references;
-            get_clause_symbols(construct.get_clause("private"), private_references);
+            get_clause_symbols(construct.get_clause("private"), nonlocal_symbols, private_references);
             std::for_each(private_references.begin(), private_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE));
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), 
-                    firstprivate_references);
+                    nonlocal_symbols, firstprivate_references);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> lastprivate_references;
-            get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
+            get_clause_symbols(construct.get_clause("lastprivate"), nonlocal_symbols, lastprivate_references);
             std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_LASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
-            get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
+            get_reduction_symbols(construct, construct.get_clause("reduction"), nonlocal_symbols, reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 
             ObjectList<DataReference> copyin_references;
-            get_clause_symbols(construct.get_clause("copyin"), copyin_references);
+            get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols, copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYIN));
 
             ObjectList<DataReference> copyprivate_references;
-            get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
+            get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
 
             // Internal clauses created by fun-tasks phase
             ObjectList<DataReference> fp_input_references;
-            get_clause_symbols(construct.get_clause("__fp_input"), fp_input_references, 
+            get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_input_references.begin(), fp_input_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_output_references;
-            get_clause_symbols(construct.get_clause("__fp_output"), fp_output_references, 
+            get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_output_references.begin(), fp_output_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_inout_references;
-            get_clause_symbols(construct.get_clause("__fp_inout"), fp_inout_references, 
+            get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_reduction_references;
-            get_clause_symbols(construct.get_clause("__fp_reduction"), fp_reduction_references, 
+            get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
@@ -384,6 +396,7 @@ namespace TL
                     { "none", (DataSharingAttribute)DS_NONE },
                     { "shared", (DataSharingAttribute)DS_SHARED },
                     { "firstprivate", (DataSharingAttribute)DS_FIRSTPRIVATE },
+                    { "auto", (DataSharingAttribute)DS_AUTO },
                     { NULL, (DataSharingAttribute)DS_UNDEFINED },
                 };
 
@@ -538,7 +551,7 @@ namespace TL
 
             get_target_info(pragma_line, data_sharing);
 
-            get_data_explicit_attributes(pragma_line, data_sharing);
+            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
 
             DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED);
 
@@ -614,7 +627,7 @@ namespace TL
                         }
                         else
                         {
-                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
+                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line().shallow_copy();
                         }
 
                         TL::ObjectList<Nodecl::NodeclBase> singleton_list;
@@ -811,7 +824,7 @@ namespace TL
 
             get_target_info(pragma_line, data_sharing);
 
-            get_data_explicit_attributes(pragma_line, data_sharing);
+            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
 
             DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED);
 

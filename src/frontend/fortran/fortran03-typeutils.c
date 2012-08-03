@@ -169,7 +169,9 @@ const char* fortran_print_type_str(type_t* t)
     }
     else 
     {
-        internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t));
+        const char* non_printable = NULL;
+        uniquestr_sprintf(&non_printable, "non-fortran type '%s'", print_declarator(t));
+        return non_printable;
     }
 
     if (is_pointer)
@@ -733,6 +735,9 @@ type_t* fortran_choose_int_type_from_kind(int kind_size)
     static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
     if (!int_types_init)
     {
+#ifdef HAVE_FORTRAN_KIND16
+        int_types[type_get_size(get_signed_int128_type())] = get_signed_int128_type();
+#endif
         int_types[type_get_size(get_signed_long_long_int_type())] = get_signed_long_long_int_type();
         int_types[type_get_size(get_signed_long_int_type())] = get_signed_long_int_type();
         int_types[type_get_size(get_signed_int_type())] = get_signed_int_type();
@@ -768,6 +773,9 @@ type_t* fortran_choose_logical_type_from_kind(int kind_size)
     static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
     if (!logical_types_init)
     {
+#ifdef HAVE_FORTRAN_KIND16
+        logical_types[type_get_size(get_signed_int128_type())] = get_bool_of_integer_type(get_signed_int128_type());
+#endif
         logical_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
         logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
         logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());

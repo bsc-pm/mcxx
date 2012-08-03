@@ -2520,28 +2520,34 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
     const char* class_name = NULL;
-    if (ASTType(id_expression) == AST_SYMBOL)
+    switch (ASTType(id_expression))
     {
-        class_name = ASTText(id_expression);
-    }
-    else if (ASTType(id_expression) == AST_TEMPLATE_ID)
-    {
-        class_name = ASTText(ASTSon0(id_expression));
-    }
-    else if (ASTType(id_expression) == AST_QUALIFIED_ID)
-    {
-        class_name = ASTText(ASTSon2(id_expression));
-    }
-    else
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: invalid class specifier '%s'\n",
-                    ast_location(id_expression),
-                    prettyprint_in_buffer(id_expression));
-        }
-        *type_info = get_error_type();
-        return;
+        case AST_SYMBOL:
+            {
+                class_name = ASTText(id_expression);
+                break;
+            }
+        case AST_TEMPLATE_ID:
+            {
+                class_name = ASTText(ASTSon0(id_expression));
+                break;
+            }
+        case AST_QUALIFIED_ID:
+            {
+                class_name = ASTText(ASTSon2(id_expression));
+                break;
+            }
+        default:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: invalid class specifier '%s'\n",
+                            ast_location(id_expression),
+                            prettyprint_in_buffer(id_expression));
+                }
+                *type_info = get_error_type();
+                return;
+            }
     }
 
     C_LANGUAGE()
@@ -6339,10 +6345,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->entity_specs.is_instantiated = 1;
     }
 
+    linkage_push(NULL, /* is_braced */ 1);
+
     scope_entry_list_t* declared_symbols = NULL;
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info, nodecl_output, &declared_symbols);
     entry_list_free(declared_symbols);
+
+    linkage_pop();
+
 
     class_entry->defined = 1;
 
@@ -8412,19 +8423,49 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         decl_context_t decl_context,
         scope_entry_t** result_entry)
 {
-    ERROR_CONDITION(!(gather_info->is_friend
-                && is_dependent_class_scope(decl_context)),
-            "This is not a depedent friend function", 0);
+    ERROR_CONDITION(!(gather_info->is_friend && is_dependent_class_scope(decl_context)),
+            "this is not a depedent friend function", 0);
 
-    const char* name = ASTText(declarator_id);
-    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
+    // A friend declaration always will be in a class scope
+    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(class_symbol == NULL, "This symbol cannot be NULL\n", 0);
+
+    // Has the current class a dependent friend function with equivalent type
+    // to the current dependent friend function?
+
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+    const char* function_name = codegen_to_str(nodecl_name, decl_context);
     {
-        name = ASTText(ASTSon2(declarator_id));
+        scope_entry_list_t* friend_symbols =
+            class_type_get_friends(class_symbol->type_information);
+
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(friend_symbols);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* current_friend = entry_list_iterator_current(it);
+
+            if (current_friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
+                    && equivalent_types_in_context(current_friend->type_information,
+                        declarator_type,
+                        current_friend->decl_context)
+                    && (strcmp(function_name, current_friend->symbol_name)==0))
+            {
+                *result_entry = current_friend;
+                entry_list_free(friend_symbols);
+                return 1;
+            }
+        }
+        entry_list_free(friend_symbols);
     }
 
-    char is_qualified = is_qualified_id_expression(declarator_id);
+    // We should create a new dependent friend function, but first we need to
+    // check some constraints
 
     char is_template_function = gather_info->is_template;
+    char is_qualified = is_qualified_id_expression(declarator_id);
 
     AST considered_tree = declarator_id;
     if (ASTType(declarator_id) == AST_QUALIFIED_ID)
@@ -8561,7 +8602,32 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         }
 
         // We should create a new SK_TEMPLATE
-        func_templ = new_symbol(decl_context, decl_context.current_scope, name);
+        const char* declarator_name = NULL;
+        switch (ASTType(declarator_id))
+        {
+            case AST_TEMPLATE_ID:
+                {
+                    declarator_name = ASTText(ASTSon0(declarator_id));
+                    break;
+                }
+            case AST_QUALIFIED_ID:
+                {
+                    declarator_name = ASTText(ASTSon2(declarator_id));
+                    break;
+                }
+            case AST_OPERATOR_FUNCTION_ID:
+            case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
+                {
+                    declarator_name = get_operator_function_name(declarator_id);
+                    break;
+                }
+            default:
+                {
+                    declarator_name = ASTText(declarator_id);
+                    break;
+                }
+        }
+        func_templ = new_symbol(decl_context, decl_context.current_scope, declarator_name);
 
         func_templ->kind = SK_TEMPLATE;
         func_templ->line = ASTLine(declarator_id);
@@ -8585,44 +8651,46 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     }
 
     //We create a new symbol always
-    scope_entry_t* entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+    scope_entry_t* new_entry =
+        counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
 
-    entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-    entry->file = ASTFileName(declarator_id);
-    entry->line = ASTLine(declarator_id);
+    new_entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+    new_entry->file = ASTFileName(declarator_id);
+    new_entry->line = ASTLine(declarator_id);
 
-    nodecl_t nodecl_name = nodecl_null();
-    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
-    entry->symbol_name = codegen_to_str(nodecl_name, decl_context);
+    new_entry->type_information = declarator_type;
 
-    entry->value = nodecl_name;
-    entry->decl_context = decl_context;
-    entry->type_information = declarator_type;
+    new_entry->decl_context = decl_context;
+    new_entry->decl_context.current_scope = decl_context.namespace_scope;
 
-    entry->entity_specs.is_friend = 1;
-    entry->entity_specs.is_friend_declared = 1;
-    entry->entity_specs.any_exception = gather_info->any_exception;
-    entry->entity_specs.num_parameters = gather_info->num_parameters;
+    //The symbol name has been computed by Codegen!!
+    new_entry->symbol_name = function_name;
+    new_entry->value = nodecl_name;
 
-    entry->entity_specs.default_argument_info =
-        counted_calloc(entry->entity_specs.num_parameters, sizeof(*(entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+    new_entry->entity_specs.is_friend = 1;
+    new_entry->entity_specs.is_friend_declared = 1;
+    new_entry->entity_specs.any_exception = gather_info->any_exception;
+    new_entry->entity_specs.num_parameters = gather_info->num_parameters;
+
+    new_entry->entity_specs.default_argument_info =
+        counted_calloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
     int i;
     for (i = 0; i < gather_info->num_parameters; i++)
     {
         if (!nodecl_is_null(gather_info->arguments_info[i].argument))
         {
-            entry->entity_specs.default_argument_info[i] =
+            new_entry->entity_specs.default_argument_info[i] =
                 (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
-            entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
-            entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
+            new_entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
+            new_entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
         }
     }
 
     // This new symbol contains the results of the query
     entry_list_to_symbol_array(filtered_entry_list,
-            &entry->entity_specs.related_symbols, &entry->entity_specs.num_related_symbols);
+            &new_entry->entity_specs.related_symbols, &new_entry->entity_specs.num_related_symbols);
 
-    *result_entry = entry;
+    *result_entry = new_entry;
     entry_list_free(filtered_entry_list);
     entry_list_free(entry_list);
     return 1;
@@ -10092,10 +10160,27 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 ERROR_CONDITION(parameter_position < 0, "Parameter not found", 0);
 
-                parameter_info[parameter_position].type_info = 
-                    entry->type_information;
-                parameter_info[parameter_position].nonadjusted_type_info = 
-                    entry->type_information;
+                type_t* adjusted_type_info = entry->type_information;
+                // If the original type is a typedef then we want to ignore
+                // all the indirections
+                adjusted_type_info = advance_over_typedefs(adjusted_type_info);
+
+                // function to pointer-to-function standard conversion
+                if (is_function_type(adjusted_type_info))
+                {
+                    adjusted_type_info = get_pointer_type(adjusted_type_info);
+                }
+                // Array to pointer standard conversion
+                else if (is_array_type(adjusted_type_info))
+                {
+                    adjusted_type_info = array_type_get_element_type(adjusted_type_info);
+                    adjusted_type_info = get_pointer_type(adjusted_type_info);
+                }
+
+                adjusted_type_info = get_unqualified_type(adjusted_type_info);
+
+                parameter_info[parameter_position].type_info = adjusted_type_info;
+                parameter_info[parameter_position].nonadjusted_type_info = entry->type_information;
 
                 i++;
             }
@@ -11300,6 +11385,19 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.is_inline = 1;
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
+
+    if (entry->entity_specs.is_friend
+            && is_template_specialized_type(entry->type_information)
+            && !gather_info.is_template)
+    {
+        if(!checking_ambiguity())
+        {
+            error_printf("%s: error: defining explicit specialization '%s' in friend declaration\n",
+                    ast_location(declarator_name),
+                    prettyprint_in_buffer(declarator_name));
+        }
+        return NULL;
+    }
 
     update_member_function_info(declarator_name, is_constructor, entry, class_type);
 

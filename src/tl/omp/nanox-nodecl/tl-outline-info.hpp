@@ -72,21 +72,15 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
+                    // Used for lastprivate
+                    SHARING_SHARED_PRIVATE,
+                    // Used for firstlastprivate
+                    SHARING_SHARED_CAPTURED_PRIVATE,
+
                     SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _shared_expression
                     SHARING_CAPTURE_ADDRESS,
-                };
-
-                // -- FIXME -- Think this a bit more
-                // This is similar to CopyDirectionality but it does not involve copies
-                // between devices this is only useful for lastprivate and
-                // reduction
-                enum Flow
-                {
-                    FLOW_NONE = 0,
-                    FLOW_LAST_VALUE,
-                    FLOW_REDUCED_VALUE, 
                 };
 
                 enum Directionality
@@ -95,7 +89,8 @@ namespace TL
                     DIRECTIONALITY_IN =   1 << 0,
                     DIRECTIONALITY_OUT =  1 << 1,
                     DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_CONCURRENT = 1 << 2
+                    DIRECTIONALITY_CONCURRENT = 1 << 2,
+                    DIRECTIONALITY_COMMUTATIVE = 1 << 3
                 };
 
                 enum CopyDirectionality
@@ -132,6 +127,8 @@ namespace TL
 
                 TL::Type _in_outline_type;
 
+                TL::Type _private_type;
+
                 Sharing _sharing;
                 Nodecl::NodeclBase _shared_expression;
 
@@ -155,7 +152,8 @@ namespace TL
                     _sym(symbol), 
                     _field_name(field_name), 
                     _field_type(_sym.get_type()),
-                    _in_outline_type(NULL),
+                    _in_outline_type(_field_type),
+                    _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _shared_expression(),
                     _directionality(),
@@ -164,26 +162,13 @@ namespace TL
                 {
                 }
 
-                // OutlineDataItem(const std::string field_name)
-                //     : _item_kind(ITEM_KIND_NORMAL),
-                //     _sym(NULL), 
-                //     _field_name(field_name), 
-                //     _field_type(NULL),
-                //     _in_outline_type(NULL),
-                //     _sharing(),
-                //     _shared_expression(),
-                //     _directionality(),
-                //     _copy_directionality(),
-                //     _allocation_policy_flags()
-                // {
-                // }
-
                 OutlineDataItem(const std::string field_name, TL::Type field_type)
                     : _item_kind(ITEM_KIND_NORMAL),
                     _sym(NULL), 
                     _field_name(field_name), 
                     _field_type(field_type),
-                    _in_outline_type(NULL),
+                    _in_outline_type(_field_type),
+                    _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _shared_expression(),
                     _udr_info_item(NULL),
@@ -219,10 +204,7 @@ namespace TL
                 // or the field type if not defined
                 Type get_in_outline_type() const
                 {
-                    if (_in_outline_type.is_valid())
-                        return _in_outline_type;
-                    else
-                        return _field_type;
+                    return _in_outline_type;
                 }
 
                 // Sets a type to be used in the outline
@@ -230,6 +212,17 @@ namespace TL
                 void set_in_outline_type(Type t) 
                 {
                     _in_outline_type = t;
+                }
+
+                void set_private_type(Type t) 
+                {
+                    _private_type = t;
+                }
+
+                // Type suitable for a private version of this entity
+                TL::Type get_private_type() const
+                {
+                    return _private_type;
                 }
 
                 // Returns the type used in the structure
@@ -242,21 +235,6 @@ namespace TL
                 void set_field_type(Type t)
                 {
                     _field_type = t;
-                }
-
-                bool is_capture() const
-                {
-                    return _sharing == SHARING_CAPTURE;
-                }
-
-                bool is_shared() const
-                {
-                    return _sharing == SHARING_SHARED;
-                }
-
-                bool is_private() const
-                {
-                    return _sharing == SHARING_PRIVATE;
                 }
 
                 void set_sharing(Sharing s)
