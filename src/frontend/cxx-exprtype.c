@@ -13575,7 +13575,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: pointer types only allow one-level array sections\n",
+                error_printf("%s: warning: pointer types only allow one-level array sections\n",
                         nodecl_get_locus(nodecl_postfix));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13593,7 +13593,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: array section is invalid since '%s' has type '%s'\n",
+            error_printf("%s: warning: array section is invalid since '%s' has type '%s'\n",
                     nodecl_get_locus(nodecl_postfix),
                     codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)),
                     print_type_str(indexed_type, decl_context));
