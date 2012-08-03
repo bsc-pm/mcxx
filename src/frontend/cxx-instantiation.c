@@ -1858,13 +1858,26 @@ static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMET
     AST dupl_function_definition = ast_copy_for_instantiation(emission_template->entity_specs.definition_tree);
 
     nodecl_t nodecl_function_code = nodecl_null();
-    build_scope_function_definition(dupl_function_definition, 
-            entry, 
-            entry->decl_context, 
+    scope_entry_t* current_symbol = build_scope_function_definition(dupl_function_definition,
+            entry->decl_context,
             // FIXME - This is not entirely true
             /* is_template */ 1,
             /* is_explicit_instantiation */ 1,
             &nodecl_function_code);
+
+     // The found symbol must match with the previous symbol
+     if (entry != current_symbol)
+     {
+         internal_error("inconsistent symbol created %s at '%s:%d' [%s] vs %s at '%s:%d' [%s] \n",
+                 entry->symbol_name,
+                 entry->file,
+                 entry->line,
+                 print_declarator(entry->type_information),
+                 current_symbol->symbol_name,
+                 current_symbol->file,
+                 current_symbol->line,
+                 print_declarator(current_symbol->type_information));
+     }
 
     entry->entity_specs.definition_tree = dupl_function_definition;
 
