@@ -24,34 +24,28 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef SSE_MODULE_HPP
-#define SSE_MODULE_HPP
+#ifndef TL_VECTORIZER_VISITOR_FUNCTION_HPP
+#define TL_VECTORIZER_VISITOR_FUNCTION_HPP
 
-#include "codegen-common.hpp"
-#include "tl-nodecl-base.hpp"
+#include "tl-nodecl-visitor.hpp"
 
-
-namespace Codegen
-{
-    class SSEModuleVisitor : public CodegenModuleVisitor
+namespace TL 
+{ 
+    namespace Vectorizer
     {
-        public:
+        class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                const unsigned int _vector_length;
 
-            SSEModuleVisitor(CodegenVisitor* base_codegen);
+            public:
+                VectorizerVisitorFunction(const unsigned int vector_length);
 
-            void visit(const Nodecl::VectorAdd& node);
-            void visit(const Nodecl::VectorMinus& node);
-            void visit(const Nodecl::VectorMul& node);
-            void visit(const Nodecl::VectorDiv& node);
-            
-            void visit(const Nodecl::VectorConditionalExpression& node);
-            void visit(const Nodecl::ConstantVectorPromotion& node);
-            void visit(const Nodecl::VectorAssignment& node);
-            void visit(const Nodecl::VectorLoad& node);
-            void visit(const Nodecl::VectorStore& node);
+                virtual void visit(const Nodecl::FunctionCode& function_code);
 
-            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-    };
+                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+        };
+    }
 }
 
-#endif // SSE_MODULE_HPP
+#endif //TL_VECTORIZER_VISITOR_FUNCTION_HPP

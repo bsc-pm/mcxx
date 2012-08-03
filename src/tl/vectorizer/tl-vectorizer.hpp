@@ -39,7 +39,7 @@ namespace TL
             public:
                 Vectorizer();
                 
-                void vectorize(const Nodecl::ForStatement& for_statement, 
+                Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
                         const unsigned int vector_length);
 //                        const TL::Type& target_type);
                 void vectorize(const Nodecl::FunctionCode& func_code,

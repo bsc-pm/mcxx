@@ -69,12 +69,18 @@ namespace TL
 
                 // Vectorizing initialization
                 Nodecl::NodeclBase init = sym.get_value();
-                if(init.is_null())
+                if(!init.is_null())
                 {
                     VectorizerVisitorExpression visitor_expression(_vector_length);
                     visitor_expression.walk(init);
                 }
             }
+        }
+
+        void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
+        {
+            VectorizerVisitorExpression visitor_expression(_vector_length);
+            visitor_expression.walk(n.get_value());
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 

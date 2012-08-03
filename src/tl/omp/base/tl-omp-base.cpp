@@ -28,7 +28,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
+#include "fortran03-scope.h"
 
 namespace TL { namespace OpenMP {
 
@@ -786,10 +786,17 @@ namespace TL { namespace OpenMP {
                 "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
                 ast_print_node_type(node.get_kind()));
 
-        // SIMD starts here!
-        _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 16); 
+        // Vectorize for
+        Nodecl::NodeclBase epilog = 
+            _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 16); 
 
-        // Removing #pragma
+        // Add epilog
+        if (!epilog.is_null())
+        {
+            node.append_sibling(epilog);
+        }
+
+        // Remove #pragma
         stmt.replace(statements);
     }
     
@@ -807,12 +814,133 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
         Nodecl::FunctionCode function_code = node.as<Nodecl::FunctionCode>();
 
-        // Vectorizing function
-        _vectorizer.vectorize(function_code, 16); 
+        // Copy function symbol
+/*        scope_entry_t* original_entry = sym.get_internal_symbol();
+        Scope sc = sym.get_scope();
 
+        decl_context_t decl_context = sc.get_decl_context();
+        std::string new_function_name = "__" + sym.get_name() + "_16" ; // + device + vectorlength
+
+        scope_entry_t* copied_entry = new_symbol(decl_context, 
+                decl_context.current_scope, new_function_name.c_str());
+
+        copied_entry->entity_specs.is_user_declared =
+           original_entry->entity_specs.is_user_declared;
+        copied_entry->kind = original_entry->kind;
+        copied_entry->file = original_entry->file;
+        copied_entry->line = original_entry->line;
+        copied_entry->entity_specs.is_static = 
+            original_entry->entity_specs.is_static;
+
+        // Make it member if the enclosing function is member
+        if (sym.is_member())
+        {
+            copied_entry->entity_specs.is_member = original_entry->entity_specs.is_member;
+            copied_entry->entity_specs.class_type = original_entry->entity_specs.class_type;
+            copied_entry->entity_specs.access = original_entry->entity_specs.access;
+            ::class_type_add_member(copied_entry->entity_specs.class_type, copied_entry);
+        }
+
+        decl_context_t function_context ;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+        function_context.function_scope->related_entry = copied_entry;
+        function_context.block_scope->related_entry = copied_entry;
+
+        copied_entry->related_decl_context = function_context;
+
+        copied_entry->type_information = original_entry->type_information;
+*/
+        // Deep copy function code
+  //      TL::Symbol vectorized_symbol(copied_entry); 
+
+  //      Nodecl::Utils::SimpleSymbolMap sym_map;
+
+  //      sym_map.add_map(sym, vectorized_symbol);
+
+        Nodecl::FunctionCode vectorized_func_code = 
+            Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
+
+        // Vectorize function
+        _vectorizer.vectorize(vectorized_func_code, 16); 
+
+        // Set new name
+        std::string vectorized_func_name = 
+            "__" + sym.get_name() + "_16" ; // + device + vectorlength
+
+        vectorized_func_code.get_symbol().set_name(vectorized_func_name);
+
+        // Integrate vectorized function code
+        function_code.append_sibling(vectorized_func_code);
+
+        // Remove #pragma
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
+    void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt) 
+    {
+        // Skipping AST_LIST_NODE 
+        Nodecl::NodeclBase statements = stmt.get_statements();
+        ERROR_CONDITION(!statements.is<Nodecl::List>(), 
+                "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
+        Nodecl::List ast_list_node = statements.as<Nodecl::List>();
+        ERROR_CONDITION(ast_list_node.size() != 1, 
+                "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
+
+        // Skipping NODECL_CONTEXT
+        Nodecl::NodeclBase context = ast_list_node.front();
+        ERROR_CONDITION(!context.is<Nodecl::Context>(), 
+                "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
+
+        // Skipping AST_LIST_NODE
+        Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
+                "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
+        Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
+        ERROR_CONDITION(ast_list_node2.size() != 1, 
+                "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
+
+        Nodecl::NodeclBase node = ast_list_node2.front();
+        ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
+                "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
+                ast_print_node_type(node.get_kind()));
+
+        // Vectorize for
+        Nodecl::NodeclBase epilog = 
+            _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 16); 
+
+        // Add epilog
+        if (!epilog.is_null())
+        {
+            //node.append_sibling(epilog);
+        }
+
+        // omp for
+        PragmaCustomLine pragma_line = stmt.get_pragma_line();
+        bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
+
+        Nodecl::NodeclBase code = loop_handler_post(
+                stmt, node, barrier_at_end, /* is_combined_worksharing */ false);
+
+        //Nodecl::Utils::remove_from_enclosing_list(node);
+        //ast_list_node2.push_back(code);
+
+        // Removing #pragma
+        stmt.replace(node);
+        //stmt.replace(statements);
+    }
+
+    void Base::simd_for_handler_pre(TL::PragmaCustomDeclaration decl) { }
+    void Base::simd_for_handler_post(TL::PragmaCustomDeclaration decl) { }
+ 
     void Base::lower_sections_into_switch(
             Nodecl::NodeclBase directive,
             Nodecl::NodeclBase statements,

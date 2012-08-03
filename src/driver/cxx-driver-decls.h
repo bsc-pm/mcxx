@@ -303,6 +303,8 @@ typedef struct parameter_linker_command_tag
 } parameter_linker_command_t;
 
 
+typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -455,6 +457,11 @@ typedef struct compilation_configuration_tag
 
     // Fortran lexing
     char disable_empty_sentinels;
+
+    // Vector flavor
+    print_vector_type_fun print_vector_type;
+
+
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

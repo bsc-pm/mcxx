@@ -59,3 +59,4 @@ OMP_CONSTRUCT_NOEND("parallel|do", parallel_do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
 
 OMP_CONSTRUCT("simd", simd, true)
+OMP_CONSTRUCT("simd|for", simd_for, true)

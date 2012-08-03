@@ -160,10 +160,13 @@ expression : literal
            | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
-           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt module(vector)
            | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt module(vector)
            | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt module(vector)
            | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_NEG([rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression) type const-value-opt module(vector)
+           | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value-opt module(vector)
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_SCATTER([lhs] expression, [rhs] expression) type const-value-opt module(vector)
@@ -230,6 +233,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
+                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt module(vector)
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
 

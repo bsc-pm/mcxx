@@ -83,6 +83,11 @@ namespace TL
             std::string("");
     }
 
+    void Symbol::set_name(std::string name)
+    {
+        _symbol->symbol_name = uniquestr(name.c_str());
+    }
+
     std::string Symbol::get_qualified_name(bool without_template_id) const
     {
         return get_qualified_name(this->get_scope(), without_template_id);

@@ -125,7 +125,99 @@ namespace Codegen
         file << ")"; 
     }                                                 
 
-        void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
+    void SSEModuleVisitor::visit(const Nodecl::VectorMul& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_mul";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_double()) 
+        { 
+            file << "_pd"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }    
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorDiv& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_div";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_double()) 
+        { 
+            file << "_pd"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
     { 
         TL::Type type = node.get_type().basic_type();
 
@@ -166,6 +258,50 @@ namespace Codegen
 
         file << "("; 
         walk(node.get_rhs());
+        file << ")"; 
+    }        
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorConditionalExpression& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "__mm_?";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_double()) 
+        { 
+            file << "_pd"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        //walk(node.get_rhs());
         file << ")"; 
     }        
 

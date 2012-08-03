@@ -3293,3 +3293,819 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
 ;
 sym___builtin_ia32_storeupd->entity_specs.is_builtin = 1;
 }
+{
+scope_entry_t* sym___builtin_ia32_addsubps = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_addsubps");
+sym___builtin_ia32_addsubps->kind = SK_FUNCTION;sym___builtin_ia32_addsubps->do_not_print = 1;
+sym___builtin_ia32_addsubps->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+p[1].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_addsubps->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_haddps = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_haddps");
+sym___builtin_ia32_haddps->kind = SK_FUNCTION;sym___builtin_ia32_haddps->do_not_print = 1;
+sym___builtin_ia32_haddps->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+p[1].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_haddps->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_hsubps = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_hsubps");
+sym___builtin_ia32_hsubps->kind = SK_FUNCTION;sym___builtin_ia32_hsubps->do_not_print = 1;
+sym___builtin_ia32_hsubps->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+p[1].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_hsubps->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_movshdup = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_movshdup");
+sym___builtin_ia32_movshdup->kind = SK_FUNCTION;sym___builtin_ia32_movshdup->do_not_print = 1;
+sym___builtin_ia32_movshdup->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_movshdup->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_movsldup = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_movsldup");
+sym___builtin_ia32_movsldup->kind = SK_FUNCTION;sym___builtin_ia32_movsldup->do_not_print = 1;
+sym___builtin_ia32_movsldup->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_movsldup->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_addsubpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_addsubpd");
+sym___builtin_ia32_addsubpd->kind = SK_FUNCTION;sym___builtin_ia32_addsubpd->do_not_print = 1;
+sym___builtin_ia32_addsubpd->type_information = ({type_t* return_type = get_vector_type(get_double_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_double_type(), 16);
+p[1].type_info = get_vector_type(get_double_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_addsubpd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_haddpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_haddpd");
+sym___builtin_ia32_haddpd->kind = SK_FUNCTION;sym___builtin_ia32_haddpd->do_not_print = 1;
+sym___builtin_ia32_haddpd->type_information = ({type_t* return_type = get_vector_type(get_double_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_double_type(), 16);
+p[1].type_info = get_vector_type(get_double_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_haddpd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_hsubpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_hsubpd");
+sym___builtin_ia32_hsubpd->kind = SK_FUNCTION;sym___builtin_ia32_hsubpd->do_not_print = 1;
+sym___builtin_ia32_hsubpd->type_information = ({type_t* return_type = get_vector_type(get_double_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_double_type(), 16);
+p[1].type_info = get_vector_type(get_double_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_hsubpd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_lddqu = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_lddqu");
+sym___builtin_ia32_lddqu->kind = SK_FUNCTION;sym___builtin_ia32_lddqu->do_not_print = 1;
+sym___builtin_ia32_lddqu->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_const_qualified_type(get_char_type()));
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_lddqu->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddw128");
+sym___builtin_ia32_phaddw128->kind = SK_FUNCTION;sym___builtin_ia32_phaddw128->do_not_print = 1;
+sym___builtin_ia32_phaddw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddd128");
+sym___builtin_ia32_phaddd128->kind = SK_FUNCTION;sym___builtin_ia32_phaddd128->do_not_print = 1;
+sym___builtin_ia32_phaddd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddsw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddsw128");
+sym___builtin_ia32_phaddsw128->kind = SK_FUNCTION;sym___builtin_ia32_phaddsw128->do_not_print = 1;
+sym___builtin_ia32_phaddsw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddsw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddw");
+sym___builtin_ia32_phaddw->kind = SK_FUNCTION;sym___builtin_ia32_phaddw->do_not_print = 1;
+sym___builtin_ia32_phaddw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddd");
+sym___builtin_ia32_phaddd->kind = SK_FUNCTION;sym___builtin_ia32_phaddd->do_not_print = 1;
+sym___builtin_ia32_phaddd->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phaddsw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phaddsw");
+sym___builtin_ia32_phaddsw->kind = SK_FUNCTION;sym___builtin_ia32_phaddsw->do_not_print = 1;
+sym___builtin_ia32_phaddsw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phaddsw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubw128");
+sym___builtin_ia32_phsubw128->kind = SK_FUNCTION;sym___builtin_ia32_phsubw128->do_not_print = 1;
+sym___builtin_ia32_phsubw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubd128");
+sym___builtin_ia32_phsubd128->kind = SK_FUNCTION;sym___builtin_ia32_phsubd128->do_not_print = 1;
+sym___builtin_ia32_phsubd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubsw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubsw128");
+sym___builtin_ia32_phsubsw128->kind = SK_FUNCTION;sym___builtin_ia32_phsubsw128->do_not_print = 1;
+sym___builtin_ia32_phsubsw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubsw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubw");
+sym___builtin_ia32_phsubw->kind = SK_FUNCTION;sym___builtin_ia32_phsubw->do_not_print = 1;
+sym___builtin_ia32_phsubw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubd");
+sym___builtin_ia32_phsubd->kind = SK_FUNCTION;sym___builtin_ia32_phsubd->do_not_print = 1;
+sym___builtin_ia32_phsubd->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phsubsw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phsubsw");
+sym___builtin_ia32_phsubsw->kind = SK_FUNCTION;sym___builtin_ia32_phsubsw->do_not_print = 1;
+sym___builtin_ia32_phsubsw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phsubsw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaddubsw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaddubsw128");
+sym___builtin_ia32_pmaddubsw128->kind = SK_FUNCTION;sym___builtin_ia32_pmaddubsw128->do_not_print = 1;
+sym___builtin_ia32_pmaddubsw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaddubsw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaddubsw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaddubsw");
+sym___builtin_ia32_pmaddubsw->kind = SK_FUNCTION;sym___builtin_ia32_pmaddubsw->do_not_print = 1;
+sym___builtin_ia32_pmaddubsw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 8);
+p[1].type_info = get_vector_type(get_char_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaddubsw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmulhrsw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmulhrsw128");
+sym___builtin_ia32_pmulhrsw128->kind = SK_FUNCTION;sym___builtin_ia32_pmulhrsw128->do_not_print = 1;
+sym___builtin_ia32_pmulhrsw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmulhrsw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmulhrsw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmulhrsw");
+sym___builtin_ia32_pmulhrsw->kind = SK_FUNCTION;sym___builtin_ia32_pmulhrsw->do_not_print = 1;
+sym___builtin_ia32_pmulhrsw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmulhrsw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pshufb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pshufb128");
+sym___builtin_ia32_pshufb128->kind = SK_FUNCTION;sym___builtin_ia32_pshufb128->do_not_print = 1;
+sym___builtin_ia32_pshufb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pshufb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pshufb = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pshufb");
+sym___builtin_ia32_pshufb->kind = SK_FUNCTION;sym___builtin_ia32_pshufb->do_not_print = 1;
+sym___builtin_ia32_pshufb->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 8);
+p[1].type_info = get_vector_type(get_char_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pshufb->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignb128");
+sym___builtin_ia32_psignb128->kind = SK_FUNCTION;sym___builtin_ia32_psignb128->do_not_print = 1;
+sym___builtin_ia32_psignb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignw128");
+sym___builtin_ia32_psignw128->kind = SK_FUNCTION;sym___builtin_ia32_psignw128->do_not_print = 1;
+sym___builtin_ia32_psignw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignd128");
+sym___builtin_ia32_psignd128->kind = SK_FUNCTION;sym___builtin_ia32_psignd128->do_not_print = 1;
+sym___builtin_ia32_psignd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignb = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignb");
+sym___builtin_ia32_psignb->kind = SK_FUNCTION;sym___builtin_ia32_psignb->do_not_print = 1;
+sym___builtin_ia32_psignb->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 8);
+p[1].type_info = get_vector_type(get_char_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignb->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignw");
+sym___builtin_ia32_psignw->kind = SK_FUNCTION;sym___builtin_ia32_psignw->do_not_print = 1;
+sym___builtin_ia32_psignw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_psignd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_psignd");
+sym___builtin_ia32_psignd->kind = SK_FUNCTION;sym___builtin_ia32_psignd->do_not_print = 1;
+sym___builtin_ia32_psignd->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 8);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 8);
+p[1].type_info = get_vector_type(get_signed_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_psignd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsb128");
+sym___builtin_ia32_pabsb128->kind = SK_FUNCTION;sym___builtin_ia32_pabsb128->do_not_print = 1;
+sym___builtin_ia32_pabsb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsw128");
+sym___builtin_ia32_pabsw128->kind = SK_FUNCTION;sym___builtin_ia32_pabsw128->do_not_print = 1;
+sym___builtin_ia32_pabsw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsd128");
+sym___builtin_ia32_pabsd128->kind = SK_FUNCTION;sym___builtin_ia32_pabsd128->do_not_print = 1;
+sym___builtin_ia32_pabsd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsb = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsb");
+sym___builtin_ia32_pabsb->kind = SK_FUNCTION;sym___builtin_ia32_pabsb->do_not_print = 1;
+sym___builtin_ia32_pabsb->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 8);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsb->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsw = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsw");
+sym___builtin_ia32_pabsw->kind = SK_FUNCTION;sym___builtin_ia32_pabsw->do_not_print = 1;
+sym___builtin_ia32_pabsw->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 8);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsw->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pabsd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pabsd");
+sym___builtin_ia32_pabsd->kind = SK_FUNCTION;sym___builtin_ia32_pabsd->do_not_print = 1;
+sym___builtin_ia32_pabsd->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 8);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 8);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pabsd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_ptestz128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_ptestz128");
+sym___builtin_ia32_ptestz128->kind = SK_FUNCTION;sym___builtin_ia32_ptestz128->do_not_print = 1;
+sym___builtin_ia32_ptestz128->type_information = ({type_t* return_type = get_signed_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_ptestz128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_ptestc128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_ptestc128");
+sym___builtin_ia32_ptestc128->kind = SK_FUNCTION;sym___builtin_ia32_ptestc128->do_not_print = 1;
+sym___builtin_ia32_ptestc128->type_information = ({type_t* return_type = get_signed_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_ptestc128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_ptestnzc128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_ptestnzc128");
+sym___builtin_ia32_ptestnzc128->kind = SK_FUNCTION;sym___builtin_ia32_ptestnzc128->do_not_print = 1;
+sym___builtin_ia32_ptestnzc128->type_information = ({type_t* return_type = get_signed_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_ptestnzc128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pblendvb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pblendvb128");
+sym___builtin_ia32_pblendvb128->kind = SK_FUNCTION;sym___builtin_ia32_pblendvb128->do_not_print = 1;
+sym___builtin_ia32_pblendvb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[3]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+p[2].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pblendvb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_blendvps = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_blendvps");
+sym___builtin_ia32_blendvps->kind = SK_FUNCTION;sym___builtin_ia32_blendvps->do_not_print = 1;
+sym___builtin_ia32_blendvps->type_information = ({type_t* return_type = get_vector_type(get_float_type(), 16);
+parameter_info_t p[3]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_float_type(), 16);
+p[1].type_info = get_vector_type(get_float_type(), 16);
+p[2].type_info = get_vector_type(get_float_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_blendvps->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_blendvpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_blendvpd");
+sym___builtin_ia32_blendvpd->kind = SK_FUNCTION;sym___builtin_ia32_blendvpd->do_not_print = 1;
+sym___builtin_ia32_blendvpd->type_information = ({type_t* return_type = get_vector_type(get_double_type(), 16);
+parameter_info_t p[3]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_double_type(), 16);
+p[1].type_info = get_vector_type(get_double_type(), 16);
+p[2].type_info = get_vector_type(get_double_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_blendvpd->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pcmpeqq = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pcmpeqq");
+sym___builtin_ia32_pcmpeqq->kind = SK_FUNCTION;sym___builtin_ia32_pcmpeqq->do_not_print = 1;
+sym___builtin_ia32_pcmpeqq->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pcmpeqq->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pminsb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pminsb128");
+sym___builtin_ia32_pminsb128->kind = SK_FUNCTION;sym___builtin_ia32_pminsb128->do_not_print = 1;
+sym___builtin_ia32_pminsb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pminsb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaxsb128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaxsb128");
+sym___builtin_ia32_pmaxsb128->kind = SK_FUNCTION;sym___builtin_ia32_pmaxsb128->do_not_print = 1;
+sym___builtin_ia32_pmaxsb128->type_information = ({type_t* return_type = get_vector_type(get_char_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+p[1].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaxsb128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pminuw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pminuw128");
+sym___builtin_ia32_pminuw128->kind = SK_FUNCTION;sym___builtin_ia32_pminuw128->do_not_print = 1;
+sym___builtin_ia32_pminuw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pminuw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaxuw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaxuw128");
+sym___builtin_ia32_pmaxuw128->kind = SK_FUNCTION;sym___builtin_ia32_pmaxuw128->do_not_print = 1;
+sym___builtin_ia32_pmaxuw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaxuw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pminsd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pminsd128");
+sym___builtin_ia32_pminsd128->kind = SK_FUNCTION;sym___builtin_ia32_pminsd128->do_not_print = 1;
+sym___builtin_ia32_pminsd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pminsd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaxsd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaxsd128");
+sym___builtin_ia32_pmaxsd128->kind = SK_FUNCTION;sym___builtin_ia32_pmaxsd128->do_not_print = 1;
+sym___builtin_ia32_pmaxsd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaxsd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pminud128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pminud128");
+sym___builtin_ia32_pminud128->kind = SK_FUNCTION;sym___builtin_ia32_pminud128->do_not_print = 1;
+sym___builtin_ia32_pminud128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pminud128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmaxud128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmaxud128");
+sym___builtin_ia32_pmaxud128->kind = SK_FUNCTION;sym___builtin_ia32_pmaxud128->do_not_print = 1;
+sym___builtin_ia32_pmaxud128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmaxud128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmulld128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmulld128");
+sym___builtin_ia32_pmulld128->kind = SK_FUNCTION;sym___builtin_ia32_pmulld128->do_not_print = 1;
+sym___builtin_ia32_pmulld128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmulld128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmuldq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmuldq128");
+sym___builtin_ia32_pmuldq128->kind = SK_FUNCTION;sym___builtin_ia32_pmuldq128->do_not_print = 1;
+sym___builtin_ia32_pmuldq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmuldq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_phminposuw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_phminposuw128");
+sym___builtin_ia32_phminposuw128->kind = SK_FUNCTION;sym___builtin_ia32_phminposuw128->do_not_print = 1;
+sym___builtin_ia32_phminposuw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_phminposuw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxbd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxbd128");
+sym___builtin_ia32_pmovsxbd128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxbd128->do_not_print = 1;
+sym___builtin_ia32_pmovsxbd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxbd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxwd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxwd128");
+sym___builtin_ia32_pmovsxwd128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxwd128->do_not_print = 1;
+sym___builtin_ia32_pmovsxwd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxwd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxbq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxbq128");
+sym___builtin_ia32_pmovsxbq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxbq128->do_not_print = 1;
+sym___builtin_ia32_pmovsxbq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxbq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxdq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxdq128");
+sym___builtin_ia32_pmovsxdq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxdq128->do_not_print = 1;
+sym___builtin_ia32_pmovsxdq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxdq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxwq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxwq128");
+sym___builtin_ia32_pmovsxwq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxwq128->do_not_print = 1;
+sym___builtin_ia32_pmovsxwq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxwq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovsxbw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovsxbw128");
+sym___builtin_ia32_pmovsxbw128->kind = SK_FUNCTION;sym___builtin_ia32_pmovsxbw128->do_not_print = 1;
+sym___builtin_ia32_pmovsxbw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovsxbw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxbd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxbd128");
+sym___builtin_ia32_pmovzxbd128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxbd128->do_not_print = 1;
+sym___builtin_ia32_pmovzxbd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxbd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxwd128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxwd128");
+sym___builtin_ia32_pmovzxwd128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxwd128->do_not_print = 1;
+sym___builtin_ia32_pmovzxwd128->type_information = ({type_t* return_type = get_vector_type(get_signed_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxwd128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxbq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxbq128");
+sym___builtin_ia32_pmovzxbq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxbq128->do_not_print = 1;
+sym___builtin_ia32_pmovzxbq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxbq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxdq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxdq128");
+sym___builtin_ia32_pmovzxdq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxdq128->do_not_print = 1;
+sym___builtin_ia32_pmovzxdq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxdq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxwq128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxwq128");
+sym___builtin_ia32_pmovzxwq128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxwq128->do_not_print = 1;
+sym___builtin_ia32_pmovzxwq128->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_short_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxwq128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pmovzxbw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pmovzxbw128");
+sym___builtin_ia32_pmovzxbw128->kind = SK_FUNCTION;sym___builtin_ia32_pmovzxbw128->do_not_print = 1;
+sym___builtin_ia32_pmovzxbw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_char_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pmovzxbw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_packusdw128 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_packusdw128");
+sym___builtin_ia32_packusdw128->kind = SK_FUNCTION;sym___builtin_ia32_packusdw128->do_not_print = 1;
+sym___builtin_ia32_packusdw128->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_packusdw128->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_movntdqa = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_movntdqa");
+sym___builtin_ia32_movntdqa->kind = SK_FUNCTION;sym___builtin_ia32_movntdqa->do_not_print = 1;
+sym___builtin_ia32_movntdqa->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_vector_type(get_signed_long_long_int_type(), 16));
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_movntdqa->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_pcmpgtq = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pcmpgtq");
+sym___builtin_ia32_pcmpgtq->kind = SK_FUNCTION;sym___builtin_ia32_pcmpgtq->do_not_print = 1;
+sym___builtin_ia32_pcmpgtq->type_information = ({type_t* return_type = get_vector_type(get_signed_long_long_int_type(), 16);
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_pcmpgtq->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_crc32qi = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_crc32qi");
+sym___builtin_ia32_crc32qi->kind = SK_FUNCTION;sym___builtin_ia32_crc32qi->do_not_print = 1;
+sym___builtin_ia32_crc32qi->type_information = ({type_t* return_type = get_unsigned_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_int_type();
+p[1].type_info = get_unsigned_char_type();
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_crc32qi->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_crc32hi = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_crc32hi");
+sym___builtin_ia32_crc32hi->kind = SK_FUNCTION;sym___builtin_ia32_crc32hi->do_not_print = 1;
+sym___builtin_ia32_crc32hi->type_information = ({type_t* return_type = get_unsigned_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_int_type();
+p[1].type_info = get_unsigned_short_int_type();
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_crc32hi->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_crc32si = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_crc32si");
+sym___builtin_ia32_crc32si->kind = SK_FUNCTION;sym___builtin_ia32_crc32si->do_not_print = 1;
+sym___builtin_ia32_crc32si->type_information = ({type_t* return_type = get_unsigned_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_int_type();
+p[1].type_info = get_unsigned_int_type();
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_crc32si->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_crc32di = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_crc32di");
+sym___builtin_ia32_crc32di->kind = SK_FUNCTION;sym___builtin_ia32_crc32di->do_not_print = 1;
+sym___builtin_ia32_crc32di->type_information = ({type_t* return_type = get_unsigned_long_long_int_type();
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_long_long_int_type();
+p[1].type_info = get_unsigned_long_long_int_type();
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_crc32di->entity_specs.is_builtin = 1;
+}

@@ -51,7 +51,7 @@ namespace TL
             n.replace(vector_add);
         }
 
-       void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
+        void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
         {
             walk(n.get_lhs());
             walk(n.get_rhs());
@@ -67,7 +67,7 @@ namespace TL
             n.replace(vector_minus);
         }
 
-       void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
+        void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
         {
             walk(n.get_lhs());
             walk(n.get_rhs());
@@ -81,6 +81,87 @@ namespace TL
                         n.get_line());
 
             n.replace(vector_mul);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::Div& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorDiv vector_div = 
+                Nodecl::VectorDiv::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_div);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::Neg& n)
+        {
+            Nodecl::NodeclBase rhs = n.get_rhs();
+
+            if (rhs.is<Nodecl::IntegerLiteral>() || // -1
+                rhs.is<Nodecl::FloatingLiteral>())
+            {
+                const Nodecl::ConstantVectorPromotion vector_prom = 
+                    Nodecl::ConstantVectorPromotion::make(
+                            n.shallow_copy(), 
+                            n.get_type().get_vector_to(_vector_length),
+                            n.get_filename(), 
+                            n.get_line());
+
+                n.replace(vector_prom);
+            }
+            else // -a
+            {
+                walk(rhs);
+
+                const Nodecl::VectorNeg vector_neg = 
+                    Nodecl::VectorNeg::make(
+                            n.get_rhs().shallow_copy(), 
+                            n.get_type().get_vector_to(_vector_length),
+                            n.get_filename(), 
+                            n.get_line());
+
+                n.replace(vector_neg);
+            }
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::LowerThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorLowerThan vector_lt = 
+                Nodecl::VectorLowerThan::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_lt);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::ConditionalExpression& n)
+        {
+            walk(n.get_condition());
+            walk(n.get_true());
+            walk(n.get_false());
+
+            const Nodecl::VectorConditionalExpression vector_cond = 
+                Nodecl::VectorConditionalExpression::make(
+                        n.get_condition().shallow_copy(), 
+                        n.get_true().shallow_copy(), 
+                        n.get_false().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_cond);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Assignment& n)

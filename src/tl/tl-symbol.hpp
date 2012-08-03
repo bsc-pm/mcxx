@@ -106,6 +106,9 @@ namespace TL
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
 
+            //! Sets the unqualified name of the symbol
+            void set_name(std::string name);
+
             //! Returns a fully qualified name
             /*!
              * \remark This function will give bogus names to templates parameters. Use get_qualified_name(Scope)

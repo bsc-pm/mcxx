@@ -44,6 +44,12 @@ namespace TL
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
                 virtual void visit(const Nodecl::Mul& n);
+                virtual void visit(const Nodecl::Div& n);
+                virtual void visit(const Nodecl::Neg& n);
+
+                virtual void visit(const Nodecl::LowerThan& n);
+
+                virtual void visit(const Nodecl::ConditionalExpression& n);
                 virtual void visit(const Nodecl::Assignment& n);
                 virtual void visit(const Nodecl::Conversion& n);
                 virtual void visit(const Nodecl::ArraySubscript& n);
