@@ -8712,9 +8712,14 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         }
     }
 
-    // This new symbol contains the results of the query
-    entry_list_to_symbol_array(filtered_entry_list,
-            &new_entry->entity_specs.related_symbols, &new_entry->entity_specs.num_related_symbols);
+    if (is_template_id)
+    {
+        // We should store the candidates list because It will be used during
+        // the instantiation of the current class
+        entry_list_to_symbol_array(filtered_entry_list,
+                &new_entry->entity_specs.friend_candidates,
+                &new_entry->entity_specs.num_friend_candidates);
+    }
 
     *result_entry = new_entry;
     entry_list_free(filtered_entry_list);
