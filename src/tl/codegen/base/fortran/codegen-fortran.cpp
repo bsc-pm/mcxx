@@ -1230,6 +1230,16 @@ OPERATOR_TABLE
         walk(node.get_rhs());
     }
 
+    Nodecl::NodeclBase FortranBase::advance_parenthesized_expression(Nodecl::NodeclBase n)
+    {
+        while (n.is<Nodecl::ParenthesizedExpression>())
+        {
+            n = n.as<Nodecl::ParenthesizedExpression>().get_nest();
+        }
+
+        return n;
+    }
+
     void FortranBase::visit(const Nodecl::Reference& node)
     {
         TL::Type t = node.get_rhs().get_type();
@@ -1251,7 +1261,11 @@ OPERATOR_TABLE
         else
         {
             file << "LOC(";
-            walk(node.get_rhs());
+            Nodecl::NodeclBase n = node.get_rhs();
+
+            n = advance_parenthesized_expression(n);
+
+            walk(n);
             file << ")";
         }
     }
@@ -1341,6 +1355,7 @@ OPERATOR_TABLE
                     else
                     {
                         file << "LOC(";
+                        arg = advance_parenthesized_expression(arg);
                         walk(arg);
                         file << ")";
                     }
@@ -2345,6 +2360,7 @@ OPERATOR_TABLE
         {
             // We need a LOC here
             file << "LOC(";
+            nest = advance_parenthesized_expression(nest);
             walk(nest);
             file << ")";
         }

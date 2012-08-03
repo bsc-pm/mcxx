@@ -460,11 +460,23 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
     {
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
-        case AST_PARENTHESIZED_EXPRESSION :
             // GCC extensions
         case AST_GCC_EXTENSION_EXPR : 
             {
                 check_expression_impl_(ASTSon0(expression), decl_context, nodecl_output);
+                break;
+            }
+        case AST_PARENTHESIZED_EXPRESSION :
+            {
+                check_expression_impl_(ASTSon0(expression), decl_context, nodecl_output);
+                if (CURRENT_CONFIGURATION->preserve_parentheses
+                        && !nodecl_is_err_expr(*nodecl_output))
+                {
+                    *nodecl_output = nodecl_make_parenthesized_expression(
+                            *nodecl_output,
+                            nodecl_get_type(*nodecl_output),
+                            ASTFileName(expression), ASTLine(expression));
+                }
                 break;
             }
             // Primaries

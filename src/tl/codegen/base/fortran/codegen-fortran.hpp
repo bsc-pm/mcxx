@@ -347,6 +347,9 @@ namespace Codegen
 
             bool module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target);
             bool symbol_is_public_in_module(TL::Symbol current_module, TL::Symbol entry);
+
+
+            static Nodecl::NodeclBase advance_parenthesized_expression(Nodecl::NodeclBase n);
     };
 }
 
