@@ -75,18 +75,18 @@ namespace Analysis {
             // Create the node
             switch ( ntype )
             {
-                case GRAPH_NODE:
+                case GRAPH:
                 {
                     // Get the outer node of the new node
                     Node* outer_node = NULL;
                     bool most_outer_node = true;
-                    if(nodes_m.find(old_node->get_outer_node()) != nodes_m.end())
+                    if( nodes_m.find( old_node->get_outer_node( ) ) != nodes_m.end( ) )
                     {   // We are not in the most outer node of the ExtensibleGraph
-                        outer_node == nodes_m[old_node->get_outer_node()];
+                        outer_node == nodes_m[old_node->get_outer_node( )];
                         most_outer_node = false;
                     }
 
-                    int id = old_node->get_id() - 1;
+                    int id = old_node->get_id( ) - 1;
                     new_node = new Node(id, ntype, outer_node);
 
                     if(most_outer_node)
@@ -101,56 +101,37 @@ namespace Analysis {
                     new_node->set_graph_type(graph_type);
 
                     // Set additional info for pragma nodes
-                    if(graph_type == OMP_PRAGMA || graph_type == TASK)
+                    if( old_node->has_key( _OMP_INFO ) )
                     {
-                        ObjectList<Nodecl::NodeclBase> clauses = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_CLAUSES);
-                        ObjectList<Nodecl::NodeclBase> args = old_node->get_data<ObjectList<Nodecl::NodeclBase> >(_ARGS);
-
-                        new_node->set_data(_CLAUSES, clauses);
-                        new_node->set_data(_ARGS, args);
+                        new_node->set_data( _OMP_INFO, old_node->get_data<PCFGPragmaInfo>( _OMP_INFO ) );
                     }
 
                     break;
                 }
-                case BASIC_ENTRY_NODE:
-                case BASIC_EXIT_NODE:
-                case BASIC_LABELED_NODE:
-                case BASIC_GOTO_NODE:
-                case BASIC_BREAK_NODE:
-                case FLUSH_NODE:
-                case BARRIER_NODE:
-                case BASIC_PRAGMA_DIRECTIVE_NODE:
-                case BASIC_FUNCTION_CALL_NODE:
-                case UNCLASSIFIED_NODE:
-                case BASIC_NORMAL_NODE:
+                default:
                 {
                     int id = old_node->get_id() - 1;
                     new_node = new Node(id, ntype, nodes_m[old_node->get_outer_node()]);
                     break;
                 }
-                default:
-                {
-                    internal_error("Unexpected kind of node '%s' while copying a Graph",
-                                old_node->get_type_as_string().c_str());
-                }
             }
 
             // Set some special attributes of the node
-            if(ntype == BASIC_LABELED_NODE || ntype == BASIC_GOTO_NODE)
+            if( ntype == LABELED || ntype == GOTO )
             {   // We set this value here because before the node is not already created
-                new_node->set_label(old_node->get_label());
+                new_node->set_label( old_node->get_label( ) );
             }
-            else if(ntype == BASIC_ENTRY_NODE)
+            else if(ntype == ENTRY )
             {
                 Node* new_outer = nodes_m[old_node->get_outer_node()];
                 new_outer->set_graph_entry_node(new_node);
             }
-            else if(ntype == BASIC_EXIT_NODE)
+            else if(ntype == EXIT)
             {
                 Node* new_outer = nodes_m[old_node->get_outer_node()];
                 new_outer->set_graph_exit_node(new_node);
             }
-            else if(ntype == BASIC_LABELED_NODE || ntype == BASIC_NORMAL_NODE)
+            else if(ntype == LABELED || ntype == NORMAL)
             {
                 new_node->set_statements(old_node->get_statements());
             }
@@ -173,11 +154,11 @@ namespace Analysis {
             // Append the new node to the mapping structure
             nodes_m[old_node] = new_node;
 
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {   // Copy the inner nodes of the graph node
                 copy_and_map_nodes(old_node->get_graph_entry_node());
             }
@@ -199,8 +180,8 @@ namespace Analysis {
 
             switch(old_node->get_type())
             {
-                case BASIC_EXIT_NODE: return;
-                case GRAPH_NODE: connect_copied_nodes(old_node->get_graph_entry_node());
+                case EXIT: return;
+                case GRAPH: connect_copied_nodes(old_node->get_graph_entry_node());
                 default:
                 {
                     // Connect the node with its parents
@@ -244,7 +225,7 @@ namespace Analysis {
     Node* ExtensibleGraph::append_new_node_to_parent( ObjectList<Node*> parents, ObjectList<Nodecl::NodeclBase> nodecls,
                                                       Node_type ntype, Edge_type etype )
     {
-        if( ntype == GRAPH_NODE )
+        if( ntype == GRAPH )
         {
             internal_error( "A Graph node must be created with the function 'create_graph_node' "
                             "and connected by hand [new id = %d]", _utils->_nid );
@@ -259,7 +240,7 @@ namespace Analysis {
                 new_node->set_statements( nodecls );
                 connect_nodes( parents, new_node, etype );
             }
-            else if( nodecls.empty( ) && ntype != BASIC_NORMAL_NODE )
+            else if( nodecls.empty( ) && ntype != NORMAL )
             {
                 new_node = new Node( _utils->_nid, ntype, _utils->_outer_nodes.top( ) );
                 connect_nodes( parents, new_node, etype );
@@ -451,7 +432,7 @@ namespace Analysis {
     Node* ExtensibleGraph::create_graph_node( Node* outer_node, Nodecl::NodeclBase label,
                                               Graph_type graph_type, Nodecl::NodeclBase context )
     {
-        Node* result = new Node( _utils->_nid, GRAPH_NODE, outer_node );
+        Node* result = new Node( _utils->_nid, GRAPH, outer_node );
 
         Node* entry_node = result->get_graph_entry_node( );
         entry_node->set_outer_node( result );
@@ -460,7 +441,7 @@ namespace Analysis {
 
         result->set_graph_label( label );
         result->set_graph_type( graph_type );
-        if( graph_type == TASK )
+        if( graph_type == OMP_TASK )
         {
             result->set_task_context( context );
         }
@@ -472,19 +453,41 @@ namespace Analysis {
 
     void ExtensibleGraph::create_barrier_node( Node* outer_node )
     {
-        Node* flush_node = new Node( _utils->_nid, FLUSH_NODE, outer_node );
+        Node* flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
         connect_nodes( _utils->_last_nodes, flush_node );
-        Node* barrier_node = new Node( _utils->_nid, BARRIER_NODE, outer_node );
+        Node* barrier_node = new Node( _utils->_nid, OMP_BARRIER, outer_node );
         connect_nodes( flush_node, barrier_node );
-        flush_node = new Node( _utils->_nid, FLUSH_NODE, outer_node );
+        flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
         connect_nodes( barrier_node, flush_node );
-        _utils->_last_nodes.clear( );
-        _utils->_last_nodes.append( flush_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node );
+    }
+
+    void ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )
+    {
+        Node* flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
+
+        // Create the convenient clause with the flushed variables
+        if ( n.is_null( ) )
+        {   // Flushing all memory
+            PCFGClause current_clause( FLUSHED_VARS );
+            PCFGPragmaInfo current_info( current_clause );
+            flush_node->set_omp_node_info( current_info );
+        }
+        else
+        {   // Flushing a list of expressions
+            Nodecl::List flushed_vars = n.as<Nodecl::List>( );
+            PCFGClause current_clause( FLUSHED_VARS, flushed_vars );
+            PCFGPragmaInfo current_info( current_clause );
+            flush_node->set_omp_node_info( current_info );
+        }
+
+        connect_nodes( _utils->_last_nodes, flush_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node );
     }
 
     Node* ExtensibleGraph::create_unconnected_node( Nodecl::NodeclBase nodecl )
     {
-        Node* result = new Node( _utils->_nid, BASIC_NORMAL_NODE, _utils->_outer_nodes.top( ) );
+        Node* result = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ) );
         result->set_statements( ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
         return result;
     }
@@ -493,40 +496,36 @@ namespace Analysis {
     {
         // Delete the node from its parents
         ObjectList<Node*> entry_nodes = n->get_parents();
-        for(ObjectList<Node*>::iterator it = entry_nodes.begin();
-            it != entry_nodes.end();
-            ++it)
+        for( ObjectList<Node*>::iterator it = entry_nodes.begin(); it != entry_nodes.end(); ++it )
         {
-            (*it)->erase_exit_edge(n);
+            ( *it )->erase_exit_edge( n );
         }
 
         // Delete the node from its children
-        ObjectList<Node*> exit_nodes = n->get_children();
-        for(ObjectList<Node*>::iterator it = exit_nodes.begin();
-            it != exit_nodes.end();
-            ++it)
+        ObjectList<Node*> exit_nodes = n->get_children( );
+        for(ObjectList<Node*>::iterator it = exit_nodes.begin( ); it != exit_nodes.end( ); ++it )
         {
-            (*it)->erase_entry_edge(n);
+            ( *it )->erase_entry_edge( n );
         }
 
         // Delete the node
-        delete (n);
+        delete ( n );
     }
 
-    void ExtensibleGraph::dress_up_graph()
+    void ExtensibleGraph::dress_up_graph( )
     {
-        clear_unnecessary_nodes();
-        concat_sequential_nodes();
+        clear_unnecessary_nodes( );
+        concat_sequential_nodes( );
     }
 
-    void ExtensibleGraph::concat_sequential_nodes()
+    void ExtensibleGraph::concat_sequential_nodes( )
     {
-        Node* entry = _graph->get_graph_entry_node();
+        Node* entry = _graph->get_graph_entry_node( );
 
         ObjectList<Node*> seq_l;
-        concat_sequential_nodes_recursive(entry, seq_l);
+        concat_sequential_nodes_recursive( entry, seq_l );
 
-        clear_visits(entry);
+        clear_visits( entry );
     }
 
     void ExtensibleGraph::concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes)
@@ -537,25 +536,25 @@ namespace Analysis {
 
             Node_type ntype = actual_node->get_type();
 
-            if(ntype != BASIC_ENTRY_NODE)
+            if(ntype != ENTRY)
             {
-                if(ntype != BASIC_NORMAL_NODE || actual_node->get_exit_edges().size() > 1
+                if(ntype != NORMAL || actual_node->get_exit_edges().size() > 1
                     || actual_node->get_entry_edges().size() > 1)
                 {
                     concat_nodes(last_seq_nodes);
                     last_seq_nodes.clear();
 
-                    if(ntype == GRAPH_NODE)
+                    if(ntype == GRAPH)
                     {
                         concat_sequential_nodes_recursive(actual_node->get_graph_entry_node(), last_seq_nodes);
                     }
-                    else if(ntype == BASIC_EXIT_NODE)
+                    else if(ntype == EXIT)
                     {
                         return;
                     }
 
                 }
-                else if(ntype != BASIC_ENTRY_NODE)
+                else if(ntype != ENTRY)
                 {
                     last_seq_nodes.append(actual_node);
                 }
@@ -583,7 +582,7 @@ namespace Analysis {
                 {
                     stmt_l.append( ( *it )->get_statements( ) );
                 }
-                Node* new_node = new Node( _utils->_nid, BASIC_NORMAL_NODE, node_l[0]->get_outer_node( ), stmt_l );
+                Node* new_node = new Node( _utils->_nid, NORMAL, node_l[0]->get_outer_node( ), stmt_l );
                 new_node->set_visited( true );
                 Node* front = node_l.front( );
                 Node* back = node_l.back( );
@@ -609,71 +608,6 @@ namespace Analysis {
         {
             std::cerr << "warning: trying to concatenate an empty list of nodes" << std::endl;
         }
-    }
-
-    void ExtensibleGraph::recompute_identifiers( Node* actual_node )
-    {
-        if( !actual_node->is_visited( ) )
-        {
-            actual_node->set_visited( true );
-
-            actual_node->set_id( ++( _utils->_nid ) );
-
-            switch( actual_node->get_type( ) )
-            {
-                case BASIC_EXIT_NODE:   return;
-                case GRAPH_NODE:        recompute_identifiers( actual_node->get_graph_entry_node( ) );
-                case BASIC_BREAK_NODE:
-                case BASIC_ENTRY_NODE:
-                case FLUSH_NODE:
-                case BARRIER_NODE:
-                case UNCLASSIFIED_NODE:
-                case BASIC_PRAGMA_DIRECTIVE_NODE:
-                case BASIC_FUNCTION_CALL_NODE:
-                case BASIC_NORMAL_NODE:
-                case BASIC_LABELED_NODE:
-                {
-                    ObjectList<Node*> children = actual_node->get_children( );
-                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-                    {
-                        recompute_identifiers( *it );
-                    }
-                }
-            }
-        }
-    }
-
-    void ExtensibleGraph::replace_node(Node* old_node, Node* new_node)
-    {
-        if(!new_node->get_entry_edges().empty() || !new_node->get_exit_edges().empty())
-        {
-            internal_error("Trying to replace a node with a connected node. The new node must be unconnected", 0);
-        }
-
-        // Recompute identifiers to avoid duplicities
-        recompute_identifiers(new_node);
-        clear_visits(new_node);
-
-        // Reconnect the nodes properly
-        ObjectList<Node*> parents = old_node->get_parents();
-        ObjectList<Node*> children = old_node->get_children();
-
-        ObjectList<Edge_type> entry_edge_types = old_node->get_entry_edge_types();
-        ObjectList<std::string> entry_edge_labels = old_node->get_entry_edge_labels();
-        ObjectList<Edge_type> exit_edge_types = old_node->get_exit_edge_types();
-        ObjectList<std::string> exit_edge_labels = old_node->get_exit_edge_labels();
-
-        disconnect_nodes(parents, old_node);
-        disconnect_nodes(old_node, children);
-
-        connect_nodes(parents, new_node, entry_edge_types, entry_edge_labels);
-        connect_nodes(new_node, children, exit_edge_types, exit_edge_labels);
-
-        // Set some properties of the old node to the new node
-        new_node->set_outer_node(old_node->get_outer_node());
-
-        // Destroy the old node
-        delete(old_node);
     }
 
     void ExtensibleGraph::clear_unnecessary_nodes()
@@ -703,13 +637,13 @@ namespace Analysis {
             ObjectList<Edge*> entries = actual_node->get_entry_edges();
 
             Node_type ntype = actual_node->get_type();
-            if(entries.empty() && ntype != BASIC_ENTRY_NODE)
+            if(entries.empty() && ntype != ENTRY)
             {
                 clear_orphaned_cascade(actual_node);
             }
             else
             {
-                if(ntype == GRAPH_NODE)
+                if(ntype == GRAPH)
                 {   // Traverse the inner nodes
                     clear_orphaned_nodes_in_subgraph(actual_node->get_graph_exit_node());
                 }
@@ -731,14 +665,14 @@ namespace Analysis {
         {
             Node_type ntype = actual_node->get_type();
 
-            if(ntype == BASIC_ENTRY_NODE)
+            if(ntype == ENTRY)
             {
                 actual_node->set_visited(true);
                 return;
             }
 
             ObjectList<Node*> parents = actual_node->get_parents();
-            if(ntype == GRAPH_NODE)
+            if(ntype == GRAPH)
             {
                 actual_node->set_visited(true);
                 clear_orphaned_nodes_in_subgraph(actual_node->get_graph_exit_node());
@@ -795,7 +729,7 @@ namespace Analysis {
             actual->set_visited(true);
 
             Node_type ntype = actual->get_type();
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
@@ -812,7 +746,7 @@ namespace Analysis {
                     ObjectList<Edge*> entries = actual->get_entry_edges();
                     for(it = entries.begin(); it != entries.end(); ++it)
                     {
-                        if((*it)->get_data<Edge_type>(_EDGE_TYPE) != ALWAYS_EDGE)
+                        if((*it)->get_data<Edge_type>(_EDGE_TYPE) != ALWAYS)
                         {
                             non_always_entries = true;
                         }
@@ -820,15 +754,15 @@ namespace Analysis {
                     ObjectList<Edge*> exits = actual->get_exit_edges();
                     for(it = exits.begin(); it != exits.end(); ++it)
                     {
-                        if((*it)->get_data<Edge_type>(_EDGE_TYPE) != ALWAYS_EDGE)
+                        if((*it)->get_data<Edge_type>(_EDGE_TYPE) != ALWAYS)
                         {
                             non_always_exits = true;
                         }
                     }
                     if(non_always_entries && non_always_exits)
                     {
-                        internal_error("For an UNCLASSIFIED_NODE, or some entry is not an ALWAYS_EDGE or" \
-                                    " some exit is not an ALWAYS_EDGE, but both is not correct", 0);
+                        internal_error("For an UNCLASSIFIED_NODE, or some entry is not an ALWAYS or" \
+                                    " some exit is not an ALWAYS, but both is not correct", 0);
                     }
 
                     ObjectList<Node*> parents = actual->get_parents();
@@ -861,7 +795,7 @@ namespace Analysis {
                     }
                     else
                     {
-                        etypes = ObjectList<Edge_type>(n_connects, ALWAYS_EDGE);
+                        etypes = ObjectList<Edge_type>(n_connects, ALWAYS);
                         elabels = ObjectList<std::string>(n_connects, "");
                     }
 
@@ -871,7 +805,7 @@ namespace Analysis {
 
                     delete (actual);
                 }
-                else if(ntype == GRAPH_NODE)
+                else if(ntype == GRAPH)
                 {
                     erase_unclassified_nodes(actual->get_graph_entry_node());
                 }
@@ -894,14 +828,14 @@ namespace Analysis {
 
             ObjectList<Node*> children = node->get_children();
             Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
-            if(ntype == BASIC_BREAK_NODE)
+            if(ntype == BREAK)
             {
                 // Check correctness
                 if(children.size() != 1)
                 {
                     internal_error("A Break node should have just one child. Break node '%d' has '%d'", node->get_id(), children.size());
                 }
-                if(children[0]->get_data<Node_type>(_NODE_TYPE) != BASIC_EXIT_NODE)
+                if(children[0]->get_data<Node_type>(_NODE_TYPE) != EXIT)
                 {
                     internal_error("The child of a Break node should be an Exit node. Break node '%d' child is a '%s'",
                                 node->get_id(), children[0]->get_type_as_string().c_str());
@@ -919,7 +853,7 @@ namespace Analysis {
                 // Delete the node
                 delete (node);
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {
                 erase_break_nodes(node->get_data<Node*>(_ENTRY_NODE));
             }
@@ -974,11 +908,11 @@ namespace Analysis {
             node->set_visited(false);
 
             Node_type ntype = node->get_type();
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {
                 clear_visits(node->get_graph_entry_node());
             }
@@ -1003,11 +937,11 @@ namespace Analysis {
             node->set_visited_aux(false);
 
             Node_type ntype = node->get_type();
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {
                 clear_visits_aux(node->get_graph_entry_node());
             }
@@ -1028,7 +962,7 @@ namespace Analysis {
             node->set_visited(false);
 
             Node_type ntype = node->get_type();
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
@@ -1053,11 +987,11 @@ namespace Analysis {
             node->set_visited(false);
 
             Node_type ntype = node->get_type();
-            if(ntype == BASIC_ENTRY_NODE)
+            if(ntype == ENTRY)
             {
                 return;
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {
                 clear_visits_backwards(node->get_graph_exit_node());
             }
@@ -1077,7 +1011,7 @@ namespace Analysis {
             node->set_visited_aux(false);
 
             Node_type ntype = node->get_type();
-            if(ntype == BASIC_ENTRY_NODE)
+            if(ntype == ENTRY)
             {
                 return;
             }
@@ -1098,11 +1032,11 @@ namespace Analysis {
             current->set_visited(false);
 
             Node_type ntype = current->get_type();
-            if(ntype == BASIC_EXIT_NODE)
+            if(ntype == EXIT)
             {
                 return;
             }
-            else if(ntype == GRAPH_NODE)
+            else if(ntype == GRAPH)
             {
                 clear_visits(current->get_graph_entry_node());
             }
@@ -1189,16 +1123,17 @@ namespace Analysis {
     }
 
     //! This method returns the most outer node of a node before finding a loop node
-    static Node* advance_over_outer_nodes_until_loop(Node* node)
+    static Node* advance_over_outer_nodes_until_loop( Node* node )
     {
-        Node* outer = node->get_outer_node();
-        if(outer->get_graph_type() == LOOP)
+        Node* outer = node->get_outer_node( );
+        Graph_type outer_type = outer->get_graph_type( );
+        if( ( outer_type == LOOP_DOWHILE ) || ( outer_type == LOOP_FOR ) || ( outer_type == LOOP_WHILE ) )
         {
             return node;
         }
-        else if(outer != NULL)
+        else if( outer != NULL )
         {
-            return advance_over_outer_nodes_until_loop(outer);
+            return advance_over_outer_nodes_until_loop( outer );
         }
 
         return outer;

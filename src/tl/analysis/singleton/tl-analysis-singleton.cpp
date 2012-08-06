@@ -51,11 +51,16 @@ namespace Analysis {
     // Public destructor
     AnalysisSingleton::~AnalysisSingleton( )
     {
-        delete _analysis;
         _non_inlined_pcfgs.clear( );
         _non_inlined_states.clear( );
         _inlined_pcfgs.clear( );
         _inlined_states.clear( );
+    }
+
+    void AnalysisSingleton::parallel_control_flow_graph( )
+    {
+        RefPtr<Nodecl::NodeclBase> ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( _dto["nodecl"] );
+        parallel_control_flow_graph( *ast, false );
     }
 
     ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool inline_pcfg )
@@ -136,5 +141,9 @@ namespace Analysis {
 
     }
 
+    void AnalysisSingleton::print_pcfg( ExtensibleGraph* graph )
+    {
+        graph->print_graph_to_dot( );
+    }
 }
 }

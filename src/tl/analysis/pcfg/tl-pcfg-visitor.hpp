@@ -51,12 +51,6 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        // *** All these members are used while building of the graphs *** //
-
-        std::stack<Nodecl::NodeclBase> _context_s;
-
-        std::stack<Node*> _switch_cond_s;
-
         ObjectList<Symbol> _visited_functions;
 
 
@@ -171,9 +165,6 @@ namespace Analysis {
         template <typename T>
         Ret visit_function_call( const T& n );
 
-        template<typename T>
-        Ret visit_pragma_construct( const T& n );
-
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
 
@@ -218,9 +209,6 @@ namespace Analysis {
         // ******************************** Non-visiting methods ******************************** //
 
         ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
-
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( ObjectList<Nodecl::NodeclBase> functions );
-
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -318,6 +306,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Offset& n );
         Ret visit( const Nodecl::Offsetof& n );
         Ret visit( const Nodecl::OpenMP::Atomic& n );
+        Ret visit( const Nodecl::OpenMP::Auto& n );
         Ret visit( const Nodecl::OpenMP::BarrierAtEnd& n );
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
@@ -343,6 +332,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Reduction& n );
         Ret visit( const Nodecl::OpenMP::ReductionItem& n );
         Ret visit( const Nodecl::OpenMP::Schedule& n );
+        Ret visit( const Nodecl::OpenMP::Section& n );
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
@@ -358,13 +348,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
-        Ret visit( const Nodecl::PragmaClauseArg& n );
-        Ret visit( const Nodecl::PragmaContext& n );
-        Ret visit( const Nodecl::PragmaCustomClause& n );
-        Ret visit( const Nodecl::PragmaCustomDeclaration& n );
-        Ret visit( const Nodecl::PragmaCustomDirective& n );
-        Ret visit( const Nodecl::PragmaCustomLine& n );
-        Ret visit( const Nodecl::PragmaCustomStatement& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );

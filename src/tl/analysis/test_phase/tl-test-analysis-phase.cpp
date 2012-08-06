@@ -24,13 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-#include "cxx-utils.h"
-#include "tl-analysis-common.hpp"
-#include "tl-analysis-phase.hpp"
+#include "tl-test-analysis-phase.hpp"
 #include "tl-analysis-singleton.hpp"
-#include "tl-cfg-visitor.hpp"
-#include "tl-static-analysis.hpp"
+#include "tl-analysis-utils.hpp"
+#include "tl-pcfg-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -45,8 +42,17 @@ namespace Analysis {
         {
             AnalysisSingleton* analysis = AnalysisSingleton::get_analysis( dto );
 
+            // Test PCFG creation
+            if ( VERBOSE )
+                std::cerr << "Testing PCFG creation" << std::endl;
+            analysis->parallel_control_flow_graph( );
+
+            if ( VERBOSE )
+                std::cerr << "Printing PCFG to dot file" << std::endl;
+//             analysis->print_pcfg( );
+
             // Test constant propagation and constant folding
-            analysis->conditional_constant_propagation( );
+//             analysis->conditional_constant_propagation( );
 
 
 
@@ -72,6 +78,7 @@ namespace Analysis {
 //                     }
 //                 }
 //             }
+            analysis->~AnalysisSingleton( );
         }
 }
 }

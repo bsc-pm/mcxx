@@ -27,9 +27,9 @@
 
 #include "cxx-utils.h"
 #include "tl-analysis-utils.hpp"
-#include "tl-analysis-singleton.hpp"
-#include "tl-cfg-visitor.hpp"
+#include "tl-constants-analysis.hpp"
 #include "tl-constants-analysis-phase.hpp"
+#include "tl-pcfg-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -59,10 +59,16 @@ namespace Analysis {
             if ( VERBOSE )
                 std::cerr << std::endl << "Building one PCFG for each method in the program unit" << std::endl;
 
-            TopLevelVisitor tlv;
-            tlv.visit( ast );
+            Utils::TopLevelVisitor tlv;
+            tlv.walk_functions( main_func );
+
             ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
-            pcfgs = PCFGVisitor::parallel_control_flow_graph( functions, /* inline called functions' PCFG */ true );
+            for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
+            {
+                PCFGVisitor pcfg_visit( Utils::generate_hashed_name( *it ), it->retrieve_context( ),
+                                        /* inline called functions */ true );
+                pcfgs.append( pcfg_visit.parallel_control_flow_graph( *it ) );
+            }
 
             //!Apply Conditional Constant Propagation
             if ( VERBOSE )
@@ -79,7 +85,9 @@ namespace Analysis {
             if ( VERBOSE )
                 std::cerr << std::endl << "Building a unique PCFG for the program unit" << std::endl;
 
-            pcfgs = PCFGVisitor::parallel_control_flow_graph( main_func, /* inline called functions' PCFG */ true );
+            PCFGVisitor pcfg_visit( Utils::generate_hashed_name( main_func ), main_func.retrieve_context( ),
+                                                                 /* inline called functions */ true );
+            pcfgs.append( pcfg_visit.parallel_control_flow_graph( main_func ) );
 
             //!Apply Conditional Constant Propagation
             if ( VERBOSE )

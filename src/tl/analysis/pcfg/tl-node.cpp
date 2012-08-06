@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -34,328 +34,307 @@
 
 namespace TL {
 namespace Analysis {
-    
-    Node::Node()
-        : _id(-1), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
-    {
-        set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
-    }
-    
-    Node::Node(int& id, Node_type ntype, Node* outer_node)
-        : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
-    {
-        set_data(_NODE_TYPE, ntype);
-        
-        if (outer_node != NULL)
-        {
-            set_data(_OUTER_NODE, outer_node);
-        }
 
-        if (ntype == GRAPH_NODE)
+    Node::Node( )
+        : _id( -1 ), _entry_edges( ), _exit_edges( ),
+          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+    {
+        set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
+    }
+
+    Node::Node( int& id, Node_type ntype, Node* outer_node )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ),
+          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+    {
+        set_data( _NODE_TYPE, ntype );
+        set_data( _OUTER_NODE, outer_node );
+
+        if ( ntype == GRAPH )
         {
-            set_data(_ENTRY_NODE, new Node(id, BASIC_ENTRY_NODE, NULL));
-            int a = -2; set_data(_EXIT_NODE, new Node(a, BASIC_EXIT_NODE, NULL));
+            set_data( _ENTRY_NODE, new Node( id, ENTRY, NULL ) );
+            int a = -2; set_data( _EXIT_NODE, new Node( a, EXIT, NULL ) );
         }
     }
-    
-    Node::Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
-        : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
-    {        
-        set_data(_NODE_TYPE, type);
-        
-        if (outer_node != NULL)
-        {    
-            set_data(_OUTER_NODE, outer_node);
-        }
-        
-        set_data(_NODE_STMTS, nodecls);
+
+    Node::Node( int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ),
+          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+    {
+        set_data( _NODE_TYPE, type );
+        set_data( _OUTER_NODE, outer_node );
+
+        set_data( _NODE_STMTS, nodecls );
     }
-    
-    Node::Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
-        : _id(++id), _entry_edges(), _exit_edges(), _visited(false), _visited_aux(false), _has_deps_computed(false)
-    {      
-        set_data(_NODE_TYPE, type);
-        
-        if (outer_node != NULL)
-        {    
-            set_data(_OUTER_NODE, outer_node);
-        }
-        
-        set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1,nodecl));
+
+    Node::Node( int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ),
+          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+    {
+        set_data( _NODE_TYPE, type );
+        set_data( _OUTER_NODE, outer_node );
+
+        set_data( _NODE_STMTS, ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
     }
-    
+
     bool Node::operator==(const Node& node) const
     {
-        return (_id == node._id);
+        return ( _id == node._id );
     }
-    
-    void Node::erase_entry_edge(Node* source)
+
+    void Node::erase_entry_edge( Node* source )
     {
         ObjectList<Edge*>::iterator it;
-        for (it = _entry_edges.begin(); 
-                it != _entry_edges.end();
-                ++it)
+        for ( it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
-            if ((*it)->get_source() == source)
+            if ( ( *it )->get_source( ) == source )
             {
-                _entry_edges.erase(it);
+                _entry_edges.erase( it );
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if (it == _entry_edges.end())
+        if ( it == _entry_edges.end( ) )
         {
             std::cerr << " ** Node.cpp :: erase_entry_edge() ** "
-                    << "Trying to delete an non-existent edge " 
-                    << "between nodes '" << source->_id << "' and '" << _id << "'" << std::endl;
+                      << "Trying to delete an non-existent edge "
+                      << "between nodes '" << source->_id << "' and '" << _id << "'" << std::endl;
         }
     }
-    
-    void Node::erase_exit_edge(Node* target)
+
+    void Node::erase_exit_edge( Node* target )
     {
         ObjectList<Edge*>::iterator it;
-        for (it = _exit_edges.begin(); 
-                it != _exit_edges.end();
-                ++it)
+        for (it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it)
         {
-            if ((*it)->get_target() == target)
+            if ( ( *it )->get_target( ) == target )
             {
                 _exit_edges.erase(it);
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if (it == _exit_edges.end())
+        if ( it == _exit_edges.end( ) )
         {
             std::cerr << " ** Node.cpp :: exit_entry_edge() ** "
-                    << "Trying to delete an non-existent edge " 
-                    << "between nodes '" << _id << "' and '" << target->_id << "'" << std::endl;  
-    
+                      << "Trying to delete an non-existent edge "
+                      << "between nodes '" << _id << "' and '" << target->_id << "'" << std::endl;
+
         }
     }
-    
-    int Node::get_id() const
+
+    int Node::get_id( ) const
     {
         return _id;
     }
-    
-    void Node::set_id(int id)
+
+    void Node::set_id( int id )
     {
         _id = id;
     }
-    
-    bool Node::is_visited() const
+
+    bool Node::is_visited( ) const
     {
         return _visited;
     }
 
-    bool Node::is_visited_aux() const
+    bool Node::is_visited_aux( ) const
     {
         return _visited_aux;
     }
 
-    void Node::set_visited(bool visited)
+    void Node::set_visited( bool visited )
     {
         _visited = visited;
     }
 
-    void Node::set_visited_aux(bool visited)
+    void Node::set_visited_aux( bool visited )
     {
         _visited_aux = visited;
     }
-    
-    bool Node::has_deps_computed()
+
+    bool Node::has_deps_computed( )
     {
         return _has_deps_computed;
     }
-    
-    void Node::set_deps_computed()
+
+    void Node::set_deps_computed( )
     {
         _has_deps_computed = true;
     }
-    
-    bool Node::is_empty_node()
+
+    bool Node::is_empty_node( )
     {
-        return (_id==-1 && get_data<Node_type>(_NODE_TYPE) == UNCLASSIFIED_NODE);
+        return ( _id==-1 && get_data<Node_type>( _NODE_TYPE ) == UNCLASSIFIED_NODE );
     }
-    
-    ObjectList<Edge*> Node::get_entry_edges() const
+
+    ObjectList<Edge*> Node::get_entry_edges( ) const
     {
         return _entry_edges;
     }
-    
-    void Node::set_entry_edge(Edge *entry_edge)
+
+    void Node::set_entry_edge( Edge *entry_edge )
     {
-        _entry_edges.append(entry_edge);
+        _entry_edges.append( entry_edge );
     }
-    
-    ObjectList<Edge_type> Node::get_entry_edge_types()
+
+    ObjectList<Edge_type> Node::get_entry_edge_types( )
     {
         ObjectList<Edge_type> result;
-        
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin();
-                it != _entry_edges.end();
-                ++it)
+
+        for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
-                result.append((*it)->get_type());
+            result.append( ( *it )->get_type( ) );
         }
-        
+
         return result;
     }
-    
-    ObjectList<std::string> Node::get_entry_edge_labels()
+
+    ObjectList<std::string> Node::get_entry_edge_labels( )
     {
         ObjectList<std::string> result;
-        
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin();
-                it != _entry_edges.end();
-                ++it)
+
+        for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
             result.append((*it)->get_label());
         }
-        
+
         return result;
     }
-    
-    ObjectList<Node*> Node::get_parents()
+
+    ObjectList<Node*> Node::get_parents( )
     {
         ObjectList<Node*> result;
-        
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin();
-                it != _entry_edges.end();
-                ++it)
+
+        for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it)
         {
-            result.append((*it)->get_source());
+            result.append( ( *it )->get_source( ) );
         }
-        
+
         return result;
     }
-    
-    ObjectList<Edge*> Node::get_exit_edges() const
+
+    ObjectList<Edge*> Node::get_exit_edges( ) const
     {
         return _exit_edges;
     }
-    
-    void Node::set_exit_edge(Edge *exit_edge)
+
+    void Node::set_exit_edge( Edge *exit_edge )
     {
-        _exit_edges.append(exit_edge);
+        _exit_edges.append( exit_edge );
     }
-    
-    ObjectList<Edge_type> Node::get_exit_edge_types()
+
+    ObjectList<Edge_type> Node::get_exit_edge_types( )
     {
         ObjectList<Edge_type> result;
-        
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin();
-                it != _exit_edges.end();
-                ++it)
+
+        for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            result.append((*it)->get_type());
+            result.append( ( *it )->get_type( ) );
         }
-        
+
         return result;
     }
-    
+
     ObjectList<std::string> Node::get_exit_edge_labels()
     {
         ObjectList<std::string> result;
-        
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin();
-                it != _exit_edges.end();
-                ++it)
+
+        for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            result.append((*it)->get_label());
+            result.append( ( *it )->get_label( ) );
         }
-        
+
         return result;
     }
-    
+
     Edge* Node::get_exit_edge(Node* target)
     {
         Edge* result = NULL;
-        int id = target->get_id();
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin();
-            it != _exit_edges.end();
-            ++it)
+        int id = target->get_id( );
+        for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if ((*it)->get_target()->get_id() == id)
-            { 
+            if ( ( *it )->get_target( )->get_id( ) == id)
+            {
                 result = *it;
                 break;
             }
         }
         return result;
     }
-    
+
     ObjectList<Node*> Node::get_children()
     {
         ObjectList<Node*> result;
-        
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin();
-                it != _exit_edges.end();
-                ++it)
+        for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            result.append((*it)->get_target());
+            result.append( ( *it )->get_target( ) );
         }
-        
         return result;
     }
 
     bool Node::is_basic_node()
     {
-        return ( get_type( ) != GRAPH_NODE );
+        return ( get_type( ) != GRAPH );
     }
 
     bool Node::is_graph_node()
     {
-        return ( get_type( ) == GRAPH_NODE );
+        return ( get_type( ) == GRAPH );
     }
-    
+
     bool Node::is_entry_node()
     {
-        return ( get_type( ) == BASIC_ENTRY_NODE );
+        return ( get_type( ) == ENTRY );
     }
-    
+
     bool Node::is_exit_node()
     {
-        return ( get_type( ) == BASIC_EXIT_NODE );
+        return ( get_type( ) == EXIT );
     }
-    
+
+    bool Node::is_graph_entry_node( Node* graph )
+    {
+        return ( _id == graph->get_graph_entry_node( )->get_id( ) );
+    }
+
     bool Node::is_graph_exit_node( Node* graph )
     {
         return ( _id == graph->get_graph_exit_node( )->get_id( ) );
     }
-    
+
     bool Node::is_loop_node( )
     {
-        return ( ( get_type( ) == GRAPH_NODE ) && ( get_graph_type( ) == LOOP ) );
+        return ( ( get_type( ) == GRAPH )
+                 && ( ( get_graph_type( ) == LOOP_DOWHILE )
+                        || ( get_graph_type( ) == LOOP_FOR )
+                        || ( get_graph_type( ) == LOOP_WHILE ) ) );
     }
-    
+
     bool Node::is_loop_stride( Node* loop )
     {
-        return ( ( get_type( ) == GRAPH_NODE ) && ( get_graph_type( ) == LOOP ) 
-                && ( loop->get_stride_node()->get_id( ) == _id ) );
+        return ( loop->get_stride_node()->get_id( ) == _id );
     }
-    
+
     bool Node::is_normal_node( )
     {
-        return ( get_type( ) == BASIC_NORMAL_NODE );
+        return ( get_type( ) == NORMAL );
     }
-    
+
     bool Node::is_labeled_node( )
     {
-        return ( get_type( ) == BASIC_LABELED_NODE );
+        return ( get_type( ) == LABELED );
     }
-    
+
     bool Node::is_function_call_node( )
     {
-        return ( get_type( ) == BASIC_FUNCTION_CALL_NODE );
+        return ( get_type( ) == FUNCTION_CALL );
     }
-    
+
     bool Node::is_task_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == TASK ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
     }
-    
+
     bool Node::is_connected()
     {
         return (!_entry_edges.empty() || !_exit_edges.empty());
@@ -365,16 +344,16 @@ namespace Analysis {
     {
         bool result = false;
         int id = n->_id;
-        
+
         for (ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
             if ((*it)->get_target()->_id == id)
-            {    
+            {
                 result = true;
                 break;
             }
         }
-        
+
         return result;
     }
 
@@ -382,16 +361,16 @@ namespace Analysis {
     {
         bool result = false;
         int id = n->_id;
-        
+
         for (ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
         {
             if ((*it)->get_source()->_id == id)
-            {    
+            {
                 result = true;
                 break;
             }
         }
-        
+
         return result;
     }
 
@@ -400,76 +379,14 @@ namespace Analysis {
         return ((_id == n->_id) && (_entry_edges == n->_entry_edges) && (_exit_edges == n->_exit_edges));
     }
 
-    ObjectList<Node*> Node::get_inner_nodes_in_level()
-    {
-        if (get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
-        {
-            return ObjectList<Node*>();
-        }
-        else
-        {
-            ObjectList<Node*> node_l;
-            get_inner_nodes_rec(node_l);
-            
-            return node_l;
-        }
-    }
-
-    void Node::get_inner_nodes_rec(ObjectList<Node*>& node_l)
-    {
-        if (!_visited)
-        {
-            set_visited(true);
-            
-            Node* actual = this;
-            Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-            if (ntype == GRAPH_NODE)
-            {
-                // Get the nodes inside the graph
-//                 Node* entry = get_data<Node*>(_ENTRY_NODE);
-//                 entry->set_visited(true);
-//                 actual = entry;
-                node_l.insert(this);
-            }
-            else if (ntype == BASIC_EXIT_NODE)
-            {
-                return;
-            }
-            else if ((ntype == BASIC_NORMAL_NODE) || (ntype == BASIC_LABELED_NODE) || (ntype == BASIC_FUNCTION_CALL_NODE))
-            {
-                // Include the node into the list
-                node_l.insert(this);
-            }
-            else if ((ntype == BASIC_GOTO_NODE) || (ntype == BASIC_BREAK_NODE) 
-                    || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) 
-                    || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE) || (ntype == TASKWAIT_NODE))
-            {   // do nothing
-            }
-            else
-            {
-                internal_error("Unexpected kind of node '%s'", get_type_as_string().c_str());
-            }
-            
-            ObjectList<Node*> next_nodes = actual->get_children();
-            for (ObjectList<Node*>::iterator it = next_nodes.begin();
-                it != next_nodes.end();
-                ++it)
-            {
-                (*it)->get_inner_nodes_rec(node_l);
-            }            
-        }
-        
-        return;
-    }
-
     Symbol Node::get_function_node_symbol()
     {
-    
-        if (get_data<Node_type>(_NODE_TYPE) != BASIC_FUNCTION_CALL_NODE)
+
+        if (get_data<Node_type>(_NODE_TYPE) != FUNCTION_CALL)
         {
             return Symbol();
         }
-        
+
         Nodecl::NodeclBase stmt = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
         Symbol s;
         if (stmt.is<Nodecl::FunctionCall>())
@@ -482,10 +399,10 @@ namespace Analysis {
             Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
             s = f.get_called().get_symbol();
         }
-        
+
         return s;
     }
-    
+
     Node_type Node::get_type()
     {
         if (has_key(_NODE_TYPE))
@@ -494,54 +411,40 @@ namespace Analysis {
             return UNCLASSIFIED_NODE;
     }
 
-    std::string Node::get_type_as_string()
+    std::string Node::get_type_as_string( )
     {
         std::string type = "";
-        if (has_key(_NODE_TYPE))
+        if ( has_key( _NODE_TYPE ) )
         {
-            Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-            switch(ntype)
+            Node_type ntype = get_data<Node_type>( _NODE_TYPE );
+            switch( ntype )
             {
-                case BASIC_ENTRY_NODE:              type = "BASIC_ENTRY_NODE";
-                break;
-                case BASIC_EXIT_NODE:               type = "BASIC_EXIT_NODE";
-                break;
-                case BASIC_NORMAL_NODE:             type = "BASIC_NORMAL_NODE";
-                break;
-                case BASIC_LABELED_NODE:            type = "BASIC_LABELED_NODE";
-                break;
-                case BASIC_BREAK_NODE:              type = "BASIC_BREAK_NODE";
-                break;
-                case BASIC_CONTINUE_NODE:           type = "BASIC_CONTINUE_NODE";
-                break;
-                case BASIC_GOTO_NODE:               type = "BASIC_GOTO_NODE";
-                break;
-                case BASIC_FUNCTION_CALL_NODE:      type = "BASIC_FUNCTION_CALL_NODE";
-                break;
-                case BASIC_PRAGMA_DIRECTIVE_NODE:   type = "BASIC_PRAGMA_DIRECTIVE_NODE";
-                break;
-                case FLUSH_NODE:                    type = "FLUSH_NODE";
-                break;
-                case BARRIER_NODE:                  type = "BARRIER_NODE";
-                break;
-                case TASKWAIT_NODE:                 type = "TASKWAIT_NODE";
-                break;
-                case GRAPH_NODE:                    type = "GRAPH_NODE";
-                break;
-                case UNCLASSIFIED_NODE:             type = "UNCLASSIFIED_NODE";
-                break;
+                case BREAK:              type = "BREAK";            break;
+                case CONTINUE:           type = "CONTINUE";         break;
+                case ENTRY:              type = "ENTRY";            break;
+                case EXIT:               type = "EXIT";             break;
+                case FUNCTION_CALL:      type = "FUNCTION_CALL";    break;
+                case GOTO:               type = "GOTO";             break;
+                case LABELED:            type = "LABELED";          break;
+                case NORMAL:             type = "NORMAL";           break;
+                case OMP_BARRIER:        type = "OMP_BARRIER";      break;
+                case OMP_FLUSH:          type = "OMP_FLUSH";        break;
+                case OMP_TASKWAIT:       type = "OMP_TASKWAIT";     break;
+                case OMP_TASKYIELD:      type = "OMP_TASKYIELD";    break;
+                case GRAPH:              type = "GRAPH";            break;
+                case UNCLASSIFIED_NODE:  type = "UNCLASSIFIED";     break;
                 default: internal_error("Unexpected type of node '%s'", ntype);
             };
         }
         else
         {
-            internal_error("The node '%s' has no type assigned, this operation is not allowed", 0);
+            internal_error( "The node '%s' has no type assigned, this operation is not allowed", 0 );
         }
-        
+
         return type;
     }
 
-    std::string Node::get_graph_type_as_string()
+    std::string Node::get_graph_type_as_string( )
     {
         std::string graph_type = "";
         if (has_key(_GRAPH_TYPE))
@@ -549,20 +452,20 @@ namespace Analysis {
             Graph_type ntype = get_data<Graph_type>(_GRAPH_TYPE);
             switch(ntype)
             {
-                case SPLIT_STMT:        graph_type = "SPLIT_STMT";
-                break;
-                case FUNC_CALL:         graph_type = "FUNC_CALL";
-                break;
-                case COND_EXPR:         graph_type = "COND_EXPR";
-                break;
-                case LOOP:              graph_type = "LOOP";
-                break;
-                case OMP_PRAGMA:        graph_type = "OMP_PRAGMA";
-                break;
-                case TASK:              graph_type = "TASK";
-                break;
-                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";
-                break;
+                case COND_EXPR:         graph_type = "COND_EXPR";           break;
+                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
+                case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
+                case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
+                case LOOP_FOR:          graph_type = "LOOP_FOR";            break;
+                case LOOP_WHILE:        graph_type = "LOOP_WHILE";          break;
+                case OMP_ATOMIC:        graph_type = "OMP_ATOMIC";          break;
+                case OMP_CRITICAL:      graph_type = "OMP_CRITICAL";        break;
+                case OMP_LOOP:          graph_type = "OMP_LOOP";            break;
+                case OMP_PARALLEL:      graph_type = "OMP_PARALLEL";        break;
+                case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
+                case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
+                case OMP_TASK:          graph_type = "OMP_TASK";            break;
+                case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
                 default: internal_error("Unexpected type of node '%s'", ntype);
             };
         }
@@ -570,68 +473,68 @@ namespace Analysis {
         {
             internal_error("The node '%s' has no graph type assigned, this operation is not allowed", 0);
         }
-        
-        return graph_type;  
+
+        return graph_type;
     }
 
     Node* Node::get_graph_entry_node()
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             return get_data<Node*>(_ENTRY_NODE);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the entry node to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while getting the entry node to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
 
     void Node::set_graph_entry_node(Node* node)
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) != BASIC_ENTRY_NODE)
+        if (node->get_data<Node_type>(_NODE_TYPE) != ENTRY)
         {
-            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. BASIC_ENTRY_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. ENTRY expected.",
                         get_type_as_string().c_str(), _id);
         }
-        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             return set_data(_ENTRY_NODE, node);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
 
     Node* Node::get_graph_exit_node()
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             return get_data<Node*>(_EXIT_NODE);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the exit node to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while getting the exit node to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
 
     void Node::set_graph_exit_node(Node* node)
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) != BASIC_EXIT_NODE)
+        if (node->get_data<Node_type>(_NODE_TYPE) != EXIT)
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. BASIC_EXIT_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. EXIT expected.",
                         get_type_as_string().c_str(), _id);
         }
-        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             return set_data(_EXIT_NODE, node);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
@@ -645,23 +548,23 @@ namespace Analysis {
         }
         return outer_node;
     }
-    
+
     void Node::set_outer_node(Node* node)
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-        {    
+        if (node->get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        {
             set_data(_OUTER_NODE, node);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
                         node->get_type_as_string().c_str(), _id);
         }
     }
 
     Scope Node::get_scope()
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             if (has_key(_SCOPE))
             {
@@ -674,24 +577,24 @@ namespace Analysis {
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
-        } 
+        }
     }
-    
+
     void Node::set_scope(Scope sc)
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
         {
             set_data(_SCOPE, sc);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
-        } 
+        }
     }
-    
+
     ObjectList<Nodecl::NodeclBase> Node::get_statements()
     {
         ObjectList<Nodecl::NodeclBase> stmts;
@@ -705,125 +608,126 @@ namespace Analysis {
     void Node::set_statements(ObjectList<Nodecl::NodeclBase> stmts)
     {
         Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_FUNCTION_CALL_NODE || ntype == BASIC_LABELED_NODE
-            || ntype == BASIC_BREAK_NODE || ntype == BASIC_CONTINUE_NODE || ntype == BASIC_GOTO_NODE)
+        if (ntype == NORMAL || ntype == FUNCTION_CALL || ntype == LABELED
+            || ntype == BREAK || ntype == CONTINUE || ntype == GOTO)
         {
             set_data(_NODE_STMTS, stmts);
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the statements to node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while setting the statements to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
 
-    Nodecl::NodeclBase Node::get_graph_label(Nodecl::NodeclBase n)
+    Nodecl::NodeclBase Node::get_graph_label( Nodecl::NodeclBase n )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Nodecl::NodeclBase res = Nodecl::NodeclBase::null();
-            if (has_key(_NODE_LABEL))
+            Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
+            if ( has_key( _NODE_LABEL ) )
             {
-                res = get_data<Nodecl::NodeclBase>(_NODE_LABEL, n);
+                res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, n );
             }
             return res;
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the label to node '%s'. GRAPH_NODE expected.",
-                        get_type_as_string().c_str(), _id);            
-        }
-    }
-    
-    void Node::set_graph_label(Nodecl::NodeclBase n)
-    {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-        {
-            set_data(_NODE_LABEL, n);
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting the label to node '%s'. GRAPH_NODE expected.",
-                        get_type_as_string().c_str(), _id);            
+            internal_error( "Unexpected node type '%s' while getting the label to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Graph_type Node::get_graph_type()
+    void Node::set_graph_label( Nodecl::NodeclBase n )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            return get_data<Graph_type>(_GRAPH_TYPE);
+            set_data( _NODE_LABEL, n );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting graph type to node '%s'. GRAPH_NODE expected.",
-                        get_type_as_string().c_str(), _id);            
-        }
-    }
-        
-    void Node::set_graph_type(Graph_type graph_type)
-    {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
-        {
-            set_data(_GRAPH_TYPE, graph_type);
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting graph type to node '%s'. GRAPH_NODE expected.",
-                        get_type_as_string().c_str(), _id);            
+            internal_error( "Unexpected node type '%s' while setting the label to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Loop_type Node::get_loop_node_type()
+    Graph_type Node::get_graph_type( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-            {
-                return get_data<Loop_type>(_LOOP_TYPE);
-            }
-            else
-            {
-                internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. LOOP expected.",
-                            get_type_as_string().c_str(), _id);
-            }
+            return get_data<Graph_type>( _GRAPH_TYPE );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the loop type of the graph node '%s'. GRAPH_NODE expected.",
+            internal_error("Unexpected node type '%s' while getting graph type to node '%s'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
-        
-    void Node::set_loop_node_type(Loop_type loop_type)
+
+    void Node::set_graph_type( Graph_type graph_type )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-            {
-                set_data(_LOOP_TYPE, loop_type);
-            }
-            else
-            {
-                internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. LOOP expected.",
-                get_type_as_string().c_str(), _id);
-            }
+            set_data( _GRAPH_TYPE, graph_type );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the loop type of the graph node '%s'. GRAPH_NODE expected.",
-            get_type_as_string().c_str(), _id);
-        }        
+            internal_error( "Unexpected node type '%s' while setting graph type to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
     }
-        
-        
+
+    static bool node_is_claused_graph_omp( Graph_type type )
+    {
+        return ( type == OMP_ATOMIC || OMP_CRITICAL
+                 || type == OMP_LOOP || type == OMP_PARALLEL  || OMP_SECTIONS
+                 || type == OMP_SINGLE || type == OMP_TASK );
+    }
+
+    PCFGPragmaInfo Node::get_omp_node_info( )
+    {
+        if ( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+                 && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+              || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        {
+                if ( has_key( _OMP_INFO ) )
+                    return get_data<PCFGPragmaInfo>( _OMP_INFO );
+                else
+                {
+                    PCFGPragmaInfo p;
+                    return p;
+                }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the OmpSs. OMP node expected.",
+                           get_type_as_string( ).c_str( ) );
+        }
+    }
+
+    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
+    {
+        if ( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+                 && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+              || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        {
+            set_data<PCFGPragmaInfo>( _OMP_INFO, pragma );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the OmpSs node info. OMP_PRAGMA node expected",
+                            get_type_as_string( ).c_str( ) );
+        }
+    }
+
+
 
     // ****************************************************************************** //
     // **************** Getters and setters for constants analysis ****************** //
-        
+
     ObjectList<LatticeCellValue> Node::get_lattice_val( )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH_NODE )
+        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
         {
             ObjectList<LatticeCellValue> result;
             if ( has_key( _LATTICE_VALS ) )
@@ -834,61 +738,64 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Requesting Lattice Cell Values list in a GRAPH_NODE. Simple node expected.",
+            internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
-        
+
     void Node::set_lattice_val( LatticeCellValue lcv )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH_NODE )
+        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
         {
             ObjectList<LatticeCellValue> result;
             if ( has_key( _LATTICE_VALS ) )
             {
                 result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
             }
-            
+
             result.append( lcv );
             set_data( _LATTICE_VALS, result );
         }
         else
         {
-            internal_error( "Requesting Lattice Cell Values list in a GRAPH_NODE. Simple node expected.",
+            internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
-        
+
     // ************** END getters and setters for constants analysis **************** //
     // ****************************************************************************** //
-        
-        
-        
-    
-    IV_map Node::get_induction_variables()
+
+
+    static bool node_is_loop( Graph_type type )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        return ( type == LOOP_DOWHILE  || type == LOOP_FOR || type == LOOP_WHILE );
+    }
+
+    IV_map Node::get_induction_variables( )
+    {
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            if (get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+            if ( node_is_loop( get_data<Graph_type>( _GRAPH_TYPE ) ) )
             {
                 IV_map ivs;
-                if (has_key(_INDUCTION_VARS))
-                    ivs = get_data<IV_map>(_INDUCTION_VARS);
+                if ( has_key( _INDUCTION_VARS ))
+                    ivs = get_data<IV_map>( _INDUCTION_VARS );
                 return ivs;
             }
             else
             {
-                internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. LOOP expected.",
-                            get_type_as_string().c_str(), _id);
+                internal_error( "Unexpected node type '%s' while getting the induction variables of the node '%s'. LOOP expected.",
+                                get_type_as_string( ).c_str( ), _id );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the induction variables of the node '%s'. GRAPH_NODE expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while getting the induction variables of the node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
-    
+
     void Node::set_induction_variable(Nodecl::NodeclBase iv, InductionVariableData iv_data)
     {
         if ( is_loop_node( ) )
@@ -901,14 +808,14 @@ namespace Analysis {
             if ( ivs.find( iv ) != ivs.end( ) )
             {
                 nodecl_t iv_internal = iv.get_internal_nodecl( );
-                internal_error( "Trying to insert the Induction Variable '%s' in a loop that already contains this variable", 
+                internal_error( "Trying to insert the Induction Variable '%s' in a loop that already contains this variable",
                                 codegen_to_str(iv_internal, nodecl_retrieve_context( iv_internal ) ) );
             }
             else
             {
                 ivs.insert ( std::pair<Nodecl::NodeclBase, InductionVariableData>( iv, iv_data ) );
             }
-            
+
             set_data( _INDUCTION_VARS, ivs );
         }
         else
@@ -917,95 +824,95 @@ namespace Analysis {
                            get_type_as_string().c_str(), _id);
         }
     }
-    
-    
-    
+
+
+
     Symbol Node::get_label()
     {
-        Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if (ntype == BASIC_GOTO_NODE || ntype == BASIC_LABELED_NODE)
+        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
+        if ( ntype == GOTO || ntype == LABELED )
         {
-            return get_data<Symbol>(_NODE_LABEL);
+            return get_data<Symbol>( _NODE_LABEL );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the label to node '%s'. GOTO or LABELED NODES expected.",
-                        get_type_as_string().c_str(), _id);            
-        }  
-    }
-        
-    void Node::set_label(Symbol s)
-    {
-        Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if (ntype == BASIC_GOTO_NODE || ntype == BASIC_LABELED_NODE)
-        {
-            set_data(_NODE_LABEL, s);
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting the label to node '%s'. GOTO or LABELED NODES expected.",
-                        get_type_as_string().c_str(), _id);            
+            internal_error( "Unexpected node type '%s' while getting the label to node '%s'. GOTO or LABELED NODES expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Nodecl::NodeclBase Node::get_task_context()
+    void Node::set_label( Symbol s )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
+        if ( ntype == GOTO || ntype == LABELED )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == TASK)
+            set_data( _NODE_LABEL, s );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the label to node '%s'. GOTO or LABELED NODES expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    Nodecl::NodeclBase Node::get_task_context( )
+    {
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
             {
-                return get_data<Nodecl::Context>(_TASK_CONTEXT);
+                return get_data<Nodecl::Context>( _TASK_CONTEXT );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while getting the context of the task node '%d'. " \
-                            "\"task\" type expected", get_graph_type_as_string().c_str(), _id);   
+                internal_error( "Unexpected graph type '%s' while getting the context of the task node '%d'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the context of the task node '%d'. \"task\" type expected.",
-                        get_type_as_string().c_str(), _id);                
+            internal_error( "Unexpected node type '%s' while getting the context of the task node '%d'. \"task\" type expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_task_context(Nodecl::NodeclBase c)
+    void Node::set_task_context( Nodecl::NodeclBase c )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == TASK)
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
             {
-                return set_data(_TASK_CONTEXT, c);
+                return set_data( _TASK_CONTEXT, c );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while setting the context of the task node '%d'. " \
-                            "\"task\" type expected", get_graph_type_as_string().c_str(), _id);                  
+                internal_error( "Unexpected graph type '%s' while setting the context of the task node '%d'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
-                        get_type_as_string().c_str(), _id);                
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Symbol Node::get_task_function()
+    Symbol Node::get_task_function( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == TASK)
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if ( graph_type == OMP_TASK )
             {
-                return get_data<Symbol>(_TASK_FUNCTION);
+                return get_data<Symbol>( _TASK_FUNCTION );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
-                            "\"task\" type expected", get_graph_type_as_string().c_str(), 
-                            get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+                internal_error( "Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
+                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
             }
         }
         else
@@ -1015,118 +922,121 @@ namespace Analysis {
         }
     }
 
-    void Node::set_task_function(Symbol func_sym)
+    void Node::set_task_function( Symbol func_sym )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == TASK)
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if ( graph_type == OMP_TASK )
             {
-                return set_data(_TASK_FUNCTION, func_sym);
+                return set_data( _TASK_FUNCTION, func_sym );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
-                            "\"task\" type expected", get_graph_type_as_string().c_str(), 
-                            get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+                internal_error( "Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
+                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the symbol of the function embedded in a task. GRAPH NODE expected.",
-                        get_type_as_string().c_str());
+            internal_error( "Unexpected node type '%s' while setting the symbol of the function embedded in a task. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ) );
         }
     }
 
-    Node* Node::get_stride_node()
+    // FIXME Other loop nodes can have a stride
+    Node* Node::get_stride_node( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == LOOP)
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if ( graph_type == LOOP_FOR )
             {
-                return get_data<Node*>(_STRIDE_NODE);
+                return get_data<Node*>( _STRIDE_NODE );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected", 
-                            get_graph_type_as_string().c_str(), _id);                  
+                internal_error( "Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected",
+                                get_graph_type_as_string( ).c_str( ), _id );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
-                        get_type_as_string().c_str(), _id);                
+            internal_error( "Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_stride_node(Node* stride)
+    // FIXME Other loop nodes can have a stride
+    void Node::set_stride_node( Node* stride )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if (graph_type == LOOP)
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if ( graph_type == LOOP_FOR )
             {
-                set_data(_STRIDE_NODE, stride);
+                set_data( _STRIDE_NODE, stride );
             }
             else
             {
-                internal_error("Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected", 
-                            get_graph_type_as_string().c_str(), _id);                  
+                internal_error( "Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected",
+                                get_graph_type_as_string( ).c_str( ), _id );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
-                        get_type_as_string().c_str(), _id);                
+            internal_error( "Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    bool Node::is_stride_node()
+    // FIXME Other loop nodes can have a stride
+    bool Node::is_stride_node( )
     {
         bool res = false;
-        Node* outer_node = get_outer_node();
-        while (outer_node != NULL && outer_node->get_graph_type() != LOOP)
+        Node* outer_node = get_outer_node( );
+        while( outer_node != NULL && outer_node->get_graph_type( ) != LOOP_FOR)
         {
-            outer_node = outer_node->get_outer_node();
+            outer_node = outer_node->get_outer_node( );
         }
-        
-        if (outer_node != NULL)
+
+        if ( outer_node != NULL )
         {
-            Node* stride = outer_node->get_stride_node();
-            res = (stride->_id == _id);
+            Node* stride = outer_node->get_stride_node( );
+            res = ( stride->_id == _id );
         }
         return res;
     }
-    
+
     bool Node::is_stride_node( Node* loop )
     {
-        Node* stride = loop->get_stride_node();
-        return (stride->_id == _id);
+        Node* stride = loop->get_stride_node( );
+        return ( stride->_id == _id );
     }
-    
-    Node* Node::advance_over_non_statement_nodes()
+
+    Node* Node::advance_over_non_statement_nodes( )
     {
-        ObjectList<Node*> children = get_children();
+        ObjectList<Node*> children = get_children( );
         Node_type ntype;
         Node* result = this;
-        
-        while ( (children.size() == 1) && (!result->has_key(_NODE_STMTS)) )
+
+        while( ( children.size( ) == 1 ) && ( !result->has_key( _NODE_STMTS ) ) )
         {
             Node* c0 = children[0];
-            ntype = c0->get_data<Node_type>(_NODE_TYPE);
-            if (ntype == GRAPH_NODE)
+            ntype = c0->get_data<Node_type>( _NODE_TYPE );
+            if( ntype == GRAPH )
             {
-                result = c0->get_data<Node*>(_ENTRY_NODE);
+                result = c0->get_data<Node*>( _ENTRY_NODE );
             }
-            else if (ntype == BASIC_EXIT_NODE)
+            else if( ntype == EXIT )
             {
-                if (c0->has_key(_OUTER_NODE))
+                if( c0->has_key( _OUTER_NODE ) )
                 {
-                    result = c0->get_data<Node*>(_OUTER_NODE);
+                    result = c0->get_data<Node*>( _OUTER_NODE );
                 }
                 else
-                {    
+                {
                     break;
                 }
             }
@@ -1134,35 +1044,35 @@ namespace Analysis {
             {
                 result = c0;
             }
-            children = result->get_children();
+            children = result->get_children( );
         }
-    
+
         return result;
     }
 
-    Node* Node::back_over_non_statement_nodes()
+    Node* Node::back_over_non_statement_nodes( )
     {
-        ObjectList<Node*> parents = get_parents();
+        ObjectList<Node*> parents = get_parents( );
         Node_type ntype;
         Node* result = this;
-        
-        while ( (parents.size() == 1) && (!result->has_key(_NODE_STMTS)) )
+
+        while( ( parents.size( ) == 1 ) && ( !result->has_key( _NODE_STMTS ) ) )
         {
             Node* p0 = parents[0];
-            ntype = p0->get_data<Node_type>(_NODE_TYPE);
-            
-            if (ntype == GRAPH_NODE)
+            ntype = p0->get_data<Node_type>( _NODE_TYPE );
+
+            if( ntype == GRAPH )
             {
-                result = p0->get_data<Node*>(_EXIT_NODE);
+                result = p0->get_data<Node*>( _EXIT_NODE );
             }
-            else if (ntype == BASIC_ENTRY_NODE)
+            else if( ntype == ENTRY )
             {
-                if (p0->has_key(_OUTER_NODE))
+                if( p0->has_key( _OUTER_NODE ) )
                 {
-                    result = p0->get_data<Node*>(_OUTER_NODE);
+                    result = p0->get_data<Node*>( _OUTER_NODE );
                 }
                 else
-                {    
+                {
                     break;
                 }
             }
@@ -1170,30 +1080,30 @@ namespace Analysis {
             {
                 result = p0;
             }
-            parents = result->get_parents();
+            parents = result->get_parents( );
         }
-    
+
         return result;
     }
 
-    void Node::set_graph_node_reaching_definitions()
+    void Node::set_graph_node_reaching_definitions( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
-            set_data(_REACH_DEFS, get_data<Node*>(_EXIT_NODE)->get_data<nodecl_map>(_REACH_DEFS));
+            set_data( _REACH_DEFS, get_data<Node*>( _EXIT_NODE )->get_data<nodecl_map>( _REACH_DEFS ) );
         }
         else
         {
-            internal_error("Propagating reaching definitions in node '%d' with type '%s' while "
+            internal_error( "Propagating reaching definitions in node '%d' with type '%s' while "
                             "here it is mandatory a Graph node.\n",
-                        _id, get_type_as_string().c_str());
+                            _id, get_type_as_string( ).c_str( ) );
         }
     }
-    
+
     Utils::ext_sym_set Node::get_live_in_vars()
     {
         Utils::ext_sym_set live_in_vars;
-        
+
         if (has_key(_LIVE_IN))
         {
             live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
@@ -1201,73 +1111,73 @@ namespace Analysis {
 
         return live_in_vars;
     }
-    
+
     void Node::set_live_in(Utils::ExtendedSymbol new_live_in_var)
     {
         Utils::ext_sym_set live_in_vars;
-        
+
         if (has_key(_LIVE_IN))
         {
             live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-        }        
+        }
         live_in_vars.insert(new_live_in_var);
 
         set_data(_LIVE_IN, live_in_vars);
     }
-    
+
     void Node::set_live_in(Utils::ext_sym_set new_live_in_set)
     {
         set_data(_LIVE_IN, new_live_in_set);
     }
-    
+
     Utils::ext_sym_set Node::get_live_out_vars()
     {
         Utils::ext_sym_set live_out_vars;
-        
+
         if (has_key(_LIVE_OUT))
         {
             live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
         }
-        
+
         return live_out_vars;
     }
-    
+
     void Node::set_live_out(Utils::ExtendedSymbol new_live_out_var)
     {
         Utils::ext_sym_set live_out_vars;
-        
+
         if (has_key(_LIVE_OUT))
         {
             live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
         }
         live_out_vars.insert(new_live_out_var);
-        
+
         set_data(_LIVE_OUT, live_out_vars);
     }
-    
+
     void Node::set_live_out(Utils::ext_sym_set new_live_out_set)
     {
         set_data(_LIVE_OUT, new_live_out_set);
     }
-    
+
     Utils::ext_sym_set Node::get_ue_vars()
     {
         Utils::ext_sym_set ue_vars;
-        
+
         if (has_key(_UPPER_EXPOSED))
         {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
-        
+
         return ue_vars;
     }
-    
+
     void Node::set_ue_var(Utils::ExtendedSymbol new_ue_var)
     {
         Utils::ext_sym_set ue_vars;
 
         if (this->has_key(_UPPER_EXPOSED))
-        {   
+        {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
         if (!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
@@ -1276,16 +1186,16 @@ namespace Analysis {
             set_data(_UPPER_EXPOSED, ue_vars);
         }
     }
-    
+
     void Node::set_ue_var(Utils::ext_sym_set new_ue_vars)
     {
         Utils::ext_sym_set ue_vars;
 
         if (this->has_key(_UPPER_EXPOSED))
-        {   
+        {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
-        
+
         Utils::ext_sym_set purged_ue_vars;
         Utils::ext_sym_set::iterator it = new_ue_vars.begin();
         for (; it != new_ue_vars.end(); ++it)
@@ -1301,48 +1211,48 @@ namespace Analysis {
             set_data(_UPPER_EXPOSED, ue_vars);
         }
     }
-    
+
     void Node::unset_ue_var(Utils::ExtendedSymbol old_ue_var)
     {
         Utils::ext_sym_set ue_vars;
-    
+
         if (has_key(_UPPER_EXPOSED))
-        {   
+        {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
             ue_vars = ue_vars.not_find(old_ue_var);
         }
-        
+
         set_data(_UPPER_EXPOSED, ue_vars);
-    }    
-    
+    }
+
     Utils::ext_sym_set Node::get_killed_vars()
     {
-        Utils::ext_sym_set killed_vars;
-        
-        if (has_key(_KILLED))
-        {
-            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-        }
-        
-        return killed_vars;
-    }
-    
-    void Node::set_killed_var(Utils::ExtendedSymbol new_killed_var)
-    {           
         Utils::ext_sym_set killed_vars;
 
         if (has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
-        
+
+        return killed_vars;
+    }
+
+    void Node::set_killed_var(Utils::ExtendedSymbol new_killed_var)
+    {
+        Utils::ext_sym_set killed_vars;
+
+        if (has_key(_KILLED))
+        {
+            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+        }
+
         if (!Utils::ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
         {
             killed_vars.insert(new_killed_var);
             set_data(_KILLED, killed_vars);
         }
     }
-    
+
     void Node::set_killed_var(Utils::ext_sym_set new_killed_vars)
     {
         Utils::ext_sym_set killed_vars;
@@ -1351,7 +1261,7 @@ namespace Analysis {
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
-        
+
         Utils::ext_sym_set purged_killed_vars;
         Utils::ext_sym_set::iterator it = new_killed_vars.begin();
         for (; it != new_killed_vars.end(); ++it)
@@ -1367,41 +1277,41 @@ namespace Analysis {
             set_data(_KILLED, killed_vars);
         }
     }
-    
+
     void Node::unset_killed_var(Utils::ExtendedSymbol old_killed_var)
     {
         Utils::ext_sym_set killed_vars;
-        
+
         if (has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
             killed_vars = killed_vars.not_find(old_killed_var);
         }
-        
-        set_data(_KILLED, killed_vars);        
+
+        set_data(_KILLED, killed_vars);
     }
 
     Utils::ext_sym_set Node::get_undefined_behaviour_vars()
     {
         Utils::ext_sym_set undef_vars;
-        
+
         if (has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
-        
+
         return undef_vars;
     }
-    
+
     void Node::set_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var)
     {
         Utils::ext_sym_set undef_vars;
-        
+
         if (has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
-        
+
         if (!Utils::ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
         {
             undef_vars.insert(new_undef_var);
@@ -1412,26 +1322,26 @@ namespace Analysis {
     void Node::unset_undefined_behaviour_var(Utils::ExtendedSymbol old_undef_var)
     {
         Utils::ext_sym_set undef_vars;
-        
+
         if (has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
             undef_vars = undef_vars.not_find(old_undef_var);
         }
-        
-        set_data(_UNDEF, undef_vars);   
+
+        set_data(_UNDEF, undef_vars);
     }
 
     void Node::set_undefined_behaviour_var(Utils::ext_sym_set new_undef_vars)
     {
         Utils::ext_sym_set undef_vars;
-        
+
         if (has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
-        
-        
+
+
         Utils::ext_sym_set purged_undef_vars;
         Utils::ext_sym_set::iterator it = new_undef_vars.begin();
         for (; it != new_undef_vars.end(); ++it)
@@ -1445,30 +1355,30 @@ namespace Analysis {
         {
             undef_vars.insert(purged_undef_vars);
             set_data(_UNDEF, undef_vars);
-        }         
+        }
     }
 
     Utils::ext_sym_set Node::get_input_deps()
     {
         Utils::ext_sym_set input_deps;
-        
+
         if (has_key(_IN_DEPS))
         {
             input_deps = get_data<Utils::ext_sym_set>(_IN_DEPS);
         }
-        
+
         return input_deps;
-    }    
+    }
 
     void Node::set_input_deps(Utils::ext_sym_set new_input_deps)
     {
         Utils::ext_sym_set input_deps;
-        
+
         if (has_key(_IN_DEPS))
         {
             input_deps = get_data<Utils::ext_sym_set>(_IN_DEPS);
         }
-        
+
         input_deps.insert(new_input_deps);
         set_data(_IN_DEPS, input_deps);;
     }
@@ -1476,90 +1386,90 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_output_deps()
     {
         Utils::ext_sym_set output_deps;
-        
+
         if (has_key(_OUT_DEPS))
         {
             output_deps = get_data<Utils::ext_sym_set>(_OUT_DEPS);
         }
-        
+
         return output_deps;
-    }  
-    
+    }
+
     void Node::set_output_deps(Utils::ext_sym_set new_output_deps)
     {
         Utils::ext_sym_set output_deps;
-        
+
         if (has_key(_OUT_DEPS))
         {
             output_deps = get_data<Utils::ext_sym_set>(_OUT_DEPS);
         }
-        
+
         output_deps.insert(new_output_deps);
         set_data(_OUT_DEPS, output_deps);
     }
-    
+
     Utils::ext_sym_set Node::get_inout_deps()
     {
         Utils::ext_sym_set inout_deps;
-        
+
         if (has_key(_INOUT_DEPS))
         {
             inout_deps = get_data<Utils::ext_sym_set>(_INOUT_DEPS);
         }
-        
+
         return inout_deps;
     }
-            
+
     void Node::set_inout_deps(Utils::ext_sym_set new_inout_deps)
     {
         Utils::ext_sym_set inout_deps;
-        
+
         if (has_key(_INOUT_DEPS))
         {
             inout_deps = get_data<Utils::ext_sym_set>(_INOUT_DEPS);
         }
-        
+
         inout_deps.insert(new_inout_deps);
         set_data(_INOUT_DEPS, inout_deps);
     }
-    
+
     Utils::ext_sym_set Node::get_undef_deps()
     {
         Utils::ext_sym_set undef_deps;
-            
+
         if (has_key(_UNDEF_DEPS))
         {
             undef_deps = get_data<Utils::ext_sym_set>(_UNDEF_DEPS);
         }
-            
+
         return undef_deps;
     }
-            
+
     void Node::set_undef_deps(Utils::ext_sym_set new_undef_deps)
     {
         Utils::ext_sym_set undef_deps;
-            
+
         if (has_key(_UNDEF_DEPS))
         {
             undef_deps = get_data<Utils::ext_sym_set>(_UNDEF_DEPS);
         }
-            
+
         undef_deps.insert(new_undef_deps);
         set_data(_UNDEF_DEPS, undef_deps);
     }
-    
+
     Utils::ext_sym_set Node::get_shared_vars()
     {
         Utils::ext_sym_set shared_vars;
-            
+
         if (has_key(_SHARED))
         {
             shared_vars = get_data<Utils::ext_sym_set>(_SHARED);
         }
-            
+
         return shared_vars;
     }
-            
+
     void Node::set_shared_var(Utils::ExtendedSymbol ei)
     {
         Utils::ext_sym_set shared_vars;
@@ -1568,7 +1478,7 @@ namespace Analysis {
         {
             shared_vars = get_data<Utils::ext_sym_set>(_SHARED);
         }
-        
+
         shared_vars.insert(ei);
         set_data(_SHARED, shared_vars);
     }
@@ -1581,7 +1491,7 @@ namespace Analysis {
         {
             shared_vars = get_data<Utils::ext_sym_set>(_SHARED);
         }
-        
+
         shared_vars.insert(new_shared_vars);
         set_data(_SHARED, shared_vars);
     }
@@ -1589,24 +1499,24 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_private_vars()
     {
         Utils::ext_sym_set private_vars;
-            
+
         if (has_key(_PRIVATE))
         {
             private_vars = get_data<Utils::ext_sym_set>(_PRIVATE);
         }
-            
+
         return private_vars;
     }
-    
+
     void Node::set_private_var(Utils::ExtendedSymbol ei)
     {
         Utils::ext_sym_set private_vars;
-            
+
         if (has_key(_PRIVATE))
         {
             private_vars = get_data<Utils::ext_sym_set>(_PRIVATE);
         }
-            
+
         private_vars.insert(ei);
         set_data(_PRIVATE, private_vars);
     }
@@ -1614,12 +1524,12 @@ namespace Analysis {
     void Node::set_private_var(Utils::ext_sym_set new_private_vars)
     {
         Utils::ext_sym_set private_vars;
-            
+
         if (has_key(_PRIVATE))
         {
             private_vars = get_data<Utils::ext_sym_set>(_PRIVATE);
         }
-            
+
         private_vars.insert(new_private_vars);
         set_data(_PRIVATE, private_vars);
     }
@@ -1627,116 +1537,116 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_firstprivate_vars()
     {
         Utils::ext_sym_set firstprivate_vars;
-            
+
         if (has_key(_FIRSTPRIVATE))
         {
             firstprivate_vars = get_data<Utils::ext_sym_set>(_FIRSTPRIVATE);
         }
-            
+
         return firstprivate_vars;
     }
-    
+
     void Node::set_firstprivate_var(Utils::ExtendedSymbol ei)
     {
         Utils::ext_sym_set firstprivate_vars;
-            
+
         if (has_key(_FIRSTPRIVATE))
         {
             firstprivate_vars = get_data<Utils::ext_sym_set>(_FIRSTPRIVATE);
         }
-            
+
         firstprivate_vars.insert(ei);
         set_data(_FIRSTPRIVATE, firstprivate_vars);
     }
-    
+
     void Node::set_firstprivate_var(Utils::ext_sym_set new_firstprivate_vars)
     {
         Utils::ext_sym_set firstprivate_vars;
-            
+
         if (has_key(_FIRSTPRIVATE))
         {
             firstprivate_vars = get_data<Utils::ext_sym_set>(_FIRSTPRIVATE);
         }
-            
+
         firstprivate_vars.insert(new_firstprivate_vars);
         set_data(_FIRSTPRIVATE, firstprivate_vars);
     }
-    
+
     Utils::ext_sym_set Node::get_undef_sc_vars()
     {
         Utils::ext_sym_set undef_sc_vars;
-            
+
         if (has_key(_UNDEF_SC))
         {
             undef_sc_vars = get_data<Utils::ext_sym_set>(_UNDEF_SC);
         }
-            
+
         return undef_sc_vars;
     }
-    
+
     void Node::set_undef_sc_var(Utils::ExtendedSymbol ei)
     {
         Utils::ext_sym_set undef_sc_vars;
-            
+
         if (has_key(_UNDEF_SC))
         {
             undef_sc_vars = get_data<Utils::ext_sym_set>(_UNDEF_SC);
         }
-            
+
         undef_sc_vars.insert(ei);
         set_data(_UNDEF_SC, undef_sc_vars);
     }
-    
+
     void Node::set_undef_sc_var(Utils::ext_sym_set new_undef_sc_vars)
     {
         Utils::ext_sym_set undef_sc_vars;
-            
+
         if (has_key(_UNDEF_SC))
         {
             undef_sc_vars = get_data<Utils::ext_sym_set>(_UNDEF_SC);
         }
-            
+
         undef_sc_vars.insert(new_undef_sc_vars);
         set_data(_UNDEF_SC, undef_sc_vars);
     }
-    
+
     Utils::ext_sym_set Node::get_race_vars()
     {
         Utils::ext_sym_set race_vars;
-            
+
         if (has_key(_RACE))
         {
             race_vars = get_data<Utils::ext_sym_set>(_RACE);
         }
-            
+
         return race_vars;
     }
-    
+
     void Node::set_race_var(Utils::ExtendedSymbol ei)
     {
         Utils::ext_sym_set race_vars;
-            
+
         if (has_key(_RACE))
         {
             race_vars = get_data<Utils::ext_sym_set>(_RACE);
         }
-            
+
         race_vars.insert(ei);
         set_data(_RACE, race_vars);
     }
-    
+
     nodecl_map Node::get_reaching_definitions()
     {
         nodecl_map reaching_defs;
-        
+
         if (has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
-        
+
         return reaching_defs;
     }
-    
+
 
     void Node::set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
     {
@@ -1748,7 +1658,7 @@ namespace Analysis {
         reaching_defs[var] = init;
         set_data(_REACH_DEFS, reaching_defs);
     }
-    
+
     void Node::set_reaching_definition_list(nodecl_map reach_defs_l)
     {
         nodecl_map reaching_defs;
@@ -1760,10 +1670,10 @@ namespace Analysis {
         {
             reaching_defs[it->first] = it->second;
         }
-    
+
         set_data(_REACH_DEFS, reaching_defs);
-    }    
-    
+    }
+
     void Node::rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var)
     {
         nodecl_map reaching_defs;
@@ -1784,19 +1694,19 @@ namespace Analysis {
         }
         set_data(_REACH_DEFS, reaching_defs);
     }
-    
+
     nodecl_map Node::get_auxiliar_reaching_definitions()
     {
         nodecl_map aux_reaching_defs;
-        
+
         if (has_key(_AUX_REACH_DEFS))
         {
             aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
         }
-        
+
         return aux_reaching_defs;
     }
-    
+
     void Node::set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
     {
         nodecl_map aux_reaching_defs;
@@ -1805,9 +1715,9 @@ namespace Analysis {
             aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
         }
         aux_reaching_defs[var] = init;
-        set_data(_AUX_REACH_DEFS, aux_reaching_defs);        
+        set_data(_AUX_REACH_DEFS, aux_reaching_defs);
     }
-    
+
     void Node::unset_reaching_definition(Nodecl::NodeclBase var)
     {
         nodecl_map reaching_defs;
@@ -1818,7 +1728,7 @@ namespace Analysis {
         }
         set_data(_REACH_DEFS, reaching_defs);
     }
-    
+
     void Node::print_use_def_chains()
     {
         if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
@@ -1830,7 +1740,7 @@ namespace Analysis {
                 std::cerr << it->get_nodecl().prettyprint() << ", ";
             }
             std::cerr << std::endl;
-            
+
             Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
             std::cerr << "      - KILLED VARS: ";
             for(Utils::ext_sym_set::iterator it = killed_vars.begin(); it != killed_vars.end(); ++it)
@@ -1838,7 +1748,7 @@ namespace Analysis {
                 std::cerr << it->get_nodecl().prettyprint() << ", ";
             }
             std::cerr << std::endl;
-            
+
             Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
             std::cerr << "      - UNDEF VARS: ";
             for(Utils::ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
@@ -1848,7 +1758,7 @@ namespace Analysis {
             std::cerr << std::endl;
         }
     }
-    
+
     void Node::print_liveness()
     {
         if (CURRENT_CONFIGURATION->debug_options.analysis_verbose)
@@ -1860,7 +1770,7 @@ namespace Analysis {
                 std::cerr << it->get_nodecl().prettyprint() << ", ";
             }
             std::cerr << std::endl;
-        
+
             Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
             std::cerr << "      - LIVE OUT VARS: ";
             for(Utils::ext_sym_set::iterator it = live_out_vars.begin(); it != live_out_vars.end(); ++it)
@@ -1870,7 +1780,7 @@ namespace Analysis {
             std::cerr << std::endl;
         }
     }
-    
+
     void Node::print_auto_scoping()
     {
         if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
@@ -1895,7 +1805,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-                
+
             Utils::ext_sym_set race_vars = get_race_vars();
             std::cerr << "     - Race(";
             for(Utils::ext_sym_set::iterator it = race_vars.begin(); it != race_vars.end(); ++it)
@@ -1915,7 +1825,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-            
+
             Utils::ext_sym_set undef_vars = get_undef_sc_vars();
             std::cerr << "     - Undef(";
             for(Utils::ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
@@ -1925,9 +1835,9 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-        }            
+        }
     }
-    
+
     void Node::print_task_dependencies()
     {
         if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
@@ -1952,7 +1862,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-            
+
             Utils::ext_sym_set input_deps = get_input_deps();
             std::cerr << "     - Input(";
             for(Utils::ext_sym_set::iterator it = input_deps.begin(); it != input_deps.end(); ++it)
@@ -1962,7 +1872,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-                
+
             Utils::ext_sym_set output_deps = get_output_deps();
             std::cerr << "     - Output(";
             for(Utils::ext_sym_set::iterator it = output_deps.begin(); it != output_deps.end(); ++it)
@@ -1972,7 +1882,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-                
+
             Utils::ext_sym_set inout_deps = get_inout_deps();
             std::cerr << "     - Inout(";
             for(Utils::ext_sym_set::iterator it = inout_deps.begin(); it != inout_deps.end(); ++it)
@@ -1982,7 +1892,7 @@ namespace Analysis {
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
-            
+
             Utils::ext_sym_set undef_deps = get_undef_deps();
             std::cerr << "     - Undef(";
             for(Utils::ext_sym_set::iterator it = undef_deps.begin(); it != undef_deps.end(); ++it)

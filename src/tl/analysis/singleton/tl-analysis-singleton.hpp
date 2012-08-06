@@ -118,6 +118,9 @@ namespace Analysis {
         // ************************************************************************** //
         // **************************** Analysis methods **************************** //
 
+        //!This method creates the PCFGs corresponding to the code in \_dto
+        void parallel_control_flow_graph( );
+
         /*!This analysis creates a Parallel Control Flow Graph from \ast
          * \param ast Tree containing the code to construct the PCFG(s)
          * \param ipa Boolean indicating whether Function Call nodes must be substituted by the called functions code
@@ -144,6 +147,8 @@ namespace Analysis {
         void liveness( Nodecl::NodeclBase ast );
 
         void induction_variables( Nodecl::NodeclBase ast );
+
+        void print_pcfg( ExtensibleGraph* graph );
 
         // ************************** End analysis methods ************************** //
         // ************************************************************************** //

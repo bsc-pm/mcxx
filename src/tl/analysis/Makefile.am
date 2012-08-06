@@ -24,14 +24,13 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg constants loops singleton
+SUBDIRS = common pcfg constants singleton test_phase
 
 END=
 
 DIST_SUBDIRS= common \
               pcfg \
               constants \
-              loops \
               singleton \
               test_phase \
               $(END)

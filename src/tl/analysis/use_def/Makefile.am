@@ -26,17 +26,16 @@
 
 include ../../Makefile.phases
 
-lib_LTLIBRARIES= libuse_def.la
+lib_LTLIBRARIES = libuse_def.la
 
-libuse_def_la_CFLAGS= $(tl_cflags)
-libuse_def_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../../../ -I $(srcdir)/../pcfg
-libuse_def_la_LDFLAGS= $(tl_ldflags)
-libuse_def_la_LIBADD= $(tl_libadd) ../../../libtl.la ../pcfg/libpcfg.la
+libuse_def_la_CFLAGS = $(tl_cflags)
+libuse_def_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libuse_def_la_LDFLAGS = $(tl_ldflags)
+libuse_def_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-libuse_def_la_SOURCES= \
-                       tl-use-def.hpp \
-                       tl-use-def.cpp \
-                       $(END)
-
+libuse_def_la_SOURCES = \
+                        tl-use-def.hpp \
+                        tl-use-def.cpp \
+                        $(END)

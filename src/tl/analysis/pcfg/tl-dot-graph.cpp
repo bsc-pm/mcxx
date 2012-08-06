@@ -68,7 +68,7 @@ namespace Analysis {
         {
             if( CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
                 CURRENT_CONFIGURATION->debug_options.enable_debug_code ||
-                CURRENT_CONFIGURATION->debug_options.print_cfg_graphviz )
+                CURRENT_CONFIGURATION->debug_options.print_pcfg )
                 std::cerr << "   ==> File '" << dot_file_name << "'" << std::endl;
 
             int subgraph_id = 0;
@@ -294,7 +294,7 @@ namespace Analysis {
 
         switch( current->get_type( ) )
         {
-            case BASIC_ENTRY_NODE:
+            case ENTRY:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " ENTRY \\n"
 //                             + "REACH DEFS: " + prettyprint_reaching_definitions(current->get_reaching_definitions( ) )
@@ -303,7 +303,7 @@ namespace Analysis {
 
                 break;
             }
-            case BASIC_EXIT_NODE:
+            case EXIT:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
 //                     dot_graph += indent + ss.str( ) + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
@@ -315,40 +315,35 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"UNCLASSIFIED_NODE\"]\n";
                 break;
             }
-            case BARRIER_NODE:
+            case OMP_BARRIER:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"BARRIER\", shape=diamond]\n";
                 break;
             }
-            case FLUSH_NODE:
+            case OMP_FLUSH:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"FLUSH\", shape=ellipse]\n";
                 break;
             }
-            case TASKWAIT_NODE:
+            case OMP_TASKWAIT:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"TASKWAIT\", shape=ellipse]\n";
                 break;
             }
-            case BASIC_PRAGMA_DIRECTIVE_NODE:
-            {
-                internal_error ("'%s' found while printing graph. We must think what to do with this kind of node",
-                            current->get_type_as_string( ).c_str( ) );
-            }
-            case BASIC_BREAK_NODE:
+            case BREAK:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"BREAK\", shape=diamond]\n";
                 break;
             }
-            case BASIC_CONTINUE_NODE:
+            case CONTINUE:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"CONTINUE\", shape=diamond]\n";
                 break;
             }
-            case BASIC_GOTO_NODE:
-            case BASIC_NORMAL_NODE:
-            case BASIC_LABELED_NODE:
-            case BASIC_FUNCTION_CALL_NODE:
+            case GOTO:
+            case NORMAL:
+            case LABELED:
+            case FUNCTION_CALL:
             {
                 // Get the Statements within the BB
                 ObjectList<Nodecl::NodeclBase> node_block = current->get_statements( );
