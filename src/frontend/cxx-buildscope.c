@@ -8821,12 +8821,6 @@ static char find_function_declaration(AST declarator_id,
         }
     }
 
-    if (declarator_is_template_id
-       || gather_info->is_explicit_instantiation)
-    {
-        decl_flags |= DF_IGNORE_FRIEND_DECL;
-    }
-
     scope_entry_list_t* entry_list
         = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
 
