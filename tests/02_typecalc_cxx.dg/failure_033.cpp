@@ -24,27 +24,28 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOX_NODECL_HPP
-#define TL_NANOX_NODECL_HPP
 
-#include "tl-compilerphase.hpp"
-#include "tl-nodecl.hpp"
 
-namespace TL { namespace Nanox {
-
-    class Lowering : public TL::CompilerPhase
+/*
+<testinfo>
+test_generator=config/mercurium
+test_compile_fail=yes
+</testinfo>
+*/
+namespace N1
+{
+    struct A
     {
-        public:
-            Lowering();
-            virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto);
-        private:
-            void finalize_phase(Nodecl::NodeclBase global_node);
-            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
-
-            std::string _openmp_dry_run;
+        friend void g1(A&);
     };
+    struct B
+    {
+    };
+}
 
-} } 
+void f()
+{
+    N1::B b;
 
-#endif // TL_NANOX_NODECL_HPP
+    g1(b);
+}

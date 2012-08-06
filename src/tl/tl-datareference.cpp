@@ -27,6 +27,8 @@
 #include "tl-datareference.hpp"
 #include "tl-nodecl-visitor.hpp"
 
+#include "cxx-cexpr.h"
+
 namespace TL
 {
     struct DataReferenceVisitor : public Nodecl::NodeclVisitor<void>
@@ -105,7 +107,7 @@ namespace TL
                 _data_ref._base_address = derref.get_rhs().shallow_copy();
                 _data_ref._sizeof = make_sizeof(derref);
             }
-             
+
             virtual void visit(const Nodecl::Reference& ref)
             {
                 if (ref.get_rhs().is<Nodecl::Dereference>())
@@ -125,12 +127,109 @@ namespace TL
                 // _data_ref._sizeof = make_sizeof(ref);
             }
 
+            TL::Type extend_array_type_to_regions(const Nodecl::ArraySubscript& array)
+            {
+                TL::Type subscripted_type = array.get_subscripted().get_type();
+
+                TL::ObjectList<Nodecl::NodeclBase> lower_bounds;
+                TL::ObjectList<Nodecl::NodeclBase> upper_bounds;
+
+                if (subscripted_type.is_any_reference())
+                    subscripted_type = subscripted_type.references_to();
+
+                ERROR_CONDITION(!subscripted_type.is_pointer() && !subscripted_type.is_array(), "Invalid type!", 0);
+
+                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
+
+                TL::Type t = subscripted_type;
+
+                if (t.is_pointer())
+                {
+                    t = t.points_to();
+                    ERROR_CONDITION(subscripts.size() != 1, "Invalid number of subscript items (%d) for a pointer subscript",
+                            subscripts.size());
+
+                    Nodecl::NodeclBase first = subscripts[0];
+
+                    if (first.is<Nodecl::Range>())
+                    {
+                        lower_bounds.push_back(first.as<Nodecl::Range>().get_lower().shallow_copy());
+                        upper_bounds.push_back(first.as<Nodecl::Range>().get_upper().shallow_copy());
+                    }
+                    else
+                    {
+                        lower_bounds.push_back(first.shallow_copy());
+                        upper_bounds.push_back(first.shallow_copy());
+                    }
+                }
+                else
+                {
+                    while (t.is_array())
+                    {
+                        Nodecl::NodeclBase lb, ub;
+
+                        t.array_get_bounds(lb, ub);
+
+                        lower_bounds.push_back(lb.shallow_copy());
+                        upper_bounds.push_back(ub.shallow_copy());
+
+                        t = t.array_element();
+                    }
+                }
+                TL::Type rebuilt_type = t;
+
+                ERROR_CONDITION(lower_bounds.size() != subscripts.size()
+                        || subscripts.size() != upper_bounds.size(),
+                        "Mismatch between dimensions and subscripts", 0);
+
+                for (int i = lower_bounds.size() - 1; i >= 0; i--)
+                {
+                    Nodecl::NodeclBase item = subscripts[i];
+
+                    if (item.is<Nodecl::Range>())
+                    {
+                        rebuilt_type =
+                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
+                                    lower_bounds[i].get_internal_nodecl(),
+                                    upper_bounds[i].get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context,
+                                    item.shallow_copy().get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                    else
+                    {
+                        Nodecl::NodeclBase singleton_region =
+                            Nodecl::Range::make(
+                                    item.shallow_copy(),
+                                    item.shallow_copy(),
+                                    const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    item.get_type(),
+                                    item.get_filename(),
+                                    item.get_line());
+
+                        rebuilt_type =
+                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
+                                    lower_bounds[i].get_internal_nodecl(),
+                                    upper_bounds[i].get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context,
+                                    singleton_region.get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                }
+
+                return rebuilt_type;
+            }
+
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());
 
                 if (!_data_ref._is_valid)
                     return;
+
+                // Accesses like a[1][2] look like scalars but we want them to behave
+                // as if they were a[1:1][2:2]
+                bool have_to_rebuild_type = false;
 
                 TL::Type t = array.get_type();
                 if (t.is_any_reference())
@@ -152,11 +251,20 @@ namespace TL
                     else
                     {
                         low_subscripts.push_back(it->shallow_copy());
+                        have_to_rebuild_type = true;
                     }
                 }
 
-                _data_ref._data_type = t;
-                _data_ref._base_address = 
+                if (have_to_rebuild_type)
+                {
+                    _data_ref._data_type = extend_array_type_to_regions(array);
+                }
+                else
+                {
+                    _data_ref._data_type = t;
+                }
+
+                _data_ref._base_address =
                     Nodecl::Reference::make(
                             Nodecl::ArraySubscript::make(
                                 _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),

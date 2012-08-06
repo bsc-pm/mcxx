@@ -460,11 +460,23 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
     {
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
-        case AST_PARENTHESIZED_EXPRESSION :
             // GCC extensions
         case AST_GCC_EXTENSION_EXPR : 
             {
                 check_expression_impl_(ASTSon0(expression), decl_context, nodecl_output);
+                break;
+            }
+        case AST_PARENTHESIZED_EXPRESSION :
+            {
+                check_expression_impl_(ASTSon0(expression), decl_context, nodecl_output);
+                if (CURRENT_CONFIGURATION->preserve_parentheses
+                        && !nodecl_is_err_expr(*nodecl_output))
+                {
+                    *nodecl_output = nodecl_make_parenthesized_expression(
+                            *nodecl_output,
+                            nodecl_get_type(*nodecl_output),
+                            ASTFileName(expression), ASTLine(expression));
+                }
                 break;
             }
             // Primaries
@@ -8369,7 +8381,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     scope_entry_list_t* candidates = NULL;
     template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
-    char success_koenig_lookup = 1;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
         char can_succeed = 1;
@@ -8380,7 +8391,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL && can_succeed)
         {
             // Try a plain lookup
-            success_koenig_lookup = 0;
             candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
@@ -8398,31 +8408,6 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         else
         {
             cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, &nodecl_called);
-        }
-    }
-
-    // A koenig lookup may find a friend function declaration symbol and this symbol has not been defined by the user
-    //
-    // Example:
-    // namespace N
-    // {
-    //     class A
-    //     {
-    //         friend void f(int, const A&);
-    //     };
-    //     void g()
-    //     {
-    //         A a;
-    //         f(3,a); // Koenig
-    //     }
-    // }
-    if (success_koenig_lookup)
-    {
-        scope_entry_t* called_symbol = nodecl_get_symbol(nodecl_called);
-        // We want to declare it
-        if (called_symbol != NULL)
-        {
-            called_symbol->entity_specs.is_friend_declared = 0;
         }
     }
 
@@ -9204,8 +9189,20 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
     nodecl_t nodecl_lhs = nodecl_null();
     check_expression_impl_(lhs, decl_context, &nodecl_lhs);
 
+    if (nodecl_is_err_expr(nodecl_lhs))
+    {
+        *nodecl_output = nodecl_lhs;
+        return;
+    }
+
     nodecl_t nodecl_rhs = nodecl_null();
     check_expression_impl_(rhs, decl_context, &nodecl_rhs);
+
+    if (nodecl_is_err_expr(nodecl_rhs))
+    {
+        *nodecl_output = nodecl_rhs;
+        return;
+    }
 
     check_nodecl_comma_operand(nodecl_lhs, nodecl_rhs, decl_context,
             nodecl_output,
@@ -13528,10 +13525,10 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
     if (nodecl_is_null(nodecl_lower) && (is_array_type(indexed_type) || is_pointer_type(indexed_type))) 
-        nodecl_lower = array_type_get_array_lower_bound(indexed_type);
+        nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
-        nodecl_upper = array_type_get_array_upper_bound(indexed_type);
+        nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
 
 #define MAX_NESTING_OF_ARRAY_REGIONS (16)
 
@@ -13590,7 +13587,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: pointer types only allow one-level array sections\n",
+                error_printf("%s: warning: pointer types only allow one-level array sections\n",
                         nodecl_get_locus(nodecl_postfix));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -13608,7 +13605,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: array section is invalid since '%s' has type '%s'\n",
+            error_printf("%s: warning: array section is invalid since '%s' has type '%s'\n",
                     nodecl_get_locus(nodecl_postfix),
                     codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)),
                     print_type_str(indexed_type, decl_context));
@@ -13621,13 +13618,19 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         type_t* current_array_type = advanced_types[i - 1];
        
-        nodecl_t array_lower_bound = array_type_get_array_lower_bound(current_array_type);
-        nodecl_t array_upper_bound = array_type_get_array_upper_bound(current_array_type);
-        nodecl_t array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
-        nodecl_t array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
-        nodecl_t array_region_stride = array_type_get_region_stride(current_array_type);
-        nodecl_t array_region_range = nodecl_make_range(array_region_lower_bound, array_region_upper_bound, array_region_stride,
-                                                        current_array_type, filename, line);
+        nodecl_t array_lower_bound = nodecl_shallow_copy(array_type_get_array_lower_bound(current_array_type));
+        nodecl_t array_upper_bound = nodecl_shallow_copy(array_type_get_array_upper_bound(current_array_type));
+        nodecl_t array_region_lower_bound = nodecl_shallow_copy(array_type_get_region_lower_bound(current_array_type));
+        nodecl_t array_region_upper_bound = nodecl_shallow_copy(array_type_get_region_upper_bound(current_array_type));
+        nodecl_t array_region_stride = nodecl_shallow_copy(array_type_get_region_stride(current_array_type));
+
+        nodecl_t array_region_range = nodecl_make_range(
+                array_region_lower_bound, 
+                array_region_upper_bound, 
+                array_region_stride,
+                current_array_type, 
+                filename, 
+                line);
         
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
 

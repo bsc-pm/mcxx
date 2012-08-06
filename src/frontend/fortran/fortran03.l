@@ -149,6 +149,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 %x pragma_custom_clause_first
 %x pragma_custom_clause
 %x pragma_custom_var_list
+%x pragma_custom_comment
 
 %%
 
@@ -763,6 +764,10 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     RETURN_TOKEN('(');
 }
 
+[!] {
+    BEGIN(pragma_custom_comment);
+}
+
 }
 
 <pragma_custom_clause>{
@@ -788,6 +793,10 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 "," {
 	parse_token_text();
     RETURN_TOKEN(',');
+}
+
+[!] {
+    BEGIN(pragma_custom_comment);
 }
 
 }
@@ -865,10 +874,29 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     RETURN_PRAGMA_EOS;
 }
 
+[!] {
+    BEGIN(pragma_custom_comment);
+}
+
   /* Catch all rule */
 [^\n\r] {
     parse_token_text();
     RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
+}
+
+}
+
+<pragma_custom_comment>
+{
+
+{newline} {
+    fortran_scanning_now->line_number++;
+	BEGIN(INITIAL);
+	RETURN_PRAGMA_EOS;
+}
+
+. { 
+    // Ignore everything in the comment
 }
 
 }

@@ -961,6 +961,23 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
+dnl -- Check if our GCC supports __int128
+have_int128=no
+
+AC_CHECK_TYPE([__int128], [have_int128=yes])
+
+if test x$have_int128 = xyes; 
+then
+ AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
+fi
+
+dnl The idea is that we may have a software implementation of kind=16 not
+dnl relying on __int128
+if test x$have_int128 = xyes; 
+then
+ AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
+fi
+
 dnl -- Check if our GCC supports quadmath.h (and __float128)
 have_float_128="no"
 quadmath_LIBS=""

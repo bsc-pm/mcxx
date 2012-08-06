@@ -1711,12 +1711,9 @@ struct floating_type_info_tag binary_float_128 =
     .emax = +16384,
 };
 
-#define DEFINE_FLOAT_UNNAMED(name, value) \
+#define DEFINE_FLOAT_TYPE(name, type, value) \
     name.all_floats[name.num_float_types] = &value; \
     name.num_float_types++; \
-
-#define DEFINE_FLOAT_TYPE(name, type, value) \
-    DEFINE_FLOAT_UNNAMED(name, value) \
     name.type##_info = &value; \
 
 /*
@@ -1785,7 +1782,7 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_ia32, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_ia32, long_double, binary_float_80_intel)
 #ifdef HAVE_QUADMATH_H
-    DEFINE_FLOAT_UNNAMED(linux_ia32, binary_float_128);
+    DEFINE_FLOAT_TYPE(linux_ia32, float128, binary_float_128);
 #endif
 
     linux_ia32.sizeof_pointer = 4;
@@ -1855,7 +1852,7 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_amd64, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_amd64, long_double, binary_float_80_intel)
 #ifdef HAVE_QUADMATH_H
-    DEFINE_FLOAT_UNNAMED(linux_amd64, binary_float_128);
+    DEFINE_FLOAT_TYPE(linux_amd64, float128, binary_float_128);
 #endif
 
     linux_amd64.sizeof_pointer = 8;
@@ -2284,7 +2281,7 @@ void init_type_environments(void)
     linux_arm_eabi.sizeof_signed_long_long = 8;
     linux_arm_eabi.alignof_signed_long_long = 8;
 
-    DEFINE_FLOAT_UNNAMED(linux_arm_eabi, binary_float_16)
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, float16, binary_float_16)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_128)

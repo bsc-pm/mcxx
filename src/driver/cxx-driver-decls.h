@@ -455,6 +455,10 @@ typedef struct compilation_configuration_tag
 
     // Fortran lexing
     char disable_empty_sentinels;
+
+    // C/C++ FE does not preserve parentheses
+    // unless this flag is set
+    char preserve_parentheses;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

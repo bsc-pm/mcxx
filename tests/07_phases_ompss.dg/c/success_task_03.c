@@ -24,27 +24,39 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOX_NODECL_HPP
-#define TL_NANOX_NODECL_HPP
 
-#include "tl-compilerphase.hpp"
-#include "tl-nodecl.hpp"
 
-namespace TL { namespace Nanox {
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+test_nolink=yes
+</testinfo>
+*/
+#include <stdlib.h>
 
-    class Lowering : public TL::CompilerPhase
+int main(int arg, char* argv[])
+{
+    int x[10][20];
+
+    int i, j;
+    for (i = 0; i < 10; i++)
     {
-        public:
-            Lowering();
-            virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto);
-        private:
-            void finalize_phase(Nodecl::NodeclBase global_node);
-            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
+        for (j = 0; j < 20; j++)
+        {
+            x[i][j] = 1;
+        }
+    }
 
-            std::string _openmp_dry_run;
-    };
+#pragma omp task inout(x[1][2])
+    {
+        x[1][2] += 41;
+    }
 
-} } 
+#pragma omp task in(x[1][2])
+    {
+        if (x[1][2] != 42) abort();
+    }
 
-#endif // TL_NANOX_NODECL_HPP
+#pragma omp taskwait
+    return 0;
+}

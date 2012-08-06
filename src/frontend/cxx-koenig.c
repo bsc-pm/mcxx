@@ -37,6 +37,9 @@
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 
+// Koenig lookup may need to instantiate something
+#include "cxx-instantiation.h"
+
 typedef 
 struct associated_scopes_tag
 {
@@ -233,7 +236,13 @@ static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_
 {
     ERROR_CONDITION(koenig_info->num_associated_classes >= MCXX_MAX_KOENIG_ASSOCIATED_SCOPES,
             "Too many associated classes", 0);
-    
+
+    if (class_symbol->kind == SK_TYPEDEF)
+    {
+        type_t* advanced_type = advance_over_typedefs(class_symbol->type_information);
+        class_symbol = named_type_get_symbol(advanced_type);
+    }
+
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Symbol must be a class", 0);
 
     int i;
@@ -302,6 +311,7 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
          *   f(a);
          * }
          */
+        argument_type = get_actual_class_type(argument_type);
         if (is_template_specialized_type(argument_type))
         {
             template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(argument_type);
@@ -424,7 +434,7 @@ static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lo
     compute_set_of_associated_classes_scope_rec(type_info, koenig_info);
 }
 
-static void compute_set_of_associated_classes_scope_rec(type_t* type_info, 
+static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         koenig_lookup_info_t* koenig_info)
 {
     // Add the scope of the current class
@@ -436,6 +446,16 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     ERROR_CONDITION(outer_namespace == NULL, "Enclosing namespace not found", 0);
 
     add_associated_scope(koenig_info, outer_namespace);
+
+    if (is_template_specialized_type(named_type_get_symbol(type_info)->type_information)
+            && is_incomplete_type(named_type_get_symbol(type_info)->type_information))
+    {
+        instantiate_template_class_if_possible(
+                named_type_get_symbol(type_info),
+                named_type_get_symbol(type_info)->decl_context,
+                /* filename */ NULL, /* line */ 0);
+    }
+
     add_associated_class(koenig_info, named_type_get_symbol(type_info));
 
     scope_entry_t* symbol = named_type_get_symbol(type_info);
@@ -457,8 +477,6 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         if (is_dependent)
             continue;
 
-        type_t* base_type_info = base_symbol->type_information;
-
-        compute_set_of_associated_classes_scope_rec(base_type_info, koenig_info);
+        compute_set_of_associated_classes_scope_rec(get_user_defined_type(base_symbol), koenig_info);
     }
 }

@@ -176,6 +176,11 @@ namespace TL { namespace OpenMP {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
 
+        register_parameter("omp_dry_run",
+                "Disables OpenMP transformation",
+                _openmp_dry_run,
+                "0");
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -202,12 +207,22 @@ namespace TL { namespace OpenMP {
     void Base::pre_run(TL::DTO& dto)
     {
         _core.pre_run(dto);
+
+        // Do nothing once we have analyzed everything
+        if (_openmp_dry_run != "0")
+            return;
+
         this->PragmaCustomCompilerPhase::pre_run(dto);
     }
 
     void Base::run(TL::DTO& dto)
     {
         _core.run(dto);
+
+        // Do nothing once we have analyzed everything
+        if (_openmp_dry_run != "0")
+            return;
+
         this->PragmaCustomCompilerPhase::run(dto);
 
         RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
@@ -512,15 +527,7 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment;
-        if (!is_combined_worksharing)
-        {
-            execution_environment = this->make_execution_environment(ds, pragma_line);
-        }
-        else
-        {
-            execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
-        }
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
         if (barrier_at_end)
         {
@@ -581,15 +588,7 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment;
-        if (!is_combined_worksharing)
-        {
-            execution_environment = this->make_execution_environment(ds, pragma_line);
-        }
-        else
-        {
-            execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
-        }
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -815,7 +814,7 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase sections_code = sections_handler_common(directive,
                 directive.get_statements(),
@@ -988,7 +987,11 @@ namespace TL { namespace OpenMP {
                 data_sharing_env, OpenMP::DS_SHARED,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        // First, Last and FirstLast privates will be shared inside a combined worksharing
+        // Everything should go transparent here
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_PRIVATE,
+                pragma_line.get_filename(), pragma_line.get_line(),
+                result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
@@ -1001,12 +1004,7 @@ namespace TL { namespace OpenMP {
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);
-        // Privates are kept as privates, though
-        make_data_sharing_list<Nodecl::OpenMP::Private>(
-                data_sharing_env, OpenMP::DS_PRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
-                result_list);
-        make_data_sharing_list<Nodecl::OpenMP::Auto>(
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_AUTO,
                 pragma_line.get_filename(), pragma_line.get_line(),
                 result_list);

@@ -211,8 +211,8 @@ struct simple_type_tag {
     // the exact builtin type
     builtin_type_t builtin_type:4;
 
-    // This can be 0, 1 (long) or 2 (long long)
-    unsigned char is_long:2; 
+    // This can be 0, 1 (long), 2 (long long) or 3 (__int128)
+    unsigned char is_long:2;
     // short
     unsigned char is_short:1;
     // unsigned
@@ -914,6 +914,44 @@ type_t* get_unsigned_long_long_int_type(void)
     return _type;
 }
 
+type_t* get_signed_int128_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_INT;
+        _type->info->size = 16;
+        _type->type->is_long = 3;
+        _type->info->alignment = 16;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+
+type_t* get_unsigned_int128_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_INT;
+        _type->type->is_unsigned = 1;
+        _type->type->is_long = 3;
+        _type->info->size = 16;
+        _type->info->alignment = 16;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
 static int num_float_types = 0;
 static type_t* float_types[MAX_DIFFERENT_FLOATS];
 
@@ -993,6 +1031,16 @@ type_t* get_double_type(void)
 type_t* get_long_double_type(void)
 {
     return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->long_double_info);
+}
+
+type_t* get_float16_type(void)
+{
+    return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->float16_info);
+}
+
+type_t* get_float128_type(void)
+{
+    return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->float128_info);
 }
 
 type_t* get_void_type(void)
@@ -5722,6 +5770,32 @@ char is_unsigned_long_long_int_type(type_t *t)
             && !t->type->is_short);
 }
 
+char is_signed_int128_type(type_t *t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_INT
+            && !t->type->is_unsigned
+            && (t->type->is_long == 3)
+            && !t->type->is_short);
+}
+
+char is_unsigned_int128_type(type_t *t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_INT
+            && t->type->is_unsigned
+            && (t->type->is_long == 3)
+            && !t->type->is_short);
+}
+
 char is_signed_byte_type(type_t *t)
 {
     return (t != NULL
@@ -6894,7 +6968,14 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 {
                     case BT_INT :
                         {
-                            result = strappend(result, "int");
+                            if (simple_type->is_long == 3)
+                            {
+                                result = strappend(result, "__int128");
+                            }
+                            else
+                            {
+                                result = strappend(result, "int");
+                            }
                             break;
                         }
                     case BT_CHAR :
@@ -7882,7 +7963,7 @@ static const char* get_builtin_type_name(type_t* type_info)
         result = strappend(result, "long ");
     }
 
-    if (simple_type_info->is_long >= 2)
+    if (simple_type_info->is_long == 2)
     {
         result = strappend(result, "long long ");
     }
@@ -7909,7 +7990,14 @@ static const char* get_builtin_type_name(type_t* type_info)
                 switch (simple_type_info->builtin_type)
                 {
                     case BT_INT :
-                        result = strappend(result, "int");
+                        if (simple_type_info->is_long == 3)
+                        {
+                            result = strappend(result, "__int128");
+                        }
+                        else
+                        {
+                            result = strappend(result, "int");
+                        }
                         break;
                     case BT_BOOL :
                         {
@@ -8748,20 +8836,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         dest = vector_type_get_element_type(dest);
     }
 
-    // Lower complex types
-    // char dest_is_complex = 0;
-    if (is_complex_type(dest))
-    {
-        // dest_is_complex = 1;
-        dest = complex_type_get_base_type(dest);
-    }
-    // char orig_is_complex = 0;
-    if (is_complex_type(orig))
-    {
-        // orig_is_complex = 1;
-        orig = complex_type_get_base_type(orig);
-    }
-
     // Second kind of conversion
     //
     //   integral promotions
@@ -9007,6 +9081,78 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying boolean conversion\n");
             }
             (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        // _Complex cases
+        else if (is_floating_type(orig)
+                && !is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_double_type(complex_type_get_base_type(dest))
+                        && is_float_type(orig))
+                    || (is_long_double_type(complex_type_get_base_type(dest))
+                        && (is_float_type(orig)
+                            || is_double_type(orig)))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying float to complex promotion\n");
+            }
+            (*result).conv[1] = SCI_FLOAT_TO_COMPLEX_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_floating_type(complex_type_get_base_type(orig))
+                        && is_integer_type(complex_type_get_base_type(dest)))
+                    || (is_integer_type(complex_type_get_base_type(orig))
+                        && is_floating_type(complex_type_get_base_type(dest)))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(orig)
+                && !is_complex_type(orig)
+                && is_complex_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying float to complex conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOAT_TO_COMPLEX_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest)
+                && ((is_double_type(complex_type_get_base_type(dest))
+                        && is_float_type(complex_type_get_base_type(orig)))
+                    || (is_long_double_type(complex_type_get_base_type(dest))
+                        && (is_float_type(complex_type_get_base_type(orig))
+                            || is_double_type(complex_type_get_base_type(orig))))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex promotion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_complex_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex conversion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -9262,6 +9408,10 @@ type_t* get_null_type(void)
         {
             // Set 'long'
             _null_type->type->is_long = 2;
+        }
+        else
+        {
+            internal_error("Unexpected size of null type '%d'", _null_type->info->size);
         }
     }
 

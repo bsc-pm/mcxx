@@ -89,7 +89,8 @@ namespace TL
                     DIRECTIONALITY_IN =   1 << 0,
                     DIRECTIONALITY_OUT =  1 << 1,
                     DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_CONCURRENT = 1 << 2
+                    DIRECTIONALITY_CONCURRENT = 1 << 2,
+                    DIRECTIONALITY_COMMUTATIVE = 1 << 3
                 };
 
                 enum CopyDirectionality
