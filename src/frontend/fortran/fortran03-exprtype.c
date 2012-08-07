@@ -3759,7 +3759,9 @@ static void check_symbol_of_called_name(AST sym,
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     *entry = *intrinsic_symbol;
                 }
-                else if (intrinsic_sym != NULL)
+                else if (intrinsic_sym != NULL
+                        // Dummy arguments do not name intrinsics
+                        && !entry->entity_specs.is_parameter)
                 {
                     // From now, the symbol is an intrinsic
                     *entry = *intrinsic_sym;
