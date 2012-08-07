@@ -4121,9 +4121,8 @@ static void check_symbol_of_variable(AST expr, decl_context_t decl_context, node
         return;
     }
 
-    if (entry == NULL || 
-            (entry->kind != SK_VARIABLE 
-             && entry->kind != SK_UNDEFINED))
+    if (entry->kind != SK_VARIABLE
+             && entry->kind != SK_UNDEFINED)
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
