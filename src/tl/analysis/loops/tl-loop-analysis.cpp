@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -36,11 +36,11 @@ namespace TL {
 namespace Analysis {
 
     // *** Loop Analysis *** //
-    
+
     LoopAnalysis::LoopAnalysis( ObjectList<ExtensibleGraph*> cfgs )
         : _cfgs(cfgs)
     {}
-    
+
     void LoopAnalysis::traverse_loop_init(Node* loop_node, Nodecl::NodeclBase init)
     {
         if (init.is<Nodecl::Comma>())
@@ -53,8 +53,8 @@ namespace Analysis {
         {
             Nodecl::ObjectInit init_ = init.as<Nodecl::ObjectInit>();
             Symbol def_var = init_.get_symbol();
-            Nodecl::NodeclBase def_expr = def_var.get_initialization();
-            
+            Nodecl::NodeclBase def_expr = def_var.get_value();
+
             InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
             _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
         }
@@ -75,7 +75,7 @@ namespace Analysis {
                 ast_print_node_type(init.get_kind()));
         }
     }
-    
+
     InductionVarInfo* LoopAnalysis::induction_vars_l_contains_symbol(Node* node, Symbol s) const
     {
         std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars = _induction_vars.equal_range(node->get_id());
@@ -88,12 +88,12 @@ namespace Analysis {
         }
         return NULL;
     }
-    
+
     // FIXME LHS of comparisons can be not symbols, e.g.: (b = p[0]) > a
     void LoopAnalysis::traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond)
     {
         Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
-        
+
         // Logical Operators
         if (cond.is<Nodecl::Symbol>())
         {   // No limits to be computed
@@ -104,7 +104,7 @@ namespace Analysis {
             Nodecl::LogicalAnd cond_ = cond.as<Nodecl::LogicalAnd>();
             traverse_loop_cond(loop_node, cond_.get_lhs());
             traverse_loop_cond(loop_node, cond_.get_rhs());
-            
+
             std::cerr << "warning: Combined && expressions as loop condition not properly implemented" << std::endl;
         }
         else if (cond.is<Nodecl::LogicalOr>())
@@ -120,14 +120,14 @@ namespace Analysis {
         {
             Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>();
             Symbol def_var = cond_.get_lhs().get_symbol();
-            Nodecl::NodeclBase def_expr = cond_.get_rhs();           
-            
+            Nodecl::NodeclBase def_expr = cond_.get_rhs();
+
             // The upper bound will be the rhs minus 1
             nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-            Nodecl::NodeclBase ub = Nodecl::Minus::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(), 
+            Nodecl::NodeclBase ub = Nodecl::Minus::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(),
                                                         cond.get_filename(), cond.get_line());
             ub = Nodecl::Utils::reduce_expression(ub);
-            
+
             InductionVarInfo* loop_info_var;
             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
             {
@@ -144,8 +144,8 @@ namespace Analysis {
         {
             Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>();
             Symbol def_var = cond_.get_lhs().get_symbol();
-            Nodecl::NodeclBase def_expr = cond_.get_rhs();            
-            
+            Nodecl::NodeclBase def_expr = cond_.get_rhs();
+
             InductionVarInfo* loop_info_var;
             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
             {
@@ -157,20 +157,20 @@ namespace Analysis {
                 loop_info_var->set_ub(def_expr);
                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
             }
-            
+
         }
         else if (cond.is<Nodecl::GreaterThan>())
         {
             Nodecl::GreaterThan cond_ = cond.as<Nodecl::GreaterThan>();
             Symbol def_var = cond_.get_lhs().get_symbol();
             Nodecl::NodeclBase def_expr = cond_.get_rhs();
-            
+
             // This is not the UB, is the LB: the lower bound will be the rhs plus 1
             nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-            Nodecl::NodeclBase lb = Nodecl::Add::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(), 
+            Nodecl::NodeclBase lb = Nodecl::Add::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(),
                                                     cond.get_filename(), cond.get_line());
             lb = Nodecl::Utils::reduce_expression(lb);
-            
+
             InductionVarInfo* loop_info_var;
             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
             {
@@ -217,7 +217,7 @@ namespace Analysis {
         {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
         }
     }
-    
+
     void LoopAnalysis::traverse_loop_stride(Node* loop_node, Nodecl::NodeclBase stride)
     {
         if (stride.is<Nodecl::Preincrement>() || stride.is<Nodecl::Postincrement>())
@@ -239,7 +239,7 @@ namespace Analysis {
             {
                 nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
                 loop_info_var->set_stride(Nodecl::NodeclBase(one));
-                loop_info_var->set_stride_is_positive(1);            
+                loop_info_var->set_stride_is_positive(1);
             }
             else
             {
@@ -260,13 +260,13 @@ namespace Analysis {
                 Nodecl::Postdecrement stride_ = stride.as<Nodecl::Postdecrement>();
                 rhs = stride_.get_rhs();
             }
-        
+
             InductionVarInfo* loop_info_var;
             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, rhs.get_symbol())) != NULL )
             {
                 nodecl_t minus_one = const_value_to_nodecl(const_value_get_minus_one(/* bytes */ 4, /* signed*/ 1));
                 loop_info_var->set_stride(Nodecl::NodeclBase(minus_one));
-                loop_info_var->set_stride_is_positive(0);            
+                loop_info_var->set_stride_is_positive(0);
             }
             else
             {
@@ -277,7 +277,7 @@ namespace Analysis {
         else if (stride.is<Nodecl::AddAssignment>())
         {
             Nodecl::AddAssignment stride_ = stride.as<Nodecl::AddAssignment>();
-            
+
             InductionVarInfo* loop_info_var;
             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, stride_.get_lhs().get_symbol())) != NULL )
             {
@@ -296,10 +296,10 @@ namespace Analysis {
         else
         {
             internal_error("Node kind '%s' while analysing the induction variables in loop stride expression not yet implemented",
-                ast_print_node_type(stride.get_kind()));            
+                ast_print_node_type(stride.get_kind()));
         }
     }
-    
+
     void LoopAnalysis::prettyprint_induction_var_info(InductionVarInfo* var_info)
     {
         std::cerr << "sym '" << var_info->get_symbol().get_name() << "'"
@@ -307,7 +307,7 @@ namespace Analysis {
                 << ", UB = '" << var_info->get_ub().prettyprint() << "'"
                 << ", STEP = '" << var_info->get_stride().prettyprint() << "'" << std::endl;
     }
-    
+
     void LoopAnalysis::compute_loop_induction_vars(Node* loop_node)
     {
         // Propagate induction variables of the outer loop to the actual loop
@@ -315,11 +315,11 @@ namespace Analysis {
         induc_vars_map new_induction_vars;
         while (outer_node != NULL)
         {
-            if (outer_node->get_graph_type() == LOOP)
+            if (outer_node->is_loop_node())
             {
                 std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> outer_ind_vars =
                         _induction_vars.equal_range(outer_node->get_id());
-                        
+
                 for (induc_vars_map::const_iterator it = outer_ind_vars.first; it != outer_ind_vars.second; ++it)
                 {
                     new_induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), it->second));
@@ -332,17 +332,17 @@ namespace Analysis {
         {
             _induction_vars.insert(induc_vars_map::value_type(it->first, it->second));
         }
-        
+
         // Compute actual loop control info
         Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
         traverse_loop_init(loop_node, loop_control.get_init());
         traverse_loop_cond(loop_node, loop_control.get_cond());
         traverse_loop_stride(loop_node, loop_control.get_next());
-        
+
         // Check whether the statements within the loop modify the induction variables founded in the loop control
         Node* entry = loop_node->get_graph_entry_node();
         delete_false_induction_vars(entry, loop_node);
-        
+
         ExtensibleGraph::clear_visits(entry);
     }
 
@@ -351,20 +351,20 @@ namespace Analysis {
         if (!node->is_visited())
         {
             node->set_visited(true);
-            
+
             Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
-            if (ntype != BASIC_EXIT_NODE)
+            if ( !node->is_graph_exit_node( ) )
             {
-                if (ntype == GRAPH_NODE)
+                if ( node->is_loop_node( ) )
                 {
-                    if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
+                    if ( node->get_data<Graph_type>( _GRAPH_TYPE ) == LOOP_FOR )
                     {
                         // Get the info about induction variables in the loop control
                         compute_loop_induction_vars(node);
                     }
                     compute_induction_variables_info(node->get_data<Node*>(_ENTRY_NODE));
                 }
-                
+
                 ObjectList<Node*> children = node->get_children();
                 for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
@@ -375,21 +375,21 @@ namespace Analysis {
     }
 
     Nodecl::NodeclBase LoopAnalysis::set_access_range(Node* node, Node* loop_node,
-                                                    const char use_type, Nodecl::NodeclBase nodecl, 
+                                                    const char use_type, Nodecl::NodeclBase nodecl,
                                                     std::map<Symbol, Nodecl::NodeclBase> ind_var_map,
                                                     Nodecl::NodeclBase reach_def_var)
     {
         Nodecl::NodeclBase renamed_nodecl;
         RenamingVisitor renaming_v(ind_var_map, nodecl.get_filename().c_str(), nodecl.get_line());
         ObjectList<Nodecl::NodeclBase> renamed = renaming_v.walk(nodecl);
-        
-        if (!renamed.empty())   
+
+        if (!renamed.empty())
         {
             if (renamed.size() == 1)
             {
 //                     std::cerr << "Renaming performed: " << nodecl.prettyprint() << " --> " << renamed[0].prettyprint() << std::endl;
                 if (use_type == '0')
-                { 
+                {
                     node->unset_ue_var(ExtendedSymbol(nodecl));
                     node->set_ue_var(ExtendedSymbol(renamed[0]));
                     renamed_nodecl = renamed[0];
@@ -404,7 +404,7 @@ namespace Analysis {
                 {
                     InductionVarInfo* ind_var = induction_vars_l_contains_symbol(loop_node, renaming_v.get_matching_symbol());
                     int is_positive = ind_var->stride_is_positive();
-                    
+
                     if (nodecl.is<Nodecl::ArraySubscript>())
                     {
                         if (use_type == '2')
@@ -419,7 +419,7 @@ namespace Analysis {
                         }
                     }
                     else
-                    { 
+                    {
                         if (use_type == '3')
                         {   // In a reaching definition, we cannot modify the defined variable, just the init expression
                             Nodecl::NodeclBase range = renamed[0];
@@ -445,7 +445,7 @@ namespace Analysis {
             }
             else
             {
-                internal_error("More than one nodecl returned while renaming variables to ranges within a loop [%d] '%s'", 
+                internal_error("More than one nodecl returned while renaming variables to ranges within a loop [%d] '%s'",
                             loop_node->get_id(), loop_node->get_graph_label().prettyprint().c_str());
             }
         }
@@ -453,7 +453,7 @@ namespace Analysis {
         {
             renamed_nodecl = nodecl;
         }
-        
+
         return renamed_nodecl;
     }
 
@@ -463,12 +463,12 @@ namespace Analysis {
         for(Utils::ext_sym_set::iterator it = nodecl_l.begin(); it != nodecl_l.end(); ++it)
         {
             if (it->is_array())
-            {  
+            {
                 set_access_range(node, loop_node, use_type, it->get_nodecl(), ind_var_map);
             }
         }
     }
-    
+
     void LoopAnalysis::set_access_range_in_nodecl_map(Node* node, Node* loop_node, nodecl_map nodecl_m)
     {
         std::map<Symbol, Nodecl::NodeclBase> ind_var_map = get_induction_vars_mapping(loop_node);
@@ -477,19 +477,19 @@ namespace Analysis {
             Nodecl::NodeclBase first = it->first, second = it->second;
             Nodecl::NodeclBase renamed_reach_def = set_access_range(node, loop_node, '2', it->first, ind_var_map);
             set_access_range(node, loop_node, '3', it->second, ind_var_map, renamed_reach_def);
-        }        
+        }
     }
-    
+
     void LoopAnalysis::compute_ranges_for_variables_in_loop(Node* node, Node* loop_node)
     {
         if (!node->is_visited())
         {
             node->set_visited(true);
-            
+
             Node_type ntype = node->get_type();
-            if (ntype != BASIC_EXIT_NODE)
+            if (ntype != EXIT)
             {
-                if (ntype == GRAPH_NODE)
+                if (ntype == GRAPH)
                 {
                     Node* next_loop = loop_node;
                     if (node->get_graph_type() == LOOP)
@@ -499,14 +499,14 @@ namespace Analysis {
                     node->set_visited(false);
                     node->set_graph_node_use_def();
                 }
-                else if (ntype == BASIC_NORMAL_NODE || ntype == BASIC_LABELED_NODE || ntype == BASIC_FUNCTION_CALL_NODE)
+                else if (ntype == NORMAL || ntype == LABELED || ntype == FUNCTION_CALL)
                 {   // Check for arrays in that are used in some way within the BB statements
                     set_access_range_in_ext_sym_set(node, loop_node, node->get_ue_vars(), /* use type */ '0');
                     set_access_range_in_ext_sym_set(node, loop_node, node->get_killed_vars(), /* use type */ '1');
                     set_access_range_in_ext_sym_set(node, loop_node, node->get_undefined_behaviour_vars(), /* use type */ '4');
                     set_access_range_in_nodecl_map(node, loop_node, node->get_reaching_definitions());
                 }
-                
+
                 ObjectList<Node*> children = node->get_children();
                 for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
@@ -515,50 +515,45 @@ namespace Analysis {
             }
         }
     }
-    
-    void LoopAnalysis::compute_ranges_for_variables(Node* node)
+
+    void LoopAnalysis::compute_ranges_for_variables( Node* node )
     {
-        if (!node->is_visited())
+        if ( !node->is_visited( ) )
         {
-            node->set_visited(true);
-            
-            Node_type ntype = node->get_type();
-            if (ntype != BASIC_EXIT_NODE)
+            node->set_visited( true );
+
+            if ( !node->is_graph_exit_node( ) )
             {
-                if (ntype == GRAPH_NODE)
+                if ( node->is_graph_node( ) )
                 {
-                    Node* entry = node->get_data<Node*>(_ENTRY_NODE);
-                    if (node->get_data<Graph_type>(_GRAPH_TYPE) == LOOP)
-                    {   
-                        compute_ranges_for_variables_in_loop(entry, node);
+                    Node* entry = node->get_graph_entry_node( );
+                    if ( node->is_loop_node( ) )
+                    {
+                        compute_ranges_for_variables_in_loop( entry, node );
                     }
                     else
                     {
-                        compute_ranges_for_variables(entry);
+                        compute_ranges_for_variables( entry );
                     }
-                    ExtensibleGraph::clear_visits(node);
-                    node->set_graph_node_use_def();
+                    ExtensibleGraph::clear_visits( node );
+                    node->set_graph_node_use_def( );
                 }
-                
-                ObjectList<Node*> children = node->get_children();
-                for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+
+                ObjectList<Node*> children = node->get_children( );
+                for ( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    compute_ranges_for_variables(*it);
+                    compute_ranges_for_variables( *it );
                 }
             }
-            else
-            {
-                return;
-            }
-        }        
-    }  
+        }
+    }
 
     void LoopAnalysis::analyse_loops(Node* node)
     {
         // Compute induction_variables_info
         compute_induction_variables_info(node);
         ExtensibleGraph::clear_visits(node);
-        
+
         // Analyse the possible arrays in the node
         compute_ranges_for_variables(node);
         ExtensibleGraph::clear_visits(node);

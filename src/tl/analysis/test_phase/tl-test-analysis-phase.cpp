@@ -24,13 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-#include "cxx-utils.h"
-#include "tl-analysis-common.hpp"
-#include "tl-analysis-phase.hpp"
+#include "tl-test-analysis-phase.hpp"
 #include "tl-analysis-singleton.hpp"
-#include "tl-cfg-visitor.hpp"
-#include "tl-static-analysis.hpp"
+#include "tl-analysis-utils.hpp"
+#include "tl-pcfg-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -43,10 +40,25 @@ namespace Analysis {
 
         void TestAnalysisPhase::run( TL::DTO& dto )
         {
-            AnalysisSingleton* analysis = AnalysisSingleton::get_analysis( dto );
+            AnalysisSingleton& analysis = AnalysisSingleton::get_analysis( );
+
+            RefPtr<Nodecl::NodeclBase> ref_ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( dto["nodecl"] );
+            Nodecl::NodeclBase ast = *ref_ast;
+
+            // Test PCFG creation
+            if ( VERBOSE )
+                std::cerr << "Testing PCFG creation" << std::endl;
+            ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast );
+
+            if ( VERBOSE )
+                std::cerr << "Printing PCFG to dot file" << std::endl;
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
+            {
+                analysis.print_pcfg( *it );
+            }
 
             // Test constant propagation and constant folding
-            analysis->conditional_constant_propagation( );
+//             analysis->conditional_constant_propagation( );
 
 
 

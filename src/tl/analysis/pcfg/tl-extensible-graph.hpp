@@ -142,16 +142,10 @@ namespace Analysis {
         //! Prints the data of an only node.
         void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
 
-
-        //! Returns whether the source and the target of an edge belongs to the same outer node.
-        /*!
-        If both the source and the target do not have an outer node, then true is returned.
-        */
+        /*!Returns whether the source and the target of an edge belongs to the same outer node.
+         * If both the source and the target do not have an outer node, then true is returned.
+         */
         static bool belongs_to_the_same_graph(Edge* edge);
-
-        //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
-        //! This method is used when a node s replaced by another, because the identifiers may be repeated
-        void recompute_identifiers(Node* actual_node);
 
         //! Method used during the copy method when the edges must be copied before connecting the nodes
         void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
@@ -201,22 +195,18 @@ namespace Analysis {
         *              By default is ALWAYS_EDGE.
         * \return The new node created
         */
-        Node* append_new_node_to_parent(ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                    Node_type ntype = BASIC_NORMAL_NODE,
-                                    Edge_type etype = ALWAYS_EDGE);
+        Node* append_new_node_to_parent( ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
+                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS);
 
 
-        Node* append_new_node_to_parent(Node* parent, Nodecl::NodeclBase nodecl,
-                                    Node_type ntype = BASIC_NORMAL_NODE,
-                                    Edge_type etype = ALWAYS_EDGE);
+        Node* append_new_node_to_parent( Node* parent, Nodecl::NodeclBase nodecl,
+                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
 
-        Node* append_new_node_to_parent(Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                    Node_type ntype = BASIC_NORMAL_NODE,
-                                    Edge_type etype = ALWAYS_EDGE);
+        Node* append_new_node_to_parent( Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
+                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
 
-        Node* append_new_node_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
-                                    Node_type ntype = BASIC_NORMAL_NODE,
-                                    Edge_type etype = ALWAYS_EDGE);
+        Node* append_new_node_to_parent( ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
+                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
 
         //! Connects two nodes by creating a new edge between them.
         /*!
@@ -228,37 +218,37 @@ namespace Analysis {
         * \param is_back_edge Bool indicating whether the nodes must be connected by a back edge
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes(Node* parent, Node* child,
-                        Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false, bool is_task_edge = false);
+        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = ALWAYS, std::string label = "",
+                             bool is_back_edge = false, bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
         //! set of children and each connection may be different from the others.
         //! A set of edge types and labels must be provided. It is assumed that each parent is
         //! connected to all its children with the same type of edge.
-        void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children,
-                        ObjectList<Edge_type> etypes, ObjectList<std::string> elabels);
+        void connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
+                            ObjectList<Edge_type> etypes, ObjectList<std::string> elabels );
 
         //! Wrapper method for #connect_nodes when a parent must be connected to a set of
         //! children and each connection may be different from the others.
         //! A set of edge types and labels must be provided.
-        void connect_nodes(Node* parent, ObjectList<Node*> children,
-                        ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+        void connect_nodes( Node* parent, ObjectList<Node*> children,
+                            ObjectList<Edge_type> etypes, ObjectList<std::string> labels );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
-        void connect_nodes(ObjectList<Node*> parents, Node* child,
-                        ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge = false);
+        void connect_nodes( ObjectList<Node*> parents, Node* child, ObjectList<Edge_type> etypes,
+                            ObjectList<std::string> labels, bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
-        void connect_nodes(ObjectList<Node*> parents, Node* child,
-                        Edge_type etype = ALWAYS_EDGE, std::string label = "", bool is_back_edge = false);
+        void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS,
+                            std::string label = "", bool is_back_edge = false );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
-        void disconnect_nodes(ObjectList<Node*> parents, Node* child);
+        void disconnect_nodes( ObjectList<Node*> parents, Node* child );
 
         //! Wrapper method for #disconnect_nodes when a set of children is connected to a parent
-        void disconnect_nodes(Node* parent, ObjectList<Node*> children);
+        void disconnect_nodes( Node* parent, ObjectList<Node*> children );
 
         //! Disconnects two nodes.
         /*!
@@ -266,7 +256,7 @@ namespace Analysis {
         \param parent Source of the connection to be removed.
         \param child Target of the connection to be removed.
         */
-        void disconnect_nodes(Node *parent, Node *child);
+        void disconnect_nodes( Node *parent, Node *child );
 
         //! Builds a composite node with an entry and an exit node.
         /*!
@@ -281,8 +271,11 @@ namespace Analysis {
         *                It is only not null for graph nodes containing tasks
         * \return The new composite node.
         */
-        Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label,
-                                Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
+        Node* create_graph_node( Node* outer_node, Nodecl::NodeclBase label,
+                                 Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null( ) );
+
+        //! Builds a Flush node and connects it with the existent graph
+        void create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
 
         //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
         /*!
@@ -292,13 +285,13 @@ namespace Analysis {
         * \param outer_node Node to which the new nodes will belong to.
         *                   It must be a Graph node.
         */
-        void create_barrier_node(Node* outer_node);
+        void create_barrier_node( Node* outer_node );
 
         //! Builds a basic normal node (BASIC_NORMAL_NODE)
         /*!
         * \param nodecl Statement that will be added to the new node
         */
-        Node* create_unconnected_node(Nodecl::NodeclBase nodecl);
+        Node* create_unconnected_node( Nodecl::NodeclBase nodecl );
 
         //! Deletes a node from the graph
         /*!
@@ -306,12 +299,12 @@ namespace Analysis {
         * from the list of parents of its children as well. Finally, frees the pointer.
         * \param n Pointer to the node to be deleted
         */
-        void delete_node(Node* n);
+        void delete_node( Node* n );
 
         //! This method traverses the graph and clears all the unreachable nodes and  those nodes created
         //! during the construction of the graph but do not represent any statement of the code, and also
         //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
-        void dress_up_graph();
+        void dress_up_graph( );
 
         //! This method concatenates a list of nodes into only one
         /*!
@@ -326,34 +319,34 @@ namespace Analysis {
         *
         * The new node will contain the statements of all the nodes of the list.
         */
-        void concat_nodes(ObjectList<Node*> node_l);
+        void concat_nodes( ObjectList<Node*> node_l );
 
         //!
-        void replace_node(Node* old_node, Node* new_node);
+        void replace_node( Node* old_node, Node* new_node );
 
         //! This function clears the attribute #visited from nodes bellow @actual node.
         //! It works properly if there isn't any unreachable node in the graph bellow @actual.
         static void clear_visits( Node* node );
-        static void clear_visits_aux(Node* node);
+        static void clear_visits_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
-        static void clear_visits_avoiding_branch(Node* current, Node* avoid_node);
+        static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
 
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot();
+        void print_graph_to_dot( );
 
 
 
         // *** Getters and Setters *** //
 
         //! Returns the name of the graph
-        std::string get_name() const;
+        std::string get_name( ) const;
 
         //! Returns the scope enclosing the code contained in the graph
-        Scope get_scope() const;
+        Scope get_scope( ) const;
 
         ObjectList<Utils::ExtendedSymbolUsage> get_global_variables( ) const;
 

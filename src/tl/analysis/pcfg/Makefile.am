@@ -38,11 +38,12 @@ libpcfg_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la
 END=
 
 libpcfg_la_SOURCES= \
+                    tl-pcfg-utils.hpp \
+                    tl-pcfg-utils.cpp \
                     tl-edge.hpp \
                     tl-edge.cpp \
                     tl-node.hpp \
                     tl-node.cpp \
-                    tl-pcfg-utils.hpp \
                     tl-extensible-graph.hpp \
                     tl-extensible-graph.cpp \
                     tl-pcfg-visitor.hpp \

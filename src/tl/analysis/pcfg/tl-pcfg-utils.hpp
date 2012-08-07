@@ -27,11 +27,15 @@
 #ifndef TL_PCFGVISIT_UTILS_HPP
 #define TL_PCFGVISIT_UTILS_HPP
 
+#include <stack>
+
 namespace TL {
 namespace Analysis {
 
     // ************************************************************************************** //
     // ******************************* PCFG Loop Control class ****************************** //
+
+    class Node;
 
     //! Class storing information about nodes of a loop control
     class PCFGLoopControl
@@ -92,21 +96,28 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     enum Clause {
-        IF,
-        FIRSTPRIVATE,
-        SHARED,
-        PRIVATE,
-        REDUCTION,
+        ATOMIC_CLAUSE,
+        AUTO,
         DEP_IN,
         DEP_OUT,
         DEP_INOUT,
         COPY_IN,
         COPY_OUT,
         COPY_INOUT,
-        SCHEDULE,
-        TARGET,
+        FIRSTPRIVATE,
+        FLUSHED_VARS,       // Convenient clause for FLUSH flushed vars
+        IF,
+        NAME,
+        NOWAIT,
         PRIORITY,
-        UNTIED
+        PRIVATE,
+        REDUCTION,
+        SCHEDULE,
+        SHARED,
+        TARGET,
+        UNDEFINED_CLAUSE,
+        UNTIED,
+        WAITON
     };
 
     class PCFGClause {
@@ -119,48 +130,38 @@ namespace Analysis {
         PCFGClause( );
 
         //! Constructor
-        PCFGClause( std::string c );
+        PCFGClause( Clause c );
+        PCFGClause( Clause c, Nodecl::NodeclBase arg );
 
         //! Copy constructor
         PCFGClause( const PCFGClause& clause );
 
     friend class PCFGVisitor;
+    friend class PCFGPragmaInfo;
     };
 
-    //! Class storing information about nodes in a try-block
-    class PCFGPragma
+    //! Class storing information about pragma clauses
+    class PCFGPragmaInfo
     {
     private:
-        ObjectList<Nodecl::NodeclBase> _params;
         ObjectList<PCFGClause> _clauses;
 
     public:
-        //! Empty constructor
-        PCFGPragma( );
+        //! Empty Constructor
+        PCFGPragmaInfo( );
+
+        //! Constructor
+        PCFGPragmaInfo( PCFGClause clause );
 
         //! Copy constructor
-        PCFGPragma( const PCFGPragma& pragma );
+        PCFGPragmaInfo( const PCFGPragmaInfo& pragma );
 
         //! Destructor
-        ~PCFGPragma( );
+        ~PCFGPragmaInfo( );
 
-        //! Consultant
-        bool has_clause( std::string clause );
+        bool has_clause( Clause clause );
 
-    friend class PCFGVisitor;
-    };
-
-    class PCFGSections {
-    private:
-        ObjectList<Node*> _parents;
-        ObjectList<Node*> _exits;
-
-    public:
-        //! Constructor
-        PCFGSections( );
-
-        //! Copy constructor
-        PCFGSections( const PCFGSections& sections );
+        void add_clause( PCFGClause pcfg_clause );
 
     friend class PCFGVisitor;
     };
@@ -200,15 +201,18 @@ namespace Analysis {
         ObjectList<Node*> _labeled_nodes;
         ObjectList<Node*> _goto_nodes;
 
+        //! Container to keep the conditional node of a switch statement
+        std::stack<Node*> _switch_condition_nodes;
+
         //! Container to keep information of complex statements during its nodes the construction
         std::stack<PCFGLoopControl*> _nested_loop_nodes;
         ObjectList<PCFGTryBlock*> _tryblock_nodes;
 
         //! Stack to keep track of current nested OmpSs pragmas
-        std::stack<PCFGPragma> _pragma_nodes;
+        std::stack<PCFGPragmaInfo> _pragma_nodes;
 
-        //! Stack to keep information of sections nodes
-        std::stack<PCFGSections> _sections_nodes;
+        //! Container to store information about the current context
+        std::stack<Nodecl::NodeclBase> _context_nodecl;
 
         //! Counter used to create a unique key for each new node
         int _nid;

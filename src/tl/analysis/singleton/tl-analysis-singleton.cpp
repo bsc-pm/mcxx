@@ -32,72 +32,126 @@
 namespace TL {
 namespace Analysis {
 
-    // Singleton object
-    AnalysisSingleton* AnalysisSingleton::_analysis = NULL;
+    // ************************************************************************ //
+    // ************************ Analysis Memento class ************************ //
+
+    PCFGAnalysis_memento::PCFGAnalysis_memento( )
+        : _constants( false ), _canonical( false ), _use_def( false ), _liveness( ), _loops( false )
+    {}
+
+    bool PCFGAnalysis_memento::get_constants( )
+    {
+        return _constants;
+    }
+
+    void PCFGAnalysis_memento::set_constants( )
+    {
+        _constants = true;
+    }
+
+    bool PCFGAnalysis_memento::get_canonical( )
+    {
+        return _canonical;
+    }
+
+    void PCFGAnalysis_memento::set_canonical( )
+    {
+        _canonical = true;
+    }
+
+    bool PCFGAnalysis_memento::get_use_def( )
+    {
+        return _use_def;
+    }
+
+    void PCFGAnalysis_memento::set_use_def( )
+    {
+        _use_def = true;
+    }
+
+    bool PCFGAnalysis_memento::get_liveness( )
+    {
+        return _liveness;
+    }
+
+    void PCFGAnalysis_memento::set_liveness( )
+    {
+        _liveness = true;
+    }
+
+    bool PCFGAnalysis_memento::get_loops( )
+    {
+        return _loops;
+    }
+
+    void PCFGAnalysis_memento::set_loops( )
+    {
+        _loops = true;
+    }
+
+    void PCFGAnalysis_memento::reset_state( )
+    {
+        _constants = false;
+        _canonical = false;
+        _use_def = false;
+        _liveness = false;
+        _loops = false;
+    }
+
+    // ********************** END Analysis Memento class ********************** //
+    // ************************************************************************ //
+
+
+
+    // ************************************************************************ //
+    // *********** Analysis Singleton class ( Memento originator ) ************ //
 
     // Private constructor
-    AnalysisSingleton::AnalysisSingleton( TL::DTO& dto )
-        : _dto( dto ), _non_inlined_pcfgs( ), _non_inlined_states( ), _inlined_pcfgs( ), _inlined_states( )
+    AnalysisSingleton::AnalysisSingleton( )
+        : _pcfgs( ), _states( )
     {}
 
     // Single instance constructor
-    AnalysisSingleton* AnalysisSingleton::get_analysis( TL::DTO& dto )
+    AnalysisSingleton& AnalysisSingleton::get_analysis( )
     {
-        if ( !_analysis )
-            _analysis = new AnalysisSingleton( dto );
-        return _analysis;
+        static AnalysisSingleton analysis;
+        return analysis;
     }
 
-    // Public destructor
-    AnalysisSingleton::~AnalysisSingleton( )
-    {
-        delete _analysis;
-        _non_inlined_pcfgs.clear( );
-        _non_inlined_states.clear( );
-        _inlined_pcfgs.clear( );
-        _inlined_states.clear( );
-    }
-
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool inline_pcfg )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast )
     {
         // Get all functions in \ast
         Utils::TopLevelVisitor tlv;
         tlv.walk_functions( ast );
-
         ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
-        ObjectList<ExtensibleGraph*> pcfgs;
 
+        // Create one PCFG per function
+        ObjectList<ExtensibleGraph*> result;
         for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
         {
+            // Generate the hashed name corresponding to the AST of the function
             std::string pcfg_name = Utils::generate_hashed_name( *it );
 
-            // Only create the PCFG if it has not been created previously
-            if( ( inline_pcfg && _inlined_pcfgs.find( pcfg_name ) == _inlined_pcfgs.end( ) )
-                || ( !inline_pcfg && _non_inlined_pcfgs.find( pcfg_name ) == _non_inlined_pcfgs.end( ) ) )
+            // Create the PCFG only if it has not been created previously
+            if( _pcfgs.find( pcfg_name ) == _pcfgs.end( ) )
             {
                 // Create the PCFG
-                PCFGVisitor v( pcfg_name, it->retrieve_context( ), inline_pcfg );
+                PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( ast );
 
-                // Store the pcfg in the proper member depending on the analysis, whether it is IPA or not
-                Analysis_st empty_analysis_state;
-                if( inline_pcfg )
-                {
-                    _inlined_pcfgs[pcfg_name] = pcfg;
-                    _inlined_states[pcfg_name] = empty_analysis_state;
-                }
-                else
-                {   // Add the graph to the member maps
-                    _non_inlined_pcfgs[pcfg_name] = pcfg;
-                    _non_inlined_states[pcfg_name] = empty_analysis_state;
-                }
+                // Store the pcfg in the singleton
+                _pcfgs[pcfg_name] = pcfg;
+                _states[pcfg_name] = new PCFGAnalysis_memento( );
+                result.append( pcfg );
             }
         }
+
+        return result;
     }
 
     void AnalysisSingleton::conditional_constant_propagation( )
     {
-        ConstantsAnalysisPhase::run( _dto );
+//         ConstantsAnalysisPhase::run( );
     }
 
     void AnalysisSingleton::conditional_constant_propagation( ExtensibleGraph* pcfg, bool ipa )
@@ -136,5 +190,9 @@ namespace Analysis {
 
     }
 
+    void AnalysisSingleton::print_pcfg( ExtensibleGraph* graph )
+    {
+        graph->print_graph_to_dot( );
+    }
 }
 }
