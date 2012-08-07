@@ -8653,13 +8653,18 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     break;
                 }
         }
-        func_templ = new_symbol(decl_context, decl_context.current_scope, declarator_name);
+
+        func_templ = counted_calloc(1, sizeof(*func_templ), &_bytes_used_buildscope);
+        func_templ->symbol_name = declarator_name;
 
         func_templ->kind = SK_TEMPLATE;
         func_templ->line = ASTLine(declarator_id);
         func_templ->file = ASTFileName(declarator_id);
         func_templ->entity_specs.is_friend = 1;
         func_templ->entity_specs.is_friend_declared = 1;
+
+        func_templ->decl_context = decl_context;
+        func_templ->decl_context.current_scope = decl_context.namespace_scope;
 
         func_templ->type_information =
             get_new_template_type(decl_context.template_parameters, declarator_type,
