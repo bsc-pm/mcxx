@@ -506,6 +506,12 @@ char const_value_is_nonzero(const_value_t* v)
         case CVK_FLOAT128:
             return v->value.f128 != 0.0Q;
 #endif
+        case CVK_COMPLEX:
+            {
+                return const_value_is_nonzero(const_value_complex_get_real_part(v))
+                    || const_value_is_nonzero(const_value_complex_get_imag_part(v));
+
+            }
         OTHER_KIND;
     }
 
@@ -533,6 +539,12 @@ char const_value_is_one(const_value_t* v)
         case CVK_FLOAT128:
             return v->value.f128 == 1.0Q;
 #endif
+        case CVK_COMPLEX:
+            {
+                return const_value_is_one(const_value_complex_get_real_part(v))
+                    && const_value_is_zero(const_value_complex_get_imag_part(v));
+
+            }
         OTHER_KIND;
     }
 
