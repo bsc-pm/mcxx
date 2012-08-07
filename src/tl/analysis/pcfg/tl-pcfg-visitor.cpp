@@ -35,10 +35,12 @@ namespace Analysis {
     // ************************************************************************************** //
     // ************************************ Constructors ************************************ //
 
-    PCFGVisitor::PCFGVisitor( std::string name, Scope context, bool inline_pcfg, PCFGVisitUtils* utils )
-        : _pcfg( new ExtensibleGraph( name, context, utils ) ), _inline( inline_pcfg ), _utils( utils ),
-          _visited_functions( )
-    {}
+    PCFGVisitor::PCFGVisitor( std::string name, Scope context )
+    {
+        _utils = new PCFGVisitUtils( );
+        _pcfg = new ExtensibleGraph( name, context, _utils );
+        _visited_functions;
+    }
 
     // ********************************** END constructors ********************************** //
     // ************************************************************************************** //

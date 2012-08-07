@@ -44,10 +44,7 @@ namespace Analysis {
     {
     private:
 
-        ExtensibleGraph* _pcfg;     /*!< Actual PCFG which is being built during the visit */
-
-        bool _inline;               /*!< Boolean indicating whether function call nodes must be
-                                         substituted by the PCFG corresponding to its code, when possible */
+        ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
@@ -197,8 +194,7 @@ namespace Analysis {
         // ************************************ Constructors ************************************ //
 
         //! Constructor building an empty PCFG
-        PCFGVisitor( std::string name, Scope context, bool inline_pcfg,
-                     PCFGVisitUtils* utils = new PCFGVisitUtils( ) );
+        PCFGVisitor( std::string name, Scope context );
 
         // ********************************** END constructors ********************************** //
         // ************************************************************************************** //

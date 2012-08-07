@@ -40,16 +40,22 @@ namespace Analysis {
 
         void TestAnalysisPhase::run( TL::DTO& dto )
         {
-            AnalysisSingleton* analysis = AnalysisSingleton::get_analysis( dto );
+            AnalysisSingleton& analysis = AnalysisSingleton::get_analysis( );
+
+            RefPtr<Nodecl::NodeclBase> ref_ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( dto["nodecl"] );
+            Nodecl::NodeclBase ast = *ref_ast;
 
             // Test PCFG creation
             if ( VERBOSE )
                 std::cerr << "Testing PCFG creation" << std::endl;
-            analysis->parallel_control_flow_graph( );
+            ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast );
 
             if ( VERBOSE )
                 std::cerr << "Printing PCFG to dot file" << std::endl;
-//             analysis->print_pcfg( );
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
+            {
+                analysis.print_pcfg( *it );
+            }
 
             // Test constant propagation and constant folding
 //             analysis->conditional_constant_propagation( );
@@ -78,7 +84,6 @@ namespace Analysis {
 //                     }
 //                 }
 //             }
-            analysis->~AnalysisSingleton( );
         }
 }
 }

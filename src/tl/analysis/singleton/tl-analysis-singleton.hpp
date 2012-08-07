@@ -33,33 +33,56 @@
 #include "tl-compilerphase.hpp"
 #include "tl-extensible-graph.hpp"
 
+// Set of classes implementing the Memento Pattern with Analysis purposes.
+// ----------------         -------------        ----------------
+// |  Care Taker  |<>------>|  Memento  |<-------|  Originator  |
+// ----------------         |  -------  |        |  ----------  |
+//                          | get_state |        |  set_memento |
+//                          | set_state |        |  get_memento |
+//                          -------------        ----------------
+// - PCFGAnalysis_memento is the Memento class
+// - AnalysisSingleton is a Singleton class implementing the Originator
+// - Each client will be the Care Taker
+
 namespace TL {
 namespace Analysis {
 
-    struct Analysis_st {
+    //! Memento class capturing the internal state of the PCFG regarding the analysis
+    class PCFGAnalysis_memento {
+    private:
         bool _constants;    //!True when constant propagation and constant folding have been applied
         bool _canonical;    //!True when expressions canonicalization has been applied
         bool _use_def;      //!True when use-definition chains have been calculated
         bool _liveness;     //!True when liveness analysis has been applied
+        bool _loops;        //!True when loops analysis has been applied
 
-        Analysis_st( )
-            : _constants( false ), _canonical( false ), _use_def( false ), _liveness( false )
-        {}
+    public:
+        //! Class constructor
+        PCFGAnalysis_memento( );
 
-        ~Analysis_st( )
-        {
-            _constants = false;
-            _canonical = false;
-            _use_def = false;
-            _liveness = false;
-        }
+        // Getters and Setters
+        bool get_constants( );
+        void set_constants( );
+        bool get_canonical( );
+        void set_canonical( );
+        bool get_use_def( );
+        void set_use_def( );
+        bool get_liveness( );
+        void set_liveness( );
+        bool get_loops( );
+        void set_loops( );
+
+        //! Resets the state of the memento
+        void reset_state( );
+
+    friend class AnalysisSingleton;
     };
 
-    typedef std::map<std::string, Analysis_st> Analysis_state_map;
+    typedef std::map<std::string, PCFGAnalysis_memento*> Analysis_state_map;
     typedef std::map<std::string, ExtensibleGraph*> Analysis_pcfg_map;
 
-    //! Thsi class implements a set of analysis and optimizations
-    class LIBTL_CLASS AnalysisSingleton : public ConstantsAnalysisPhase
+    //! This class implements a Meyers Singleton that includes methods for any kind of analysis
+    class LIBTL_CLASS AnalysisSingleton
     {
     private:
 
@@ -68,16 +91,8 @@ namespace Analysis {
 
         static AnalysisSingleton* _analysis;
 
-        // Translation Unit used when analysis are called as phases
-        DTO& _dto;
-
-        // Variables used when one PCFGs are created mantaining called functions
-        Analysis_pcfg_map _non_inlined_pcfgs;   // Set of ipa PCFGs created.
-        Analysis_state_map _non_inlined_states; // State of each ipa PCFG analysis
-
-        // Variables used when PCFGS are created inlining PCFGs of called functions
-        Analysis_pcfg_map _inlined_pcfgs;   // Set of ipa PCFGs created.
-        Analysis_state_map _inlined_states; // State of each ipa PCFG analysis
+        Analysis_pcfg_map _pcfgs;
+        Analysis_state_map _states;
 
         // ************************* End private attributes ************************* //
         // ************************************************************************** //
@@ -87,14 +102,17 @@ namespace Analysis {
         // ************************************************************************** //
         // **************************** Private methods ***************************** //
 
-        //!Private constructor. Prevent calling constructor.
-        AnalysisSingleton( TL::DTO& dto );
+        //!Private constructor. Prevents calling construction.
+        AnalysisSingleton( );
 
-        //!Not implemented method. Prevent copy constructor.
-        AnalysisSingleton( const AnalysisSingleton& );
+        //!Not implemented method. Prevents copy construction.
+        AnalysisSingleton( const AnalysisSingleton& analysis );
 
-        //!Not implemented method. Prevent assignment.
-        void operator=( const AnalysisSingleton& );
+        //!Not implemented method. Prevents assignment.
+        void operator=( const AnalysisSingleton& analysis );
+
+        //!Not implemented method. Prevents destruction
+        ~AnalysisSingleton( );
 
         // ************************** End private methods *************************** //
         // ************************************************************************** //
@@ -104,11 +122,8 @@ namespace Analysis {
         // ************************************************************************** //
         // *************************** Singleton methods **************************** //
 
-        //!Destructor
-        ~AnalysisSingleton( );
-
         //!Single instance constructor
-        static AnalysisSingleton* get_analysis( TL::DTO& dto );
+        static AnalysisSingleton& get_analysis( );
 
         // ************************* End singleton methods ************************** //
         // ************************************************************************** //
@@ -118,15 +133,11 @@ namespace Analysis {
         // ************************************************************************** //
         // **************************** Analysis methods **************************** //
 
-        //!This method creates the PCFGs corresponding to the code in \_dto
-        void parallel_control_flow_graph( );
-
-        /*!This analysis creates a Parallel Control Flow Graph from \ast
+        /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
          * \param ast Tree containing the code to construct the PCFG(s)
-         * \param ipa Boolean indicating whether Function Call nodes must be substituted by the called functions code
-         * \return A list with the created PCFG(s)
+         * \return A list with pointers to the created PCFG(s)
          */
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast, bool inline_pcfg );
+        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast );
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
