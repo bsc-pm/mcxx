@@ -5468,7 +5468,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
     {
         if (symbol->entity_specs.simplify_function != NULL)
         {
-            nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+            nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
             int j;
             for (j = 0; j < num_actual_arguments; j++)
