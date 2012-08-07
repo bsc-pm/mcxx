@@ -445,7 +445,7 @@ const_value_t* const_value_round_to_nearest_bytes(const_value_t* val, int num_by
 
 const_value_t* const_value_round_to_nearest(const_value_t* val)
 {
-    return const_value_round_to_zero_bytes(val, type_get_size(get_signed_int_type()));
+    return const_value_round_to_nearest_bytes(val, type_get_size(get_signed_int_type()));
 }
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
