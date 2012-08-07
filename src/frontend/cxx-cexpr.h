@@ -164,6 +164,8 @@ LIBMCXX_EXTERN const_value_t* const_value_cast_to_long_double_value(const_value_
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_float128_value(const_value_t* val);
 #endif
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_t* floating_type);
+
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_float(_Complex float f);
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_double(_Complex double d);
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_long_double(_Complex long double ld);

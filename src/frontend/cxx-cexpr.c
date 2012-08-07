@@ -1305,6 +1305,37 @@ const_value_t* const_value_cast_to_float128_value(const_value_t* val)
 }
 #endif 
 
+const_value_t* const_value_cast_to_float_type_value(const_value_t* val, type_t* floating_type)
+{
+    if (is_float_type(floating_type))
+    {
+        return const_value_cast_to_float_value(val);
+    }
+    else if (is_double_type(floating_type))
+    {
+        return const_value_cast_to_double_value(val);
+    }
+    else if (is_long_double_type(floating_type))
+    {
+        return const_value_cast_to_long_double_value(val);
+    }
+    else
+    {
+        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
+#ifdef HAVE_QUADMATH_H
+        if (floating_info->bits == 128)
+        {
+            return const_value_cast_to_float128_value(val);
+        }
+#endif
+    }
+    else
+    {
+        internal_error("Invalid floating type '%s'\n", print_declarator(floating_type));
+    }
+    
+}
+
 const_value_t* integer_type_get_minimum(type_t* t)
 {
     if (is_wchar_t_type(t))
