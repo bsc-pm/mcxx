@@ -91,6 +91,13 @@ LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output_list);
 
+LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
+        decl_context_t decl_context, 
+        char is_template,
+        char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
+        nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const char *filename, int line, nodecl_t* nodecl_output);
 

@@ -80,13 +80,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         nodecl_t* nodecl_output, 
         scope_entry_list_t** declared_symbols);
 
-static scope_entry_t* build_scope_function_definition(AST a,
-        decl_context_t decl_context,
-        char is_template,
-        char is_explicit_instantiation,
-        scope_entry_list_t** declared_symbols,
-        nodecl_t* nodecl_output);
-
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_declarator_with_parameter_context(AST a, 
@@ -652,8 +645,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 //   {
                 //     ...
                 //   }
-                build_scope_function_definition(a, decl_context, /* is_template */ 0,
-                        /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
+                build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
+                        /* is_template */ 0, /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
                 break;
             }
         case AST_DELETED_FUNCTION_DEFINITION :
@@ -5594,27 +5587,8 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
 
         nodecl_t nodecl_funct_def = nodecl_null();
 
-        scope_entry_t* current_symbol =
-            build_scope_function_definition(function_def,
-                    decl_context,
-                    is_template,
-                    is_explicit_instantiation,
-                    /* declared_symbols */ NULL,
-                    &nodecl_funct_def);
-
-        // The found symbol must match with the previous symbol
-        if (previous_symbol != current_symbol)
-        {
-            internal_error("inconsistent symbol created %s at '%s:%d' [%s] vs %s at '%s:%d' [%s] \n", 
-                    previous_symbol->symbol_name,
-                    previous_symbol->file,
-                    previous_symbol->line,
-                    print_declarator(previous_symbol->type_information),
-                    current_symbol->symbol_name,
-                    current_symbol->file,
-                    current_symbol->line,
-                    print_declarator(current_symbol->type_information));
-        }
+        build_scope_function_definition(function_def, previous_symbol, decl_context, 
+                is_template, is_explicit_instantiation, /* declared_symbols */ NULL, &nodecl_funct_def);
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
@@ -9305,10 +9279,10 @@ static void build_scope_explicit_template_specialization(AST a,
     }
 }
 
-static void build_scope_template_function_definition(AST a, decl_context_t decl_context,
+static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
         char is_explicit_instantiation, scope_entry_list_t** declared_symbols, nodecl_t* nodecl_output)
 {
-    /* scope_entry_t* entry = */ build_scope_function_definition(a, decl_context,
+    /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
             /* is_template */ 1, is_explicit_instantiation, declared_symbols, nodecl_output);
 }
 
@@ -10420,9 +10394,11 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
 
 /*
  * This function builds symbol table information for a function definition
+ *  
+ * If previous_symbol != NULL, the found symbol should match
  */
-static scope_entry_t* build_scope_function_definition(AST a,
-        decl_context_t decl_context,
+scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
+        decl_context_t decl_context, 
         char is_template,
         char is_explicit_instantiation,
         scope_entry_list_t** declared_symbols,
@@ -10514,11 +10490,26 @@ static scope_entry_t* build_scope_function_definition(AST a,
 
     // This does not modify block_context.current_scope, it simply adds a function_scope to the context
     block_context = new_function_context(block_context);
+    
+    if(previous_symbol != NULL
+            && previous_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+    {
+        // The function symbol is not stored (currently) in the build scope because it's a SK_DEPENDENT_FRIEND_FUNCTION.
+        // We don't use 'entry = build_scope_declarator_name' because this function searches the function symbol in the scope
+        // and, if this symbol is not found, creates a new one.
+        build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
+                new_decl_context, &block_context, nodecl_output);
 
-    // block-context will be updated for qualified-id to reflect the exact context
-    build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
-            new_decl_context, &block_context, nodecl_output);
-    entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context, nodecl_output);
+        entry = previous_symbol;
+        declarator_type = entry->type_information;
+    }
+    else
+    {
+        // block-context will be updated for qualified-id to reflect the exact context
+        build_scope_declarator_with_parameter_context(function_declarator, &gather_info, type_info, &declarator_type,
+                new_decl_context, &block_context, nodecl_output);
+        entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context, nodecl_output);
+    }
 
     if (entry == NULL)
     {
@@ -10553,7 +10544,20 @@ static scope_entry_t* build_scope_function_definition(AST a,
     // Set the related entry
     block_context.current_scope->related_entry = entry;
 
-
+    if (previous_symbol != NULL
+            && previous_symbol != entry)
+    {
+        internal_error("inconsistent symbol created %s at '%s:%d' [%s] vs %s at '%s:%d' [%s] \n", 
+                previous_symbol->symbol_name,
+                previous_symbol->file,
+                previous_symbol->line,
+                print_declarator(previous_symbol->type_information),
+                entry->symbol_name,
+                entry->file,
+                entry->line,
+                print_declarator(entry->type_information)
+                );
+    }
 
     if (entry->defined
             && !entry->entity_specs.is_non_emitted)
