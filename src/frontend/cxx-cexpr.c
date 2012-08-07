@@ -1305,7 +1305,7 @@ const_value_t* const_value_cast_to_float128_value(const_value_t* val)
 }
 #endif 
 
-const_value_t* const_value_cast_to_float_type_value(const_value_t* val, type_t* floating_type)
+const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_t* floating_type)
 {
     if (is_float_type(floating_type))
     {
@@ -1328,12 +1328,8 @@ const_value_t* const_value_cast_to_float_type_value(const_value_t* val, type_t* 
             return const_value_cast_to_float128_value(val);
         }
 #endif
-    }
-    else
-    {
         internal_error("Invalid floating type '%s'\n", print_declarator(floating_type));
     }
-    
 }
 
 const_value_t* integer_type_get_minimum(type_t* t)

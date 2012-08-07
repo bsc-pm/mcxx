@@ -1955,7 +1955,7 @@ static nodecl_t simplify_aimag(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     return const_value_to_nodecl(const_value_complex_get_imag_part(cval));
 }
 
-static const_value_t* compute_aint(const_value_t* cval)
+static const_value_t* compute_aint(const_value_t* cval, type_t* floating_type)
 {
     // Array case
     if (const_value_is_array(cval))
@@ -1965,7 +1965,7 @@ static const_value_t* compute_aint(const_value_t* cval)
 
         for (i = 0; i < N; i++)
         {
-            array[i] = compute_aint ( const_value_get_element_num(cval, i) );
+            array[i] = compute_aint ( const_value_get_element_num(cval, i), floating_type );
             if (array[i] == NULL)
                 return NULL;
         }
@@ -1973,7 +1973,7 @@ static const_value_t* compute_aint(const_value_t* cval)
         return const_value_make_array(N, array);
     }
 
-    return const_value_round_to_zero( cval );
+    return const_value_cast_to_floating_type_value(const_value_round_to_zero( cval ), floating_type);
 }
 
 static nodecl_t simplify_aint(int num_arguments, nodecl_t* arguments)
@@ -1995,12 +1995,15 @@ static nodecl_t simplify_aint(int num_arguments, nodecl_t* arguments)
         kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
     }
 
+    type_t* floating_type = choose_float_type_from_kind(kind, kind_);
+    const_value_t* float_value = compute_aint(nodecl_get_constant(arg), floating_type);
+
     return const_value_to_nodecl_with_basic_type(
-            compute_aint(nodecl_get_constant(arg)),
-            choose_int_type_from_kind(kind, kind_));
+            float_value,
+            floating_type);
 }
 
-static const_value_t* compute_anint(const_value_t* cval)
+static const_value_t* compute_anint(const_value_t* cval, type_t* floating_type)
 {
     // Array case
     if (const_value_is_array(cval))
@@ -2010,7 +2013,7 @@ static const_value_t* compute_anint(const_value_t* cval)
 
         for (i = 0; i < N; i++)
         {
-            array[i] = compute_anint ( const_value_get_element_num(cval, i) );
+            array[i] = compute_anint ( const_value_get_element_num(cval, i), floating_type );
             if (array[i] == NULL)
                 return NULL;
         }
@@ -2018,7 +2021,8 @@ static const_value_t* compute_anint(const_value_t* cval)
         return const_value_make_array(N, array);
     }
 
-    return const_value_round_to_nearest( cval );
+    return const_value_cast_to_floating_type_value(const_value_round_to_nearest( cval ), 
+            floating_type);
 }
 
 static nodecl_t simplify_anint(int num_arguments, nodecl_t* arguments)
@@ -2040,9 +2044,12 @@ static nodecl_t simplify_anint(int num_arguments, nodecl_t* arguments)
         kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
     }
 
+    type_t* floating_type = choose_float_type_from_kind(kind, kind_);
+    const_value_t* float_value = compute_anint(nodecl_get_constant(arg), floating_type);
+
     return const_value_to_nodecl_with_basic_type(
-            compute_anint(nodecl_get_constant(arg)),
-            choose_int_type_from_kind(kind, kind_));
+            float_value,
+            floating_type);
 }
 
 static nodecl_t simplify_asin(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
