@@ -395,6 +395,10 @@ void driver_fortran_retrieve_module(const char* module_name,
     if (*mf03_filename != NULL)
         return;
 
+    // If we are told not to wrap, do not attempt wrapped ones
+    if (CURRENT_CONFIGURATION->do_not_wrap_fortran_modules)
+        return;
+
     wrap_module = get_path_of_mercurium_wrap_module(module_name);
 
     if (wrap_module != NULL)

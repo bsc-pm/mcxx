@@ -352,7 +352,11 @@ typedef struct compilation_configuration_tag
     const char** prescanner_options;
     int column_width;
 
+    // Disable Fortran intrinsics
     char disable_intrinsics;
+
+    // Fortran module wrapping
+    char do_not_wrap_fortran_modules;
 
     // Directories where we look for modules
     int num_module_dirs;

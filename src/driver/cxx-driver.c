@@ -243,6 +243,10 @@
 "                           when looking for a Fortran module. \n" \
 "                           Does not affect the native compiler like\n" \
 "                           -I does\n" \
+"  --do-not-wrap-modules    When creating a module 'x', do not create\n" \
+"                           a 'x.mod' files wrapping 'x.mf03' and the\n" \
+"                           native Fortran compiler 'x.mod' file.\n" \
+"                           Instead, keep 'x.mf03' and native 'x.mod'.\n" \
 "  --do-not-warn-config     Do not warn about wrong configuration\n" \
 "                           file names\n" \
 "  --vector-flavor=name     When emitting vector types use given\n" \
@@ -347,6 +351,7 @@ typedef enum
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
     OPTION_VECTOR_FLAVOR,
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_VERBOSE,
@@ -418,6 +423,7 @@ struct command_line_long_options command_line_long_options[] =
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
+    {"do-not-wrap-modules", CLP_NO_ARGUMENT, OPTION_DO_NOT_WRAP_FORTRAN_MODULES },
     {"vector-flavor", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
     {"vector-flavour", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
     {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
@@ -1259,6 +1265,11 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES :
                     {
+                        break;
+                    }
+                case OPTION_DO_NOT_WRAP_FORTRAN_MODULES:
+                    {
+                        CURRENT_CONFIGURATION->do_not_wrap_fortran_modules = 1;
                         break;
                     }
                 case OPTION_INSTANTIATE_TEMPLATES:
@@ -2837,13 +2848,19 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             // * Wrap all the modules of Fortran, only if native compilation was actually performed
             if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
             {
-                if (!CURRENT_CONFIGURATION->do_not_compile)
+                if (!CURRENT_CONFIGURATION->do_not_wrap_fortran_modules)
                 {
-                    driver_fortran_wrap_all_modules();
-                }
-                else
-                {
-                    driver_fortran_discard_all_modules();
+                    if (!CURRENT_CONFIGURATION->do_not_compile)
+                    {
+                        // Wrap .mf03 along with .mod files
+                        driver_fortran_wrap_all_modules();
+                    }
+                    else
+                    {
+                        // Remove .mf03 files when wrapping is enabled but we
+                        // are not calling the native compiler
+                        driver_fortran_discard_all_modules();
+                    }
                 }
             }
         }
