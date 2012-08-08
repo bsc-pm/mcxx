@@ -1016,7 +1016,7 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (CURRENT_CONFIGURATION->module_out_dir != NULL)
                         {
-                            fprintf(stderr, "warning: -J flag passed more than once. This will overwrite the first directory\n");
+                            fprintf(stderr, "warning: -J flag passed more than once. Last directory passed will override previous ones\n");
                         }
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
