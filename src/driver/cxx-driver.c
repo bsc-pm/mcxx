@@ -1006,6 +1006,13 @@ int parse_arguments(int argc, const char* argv[],
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, temp);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->prescanner_options, temp);
+
+                        if (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_FORTRAN)
+                        {
+                            // For Fortran we add -I to the native as well
+                            add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, temp);
+                        }
+
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
                         P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
