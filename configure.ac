@@ -538,7 +538,7 @@ then
    AC_PATH_PROG([IFORT], [ifort], [])
    if test x$IFORT != x;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imfc imf95"
+      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95"
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
    fi
 
