@@ -118,7 +118,7 @@ namespace Analysis {
         return analysis;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool dress_up )
     {
         // Get all functions in \ast
         Utils::TopLevelVisitor tlv;
@@ -132,12 +132,15 @@ namespace Analysis {
             // Generate the hashed name corresponding to the AST of the function
             std::string pcfg_name = Utils::generate_hashed_name( *it );
 
+            if( VERBOSE )
+                std::cerr << "Generating PCFG '" << pcfg_name << "'" << std::endl;
+
             // Create the PCFG only if it has not been created previously
             if( _pcfgs.find( pcfg_name ) == _pcfgs.end( ) )
             {
                 // Create the PCFG
                 PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
-                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( ast );
+                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, dress_up );
 
                 // Store the pcfg in the singleton
                 _pcfgs[pcfg_name] = pcfg;

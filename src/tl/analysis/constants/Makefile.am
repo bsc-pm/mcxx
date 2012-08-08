@@ -29,9 +29,9 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libconstants_analysis.la
 
 libconstants_analysis_la_CFLAGS = $(tl_cflags)
-libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../singleton -I $(srcdir)/../pcfg
+libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
 libconstants_analysis_la_LDFLAGS = $(tl_ldflags)
-libconstants_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la ../pcfg/libpcfg.la
+libconstants_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 

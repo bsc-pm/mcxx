@@ -36,6 +36,7 @@ namespace Analysis {
     {
 
         _graph = create_graph_node( NULL, Nodecl::NodeclBase::null( ), EXTENSIBLE_GRAPH );
+        _utils->_last_nodes = ObjectList<Node*>( 1, _graph->get_graph_entry_node( ) );
     }
 
     ExtensibleGraph* ExtensibleGraph::copy( )
@@ -403,30 +404,26 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::disconnect_nodes(ObjectList<Node*> parents, Node* child)
+    void ExtensibleGraph::disconnect_nodes( ObjectList<Node*> parents, Node* child )
     {
-        for(ObjectList<Node*>::iterator it = parents.begin();
-                it != parents.end();
-                ++it)
+        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            disconnect_nodes(*it, child);
+            disconnect_nodes( *it, child );
         }
     }
 
-    void ExtensibleGraph::disconnect_nodes(Node* parent, ObjectList<Node*> children)
+    void ExtensibleGraph::disconnect_nodes( Node* parent, ObjectList<Node*> children )
     {
-        for(ObjectList<Node*>::iterator it = children.begin();
-                it != children.end();
-                ++it)
+        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
         {
-            disconnect_nodes(parent, *it);
+            disconnect_nodes( parent, *it );
         }
     }
 
-    void ExtensibleGraph::disconnect_nodes(Node *parent, Node *child)
+    void ExtensibleGraph::disconnect_nodes( Node *parent, Node *child )
     {
-        parent->erase_exit_edge(child);
-        child->erase_entry_edge(parent);
+        parent->erase_exit_edge( child );
+        child->erase_entry_edge( parent );
     }
 
     Node* ExtensibleGraph::create_graph_node( Node* outer_node, Nodecl::NodeclBase label,

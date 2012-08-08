@@ -48,7 +48,7 @@ namespace Analysis {
             // Test PCFG creation
             if ( VERBOSE )
                 std::cerr << "Testing PCFG creation" << std::endl;
-            ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast );
+            ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast, /* dress up PCFGs */ true );
 
             if ( VERBOSE )
                 std::cerr << "Printing PCFG to dot file" << std::endl;

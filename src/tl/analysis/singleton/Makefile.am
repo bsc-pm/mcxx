@@ -32,10 +32,10 @@ END=
 
 libanalysis_singleton_la_CFLAGS= $(tl_cflags)
 libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../.. -I $(srcdir)/../common -I $(srcdir)/../pcfg \
-                                                -I $(srcdir)/../constants -I $(srcdir)/../loops
+                                                -I $(srcdir)/../constants
 libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
 libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
-                                              ../constants/libconstants_analysis.la ../loops/libloops_analysis.la
+                                              ../constants/libconstants_analysis.la
 
 libanalysis_singleton_la_SOURCES= \
                                 tl-analysis-singleton.hpp \

@@ -204,7 +204,11 @@ namespace Analysis {
         // ************************************************************************************** //
         // ******************************** Non-visiting methods ******************************** //
 
-        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
+        /*!Generates one PCFG per each function of an AST
+         * \param n AST containing the code used to generate the PCFG
+         * \param dress_up boolean indicating whether the PCFG(s) must create maximum Basic Blocks or not
+         */
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, bool dress_up = true );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -355,7 +359,9 @@ namespace Analysis {
         Ret visit( const Nodecl::SwitchStatement& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::Throw& n );
-        Ret visit( const Nodecl::TopLevel& n );
+//      Ret visit( const Nodecl::TopLevel& n ); // This method is not implemented because PCFGVisitor must visit
+                                                // sections of code creating a unique PCFG.
+                                                // Use AnalysisSingleton methods instead.
         Ret visit( const Nodecl::TryBlock& n );
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );

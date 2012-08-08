@@ -55,7 +55,7 @@ namespace Analysis {
         _pcfg = graph;
     }
 
-    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n )
+    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n, bool dress_up )
     {
         // Visit the nodes in \n
         walk( n );
@@ -69,7 +69,8 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, pcfg_exit );
         _utils->_return_nodes.clear( );
 
-        _pcfg->dress_up_graph( );
+        if( dress_up )
+            _pcfg->dress_up_graph( );
 
         return _pcfg;
     }
@@ -316,7 +317,7 @@ namespace Analysis {
         previous_nodes.append(first);
         if(second != NULL)
         {   // Only second node must be NULL and it will be the case of unary operations
-        previous_nodes.append(second);
+            previous_nodes.append(second);
         }
 
         return merge_nodes(n, previous_nodes);
@@ -440,9 +441,8 @@ namespace Analysis {
         if( !_utils->_last_nodes.empty( ) )
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes( _utils->_last_nodes, func_graph_node );
-            _utils->_last_nodes.clear( );
         }
-        _utils->_last_nodes.append( func_graph_node->get_graph_entry_node( ) );
+        _utils->_last_nodes = ObjectList<Node*>( 1, func_graph_node->get_graph_entry_node( ) );
 
         // Create the nodes for the arguments
         Node* func_node;
@@ -471,7 +471,7 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while CFG construction '"
+        std::cerr << "Unhandled node while PCFG construction '"
                     << codegen_to_str( n.get_internal_nodecl( ),
                                         nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
                     << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
@@ -1952,11 +1952,6 @@ namespace Analysis {
 
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, throw_node );
-    }
-
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::TopLevel& n )
-    {
-        return walk( n.get_top_level( ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::TryBlock& n )

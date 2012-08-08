@@ -105,14 +105,14 @@ namespace Analysis {
         //!Private constructor. Prevents calling construction.
         AnalysisSingleton( );
 
-        //!Not implemented method. Prevents copy construction.
-        AnalysisSingleton( const AnalysisSingleton& analysis );
+        //!Prevents copy construction.
+        AnalysisSingleton( const AnalysisSingleton& analysis ){};
 
-        //!Not implemented method. Prevents assignment.
-        void operator=( const AnalysisSingleton& analysis );
+        //!Prevents assignment.
+        void operator=( const AnalysisSingleton& analysis ){};
 
-        //!Not implemented method. Prevents destruction
-        ~AnalysisSingleton( );
+        //!Prevents destruction
+        ~AnalysisSingleton( ){};
 
         // ************************** End private methods *************************** //
         // ************************************************************************** //
@@ -135,9 +135,9 @@ namespace Analysis {
 
         /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
          * \param ast Tree containing the code to construct the PCFG(s)
-         * \return A list with pointers to the created PCFG(s)
+         * \return A pointer to the created PCFG
          */
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast, bool dress_up );
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
