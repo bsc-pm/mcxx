@@ -24,11 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-# SUBDIRS = common pcfg constants singleton test_phase
-#
-# There is something missing and fails to build
-SUBDIRS =
-
+SUBDIRS = common pcfg constants singleton test_phase
 
 END=
 
