@@ -1494,7 +1494,14 @@ static void add_parameter_all_toolchain(const char *argument, char dry_run)
 {
     if (!dry_run)
     {
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+        if (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, argument);
+        }
+        else
+        {
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+        }
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
         add_to_linker_command(uniquestr(argument), NULL);
     }
