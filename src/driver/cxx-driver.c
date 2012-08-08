@@ -1483,7 +1483,6 @@ int parse_arguments(int argc, const char* argv[],
         }
         else
         {
-            //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, minus_v);
             add_to_linker_command(uniquestr(minus_v), NULL);
         }
     }
