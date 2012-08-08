@@ -8217,7 +8217,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->file = ASTFileName(declarator_id);
 
             new_entry->entity_specs.is_friend = gather_info->is_friend;
-            new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
+            new_entry->entity_specs.is_friend_declared = 0;
 
             if (decl_context.current_scope->kind == CLASS_SCOPE
                     && !new_entry->entity_specs.is_friend_declared)
@@ -8426,41 +8426,6 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     ERROR_CONDITION(!(gather_info->is_friend && is_dependent_class_scope(decl_context)),
             "this is not a depedent friend function", 0);
 
-    // A friend declaration always will be in a class scope
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
-    ERROR_CONDITION(class_symbol == NULL, "This symbol cannot be NULL\n", 0);
-
-    // Has the current class a dependent friend function with equivalent type
-    // to the current dependent friend function?
-
-    nodecl_t nodecl_name = nodecl_null();
-    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
-    const char* function_name = codegen_to_str(nodecl_name, decl_context);
-    {
-        scope_entry_list_t* friend_symbols =
-            class_type_get_friends(class_symbol->type_information);
-
-        scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(friend_symbols);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* current_friend = entry_list_iterator_current(it);
-
-            if (current_friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
-                    && equivalent_types_in_context(current_friend->type_information,
-                        declarator_type,
-                        current_friend->decl_context)
-                    && (strcmp(function_name, current_friend->symbol_name)==0))
-            {
-                *result_entry = current_friend;
-                entry_list_free(friend_symbols);
-                return 1;
-            }
-        }
-        entry_list_free(friend_symbols);
-    }
-
     // We should create a new dependent friend function, but first we need to
     // check some constraints
 
@@ -8668,9 +8633,11 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->decl_context = decl_context;
     new_entry->decl_context.current_scope = decl_context.namespace_scope;
 
-    //The symbol name has been computed by Codegen!!
-    new_entry->symbol_name = function_name;
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
     new_entry->value = nodecl_name;
+    //The symbol name has been computed by Codegen!!
+    new_entry->symbol_name = codegen_to_str(nodecl_name, decl_context);
 
     new_entry->entity_specs.is_friend = 1;
     new_entry->entity_specs.is_friend_declared = 1;
