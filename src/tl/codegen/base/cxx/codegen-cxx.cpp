@@ -5045,24 +5045,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     if (symbol.not_to_be_printed())
         return;
 
-    if (symbol.get_type().is_template_specialized_type()
-            && !symbol.is_user_declared())
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-
-        //We must declare ONLY the primary template
-        TL::Symbol primary_symbol =
-            symbol
-            .get_type()
-            .get_related_template_type()
-            .get_primary_template()
-            .get_symbol();
-
-        (this->*decl_sym_fun)(primary_symbol);
-
-        return;
-    }
-
     if (symbol.is_member())
     {
         TL::Symbol class_entry = symbol.get_class_type().get_symbol();
