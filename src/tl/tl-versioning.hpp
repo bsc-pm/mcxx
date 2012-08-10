@@ -28,23 +28,21 @@
 #define TL_VERSIONING_HPP
 
 #include <map>
-#include <string>
-#include "tl-symbol.hpp"
-#include "tl-nodecl.hpp"
-
 
 namespace TL
 {
     template <class V>
     class Version
     {
-        private:
+        protected:
             const V _value;
+            int _kindness;
 
         public:
-            Version(const V& value);
+            Version(const V& value, const int kindness);
             
-            virtual bool operator== (const Version& op) const;
+            virtual bool is_better_than(const Version<V>& version);
+            virtual bool passes_filter(const Version<V>& filter) = 0;
             V get_value();
     };
 
@@ -52,50 +50,16 @@ namespace TL
     class Versioning
     {
         private:
-            typedef std::map< K, Version<V> > versions_map_t;
+            typedef std::map< K, Version<V>& > versions_map_t;
             versions_map_t _versions;
 
         public:
-            Versioning() : _versions() {}
+            Versioning();
 
-            void add_version(const K& key, const Version<V>& value);
+            void add_version(const K& key, Version<V>& value);
 
-            /*
-               Source get_pending_specific_functions(ReplaceSrcGenericFunction& replace);
-               Source get_pending_specific_declarations(ReplaceSrcGenericFunction& replace);
-
-               void add_specific_definition(
-               const TL::Symbol& scalar_func_sym, 
-               const specific_function_kind_t func_kind, 
-               const std::string& device_name, 
-               const int width, 
-               const bool need_prettyprint,
-               const bool need_def_decl,
-               const std::string default_func_name = "");
-
-               void add_specific_definition(
-               const TL::Symbol& scalar_func_sym, 
-               const TL::Symbol& simd_func_sym, 
-               const specific_function_kind_t func_kind, 
-               const std::string& device_name, 
-               const int width, 
-               const bool need_prettyprint,
-               const bool need_def_decl,
-               const std::string default_func_name = "");
-
-               bool contains_generic_definition(
-               const TL::Symbol& scalar_func_sym) const;
-               bool contains_specific_definition(
-               const TL::Symbol& scalar_func_sym, 
-               const specific_function_kind_t spec_func_kind, 
-               const std::string& device_name, 
-               const int width) const;
-
-               std::string get_specific_func_name(
-               const TL::Symbol& scalar_func_sym,
-               const std::string& device_name,
-               const int width);
-             */
+            V get_best_version(const K& key);
+            V get_best_version(const K& key, const Version<V>& filter);
     };
 }
 

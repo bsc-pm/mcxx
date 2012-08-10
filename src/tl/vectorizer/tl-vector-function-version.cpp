@@ -24,21 +24,42 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-vector-phase.hpp"
-#include "codegen-phase.hpp"
-#include "codegen-sse-module.hpp"
-//#include "tl-vectorizer.hpp"
+#include "tl-vector-function-version.hpp"
 
-namespace Codegen
-{
-    void CodegenVectorPhase::run(TL::DTO& dto)
+namespace TL 
+{ 
+    namespace Vectorization 
     {
-        // Set Codegen Vector Module
-        CodegenPhase& current_codegen = Codegen::get_current();
-        current_codegen.set_module_vector(new SSEModuleVisitor(&current_codegen)); // TODO
+        VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& version, 
+                const std::string& device, 
+                const unsigned int vector_length, 
+                const TL::Type& target_type, 
+                const int priority) :
+            TL::Version<Nodecl::NodeclBase>(version, priority),
+            _device(device), _vector_length(vector_length), _target_type(target_type)
+        {
 
-//      TL::Vectorization::Vectorizer::getVectorizer();
+        }
+
+        bool VectorFunctionVersion::passes_filter(const Version<Nodecl::NodeclBase>& filter)
+        {
+            try
+            {
+               const VectorFunctionVersion& function_filter = 
+                    dynamic_cast<const VectorFunctionVersion&>(filter);
+
+                return (_device.compare(function_filter._device) == 0) &&
+                    (_vector_length == function_filter._vector_length) //&&
+                    //(_target_type.is_same_type(function_filter._target_type) 
+                    ;
+            }
+            catch (std::bad_cast& excep)
+            {
+                return false;
+            }
+        }
+
     }
 }
 
-EXPORT_PHASE(Codegen::CodegenVectorPhase);
+

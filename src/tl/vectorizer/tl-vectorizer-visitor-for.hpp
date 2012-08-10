@@ -31,19 +31,24 @@
 
 namespace TL 
 { 
-    namespace Vectorizer
+    namespace Vectorization
     {
         class VectorizerVisitorFor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
         {
             private:
+                const std::string _device;
                 const unsigned int _vector_length;
+                const TL::Type _target_type;
+
                 int _remain_iterations;
 
                 void analyze_loop(const Nodecl::ForStatement& for_statement);
                 Nodecl::ForStatement get_epilog(const Nodecl::ForStatement& for_statement);
 
             public:
-                VectorizerVisitorFor(const unsigned int vector_length);
+                VectorizerVisitorFor(const std::string device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type);
 
                 virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
 

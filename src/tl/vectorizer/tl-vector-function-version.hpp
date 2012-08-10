@@ -24,21 +24,38 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-vector-phase.hpp"
-#include "codegen-phase.hpp"
-#include "codegen-sse-module.hpp"
-//#include "tl-vectorizer.hpp"
+#ifndef TL_VECTOR_FUNCTION_VERSION_HPP
+#define TL_VECTOR_FUNCTION_VERSION_HPP
 
-namespace Codegen
-{
-    void CodegenVectorPhase::run(TL::DTO& dto)
+#include "tl-versioning.hpp"
+#include "tl-nodecl-base.hpp"
+
+namespace TL 
+{ 
+    namespace Vectorization 
     {
-        // Set Codegen Vector Module
-        CodegenPhase& current_codegen = Codegen::get_current();
-        current_codegen.set_module_vector(new SSEModuleVisitor(&current_codegen)); // TODO
+        const int SIMD_FUNC_PRIORITY = 2;
+        const int DEFAULT_FUNC_PRIORITY = 1;
+        const int NAIVE_FUNC_PRIORITY = 0;
 
-//      TL::Vectorization::Vectorizer::getVectorizer();
+        class VectorFunctionVersion : public TL::Version<Nodecl::NodeclBase>
+        {
+            private:
+                const std::string _device;
+                const unsigned int _vector_length;
+                const TL::Type _target_type;
+
+            public:
+                VectorFunctionVersion(const Nodecl::NodeclBase& version, 
+                        const std::string& device, 
+                        const unsigned int vector_length, 
+                        const TL::Type& _target_type,
+                        const int priority);
+
+                bool passes_filter(const Version<Nodecl::NodeclBase>& filter);
+        };
     }
 }
 
-EXPORT_PHASE(Codegen::CodegenVectorPhase);
+#endif //TL_VECTOR_FUNCTION_VERSION_HPP
+

@@ -25,16 +25,18 @@
 ##########################################################################
 
 VECTORIZER_SOURCES = \
-    vectorizer/tl-vectorizer.hpp \
-    vectorizer/tl-vectorizer.cpp \
-    vectorizer/tl-vectorizer-visitor-for.hpp \
-    vectorizer/tl-vectorizer-visitor-for.cpp \
-    vectorizer/tl-vectorizer-visitor-function.hpp \
-    vectorizer/tl-vectorizer-visitor-function.cpp \
-    vectorizer/tl-vectorizer-visitor-statement.hpp \
-    vectorizer/tl-vectorizer-visitor-statement.cpp \
-    vectorizer/tl-vectorizer-visitor-expression.hpp \
-    vectorizer/tl-vectorizer-visitor-expression.cpp \
-    $(END)
+                     vectorizer/tl-vectorizer.hpp \
+                     vectorizer/tl-vectorizer.cpp \
+                     vectorizer/tl-vector-function-version.hpp \
+                     vectorizer/tl-vector-function-version.cpp \
+                     vectorizer/tl-vectorizer-visitor-for.hpp \
+                     vectorizer/tl-vectorizer-visitor-for.cpp \
+                     vectorizer/tl-vectorizer-visitor-function.hpp \
+                     vectorizer/tl-vectorizer-visitor-function.cpp \
+                     vectorizer/tl-vectorizer-visitor-statement.hpp \
+                     vectorizer/tl-vectorizer-visitor-statement.cpp \
+                     vectorizer/tl-vectorizer-visitor-expression.hpp \
+                     vectorizer/tl-vectorizer-visitor-expression.cpp \
+                     $(END)
 
 

@@ -31,15 +31,19 @@
 
 namespace TL 
 { 
-    namespace Vectorizer 
+    namespace Vectorization 
     {
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
             private:
+                const std::string _device;
                 const unsigned int _vector_length;
+                const TL::Type _target_type;
 
             public:
-                VectorizerVisitorExpression(const unsigned int vector_length);
+                VectorizerVisitorExpression(const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type);
                 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);

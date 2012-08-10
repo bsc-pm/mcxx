@@ -27,29 +27,70 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
+#include "tl-source.hpp"
 
 namespace TL 
 {
-    namespace Vectorizer
+    namespace Vectorization
     {
-        Vectorizer::Vectorizer()
+        Vectorizer* Vectorizer::_vectorizer = 0;
+        TL::Versioning<std::string, Nodecl::NodeclBase> _vector_function_versioning;
+
+        Vectorizer& Vectorizer::getVectorizer()
         {
+            if(_vectorizer == 0)
+                _vectorizer = new Vectorizer();
+
+            return *_vectorizer;
+        }
+
+        Vectorizer::Vectorizer() 
+        {
+            // SVML SSE
+//            if (svml_enable)
+            {
+                TL::Source svml_sse_vector_math;
+
+                svml_sse_vector_math << "__m128 __svml_expf4(__m128);\n"
+                    << "__m128 __svml_sinf4(__m128);\n"
+                    ;
+
+                // Parse SVML declarations
+                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
+                svml_sse_vector_math.parse_global(global_scope);
+
+                // Add SVML math function as vector version of the scalar one
+/*                _vector_function_versioning.add_version("expf", 
+                        new VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_expf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _vector_function_versioning.add_version("sinf",
+                        new VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+*/            }
         }
 
         Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
-                const unsigned int vector_length)
-//                const TL::Type& target_type)
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type)
         {
-            VectorizerVisitorFor visitor_for(vector_length);
+            VectorizerVisitorFor visitor_for(device, vector_length, target_type);
 
             return visitor_for.walk(for_statement);
         }
 
         void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
-                const unsigned int vector_length)
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type)
         {
-            VectorizerVisitorFunction visitor_function(vector_length);
+            VectorizerVisitorFunction visitor_function(device, vector_length, target_type);
             visitor_function.walk(func_code);
         }
     } 
 }
+
+
+

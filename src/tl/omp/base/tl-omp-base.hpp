@@ -48,7 +48,7 @@ namespace TL
 
             private:
                 OpenMP::Core _core;
-                TL::Vectorizer::Vectorizer _vectorizer;
+                TL::Vectorization::Vectorizer& _vectorizer;
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 

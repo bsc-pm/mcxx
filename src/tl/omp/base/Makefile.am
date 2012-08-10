@@ -33,7 +33,7 @@ libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../..
 
 
 libtlomp_base_la_LDFLAGS = $(tl_ldflags)
-libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la
+libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la 
 
 END=
 

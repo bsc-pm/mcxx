@@ -25,13 +25,17 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorizer.hpp"
 
 namespace TL 
 {
-    namespace Vectorizer
+    namespace Vectorization
     {
         VectorizerVisitorExpression::VectorizerVisitorExpression(
-                const unsigned int vector_length) : _vector_length(vector_length)
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type) : 
+            _device(device), _vector_length(vector_length), _target_type(target_type)
         { 
         }
 
@@ -260,16 +264,38 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
         {
-            //Nodecl::NodeclBase called = n.get_called();
+            Nodecl::NodeclBase called = n.get_called();
+            ERROR_CONDITION(!n.is<Nodecl::Symbol>(), "SIMD-IR: This kind of function call is not supported yet", 0);
 
-            //ERROR_CONDITION(!n.is<Nodecl::Symbol>(), "SIMD-IR: This kind of function call is not supported yet", 0);
+            Nodecl::Symbol called_sym = n.as<Nodecl::Symbol>();
+
+            // Get the best vector version of the function available
+            VectorFunctionVersion filter_function = 
+                VectorFunctionVersion(Nodecl::NodeclBase(), _device, _vector_length, _target_type, 0);
+
+            Nodecl::NodeclBase best_version =
+                TL::Vectorization::Vectorizer::_vector_function_versioning.get_best_version(
+                        called_sym.get_symbol().get_name(), filter_function);
+
+            // Create new called symbol
+            Nodecl::Symbol new_called;
+            if (best_version.is<Nodecl::FunctionCode>())
+            {
+                new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                    make_nodecl(n.get_filename(), n.get_line());
+            }
+            else if (best_version.is<Nodecl::Symbol>())
+            {
+                new_called = best_version.as<Nodecl::Symbol>().get_symbol().
+                    make_nodecl(n.get_filename(), n.get_line());
+            }
 
             // Vectorizing arguments
             walk(n.get_arguments());
 
             const Nodecl::VectorFunctionCall vector_function_call = 
                 Nodecl::VectorFunctionCall::make(
-                        n.get_called().shallow_copy(),
+                        new_called,
                         n.get_arguments().shallow_copy(),
                         n.get_alternate_name().shallow_copy(),
                         n.get_function_form().shallow_copy(),

@@ -30,10 +30,13 @@
 
 namespace TL 
 {
-    namespace Vectorizer 
+    namespace Vectorization
     {
         VectorizerVisitorFunction::VectorizerVisitorFunction(
-                const unsigned int vector_length) : _vector_length(vector_length)
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type) : 
+            _device(device), _vector_length(vector_length), _target_type(target_type)
         {
         }
 
@@ -56,7 +59,7 @@ namespace TL
                     get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(16);  
+            VectorizerVisitorStatement visitor_stmt(_device, _vector_length, _target_type);  
             visitor_stmt.walk(function_code.get_statements());
         }
 

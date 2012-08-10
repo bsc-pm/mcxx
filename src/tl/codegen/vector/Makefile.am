@@ -35,10 +35,12 @@ END=
 
 libcodegen_vector_la_CFLAGS=$(tl_cflags) \
     -I $(top_srcdir)/src/tl/codegen/vector/sse \
+    -I $(top_srcdir)/src/tl/vectorizer \
 	$(END)
 
 libcodegen_vector_la_CXXFLAGS=$(tl_cflags) \
     -I $(top_srcdir)/src/tl/codegen/vector/sse \
+    -I $(top_srcdir)/src/tl/vectorizer \
 	$(END)
 
 libcodegen_vector_la_LDFLAGS = $(tl_ldflags)

@@ -19,8 +19,7 @@ linker_options = -Xlinker --add-needed
 {simd} preprocessor_options = @SIMD_INCLUDES@
 {simd} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
-{mkl} preprocessor_options = -include mkl_vml_functions.h
-{mkl} options = --variable=mkl_enabled:1
+{svml} options = --variable=svml_enabled:1
 #{acml} linker_options = -lacml_mv
 {openmp,!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
