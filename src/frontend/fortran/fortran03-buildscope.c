@@ -726,10 +726,18 @@ static void build_scope_program_unit_internal(AST program_unit,
             }
         case AST_GLOBAL_PROGRAM_UNIT:
             {
-                //  This is a Mercurium extension. 
+                //  This is a Mercurium extension.
                 //  It does not generate any sort of nodecl (and if it does it is merrily ignored)
                 //  Everything is signed in a global scope
                 build_global_program_unit(program_unit);
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                warn_printf("%s: warning: pragmas outside of a program unit are unsupported\n",
+                        ast_location(program_unit));
+                build_scope_program_unit_internal(ASTSon1(program_unit),
+                        decl_context, program_unit_symbol, nodecl_output);
                 break;
             }
         default:

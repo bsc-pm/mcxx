@@ -33,6 +33,8 @@
 %type<ast> pragma_custom_construct_member_declaration
 /*!endif*/
 /*!if FORTRAN2003*/
+%type<ast> pragma_custom_construct_external_procedure
+%type<ast> pragma_custom_construct_external_procedure_0
 %type<ast2> pragma_custom_construct_range
 %type<ast2> pragma_custom_noend_construct_range
 %type<ast> pragma_custom_noend_line_construct
@@ -41,6 +43,7 @@
 %type<ast> pragma_custom_construct_internal_program_unit
 %type<ast> pragma_custom_construct_module_subprogram_unit
 %type<ast> pragma_custom_construct_interface_body
+%type<ast> explicit_external_procedure
 /*!endif*/
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
@@ -142,6 +145,24 @@ non_top_level_program_unit_stmt: pragma_custom_construct_statement
     $$ = $1;
 }
 ;
+
+program_unit : pragma_custom_construct_external_procedure
+;
+
+pragma_custom_construct_external_procedure : PRAGMA_CUSTOM pragma_custom_line_construct pragma_custom_construct_external_procedure_0
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+pragma_custom_construct_external_procedure_0 : explicit_external_procedure
+| pragma_custom_construct_external_procedure
+;
+
+explicit_external_procedure : explicit_main_program
+| external_subprogram
+;
+
 /*!endif*/
 
 // Pragma custom
