@@ -1619,6 +1619,15 @@ static void fill_map_parameters_to_arguments(
     }
 }
 
+static int outline_data_item_get_parameter_position(const OutlineDataItem& outline_data_item)
+{
+    TL::Symbol sym = outline_data_item.get_symbol();
+
+    ERROR_CONDITION(!sym.is_parameter(), "This symbol must be a parameter", 0);
+
+    return sym.get_parameter_position();
+}
+
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -1636,7 +1645,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     OutlineInfo arguments_outline_info;
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
-    TL::ObjectList<OutlineDataItem*> data_items  = parameters_outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -1648,11 +1657,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             it != param_to_arg_expr.end();
             it++)
     {
-        ObjectList<OutlineDataItem*> found = data_items.find(lift_pointer(functor(&OutlineDataItem::get_symbol)), it->first);
+        // We search by parameter position here
+        ObjectList<OutlineDataItem*> found = data_items.find(
+                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                it->first.get_parameter_position_in(called_sym));
 
         if (found.empty())
         {
-            running_error("%s: error: cannot find parameter '%s' in OutlineInfo, this may be caused by bug #922\n", 
+            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
                     arguments.get_locus().c_str(),
                     it->first.get_name().c_str());
         }
