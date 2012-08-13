@@ -262,6 +262,9 @@ namespace TL
             //! States whether this symbol is a parameter of the function where it has been declared (if any)
             bool is_parameter() const;
 
+            //! States whether this symbol appears as a parameter of a function, not only the current one
+            bool is_parameter_of_a_function() const;
+
             //! States whether this symbol is a parameter of a given function
             /*!
              * This function exists for the rare cases where a symbol may be a
