@@ -5966,10 +5966,13 @@ static scope_entry_t* build_scope_single_interface_specification(
             || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
     {
         nodecl_t nodecl_program_unit = nodecl_null();
-        build_scope_program_unit_internal(interface_specification, 
-                decl_context, 
+        build_scope_program_unit_internal(interface_specification,
+                decl_context,
                 &entry,
                 &nodecl_program_unit);
+
+        if (entry == NULL)
+            return NULL;
 
         if (generic_spec != NULL)
         {
@@ -5995,15 +5998,15 @@ static scope_entry_t* build_scope_single_interface_specification(
                 related_symbols,
                 &nodecl_inner_pragma);
 
-        if (entry->entity_specs.is_module_procedure)
-        {
-            error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE statement\n", 
-                    ast_location(interface_specification));
-            return NULL;
-        }
-
         if (entry != NULL)
         {
+            if (entry->entity_specs.is_module_procedure)
+            {
+                error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE statement\n", 
+                        ast_location(interface_specification));
+                return NULL;
+            }
+
             nodecl_t nodecl_pragma_line = nodecl_null();
             common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, decl_context, &nodecl_pragma_line);
 
