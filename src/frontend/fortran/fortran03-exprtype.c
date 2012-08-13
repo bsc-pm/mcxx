@@ -2179,7 +2179,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
 
                 fprintf(stderr, "EXPRTYPE:    %sName: %s\n", 
-                        specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional ? "Optional " : "",
+                        (specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional
+                         && !specific_symbol->entity_specs.is_stmt_function) ? "Optional " : "",
                         specific_symbol->entity_specs.related_symbols[i] != NULL ? 
                         specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
                         "<<no-name>>");
@@ -2242,7 +2243,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 {
                     if (argument_types[i].type == NULL)
                     {
-                        if (related_sym->entity_specs.is_optional)
+                        if (related_sym->entity_specs.is_optional
+                                && !specific_symbol->entity_specs.is_stmt_function)
                         {
                             argument_types[i].type = related_sym->type_information;
                             argument_types[i].not_present = 1;
@@ -2633,7 +2635,8 @@ static void check_called_symbol_list(
             {
                 if (argument_info_items[i].type == NULL)
                 {
-                    if (related_sym->entity_specs.is_optional)
+                    if (related_sym->entity_specs.is_optional
+                            && !symbol->entity_specs.is_stmt_function)
                     {
                         argument_info_items[i].type = related_sym->type_information;
                         argument_info_items[i].not_present = 1;
