@@ -370,7 +370,7 @@ namespace TL { namespace Nanox {
         {
             scope_entry_t* param = it->get_internal_symbol();
 
-            param->entity_specs.is_parameter = 1;
+            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                     new_function_sym->entity_specs.num_related_symbols,
@@ -463,7 +463,7 @@ namespace TL { namespace Nanox {
 
             param->defined = 1;
 
-            param->entity_specs.is_parameter = 1;
+            symbol_set_as_parameter_of_function(param, entry, entry->entity_specs.num_related_symbols);
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
 

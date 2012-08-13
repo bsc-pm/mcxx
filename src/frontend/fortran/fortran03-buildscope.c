@@ -582,7 +582,8 @@ static void check_intent_declared_symbols(decl_context_t decl_context)
     for (i = 0; i < intent_declared->entity_specs.num_related_symbols; i++)
     {
         scope_entry_t* entry = intent_declared->entity_specs.related_symbols[i];
-         if (!entry->entity_specs.is_parameter)
+         if (!symbol_is_parameter_of_function(entry,
+                     decl_context.current_scope->related_entry))
          {
              error_printf("%s:%d: error: entity '%s' is not a dummy argument\n",
                     entry->file,
@@ -1293,7 +1294,7 @@ static scope_entry_t* new_procedure_symbol(
         if (entry->defined
                 // If not defined it can only be a parameter of the current procedure
                 // being given an interface
-                || (!entry->entity_specs.is_parameter
+                || (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
                     && !entry->entity_specs.is_module_procedure
                     // Or a symbol we said something about it in the specification part of a module
                     && !(entry->kind == SK_UNDEFINED
@@ -1452,7 +1453,8 @@ static scope_entry_t* new_procedure_symbol(
 
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
-            dummy_arg->entity_specs.is_parameter = 1;
+
+            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -1710,13 +1712,13 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 dummy_arg->kind = SK_LABEL;
                 dummy_arg->type_information = get_void_type();
                 dummy_arg->decl_context = decl_context;
-                
+
                 num_alternate_returns++;
             }
             else
             {
                 dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
-               
+
                 // Note that we do not set the exact kind of the dummy argument as
                 // it might be a function. If left SK_UNDEFINED, we later fix them
                 // to SK_VARIABLE
@@ -1729,15 +1731,16 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
                 remove_intent_declared_symbol(decl_context, dummy_arg);
             }
-            
+
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
-            dummy_arg->entity_specs.is_parameter = 1;
+
+            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     dummy_arg);
-            
+
             num_dummy_arguments++;
         }
     }
@@ -5868,8 +5871,8 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
         AST dummy_arg = ASTSon1(it);
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, dummy_arg, ASTText(dummy_arg));
-        
-        if (!entry->entity_specs.is_parameter)
+
+        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
         {
             add_intent_declared_symbol(decl_context, entry);
         }
@@ -6314,7 +6317,7 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
         AST name = ASTSon1(it);
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (!entry->entity_specs.is_parameter)
+        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
         {
             error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(name),
@@ -6750,7 +6753,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         if (attr_spec.is_optional)
         {
-            if (!entry->entity_specs.is_parameter)
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
             {
                 error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(name));
@@ -6995,6 +6998,8 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
                 remove_unknown_kind_symbol(decl_context, dummy_arg);
             }
 
+            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
+
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
                     dummy_arg);
@@ -7202,7 +7207,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         char can_be_an_intrinsic = 
             (entry_intrinsic != NULL 
              // Filter dummy arguments
-             && !entry->entity_specs.is_parameter
+             && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
              // Filter the program unit itself
              && entry != decl_context.current_scope->related_entry);
         
@@ -7387,7 +7392,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         // FIXME - Should we do something with this attribute?
         if (current_attr_spec.is_value)
         {
-            if (!entry->entity_specs.is_parameter)
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
             {
                 error_printf("%s: error: VALUE attribute is only for dummy arguments\n",
                         ast_location(declaration));
@@ -7409,8 +7414,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         }
 
         if (current_attr_spec.is_intent)
-        {   
-            if (!entry->entity_specs.is_parameter)
+        {
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
             {
                 add_intent_declared_symbol(decl_context, entry);
             }
@@ -7420,7 +7425,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (current_attr_spec.is_optional)
         {
-            if (!entry->entity_specs.is_parameter)
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
             {
                 error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(declaration));
@@ -8054,7 +8059,7 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (!entry->entity_specs.is_parameter)
+        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
         {
             error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(name),

@@ -2209,7 +2209,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 {
                     scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[j];
 
-                    if (!related_sym->entity_specs.is_parameter)
+                    if (!symbol_is_parameter_of_function(related_sym, specific_symbol))
                         continue;
 
                     if (strcasecmp(related_sym->symbol_name, keyword_names[i]) == 0)
@@ -2238,7 +2238,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             {
                 scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
 
-                if (related_sym->entity_specs.is_parameter)
+                if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
                     {
@@ -2248,7 +2248,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                             argument_types[i].not_present = 1;
                             current_num_arguments++;
                         }
-                        else 
+                        else
                         {
                             ok = 0;
                             break;
@@ -2586,7 +2586,7 @@ static void check_called_symbol_list(
                 {
                     scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
 
-                    if (!related_sym->entity_specs.is_parameter)
+                    if (!symbol_is_parameter_of_function(related_sym, symbol))
                         continue;
 
                     if (strcasecmp(related_sym->symbol_name, actual_arguments_keywords[i]) == 0)
@@ -2629,7 +2629,7 @@ static void check_called_symbol_list(
         {
             scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
 
-            if (related_sym->entity_specs.is_parameter)
+            if (symbol_is_parameter_of_function(related_sym, symbol))
             {
                 if (argument_info_items[i].type == NULL)
                 {
@@ -3761,7 +3761,7 @@ static void check_symbol_of_called_name(AST sym,
                 }
                 else if (intrinsic_sym != NULL
                         // Dummy arguments do not name intrinsics
-                        && !entry->entity_specs.is_parameter)
+                        && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
                 {
                     // From now, the symbol is an intrinsic
                     *entry = *intrinsic_sym;
@@ -3875,7 +3875,8 @@ static void check_symbol_name_as_a_variable(
             && entry->entity_specs.is_implicit_basic_type
             && is_implicit_none(decl_context))
     {
-        if (entry->entity_specs.is_parameter
+        if (symbol_is_parameter_of_function(entry, 
+                    decl_context.current_scope->related_entry)
                 && fortran_checking_array_expression())
         {
             // Special case for this (incorrect but tolerated) case
@@ -4574,7 +4575,7 @@ void fortran_check_initialization(
         nodecl_t* nodecl_output)
 {
     char ok = 1;
-    if (entry->entity_specs.is_parameter)
+    if (symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry))
     {
         error_printf("%s: error: a dummy argument cannot have initializer\n", 
                 ast_location(expr));

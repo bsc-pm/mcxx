@@ -209,7 +209,9 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
                 print_type_str(get_user_defined_type(entry), entry->decl_context));
     }
-    if (entry->kind == SK_VARIABLE && entry->entity_specs.is_parameter)
+    if (entry->kind == SK_VARIABLE
+            && symbol_is_parameter_of_function(entry,
+                entry->decl_context.current_scope->related_entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter the function\n");
     }

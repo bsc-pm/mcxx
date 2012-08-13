@@ -94,7 +94,10 @@ static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const 
 static void insert_extra_attr_nodecl(sqlite3* handle, scope_entry_t* symbol, const char* name, nodecl_t ast);
 static void insert_extra_attr_symbol(sqlite3* handle, scope_entry_t* symbol, const char* name, scope_entry_t* ref);
 static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const char* name, type_t* ref);
-static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr);
+static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t* symbol, 
+        const char *name, function_parameter_info_t* parameter_info);
+static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, 
+        gather_gcc_attribute_t* gcc_attr);
 static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const char* name, void* data,
         sqlite3_uint64 (*fun)(sqlite3* handle, void* data));
 static sqlite3_uint64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
@@ -236,6 +239,11 @@ static int get_extra_default_argument_info(void *datum,
         char **names UNUSED_PARAMETER);
 
 static int get_extra_gcc_attrs(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+static int get_extra_function_parameter_info(void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER);
@@ -1361,6 +1369,29 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
     sqlite3_reset(_insert_extra_attr_stmt);
 }
 
+static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t* symbol, const char *name, 
+        function_parameter_info_t* parameter_info)
+{
+    sqlite3_int64 function_id = insert_symbol(handle, parameter_info->function);
+    char *function_and_position = sqlite3_mprintf("%llu|%d",
+            P2ULL(function_id),
+            parameter_info->position);
+
+    sqlite3_bind_int64(_insert_extra_attr_stmt, 1, P2ULL(symbol));
+    sqlite3_bind_int64(_insert_extra_attr_stmt, 2, get_oid_from_string_table(handle, name));
+    sqlite3_bind_text (_insert_extra_attr_stmt, 3, function_and_position, -1, SQLITE_STATIC);
+
+    int result_query = sqlite3_step(_insert_extra_attr_stmt);
+    if (result_query != SQLITE_DONE)
+    {
+        internal_error("Unexpected error %d when running query '%s'", 
+                result_query,
+                sqlite3_errmsg(handle));
+    }
+
+    sqlite3_reset(_insert_extra_attr_stmt);
+}
+
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr)
 {
     insert_ast(handle, nodecl_get_ast(gcc_attr->expression_list));
@@ -1517,6 +1548,44 @@ static int get_extra_gcc_attrs(void *datum,
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
         _nodecl_wrap(load_ast(p->handle, safe_atoull(tree)));
+
+    free(attr_value);
+
+    return 0;
+}
+
+static int get_extra_function_parameter_info(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+
+    char *attr_value = strdup(values[0]);
+
+    char *q = strchr(attr_value, '|');
+    ERROR_CONDITION(p == NULL, "Wrong field!", 0);
+    *q = '\0';
+
+    const char* function_id_str = attr_value;
+    const char* position_str = q+1;
+
+    sqlite3_uint64 function_id = 0;
+    int position = -1;
+
+    sscanf(function_id_str, "%llu", &function_id);
+    sscanf(position_str, "%d", &position);
+
+    scope_entry_t* function_symbol = load_symbol(p->handle, function_id);
+
+    function_parameter_info_t parameter_info;
+    parameter_info.function = function_symbol;
+    parameter_info.position = position;
+
+    P_LIST_ADD(
+            p->symbol->entity_specs.function_parameter_info,
+            p->symbol->entity_specs.num_function_parameter_info,
+            parameter_info);
 
     free(attr_value);
 

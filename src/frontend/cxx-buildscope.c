@@ -6936,7 +6936,6 @@ static void set_function_parameter_clause(type_t** function_type,
                 new_parameter->type_information = get_signed_int_type();
                 new_parameter->file = ASTFileName(kr_id);
                 new_parameter->line = ASTLine(kr_id);
-                new_parameter->entity_specs.is_parameter = 1;
 
                 parameter_info[num_parameters].is_ellipsis = 0;
                 parameter_info[num_parameters].type_info = get_signed_int_type();
@@ -7144,7 +7143,6 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
-                entry->entity_specs.is_parameter = 1;
 
                 // Update the type info
                 entry->type_information = type_info;
@@ -10085,7 +10083,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
                 scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                         &current_gather_info, decl_context, &nodecl_declarator_name);
 
-                if (!entry->entity_specs.is_parameter)
+                if (!symbol_is_parameter_of_function(entry, function_entry))
                 {
                     error_printf("%s: error: '%s' is not a parameter\n",
                             ast_location(init_declarator),
@@ -10293,33 +10291,30 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
     common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted, nodecl_output);
 }
 
-static void set_parameters_as_related_symbols(scope_entry_t* entry, 
+static void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         char is_definition,
         const char* filename,
         int line)
 {
-    // Keep parameter names
     if (entry->entity_specs.related_symbols == NULL)
     {
+        // Allocated for the first time
         entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-        entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters, 
-                sizeof(*entry->entity_specs.related_symbols), 
+        entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+                sizeof(*entry->entity_specs.related_symbols),
                 &_bytes_used_buildscope);
     }
     else
     {
-        // No need to overwrite them anymore
-        if (!is_definition)
-            return;
-
         if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
         {
+            // A mismatching number of parameters, realloc
             free(entry->entity_specs.related_symbols);
 
             entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters, 
-                    sizeof(*entry->entity_specs.related_symbols), 
+            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+                    sizeof(*entry->entity_specs.related_symbols),
                     &_bytes_used_buildscope);
         }
     }
@@ -10327,7 +10322,7 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     int i;
     for (i = 0; i < gather_info->num_parameters; i++)
     {
-        // In C they must have name
+        // In C they must have name in a definition
         C_LANGUAGE()
         {
             if (is_definition
@@ -10335,37 +10330,44 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s:%d: error: parameter %d does not have name\n", 
+                    error_printf("%s:%d: error: parameter %d does not have name\n",
                             filename, line, i + 1);
                 }
             }
         }
-        entry->entity_specs.related_symbols[i] = gather_info->arguments_info[i].entry;
 
-        // Make sure this prototype scope knows what function it refers
+        // We keep the first parameter declaration or the definition (ignoring any other declaration)
+        if (is_definition
+                || entry->entity_specs.related_symbols[i] == NULL)
+        {
+            entry->entity_specs.related_symbols[i] = gather_info->arguments_info[i].entry;
+        }
+
         scope_entry_t* current_param = entry->entity_specs.related_symbols[i];
         if (current_param != NULL)
         {
-            if (current_param->decl_context.current_scope->related_entry == NULL)
+            if (current_param->decl_context.current_scope->related_entry == NULL
+                    && current_param->decl_context.current_scope->kind == PROTOTYPE_SCOPE)
             {
-                // A block scope should will be given its related entry later
-                // Do this only for prototype scopes
-                if (current_param->decl_context.current_scope->kind == PROTOTYPE_SCOPE)
-                {
-                    current_param->decl_context.current_scope->related_entry = entry;
-                }
+                // Make sure this prototype scope knows what function it refers
+                // (A prototype scope may not have related entry because there
+                // may be none. For instance in a nested function declarator)
+                current_param->decl_context.current_scope->related_entry = entry;
             }
+
+            // Remember this symbol as a parameter of entry
+            symbol_set_as_parameter_of_function(current_param, entry, i);
         }
     }
 }
 
 /*
  * This function builds symbol table information for a function definition
- *  
+ *
  * If previous_symbol != NULL, the found symbol should match
  */
-scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
-        decl_context_t decl_context, 
+scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol,
+        decl_context_t decl_context,
         char is_template,
         char is_explicit_instantiation,
         scope_entry_list_t** declared_symbols,
@@ -10568,7 +10570,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             "This is not a function!!!", 0);
     
     // Keep parameter names
-    set_parameters_as_related_symbols(entry, &gather_info, 
+    set_parameters_as_related_symbols(entry, &gather_info,
             /* is_definition */ 1,
             ASTFileName(a),
             ASTLine(a));

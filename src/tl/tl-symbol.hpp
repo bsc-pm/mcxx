@@ -258,9 +258,29 @@ namespace TL
             //! States that this symbol is a BLOCK DATA program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;
-            
-            //! States whether this symbol is a parameter of a function
+
+            //! States whether this symbol is a parameter of the function where it has been declared (if any)
             bool is_parameter() const;
+
+            //! States whether this symbol is a parameter of a given function
+            /*!
+             * This function exists for the rare cases where a symbol may be a
+             * parameter of more than one function. This should only happen in
+             * Fortran when using ENTRY
+             */
+            bool is_parameter_of(Symbol function) const;
+
+            //! Returns the index position (starting from 0) of this parameter
+            /*!
+             * Use this function only when is_parameter() holds
+             */
+            int get_parameter_position() const;
+
+            //! Returns the index position (starting from 0) of this parameter in a given function
+            /*!
+             * Use this function only when is_parameter(function) holds
+             */
+            int get_parameter_position_in(Symbol function) const;
 
             //! States whether this symbol is a template parameter
             bool is_template_parameter() const;

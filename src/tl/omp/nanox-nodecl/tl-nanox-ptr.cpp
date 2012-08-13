@@ -67,7 +67,7 @@ namespace TL {
 
             param->defined = 1;
 
-            param->entity_specs.is_parameter = 1;
+            symbol_set_as_parameter_of_function(param, entry, entry->entity_specs.num_related_symbols);
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
 

@@ -41,13 +41,16 @@ struct template_parameter_tag;
 typedef struct template_parameter_tag template_parameter_t;
 
 struct template_parameter_value_tag;
-typedef struct template_parameter_value_tag template_parameter_value_t; 
+typedef struct template_parameter_value_tag template_parameter_value_t;
 
 struct template_parameter_list_tag;
 typedef struct template_parameter_list_tag template_parameter_list_t;
 
 struct default_argument_info_tag;
 typedef struct default_argument_info_tag default_argument_info_t;
+
+struct function_parameter_info_tag;
+typedef struct function_parameter_info_tag function_parameter_info_t;
 
 struct scope_tag;
 typedef struct scope_tag scope_t;

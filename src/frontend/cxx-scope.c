@@ -5173,3 +5173,70 @@ const char* symbol_to_source(scope_entry_t* entry)
 
     return c;
 }
+
+void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+    ERROR_CONDITION(position < 0, "Invalid position %d\n", position);
+
+    int index = -1;
+
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+            index = i;
+    }
+
+    if (index < 0)
+    {
+        function_parameter_info_t function_parameter_info;
+        memset(&function_parameter_info, 0, sizeof(function_parameter_info));
+
+        function_parameter_info.function = function;
+        function_parameter_info.position = position;
+
+        P_LIST_ADD(entry->entity_specs.function_parameter_info, 
+                entry->entity_specs.num_function_parameter_info,
+                function_parameter_info);
+    }
+    else
+    {
+        entry->entity_specs.function_parameter_info[index].function = function;
+        entry->entity_specs.function_parameter_info[index].position = position;
+    }
+}
+
+char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* function)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    int index = -1;
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+            index = i;
+    }
+
+    return !(index < 0);
+}
+
+int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+        {
+            return entry->entity_specs.function_parameter_info[i].position;
+        }
+    }
+
+    internal_error("This symbol is not a parameter of the function", 0);
+}

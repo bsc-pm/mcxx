@@ -1145,10 +1145,14 @@ static scope_entry_t* register_specific_intrinsic_name(
             if (nodecl_is_null(nodecl_actual_arguments[i]))
                 break;
 
+            symbol_set_as_parameter_of_function(
+                    specific_entry->entity_specs.related_symbols[i],
+                    new_specific_entry,
+                    new_specific_entry->entity_specs.num_related_symbols);
+
             P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
                     new_specific_entry->entity_specs.num_related_symbols,
                     specific_entry->entity_specs.related_symbols[i]);
-            real_num_parameters++;
         }
 
         insert_entry(generic_entry->decl_context.current_scope, new_specific_entry);
@@ -5376,9 +5380,10 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            new_keyword_sym->entity_specs.is_parameter = 1;
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
             new_keyword_sym->do_not_print = 1;
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -5397,7 +5402,8 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            new_keyword_sym->entity_specs.is_parameter = 1;
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
