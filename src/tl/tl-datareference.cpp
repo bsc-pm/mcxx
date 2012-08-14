@@ -332,6 +332,7 @@ namespace TL
         _error_log("")
     {
         if (expr.is_null()
+                || expr.is<Nodecl::ErrExpr>()
                 || expr.get_type().is_error_type())
         {
             _is_valid = false;
