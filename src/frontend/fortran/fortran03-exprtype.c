@@ -5446,8 +5446,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             // Restore the rank of the common type
             if (!is_error_type(result))
             {
-                result = rerank_type(result, lhs_type, rhs_type);
-
                 nodecl_t nodecl_argument_list = nodecl_null();
 
                 if (nodecl_is_null(nodecl_lhs))
@@ -5532,7 +5530,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 return get_error_type();
             }
         }
-        
     }
     else
     {
