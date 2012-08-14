@@ -5174,11 +5174,26 @@ const char* symbol_to_source(scope_entry_t* entry)
     return c;
 }
 
+static scope_entry_t* get_ultimate_symbol_from_module(scope_entry_t* entry)
+{
+    if (entry->entity_specs.from_module
+            && entry->entity_specs.alias_to != NULL)
+    {
+        return get_ultimate_symbol_from_module(entry->entity_specs.alias_to);
+    }
+    else
+    {
+        return entry;
+    }
+}
+
 void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position)
 {
     ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
     ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
     ERROR_CONDITION(position < 0, "Invalid position %d\n", position);
+
+    function = get_ultimate_symbol_from_module(function);
 
     int index = -1;
 
@@ -5213,6 +5228,8 @@ char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* functi
     ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
     ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
 
+    function = get_ultimate_symbol_from_module(function);
+
     int index = -1;
     int i;
     for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
@@ -5228,6 +5245,8 @@ int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_
 {
     ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
     ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    function = get_ultimate_symbol_from_module(function);
 
     int i;
     for (i = 0; (i < entry->entity_specs.num_function_parameter_info); i++)

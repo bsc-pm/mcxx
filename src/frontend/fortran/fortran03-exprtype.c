@@ -2239,6 +2239,9 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             {
                 scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
 
+                if (related_sym->entity_specs.is_result)
+                    continue;
+
                 if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
@@ -2256,6 +2259,10 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                             break;
                         }
                     }
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
         }
@@ -2631,6 +2638,9 @@ static void check_called_symbol_list(
         {
             scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
 
+            if (related_sym->entity_specs.is_result)
+                continue;
+
             if (symbol_is_parameter_of_function(related_sym, symbol))
             {
                 if (argument_info_items[i].type == NULL)
@@ -2642,7 +2652,7 @@ static void check_called_symbol_list(
                         argument_info_items[i].not_present = 1;
                         num_completed_arguments++;
                     }
-                    else 
+                    else
                     {
                         if (!checking_ambiguity())
                         {
@@ -2655,6 +2665,10 @@ static void check_called_symbol_list(
                         return;
                     }
                 }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
         }
 
