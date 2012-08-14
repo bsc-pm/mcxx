@@ -3739,7 +3739,6 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval", 
                     fortran_get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3747,7 +3746,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
+                    t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
@@ -3976,10 +3975,9 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
         if (t1 == NULL)
         {
             // If DIM is absent this is always a scalar
-            return GET_INTRINSIC_TRANSFORMATIONAL("minval", 
+            return GET_INTRINSIC_TRANSFORMATIONAL("minval",
                     fortran_get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3987,7 +3985,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("minval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
+                    t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
