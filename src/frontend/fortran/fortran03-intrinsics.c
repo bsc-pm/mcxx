@@ -1488,7 +1488,12 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_bool_type(fortran_get_rank0_type(t0))
             && (t1 == NULL || is_integer_type(t1)))
     {
-        type_t* return_type = array_type_get_element_type(t0);
+        type_t* return_type = fortran_get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, 
+                    symbol->decl_context);
+        }
 
         return GET_INTRINSIC_TRANSFORMATIONAL("all", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
@@ -1571,7 +1576,12 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_bool_type(fortran_get_rank0_type(t0))
             && (t1 == NULL || is_integer_type(t1)))
     {
-        type_t* return_type = array_type_get_element_type(t0);
+        type_t* return_type = fortran_get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, 
+                    symbol->decl_context);
+        }
 
         return GET_INTRINSIC_TRANSFORMATIONAL("any", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
