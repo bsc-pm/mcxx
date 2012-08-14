@@ -363,9 +363,6 @@ static void update_untyped_symbols(decl_context_t decl_context)
     if (unknown_info == NULL)
         return;
 
-    scope_entry_t* not_untyped_anymore[1 + unknown_info->entity_specs.num_related_symbols];
-    int num_not_untyped_anymore = 0;
-
     scope_entry_t* new_untyped[1 + unknown_info->entity_specs.num_related_symbols];
     int num_new_untyped = 0;
 
@@ -394,10 +391,6 @@ static void update_untyped_symbols(decl_context_t decl_context)
                         entry->line,
                         entry->type_information == NULL ? "<<NULL>>" : print_declarator(entry->type_information));
             }
-
-            // We will remove it from the untyped set later
-            not_untyped_anymore[num_not_untyped_anymore] = entry;
-            num_not_untyped_anymore++;
         }
         else
         {
@@ -411,12 +404,6 @@ static void update_untyped_symbols(decl_context_t decl_context)
     for (i = 0; i < num_new_untyped; i++)
     {
         add_untyped_symbol(decl_context, new_untyped[i]);
-    }
-
-    // Remove the now typed here
-    for (i = 0; i < num_not_untyped_anymore; i++)
-    {
-        remove_untyped_symbol(decl_context, not_untyped_anymore[i]);
     }
 }
 
