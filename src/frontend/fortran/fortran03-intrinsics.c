@@ -280,6 +280,7 @@ FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
+FORTRAN_GENERIC_INTRINSIC(getarg, "POS,VALUE", S, NULL)
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -1325,6 +1326,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
     REGISTER_CUSTOM_INTRINSIC_1("sngl", fortran_get_default_real_type(), fortran_get_doubleprecision_type());
+    REGISTER_CUSTOM_INTRINSIC_0("iargc", fortran_get_default_integer_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -5358,6 +5360,26 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_INQUIRY("etime",
                 fortran_get_default_real_type(),
                 t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_getarg(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (is_integer_type(t0)
+            && fortran_is_character_type(t1))
+    {
+        return GET_INTRINSIC_IMPURE("getarg",
+                /* subroutine */ get_void_type(),
+                t0,
+                t1);
     }
     return NULL;
 }
