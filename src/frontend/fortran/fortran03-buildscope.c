@@ -1286,7 +1286,7 @@ static type_t* gather_type_from_declaration_type_spec_of_component(AST a, decl_c
 }
 
 static scope_entry_t* new_procedure_symbol(
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         decl_context_t program_unit_context,
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function)
@@ -1298,22 +1298,31 @@ static scope_entry_t* new_procedure_symbol(
 
     if (entry != NULL)
     {
-        // We do not allow redeclaration if the symbol has already been defined
-        if (entry->defined
-                // If not defined it can only be a parameter of the current procedure
-                // being given an interface
-                || (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
-                    && !entry->entity_specs.is_module_procedure
-                    // Or a symbol we said something about it in the specification part of a module
-                    && !(entry->kind == SK_UNDEFINED
-                        && entry->entity_specs.in_module != NULL)))
+        if (entry->decl_context.current_scope == decl_context.current_scope)
         {
-            error_printf("%s: error: redeclaration of entity '%s'\n", 
-                    ast_location(name), 
-                    ASTText(name));
-            return NULL;
+            // It's been declared in the current scope
+            // We do not allow redeclaration if the symbol has already been defined
+            if (entry->defined
+                    // If not defined it can only be a parameter of the current procedure
+                    // being given an interface
+                    || (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+                        && !entry->entity_specs.is_module_procedure
+                        // Or a symbol we said something about it in the specification part of a module
+                        && !(entry->kind == SK_UNDEFINED
+                            && entry->entity_specs.in_module != NULL)))
+            {
+                error_printf("%s: error: redeclaration of entity '%s'\n",
+                        ast_location(name),
+                        ASTText(name));
+                return NULL;
+            }
+            remove_unknown_kind_symbol(entry->decl_context, entry);
         }
-        remove_unknown_kind_symbol(entry->decl_context, entry);
+        else
+        {
+            // We found something declared in another scope, ignore it
+            entry = NULL;
+        }
     }
 
     if (entry == NULL)
