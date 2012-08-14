@@ -1881,7 +1881,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
 static char statement_is_executable(AST statement);
 static char statement_is_nonexecutable(AST statement);
-static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
+static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context, char is_declaration);
 
 static void build_scope_program_unit_body_declarations(
         char (*allowed_statement)(AST, decl_context_t),
@@ -1900,7 +1900,7 @@ static void build_scope_program_unit_body_declarations(
             // tell whether this is an executable or non-executable statement
             if (ASTType(stmt) == AST_AMBIGUITY)
             {
-                build_scope_ambiguity_statement(stmt, decl_context);
+                build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 1);
             }
 
             if (!allowed_statement(stmt, decl_context))
@@ -1941,7 +1941,7 @@ static void build_scope_program_unit_body_executable(
             // tell whether this is an executable or non-executable statement
             if (ASTType(stmt) == AST_AMBIGUITY)
             {
-                build_scope_ambiguity_statement(stmt, decl_context);
+                build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 0);
             }
 
             if (!allowed_statement(stmt, decl_context))
@@ -9292,7 +9292,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
     return 1;
 }
 
-static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context)
+static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context, char is_declaration)
 {
     ERROR_CONDITION(ASTType(ambig_stmt) != AST_AMBIGUITY, "Invalid tree %s\n", ast_print_node_type(ASTType(ambig_stmt)));
     ERROR_CONDITION(strcmp(ASTText(ambig_stmt), "ASSIGNMENT") != 0, "Invalid ambiguity", 0);
@@ -9315,17 +9315,23 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
         {
             case AST_EXPRESSION_STATEMENT:
                 {
-                    enter_test_expression();
                     index_expr = i;
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    fortran_check_expression(ASTSon0(stmt), decl_context, &nodecl_dummy);
-                    ok = !nodecl_is_err_expr(nodecl_dummy);
-                    leave_test_expression();
+                    if (!is_declaration)
+                    {
+                        enter_test_expression();
+                        nodecl_t nodecl_dummy = nodecl_null();
+                        fortran_check_expression(ASTSon0(stmt), decl_context, &nodecl_dummy);
+                        ok = !nodecl_is_err_expr(nodecl_dummy);
+                        leave_test_expression();
+                    }
                     break;
                 }
             case AST_STATEMENT_FUNCTION_STATEMENT:
                 {
-                    ok = check_statement_function_statement(stmt, decl_context);
+                    if (is_declaration)
+                    {
+                        ok = check_statement_function_statement(stmt, decl_context);
+                    }
                     break;
                 }
             default:
