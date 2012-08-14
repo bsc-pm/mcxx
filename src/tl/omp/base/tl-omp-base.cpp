@@ -124,7 +124,7 @@ namespace TL { namespace OpenMP {
                         // Nodecl::NodeclBase exec_env = compute_
                         FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
-                        Nodecl::NodeclBase exec_env = this->make_exec_environment(call, task_info);
+                        Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
 
                         Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                                 exec_env,
@@ -139,7 +139,9 @@ namespace TL { namespace OpenMP {
             }
 
         private:
-            Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call, FunctionTaskInfo& function_task_info)
+            Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call, 
+                    TL::Symbol function_sym,
+                    FunctionTaskInfo& function_task_info)
             {
                 TL::ObjectList<Nodecl::NodeclBase> result_list;
 
@@ -165,6 +167,50 @@ namespace TL { namespace OpenMP {
                         call.get_filename(), 
                         call.get_line(),
                         result_list);
+
+                // Make sure the remaining symbols are firstprivate
+                std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
+
+                for (TL::ObjectList<FunctionTaskDependency>::iterator it = task_dependences.begin();
+                        it != task_dependences.end();
+                        it++)
+                {
+                    TL::DataReference data_ref = it->get_data_reference();
+                    TL::Symbol base_sym = data_ref.get_base_symbol();
+
+                    if (base_sym.is_parameter_of(function_sym))
+                    {
+                        has_dep[base_sym.get_parameter_position_in(function_sym)] = true;
+                    }
+                }
+
+                TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
+
+                TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates;
+
+                int i = 0;
+                for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
+                        it != parameters.end();
+                        it++, i++)
+                {
+                    ERROR_CONDITION(i >= has_dep.size(), "Mismatch between parameters and related symbols", 0);
+                    if (!has_dep[i])
+                    {
+                        Nodecl::Symbol symbol_ref = 
+                            Nodecl::Symbol::make(*it, call.get_filename(), call.get_line());
+                        symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+
+                        assumed_firstprivates.append(symbol_ref);
+                    }
+                }
+
+                if (!assumed_firstprivates.empty())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates), 
+                                call.get_filename(), call.get_line())
+                            );
+                }
 
                 return Nodecl::List::make(result_list);
             }
