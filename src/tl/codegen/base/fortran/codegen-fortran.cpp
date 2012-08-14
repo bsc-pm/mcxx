@@ -2904,11 +2904,15 @@ OPERATOR_TABLE
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
 
+        // This function has nothing to do with stuff coming from modules
+        if (entry.is_from_module())
+            return;
+
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
         decl_context_t entry_context = entry.get_scope().get_decl_context();
-        
+
         // We only declare entities in the current scope that are not internal subprograms or module procedures
         bool ok_to_declare = entry_is_in_scope(entry, sc)
             && !entry.is_nested_function()
@@ -2940,7 +2944,7 @@ OPERATOR_TABLE
         }
 
         // d) the entity is a TYPE(t) in an entirely different scope and we are not in an
-        // INTERFACE (which will use an IMPORT)
+        // INTERFACE (which will use an IMPORT) and does not come from a module
         if (!ok_to_declare
                 && entry.is_class()
                 && !inside_an_interface())
