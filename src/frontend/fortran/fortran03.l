@@ -2214,7 +2214,7 @@ goto {
 }
 
 ".eq." {
-	parse_token_text();
+	parse_token_text_str("==");
 	RETURN_TOKEN(TOK_EQUAL);
 }
 
@@ -2234,12 +2234,12 @@ goto {
 }
 
 ".ne." {
-	parse_token_text();
+	parse_token_text_str("/=");
 	RETURN_TOKEN(TOK_NOT_EQUAL);
 }
 
 ".lt." {
-	parse_token_text();
+	parse_token_text_str("<");
 	RETURN_TOKEN(TOK_LOWER_THAN);
 }
 
@@ -2249,7 +2249,7 @@ goto {
 }
 
 ".le." {
-	parse_token_text();
+	parse_token_text_str("<=");
 	RETURN_TOKEN(TOK_LOWER_OR_EQUAL_THAN);
 }
 
@@ -2259,7 +2259,7 @@ goto {
 }
 
 ".gt." {
-	parse_token_text();
+	parse_token_text_str(">");
 	RETURN_TOKEN(TOK_GREATER_THAN);
 }
 
@@ -2269,6 +2269,11 @@ goto {
 }
 
 ".ge." {
+	parse_token_text_str(">=");
+	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
+}
+
+">=" {
 	parse_token_text();
 	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
 }
@@ -2297,13 +2302,6 @@ goto {
 	parse_token_text();
 	RETURN_TOKEN(TOK_FALSE);
 }
-
-
-">=" {
-	parse_token_text();
-	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
-}
-
 
 "," {
 	parse_token_text();
