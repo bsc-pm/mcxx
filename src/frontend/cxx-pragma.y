@@ -54,9 +54,9 @@
 
 %type<ast> pragma_clause_arg_list
 
-%type<text> pragma_clause_arg
-%type<text> pragma_clause_arg_item 
-%type<text> pragma_clause_arg_text
+%type<token_atrib> pragma_clause_arg
+%type<token_atrib> pragma_clause_arg_item 
+%type<token_atrib> pragma_clause_arg_text
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -344,7 +344,7 @@ pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' pragma_clause_arg_list ')'
 
 pragma_clause_arg_list : pragma_clause_arg
 {
-    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, NULL, 0, $1);
+    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, $1.token_file, $1.token_line, $1.token_text);
 
     $$ = ASTListLeaf(node);
 }
@@ -356,7 +356,7 @@ pragma_clause_arg : pragma_clause_arg_item
 }
 | pragma_clause_arg pragma_clause_arg_item
 {
-    $$ = strappend($1, $2);
+    $$.token_text = strappend($1.token_text, $2.token_text);
 }
 ;
 
@@ -368,7 +368,7 @@ pragma_clause_arg_item : pragma_clause_arg_text
 
 pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 {
-    $$ = $1.token_text;
+    $$ = $1;
 }
 ;
 
