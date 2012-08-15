@@ -232,8 +232,6 @@ namespace Codegen
 
                 TL::ObjectList<TL::Symbol> classes_being_defined;
 
-                std::set<TL::Type> walked_types;
-
                 // This one is to be used only in define_required_before_class
                 std::set<TL::Symbol> being_checked_for_required;
 
@@ -267,7 +265,6 @@ namespace Codegen
                     inside_structured_value(false),
                     visiting_called_entity_of_function_call(false),
                     classes_being_defined(),
-                    walked_types(),
                     being_checked_for_required(),
                     pending_nested_types_to_define(),
                     walked_symbols(),
