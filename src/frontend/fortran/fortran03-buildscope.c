@@ -7982,7 +7982,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                     {
                         AST local_name = ASTSon0(only);
                         AST sym_in_module_name = ASTSon1(only);
-                        const char * sym_in_module_name_str = ASTText(sym_in_module_name);
+                        const char * sym_in_module_name_str = get_name_of_generic_spec(sym_in_module_name);
 
                         scope_entry_list_t* syms_in_module = 
                             query_module_for_name(module_symbol, sym_in_module_name_str);
@@ -8017,7 +8017,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                     {
                         // This is a generic name
                         AST sym_in_module_name = only;
-                        const char * sym_in_module_name_str = ASTText(sym_in_module_name);
+                        const char * sym_in_module_name_str = get_name_of_generic_spec(sym_in_module_name);
 
                         scope_entry_list_t* syms_in_module = 
                             query_module_for_name(module_symbol, sym_in_module_name_str);
