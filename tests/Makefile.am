@@ -76,6 +76,22 @@ fortran-check : prepare-check
 		$(BETS_DIRS)/07_phases_omp.dg/common/fortran \
 		$(BETS_DIRS)/07_phases_ompss.dg/fortran
 
+core-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) \
+		$(BETS_DIRS)/02_typecalc_c.dg \
+		$(BETS_DIRS)/02_typecalc_cxx.dg \
+		$(BETS_DIRS)/03_extensions_c.dg \
+		$(BETS_DIRS)/03_extensions_cxx.dg \
+		$(BETS_DIRS)/04_compat_cxx0x.dg \
+		$(BETS_DIRS)/04_compat_gcc.dg \
+		$(BETS_DIRS)/04_compat_gxx.dg \
+		$(BETS_DIRS)/04_compat_xl.dg \
+		$(BETS_DIRS)/05_torture_cxx_1.dg \
+		$(BETS_DIRS)/05_torture_cxx_2.dg \
+		$(BETS_DIRS)/06_run_cxx.dg \
+		$(END)
+
 dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \
