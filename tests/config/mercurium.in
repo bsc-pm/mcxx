@@ -1,11 +1,6 @@
 #!@BASH@
 
 # Basic mercurium generator
-
-if [ ! -e "mercurium" ];
-then
-# Mercurium default
-
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
 cat <<EOF
@@ -22,8 +17,3 @@ else
 fi
 
 EOF
-
-else
-    # If current directory has a generator, use it
-    ./mercurium
-fi
