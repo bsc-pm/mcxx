@@ -2059,7 +2059,7 @@ static char check_argument_association(
             if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
             {
                 ok = 1;
-                // ... that is _not_ an assumed shape (an array requiring descriptor) or pointer array ...
+                // ... that is _not_ an assumed shape or pointer array ...
                 scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(real_argument, 0));
 
                 if (array != NULL)
@@ -2084,7 +2084,9 @@ static char check_argument_association(
 
                     if (ok
                             && array != NULL
-                            && (array_type_with_descriptor(no_ref(array->type_information))
+                            && ((array_type_with_descriptor(no_ref(array->type_information))
+                                    // allocatable arrays have descriptors but are not assumed shape
+                                    && !array->entity_specs.is_allocatable)
                                 || fortran_is_pointer_to_array_type(no_ref(array->type_information))))
                     {
                         ok = 0;
