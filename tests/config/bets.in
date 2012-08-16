@@ -464,6 +464,8 @@ run_gen_test ()
        /<\/testinfo>/d
        # Remove Fortran/C++ comments if any
        s/[[:blank:]]*\(!\|\/\/\)[[:blank:]]*\(.*\)/\2/
+       # Remove DOS CR characters if any
+       s/\r//g
        p
    }'
 
