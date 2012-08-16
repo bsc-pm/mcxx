@@ -70,15 +70,13 @@ endif
 
 check-local : do-check preserve-check-log
 
-fortran-check : prepare-check
-	./config/bets \
-		$(BETS_OPTIONS) $(BETS_DIRS)/01_fortran.dg \
-		$(BETS_DIRS)/07_phases_omp.dg/common/fortran \
-		$(BETS_DIRS)/07_phases_ompss.dg/fortran
+FORTRAN_DIRS=\
+			 $(BETS_DIRS)/01_fortran.dg \
+			 $(BETS_DIRS)/07_phases_omp.dg/common/fortran \
+			 $(BETS_DIRS)/07_phases_ompss.dg/fortran \
+			 $(END)
 
-core-check : prepare-check
-	./config/bets \
-		$(BETS_OPTIONS) \
+CORE_DIRS=\
 		$(BETS_DIRS)/02_typecalc_c.dg \
 		$(BETS_DIRS)/02_typecalc_cxx.dg \
 		$(BETS_DIRS)/03_extensions_c.dg \
@@ -91,6 +89,18 @@ core-check : prepare-check
 		$(BETS_DIRS)/05_torture_cxx_2.dg \
 		$(BETS_DIRS)/06_run_cxx.dg \
 		$(END)
+
+fortran-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(FORTRAN_DIRS)
+
+core-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(CORE_DIRS)
+
+core-fortran-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
