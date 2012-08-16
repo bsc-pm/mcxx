@@ -3466,6 +3466,7 @@ bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbo
 
 
 
+// This function is only for C
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -5653,10 +5654,13 @@ void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
             &CxxBase::entry_local_definition);
 }
 
+// This function is only for C
+// Do not call it in C++
 void CxxBase::walk_type_for_symbols(TL::Type t,
         void (CxxBase::* symbol_to_declare)(TL::Symbol),
         void (CxxBase::* symbol_to_define)(TL::Symbol),
-        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
+        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+        bool needs_definition)
 {
     if (!t.is_valid())
         return;
@@ -5679,15 +5683,16 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_pointer())
     {
         walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+                define_entities_in_tree,
+                /* needs_definition */ false);
     }
     else if (t.is_pointer_to_member())
     {
         walk_type_for_symbols(t.pointed_class(), symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+                define_entities_in_tree, /* needs_definition */ false);
 
         walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
+                define_entities_in_tree, /* needs_definition */ false);
     }
     else if (t.is_array())
     {
@@ -5737,7 +5742,14 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_named_class())
     {
         TL::Symbol class_entry = t.get_symbol();
-        define_or_declare_if_complete(class_entry, symbol_to_declare, symbol_to_define);
+        if (needs_definition)
+        {
+            define_or_declare_if_complete(class_entry, symbol_to_declare, symbol_to_define);
+        }
+        else
+        {
+            (this->*symbol_to_declare)(class_entry);
+        }
     }
     else if (t.is_unnamed_class())
     {
