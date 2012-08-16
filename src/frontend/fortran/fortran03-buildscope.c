@@ -727,6 +727,11 @@ static void build_scope_program_unit_internal(AST program_unit,
                         decl_context, program_unit_symbol, nodecl_output);
                 break;
             }
+        case AST_UNKNOWN_PRAGMA:
+            {
+                // Merrily ignore this tree
+                break;
+            }
         default:
             {
                 internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(program_unit)));

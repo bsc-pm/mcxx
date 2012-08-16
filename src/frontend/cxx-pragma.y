@@ -91,7 +91,8 @@ unknown_pragma : UNKNOWN_PRAGMA eos
 	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-
+program_unit : unknown_pragma
+;
 non_top_level_program_unit_stmt: unknown_pragma
 ;
 internal_subprogram : unknown_pragma
