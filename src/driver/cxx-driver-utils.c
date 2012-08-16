@@ -352,8 +352,18 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 
     // This routine is UNIX-only
     pid_t spawned_process;
-    spawned_process = fork();
-    if (spawned_process < 0) 
+    if (stdout_f == NULL
+            && stderr_f == NULL)
+    {
+        // If no work previous to execvp is requested, vfork is fine
+        spawned_process = vfork();
+    }
+    else
+    {
+        spawned_process = fork();
+    }
+
+    if (spawned_process < 0)
     {
         running_error("error: could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
     }
@@ -396,8 +406,8 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
                 running_error("error: could not duplicate standard error", 0);
             }
         }
-        
-        // The cast is here because execvp prototype does not get 
+
+        // The cast is here because execvp prototype does not get
         // 'const char* const*' but 'char *const*'
         execvp(program_name, (char**)execvp_arguments);
 
