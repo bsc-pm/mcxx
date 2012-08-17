@@ -280,6 +280,8 @@ static int safe_atoi(const char *c)
 
 static scope_entry_t* module_being_emitted = NULL;
 
+static rb_red_blk_tree * _oid_map = NULL;
+
 void dump_module_info(scope_entry_t* module)
 {
     ERROR_CONDITION(module->kind != SK_MODULE, "Invalid symbol!", 0);
@@ -338,6 +340,21 @@ static void end_transaction(sqlite3* handle)
     run_query(handle, "END TRANSACTION;");
 }
 
+static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
+
+static int int64cmp_vptr(const void* ptr1, const void* ptr2)
+{
+    sqlite3_uint64 u1 = *(sqlite3_uint64*)ptr1;
+    sqlite3_uint64 u2 = *(sqlite3_uint64*)ptr2;
+
+    if (u1 < u2)
+        return -1;
+    else if (u1 > u2)
+        return 1;
+    else
+        return 0;
+}
+
 static void load_storage(sqlite3** handle, const char* filename)
 {
     sqlite3_uint64 result = sqlite3_open(filename, handle);
@@ -347,10 +364,7 @@ static void load_storage(sqlite3** handle, const char* filename)
         running_error("Error while opening module database '%s' (%s)\n", filename, sqlite3_errmsg(*handle));
     }
 
-    {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid));";
-        run_query(*handle, create_temp_mapping);
-    }
+    _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
 void load_module_info(const char* module_name, scope_entry_t** module)
@@ -571,10 +585,7 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
 
 // List here all the prepared statements
 #define PREPARED_STATEMENT_LIST \
-    PREPARED_STATEMENT(_check_repeat_oid_ptr) \
-    PREPARED_STATEMENT(_insert_oid_ptr) \
     PREPARED_STATEMENT(_load_symbol_stmt) \
-    PREPARED_STATEMENT(_get_ptr_of_oid_stmt) \
     PREPARED_STATEMENT(_oid_already_inserted_type) \
     PREPARED_STATEMENT(_oid_already_inserted_ast) \
     PREPARED_STATEMENT(_oid_already_inserted_scope) \
@@ -639,18 +650,12 @@ static void prepare_statements(sqlite3* handle)
         } \
     } while (0)
 
-    DO_PREPARE_STATEMENT(_check_repeat_oid_ptr, "SELECT oid, ptr FROM oid_ptr_map WHERE oid = $OID AND ptr = $PTR;");
-    DO_PREPARE_STATEMENT(_insert_oid_ptr, "INSERT INTO oid_ptr_map(oid, ptr) VALUES ($OID, $PTR);");
-    
-    // DO_PREPARE_STATEMENT(_load_symbol_stmt, "SELECT oid, * FROM symbol WHERE oid = $OID;");
     char* load_symbol_stmt_str = sqlite3_mprintf(
             "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line, value, bit_entity_specs, %s "
             "FROM symbol s, string_table str1, string_table str2 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.file;", 
             attr_field_names);
     DO_PREPARE_STATEMENT(_load_symbol_stmt, load_symbol_stmt_str);
     sqlite3_free(load_symbol_stmt_str);
-
-    DO_PREPARE_STATEMENT(_get_ptr_of_oid_stmt, "SELECT ptr FROM oid_ptr_map WHERE oid = $OID;");
 
     // Already inserted statements
     DO_PREPARE_STATEMENT(_oid_already_inserted_type,        "SELECT oid FROM type WHERE oid = $OID;");
@@ -755,6 +760,8 @@ static void init_storage(sqlite3* handle)
 {
     define_schema(handle);
     prepare_statements(handle);
+
+    _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
 static int get_module_info_(void *datum, 
@@ -792,97 +799,26 @@ static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3
     sqlite3_free(insert_info);
 }
 
-static void* get_ptr_of_oid(sqlite3* handle, sqlite3_uint64 oid)
+static void* get_ptr_of_oid(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid)
 {
     ERROR_CONDITION(oid == 0, "Invalid zero OID", 0);
 
-    sqlite3_bind_int64(_get_ptr_of_oid_stmt, 1, oid);
+    rb_red_blk_node * n = rb_tree_query(_oid_map, &oid);
 
-    void* result = 0;
-
-    int result_query = sqlite3_step(_get_ptr_of_oid_stmt);
-    switch (result_query)
+    void * p = NULL;
+    if (n != NULL)
     {
-        case SQLITE_ROW:
-            {
-                result = (void*)(intptr_t)sqlite3_column_int64(_get_ptr_of_oid_stmt, 0);
-                break;
-            }
-        case SQLITE_DONE:
-            {
-                break;
-            }
-        default:
-            {
-                internal_error("Unexpected error %d when running query '%s'", 
-                        result_query,
-                        sqlite3_errmsg(handle));
-            }
+        p = rb_node_get_info(n);
     }
-
-    sqlite3_reset(_get_ptr_of_oid_stmt);
-
-    return result;
+    return p;
 }
 
-static void insert_map_ptr(sqlite3* handle, sqlite3_uint64 oid, void *ptr)
+static void insert_map_ptr(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid, void *ptr)
 {
-    // Check if the oid, ptr are already in the map, if they are do nothing
-    // This is an anticipation of a primary key violation
-    sqlite3_bind_int64(_check_repeat_oid_ptr, 1, oid);
-    sqlite3_bind_int64(_check_repeat_oid_ptr, 2, P2ULL(ptr));
+    sqlite3_int64* p = calloc(1, sizeof(*p));
+    *p = oid;
 
-    int result_query = sqlite3_step(_check_repeat_oid_ptr);
-    char found = 0;
-    switch (result_query)
-    {
-        case SQLITE_ROW:
-            {
-                found = 1;
-                break;
-            }
-        case SQLITE_DONE:
-            {
-                // Not found
-                break;
-            }
-        default:
-            {
-                internal_error("Unexpected error %d when running query '%s'", 
-                        result_query,
-                        sqlite3_errmsg(handle));
-            }
-    }
-
-    sqlite3_reset(_check_repeat_oid_ptr);
-
-    // If an exact row with the same oif and ptr was found, we don't need insert anything
-    // because the tuple (oid, ptr) already exists.
-    if (found)
-        return;
-
-    // If a row with the same oid but different ptr existed, next INSERT will fail
-    // (primary key violation)
-    sqlite3_bind_int64(_insert_oid_ptr, 1, oid);
-    sqlite3_bind_int64(_insert_oid_ptr, 2, P2ULL(ptr));
-
-    result_query = sqlite3_step(_insert_oid_ptr);
-    switch (result_query)
-    {
-        case SQLITE_DONE:
-            {
-                // OK
-                break;
-            }
-        default:
-            {
-                internal_error("Unexpected error %d when running query '%s'", 
-                        result_query,
-                        sqlite3_errmsg(handle));
-            }
-    }
-
-    sqlite3_reset(_insert_oid_ptr);
+    rb_tree_insert(_oid_map, p, ptr);
 }
 
 #define DEF_OID_ALREADY_INSERTED(_table) \
