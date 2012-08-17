@@ -3050,3 +3050,21 @@ const_value_t* const_value_sqrt(const_value_t* val)
         internal_error("Not implemented yet", 0);
     }
 }
+
+// This function is for supporting Fortran modules
+size_t const_value_get_raw_data_size(void)
+{
+    return sizeof(const_value_t);
+}
+
+// Only build simple types using this routine
+// This function is for supporting Fortran modules
+const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
+{
+    const_value_t* result = calloc(1, sizeof(*result));
+
+    // memcpy
+    memcpy(result, raw_buffer, sizeof(const_value_t));
+
+    return result;
+}
