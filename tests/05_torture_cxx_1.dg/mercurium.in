@@ -1,7 +1,11 @@
 #!@BASH@
 
-@abs_top_builddir@/tests/config/mercurium
 
-cat<<EOF
-test_CXXFLAGS="\${test_CXXFLAGS} --env=linux-i386"
-EOF
+# Restrict these tests to AMD64
+if [ $(uname -m) = x86_64 ];
+then
+    @abs_top_builddir@/tests/config/mercurium
+else
+    echo "test_ignore=yes"
+    echo "test_ignore_reason=\"Only run in x86_64\""
+fi
