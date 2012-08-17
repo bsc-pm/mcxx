@@ -503,24 +503,24 @@ static void run_query(sqlite3* handle, const char* query)
 static void define_schema(sqlite3* handle)
 {
     {
-        const char * create_info = "CREATE TABLE info(module, date, version, build, root_symbol);";
+        const char * create_info = "CREATE TABLE info(INTEGER oid PRIMARY KEY, module, date, version, build, root_symbol);";
         run_query(handle, create_info);
     }
 
     {
-        const char * create_string_table = "CREATE TABLE string_table(string, UNIQUE(string));";
+        const char * create_string_table = "CREATE TABLE string_table(INTEGER oid PRIMARY KEY, string, UNIQUE(string));";
         run_query(handle, create_string_table);
     }
 
     {
-        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(decl_context, name, kind, type, file, line, "
+        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(INTEGER oid PRIMARY KEY, decl_context, name, kind, type, file, line, "
                 "value, bit_entity_specs, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
 
     {
-        const char * create_attributes = "CREATE TABLE attributes(name, symbol, value);";
+        const char * create_attributes = "CREATE TABLE attributes(INTEGER oid PRIMARY KEY, name, symbol, value);";
         run_query(handle, create_attributes);
 
         // This index is crucial for fast loading of attributes of symbols
@@ -529,18 +529,18 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        const char * create_types = "CREATE TABLE type(kind, cv_qualifier, kind_size, ast0, ast1, ref_type, types, symbols);";
+        const char * create_types = "CREATE TABLE type(INTEGER oid PRIMARY KEY, kind, cv_qualifier, kind_size, ast0, ast1, ref_type, types, symbols);";
         run_query(handle, create_types);
     }
 
     {
-        const char * create_ast = "CREATE TABLE ast(kind, file, line, text, ast0, ast1, ast2, ast3, "
+        const char * create_ast = "CREATE TABLE ast(INTEGER oid PRIMARY KEY, kind, file, line, text, ast0, ast1, ast2, ast3, "
             "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent);";
         run_query(handle, create_ast);
     }
 
     {
-        const char * create_context = "CREATE TABLE decl_context(" DECL_CONTEXT_FIELDS ");";
+        const char * create_context = "CREATE TABLE decl_context(INTEGER oid PRIMARY KEY, " DECL_CONTEXT_FIELDS ");";
         run_query(handle, create_context);
 
         const char * create_decl_context_index = "CREATE INDEX decl_context_index ON decl_context ( " DECL_CONTEXT_FIELDS " );";
@@ -548,12 +548,12 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        const char * create_context = "CREATE TABLE scope(kind, contained_in, related_entry);";
+        const char * create_context = "CREATE TABLE scope(INTEGER oid PRIMARY KEY, kind, contained_in, related_entry);";
         run_query(handle, create_context);
     }
 
     {
-        const char* create_const_value = "CREATE TABLE const_value(kind, sign, bytes, literal_value, compound_values);";
+        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, sign, bytes, literal_value, compound_values);";
         run_query(handle, create_const_value);
     }
 
@@ -665,7 +665,7 @@ static void prepare_statements(sqlite3* handle)
     DO_PREPARE_STATEMENT(_oid_already_inserted_const_value, "SELECT oid FROM const_value WHERE oid = $OID;");
 
     // String table
-    DO_PREPARE_STATEMENT(_insert_string_stmt, "INSERT INTO string_table VALUES($NAME);");
+    DO_PREPARE_STATEMENT(_insert_string_stmt, "INSERT INTO string_table(string) VALUES($NAME);");
     DO_PREPARE_STATEMENT(_select_string_stmt, "SELECT oid FROM string_table WHERE string = $NAME;");
 
     // Insert type
