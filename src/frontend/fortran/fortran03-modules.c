@@ -553,8 +553,13 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, sign, bytes, literal_value, compound_values);";
+        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, sign, bytes, literal_value);";
         run_query(handle, create_const_value);
+    }
+
+    {
+        const char* create_const_multivalue = "CREATE TABLE multi_const_value(INTEGER oid PRIMARY KEY, oid_object, oid_part);";
+        run_query(handle, create_const_multivalue);
     }
 
     {
@@ -604,6 +609,7 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_insert_decl_context_stmt) \
     PREPARED_STATEMENT(_insert_const_value_stmt) \
     PREPARED_STATEMENT(_insert_multi_const_value_stmt) \
+    PREPARED_STATEMENT(_insert_multi_const_value_part_stmt) \
     PREPARED_STATEMENT(_get_extended_attr_stmt) \
     PREPARED_STATEMENT(_lookup_decl_context_stmt) \
     PREPARED_STATEMENT(_select_string_stmt) \
@@ -612,6 +618,8 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_select_ast_stmt) \
     PREPARED_STATEMENT(_select_type_stmt) \
     PREPARED_STATEMENT(_select_const_value_stmt) \
+    PREPARED_STATEMENT(_select_multi_const_value_count) \
+    PREPARED_STATEMENT(_select_multi_const_value_parts)
 
 // End of list of prepared statements
 
@@ -708,12 +716,15 @@ static void prepare_statements(sqlite3* handle)
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
 
     // Const value
-    DO_PREPARE_STATEMENT(_insert_const_value_stmt, "INSERT INTO const_value(oid, kind, sign, bytes, literal_value, compound_values) "
-            "VALUES ($OID, $KIND, $SIGN, $BYTES, $LITERAL, NULL);");
+    DO_PREPARE_STATEMENT(_insert_const_value_stmt, "INSERT INTO const_value(oid, kind, sign, bytes, literal_value) "
+            "VALUES ($OID, $KIND, $SIGN, $BYTES, $LITERAL);");
 
+    // Multi const values
     DO_PREPARE_STATEMENT(_insert_multi_const_value_stmt, 
-            "INSERT INTO const_value(oid, kind, sign, bytes, literal_value, compound_values) "
-            "VALUES($OID, $KIND, 0, 0, NULL, $COMPOUNDVALS);");
+            "INSERT INTO const_value(oid, kind, sign, bytes, literal_value) "
+            "VALUES($OID, $KIND, 0, 0, NULL);");
+    DO_PREPARE_STATEMENT(_insert_multi_const_value_part_stmt, "INSERT INTO multi_const_value(oid_object, oid_part) "
+            "VALUES ($OBJECT, $PART);");
 
     // Get extended attr
     DO_PREPARE_STATEMENT(_get_extended_attr_stmt, 
@@ -744,7 +755,13 @@ static void prepare_statements(sqlite3* handle)
             "types, symbols FROM type WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_const_value_stmt,
-            "SELECT oid, kind, sign, bytes, literal_value, compound_values FROM const_value WHERE oid = $OID\n;");
+            "SELECT oid, kind, sign, bytes, literal_value FROM const_value WHERE oid = $OID\n;");
+
+    DO_PREPARE_STATEMENT(_select_multi_const_value_count,
+            "SELECT COUNT(*) FROM multi_const_value WHERE oid_object = $OID\n;");
+
+    DO_PREPARE_STATEMENT(_select_multi_const_value_parts,
+            "SELECT oid_part FROM multi_const_value WHERE oid_object = $OID\n;");
 
     // Check all the statements registered have been prepared
 #define PREPARED_STATEMENT(_name) \
@@ -2497,37 +2514,21 @@ static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* 
 
 static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind)
 {
-    int num_elems = const_value_get_num_elements(v);
-    int i;
-
-    sqlite3_uint64 num_elements_oid[num_elems + 1];
-    for (i = 0; i < num_elems; i++)
-    {
-        num_elements_oid[i] = insert_const_value(handle, const_value_get_element_num(v, i));
-    }
-
-    char *list = sqlite3_mprintf("%s", "");
-    for (i = 0; i < num_elems; i++)
-    {
-        if (i != 0)
-        {
-            char *old_list = list;
-            list = sqlite3_mprintf("%s,%llu", old_list, num_elements_oid[i]);
-            sqlite3_free(old_list);
-        }
-        else
-        {
-            list = sqlite3_mprintf("%llu", num_elements_oid[i]);
-        }
-    }
-
     sqlite3_bind_int64(_insert_multi_const_value_stmt, 1, P2ULL(v));
     sqlite3_bind_int  (_insert_multi_const_value_stmt, 2, kind);
-    sqlite3_bind_text (_insert_multi_const_value_stmt, 3, list, -1, SQLITE_TRANSIENT);
 
     sqlite3_uint64 result = run_insert_statement(handle, _insert_multi_const_value_stmt);
 
-    sqlite3_free(list);
+    int i, num_elems = const_value_get_num_elements(v);
+    for (i = 0; i < num_elems; i++)
+    {
+        sqlite3_uint64 current_part_oid = insert_const_value(handle, const_value_get_element_num(v, i));
+
+        sqlite3_bind_int64(_insert_multi_const_value_part_stmt, 1, result);
+        sqlite3_bind_int64(_insert_multi_const_value_part_stmt, 2, current_part_oid);
+
+        run_insert_statement(handle, _insert_multi_const_value_part_stmt);
+    }
 
     return result;
 }
@@ -2647,7 +2648,6 @@ static int get_const_value(void *datum,
     const char* sign_str = values[2];
     const char* bytes_str = values[3];
     const char* literal_value_str = values[4];
-    const char* compound_values_str = values[5];
 
     switch (kind)
     {
@@ -2690,36 +2690,62 @@ static int get_const_value(void *datum,
         case CKT_COMPLEX:
         case CKT_RANGE:
         {
-            int num_elems = 0;
-            char * copy = strdup(compound_values_str);
-            const_value_t** list = NULL;
-            if (strlen(copy) != 0)
+            // Get the number of items
+            sqlite3_bind_int64(_select_multi_const_value_count, 1, oid);
+            int result_query = sqlite3_step(_select_multi_const_value_count);
+            if (result_query != SQLITE_ROW)
             {
-                char *context = NULL;
-                char *field = strtok_r(copy, ",", &context);
-                while (field != NULL)
-                {
-                    num_elems++;
-                    field = strtok_r(NULL, ",", &context);
-                }
-                // strtok_r may have fried 'copy'
-                free(copy);
-                copy = strdup(compound_values_str);
-
-                list = calloc(num_elems, sizeof(*list));
-
-                int i = 0;
-                field = strtok_r(copy, ",", &context);
-                while (field != NULL)
-                {
-                    const_value_t* const_value = load_const_value(p->handle, safe_atoull(field));
-                    list[i] = const_value;
-
-                    field = strtok_r(NULL, ",", &context); 
-                    i++;
-                }
+                internal_error("Unexpected query count", 0);
             }
 
+            int num_elems = sqlite3_column_int(_select_multi_const_value_count, 0);
+            sqlite3_reset(_select_multi_const_value_count);
+
+            ERROR_CONDITION(num_elems <= 0, "Invalid number (%d) of elements for multi const value", num_elems);
+
+            // Get the oids
+            sqlite_uint64 oids[num_elems + 1];
+            memset(oids, 0, sizeof(oids));
+
+            sqlite3_bind_int64(_select_multi_const_value_parts, 1, oid);
+
+            result_query = sqlite3_step(_select_multi_const_value_parts);
+            int i = 0;
+            while(result_query != SQLITE_DONE)
+            {
+                switch (result_query)
+                {
+                    case SQLITE_ROW:
+                        {
+                            ERROR_CONDITION(i >= num_elems, "Too many %d >= %d rows!\n", i, num_elems);
+                            oids[i] = sqlite3_column_int64(_select_multi_const_value_parts, 0);
+                            i++;
+                            break;
+                        }
+                    case SQLITE_DONE:
+                        {
+                            break;
+                        }
+                    default:
+                        {
+                            const char* error_msg = sqlite3_errmsg(p->handle);
+                            internal_error("Unexpected result during query '%s'\n", error_msg);
+                            break;
+                        }
+                }
+                result_query = sqlite3_step(_select_multi_const_value_parts);
+            }
+            sqlite3_reset(_select_multi_const_value_parts);
+
+            // Now load every const_value_t using its oid
+
+            const_value_t* list[num_elems + 1];
+            for (i =0; i < num_elems; i++)
+            {
+                list[i] = load_const_value(p->handle, oids[i]);
+            }
+
+            // Finally build the multi const value
             switch (kind)
             {
                 case CKT_ARRAY:
@@ -2761,8 +2787,6 @@ static int get_const_value(void *datum,
                         internal_error("Code unreachable", 0);
                     }
             }
-            free(list);
-            free(copy);
             break;
         }
         default:
