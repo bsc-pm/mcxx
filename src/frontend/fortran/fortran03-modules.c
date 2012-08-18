@@ -2645,7 +2645,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
         if (column_type == SQLITE_INTEGER)
         {
             // Single value
-            int raw_oid = sqlite3_column_int64(_select_const_value_stmt, 2);
+            sqlite_uint64 raw_oid = sqlite3_column_int64(_select_const_value_stmt, 2);
             sqlite3_reset(_select_const_value_stmt);
 
             sqlite3_bind_int64(_select_raw_const_value_stmt, 1, raw_oid);
