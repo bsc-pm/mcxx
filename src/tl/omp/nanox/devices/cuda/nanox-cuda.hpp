@@ -26,7 +26,7 @@
 
 
 #ifndef NANOX_CUDA_HPP
-#define NANOX_CUDA_CPP
+#define NANOX_CUDA_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -116,4 +116,4 @@ namespace TL
 
 }
 
-#endif // NANOX_CUDA_CPP
+#endif // NANOX_CUDA_HPP
