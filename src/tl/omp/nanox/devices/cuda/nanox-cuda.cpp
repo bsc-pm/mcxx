@@ -481,12 +481,12 @@ void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 }
 
 void DeviceCUDA::insert_instrumentation_code(
-		Symbol &function_symbol,
-		Source outline_name,
+		Symbol function_symbol,
+		Source& outline_name,
 		const OutlineFlags& outline_flags,
-		AST_t reference_tree,
-		Source &instrument_before,
-		Source &instrument_after)
+		AST_t& reference_tree,
+		Source& instrument_before,
+		Source& instrument_after)
 {
 	Source uf_name_id, uf_name_descr;
 	Source uf_location_id, uf_location_descr;

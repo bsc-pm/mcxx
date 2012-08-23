@@ -71,6 +71,17 @@ namespace TL
 
                 void get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHeaderFile);
 
+                void insert_instrumentation_code(Symbol function_symbol, Source& outline_name,
+                		const OutlineFlags& outline_flags, AST_t& reference_tree, Source& instrument_before,
+                		Source& instrument_after);
+
+                void process_outline_task(const OutlineFlags& outline_flags, AST_t& function_tree, ScopeLink& sl,
+                		Source& forward_declaration);
+
+                void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
+                		const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
+                		ScopeLink &sl);
+
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set; 
             public:
 
