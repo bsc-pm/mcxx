@@ -28,6 +28,7 @@
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
 #include "nanox-cuda.hpp"
+#include "cuda-aux.hpp"
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 #include "tl-cuda.hpp"
@@ -631,52 +632,6 @@ void DeviceCUDA::create_outline(
 	ObjectList<IdExpression> local_occurrences;
 	local_occurrences = construct.all_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
 
-	struct CheckIfInCudacompiler
-	{
-		static bool check(const std::string& path)
-		{
-#ifdef CUDA_DIR
-			std::string cudaPath(CUDA_DIR);
-#else
-			std::string cudaPath("???");
-#endif
-			if (path.substr(0, cudaPath.size()) == cudaPath)
-				return true;
-			else
-				return false;
-		}
-		static bool check_type(TL::Type t)
-		{
-			if (t.is_named())
-			{
-				return CheckIfInCudacompiler::check(t.get_symbol().get_filename());
-			}
-			else if (t.is_pointer())
-			{
-				return check_type(t.points_to());
-			}
-			else if (t.is_array())
-			{
-				return check_type(t.array_element());
-			}
-			else if (t.is_function())
-			{
-				TL::ObjectList<TL::Type> types = t.parameters();
-				types.append(t.returns());
-				for (TL::ObjectList<TL::Type>::iterator it = types.begin(); it != types.end(); it++)
-				{
-					if (!check_type(*it))
-						return false;
-				}
-				return true;
-			}
-			else
-			{
-				return true;
-			}
-		}
-	};
-
 	for (ObjectList<IdExpression>::iterator it = local_occurrences.begin();
 			it != local_occurrences.end();
 			it++)
@@ -748,28 +703,6 @@ void DeviceCUDA::create_outline(
 		else
 		{
 			// Not a function definition
-			// Create a filter to search for the definition
-			struct FilterFunctionDef : Predicate<AST_t>
-			{
-			private:
-				Symbol _sym;
-				ScopeLink _sl;
-			public:
-				FilterFunctionDef(Symbol sym, ScopeLink sl)
-				: _sym(sym), _sl(sl) { }
-
-				virtual bool do_(const AST_t& a) const
-				{
-					if (!FunctionDefinition::predicate(a))
-						return false;
-
-					FunctionDefinition funct_def(a, _sl);
-
-					Symbol sym = funct_def.get_function_symbol();
-					return _sym == sym;
-				}
-			};
-
 			// Search for the function definition
 			ObjectList<AST_t> funct_def_list =
 					_root.depth_subtrees(FilterFunctionDef(outline_flags.task_symbol, sl));
