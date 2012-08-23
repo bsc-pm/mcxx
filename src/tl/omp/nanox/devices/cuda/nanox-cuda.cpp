@@ -614,7 +614,6 @@ void DeviceCUDA::create_outline(
 		}
 	}
 
-
 	// User-defined structs must be included in GPU kernel's file
 	// 'closure()' method is not working for extern symbols...
 	forward_declaration << decl_closure.closure() << "\n";
@@ -837,6 +836,7 @@ void DeviceCUDA::create_outline(
 		// in order to avoid repeating them
 		_taskSymbols.insert(struct_typename_sym);
 	}
+
 	// outline_name
 	outline_name
 		<< gpu_outline_name(task_name)
@@ -895,10 +895,10 @@ void DeviceCUDA::create_outline(
 		}
 	}
 
-        if (outline_flags.parallel)
-        {
-		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str() );
-        }
+	if (outline_flags.parallel)
+	{
+		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str());
+	}
 
 	// final_code
     if (outline_flags.parallel || outline_flags.barrier_at_end)
