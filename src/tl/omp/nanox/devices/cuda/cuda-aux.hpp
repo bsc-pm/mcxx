@@ -28,6 +28,10 @@
 #define CUDA_AUX_HPP
 
 
+using namespace TL;
+using namespace TL::Nanox;
+
+
 // Create a filter to search for function definitions
 struct FilterFunctionDef : Predicate<AST_t>
 {
