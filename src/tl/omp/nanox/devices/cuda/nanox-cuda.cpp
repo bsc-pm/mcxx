@@ -675,68 +675,7 @@ void DeviceCUDA::create_outline(
 	// If it is an outlined task, do some more work
 	if (is_outline_task)
 	{
-		// Check if the task symbol is actually a function definition or a declaration
-		if (FunctionDefinition::predicate(function_tree))
-		{
-			// Check if we have already printed the function definition in the CUDA file
-			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
-			{
-				// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-				ObjectList<AST_t> kernel_call_list = function_tree.get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
-				for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-						it != kernel_call_list.end();
-						it++)
-				{
-					replace_kernel_config(*it, sl);
-				}
-
-				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
-
-				// Keep record of which tasks have been printed to the CUDA file
-				// in order to avoid repeating them
-				_taskSymbols.insert(outline_flags.task_symbol);
-
-				// Remove the function definition from the original source code
-				function_tree.remove_in_list();
-			}
-		}
-		else
-		{
-			// Not a function definition
-			// Search for the function definition
-			ObjectList<AST_t> funct_def_list =
-					_root.depth_subtrees(FilterFunctionDef(outline_flags.task_symbol, sl));
-
-			if (funct_def_list.size() == 1)
-			{
-				// Check if we have already printed the function definition in the CUDA file
-				if (_taskSymbols.count(outline_flags.task_symbol) == 0)
-				{
-					// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-					ObjectList<AST_t> kernel_call_list = funct_def_list[0].get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
-					for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-							it != kernel_call_list.end();
-							it++)
-					{
-						replace_kernel_config(*it, sl);
-					}
-
-					forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
-
-					// Keep record of which tasks have been printed to the CUDA file
-					// in order to avoid repeating them
-					_taskSymbols.insert(outline_flags.task_symbol);
-				}
-
-				// Remove the function definition from the original source code
-				funct_def_list[0].remove_in_list();
-			}
-			else if (funct_def_list.size() == 0
-					&& _taskSymbols.count(outline_flags.task_symbol) > 0)
-			{
-				// We have already removed it and printed it in the CUDA file, do nothing
-			}
-		}
+		process_outline_task(outline_flags, function_tree, sl, forward_declaration);
 	}
 
 	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
@@ -900,6 +839,76 @@ void DeviceCUDA::create_outline(
 
 	/******************* Generate the host side code (C/C++ file) ******************/
 	insert_host_side_code(outline_name, outline_flags, struct_typename, parameter_list, reference_tree, sl);
+}
+
+void DeviceCUDA::process_outline_task(
+		const OutlineFlags& outline_flags,
+		AST_t& function_tree,
+		ScopeLink& sl,
+		Source& forward_declaration)
+{
+	// Check if the task symbol is actually a function definition or a declaration
+	if (FunctionDefinition::predicate(function_tree))
+	{
+		// Check if we have already printed the function definition in the CUDA file
+		if (_taskSymbols.count(outline_flags.task_symbol) == 0)
+		{
+			// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+			ObjectList<AST_t> kernel_call_list = function_tree.get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
+			for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+					it != kernel_call_list.end();
+					it++)
+			{
+				replace_kernel_config(*it, sl);
+			}
+
+			forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
+
+			// Keep record of which tasks have been printed to the CUDA file
+			// in order to avoid repeating them
+			_taskSymbols.insert(outline_flags.task_symbol);
+
+			// Remove the function definition from the original source code
+			function_tree.remove_in_list();
+		}
+	}
+	else
+	{
+		// Not a function definition
+		// Search for the function definition
+		ObjectList<AST_t> funct_def_list =
+				_root.depth_subtrees(FilterFunctionDef(outline_flags.task_symbol, sl));
+
+		if (funct_def_list.size() == 1)
+		{
+			// Check if we have already printed the function definition in the CUDA file
+			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
+			{
+				// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+				ObjectList<AST_t> kernel_call_list = funct_def_list[0].get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
+				for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+						it != kernel_call_list.end();
+						it++)
+				{
+					replace_kernel_config(*it, sl);
+				}
+
+				forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
+
+				// Keep record of which tasks have been printed to the CUDA file
+				// in order to avoid repeating them
+				_taskSymbols.insert(outline_flags.task_symbol);
+			}
+
+			// Remove the function definition from the original source code
+			funct_def_list[0].remove_in_list();
+		}
+		else if (funct_def_list.size() == 0
+				&& _taskSymbols.count(outline_flags.task_symbol) > 0)
+		{
+			// We have already removed it and printed it in the CUDA file, do nothing
+		}
+	}
 }
 
 void DeviceCUDA::insert_host_side_code(
