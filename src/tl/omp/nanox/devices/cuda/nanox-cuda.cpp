@@ -479,6 +479,93 @@ void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 	insert_function_definition(ctr, is_copy);
 }
 
+void DeviceCUDA::insert_instrumentation_code(
+		Symbol &function_symbol,
+		Source outline_name,
+		const OutlineFlags& outline_flags,
+		AST_t reference_tree,
+		Source &instrument_before,
+		Source &instrument_after)
+{
+	Source uf_name_id, uf_name_descr;
+	Source uf_location_id, uf_location_descr;
+	//Symbol function_symbol = enclosing_function.get_function_symbol();
+
+	instrument_before
+		<< "static int nanos_funct_id_init = 0;"
+		<< "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+		<< "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+		<< "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+		<< "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+		<< "if (nanos_funct_id_init == 0)"
+		<< "{"
+		<<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
+		<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
+		<<               uf_name_id << "," << uf_name_descr << ", 0);"
+		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
+
+		<<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
+		<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+		<<               uf_location_id << "," << uf_location_descr << ", 0);"
+		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
+		<<    "nanos_funct_id_init = 1;"
+		<< "}"
+		<< "nanos_event_t events_before[2];"
+		<< "events_before[0].type = NANOS_BURST_START;"
+		<< "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+		<< "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+		<< "events_before[1].type = NANOS_BURST_START;"
+		<< "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+		<< "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+		<< "nanos_instrument_events(2, events_before);"
+		// << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
+		// << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
+		;
+
+	instrument_after
+		<< "nanos_instrument_close_user_fun_event();"
+		;
+
+
+	if (outline_flags.task_symbol != NULL)
+	{
+		uf_name_id
+			<< "\"" << outline_flags.task_symbol.get_name() << "\""
+			;
+		uf_location_id
+			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+			;
+
+		uf_name_descr
+			<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
+			;
+		uf_location_descr
+			<< "\"'" << function_symbol.get_qualified_name() << "'"
+			<< " invoked at '" << reference_tree.get_locus() << "'\""
+			;
+	}
+	else
+	{
+		uf_name_id
+			<< uf_location_id
+			;
+		uf_location_id
+			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+			;
+
+		uf_name_descr
+			<< uf_location_descr
+			;
+		uf_location_descr
+			<< "\"Outline from '"
+			<< reference_tree.get_locus()
+			<< "' in '" << function_symbol.get_qualified_name() << "'\""
+			;
+	}
+}
+
 void DeviceCUDA::create_outline(
 		const std::string& task_name,
 		const std::string& struct_typename,
@@ -738,83 +825,13 @@ void DeviceCUDA::create_outline(
 	// Add the tracing instrumentation if needed
 	if (instrumentation_enabled())
 	{
-		Source uf_name_id, uf_name_descr;
-		Source uf_location_id, uf_location_descr;
-		Symbol function_symbol = enclosing_function.get_function_symbol();
-
-		instrument_before
-			<< "static int nanos_funct_id_init = 0;"
-			<< "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-			<< "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-			<< "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-			<< "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-			<< "if (nanos_funct_id_init == 0)"
-			<< "{"
-			<<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-			<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
-			<<               uf_name_id << "," << uf_name_descr << ", 0);"
-			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-
-			<<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-			<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-			<<               uf_location_id << "," << uf_location_descr << ", 0);"
-			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-			<<    "nanos_funct_id_init = 1;"
-			<< "}"
-			<< "nanos_event_t events_before[2];"
-			<< "events_before[0].type = NANOS_BURST_START;"
-			<< "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-			<< "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
-			<< "events_before[1].type = NANOS_BURST_START;"
-			<< "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-			<< "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-			<< "nanos_instrument_events(2, events_before);"
-			// << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
-			// << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
-			;
-
-		instrument_after
-			<< "nanos_instrument_close_user_fun_event();"
-			;
-
-
-		if (outline_flags.task_symbol != NULL)
-		{
-			uf_name_id
-				<< "\"" << outline_flags.task_symbol.get_name() << "\""
-				;
-			uf_location_id
-				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-				;
-
-			uf_name_descr
-				<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
-				;
-			uf_location_descr
-				<< "\"'" << function_symbol.get_qualified_name() << "'"
-				<< " invoked at '" << reference_tree.get_locus() << "'\""
-				;
-		}
-		else
-		{
-			uf_name_id
-				<< uf_location_id
-				;
-			uf_location_id
-				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-				;
-
-			uf_name_descr
-				<< uf_location_descr
-				;
-			uf_location_descr
-				<< "\"Outline from '"
-				<< reference_tree.get_locus()
-				<< "' in '" << function_symbol.get_qualified_name() << "'\""
-				;
-		}
+		insert_instrumentation_code(
+				enclosing_function.get_function_symbol(),
+				outline_name,
+				outline_flags,
+				reference_tree,
+				instrument_before,
+				instrument_after);
 	}
 
 	// arguments_struct_definition
