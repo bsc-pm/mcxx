@@ -965,8 +965,18 @@ void DeviceCUDA::create_outline(
 	cudaFile << "}\n";
 	cudaFile.close();
 
-	/******************* Write the C file ******************/
+	/******************* Generate the host side code (C/C++ file) ******************/
+	insert_host_side_code(outline_name, outline_flags, struct_typename, parameter_list, reference_tree, sl);
+}
 
+void DeviceCUDA::insert_host_side_code(
+		Source &outline_name,
+		const OutlineFlags& outline_flags,
+		const std::string& struct_typename,
+		Source &parameter_list,
+		AST_t &reference_tree,
+		ScopeLink &sl)
+{
 	// Check if the task is a function, or it is inlined
 	if (outline_flags.task_symbol != NULL)
 	{
