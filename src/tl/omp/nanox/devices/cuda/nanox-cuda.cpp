@@ -577,37 +577,16 @@ void DeviceCUDA::create_outline(
 		Source initial_setup,
 		Source outline_body)
 {
-	/***************** Write the CUDA file *****************/
 
-	// Check if the task is a function, or it is inlined
-	// Outline tasks need more work to do
-	bool is_outline_task = (outline_flags.task_symbol != NULL);
-
+	// Common variables needed by host and device side code
 	// outline_name
 	Source outline_name, parameter_list;
 	outline_name
 		<< gpu_outline_name(task_name)
 		;
 
-	Source forward_declaration;
-
-	// Get all the needed symbols and CUDA included files
-	AST_t function_tree = (is_outline_task ?
-			outline_flags.task_symbol.get_point_of_declaration() :
-			reference_tree);
-	LangConstruct construct (function_tree, sl);
-
-	// Forward symbol declarations (either local or external)
-	process_local_symbols(construct, sl, forward_declaration);
-	process_extern_symbols(construct, forward_declaration);
-
-	// If it is an outlined task, do some more work
-	if (is_outline_task)
-	{
-		process_outline_task(outline_flags, function_tree, sl, forward_declaration);
-	}
-
-	AST_t outline_code_tree = generate_task_code(
+	/***************** Write the CUDA file *****************/
+	insert_device_side_code(
 			outline_name,
 			struct_typename,
 			parameter_list,
@@ -618,44 +597,13 @@ void DeviceCUDA::create_outline(
 			reference_tree,
 			sl);
 
-	// This registers the output file in the compilation pipeline if needed
-	std::ofstream cudaFile, cudaHeaderFile;
-	get_output_file(cudaFile, cudaHeaderFile);
-
-	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
-	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-			it != kernel_call_list.end();
-			it++)
-	{
-		replace_kernel_config(*it, sl);
-	}
-
-	// Print declarations in header file in the following way:
-	// 1 - Protect the header with ifndef/define/endif
-	//     |--> Done at get_output_file() and run()
-	// 2 - Emit extern C when we're compiling a C code
-	//     |--> WARNING: C code included from CXX may need extern C, too, but this is not checked (not trivial)
-	// 3 - Write forward declarations
-
- 	if (IS_C_LANGUAGE) {
-		cudaHeaderFile << "extern \"C\" {\n";
-	}
-	cudaHeaderFile << forward_declaration.get_source(false) << "\n";
-	if (IS_C_LANGUAGE) {
-		cudaHeaderFile << "}\n";
-	}
-	cudaHeaderFile.close();
-
-	// Print definitions in source file
-	cudaFile << "extern \"C\" {\n";
-	//cudaFile << forward_declaration.get_source(false) << "\n";
-	cudaFile << outline_code_tree.prettyprint_external() << "\n";
-	cudaFile << "}\n";
-	cudaFile.close();
-
 	/******************* Generate the host side code (C/C++ file) ******************/
-	insert_host_side_code(outline_name, outline_flags, struct_typename, parameter_list, reference_tree, sl);
+	insert_host_side_code(outline_name,
+			outline_flags,
+			struct_typename,
+			parameter_list,
+			reference_tree,
+			sl);
 }
 
 void DeviceCUDA::process_local_symbols(
@@ -952,6 +900,89 @@ AST_t DeviceCUDA::generate_task_code(
 
 	// Parse it in a sibling function context
 	return result.parse_declaration(enclosing_function.get_ast(), sl);
+}
+
+void DeviceCUDA::insert_device_side_code(
+		Source &outline_name,
+		const std::string& struct_typename,
+		Source& parameter_list,
+		DataEnvironInfo& data_environ,
+		const OutlineFlags& outline_flags,
+		Source& initial_setup,
+		Source& outline_body,
+		AST_t& reference_tree,
+		ScopeLink& sl)
+{
+	// Local and external symbol forward declarations written in the CUDA header file
+	Source forward_declaration;
+
+	// Check if the task is a function, or it is inlined
+	// Outline tasks need more work to do
+	bool is_outline_task = (outline_flags.task_symbol != NULL);
+
+	// Get all the needed symbols and CUDA included files
+	AST_t function_tree = (is_outline_task ?
+			outline_flags.task_symbol.get_point_of_declaration() :
+			reference_tree);
+	LangConstruct construct (function_tree, sl);
+
+	// Forward symbol declarations (either local or external)
+	process_local_symbols(construct, sl, forward_declaration);
+	process_extern_symbols(construct, forward_declaration);
+
+	// If it is an outlined task, do some more work
+	if (is_outline_task)
+	{
+		process_outline_task(outline_flags, function_tree, sl, forward_declaration);
+	}
+
+	// Generate device side task code
+	AST_t outline_code_tree = generate_task_code(
+			outline_name,
+			struct_typename,
+			parameter_list,
+			data_environ,
+			outline_flags,
+			initial_setup,
+			outline_body,
+			reference_tree,
+			sl);
+
+	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
+	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+			it != kernel_call_list.end();
+			it++)
+	{
+		replace_kernel_config(*it, sl);
+	}
+
+	// This registers the output file in the compilation pipeline if needed
+	std::ofstream cudaFile, cudaHeaderFile;
+	get_output_file(cudaFile, cudaHeaderFile);
+
+	// Print declarations in header file in the following way:
+	// 1 - Protect the header with ifndef/define/endif
+	//     |--> Done at get_output_file() and run()
+	// 2 - Emit extern C when we're compiling a C code
+	//     |--> WARNING: C code included from CXX may need extern C, too, but this is not checked (not trivial)
+	// 3 - Write forward declarations
+
+	if (IS_C_LANGUAGE) {
+		cudaHeaderFile << "extern \"C\" {\n";
+	}
+	cudaHeaderFile << forward_declaration.get_source(false) << "\n";
+	if (IS_C_LANGUAGE) {
+		cudaHeaderFile << "}\n";
+	}
+	cudaHeaderFile.close();
+
+	// Print definitions in source file
+	cudaFile << "extern \"C\" {\n";
+	cudaFile << outline_code_tree.prettyprint_external() << "\n";
+	cudaFile << "}\n";
+	cudaFile.close();
+
 }
 
 void DeviceCUDA::insert_host_side_code(
