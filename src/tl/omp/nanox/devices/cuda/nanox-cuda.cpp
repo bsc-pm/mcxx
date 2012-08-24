@@ -583,6 +583,12 @@ void DeviceCUDA::create_outline(
 	// Outline tasks need more work to do
 	bool is_outline_task = (outline_flags.task_symbol != NULL);
 
+	// outline_name
+	Source outline_name, parameter_list;
+	outline_name
+		<< gpu_outline_name(task_name)
+		;
+
 	Source forward_declaration;
 
 	// Get all the needed symbols and CUDA included files
@@ -601,128 +607,16 @@ void DeviceCUDA::create_outline(
 		process_outline_task(outline_flags, function_tree, sl, forward_declaration);
 	}
 
-	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
-	FunctionDefinition enclosing_function(function_def_tree, sl);
-
-	Source result, arguments_struct_definition, outline_name, parameter_list, body;
-	Source instrument_before, instrument_after;
-
-	result
-		<< arguments_struct_definition
-		<< "void " << outline_name << "(" << parameter_list << ")"
-		<< "{"
-		<< instrument_before
-		<< body
-		<< instrument_after
-		<< "}"
-		;
-
-	// Add the tracing instrumentation if needed
-	if (instrumentation_enabled())
-	{
-		insert_instrumentation_code(
-				enclosing_function.get_function_symbol(),
-				outline_name,
-				outline_flags,
-				reference_tree,
-				instrument_before,
-				instrument_after);
-	}
-
-	// arguments_struct_definition
-	Scope sc = sl.get_scope(reference_tree);
-	Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
-
-	if (!struct_typename_sym.is_valid())
-	{
-		running_error("Invalid typename for struct args", 0);
-	}
-
-	// Check if we have already printed the argument's struct definition in the CUDA file
-	if (_taskSymbols.count(struct_typename_sym) == 0)
-	{
-		arguments_struct_definition
-			<< struct_typename_sym.get_point_of_declaration().prettyprint();
-
-		// Keep record of which argument's struct definitions have been printed to the CUDA file
-		// in order to avoid repeating them
-		_taskSymbols.insert(struct_typename_sym);
-	}
-
-	// outline_name
-	outline_name
-		<< gpu_outline_name(task_name)
-		;
-
-	// parameter_list
-	parameter_list
-		<< struct_typename << "* const _args"
-		;
-
-	// body
-	Source private_vars, final_code;
-
-	body
-		<< private_vars
-		<< initial_setup
-		<< outline_body
-		<< final_code
-		;
-
-	// private_vars
-	ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
-
-	for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-			it != data_env_items.end();
-			it++)
-	{
-		if (it->is_private())
-		{
-			Symbol sym = it->get_symbol();
-			Type type = sym.get_type();
-
-			private_vars
-				<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-				;
-		}
-		else if (it->is_raw_buffer())
-		{
-			Symbol sym = it->get_symbol();
-			Type type = sym.get_type();
-			std::string field_name = it->get_field_name();
-
-			if (type.is_reference())
-			{
-				type = type.references_to();
-			}
-
-			if (!type.is_named_class())
-			{
-				internal_error("invalid class type in field of raw buffer", 0);
-			}
-
-			final_code
-				<< field_name << ".~" << type.get_symbol().get_name() << "();"
-				;
-		}
-	}
-
-	if (outline_flags.parallel)
-	{
-		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str());
-	}
-
-	// final_code
-    if (outline_flags.parallel || outline_flags.barrier_at_end)
-	{
-        final_code
-            << OMPTransform::get_barrier_code(reference_tree)
-            ;
-	}
-
-	// Parse it in a sibling function context
-	AST_t outline_code_tree =
-			result.parse_declaration(enclosing_function.get_ast(), sl);
+	AST_t outline_code_tree = generate_task_code(
+			outline_name,
+			struct_typename,
+			parameter_list,
+			data_environ,
+			outline_flags,
+			initial_setup,
+			outline_body,
+			reference_tree,
+			sl);
 
 	// This registers the output file in the compilation pipeline if needed
 	std::ofstream cudaFile, cudaHeaderFile;
@@ -928,6 +822,136 @@ void DeviceCUDA::process_outline_task(
 			// We have already removed it and printed it in the CUDA file, do nothing
 		}
 	}
+}
+
+AST_t DeviceCUDA::generate_task_code(
+		Source& outline_name,
+		const std::string& struct_typename,
+		Source& parameter_list,
+		DataEnvironInfo& data_environ,
+		const OutlineFlags& outline_flags,
+		Source& initial_setup,
+		Source& outline_body,
+		AST_t& reference_tree,
+		ScopeLink& sl)
+{
+
+	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
+	FunctionDefinition enclosing_function(function_def_tree, sl);
+
+	Source result, arguments_struct_definition, body;
+	Source instrument_before, instrument_after;
+
+	result
+		<< arguments_struct_definition
+		<< "void " << outline_name << "(" << parameter_list << ")"
+		<< "{"
+		<< instrument_before
+		<< body
+		<< instrument_after
+		<< "}"
+		;
+
+	// Add the tracing instrumentation if needed
+	if (instrumentation_enabled())
+	{
+		insert_instrumentation_code(
+				enclosing_function.get_function_symbol(),
+				outline_name,
+				outline_flags,
+				reference_tree,
+				instrument_before,
+				instrument_after);
+	}
+
+	// arguments_struct_definition
+	Scope sc = sl.get_scope(reference_tree);
+	Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
+
+	if (!struct_typename_sym.is_valid())
+	{
+		running_error("Invalid typename for struct args", 0);
+	}
+
+	// Check if we have already printed the argument's struct definition in the CUDA file
+	if (_taskSymbols.count(struct_typename_sym) == 0)
+	{
+		arguments_struct_definition
+			<< struct_typename_sym.get_point_of_declaration().prettyprint();
+
+		// Keep record of which argument's struct definitions have been printed to the CUDA file
+		// in order to avoid repeating them
+		_taskSymbols.insert(struct_typename_sym);
+	}
+
+	// parameter_list
+	parameter_list
+		<< struct_typename << "* const _args"
+		;
+
+	// body
+	Source private_vars, final_code;
+
+	body
+		<< private_vars
+		<< initial_setup
+		<< outline_body
+		<< final_code
+		;
+
+	// private_vars
+	ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
+
+	for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+			it != data_env_items.end();
+			it++)
+	{
+		if (it->is_private())
+		{
+			Symbol sym = it->get_symbol();
+			Type type = sym.get_type();
+
+			private_vars
+				<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+				;
+		}
+		else if (it->is_raw_buffer())
+		{
+			Symbol sym = it->get_symbol();
+			Type type = sym.get_type();
+			std::string field_name = it->get_field_name();
+
+			if (type.is_reference())
+			{
+				type = type.references_to();
+			}
+
+			if (!type.is_named_class())
+			{
+				internal_error("invalid class type in field of raw buffer", 0);
+			}
+
+			final_code
+				<< field_name << ".~" << type.get_symbol().get_name() << "();"
+				;
+		}
+	}
+
+	if (outline_flags.parallel)
+	{
+		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str());
+	}
+
+	// final_code
+	if (outline_flags.parallel || outline_flags.barrier_at_end)
+	{
+		final_code
+			<< OMPTransform::get_barrier_code(reference_tree)
+			;
+	}
+
+	// Parse it in a sibling function context
+	return result.parse_declaration(enclosing_function.get_ast(), sl);
 }
 
 void DeviceCUDA::insert_host_side_code(

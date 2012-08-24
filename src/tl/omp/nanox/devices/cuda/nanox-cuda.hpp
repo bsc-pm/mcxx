@@ -82,6 +82,10 @@ namespace TL
                 void process_outline_task(const OutlineFlags& outline_flags, AST_t& function_tree, ScopeLink& sl,
                 		Source& forward_declaration);
 
+                AST_t generate_task_code(Source& task_name, const std::string& struct_typename, Source& parameter_list,
+                		DataEnvironInfo& data_environ, const OutlineFlags& outline_flags, Source& initial_setup,
+                		Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
+
                 void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
                 		const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
                 		ScopeLink &sl);
