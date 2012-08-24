@@ -583,94 +583,17 @@ void DeviceCUDA::create_outline(
 	// Outline tasks need more work to do
 	bool is_outline_task = (outline_flags.task_symbol != NULL);
 
-	ObjectList<IdExpression> extern_occurrences;
-	DeclarationClosure decl_closure (sl);
-	std::set<Symbol> extern_symbols;
+	Source forward_declaration;
 
 	// Get all the needed symbols and CUDA included files
-	Source forward_declaration;
 	AST_t function_tree = (is_outline_task ?
 			outline_flags.task_symbol.get_point_of_declaration() :
 			reference_tree);
-
-	// Get the definition of non local symbols
 	LangConstruct construct (function_tree, sl);
-	extern_occurrences = construct.non_local_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
 
-	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
-			it != extern_occurrences.end();
-			it++)
-	{
-		Symbol s = it->get_symbol();
-
-		// TODO: check the symbol is not a global variable
-		// Ignore non-constant variables
-		if (s.is_variable()
-				&& !s.get_type().is_const())
-			continue;
-
-		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
-		{
-			s = s.get_type().get_symbol();
-		}
-		while (s.is_member())
-		{
-			s = s.get_class_type().get_symbol();
-		}
-
-		// Check we have not already added the symbol
-		if (_fwdSymbols.count(s) == 0)
-		{
-			_fwdSymbols.insert(s);
-			//decl_closure.add(s);
-
-			extern_symbols.insert(s);
-		}
-	}
-
-	// Check we have the definition of all symbol local occurrences, like typedef's
-	ObjectList<IdExpression> local_occurrences;
-	local_occurrences = construct.all_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
-
-	for (ObjectList<IdExpression>::iterator it = local_occurrences.begin();
-			it != local_occurrences.end();
-			it++)
-	{
-		Symbol s = it->get_symbol();
-
-		// If this symbol comes from the guts of CUDA, ignore it
-		if (CheckIfInCudacompiler::check(s.get_filename()))
-			continue;
-
-		// Let's check its type as well
-		TL::Type t = s.get_type();
-		if (CheckIfInCudacompiler::check_type(t))
-			continue;
-
-		// Check we have not already added the symbol
-		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
-		{
-			_localDecls.insert(s.get_internal_symbol()->type_information);
-
-			decl_closure.add(s);
-		}
-	}
-
-	// User-defined structs must be included in GPU kernel's file
-	// 'closure()' method is not working for extern symbols...
-	forward_declaration << decl_closure.closure() << "\n";
-
-	for (std::set<Symbol>::iterator it = extern_symbols.begin();
-			it != extern_symbols.end(); it++)
-	{
-		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
-		// Check the symbol does not come from CUDA (see #753 and #959)
-		AST_t a = it->get_point_of_declaration();
-		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
-		{
-			forward_declaration << a.prettyprint_external() << "\n";
-		}
-	}
+	// Forward symbol declarations (either local or external)
+	process_local_symbols(construct, sl, forward_declaration);
+	process_extern_symbols(construct, forward_declaration);
 
 	// If it is an outlined task, do some more work
 	if (is_outline_task)
@@ -839,6 +762,102 @@ void DeviceCUDA::create_outline(
 
 	/******************* Generate the host side code (C/C++ file) ******************/
 	insert_host_side_code(outline_name, outline_flags, struct_typename, parameter_list, reference_tree, sl);
+}
+
+void DeviceCUDA::process_local_symbols(
+		LangConstruct& construct,
+		ScopeLink& sl,
+		Source& forward_declaration)
+{
+	DeclarationClosure decl_closure (sl);
+
+	// Check we have the definition of all symbol local occurrences, like typedef's
+	ObjectList<IdExpression> local_occurrences;
+	local_occurrences = construct.all_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
+
+	for (ObjectList<IdExpression>::iterator it = local_occurrences.begin();
+			it != local_occurrences.end();
+			it++)
+	{
+		Symbol s = it->get_symbol();
+
+		// If this symbol comes from the guts of CUDA, ignore it
+		if (CheckIfInCudacompiler::check(s.get_filename()))
+			continue;
+
+		// Let's check its type as well
+		TL::Type t = s.get_type();
+		if (CheckIfInCudacompiler::check_type(t))
+			continue;
+
+		// Check we have not already added the symbol
+		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
+		{
+			_localDecls.insert(s.get_internal_symbol()->type_information);
+
+			decl_closure.add(s);
+		}
+	}
+
+	// User-defined structs must be included in GPU kernel's file
+	// NOTE: 'closure()' method is not working for extern symbols...
+	forward_declaration << decl_closure.closure() << "\n";
+
+}
+
+void DeviceCUDA::process_extern_symbols(
+		LangConstruct& construct,
+		Source& forward_declaration)
+{
+	ObjectList<IdExpression> extern_occurrences;
+	std::set<Symbol> extern_symbols;
+
+	// Get the definition of non local symbols
+	extern_occurrences = construct.non_local_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
+
+	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+			it != extern_occurrences.end();
+			it++)
+	{
+		Symbol s = it->get_symbol();
+
+		// TODO: check the symbol is not a global variable
+		// Ignore non-constant variables
+		if (s.is_variable()
+				&& !s.get_type().is_const())
+			continue;
+
+		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
+		{
+			s = s.get_type().get_symbol();
+		}
+		while (s.is_member())
+		{
+			s = s.get_class_type().get_symbol();
+		}
+
+		// Check we have not already added the symbol
+		if (_fwdSymbols.count(s) == 0)
+		{
+			_fwdSymbols.insert(s);
+			//decl_closure.add(s);
+
+			extern_symbols.insert(s);
+		}
+	}
+
+	for (std::set<Symbol>::iterator it = extern_symbols.begin();
+			it != extern_symbols.end(); it++)
+	{
+		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
+		// Check the symbol does not come from CUDA (see #753 and #959)
+		AST_t a = it->get_point_of_declaration();
+		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
+		{
+			forward_declaration << a.prettyprint_external() << "\n";
+		}
+	}
+
 }
 
 void DeviceCUDA::process_outline_task(

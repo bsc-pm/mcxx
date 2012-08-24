@@ -75,6 +75,10 @@ namespace TL
                 		const OutlineFlags& outline_flags, AST_t& reference_tree, Source& instrument_before,
                 		Source& instrument_after);
 
+                void process_local_symbols(LangConstruct& construct, ScopeLink& sl, Source& forward_declaration);
+
+                void process_extern_symbols(LangConstruct& construct, Source& forward_declaration);
+
                 void process_outline_task(const OutlineFlags& outline_flags, AST_t& function_tree, ScopeLink& sl,
                 		Source& forward_declaration);
 
