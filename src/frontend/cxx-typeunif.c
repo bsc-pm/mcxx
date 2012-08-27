@@ -34,6 +34,7 @@
 #include "cxx-typededuc.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
+#include "cxx-buildscope.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -1226,7 +1227,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
 
         type_t* function_type = NULL;
 
