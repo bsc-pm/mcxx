@@ -160,7 +160,6 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
-    BINARY_EXPRESSION(Comma, ", ") \
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
@@ -594,6 +593,45 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
     {
         file << ")";
     }
+}
+
+void CxxBase::visit(const Nodecl::Comma & node)
+{
+    file << "(";
+
+    Nodecl::NodeclBase lhs = node.children()[0];
+    Nodecl::NodeclBase rhs = node.children()[1];
+    if (state.in_condition && state.condition_top == node)
+    {
+        file << "(";
+    }
+    char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(lhs);
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
+    file << ", ";
+    needs_parentheses = operand_has_lower_priority(node, rhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(rhs);
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
+    if (state.in_condition && state.condition_top == node)
+    {
+        file << ")";
+    }
+
+    file << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
@@ -2498,16 +2536,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         }
         else
         {
-            // This is crazy
-            if (initializer.is<Nodecl::Comma>())
-            {
-                file << "(";
-            }
             walk(initializer);
-            if (initializer.is<Nodecl::Comma>())
-            {
-                file << ")";
-            }
         }
         file << ")";
     }
@@ -4729,15 +4758,9 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                 {
                     state.inside_structured_value = true;
                 }
-                if (init.is<Nodecl::Comma>())
-                {
-                    file << "(";
-                }
+
                 walk(init);
-                if (init.is<Nodecl::Comma>())
-                {
-                    file << ")";
-                }
+
                 state.inside_structured_value = old;
             }
             CXX_LANGUAGE()
@@ -4834,16 +4857,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     }
                     else
                     {
-                        // This is crazy
-                        if (init.is<Nodecl::Comma>())
-                        {
-                            file << "(";
-                        }
                         walk(init);
-                        if (init.is<Nodecl::Comma>())
-                        {
-                            file << ")";
-                        }
                     }
                     file << ")";
                 }
