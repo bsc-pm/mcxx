@@ -347,6 +347,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 new_member->type_information = get_new_enum_type(context_of_being_instantiated);
 
+                enum_type_set_underlying_type(new_member->type_information,
+                        enum_type_get_underlying_type(member_of_template->type_information));
+
                 class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
 
                 // Register a map
@@ -394,7 +397,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     P_LIST_ADD((*enum_map), (*num_items_enum_map), new_map);
                 }
 
-                member_of_template->type_information = new_type;
+                new_member->type_information = new_type;
 
                 ERROR_CONDITION(member_of_template->expression_value == NULL,
                         "An enumerator always has a related expression", 0);
