@@ -102,6 +102,129 @@ struct CheckIfInCudacompiler
 	}
 };
 
+static std::string param_position_name(int position)
+{
+	// Do not modify __tmp_ name unless needed, it has to be the
+	// same as 'std::stringstream var' in 'instantiate_function_task_info()'
+	// from omp/fun-tasks/tl-omp-fun-tasks.cpp
+	// Current value of 'var' in that file: var << "__tmp_" << i;
+
+	std::stringstream sstm;
+	sstm << "__tmp_" << position;
+	return sstm.str();
+}
+
+/*
+ * Replaces every occurrence of 'from' with 'to' in 'str'
+ */
+static void replaceAllString(std::string& str, const std::string& from, const std::string& to)
+{
+	size_t start_pos = str.find(from);
+	while (start_pos != std::string::npos)
+	{
+		str.replace(start_pos, from.length(), to);
+		start_pos = str.find(from, start_pos + to.length());
+	}
+}
+
+/*
+ * Replaces every occurrence of 'from' with 'to' in 'str'
+ * will not replace if previous or next character is alphanumeric or '_'
+ * because that means that it is not our var, but var with longer name than ours
+ */
+static void replaceAllStringVar(std::string& str, const std::string& from, const std::string& to)
+{
+	size_t start_pos = str.find(from);
+	while (start_pos != std::string::npos)
+	{
+		bool replace = true;
+		const char* previous;
+		if (start_pos > 0)
+		{
+			previous = str.substr(start_pos-1, start_pos).c_str();
+			if ((previous[0] >= 'a' && previous[0] <= 'z') || (previous[0] >= 'A' && previous[0] <= 'Z')) replace = false;
+			if ((previous[0] >= '0' && previous[0] <= '9')) replace = false;
+			if ((previous[0] == '_')) replace = false;
+		}
+
+		size_t end_pos = start_pos + from.length();
+		if (end_pos < str.size() - 1)
+		{
+			previous = str.substr(end_pos, end_pos + 1).c_str();
+			if ((previous[0] >= 'a' && previous[0] <= 'z') || (previous[0] >= 'A' && previous[0] <= 'Z')) replace = false;
+			if ((previous[0] >= '0' && previous[0] <= '9')) replace = false;
+			if ((previous[0] == '_')) replace = false;
+		}
+
+		if (replace)
+		{
+			str.replace(start_pos, from.length(), to);
+			start_pos = str.find(from, start_pos + to.length());
+		}
+		else
+		{
+			start_pos = str.find(from, start_pos + 1);
+		}
+	}
+}
+/*
+ * Replaces every occurrence of 'from' with 'to' in 'str'
+ */
+static void replaceAllRegex(std::string& str, const std::string& from, const std::string& to)
+{
+	size_t start_pos = str.find(from);
+	while (start_pos != std::string::npos)
+	{
+		str.replace(start_pos, from.length(), to);
+		start_pos = str.find(from, start_pos + to.length());
+	}
+}
+/*
+ * Replaces everything inside [ ] brackets, also (), *, &, and after -> and .
+ */
+static void removePointerSymbolsString(std::string& str)
+{
+	replaceAllString(str, "*", "");
+	replaceAllString(str, "&", "");
+	replaceAllString(str, "(", "");
+	replaceAllString(str, ")", "");
+
+	size_t start_pos = str.find("[");
+	size_t end_pos = str.find("]");
+	while (start_pos != std::string::npos && end_pos != std::string::npos)
+	{
+		str.replace(start_pos, end_pos + 1, "");
+		start_pos = str.find("[");
+		end_pos = str.find("]");
+	}
+
+	start_pos = str.find("->");
+	while (start_pos != std::string::npos)
+	{
+		str.replace(start_pos, str.length(), "");
+		start_pos = str.find("->");
+	}
+
+	start_pos = str.find(".");
+	while (start_pos != std::string::npos)
+	{
+		str.replace(start_pos, str.length(), "");
+		start_pos = str.find(".");
+	}
+}
+
+/*
+ * Replaces 'from' with 'to' in 'str' once
+ */
+static void replaceString(std::string& str, const std::string& from, const std::string& to)
+{
+    size_t start_pos = str.find(from);
+    if (start_pos != std::string::npos)
+    {
+        str.replace(start_pos, from.length(), to);
+    }
+}
+
 
 
 

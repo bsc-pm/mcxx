@@ -759,6 +759,12 @@ namespace OpenMP
                 {
                     target_clauses << "copy_inout(" << clause_inout_args << ") ";
                 }
+
+                std::string ndrange = target_info.get_ndrange();
+                if (!ndrange.empty())
+                {
+                    target_clauses << "ndrange(" << ndrange << ") ";
+                }
             }
 
             //support if clause

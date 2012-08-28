@@ -46,7 +46,8 @@ namespace TL
             return _copy_in.empty()
                 && _copy_out.empty()
                 && _copy_inout.empty()
-                && _device_list.empty();
+                && _device_list.empty()
+                && _ndrange.empty();
         }
 
         void FunctionTaskTargetInfo::set_copy_in(const ObjectList<CopyItem>& copy_items)
@@ -97,6 +98,26 @@ namespace TL
         ObjectList<std::string> FunctionTaskTargetInfo::get_device_list() const
         {
             return _device_list;
+        }
+
+        void FunctionTaskTargetInfo::set_ndrange(const std::string ndrange)
+        {
+            _ndrange = ndrange;
+        }
+
+        std::string FunctionTaskTargetInfo::get_ndrange() const
+        {
+            return _ndrange;
+        }
+
+        void FunctionTaskTargetInfo::set_calls(const std::string calls)
+        {
+            _calls = calls;
+        }
+
+        std::string FunctionTaskTargetInfo::get_calls() const
+        {
+            return _calls;
         }
 
         FunctionTaskDependency::FunctionTaskDependency(DataReference expr,
@@ -640,6 +661,8 @@ namespace TL
                  target_info.set_copy_inout(copy_inout);
 
                  target_info.set_device_list(target_context.device_list);
+                 target_info.set_ndrange(target_context.ndrange);
+                 target_info.set_calls(target_context.calls);
 
                  target_info.set_copy_deps(target_context.copy_deps);
              }

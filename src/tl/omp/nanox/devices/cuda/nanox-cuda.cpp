@@ -47,6 +47,11 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
+bool DeviceCUDA::is_wrapper_needed(PragmaCustomConstruct ctr)
+{
+	return ctr.get_clause("ndrange").is_defined();
+}
+
 std::string DeviceCUDA::get_header_macro()
 {
 	std::string macro = "__"  + _cudaHeaderFilename + "__";
@@ -66,6 +71,18 @@ void DeviceCUDA::char_replace_all_occurrences(std::string &str, // String to pro
 	{
 		str.replace(pos, original.size(), replaced.c_str());
 		pos = str.find(original, original.size());
+	}
+}
+
+void DeviceCUDA::replace_all_kernel_configs(AST_t& function_code_tree, ScopeLink sl)
+{
+	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
+	ObjectList<AST_t> kernel_call_list = function_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
+	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+			it != kernel_call_list.end();
+			it++)
+	{
+		replace_kernel_config(*it, sl);
 	}
 }
 
@@ -119,6 +136,290 @@ void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
 
 	AST_t expr = new_kernel_call.parse_expression(kernel_call, sl);
 	kernel_call.replace(expr);
+}
+
+void DeviceCUDA::generateNDrangeCode(
+		Declaration &kernel_decl,
+		Source &code_ndrange,
+		std::string &ndrange,
+		std::map<std::string, int> &param_positions,
+		ObjectList<std::string> &param_names)
+{
+	ObjectList<std::string> ndrange_v;
+	ObjectList<std::string> ndrange_v_aux;
+
+	//If ndrange contains a parameter, we add it as a position, otherwise we use its value
+	ndrange_v_aux = ExpressionTokenizerTrim().tokenize(ndrange);
+	ndrange_v.insert(ndrange_v_aux.at(0));
+
+	int ix;
+	for (ix = 1; ix < ndrange_v_aux.size(); ix++)
+	{
+		//Add () around name, not sure if always needed
+		std::string name2 = "(" + ndrange_v_aux.at(ix) + ")";
+
+		//Replace variables with their future name (same translation mercurium task does itself)
+		int ex;
+		for (ex = 0 ; ex < param_names.size(); ex++)
+		{
+			std::string name = param_names.at(ex);
+			replaceAllStringVar(name2, name, "%" + param_position_name(param_positions.at(name)) + "%");
+		}
+
+		ndrange_v.append(name2);
+	}
+
+	bool checkDim = !(ndrange_v_aux.at(ndrange_v.size() - 1) == "noCheckDim");
+	int n_dimensions = atoi(ndrange_v.at(0).c_str());
+	if (n_dimensions < 1 || n_dimensions > 3)
+	{
+		std::cerr << kernel_decl << ": warning, ndrange directive must have dimensions 1, 2 or 3" << std::endl;
+	}
+	else if (n_dimensions * 2 + 1 + !checkDim != ndrange_v.size())
+	{
+		std::cerr << kernel_decl << ": warning, incorrect number of arguments (" << ndrange_v.size() - 1
+				<< ") for ndrange directive, it should be 2*n_dimensions" << std::endl;
+	}
+	else
+	{
+		code_ndrange << "dim3 dimGrid;";
+		code_ndrange << "dim3 dimBlock;";
+		if (checkDim && n_dimensions == 1)
+		{
+			code_ndrange
+					<< "dimBlock.x = ("
+					<< ndrange_v.at(1)
+					<< " < " << ndrange_v.at(n_dimensions + 1)
+					<< " ? " << ndrange_v.at(1)
+					<< " : " << ndrange_v.at(n_dimensions + 1) << ");";
+
+			code_ndrange
+					<< "dimGrid.x = ("
+					<< ndrange_v.at(1)
+					<< " < " << ndrange_v.at(n_dimensions + 1)
+					<< " ?  1 : "
+					<< ndrange_v.at(1) << "/" << ndrange_v.at(n_dimensions + 1)
+					<< " + (" << ndrange_v.at(1) << " %  " << ndrange_v.at(n_dimensions + 1)
+					<< " == 0 ? 0 : 1));";
+		}
+		else
+		{
+			code_ndrange << "dimBlock.x = " << ndrange_v.at(n_dimensions + 1) << ";";
+
+			code_ndrange << "dimGrid.x = " << ndrange_v.at(1) << "/" << ndrange_v.at(n_dimensions + 1) << ";";
+
+			if (checkDim)
+			{
+				code_ndrange
+					<< "if (" <<ndrange_v.at(1) << "%" << ndrange_v.at(n_dimensions + 1) << " != 0) "
+					<< "printf(\"WARNING: Size x of cuda kernel is not divisible by local size\\n\");";
+			}
+		}
+
+		if (n_dimensions >= 2)
+		{
+			if (checkDim && n_dimensions == 2)
+			{
+				code_ndrange
+						<< "dimBlock.y = ("
+						<< ndrange_v.at(2)
+						<< " < " << ndrange_v.at(n_dimensions + 2)
+						<< " ? " << ndrange_v.at(2)
+						<< " : " << ndrange_v.at(n_dimensions + 2) << ");";
+
+				code_ndrange
+						<< "dimGrid.y = ("
+						<< ndrange_v.at(2)
+						<< " < " << ndrange_v.at(n_dimensions + 2)
+						<< " ?  1 : "
+						<< ndrange_v.at(2) << "/" << ndrange_v.at(n_dimensions + 2)
+						<< " + (" << ndrange_v.at(2) << " %  " << ndrange_v.at(n_dimensions + 2)
+						<< " == 0 ? 0 : 1));";
+			}
+			else
+			{
+				code_ndrange << "dimBlock.y = " << ndrange_v.at(n_dimensions + 2) << ";";
+
+				code_ndrange << "dimGrid.y = " << ndrange_v.at(2) << "/" << ndrange_v.at(n_dimensions + 2) << ";";
+
+				if (checkDim)
+				{
+					code_ndrange
+							<< "if (" <<ndrange_v.at(2) << "%" << ndrange_v.at(n_dimensions + 2) << " != 0 ) "
+							<< "fatal(\"WARNING:  Size y of cuda kernel is not divisible by local size\\n\");";
+				}
+			}
+		}
+		else
+		{
+			code_ndrange << "dimBlock.y = 1;";
+			code_ndrange << "dimGrid.y = 1;";
+		}
+
+		if (n_dimensions == 3)
+		{
+			if (checkDim)
+			{
+				code_ndrange
+						<< "dimBlock.z = ("
+						<< ndrange_v.at(3)
+						<< " < " << ndrange_v.at(n_dimensions + 3)
+						<< " ? " << ndrange_v.at(3)
+						<< " : " << ndrange_v.at(n_dimensions + 3) << ");";
+
+				code_ndrange
+						<< "dimGrid.z = ("
+						<< ndrange_v.at(3)
+						<< " < " << ndrange_v.at(n_dimensions + 3)
+						<< " ?  1 : "
+						<< ndrange_v.at(3) << "/" << ndrange_v.at(n_dimensions + 3)
+						<< " + (" << ndrange_v.at(3) << " %  " << ndrange_v.at(n_dimensions + 3)
+						<< " == 0 ? 0 : 1));";
+			}
+			else
+			{
+				code_ndrange << "dimBlock.z = " << ndrange_v.at(n_dimensions + 3) << ";";
+
+				code_ndrange << "dimGrid.z = " << ndrange_v.at(3) << "/" << ndrange_v.at(n_dimensions + 3) << ";";
+
+				if (checkDim)
+				{
+					code_ndrange << "if (" <<ndrange_v.at(3) << "%" << ndrange_v.at(n_dimensions + 3) << " != 0 ) "
+							<< "printf(\"WARNING: Size y of cuda kernel is not divisible by local size\\n\");";
+				}
+			}
+		}
+		else
+		{
+			code_ndrange << "dimBlock.z = 1;";
+			code_ndrange << "dimGrid.z = 1;";
+		}
+	}
+}
+
+void DeviceCUDA::generateParametersCall(
+		Source &cuda_call,
+		Declaration& kernel_decl,
+		std::string calls,
+		std::map<std::string, int> &param_positions,
+		ObjectList<std::string> &param_names,
+		ObjectList<ParameterDeclaration> &parameters_impl,
+		Declaration &implements_decl)
+{
+	//Here we get kernel arguments, and check they exist on implemented function
+	Source cuda_parameters;
+	ObjectList<DeclaredEntity> declared_entities = kernel_decl.get_declared_entities();
+	DeclaredEntity method_decl = declared_entities.at(0);
+	ObjectList<ParameterDeclaration> parameters = method_decl.get_parameter_declarations();
+
+	ObjectList<std::string> calls_aux;
+	if (!calls.empty())
+	{
+		calls_aux = ExpressionTokenizerTrim().tokenize(calls);
+	}
+	else
+	{
+		for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin();
+				it != parameters.end();
+				it++)
+		{
+			bool found = false;
+
+			for (ObjectList<ParameterDeclaration>::iterator it2 = parameters_impl.begin();
+					it2 != parameters_impl.end();
+					it2++)
+			{
+				if (it->get_type().basic_type() == it2->get_type().basic_type() && it->get_name().prettyprint() == it2->get_name().prettyprint())
+				{
+					found = true;
+				}
+			}
+
+			if (!found)
+			{
+				std::cerr << kernel_decl.get_ast().get_locus()
+						<< ": warning cuda kernel should include same parameter name and type than implemented function or use calls(..) clause, argument '"
+						<< it->get_name().prettyprint()
+						<< "' not found in " << implements_decl.get_ast().get_locus()
+						<< "(" << implements_decl.get_declared_entities().at(0).prettyprint() << ")" << std::endl;
+			}
+
+			calls_aux.append(it->get_name());
+		}
+	}
+
+	//Same thing we did with ndrange, now with calls
+	//replace variable names by a position-identified-name
+	for (int ix = 0; ix < calls_aux.size(); ix++)
+	{
+		std::string name2 = calls_aux.at(ix);
+		//Replace variables with their future name (same translation mercurium task
+		//does itself)
+		int ex;
+		for (ex =0 ; ex < param_names.size(); ex++)
+		{
+			std::string name = param_names.at(ex);
+			replaceAllStringVar(name2, name, "%" + param_position_name(param_positions.at(name)) + "%");
+		}
+
+		cuda_parameters.append_with_separator(name2, ",");
+	}
+
+	cuda_call << method_decl.get_declared_symbol().get_name() << "<<<dimGrid,dimBlock>>>(" << cuda_parameters << ");";
+}
+
+/**
+ * Generates code needed to call cuda kernel using implements_decl arguments
+ * if both implements_decl and kernel_decl are the same, it means the kernel is a task by itself
+ * @param implements_decl
+ * @param kernel_decl
+ * @param ndrange
+ * @param calls
+ */
+void DeviceCUDA::generate_wrapper_code(
+		Declaration implements_decl,
+		Declaration kernel_decl,
+		std::string ndrange,
+		std::string calls)
+{
+	//Get function declaration (implemented one, not kernel)
+	ObjectList<DeclaredEntity> declared_entities_impl = implements_decl.get_declared_entities();
+
+	//First declared entity is the function
+	DeclaredEntity method_decl_impl = declared_entities_impl.at(0);
+	ObjectList<ParameterDeclaration> parameters_impl = method_decl_impl.get_parameter_declarations();
+
+	//Add implemented function parameters to a map where we save their position
+	std::map<std::string, int> param_positions;
+	ObjectList<std::string> param_names;
+	int counter = 0;
+
+	for (ObjectList<ParameterDeclaration>::iterator it = parameters_impl.begin();
+			it != parameters_impl.end();
+			it++)
+	{
+		param_positions.insert(std::pair<std::string, int>(it->get_name().prettyprint(), counter));
+		param_names.insert(it->get_name().prettyprint());
+		counter++;
+	}
+
+	//Generate ndrange
+	Source code_ndrange;
+	code_ndrange << comment("This code is generated from ndrange and calls clause from: " + kernel_decl.get_ast().get_locus());
+	generateNDrangeCode(kernel_decl, code_ndrange, ndrange, param_positions, param_names);
+
+	//Handle calls clause
+	Source cuda_call;
+
+	//Generate kernel call
+	generateParametersCall(cuda_call, kernel_decl, calls,param_positions, param_names, parameters_impl, implements_decl);
+
+	//Declaration kernel_decl(ctr.get_declaration(), ctr.get_scope_link());
+	ObjectList<DeclaredEntity> declared_entities = kernel_decl.get_declared_entities();
+	DeclaredEntity method_decl = declared_entities.at(0);
+	_implementCalls.insert(std::pair<std::string, std::pair<Source, Source> >(method_decl.get_declared_symbol().get_name() +
+			method_decl_impl.get_declared_symbol().get_qualified_name(), std::pair<Source, Source > (code_ndrange, cuda_call)));
+
 }
 
 void DeviceCUDA::do_cuda_inline_get_addresses(
@@ -266,13 +567,6 @@ void DeviceCUDA::do_cuda_outline_replacements(
 	replaced_outline << replace_src.replace(body);
 }
 
-DeviceCUDA::DeviceCUDA()
-: DeviceProvider("cuda"), _cudaFilename(""), _cudaHeaderFilename("")
-{
-	set_phase_name("Nanox CUDA support");
-	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
-}
-
 void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 {
 	std::ofstream header;
@@ -346,93 +640,179 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHea
 	}
 }
 
+void DeviceCUDA::process_wrapper(PragmaCustomConstruct ctr, AST_t &decl, bool needs_device, bool needs_global, bool is_global_defined, bool needs_extern_c)
+{
+	//Prepare arguments to call the wrapper generator
+	if (ctr.get_clause("implements").is_defined())
+	{
+		ObjectList<Expression> implements_list = ctr.get_clause("implements").get_expression_list();
+		Expression implements_name = implements_list[0];
+		IdExpression id_expr = implements_name.get_id_expression();
+		Declaration implements_decl = id_expr.get_declaration();
+		Declaration kernel_decl(ctr.get_declaration(), ctr.get_scope_link());
+		PragmaCustomClause ndrange = ctr.get_clause("ndrange");
+		PragmaCustomClause calls = ctr.get_clause("calls");
+
+		if (!ctr.get_clause("ndrange").is_defined())
+		{
+			std::cerr << ctr.get_ast().get_locus() << ": warning: implements with device 'cuda' "
+					<< "must be used with ndrange on a cuda kernel"
+					<< std::endl;
+		}
+		else
+		{
+			if (!calls.is_defined())
+			{
+				generate_wrapper_code(implements_decl, kernel_decl, ndrange.get_arguments().at(0), "");
+			}
+			else
+			{
+				generate_wrapper_code(implements_decl, kernel_decl, ndrange.get_arguments().at(0), calls);
+			}
+		}
+	}
+
+	// TODO: write fwd_decl to CUDA file
+    Source fwd_decl;
+    ScopeLink sl = ctr.get_scope_link();
+    process_local_symbols(decl, sl, fwd_decl);
+    process_extern_symbols(decl, sl, fwd_decl);
+
+    insert_device_side_code(decl);
+
+    needs_device = true;
+
+    if ( FunctionDefinition::predicate(decl) || Declaration::predicate(decl))
+    {
+        Declaration declaration(decl, sl);
+        //if there is typedef do not add __device__
+        DeclarationSpec decl_specifier_seq = declaration.get_declaration_specifiers();
+        if (!decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
+        {
+            needs_device = false;
+        }
+    }
+
+	//insert_function_cudafile(decl, ctr.get_scope_link(), needs_device, needs_global, is_global_defined, needs_extern_c);
+}
+
 void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy)
 {
-	std::ofstream cudaFile;
-	get_output_file(cudaFile);
-
 	bool needs_device = false;
 	bool is_global_defined = false;
 	bool needs_global = false;
 	bool needs_extern_c = false;
 	AST_t decl = ctr.get_declaration();
 
-	if (FunctionDefinition::predicate(decl))
+	if (is_wrapper_needed(ctr))
 	{
-		// unless we find a kernel configuration call
-		needs_device = true;
-
-		FunctionDefinition funct_def(decl, ctr.get_scope_link());
-		Statement stmt = funct_def.get_function_body();
-
-		if (!stmt.get_ast().depth_subtrees(PredicateType(AST_CUDA_KERNEL_CALL)).empty())
-		{
-			needs_device = false;
-		}
-
-		if (_fwdSymbols.count(funct_def.get_function_symbol()) != 0)
-		{
-			// Nothing to do here, already defined
-			return;
-		}
-
-		_fwdSymbols.insert(funct_def.get_function_symbol());
+		process_wrapper(ctr, decl, needs_device, needs_global, is_global_defined, needs_extern_c);
 	}
-	else if (Declaration::predicate(decl))
+	else
 	{
-		Declaration declaration(decl, ctr.get_scope_link());
-
-		DeclarationSpec decl_specifier_seq = declaration.get_declaration_specifiers();
-		if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
+		if (FunctionDefinition::predicate(decl))
 		{
+			// unless we find a kernel configuration call
 			needs_device = true;
-		}
 
-		ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
+			FunctionDefinition funct_def(decl, ctr.get_scope_link());
+			Statement stmt = funct_def.get_function_body();
 
-		ObjectList<Symbol> sym_list;
-		for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
-				it != declared_entities.end();
-				it++)
-		{
-			sym_list.insert(it->get_declared_symbol());
-		}
-
-		for (ObjectList<Symbol>::iterator it = sym_list.begin();
-				it != sym_list.end();
-				it++)
-		{
-			if (_function_task_set->is_function_task_or_implements(*it))
+			if (!stmt.get_ast().depth_subtrees(PredicateType(AST_CUDA_KERNEL_CALL)).empty())
 			{
 				needs_device = false;
+			}
+
+			if (_fwdSymbols.count(funct_def.get_function_symbol()) != 0)
+			{
+				// Nothing to do here, already defined
+				return;
+			}
+
+			_fwdSymbols.insert(funct_def.get_function_symbol());
+		}
+		else if (Declaration::predicate(decl))
+		{
+			Declaration declaration(decl, ctr.get_scope_link());
+
+			DeclarationSpec decl_specifier_seq = declaration.get_declaration_specifiers();
+			if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
+			{
+				needs_device = true;
+			}
+
+			ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
+
+			ObjectList<Symbol> sym_list;
+			for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
+					it != declared_entities.end();
+					it++)
+			{
+				sym_list.insert(it->get_declared_symbol());
+			}
+
+			for (ObjectList<Symbol>::iterator it = sym_list.begin();
+					it != sym_list.end();
+					it++)
+			{
+				if (_function_task_set->is_function_task_or_implements(*it))
+				{
+					needs_device = false;
+				}
 			}
 		}
 	}
 
 	if (needs_device)
 	{
-		// Check the kernel is not labeled as __global__
-		std::string global("global");
-		ObjectList<AST_t> ast_list = decl.depth_subtrees(GCCAttributeSpecifier::predicate);
-		for (ObjectList<AST_t>::iterator it = ast_list.begin(); it != ast_list.end(); it++)
-		{
-			AST_t &ast = *it;
-			if (GCCAttributeSpecifier::predicate(ast))
-			{
-				GCCAttributeSpecifier gcc_attr_spec(ast, ctr.get_scope_link());
-				ObjectList<GCCAttribute> gcc_attributes = gcc_attr_spec.get_gcc_attribute_list();
+		// Check whether the kernel is labeled as '__global__' or we need to add '__device__'
+		check_global_kernel(decl, ctr.get_scope_link(), needs_global, is_global_defined);
+	}
 
-				if (gcc_attributes.contains(functor(&GCCAttribute::get_name), global) && gcc_attributes.size() == 1)
-				{
-					// Remove the attribute from the list to avoid __attribute__((global)) appear in the CUDA file
-					ast.remove_in_list();
-					is_global_defined = true;
-					needs_global = true;
-					break;
-				}
+	insert_declaration_device_side(decl, needs_device, needs_global, is_global_defined, needs_extern_c);
+
+	if (!is_copy)
+	{
+		ctr.get_ast().remove_in_list();
+	}
+}
+
+
+void DeviceCUDA::check_global_kernel(AST_t& decl, ScopeLink sl, bool& needs_global, bool& is_global_defined)
+{
+	// Check the kernel is not labeled as __global__
+	std::string global("global");
+	ObjectList<AST_t> ast_list = decl.depth_subtrees(GCCAttributeSpecifier::predicate);
+	for (ObjectList<AST_t>::iterator it = ast_list.begin(); it != ast_list.end(); it++)
+	{
+		AST_t &ast = *it;
+		if (GCCAttributeSpecifier::predicate(ast))
+		{
+			GCCAttributeSpecifier gcc_attr_spec(ast, sl);
+			ObjectList<GCCAttribute> gcc_attributes = gcc_attr_spec.get_gcc_attribute_list();
+
+			if (gcc_attributes.contains(functor(&GCCAttribute::get_name), global) && gcc_attributes.size() == 1)
+			{
+				// Remove the attribute from the list to avoid __attribute__((global)) appear in the CUDA file
+				ast.remove_in_list();
+				is_global_defined = true;
+				needs_global = true;
+				return;
 			}
 		}
 	}
+}
+
+void DeviceCUDA::insert_declaration_device_side(
+		AST_t& decl,
+		bool needs_device,
+		bool needs_global,
+		bool is_global_defined,
+		bool needs_extern_c)
+{
+
+	std::ofstream cudaFile;
+	get_output_file(cudaFile);
 
 	if (!needs_device
 			&& IS_C_LANGUAGE)
@@ -468,11 +848,6 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 	}
 
 	cudaFile.close();
-
-	if (!is_copy)
-	{
-		ctr.get_ast().remove_in_list();
-	}
 }
 
 void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
@@ -567,6 +942,96 @@ void DeviceCUDA::insert_instrumentation_code(
 	}
 }
 
+
+void DeviceCUDA::create_wrapper_code(
+		PragmaCustomConstruct pragma_construct,
+		const OutlineFlags &outline_flags,
+		ScopeLink sl,
+		std::string& implemented_name)
+{
+	// When we are implementing a task, we receive a pragma custom construct
+	// with __symbol clause which includes implemented function name
+	//PragmaCustomConstruct pragma_construct(reference_tree, sl);
+	implemented_name = "";
+
+	bool task_impl = false;
+	// We search for the wrapper body, either with kernel_name+implemented function name
+	// or kernel_name+kernel_name in case kernel is a task itself
+	PragmaCustomClause symbolClause = pragma_construct.get_clause("__symbol");
+	if (symbolClause.is_defined())
+	{
+		implemented_name = symbolClause.get_arguments().at(0);
+		task_impl = true;
+	}
+	else
+	{
+		implemented_name = outline_flags.task_symbol.get_name();
+	}
+
+	// If this is a task (could be a only-target function too), we generate wrapper code to call it
+	// (insert_function_definition methods will not be called before, only when it is a target directly)
+	if (_function_task_set->is_function_task(outline_flags.task_symbol))
+	{
+		std::string ndrange = _function_task_set->get_function_task(outline_flags.task_symbol).get_target_info().get_ndrange();
+		std::string calls = _function_task_set->get_function_task(outline_flags.task_symbol).get_target_info().get_calls();
+		Declaration kernel_decl(outline_flags.task_symbol.get_point_of_declaration(), sl);
+
+		if (task_impl)
+		{
+			// If this is a task and it implements another task we generate wrapper code
+			// for calling this kernel using original task declaration
+			ObjectList<Expression> implements_list = symbolClause.get_expression_list();
+			Expression implements_name = implements_list[0];
+			IdExpression id_expr = implements_name.get_id_expression();
+			Declaration implements_decl = id_expr.get_declaration();
+			generate_wrapper_code(implements_decl, kernel_decl, ndrange,calls);
+		}
+		else
+		{
+			generate_wrapper_code(kernel_decl, kernel_decl, ndrange, calls);
+		}
+
+		//TODO: check insert_function_cudafile()
+
+		if (_fwdSymbols.count(outline_flags.task_symbol) == 0) {
+			//Tasks are called from host, they need global
+			//If already defined, use it, otherwise use declaration
+			AST_t task_code;
+			if (outline_flags.task_symbol.is_defined())
+			{
+				task_code = outline_flags.task_symbol.get_point_of_definition();
+				//insert_function_cudafile(outline_flags.task_symbol.get_point_of_definition(), sl, true);
+			}
+			else
+			{
+				task_code = outline_flags.task_symbol.get_point_of_declaration();
+				//insert_function_cudafile(outline_flags.task_symbol.get_point_of_declaration(), sl, true);
+			}
+
+			bool needs_device, needs_global, is_global_defined;
+			check_global_kernel(task_code, sl, needs_global, is_global_defined);
+
+			needs_device = true;
+
+			if ( FunctionDefinition::predicate(task_code) || Declaration::predicate(task_code))
+			{
+				Declaration declaration(task_code, sl);
+				//if there is typedef do not add __device__
+				DeclarationSpec decl_specifier_seq = declaration.get_declaration_specifiers();
+				if (!decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
+				{
+					needs_device = false;
+				}
+			}
+
+			insert_declaration_device_side(task_code, needs_device, needs_global, is_global_defined, /*needs_extern_c*/ false);
+
+			_fwdSymbols.insert(outline_flags.task_symbol);
+			kernel_decl.get_ast().remove_in_list();
+		}
+	}
+}
+
 void DeviceCUDA::create_outline(
 		const std::string& task_name,
 		const std::string& struct_typename,
@@ -577,7 +1042,6 @@ void DeviceCUDA::create_outline(
 		Source initial_setup,
 		Source outline_body)
 {
-
 	// Common variables needed by host and device side code
 	// outline_name
 	Source outline_name, parameter_list;
@@ -586,7 +1050,7 @@ void DeviceCUDA::create_outline(
 		;
 
 	/***************** Write the CUDA file *****************/
-	insert_device_side_code(
+	process_device_side_code(
 			outline_name,
 			struct_typename,
 			parameter_list,
@@ -607,11 +1071,12 @@ void DeviceCUDA::create_outline(
 }
 
 void DeviceCUDA::process_local_symbols(
-		LangConstruct& construct,
-		ScopeLink& sl,
+		AST_t& decl,
+		ScopeLink sl,
 		Source& forward_declaration)
 {
 	DeclarationClosure decl_closure (sl);
+	LangConstruct construct(decl, sl);
 
 	// Check we have the definition of all symbol local occurrences, like typedef's
 	ObjectList<IdExpression> local_occurrences;
@@ -648,9 +1113,11 @@ void DeviceCUDA::process_local_symbols(
 }
 
 void DeviceCUDA::process_extern_symbols(
-		LangConstruct& construct,
+		AST_t& decl,
+		ScopeLink sl,
 		Source& forward_declaration)
 {
+	LangConstruct construct(decl, sl);
 	ObjectList<IdExpression> extern_occurrences;
 	std::set<Symbol> extern_symbols;
 
@@ -715,13 +1182,7 @@ void DeviceCUDA::process_outline_task(
 		if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 		{
 			// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-			ObjectList<AST_t> kernel_call_list = function_tree.get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
-			for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-					it != kernel_call_list.end();
-					it++)
-			{
-				replace_kernel_config(*it, sl);
-			}
+			replace_all_kernel_configs(function_tree, sl);
 
 			forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
@@ -746,13 +1207,7 @@ void DeviceCUDA::process_outline_task(
 			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 			{
 				// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-				ObjectList<AST_t> kernel_call_list = funct_def_list[0].get_enclosing_function_definition().depth_subtrees(CUDA::KernelCall::predicate);
-				for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-						it != kernel_call_list.end();
-						it++)
-				{
-					replace_kernel_config(*it, sl);
-				}
+				replace_all_kernel_configs(funct_def_list[0], sl);
 
 				forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
 
@@ -772,6 +1227,61 @@ void DeviceCUDA::process_outline_task(
 	}
 }
 
+void DeviceCUDA::do_wrapper_code_replacements(
+		std::string implemented_name,
+		DataEnvironInfo& data_environ,
+		const OutlineFlags& outline_flags,
+		Source& initial_setup)
+{
+	std::string str_implements;
+
+	std::multimap<std::string, std::pair<Source, Source> >::iterator it_impl;
+	it_impl = _implementCalls.find(outline_flags.task_symbol.get_name() + implemented_name);
+	std::pair<Source, Source> code = it_impl->second;
+	Source ndrange = code.first;
+	Source call = code.second;
+	std::string str_ndrange = ndrange.get_source(false);
+	std::string str_call = call.get_source(false);
+	std::string translation_func = initial_setup.get_source(false);
+
+	// Do what do_cuda_outline_replacements does in a function call,
+	// but in our generated implements code
+	ObjectList<DataEnvironItem> list_param = data_environ.get_items();
+	for (ObjectList<DataEnvironItem>::iterator it = list_param.begin();
+			it != list_param.end();
+			it++)
+	{
+		DataEnvironItem item = *it;
+		if (item.is_firstprivate() || item.is_shared())
+		{
+			replaceAllString(str_ndrange, "%" + item.get_symbol().get_name() + "%", "_args->" + item.get_field_name());
+			replaceAllString(str_call, "%" + item.get_symbol().get_name() + "%", "_args->" + item.get_field_name());
+		}
+
+		// Items named _cp_+name are a translated copy of an item
+		if (!create_translation_function())
+		{
+			if (translation_func.find("_cp_" + item.get_symbol().get_name()) != std::string::npos)
+			{
+				replaceAllString(str_call, "_args->" + item.get_field_name(), "_cp_" + item.get_symbol().get_name());
+			}
+		}
+	}
+
+	//"build" the full code, with ndrange code, translation function (if exists) and kernel call
+	str_implements = str_ndrange + translation_func + str_call;
+
+	// Remove the code and insert it again, so it goes to last position
+	// so next time we get called, we will get next code implementation
+	// It is tricky, but this function gets called once per implementation
+	// in a task, if a function has 3 different cuda implementations
+	// with the same kernel name (with different ndranges for example),
+	// each time we get called, we will get a different one
+	_implementCalls.erase(it_impl);
+	_implementCalls.insert(std::pair<std::string, std::pair<Source, Source> >(outline_flags.task_symbol.get_name() + implemented_name, std::pair<Source, Source > (ndrange, call)));
+
+}
+
 AST_t DeviceCUDA::generate_task_code(
 		Source& outline_name,
 		const std::string& struct_typename,
@@ -783,6 +1293,15 @@ AST_t DeviceCUDA::generate_task_code(
 		AST_t& reference_tree,
 		ScopeLink& sl)
 {
+
+	// Check if we need to generate the wrapper
+	PragmaCustomConstruct ctr(reference_tree, sl);
+	bool needs_wrapper = is_wrapper_needed(ctr);
+	std::string implemented_name;
+	if (needs_wrapper)
+	{
+		create_wrapper_code(ctr, outline_flags, sl, implemented_name);
+	}
 
 	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
 	FunctionDefinition enclosing_function(function_def_tree, sl);
@@ -839,6 +1358,11 @@ AST_t DeviceCUDA::generate_task_code(
 
 	// body
 	Source private_vars, final_code;
+
+	if (needs_wrapper)
+	{
+		do_wrapper_code_replacements(implemented_name, data_environ, outline_flags, initial_setup);
+	}
 
 	body
 		<< private_vars
@@ -902,7 +1426,7 @@ AST_t DeviceCUDA::generate_task_code(
 	return result.parse_declaration(enclosing_function.get_ast(), sl);
 }
 
-void DeviceCUDA::insert_device_side_code(
+void DeviceCUDA::process_device_side_code(
 		Source &outline_name,
 		const std::string& struct_typename,
 		Source& parameter_list,
@@ -924,11 +1448,10 @@ void DeviceCUDA::insert_device_side_code(
 	AST_t function_tree = (is_outline_task ?
 			outline_flags.task_symbol.get_point_of_declaration() :
 			reference_tree);
-	LangConstruct construct (function_tree, sl);
 
 	// Forward symbol declarations (either local or external)
-	process_local_symbols(construct, sl, forward_declaration);
-	process_extern_symbols(construct, forward_declaration);
+	process_local_symbols(function_tree, sl, forward_declaration);
+	process_extern_symbols(function_tree, sl, forward_declaration);
 
 	// If it is an outlined task, do some more work
 	if (is_outline_task)
@@ -949,14 +1472,28 @@ void DeviceCUDA::insert_device_side_code(
 			sl);
 
 	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
-	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
-			it != kernel_call_list.end();
-			it++)
-	{
-		replace_kernel_config(*it, sl);
-	}
+	replace_all_kernel_configs(outline_code_tree, sl);
 
+	insert_device_side_code(forward_declaration, outline_code_tree);
+
+}
+
+void DeviceCUDA::insert_device_side_code(Source &forward_declaration)
+{
+	AST_t empty_tree;
+	insert_device_side_code(forward_declaration, empty_tree);
+}
+
+void DeviceCUDA::insert_device_side_code(AST_t &code_tree)
+{
+	Source empty_source;
+	insert_device_side_code(empty_source, code_tree);
+}
+
+void DeviceCUDA::insert_device_side_code(
+		Source &forward_declaration,
+		AST_t& outline_code_tree)
+{
 	// This registers the output file in the compilation pipeline if needed
 	std::ofstream cudaFile, cudaHeaderFile;
 	get_output_file(cudaFile, cudaHeaderFile);
@@ -1046,6 +1583,14 @@ void DeviceCUDA::insert_host_side_code(
 		AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
 		reference_tree.prepend_sibling_function(outline_declaration_tree);
 	}
+}
+
+
+DeviceCUDA::DeviceCUDA()
+: DeviceProvider("cuda"), _cudaFilename(""), _cudaHeaderFilename("")
+{
+	set_phase_name("Nanox CUDA support");
+	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
 }
 
 void DeviceCUDA::get_device_descriptor(const std::string& task_name,

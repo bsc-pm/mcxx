@@ -43,6 +43,8 @@ namespace TL
             ObjectList<std::string> copy_in;
             ObjectList<std::string> copy_out;
             ObjectList<std::string> copy_inout;
+            std::string ndrange;
+            std::string calls;
 
             bool has_implements;
             Symbol implements;
@@ -55,7 +57,9 @@ namespace TL
                 copy_out(), 
                 has_implements(), 
                 implements(), 
-                copy_deps()
+                copy_deps(),
+                ndrange(),
+                calls()
             {
             }
         };

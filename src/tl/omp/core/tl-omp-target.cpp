@@ -68,6 +68,18 @@ namespace TL
                 target_ctx.copy_deps = true;
             }
 
+            PragmaCustomClause ndrange = ctr.get_clause("ndrange");
+            if (ndrange.is_defined())
+            {
+                target_ctx.ndrange = ndrange.get_arguments().at(0);
+            }
+
+            PragmaCustomClause calls = ctr.get_clause("calls");
+            if (calls.is_defined())
+            {
+                target_ctx.calls = calls.get_arguments().at(0);
+            }
+
             PragmaCustomClause implements = ctr.get_clause("implements");
             if (implements.is_defined())
             {
