@@ -4376,7 +4376,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             return NULL;
         }
 
-        current_symbol = entry_list_head(current_entry_list);
+        current_symbol = entry_advance_aliases(entry_list_head(current_entry_list));
 
         if (current_symbol->kind == SK_NAMESPACE)
         {
