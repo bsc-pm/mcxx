@@ -2585,7 +2585,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(kind, &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("floor", 
-                choose_float_type_from_kind(kind, dr),
+                choose_int_type_from_kind(kind, dr),
                 t0, fortran_get_default_integer_type());
     }
 
