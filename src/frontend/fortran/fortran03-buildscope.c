@@ -4204,18 +4204,21 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
 
     AST label_list = ASTSon1(a);
     nodecl_t nodecl_label_list = nodecl_null();
-    AST it;
-    for_each_element(label_list, it)
+    if (label_list != NULL)
     {
-        AST label = ASTSon1(it);
+        AST it;
+        for_each_element(label_list, it)
+        {
+            AST label = ASTSon1(it);
 
-        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
+            scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 0);
 
-        nodecl_label_list = nodecl_append_to_list(nodecl_label_list, 
-                nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
+            nodecl_label_list = nodecl_append_to_list(nodecl_label_list,
+                    nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
+        }
     }
 
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_fortran_assigned_goto_statement(
                     nodecl_make_symbol(label_var, ASTFileName(a), ASTLine(a)),

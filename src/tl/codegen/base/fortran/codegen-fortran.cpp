@@ -1975,11 +1975,17 @@ OPERATOR_TABLE
         indent();
         file << "GOTO ";
         walk(node.get_index());
-        file << " (";
-        codegen_comma_separated_list(node.get_label_seq());
-        file << ")\n";
+
+        Nodecl::NodeclBase label_seq = node.get_label_seq();
+        if (!label_seq.is_null())
+        {
+            file << " (";
+            codegen_comma_separated_list(label_seq);
+            file << ")";
+        }
+        file << "\n";
     }
-    
+
     void FortranBase::visit(const Nodecl::FortranEntryStatement& node)
     {
         indent();
