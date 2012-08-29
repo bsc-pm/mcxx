@@ -2414,9 +2414,11 @@ static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     if (nodecl_is_null(c))
         return nodecl_null();
 
-    const_value_t* str = nodecl_get_constant(c);
+    // We cannot simplify anything if the nodecl is non-constant
+    if (!nodecl_is_constant(c))
+        return nodecl_null();
 
-    ERROR_CONDITION(!const_value_is_string(str), "Invalid constant", 0);
+    const_value_t* str = nodecl_get_constant(c);
 
     int num_elements = 0;
     int *values = NULL;
