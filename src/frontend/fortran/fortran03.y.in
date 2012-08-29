@@ -943,6 +943,10 @@ program : program_unit_seq
 {
     *parsed_tree = $1;
 }
+| /* empty */
+{
+    *parsed_tree = NULL;
+}
 ;
 program_unit : main_program
 | external_subprogram
