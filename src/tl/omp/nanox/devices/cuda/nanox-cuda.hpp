@@ -56,6 +56,12 @@ namespace TL
 
                 bool is_wrapper_needed(PragmaCustomConstruct ctr);
 
+                bool is_wrapper_needed(const Symbol& symbol);
+
+                bool is_wrapper_needed(Symbol& symbol);
+
+                bool is_wrapper_needed(PragmaCustomConstruct ctr, Symbol& symbol);
+
                 std::string get_header_macro();
 
                 void char_replace_all_occurrences(std::string &str, std::string original, std::string replaced);
@@ -104,11 +110,16 @@ namespace TL
 
                 void process_wrapper(
                         PragmaCustomConstruct ctr,
-                        AST_t &decl,
-                        bool needs_device,
-                        bool needs_global,
-                        bool is_global_defined,
-                        bool needs_extern_c);
+                        AST_t& decl,
+                        bool& needs_device,
+                        bool& needs_global,
+                        bool& is_global_defined,
+                        bool& needs_extern_c);
+
+                void check_needs_device(
+                		AST_t& decl,
+                		ScopeLink sl,
+                		bool& needs_device);
 
                 void check_global_kernel(AST_t& decl, ScopeLink sl, bool& needs_global, bool& is_global_defined);
 
@@ -143,7 +154,8 @@ namespace TL
                         std::string implemented_name,
                         DataEnvironInfo& data_environ,
                         const OutlineFlags& outline_flags,
-                        Source& initial_setup);
+                        Source& initial_setup,
+                        Source& implements);
 
                 AST_t generate_task_code(Source& task_name, const std::string& struct_typename, Source& parameter_list,
                 		DataEnvironInfo& data_environ, const OutlineFlags& outline_flags, Source& initial_setup,

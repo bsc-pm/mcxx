@@ -65,6 +65,7 @@ struct CheckIfInCudacompiler
 #else
 		std::string cudaPath("???");
 #endif
+
 		if (path.substr(0, cudaPath.size()) == cudaPath)
 			return true;
 		else
