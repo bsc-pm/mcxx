@@ -3696,8 +3696,19 @@ OPERATOR_TABLE
         pop_declaring_entity();
         dec_indent();
 
-        indent();
-        file << "CONTAINS\n";
+        // ifort does not accept the following example:
+        //
+        //      MODULE M
+        //        CONTAINS
+        //      END MODULE M
+        //
+        // For this reason, we emmit the keyword 'CONTAINS' only if there is at
+        // least one statement after the contains statement
+        if (nodes_after_contains.size() > 0)
+        {
+            indent();
+            file << "CONTAINS\n";
+        }
 
         inc_indent();
     }
