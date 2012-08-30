@@ -3637,12 +3637,21 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
-            if (it->is_from_module()
-                    && it->get_access_specifier() == AS_PRIVATE)
+            TL::Symbol &sym(*it);
+            if (sym.is_from_module()
+                    && sym.get_access_specifier() == AS_PRIVATE)
             {
-                // If it has a private access specifier, state so
+                // If sym has a private access specifier, state so
                 indent();
-                file << "PRIVATE :: " << it->get_name() << "\n";
+                file << "PRIVATE :: ";
+                if (sym.is_generic_specifier())
+                {
+                    file << get_generic_specifier_str(sym.get_name()) << "\n";
+                }
+                else
+                {
+                    file << sym.get_name() << "\n";
+                }
             }
         }
 
