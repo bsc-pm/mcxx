@@ -193,6 +193,7 @@ FORTRAN_GENERIC_INTRINSIC(log, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(log_gamma, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(log10, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(logical, "L,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(malloc, "SIZE", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskl, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskr, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(matmul, "MATRIX_A,MATRIX_B", T, NULL) \
@@ -3430,6 +3431,24 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_ELEMENTAL("logical", 
                 choose_logical_type_from_kind(argument_expressions[1], dl), 
                 t0, fortran_get_default_integer_type()); 
+    }
+    return NULL;
+}
+
+// GNU Extension
+scope_entry_t* compute_intrinsic_malloc(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("malloc",
+                fortran_get_default_integer_type(),
+                t0, fortran_get_default_integer_type());
     }
     return NULL;
 }
