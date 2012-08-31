@@ -5483,44 +5483,43 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
 
     TL::Symbol entry = node.get_symbol();
     if (entry.is_valid()
-            && entry.get_type().is_valid())
+            && entry.get_type().is_valid()
+            && state.walked_symbols.find(entry) == state.walked_symbols.end())
     {
+        state.walked_symbols.insert(entry);
+
         C_LANGUAGE()
         {
             walk_type_for_symbols(entry.get_type(),
-                decl_sym_fun,
-                def_sym_fun,
-                define_entities_fun
-                );
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun
+                    );
 
             (this->*define_entry_fun)(node, entry, def_sym_fun);
         }
 
-        if (state.walked_symbols.find(entry) == state.walked_symbols.end())
-        {
-            state.walked_symbols.insert(entry);
 
-            define_generic_entities(entry.get_value(),
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun,
-                    define_entry_fun
-                    );
-
-            state.walked_symbols.erase(entry);
-        }
-    }
-
-    TL::Type type = node.get_type();
-    if (type.is_valid())
-    {
-        C_LANGUAGE()
-        {
-            walk_type_for_symbols(
-                type,
+        define_generic_entities(entry.get_value(),
                 decl_sym_fun,
                 def_sym_fun,
-                define_entities_fun);
+                define_entities_fun,
+                define_entry_fun
+                );
+
+        state.walked_symbols.erase(entry);
+    }
+
+    C_LANGUAGE()
+    {
+        TL::Type type = node.get_type();
+        if (type.is_valid())
+        {
+            walk_type_for_symbols(
+                    type,
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun);
         }
     }
 
