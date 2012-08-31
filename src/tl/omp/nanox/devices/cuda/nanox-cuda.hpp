@@ -53,6 +53,8 @@ namespace TL
                 // Translation code (if exists) will be between them
                 std::multimap<std::string, std::pair<Source,Source> > _implementCalls;
 
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
 
                 bool is_wrapper_needed(PragmaCustomConstruct ctr);
 
@@ -70,25 +72,27 @@ namespace TL
 
                 void replace_kernel_config(AST_t &kernel_call, ScopeLink sl);
 
-                void generateNDrangeCode(Declaration &kernel_decl,
-                                         Source &code_ndrange,
-                                         std::string &ndrange,
-                                         std::map<std::string, int> &param_positions,
-                                         ObjectList<std::string> &param_names);
+                void generateNDrangeCode(
+                        Declaration &kernel_decl,
+                        Source &code_ndrange,
+                        std::string &ndrange,
+                        std::map<std::string, int> &param_positions,
+                        ObjectList<std::string> &param_names);
 
+                void generateParametersCall(
+                        Source &cuda_call,
+                        Declaration& kernel_decl,
+                        std::string calls,
+                        std::map<std::string, int> &param_positions,
+                        ObjectList<std::string> &param_names,
+                        ObjectList<ParameterDeclaration> &parameters_impl,
+                        Declaration &implements_decl);
 
-                void generateParametersCall(Source &cuda_call,Declaration& kernel_decl,
-                                            std::string calls,
-                                            std::map<std::string, int> &param_positions,
-                                            ObjectList<std::string> &param_names,
-                                            ObjectList<ParameterDeclaration> &parameters_impl,
-                                            Declaration &implements_decl);
-
-
-                void generate_wrapper_code(Declaration implements_decl,
-                                     Declaration kernel_decl,
-                                     std::string ndrange,
-                                     std::string calls);
+                void generate_wrapper_code(
+                        Declaration implements_decl,
+                        Declaration kernel_decl,
+                        std::string ndrange,
+                        std::string calls);
 
                 void do_cuda_inline_get_addresses(
                         const Scope& sc,
@@ -158,12 +162,12 @@ namespace TL
                         Source& implements);
 
                 AST_t generate_task_code(Source& task_name, const std::string& struct_typename, Source& parameter_list,
-                		DataEnvironInfo& data_environ, const OutlineFlags& outline_flags, Source& initial_setup,
-                		Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
+                        DataEnvironInfo& data_environ, const OutlineFlags& outline_flags, Source& initial_setup,
+                        Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
 
                 void process_device_side_code(Source &outline_name, const std::string& struct_typename,
-                		Source& parameter_list, DataEnvironInfo& data_environ, const OutlineFlags& outline_flags,
-                		Source& initial_setup, Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
+                        Source& parameter_list, DataEnvironInfo& data_environ, const OutlineFlags& outline_flags,
+                        Source& initial_setup, Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
 
                 void insert_device_side_code(Source &forward_declaration);
 
@@ -174,10 +178,9 @@ namespace TL
                         AST_t& outline_code_tree);
 
                 void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
-                		const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
-                		ScopeLink &sl);
+                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
+                        ScopeLink &sl);
 
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set; 
             public:
 
                 // This phase does nothing
