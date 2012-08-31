@@ -1684,7 +1684,7 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         if (is_floating_type(t0)
                 && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
         {
-            return GET_INTRINSIC_ELEMENTAL("atan", t1, t1, t0);
+            return GET_INTRINSIC_ELEMENTAL("atan2", t1, t1, t0);
         }
     }
     return NULL;
