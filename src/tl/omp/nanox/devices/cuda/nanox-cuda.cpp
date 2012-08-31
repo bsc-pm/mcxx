@@ -85,9 +85,10 @@ std::string DeviceCUDA::get_header_macro()
 	return macro;
 }
 
-void DeviceCUDA::char_replace_all_occurrences(std::string &str, // String to process
-		std::string original, // Matching pattern
-		std::string replaced) // Substitution
+void DeviceCUDA::char_replace_all_occurrences(
+		std::string &str,       // String to process
+		std::string original,   // Matching pattern
+		std::string replaced)   // Substitution
 {
 	size_t pos = str.find(original, original.size());
 	while (pos != std::string::npos)
@@ -171,17 +172,17 @@ void DeviceCUDA::generateNDrangeCode(
 	ObjectList<std::string> ndrange_v;
 	ObjectList<std::string> ndrange_v_aux;
 
-	//If ndrange contains a parameter, we add it as a position, otherwise we use its value
+	// If ndrange contains a parameter, we add it as a position, otherwise we use its value
 	ndrange_v_aux = ExpressionTokenizerTrim().tokenize(ndrange);
 	ndrange_v.insert(ndrange_v_aux.at(0));
 
 	int ix;
 	for (ix = 1; ix < ndrange_v_aux.size(); ix++)
 	{
-		//Add () around name, not sure if always needed
+		// Add () around name, not sure if always needed
 		std::string name2 = "(" + ndrange_v_aux.at(ix) + ")";
 
-		//Replace variables with their future name (same translation mercurium task does itself)
+		// Replace variables with their future name (same translation Mercurium task does itself)
 		int ex;
 		for (ex = 0 ; ex < param_names.size(); ex++)
 		{
@@ -329,7 +330,7 @@ void DeviceCUDA::generateParametersCall(
 		ObjectList<ParameterDeclaration> &parameters_impl,
 		Declaration &implements_decl)
 {
-	//Here we get kernel arguments, and check they exist on implemented function
+	// Here we get kernel arguments, and check they exist on implemented function
 	Source cuda_parameters;
 	ObjectList<DeclaredEntity> declared_entities = kernel_decl.get_declared_entities();
 	DeclaredEntity method_decl = declared_entities.at(0);
@@ -371,13 +372,13 @@ void DeviceCUDA::generateParametersCall(
 		}
 	}
 
-	//Same thing we did with ndrange, now with calls
-	//replace variable names by a position-identified-name
+	// Same thing we did with ndrange, now with calls:
+	// replace variable names by a position-identified-name
 	for (int ix = 0; ix < calls_aux.size(); ix++)
 	{
 		std::string name2 = calls_aux.at(ix);
-		//Replace variables with their future name (same translation mercurium task
-		//does itself)
+		// Replace variables with their future name (same translation Mercurium task
+		// does itself)
 		int ex;
 		for (ex =0 ; ex < param_names.size(); ex++)
 		{
@@ -405,14 +406,14 @@ void DeviceCUDA::generate_wrapper_code(
 		std::string ndrange,
 		std::string calls)
 {
-	//Get function declaration (implemented one, not kernel)
+	// Get function declaration (implemented one, not kernel)
 	ObjectList<DeclaredEntity> declared_entities_impl = implements_decl.get_declared_entities();
 
-	//First declared entity is the function
+	// First declared entity is the function
 	DeclaredEntity method_decl_impl = declared_entities_impl.at(0);
 	ObjectList<ParameterDeclaration> parameters_impl = method_decl_impl.get_parameter_declarations();
 
-	//Add implemented function parameters to a map where we save their position
+	// Add implemented function parameters to a map where we save their position
 	std::map<std::string, int> param_positions;
 	ObjectList<std::string> param_names;
 	int counter = 0;
@@ -426,15 +427,15 @@ void DeviceCUDA::generate_wrapper_code(
 		counter++;
 	}
 
-	//Generate ndrange
+	// Generate ndrange
 	Source code_ndrange;
 	code_ndrange << comment("This code is generated from ndrange and calls clause from: " + kernel_decl.get_ast().get_locus());
 	generateNDrangeCode(kernel_decl, code_ndrange, ndrange, param_positions, param_names);
 
-	//Handle calls clause
+	// Handle calls clause
 	Source cuda_call;
 
-	//Generate kernel call
+	// Generate kernel call
 	generateParametersCall(cuda_call, kernel_decl, calls,param_positions, param_names, parameters_impl, implements_decl);
 
 	//Declaration kernel_decl(ctr.get_declaration(), ctr.get_scope_link());
@@ -663,9 +664,15 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHea
 	}
 }
 
-void DeviceCUDA::process_wrapper(PragmaCustomConstruct ctr, AST_t &decl, bool& needs_device, bool& needs_global, bool& is_global_defined, bool& needs_extern_c)
+void DeviceCUDA::process_wrapper(
+		PragmaCustomConstruct ctr,
+		AST_t &decl,
+		bool& needs_device,
+		bool& needs_global,
+		bool& is_global_defined,
+		bool& needs_extern_c)
 {
-	//Prepare arguments to call the wrapper generator
+	// Prepare arguments to call the wrapper generator
 	if (ctr.get_clause("implements").is_defined())
 	{
 		ObjectList<Expression> implements_list = ctr.get_clause("implements").get_expression_list();
@@ -986,7 +993,7 @@ void DeviceCUDA::create_wrapper_code(
 	}
 
 	// If this is a task (could be a only-target function too), we generate wrapper code to call it
-	// (insert_function_definition methods will not be called before, only when it is a target directly)
+	// (insert_function_definition method will not be called before, only when it is a target directly)
 	if (_function_task_set->is_function_task(outline_flags.task_symbol))
 	{
 		std::string ndrange = _function_task_set->get_function_task(outline_flags.task_symbol).get_target_info().get_ndrange();
@@ -1267,7 +1274,7 @@ void DeviceCUDA::do_wrapper_code_replacements(
 		}
 	}
 
-	//"build" the full code, with ndrange code, translation function (if exists) and kernel call
+	// "build" the full code, with ndrange code, translation function (if exists) and kernel call
 	implements
 			<< str_ndrange
 			<< translation_func
@@ -1511,7 +1518,7 @@ void DeviceCUDA::insert_device_side_code(
 	// Print declarations in header file in the following way:
 	// 1 - Protect the header with ifndef/define/endif
 	//     |--> Done at get_output_file() and run()
-	// 2 - Emit extern C when we're compiling a C code
+	// 2 - Emit extern C when we are compiling a C code
 	//     |--> WARNING: C code included from CXX may need extern C, too, but this is not checked (not trivial)
 	// 3 - Write forward declarations
 
@@ -1650,7 +1657,8 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
         ;
 }
 
-void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,
+void DeviceCUDA::do_replacements(
+		DataEnvironInfo& data_environ,
 		AST_t body,
 		ScopeLink scope_link,
 		Source &initial_setup,
