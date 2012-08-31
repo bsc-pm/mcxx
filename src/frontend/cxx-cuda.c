@@ -53,7 +53,7 @@ static type_t* cuda_get_dim3_type(void)
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
 #ifdef CUDA_DIR
-	new_class_sym->file = CUDA_DIR"/include/vector_types.h";
+        new_class_sym->file = CUDA_DIR"/include/vector_types.h";
 #endif
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
@@ -109,7 +109,11 @@ static type_t* cuda_get_uint3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
+        class_type_set_inner_context(new_class_sym->type_information, class_context);
+
+#ifdef CUDA_DIR
+        new_class_sym->file = CUDA_DIR"/include/vector_types.h";
+#endif
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -154,6 +158,10 @@ static type_t* cuda_get_cudaStream_t_type(void)
         scope_entry_t* new_typedef_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
         new_typedef_sym->kind = SK_TYPEDEF;
         new_typedef_sym->type_information = get_pointer_type(get_user_defined_type(new_class_sym));
+
+#ifdef CUDA_DIR
+        new_class_sym->file = CUDA_DIR"/include/vector_types.h";
+#endif
 
         cudaStream_t_type = get_user_defined_type(new_typedef_sym);
     }
