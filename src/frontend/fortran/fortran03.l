@@ -77,6 +77,7 @@ static int nonblock_do_stack_idx = 0;
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
 static char check_continued_sentinel_line(const char* line, const char** sentinel);
+static char is_valid_pragma_custom_prefix(const char* sentinel);
 static void reintroduce_continued_line(char* split_line, char double_continuation, const char *sentinel);
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
@@ -132,6 +133,7 @@ kind (({digit}+)|({identifier}))
 
  /* Sentinels as much as 32 letters */
 sentinel [!][$][a-zA-Z0-9_]{0,32}
+comment_not_sentinel [!]([^$][^\n\r]*)?
 
  /* Minimal C stuff */
 c_octaldigit      [0-7]
@@ -426,9 +428,13 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-	            fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number);
+
+        if (is_valid_pragma_custom_prefix(sentinel))
+        {
+            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
+                    fortran_scanning_now->current_filename, 
+                    fortran_scanning_now->line_number);
+        }
 	    REJECT;
 	}
 }
@@ -449,7 +455,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, NULL);
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})(({comment_not_sentinel})?{newline})*[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
 	// !$SENTINEL INTEGER &
 	// !$SENTINEL :: A=3
 
@@ -460,10 +466,14 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-	            fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number);
-	    REJECT;
+
+        if (is_valid_pragma_custom_prefix(sentinel))
+        {
+            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
+                    fortran_scanning_now->current_filename, 
+                    fortran_scanning_now->line_number);
+        }
+        REJECT;
 	}
 }
 
@@ -2910,6 +2920,7 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++; q++;
     }
 
+    *sentinel = uniquestr(sentinel1);
     if (strcmp(sentinel1, sentinel2) != 0)
     {
         DEBUG_CODE()
@@ -2919,8 +2930,20 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         return 0;
     }
 
-    *sentinel = uniquestr(sentinel1);
     return 1;
+}
+
+static char is_valid_pragma_custom_prefix(const char* sentinel)
+{
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int is_format_statement(char* token)
