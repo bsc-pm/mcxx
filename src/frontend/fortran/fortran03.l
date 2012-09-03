@@ -1279,6 +1279,11 @@ where {
     RETURN_TOKEN(TOK_WHERE);
 }
 
+endwhere {
+    parse_token_text();
+    RETURN_TOKEN(TOK_ENDWHERE);
+}
+
 procedure {
     parse_token_text();
     RETURN_TOKEN(TOK_PROCEDURE);

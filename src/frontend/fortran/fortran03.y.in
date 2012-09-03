@@ -685,6 +685,7 @@ static const char* safe_asttext(AST a)
 %type<token_atrib> goto_toks
 %type<token_atrib> elseif_toks
 %type<token_atrib> elsewhere_toks
+%type<token_atrib> endwhere_toks
 %type<token_atrib> selectcase_toks
 %type<token_atrib> two_slashes
 // Tokens
@@ -715,6 +716,7 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> TOK_GO "GO"
 %token<token_atrib> TOK_ENTRY "ENTRY"
 %token<token_atrib> TOK_WHERE "WHERE"
+%token<token_atrib> TOK_ENDWHERE "END WHERE"
 %token<token_atrib> TOK_PROCEDURE "PROCEDURE"
 %token<token_atrib> TOK_NAME "NAME"
 %token<token_atrib> TOK_DOUBLE "DOUBLE"
@@ -2867,13 +2869,22 @@ elsewhere_toks : TOK_ELSE TOK_WHERE
     $$ = $1;
 }
 ;
-end_where_stmt : labeldef TOK_END TOK_WHERE name eos
+endwhere_toks : TOK_END TOK_WHERE
 {
-    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = $1;
 }
-| labeldef TOK_END TOK_WHERE eos
+| TOK_ENDWHERE
 {
-    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = $1;
+}
+;
+end_where_stmt : labeldef endwhere_toks name eos
+{
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+}
+| labeldef endwhere_toks eos
+{
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 forall_construct : forall_construct_stmt forall_block end_forall_stmt
