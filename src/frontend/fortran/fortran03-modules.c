@@ -2442,24 +2442,27 @@ static int get_type(void *datum,
         case TKT_FUNCTION:
         case TKT_NONPROTOTYPE_FUNCTION:
         {
-            char *copy = strdup(types);
-
+            int num_parameters = 0;
             parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
             memset(parameter_info, 0, sizeof(parameter_info));
 
-            int num_parameters = 0;
-            char *context = NULL;
-            char *field = strtok_r(copy, ",", &context);
-            while (field != NULL)
+            if (types != NULL)
             {
-                ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
+                char *copy = strdup(types);
 
-                parameter_info[num_parameters].type_info = load_type(handle, safe_atoull(field));
+                char *context = NULL;
+                char *field = strtok_r(copy, ",", &context);
+                while (field != NULL)
+                {
+                    ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
 
-                num_parameters++;
-                field = strtok_r(NULL, ",", &context);
+                    parameter_info[num_parameters].type_info = load_type(handle, safe_atoull(field));
+
+                    num_parameters++;
+                    field = strtok_r(NULL, ",", &context);
+                }
+                free(copy);
             }
-            free(copy);
 
             type_t* result = load_type(handle, ref);
 
