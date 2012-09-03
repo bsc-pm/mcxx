@@ -650,11 +650,6 @@ static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus
     return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 0);
 }
 
-static scope_entry_t* get_symbol_for_name_untyped(decl_context_t decl_context, AST locus, const char* name)
-{
-    return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 1);
-}
-
 static void build_scope_main_program_unit(AST program_unit, decl_context_t
         program_unit_context, scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
@@ -5929,14 +5924,27 @@ static scope_entry_t* build_scope_single_interface_specification(
             {
                 AST procedure_name = ASTSon1(it2);
 
-                entry = get_symbol_for_name_untyped(decl_context, procedure_name,
-                        ASTText(procedure_name));
+                scope_entry_list_t* entry_list = query_in_scope_str_flags(
+                        decl_context, strtolower(ASTText(procedure_name)), DF_ONLY_CURRENT_SCOPE);
+
+                if (entry_list != NULL)
+                {
+                    entry = entry_list_head(entry_list);
+                    entry_list_free(entry_list);
+                }
+
+                if (entry == NULL)
+                {
+                    entry = create_fortran_symbol_for_name_(decl_context,
+                            procedure_name, strtolower(ASTText(procedure_name)), /*no_implicit*/ 1);
+
+                    add_not_fully_defined_symbol(decl_context, entry);
+                }
 
                 entry->kind = SK_FUNCTION;
                 entry->entity_specs.is_module_procedure = 1;
 
                 remove_unknown_kind_symbol(decl_context, entry);
-                add_not_fully_defined_symbol(decl_context, entry);
 
                 if (generic_spec != NULL)
                 {
