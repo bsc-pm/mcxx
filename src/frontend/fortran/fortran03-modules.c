@@ -131,6 +131,7 @@ enum type_kind_table_tag
     TKT_POINTER,
     TKT_REFERENCE,
     TKT_FUNCTION,
+    TKT_NONPROTOTYPE_FUNCTION,
     TKT_ARRAY,
     TKT_CLASS,
     TKT_VOID,
@@ -1246,7 +1247,13 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
             result = insert_type(handle, function_type_get_return_type(t));
         }
 
-        result = insert_type_ref_to_list_types(handle, t, TKT_FUNCTION, result, num_parameters, parameter_types);
+        type_kind_table_t function_kind_type = TKT_FUNCTION;
+
+        if (function_type_get_lacking_prototype(t))
+        {
+            function_kind_type = TKT_NONPROTOTYPE_FUNCTION;
+        }
+        result = insert_type_ref_to_list_types(handle, t, function_kind_type, result, num_parameters, parameter_types);
     }
     else if (fortran_is_character_type(t)
             || fortran_is_array_type(t))
@@ -2433,6 +2440,7 @@ static int get_type(void *datum,
             break;
         }
         case TKT_FUNCTION:
+        case TKT_NONPROTOTYPE_FUNCTION:
         {
             char *copy = strdup(types);
 
@@ -2455,7 +2463,21 @@ static int get_type(void *datum,
 
             type_t* result = load_type(handle, ref);
 
-            _type_assign_to(*pt, get_new_function_type(result, parameter_info, num_parameters));
+            type_t* new_function_type = NULL;
+            if (kind == TKT_FUNCTION)
+            {
+                new_function_type = get_new_function_type(result, parameter_info, num_parameters);
+            }
+            else if (kind == TKT_NONPROTOTYPE_FUNCTION)
+            {
+                new_function_type = get_nonproto_function_type(result, num_parameters);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            _type_assign_to(*pt, new_function_type);
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
             break;
         }
