@@ -34,7 +34,7 @@ namespace TL
     namespace Vectorization
     {
         Vectorizer* Vectorizer::_vectorizer = 0;
-        TL::Versioning<std::string, Nodecl::NodeclBase> _vector_function_versioning;
+        FunctionVersioning Vectorizer::_function_versioning;
 
         Vectorizer& Vectorizer::getVectorizer()
         {
@@ -44,31 +44,8 @@ namespace TL
             return *_vectorizer;
         }
 
-        Vectorizer::Vectorizer() 
+        Vectorizer::Vectorizer() : _svml_enabled(false), _ffast_math_enabled(false)
         {
-            // SVML SSE
-//            if (svml_enable)
-            {
-                TL::Source svml_sse_vector_math;
-
-                svml_sse_vector_math << "__m128 __svml_expf4(__m128);\n"
-                    << "__m128 __svml_sinf4(__m128);\n"
-                    ;
-
-                // Parse SVML declarations
-                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
-                svml_sse_vector_math.parse_global(global_scope);
-
-                // Add SVML math function as vector version of the scalar one
-/*                _vector_function_versioning.add_version("expf", 
-                        new VectorFunctionVersion(
-                            global_scope.get_symbol_from_name("__svml_expf4").make_nodecl(),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
-                _vector_function_versioning.add_version("sinf",
-                        new VectorFunctionVersion( 
-                            global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
-*/            }
         }
 
         Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
@@ -88,6 +65,68 @@ namespace TL
         {
             VectorizerVisitorFunction visitor_function(device, vector_length, target_type);
             visitor_function.walk(func_code);
+        }
+
+        void Vectorizer::add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,
+                const std::string& device, const unsigned int vector_length, 
+                const TL::Type& target_type, const FunctionPriority priority )
+        {
+            _function_versioning.add_version(func_name, 
+                    VectorFunctionVersion(func_version, device, vector_length, target_type, priority));
+        }
+
+        void Vectorizer::enable_svml()
+        {
+            if (!_ffast_math_enabled)
+            {
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+            }
+
+            if (!_svml_enabled && _ffast_math_enabled)
+            {
+                _svml_enabled = true;
+
+                // SVML SSE
+                TL::Source svml_sse_vector_math;
+
+                svml_sse_vector_math << "__m128 __svml_expf4(__m128);\n"
+                    << "__m128 __svml_sqrtf4(__m128);\n"
+                    << "__m128 __svml_logf4(__m128);\n"
+                    << "__m128 __svml_sinf4(__m128);\n"
+                    << "__m128 __svml_floorf4(__m128);\n"
+                    ;
+
+                // Parse SVML declarations
+                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
+                svml_sse_vector_math.parse_global(global_scope);
+
+                // Add SVML math function as vector version of the scalar one
+                _function_versioning.add_version("expf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_expf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sqrtf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_sqrtf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("logf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_logf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sinf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("floorf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_floorf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+            }
+        }
+
+        void Vectorizer::enable_ffast_math()
+        {
+            _ffast_math_enabled = true;
         }
     } 
 }

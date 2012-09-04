@@ -358,11 +358,10 @@ simd_includes=
   fi
   fi
 
-AC_CHECK_FILE(libsvml.a, [vector_math_lib="(SVML)"], [])
+AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_version="(SVML not detected)"])
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
-VECTOR_MATH_LIB=$vector_math_lib
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
 
@@ -1166,7 +1165,7 @@ echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
-echo "   SIMD Support: " $simd_version $vector_math_lib
+echo "   SIMD Support: " $simd_version $simd_math_version
 echo ""
 echo " * Fortran support : yes"
 echo "   SQLite 3 cflags: " $sqlite3_CFLAGS

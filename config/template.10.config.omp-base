@@ -20,6 +20,9 @@ linker_options = -Xlinker --add-needed
 {simd} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
+{svml} linker_options = -lsvml
+{ffast-math} options = --variable=ffast_math_enabled:1
+{ffast-math} compiler_options = -ffast-math
 #{acml} linker_options = -lacml_mv
 {openmp,!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug

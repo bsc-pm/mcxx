@@ -34,8 +34,10 @@ namespace TL
         VectorizerVisitorStatement::VectorizerVisitorStatement(
                 const std::string& device,
                 const unsigned int vector_length,
-                const TL::Type& target_type) : 
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+                const TL::Type& target_type,
+                const TL::Scope& simd_scope) : 
+            _device(device), _vector_length(vector_length), _target_type(target_type),
+            _simd_scope(simd_scope)
         {
         }
 
@@ -58,7 +60,7 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
             VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _target_type);
+                    _device, _vector_length, _target_type, _simd_scope);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -76,7 +78,7 @@ namespace TL
                 if(!init.is_null())
                 {
                     VectorizerVisitorExpression visitor_expression(
-                            _device, _vector_length, _target_type);
+                            _device, _vector_length, _target_type, _simd_scope);
                     visitor_expression.walk(init);
                 }
             }
@@ -85,7 +87,7 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
         {
             VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _target_type);
+                    _device, _vector_length, _target_type, _simd_scope);
             visitor_expression.walk(n.get_value());
         }
 

@@ -39,11 +39,16 @@ namespace TL
                 const std::string _device;
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
+                const TL::Scope _simd_scope;
+
+                bool is_nested_in_scope(const scope_t *const sc, 
+                        const scope_t *const may_be_nested) const;
 
             public:
                 VectorizerVisitorExpression(const std::string& device,
                         const unsigned int vector_length,
-                        const TL::Type& target_type);
+                        const TL::Type& target_type,
+                        const TL::Scope& simd_scope);
                 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
@@ -52,6 +57,9 @@ namespace TL
                 virtual void visit(const Nodecl::Neg& n);
 
                 virtual void visit(const Nodecl::LowerThan& n);
+                virtual void visit(const Nodecl::Equal& n);
+                virtual void visit(const Nodecl::BitwiseAnd& n);
+                virtual void visit(const Nodecl::LogicalOr& n);
 
                 virtual void visit(const Nodecl::ConditionalExpression& n);
                 virtual void visit(const Nodecl::Assignment& n);

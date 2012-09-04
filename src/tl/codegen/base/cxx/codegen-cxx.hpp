@@ -40,6 +40,7 @@ namespace Codegen
     {
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
+
         public:
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
@@ -195,6 +196,9 @@ namespace Codegen
             Ret visit(const Nodecl::UpcSyncStatement& node);
             Ret visit(const Nodecl::SourceComment& node);
             Ret visit(const Nodecl::PreprocessorLine& node);
+
+            template <typename Node>
+                CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
         private:
 
@@ -420,8 +424,8 @@ namespace Codegen
             template <typename Node>
                 static bool is_operator_function_call(const Node& node);
 
-            template <typename Node>
-                CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
+//            template <typename Node>
+//                CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
             template < typename Node>
                 static node_t get_kind_of_operator_function_call(const Node & node);

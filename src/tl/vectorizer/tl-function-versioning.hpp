@@ -24,38 +24,62 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTOR_FUNCTION_VERSION_HPP
-#define TL_VECTOR_FUNCTION_VERSION_HPP
+#ifndef TL_FUNCTION_VERSIONING_HPP
+#define TL_FUNCTION_VERSIONING_HPP
 
-#include "tl-versioning.hpp"
 #include "tl-nodecl-base.hpp"
+#include <map>
+
 
 namespace TL 
 { 
     namespace Vectorization 
     {
-        const int SIMD_FUNC_PRIORITY = 2;
-        const int DEFAULT_FUNC_PRIORITY = 1;
-        const int NAIVE_FUNC_PRIORITY = 0;
+        enum FunctionPriority{ SIMD_FUNC_PRIORITY = 2, DEFAULT_FUNC_PRIORITY = 1, NAIVE_FUNC_PRIORITY = 0};
 
-        class VectorFunctionVersion : public TL::Version<Nodecl::NodeclBase>
+        class VectorFunctionVersion
         {
             private:
+                const Nodecl::NodeclBase _func_version;
+                const FunctionPriority _priority;
                 const std::string _device;
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
 
             public:
-                VectorFunctionVersion(const Nodecl::NodeclBase& version, 
+                VectorFunctionVersion(const Nodecl::NodeclBase& func_version, 
                         const std::string& device, 
                         const unsigned int vector_length, 
                         const TL::Type& _target_type,
-                        const int priority);
+                        const FunctionPriority priority);
 
-                bool passes_filter(const Version<Nodecl::NodeclBase>& filter);
+                const Nodecl::NodeclBase get_version() const;
+                bool has_kind(const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type) const;
+                bool is_better_than(const VectorFunctionVersion& func_version) const;
         };
+
+
+        class FunctionVersioning
+        {
+            private:
+                typedef std::multimap<const std::string, const VectorFunctionVersion> versions_map_t;
+                versions_map_t _versions;
+
+            public:
+                FunctionVersioning();
+
+                void add_version(const std::string& func_name, const VectorFunctionVersion& func_version);
+                const Nodecl::NodeclBase get_best_version(const std::string& func_name, 
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& _target_type) const;
+        };
+
+
     }
 }
 
-#endif //TL_VECTOR_FUNCTION_VERSION_HPP
+#endif //TL_FUNCTION_VERSIONING_HPP
 

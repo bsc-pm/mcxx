@@ -39,11 +39,13 @@ namespace TL
                 const std::string _device;
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
+                const TL::Scope _simd_scope;
 
             public:
                 VectorizerVisitorStatement(const std::string& _device,
                         const unsigned int _vector_length,
-                        const TL::Type& _target_type);
+                        const TL::Type& _target_type,
+                        const TL::Scope& _simd_scope);
 
                 virtual void visit(const Nodecl::Context& n);
                 virtual void visit(const Nodecl::CompoundStatement& n);

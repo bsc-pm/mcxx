@@ -159,8 +159,6 @@ libtl_la_SOURCES = \
     tl-modules-fwd.hpp \
     tl-modules.hpp \
     tl-modules.cpp \
-    tl-versioning.hpp \
-    tl-versioning.cpp \
     $(VECTORIZER_SOURCES)
     $(END)
 

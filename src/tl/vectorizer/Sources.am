@@ -27,8 +27,6 @@
 VECTORIZER_SOURCES = \
                      vectorizer/tl-vectorizer.hpp \
                      vectorizer/tl-vectorizer.cpp \
-                     vectorizer/tl-vector-function-version.hpp \
-                     vectorizer/tl-vector-function-version.cpp \
                      vectorizer/tl-vectorizer-visitor-for.hpp \
                      vectorizer/tl-vectorizer-visitor-for.cpp \
                      vectorizer/tl-vectorizer-visitor-function.hpp \
@@ -37,6 +35,8 @@ VECTORIZER_SOURCES = \
                      vectorizer/tl-vectorizer-visitor-statement.cpp \
                      vectorizer/tl-vectorizer-visitor-expression.hpp \
                      vectorizer/tl-vectorizer-visitor-expression.cpp \
+                     vectorizer/tl-function-versioning.hpp \
+                     vectorizer/tl-function-versioning.cpp \
                      $(END)
 
 

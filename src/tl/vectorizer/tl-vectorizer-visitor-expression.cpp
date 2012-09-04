@@ -34,8 +34,10 @@ namespace TL
         VectorizerVisitorExpression::VectorizerVisitorExpression(
                 const std::string& device,
                 const unsigned int vector_length,
-                const TL::Type& target_type) : 
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+                const TL::Type& target_type,
+                const TL::Scope& simd_scope) : 
+            _device(device), _vector_length(vector_length), _target_type(target_type),
+            _simd_scope(simd_scope)
         { 
         }
 
@@ -150,6 +152,54 @@ namespace TL
             n.replace(vector_lt);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::Equal& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorEqual vector_eq = 
+                Nodecl::VectorEqual::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_eq);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorBitwiseAnd vector_ba = 
+                Nodecl::VectorBitwiseAnd::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_ba);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::LogicalOr& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorLogicalOr vector_lo = 
+                Nodecl::VectorLogicalOr::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_lo);
+        }
+ 
         void VectorizerVisitorExpression::visit(const Nodecl::ConditionalExpression& n)
         {
             walk(n.get_condition());
@@ -265,49 +315,102 @@ namespace TL
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
         {
             Nodecl::NodeclBase called = n.get_called();
-            ERROR_CONDITION(!n.is<Nodecl::Symbol>(), "SIMD-IR: This kind of function call is not supported yet", 0);
+            ERROR_CONDITION(!called.is<Nodecl::Symbol>(),
+                    "Vectorizer: %s found. This kind of function call is not supported yet", 
+                    ast_print_node_type(called.get_kind()));
 
-            Nodecl::Symbol called_sym = n.as<Nodecl::Symbol>();
+            Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
 
-            // Get the best vector version of the function available
-            VectorFunctionVersion filter_function = 
-                VectorFunctionVersion(Nodecl::NodeclBase(), _device, _vector_length, _target_type, 0);
-
-            Nodecl::NodeclBase best_version =
-                TL::Vectorization::Vectorizer::_vector_function_versioning.get_best_version(
-                        called_sym.get_symbol().get_name(), filter_function);
-
-            // Create new called symbol
-            Nodecl::Symbol new_called;
-            if (best_version.is<Nodecl::FunctionCode>())
+            // Special functions
+            if (called_sym.get_symbol().get_name() == "fabsf")
             {
-                new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
-                    make_nodecl(n.get_filename(), n.get_line());
+                const Nodecl::VectorFabs vector_fabs_call = 
+                    Nodecl::VectorFabs::make(
+                            n.get_arguments().shallow_copy(),
+                            n.get_type().get_vector_to(_vector_length),
+                            n.get_filename(), 
+                            n.get_line());
+
+                n.replace(vector_fabs_call);            
             }
-            else if (best_version.is<Nodecl::Symbol>())
+            else //Common functions
             {
-                new_called = best_version.as<Nodecl::Symbol>().get_symbol().
-                    make_nodecl(n.get_filename(), n.get_line());
+                // Get the best vector version of the function available
+                Nodecl::NodeclBase best_version =
+                    TL::Vectorization::Vectorizer::_function_versioning.get_best_version(
+                            called_sym.get_symbol().get_name(), _device, _vector_length, _target_type);
+
+                ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
+                        called_sym.get_symbol().get_name().c_str()); 
+
+                // Create new called symbol
+                Nodecl::Symbol new_called;
+                if (best_version.is<Nodecl::FunctionCode>())
+                {
+                    new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                        make_nodecl(n.get_filename(), n.get_line());
+                }
+                else if (best_version.is<Nodecl::Symbol>())
+                {
+                    new_called = best_version.as<Nodecl::Symbol>().get_symbol().
+                        make_nodecl(n.get_filename(), n.get_line());
+                }
+                else
+                {
+                    running_error("Vectorizer: %s found as vector function version in function versioning.", 
+                            ast_print_node_type(best_version.get_kind()));
+                }
+
+                // Vectorizing arguments
+                walk(n.get_arguments());
+
+                const Nodecl::VectorFunctionCall vector_function_call = 
+                    Nodecl::VectorFunctionCall::make(
+                            new_called,
+                            n.get_arguments().shallow_copy(),
+                            n.get_alternate_name().shallow_copy(),
+                            n.get_function_form().shallow_copy(),
+                            n.get_type().get_vector_to(_vector_length),
+                            n.get_filename(), 
+                            n.get_line());
+
+                n.replace(vector_function_call);            
             }
-
-            // Vectorizing arguments
-            walk(n.get_arguments());
-
-            const Nodecl::VectorFunctionCall vector_function_call = 
-                Nodecl::VectorFunctionCall::make(
-                        new_called,
-                        n.get_arguments().shallow_copy(),
-                        n.get_alternate_name().shallow_copy(),
-                        n.get_function_form().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(), 
-                        n.get_line());
-
-            n.replace(vector_function_call);            
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
+            // if Sara.induction_variable --> special treatment
+            //else
+            if (is_nested_in_scope(
+                        _simd_scope.get_decl_context().current_scope,
+                        n.get_symbol().get_scope().get_decl_context().current_scope))
+            {
+                TL::Symbol sym = n.get_symbol();
+                TL::Type sym_type = sym.get_type();
+
+                if (sym_type.is_scalar_type())
+                {
+                    sym.set_type(sym_type.get_vector_to(_vector_length));
+                }
+            }
+            else //if Sara.is_constant_in_scope
+            {
+                TL::Type sym_type = n.get_symbol().get_type();
+
+                if (sym_type.is_scalar_type())
+                {
+                    const Nodecl::ConstantVectorPromotion vector_prom =
+                        Nodecl::ConstantVectorPromotion::make(
+                                n.shallow_copy(),
+                                sym_type.get_vector_to(_vector_length),
+                                n.get_filename(),
+                                n.get_line());
+
+                    n.replace(vector_prom);
+                }
+            }
+            //else --> Error. Loop is not vectorizable without Scalar Evolution analysis.
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
@@ -343,6 +446,18 @@ namespace TL
                 << std::endl;
 
             return Ret(); 
+        }
+
+        bool VectorizerVisitorExpression::is_nested_in_scope(const scope_t *const  sc, 
+                const scope_t *const may_be_nested) const
+        {
+            if (may_be_nested == NULL) 
+                return false;
+
+            if (sc == may_be_nested) 
+                return true;
+            else 
+                return is_nested_in_scope(sc, may_be_nested->contained_in);
         }
     } 
 }

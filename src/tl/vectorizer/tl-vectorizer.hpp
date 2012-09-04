@@ -28,10 +28,8 @@
 #define TL_VECTORIZER_HPP
 
 #include "tl-nodecl-base.hpp"
-#include "tl-versioning.hpp"
-#include "tl-vector-function-version.hpp"
+#include "tl-function-versioning.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-#include <list>
 #include <string>
 
 namespace TL 
@@ -40,10 +38,12 @@ namespace TL
     {
         class Vectorizer
         {
-            static TL::Versioning<std::string, Nodecl::NodeclBase> _vector_function_versioning;
+            static FunctionVersioning _function_versioning;
 
             private:
                 static Vectorizer* _vectorizer;
+                bool _svml_enabled;
+                bool _ffast_math_enabled;
 
                 Vectorizer();
 
@@ -59,9 +59,12 @@ namespace TL
                         const unsigned int vector_length,
                         const TL::Type& target_type);
 
-                void add_function_version(const std::string& func_name, const Nodecl::NodeclBase& version,
+                void add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,
                         const std::string& device, const unsigned int vector_length, 
-                        const TL::Type& target_type, const int priority );
+                        const TL::Type& target_type, const FunctionPriority priority);
+
+                void enable_svml();
+                void enable_ffast_math();
 
                 friend void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n);
         };

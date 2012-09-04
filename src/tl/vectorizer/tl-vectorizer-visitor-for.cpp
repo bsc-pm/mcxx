@@ -57,7 +57,10 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization      
-            VectorizerVisitorStatement visitor_stmt(_device, _vector_length, _target_type);  
+            VectorizerVisitorStatement visitor_stmt(_device, 
+                    _vector_length, 
+                    _target_type,
+                    for_statement.get_statement().retrieve_context());  
             visitor_stmt.walk(for_statement.get_statement());
 
             if (_remain_iterations)
