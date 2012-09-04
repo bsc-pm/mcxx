@@ -1147,7 +1147,10 @@ static void build_scope_module_program_unit(AST program_unit,
     }
 
     // Store the module in a file
-    dump_module_info(new_entry);
+    if (diagnostics_get_error_count() == 0)
+    {
+        dump_module_info(new_entry);
+    }
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
