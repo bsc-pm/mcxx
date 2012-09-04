@@ -5904,7 +5904,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
     }
 }
 
-static scope_entry_t* build_scope_single_interface_specification(
+static scope_entry_list_t* build_scope_single_interface_specification(
         AST interface_specification,
         AST generic_spec,
         decl_context_t decl_context,
@@ -5912,7 +5912,7 @@ static scope_entry_t* build_scope_single_interface_specification(
         scope_entry_t*** related_symbols,
         nodecl_t* nodecl_pragma)
 {
-    scope_entry_t* entry = NULL;
+    scope_entry_list_t* result_entry_list = NULL;
     if (ASTType(interface_specification) == AST_PROCEDURE)
     {
         unsupported_statement(interface_specification, "PROCEDURE");
@@ -5927,6 +5927,7 @@ static scope_entry_t* build_scope_single_interface_specification(
             {
                 AST procedure_name = ASTSon1(it2);
 
+                scope_entry_t* entry = NULL;
                 scope_entry_list_t* entry_list = query_in_scope_str_flags(
                         decl_context, strtolower(ASTText(procedure_name)), DF_ONLY_CURRENT_SCOPE);
 
@@ -5935,8 +5936,7 @@ static scope_entry_t* build_scope_single_interface_specification(
                     entry = entry_list_head(entry_list);
                     entry_list_free(entry_list);
                 }
-
-                if (entry == NULL)
+                else
                 {
                     entry = create_fortran_symbol_for_name_(decl_context,
                             procedure_name, strtolower(ASTText(procedure_name)), /*no_implicit*/ 1);
@@ -5946,6 +5946,9 @@ static scope_entry_t* build_scope_single_interface_specification(
 
                 entry->kind = SK_FUNCTION;
                 entry->entity_specs.is_module_procedure = 1;
+
+                // Add this symbol to the return list
+                entry_list_add(result_entry_list, entry);
 
                 remove_unknown_kind_symbol(decl_context, entry);
 
@@ -5963,6 +5966,7 @@ static scope_entry_t* build_scope_single_interface_specification(
             {
                 AST procedure_name = ASTSon1(it2);
 
+                scope_entry_t* entry = NULL;
                 entry = get_symbol_for_name(decl_context, procedure_name,
                         ASTText(procedure_name));
 
@@ -5976,6 +5980,9 @@ static scope_entry_t* build_scope_single_interface_specification(
                 }
                 else
                 {
+                    // Add this symbol to the return list
+                    entry_list_add(result_entry_list, entry);
+
                     if (generic_spec != NULL)
                     {
                         P_LIST_ADD((*related_symbols),
@@ -5991,7 +5998,9 @@ static scope_entry_t* build_scope_single_interface_specification(
     else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
             || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
     {
+        scope_entry_t* entry = NULL;
         nodecl_t nodecl_program_unit = nodecl_null();
+
         build_scope_program_unit_internal(interface_specification,
                 decl_context,
                 &entry,
@@ -5999,6 +6008,9 @@ static scope_entry_t* build_scope_single_interface_specification(
 
         if (entry == NULL)
             return NULL;
+
+        // Add this symbol to the return list
+        entry_list_add(result_entry_list, entry);
 
         if (generic_spec != NULL)
         {
@@ -6017,26 +6029,30 @@ static scope_entry_t* build_scope_single_interface_specification(
 
         nodecl_t nodecl_inner_pragma = nodecl_null();
 
-        entry = build_scope_single_interface_specification(declaration,
-                generic_spec,
-                decl_context,
-                num_related_symbols,
-                related_symbols,
-                &nodecl_inner_pragma);
+        scope_entry_list_t* entry_list =
+            build_scope_single_interface_specification(declaration,
+                    generic_spec,
+                    decl_context,
+                    num_related_symbols,
+                    related_symbols,
+                    &nodecl_inner_pragma);
 
-        if (entry != NULL)
+        if (entry_list != NULL)
         {
-            if (entry->entity_specs.is_module_procedure)
+            if (entry_list_size(entry_list) > 1)
             {
-                error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE statement\n", 
+                entry_list_free(entry_list);
+                error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE with more than one declaration\n", 
                         ast_location(interface_specification));
                 return NULL;
             }
 
+            scope_entry_t* entry = entry_list_head(entry_list);
+
             nodecl_t nodecl_pragma_line = nodecl_null();
             common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, decl_context, &nodecl_pragma_line);
 
-            *nodecl_pragma = 
+            *nodecl_pragma =
                 nodecl_make_pragma_custom_declaration(
                         nodecl_pragma_line,
                         nodecl_inner_pragma,
@@ -6046,13 +6062,15 @@ static scope_entry_t* build_scope_single_interface_specification(
                         strtolower(ASTText(interface_specification)),
                         ASTFileName(interface_specification), ASTLine(interface_specification));
         }
+
+        result_entry_list = entry_list;
     }
     else
     {
         internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
     }
 
-    return entry;
+    return result_entry_list;
 }
 
 static void build_scope_interface_block(AST a,
@@ -6119,13 +6137,16 @@ static void build_scope_interface_block(AST a,
 
             nodecl_t nodecl_pragma = nodecl_null();
 
-            build_scope_single_interface_specification(
+            scope_entry_list_t* entry_list =
+                build_scope_single_interface_specification(
                     interface_specification,
                     generic_spec,
                     decl_context,
                     &num_related_symbols,
                     &related_symbols,
                     &nodecl_pragma);
+
+            entry_list_free(entry_list);
 
             if (!nodecl_is_null(nodecl_pragma))
             {
