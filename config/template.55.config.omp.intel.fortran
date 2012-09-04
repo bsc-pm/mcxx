@@ -9,6 +9,7 @@ linker_options =
 
 [imfc : omp-base]
 language = Fortran
+options = --do-not-wrap-modules
 options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P
