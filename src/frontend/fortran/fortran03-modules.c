@@ -2425,6 +2425,9 @@ static int get_type(void *datum,
             _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
 
+            // All classes are complete in fortran!
+            set_is_complete_type(*pt, /* is_complete */ 1);
+
             char *context = NULL;
             char *field = strtok_r(copy, ",", &context);
             while (field != NULL)
