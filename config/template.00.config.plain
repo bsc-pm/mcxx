@@ -1,10 +1,5 @@
-# Base
-[plain-base]
-{openmp} compiler_phase = libtlomp-base.so
-{analysis} compiler_phase = libtest_analysis.so
-
 # Plain profile
-[plaincc : plain-base]
+[plaincc]
 language = C
 options =
 preprocessor_name = gcc
@@ -14,7 +9,7 @@ compiler_options =
 linker_name = gcc
 linker_options =
 
-[plaincxx : plain-base]
+[plaincxx]
 language = C++
 options =
 preprocessor_name = g++
@@ -24,7 +19,7 @@ compiler_options =
 linker_name = g++
 linker_options =
 
-[plainfc : plain-base]
+[plainfc]
 language = Fortran
 options =
 {openmp} options = -I @PKGDATADIR@/fortran/openmp

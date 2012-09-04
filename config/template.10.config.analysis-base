@@ -1,0 +1,13 @@
+# OpenMP + Analysis
+
+[analysiscc : plaincc]
+#options = --openmp
+{openmp} compiler_phase = libtlomp-base.so
+
+{analysis} compiler_phase = libtest_analysis.so
+
+[analysiscxx : plaincxx]
+#options = --openmp
+{openmp} compiler_phase = libtlomp-base.so
+
+{analysis} compiler_phase = libtest_analysis.so

@@ -110,9 +110,9 @@ dnl --------------------- end check of old gcc ---
 
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
-INSTALL_CONFIG_FILES="00.config.plain"
+INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95"
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -966,14 +966,14 @@ have_int128=no
 
 AC_CHECK_TYPE([__int128], [have_int128=yes])
 
-if test x$have_int128 = xyes; 
+if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
 fi
 
 dnl The idea is that we may have a software implementation of kind=16 not
 dnl relying on __int128
-if test x$have_int128 = xyes; 
+if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi

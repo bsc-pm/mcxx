@@ -39,6 +39,7 @@ CONFIG_FILES =  \
        50.config.gpu \
        50.config.ocl \
        10.config.omp-base \
+       10.config.analysis-base \
        50.config.omp.mercurium \
        50.config.omp.profiling \
        50.config.omp.fortran \
