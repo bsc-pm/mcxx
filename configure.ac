@@ -435,8 +435,15 @@ if test x$gpu_enabled = xyes ; then
     fi
 fi
 
+CUDA_RPATH=""
+if test -n "$CUDA_LIBS";
+then
+  CUDA_RPATH="-Xlinker -rpath -Xlinker $CUDA_LIBS"
+fi
+
 AC_SUBST([CUDA_INCLUDES])
 AC_SUBST([CUDA_LIBS])
+AC_SUBST([CUDA_RPATH])
 
 
 if test x$gpu_valid = xyes;
