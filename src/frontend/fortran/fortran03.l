@@ -2444,7 +2444,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         q++; p++;
 
         // Ignore comments and empty lines
-        const char* second_line = get_real_second_line(p + 1, &num_joined_lines, /* ignore_comments */ true);
+        const char* second_line = get_real_second_line(p, &num_joined_lines, /* ignore_comments */ true);
         p = second_line;
 
         // Jump blanks again
