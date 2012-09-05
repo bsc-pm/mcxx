@@ -1287,6 +1287,10 @@ OPERATOR_TABLE
         Nodecl::NodeclBase subscripted = node.get_subscripted();
         Nodecl::NodeclBase subscripts = node.get_subscripts();
 
+        // Sometimes spurious parenthesis may get here
+        // because this node was created in C
+        subscripted = advance_parenthesized_expression(subscripted);
+
         walk(subscripted);
         file << "(";
         codegen_reverse_comma_separated_list(subscripts);
