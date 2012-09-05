@@ -825,7 +825,49 @@ VECTOR_INTRIN(__builtin_ia32_pcmpgtq) \
 VECTOR_INTRIN(__builtin_ia32_crc32qi) \
 VECTOR_INTRIN(__builtin_ia32_crc32hi) \
 VECTOR_INTRIN(__builtin_ia32_crc32si) \
-VECTOR_INTRIN(__builtin_ia32_crc32di)
+VECTOR_INTRIN(__builtin_ia32_crc32di) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v4hi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v4hi) \
+VECTOR_INTRIN(__builtin_ia32_pshufw) \
+VECTOR_INTRIN(__builtin_ia32_psrldqi128) \
+VECTOR_INTRIN(__builtin_ia32_pslldqi128) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v8hi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v8hi) \
+VECTOR_INTRIN(__builtin_ia32_pshufhw) \
+VECTOR_INTRIN(__builtin_ia32_pshuflw) \
+VECTOR_INTRIN(__builtin_ia32_pshufd) \
+VECTOR_INTRIN(__builtin_ia32_palignr128) \
+VECTOR_INTRIN(__builtin_ia32_palignr) \
+VECTOR_INTRIN(__builtin_ia32_roundpd) \
+VECTOR_INTRIN(__builtin_ia32_roundsd) \
+VECTOR_INTRIN(__builtin_ia32_roundps) \
+VECTOR_INTRIN(__builtin_ia32_roundss) \
+VECTOR_INTRIN(__builtin_ia32_pblendw128) \
+VECTOR_INTRIN(__builtin_ia32_blendps) \
+VECTOR_INTRIN(__builtin_ia32_blendpd) \
+VECTOR_INTRIN(__builtin_ia32_dpps) \
+VECTOR_INTRIN(__builtin_ia32_dppd) \
+VECTOR_INTRIN(__builtin_ia32_insertps128) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v16qi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v4si) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v2di) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v16qi) \
+VECTOR_INTRIN(__builtin_ia32_mpsadbw128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistrm128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistri128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestrm128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestri128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistria128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistric128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistrio128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistris128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistriz128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestria128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestric128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestrio128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestris128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestriz128)
+
 
 int main(int, char**)
 {
