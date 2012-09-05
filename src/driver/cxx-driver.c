@@ -359,7 +359,7 @@ typedef enum
 
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:J:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vkKcho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -369,7 +369,6 @@ struct command_line_long_options command_line_long_options[] =
     {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
     {"keep-all-files", CLP_NO_ARGUMENT, 'K'},
-    {"check-dates", CLP_NO_ARGUMENT, 'a'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
     // to open the configuration file we overwrite variables defined in the
@@ -1381,7 +1380,19 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 default:
                     {
-                        internal_error("Unhandled known option\n", 0);
+                        const char* unhandled_flag = "<<<unknown!>>>";
+
+                        int i;
+                        for (i = 0; command_line_long_options[i].option_name != NULL; i++)
+                        {
+                            if (command_line_long_options[i].value == parameter_info.value)
+                            {
+                                unhandled_flag = command_line_long_options[i].option_name;
+                                break;
+                            }
+                        }
+
+                        internal_error("Unhandled '%s' parameter\n", unhandled_flag);
                     }
             }
         }
