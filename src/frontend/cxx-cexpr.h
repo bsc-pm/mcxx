@@ -164,6 +164,8 @@ LIBMCXX_EXTERN const_value_t* const_value_cast_to_long_double_value(const_value_
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_float128_value(const_value_t* val);
 #endif
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_t* floating_type);
+
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_float(_Complex float f);
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_double(_Complex double d);
 LIBMCXX_EXTERN const_value_t* const_value_get_complex_long_double(_Complex long double ld);
@@ -237,6 +239,10 @@ UNOP_DECL(not, !)
 
 LIBMCXX_EXTERN const_value_t* const_value_square(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
+
+// Fortran module support
+LIBMCXX_EXTERN size_t const_value_get_raw_data_size(void);
+LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
 
 MCXX_END_DECLS
 

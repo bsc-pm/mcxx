@@ -5475,7 +5475,6 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
         }
 
         if (entry->kind == SK_VARIABLE
-                && !entry->entity_specs.is_parameter
                 && is_const_qualified_type(entry->type_information)
                 && !nodecl_is_null(entry->value)
                 && nodecl_is_constant(entry->value))
@@ -5727,7 +5726,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             entry_list_free(this_symbol_list);
         }
 
-        if (!entry->entity_specs.is_parameter
+        if (!symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry)
                 && is_const_qualified_type(no_ref(entry->type_information))
                 && !nodecl_is_null(entry->value)
                 && nodecl_is_constant(entry->value))
@@ -5771,6 +5770,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     else if (entry->kind == SK_FUNCTION)
     {
         type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
+        // This symbol is bogus. Do not use it! Use instead the unresolved
+        // overload type information
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
 
@@ -5798,7 +5799,11 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
-        *nodecl_output = nodecl_make_symbol(named_type, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        // This symbol is bogus. Do not use it! Use instead the unresolved
+        // overload type information
+        *nodecl_output = nodecl_make_symbol(named_type,
+                nodecl_get_filename(nodecl_name),
+                nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL

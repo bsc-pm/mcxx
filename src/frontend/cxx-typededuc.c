@@ -157,16 +157,12 @@ char deduce_template_arguments_common(
         /* If we are given explicit template arguments register them in the deduction result */
         updated_context.template_parameters = duplicate_template_argument_list(updated_context.template_parameters);
         int j;
-        int nargs = 0;
         for (j = 0; j < updated_context.template_parameters->num_parameters; j++)
         {
             if (j < explicit_template_parameters->num_parameters)
             {
-                P_LIST_ADD(updated_context.template_parameters->arguments,
-                        nargs,
-                        explicit_template_parameters->arguments[j]);
+                updated_context.template_parameters->arguments[j] = explicit_template_parameters->arguments[j];
             }
-            // Should we NULL the remaining arguments?
         }
 
         DEBUG_CODE()
@@ -177,6 +173,9 @@ char deduce_template_arguments_common(
         for (j = 0; j < explicit_template_parameters->num_parameters; j++)
         {
             // Note:  nesting must match
+            if (j >= template_parameters->num_parameters)
+                continue;
+
             template_parameter_t* current_template_parameter = template_parameters->parameters[j];
             template_parameter_value_t* current_explicit_template_argument = explicit_template_parameters->arguments[j];
 

@@ -263,6 +263,11 @@ LIBMCXX_EXTERN scope_entry_t* get_function_or_class_where_symbol_depends(scope_e
 
 LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
 
+// Symbol helping routines
+LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position);
+LIBMCXX_EXTERN char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* function);
+LIBMCXX_EXTERN int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

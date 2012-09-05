@@ -58,6 +58,10 @@ namespace TL
 
         class Core : public TL::PragmaCustomCompilerPhase
         {
+            public:
+                // FIXME - Remove once ticket #1089 is fixed
+                // This is public because it is used by OpenMP::Base
+                std::string _do_not_init_udr;
             private:
 
                 int _udr_counter;

@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -45,7 +45,7 @@ typedef enum codegen_parameter_tag
 }
 codegen_parameter_t;
 
-// Kind of source 
+// Kind of source
 #define BITMAP(X) (1<<X)
 typedef enum source_kind_tag
 {
@@ -156,7 +156,7 @@ typedef struct debug_options_tag
     char disable_module_cache;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
-    char print_cfg_graphviz;
+    char print_pcfg;
 } debug_options_t;
 
 typedef struct external_var_tag {
@@ -197,18 +197,18 @@ typedef struct compilation_process_tag
 
     // Config dir
     const char *config_dir;
-    
+
     // List of translation units
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
-    
+
     // For further use. They can be modified as we need
     int argc;
     const char** argv;
-    
+
     // These should not be modified
     int original_argc;
-    const char** original_argv; 
+    const char** original_argv;
 
     const char* exec_basename;
 
@@ -270,7 +270,7 @@ typedef struct target_options_map_tag
 
     // Embedding
     char do_embedding;
-    enum 
+    enum
     {
         EMBEDDING_MODE_INVALID = 0,
         EMBEDDING_MODE_BFD = 1,
@@ -281,7 +281,7 @@ typedef struct target_options_map_tag
     enum
     {
         COMBINING_MODE_INVALID = 0,
-        COMBINING_MODE_SPU_ELF, 
+        COMBINING_MODE_SPU_ELF,
         COMBINING_MODE_INCBIN,
     } combining_mode;
 } target_options_map_t;
@@ -292,7 +292,7 @@ typedef struct code_shape_tag
 } code_shape_t;
 
 
-// Compiler phases: 
+// Compiler phases:
 // the ones that are loaded from files and the one that modifies the dto
 typedef struct compiler_phase_loader_tag compiler_phase_loader_t;
 
@@ -333,13 +333,13 @@ typedef struct compilation_configuration_tag
     char warnings_as_errors;
 
     debug_options_t debug_options;
-    
+
     // Source language information
     source_language_t source_language;
 
     // Output filename
     const char* linked_output_filename;
-    
+
     // Toolchain information
     const char* preprocessor_name;
     const char** preprocessor_options;
@@ -354,7 +354,11 @@ typedef struct compilation_configuration_tag
     const char** prescanner_options;
     int column_width;
 
+    // Disable Fortran intrinsics
     char disable_intrinsics;
+
+    // Fortran module wrapping
+    char do_not_wrap_fortran_modules;
 
     // Directories where we look for modules
     int num_module_dirs;
@@ -381,7 +385,7 @@ typedef struct compilation_configuration_tag
     const char* linker_name;
 
     const char** linker_options_pre;
-    
+
     int num_args_linker_command;
     parameter_linker_command_t** linker_command;
 
@@ -402,7 +406,7 @@ typedef struct compilation_configuration_tag
 
     // States whether the phases of this compiler were loaded
     char phases_loaded;
-    
+
     // External vars for compiler pipeline of this configuration
     int num_external_vars;
     external_var_t** external_vars;

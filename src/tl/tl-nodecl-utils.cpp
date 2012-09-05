@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -65,9 +65,11 @@ namespace Nodecl
 
     static bool is_parameter_of_another_function(TL::Symbol symbol, TL::Scope sc)
     {
-        return (symbol.is_parameter()
-                && (symbol.get_scope().get_decl_context().current_scope->related_entry 
-                    != sc.get_decl_context().current_scope->related_entry));
+        // If this symbol is a parameter of some function but not from the
+        // current one (if any), then it is a parameter of another function
+        return (symbol.is_parameter_of_a_function()
+                && sc.get_decl_context().current_scope->related_entry != NULL
+                && !symbol.is_parameter_of(sc.get_decl_context().current_scope->related_entry));
     }
 
     struct IsLocalSymbol : TL::Predicate<TL::Symbol>
@@ -202,7 +204,7 @@ namespace Nodecl
 
         if (n.is<Nodecl::Symbol>())
         {
-            result.insert(n.as<Nodecl::Symbol>(), 
+            result.insert(n.as<Nodecl::Symbol>(),
                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
         }
         else if (n.is<Nodecl::ObjectInit>())
@@ -249,7 +251,7 @@ namespace Nodecl
                     &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
                 {
                     bool equal = true;
-                    
+
                     for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
                     {
                         equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
@@ -265,13 +267,78 @@ namespace Nodecl
 
         return false;
     }
-    
-    
+
+    bool Utils::nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Add>( ) || n.is<Nodecl::Minus>( )
+            || n.is<Nodecl::Mul>( ) || n.is<Nodecl::Div>( )
+            || n.is<Nodecl::Mod>( ) || n.is<Nodecl::Plus>( )
+            || n.is<Nodecl::Preincrement>( ) || n.is<Nodecl::Postincrement>( )
+            || n.is<Nodecl::Predecrement>( ) || n.is<Nodecl::Postdecrement>( )
+            || Utils::nodecl_is_assignment_op( n ) || /* Fortran */ n.is<Nodecl::Power>( )
+            || n.is<Nodecl::ArithmeticShr>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+
+    bool Utils::nodecl_is_comparison_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Equal>( ) || n.is<Nodecl::Different>( )
+            || n.is<Nodecl::LowerThan>( ) || n.is<Nodecl::GreaterThan>( )
+            || n.is<Nodecl::LowerOrEqualThan>( ) || n.is<Nodecl::GreaterOrEqualThan>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+
+    bool Utils::nodecl_is_logical_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::LogicalAnd>( ) || n.is<Nodecl::LogicalOr>( )
+            || n.is<Nodecl::LogicalNot>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+
+    bool Utils::nodecl_is_bitwise_op( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::BitwiseAnd>( ) || n.is<Nodecl::BitwiseOr>( )
+            || n.is<Nodecl::BitwiseXor>( ) || n.is<Nodecl::BitwiseNot>( )
+            || n.is<Nodecl::BitwiseShr>( ) || n.is<Nodecl::BitwiseShl>( ))
+        {
+            res = true;
+        }
+        return res;
+    }
+
+    bool Utils::nodecl_is_assignment_op ( Nodecl::NodeclBase n )
+    {
+        bool res = false;
+        if ( n.is<Nodecl::Assignment>( ) || n.is<Nodecl::AddAssignment>( )
+            || n.is<Nodecl::MinusAssignment>( ) || n.is<Nodecl::DivAssignment>( )
+            || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( )
+            || n.is<Nodecl::ArithmeticShrAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( )
+            || n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseAndAssignment>( )
+            || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            res = true;
+        }
+        return res;
+    }
+
     bool Utils::nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n )
     {
         return n.get_type().is_lvalue_reference( );
     }
-    
+
     bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
@@ -286,22 +353,22 @@ namespace Nodecl
 
         return equal_trees_rec(n1_, n2_);
     }
-    
+
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
     {
         return nodecl_hash_table(n.get_internal_nodecl());
     }
-    
+
     bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
         return equal_nodecls(n1, n2);
     }
-    
+
     NodeclBase Utils::reduce_expression(NodeclBase n)
     {
         NodeclBase simplified_expr;
         if (n.is<Symbol>() || n.is<BooleanLiteral>() || n.is<StringLiteral>()
-            || n.is<IntegerLiteral>() || n.is<FloatingLiteral>() || n.is<ComplexLiteral>() 
+            || n.is<IntegerLiteral>() || n.is<FloatingLiteral>() || n.is<ComplexLiteral>()
             || n.is<Dereference>() || n.is<ClassMemberAccess>())
         {
             simplified_expr = n;
@@ -395,7 +462,7 @@ namespace Nodecl
             {
                 n = Minus::make(new_lhs, new_rhs, lhs.get_type(), n.get_filename(), n.get_line());
             }
-            simplified_expr = algebraic_simplification(n);                
+            simplified_expr = algebraic_simplification(n);
         }
         else if (n.is<ArraySubscript>())
         {
@@ -407,32 +474,32 @@ namespace Nodecl
             {
                 n = ArraySubscript::make(new_subscripted, new_subscripts, subscripted.get_type(), n.get_filename(), n.get_line());
             }
-            simplified_expr = algebraic_simplification(n);  
+            simplified_expr = algebraic_simplification(n);
         }
         else
         {
-            internal_error("Node type '%s' while simplifying algebraic expression '%s' not yet implemented", 
+            internal_error("Node type '%s' while simplifying algebraic expression '%s' not yet implemented",
                             ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
         }
-        
+
         return simplified_expr;
     }
-    
+
     /*!
      * This method must be called in pre-order form the bottom of a tree expression
-     * 
+     *
      * R1 :   +                                     R3 :    -
      *      /   \          =>     c1 + c2                 /   \     =>    c1 - c2
      *    c1    c2                                      c1    c2
-     * 
+     *
      * R2 :   +                       +             R4      -                +
      *      /   \          =>       /   \                 /   \     =>     /   \
      *     t    c                  c     t               t    c          -c     t
-     * 
+     *
      * R5 :   -
      *      /   \               =>    0
      *     t1   t2 , t1 = t2
-     * 
+     *
      * R6 :       +                    +
      *          /   \               /     \
      *         +    c2     =>    c1+c2     t
@@ -442,21 +509,21 @@ namespace Nodecl
      * R7 :   *                                     R8 :    *                 *
      *      /   \          =>     c1 * c2                 /   \     =>      /   \
      *    c1    c2                                       t    c            c     t
-     * 
+     *
      * R9 :       *                    *
      *          /   \               /     \
      *         *    c2     =>    c1*c2     t
      *       /   \
      *     c1    t
-     * 
+     *
      * R10 :  /
      *      /   \          =>     0
-     *     0    c,  c != 0 
-     * 
+     *     0    c,  c != 0
+     *
      * R11 :  %         %
      *      /   \  ,  /   \   =>  0
      *     t    1    t    t
-     * 
+     *
      * R20 :    <=                  <=
      *        /    \              /    \
      *       +     c2      =>    t   c2-c1
@@ -497,8 +564,8 @@ namespace Nodecl
                         NodeclBase const_node = Add::make(lhs_lhs, rhs, rhs.get_type(), n.get_filename(), n.get_line());
                         const_value_t* const_value = calc.compute_const_value(const_node);
                         if (!const_value_is_zero(const_value))
-                        {    
-                            result = Add::make(const_value_to_nodecl(const_value), lhs_rhs, 
+                        {
+                            result = Add::make(const_value_to_nodecl(const_value), lhs_rhs,
                                                rhs.get_type(), n.get_filename(), n.get_line());
                         }
                         else
@@ -527,11 +594,11 @@ namespace Nodecl
             else if (rhs.is_constant())
             {
                 Nodecl::NodeclBase zero = const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1));
-                NodeclBase neg_rhs = Minus::make(zero, rhs, rhs.get_type(), 
+                NodeclBase neg_rhs = Minus::make(zero, rhs, rhs.get_type(),
                                                  n.get_filename(), n.get_line());
                 const_value_t* const_value = calc.compute_const_value(neg_rhs);
                 if (!const_value_is_zero(const_value))
-                {    
+                {
                     result = Add::make(const_value_to_nodecl(const_value), lhs, lhs.get_type(), n.get_filename(), n.get_line());
                 }
                 else
@@ -574,8 +641,8 @@ namespace Nodecl
                         NodeclBase const_node = Mul::make(lhs_lhs, rhs, rhs.get_type(), n.get_filename(), n.get_line());
                         const_value_t* const_value = calc.compute_const_value(const_node);
                         if (!const_value_is_zero(const_value))
-                        {    
-                            result = Mul::make(const_value_to_nodecl(const_value), lhs_rhs, 
+                        {
+                            result = Mul::make(const_value_to_nodecl(const_value), lhs_rhs,
                                                rhs.get_type(), n.get_filename(), n.get_line());
                         }
                         else
@@ -627,7 +694,7 @@ namespace Nodecl
                     {
                         NodeclBase const_node = Minus::make(rhs, lhs_lhs, rhs.get_type(), n.get_filename(), n.get_line());
                         const_value_t* const_value = calc.compute_const_value(const_node);
-                        result = LowerOrEqualThan::make(lhs_rhs, const_value_to_nodecl(const_value), 
+                        result = LowerOrEqualThan::make(lhs_rhs, const_value_to_nodecl(const_value),
                                                         rhs.get_type(), n.get_filename(), n.get_line());
                     }
                 }
@@ -641,13 +708,13 @@ namespace Nodecl
         {
             internal_error("Node type '%s' while simplifying algebraic expressions not yet implemented", ast_print_node_type(n.get_kind()));
         }
-        
+
         DEBUG_CODE()
         {
-            std::cerr << "=== Algebraic Simplification '" << n.prettyprint() << "' --> '" 
+            std::cerr << "=== Algebraic Simplification '" << n.prettyprint() << "' --> '"
                       << result.prettyprint() << "' ===" << std::endl;
         }
-        
+
         return result;
     }
 
@@ -717,7 +784,7 @@ namespace Nodecl
         }
     }
 
-    namespace 
+    namespace
     {
         void simple_replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
         {
@@ -1009,7 +1076,7 @@ namespace Nodecl
                 it != list.end();
                 it++)
         {
-            if ((it->is<Nodecl::CxxDef>() 
+            if ((it->is<Nodecl::CxxDef>()
                         || it->is<Nodecl::CxxDecl>())
                     && it->get_symbol() == symbol)
             {
@@ -1143,7 +1210,7 @@ namespace Nodecl
 namespace TL
 {
     // This is actually what OpenMP expects
-    // Lower bound and upper bound are closed ranges: 
+    // Lower bound and upper bound are closed ranges:
     //      [lower_bound, upper_bound] if step is positive
     //      [upper_bound, lower_bound] if step is negative
     void ForStatement::analyze_loop_header()
@@ -1198,7 +1265,7 @@ namespace TL
             }
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
-            { 
+            {
                 _induction_var = init_expr.get_symbol();
 
                 _lower_bound = _induction_var.get_value().shallow_copy();
@@ -1226,7 +1293,7 @@ namespace TL
                     && (Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_lhs()).get_symbol() == _induction_var
                         || Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_rhs()).get_symbol() == _induction_var))
 
-            { 
+            {
                 Nodecl::NodeclBase lhs = test_expr.as<Nodecl::LowerThan>().get_lhs();
                 Nodecl::NodeclBase rhs = test_expr.as<Nodecl::LowerThan>().get_rhs();
 
@@ -1380,25 +1447,25 @@ namespace TL
             // ++_induction_var
             if (incr_expr.is<Nodecl::Preincrement>()
                     && incr_expr.as<Nodecl::Preincrement>().get_rhs().get_symbol() == _induction_var)
-            { 
+            {
                 _step = const_value_to_nodecl(const_value_get_one(4, 1));
             }
             // _induction_var++
             else if (incr_expr.is<Nodecl::Postincrement>()
                     && incr_expr.as<Nodecl::Postincrement>().get_rhs().get_symbol() == _induction_var)
-            { 
+            {
                 _step = const_value_to_nodecl(const_value_get_one(4, 1));
             }
             // --_induction_var
             else if (incr_expr.is<Nodecl::Predecrement>()
                     && incr_expr.as<Nodecl::Predecrement>().get_rhs().get_symbol() == _induction_var)
-            { 
+            {
                 _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
             }
             // _induction_var--
             else if (incr_expr.is<Nodecl::Postdecrement>()
                     && incr_expr.as<Nodecl::Postdecrement>().get_rhs().get_symbol() == _induction_var)
-            { 
+            {
                 _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
             }
             // _induction_var += incr

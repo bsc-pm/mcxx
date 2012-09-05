@@ -2059,7 +2059,7 @@ static char check_argument_association(
             if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
             {
                 ok = 1;
-                // ... that is _not_ an assumed shape (an array requiring descriptor) or pointer array ...
+                // ... that is _not_ an assumed shape or pointer array ...
                 scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(real_argument, 0));
 
                 if (array != NULL)
@@ -2084,7 +2084,9 @@ static char check_argument_association(
 
                     if (ok
                             && array != NULL
-                            && (array_type_with_descriptor(no_ref(array->type_information))
+                            && ((array_type_with_descriptor(no_ref(array->type_information))
+                                    // allocatable arrays have descriptors but are not assumed shape
+                                    && !array->entity_specs.is_allocatable)
                                 || fortran_is_pointer_to_array_type(no_ref(array->type_information))))
                     {
                         ok = 0;
@@ -2179,7 +2181,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
 
                 fprintf(stderr, "EXPRTYPE:    %sName: %s\n", 
-                        specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional ? "Optional " : "",
+                        (specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional
+                         && !specific_symbol->entity_specs.is_stmt_function) ? "Optional " : "",
                         specific_symbol->entity_specs.related_symbols[i] != NULL ? 
                         specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
                         "<<no-name>>");
@@ -2209,7 +2212,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 {
                     scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[j];
 
-                    if (!related_sym->entity_specs.is_parameter)
+                    if (!symbol_is_parameter_of_function(related_sym, specific_symbol))
                         continue;
 
                     if (strcasecmp(related_sym->symbol_name, keyword_names[i]) == 0)
@@ -2238,22 +2241,30 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             {
                 scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
 
-                if (related_sym->entity_specs.is_parameter)
+                if (related_sym->entity_specs.is_result)
+                    continue;
+
+                if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
                     {
-                        if (related_sym->entity_specs.is_optional)
+                        if (related_sym->entity_specs.is_optional
+                                && !specific_symbol->entity_specs.is_stmt_function)
                         {
                             argument_types[i].type = related_sym->type_information;
                             argument_types[i].not_present = 1;
                             current_num_arguments++;
                         }
-                        else 
+                        else
                         {
                             ok = 0;
                             break;
                         }
                     }
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
         }
@@ -2586,7 +2597,7 @@ static void check_called_symbol_list(
                 {
                     scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
 
-                    if (!related_sym->entity_specs.is_parameter)
+                    if (!symbol_is_parameter_of_function(related_sym, symbol))
                         continue;
 
                     if (strcasecmp(related_sym->symbol_name, actual_arguments_keywords[i]) == 0)
@@ -2629,17 +2640,21 @@ static void check_called_symbol_list(
         {
             scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
 
-            if (related_sym->entity_specs.is_parameter)
+            if (related_sym->entity_specs.is_result)
+                continue;
+
+            if (symbol_is_parameter_of_function(related_sym, symbol))
             {
                 if (argument_info_items[i].type == NULL)
                 {
-                    if (related_sym->entity_specs.is_optional)
+                    if (related_sym->entity_specs.is_optional
+                            && !symbol->entity_specs.is_stmt_function)
                     {
                         argument_info_items[i].type = related_sym->type_information;
                         argument_info_items[i].not_present = 1;
                         num_completed_arguments++;
                     }
-                    else 
+                    else
                     {
                         if (!checking_ambiguity())
                         {
@@ -2652,6 +2667,10 @@ static void check_called_symbol_list(
                         return;
                     }
                 }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
         }
 
@@ -3759,7 +3778,9 @@ static void check_symbol_of_called_name(AST sym,
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     *entry = *intrinsic_symbol;
                 }
-                else if (intrinsic_sym != NULL)
+                else if (intrinsic_sym != NULL
+                        // Dummy arguments do not name intrinsics
+                        && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
                 {
                     // From now, the symbol is an intrinsic
                     *entry = *intrinsic_sym;
@@ -3873,7 +3894,8 @@ static void check_symbol_name_as_a_variable(
             && entry->entity_specs.is_implicit_basic_type
             && is_implicit_none(decl_context))
     {
-        if (entry->entity_specs.is_parameter
+        if (symbol_is_parameter_of_function(entry, 
+                    decl_context.current_scope->related_entry)
                 && fortran_checking_array_expression())
         {
             // Special case for this (incorrect but tolerated) case
@@ -4121,9 +4143,8 @@ static void check_symbol_of_variable(AST expr, decl_context_t decl_context, node
         return;
     }
 
-    if (entry == NULL || 
-            (entry->kind != SK_VARIABLE 
-             && entry->kind != SK_UNDEFINED))
+    if (entry->kind != SK_VARIABLE
+             && entry->kind != SK_UNDEFINED)
     {
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
@@ -4573,7 +4594,7 @@ void fortran_check_initialization(
         nodecl_t* nodecl_output)
 {
     char ok = 1;
-    if (entry->entity_specs.is_parameter)
+    if (symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry))
     {
         error_printf("%s: error: a dummy argument cannot have initializer\n", 
                 ast_location(expr));
@@ -5427,8 +5448,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             // Restore the rank of the common type
             if (!is_error_type(result))
             {
-                result = rerank_type(result, lhs_type, rhs_type);
-
                 nodecl_t nodecl_argument_list = nodecl_null();
 
                 if (nodecl_is_null(nodecl_lhs))
@@ -5513,7 +5532,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 return get_error_type();
             }
         }
-        
     }
     else
     {

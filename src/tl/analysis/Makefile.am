@@ -24,9 +24,13 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = data_flow
+SUBDIRS = common pcfg constants singleton test_phase
 
 END=
 
-DIST_SUBDIRS=data_flow \
-             $(END)
+DIST_SUBDIRS= common \
+              pcfg \
+              constants \
+              singleton \
+              test_phase \
+              $(END)

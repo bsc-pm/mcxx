@@ -120,8 +120,9 @@ else
 mcxx_LDFLAGS = \
 	-Wl,--no-as-needed \
     -Wl,-E \
-    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
-    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \
+    -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
+    -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib/mcxx \
+    -Wl,-z,origin
     $(END)
 endif
 
@@ -256,5 +257,5 @@ mcxx_embedder_LDADD = \
    $(END)
 
 mcxx_embedder_LDFLAGS = \
-    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
+    -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
     $(END)

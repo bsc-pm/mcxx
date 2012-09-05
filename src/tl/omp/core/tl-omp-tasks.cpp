@@ -576,48 +576,48 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
-             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
-                             param_ref_tree)));
+            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
+                            param_ref_tree)));
 
-             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT,
-                             param_ref_tree)));
+            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT,
+                            param_ref_tree)));
 
-             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                             param_ref_tree)));
+            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
+                            param_ref_tree)));
 
-             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
-                             param_ref_tree)));
+            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
+                            param_ref_tree)));
 
-             dependence_list_check(dependence_list);
+            dependence_list_check(dependence_list);
 
-             // Now gather task information
-             if (!_target_context.empty())
-             {
-                 TargetContext& target_context = _target_context.top();
+            // Now gather task information
+            if (!_target_context.empty())
+            {
+                TargetContext& target_context = _target_context.top();
 
-                 ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                             COPY_DIR_IN, param_ref_tree));
-                 target_info.set_copy_in(copy_in);
+                ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_IN, param_ref_tree));
+                target_info.set_copy_in(copy_in);
 
-                 ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                             COPY_DIR_OUT, param_ref_tree));
-                 target_info.set_copy_out(copy_out);
+                ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
+                            COPY_DIR_OUT, param_ref_tree));
+                target_info.set_copy_out(copy_out);
 
-                 ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                             COPY_DIR_INOUT, param_ref_tree));
-                 target_info.set_copy_inout(copy_inout);
+                ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
+                            COPY_DIR_INOUT, param_ref_tree));
+                target_info.set_copy_inout(copy_inout);
 
-                 target_info.set_device_list(target_context.device_list);
+                target_info.set_device_list(target_context.device_list);
 
-                 target_info.set_copy_deps(target_context.copy_deps);
-             }
+                target_info.set_copy_deps(target_context.copy_deps);
+            }
 
 
             FunctionTaskInfo task_info(function_sym, dependence_list, target_info);
 
             //adding real time information to the task
             task_info.set_real_time_info(rt_info);
-            
+
             // Support if clause 
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())

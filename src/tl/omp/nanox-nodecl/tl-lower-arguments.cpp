@@ -247,7 +247,8 @@ namespace TL { namespace Nanox {
                                         ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
                                     );
 
-                            data_item.set_in_outline_type(deferred_array_descriptor.get_pointer_to().get_lvalue_reference_to());
+                            // We do not modify the outline type because we want to preserve the original type of the item
+
                             data_item.set_field_type(deferred_array_descriptor.get_pointer_to());
                             break;
                         }

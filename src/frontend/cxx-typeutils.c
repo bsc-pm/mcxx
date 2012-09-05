@@ -9316,7 +9316,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     if (entry_list_size(t->overload_set) > 1)
         return NULL;
 
-    scope_entry_t* entry = entry_list_head(t->overload_set);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(t->overload_set));
     template_parameter_list_t *argument_list = t->template_arguments;
 
     if (entry->kind != SK_TEMPLATE)

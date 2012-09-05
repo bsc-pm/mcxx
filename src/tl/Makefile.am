@@ -38,13 +38,13 @@ DIST_SUBDIRS=analysis \
              testing \
              hlt \
              manip \
-			 codegen \
+             codegen \
              $(END)
 
 lib_LTLIBRARIES = libtl.la
 
 BUILT_SOURCES=
-BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h 
+BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h
 BUILT_SOURCES += tl-lexer-tokens.hpp
 
 BUILT_SOURCES += tl-nodecl-visitor.hpp
@@ -148,14 +148,14 @@ libtl_la_SOURCES = \
     tl-handler.cpp \
     tl-predicateutils.hpp \
     tl-predicateutils.cpp \
-	tl-clauses-info.hpp \
-	tl-clauses-info.cpp \
-	tl-pragmasupport.hpp \
-	tl-pragmasupport.cpp \
-	tl-datareference.hpp \
-	tl-datareference.cpp \
-	tl-replace.hpp \
-	tl-replace.cpp \
+    tl-clauses-info.hpp \
+    tl-clauses-info.cpp \
+    tl-pragmasupport.hpp \
+    tl-pragmasupport.cpp \
+    tl-datareference.hpp \
+    tl-datareference.cpp \
+    tl-replace.hpp \
+    tl-replace.cpp \
     tl-modules-fwd.hpp \
     tl-modules.hpp \
     tl-modules.cpp \

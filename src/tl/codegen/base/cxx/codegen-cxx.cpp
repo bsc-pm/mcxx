@@ -160,7 +160,6 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
-    BINARY_EXPRESSION(Comma, ", ") \
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
@@ -594,6 +593,45 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
     {
         file << ")";
     }
+}
+
+void CxxBase::visit(const Nodecl::Comma & node)
+{
+    file << "(";
+
+    Nodecl::NodeclBase lhs = node.children()[0];
+    Nodecl::NodeclBase rhs = node.children()[1];
+    if (state.in_condition && state.condition_top == node)
+    {
+        file << "(";
+    }
+    char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(lhs);
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
+    file << ", ";
+    needs_parentheses = operand_has_lower_priority(node, rhs);
+    if (needs_parentheses)
+    {
+        file << "(";
+    }
+    walk(rhs);
+    if (needs_parentheses)
+    {
+        file << ")";
+    }
+    if (state.in_condition && state.condition_top == node)
+    {
+        file << ")";
+    }
+
+    file << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
@@ -2498,16 +2536,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         }
         else
         {
-            // This is crazy
-            if (initializer.is<Nodecl::Comma>())
-            {
-                file << "(";
-            }
             walk(initializer);
-            if (initializer.is<Nodecl::Comma>())
-            {
-                file << ")";
-            }
         }
         file << ")";
     }
@@ -3466,6 +3495,7 @@ bool CxxBase::symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbo
 
 
 
+// This function is only for C
 TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symbol,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol))
@@ -4728,15 +4758,9 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                 {
                     state.inside_structured_value = true;
                 }
-                if (init.is<Nodecl::Comma>())
-                {
-                    file << "(";
-                }
+
                 walk(init);
-                if (init.is<Nodecl::Comma>())
-                {
-                    file << ")";
-                }
+
                 state.inside_structured_value = old;
             }
             CXX_LANGUAGE()
@@ -4833,16 +4857,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                     }
                     else
                     {
-                        // This is crazy
-                        if (init.is<Nodecl::Comma>())
-                        {
-                            file << "(";
-                        }
                         walk(init);
-                        if (init.is<Nodecl::Comma>())
-                        {
-                            file << ")";
-                        }
                     }
                     file << ")";
                 }
@@ -5044,24 +5059,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
     if (symbol.not_to_be_printed())
         return;
-
-    if (symbol.get_type().is_template_specialized_type()
-            && !symbol.is_user_declared())
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-
-        //We must declare ONLY the primary template
-        TL::Symbol primary_symbol =
-            symbol
-            .get_type()
-            .get_related_template_type()
-            .get_primary_template()
-            .get_symbol();
-
-        (this->*decl_sym_fun)(primary_symbol);
-
-        return;
-    }
 
     if (symbol.is_member())
     {
@@ -5486,44 +5483,43 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
 
     TL::Symbol entry = node.get_symbol();
     if (entry.is_valid()
-            && entry.get_type().is_valid())
+            && entry.get_type().is_valid()
+            && state.walked_symbols.find(entry) == state.walked_symbols.end())
     {
+        state.walked_symbols.insert(entry);
+
         C_LANGUAGE()
         {
             walk_type_for_symbols(entry.get_type(),
-                decl_sym_fun,
-                def_sym_fun,
-                define_entities_fun
-                );
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun
+                    );
 
             (this->*define_entry_fun)(node, entry, def_sym_fun);
         }
 
-        if (state.walked_symbols.find(entry) == state.walked_symbols.end())
-        {
-            state.walked_symbols.insert(entry);
 
-            define_generic_entities(entry.get_value(),
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun,
-                    define_entry_fun
-                    );
-
-            state.walked_symbols.erase(entry);
-        }
-    }
-
-    TL::Type type = node.get_type();
-    if (type.is_valid())
-    {
-        C_LANGUAGE()
-        {
-            walk_type_for_symbols(
-                type,
+        define_generic_entities(entry.get_value(),
                 decl_sym_fun,
                 def_sym_fun,
-                define_entities_fun);
+                define_entities_fun,
+                define_entry_fun
+                );
+
+        state.walked_symbols.erase(entry);
+    }
+
+    C_LANGUAGE()
+    {
+        TL::Type type = node.get_type();
+        if (type.is_valid())
+        {
+            walk_type_for_symbols(
+                    type,
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun);
         }
     }
 
@@ -5671,119 +5667,102 @@ void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
             &CxxBase::entry_local_definition);
 }
 
+// This function is only for C
+// Do not call it in C++
 void CxxBase::walk_type_for_symbols(TL::Type t,
         void (CxxBase::* symbol_to_declare)(TL::Symbol),
         void (CxxBase::* symbol_to_define)(TL::Symbol),
-        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&))
+        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+        bool needs_definition)
 {
     if (!t.is_valid())
         return;
 
-    bool being_walked = state.walked_types.find(t) != state.walked_types.end();
-
     // This effectively poisons return, do not return from this function
 #define return 1=1;
-
-    state.walked_types.insert(t);
 
     // This must be checked first since all query functions ignore typedefs
     if (t.is_named()
             && t.get_symbol().is_typedef())
     {
-        if (!being_walked)
-        {
-            walk_type_for_symbols(
-                    t.get_symbol().get_type(),
-                    symbol_to_declare,
-                    symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree);
 
         (this->*symbol_to_define)(t.get_symbol());
     }
     else if (t.is_pointer())
     {
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
+                define_entities_in_tree,
+                /* needs_definition */ false);
     }
     else if (t.is_pointer_to_member())
     {
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.pointed_class(), symbol_to_declare, symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.pointed_class(), symbol_to_declare, symbol_to_define,
+                define_entities_in_tree, /* needs_definition */ false);
 
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
+                define_entities_in_tree, /* needs_definition */ false);
     }
     else if (t.is_array())
     {
         (this->*define_entities_in_tree)(t.array_get_size());
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.array_element(),
-                    symbol_to_declare, symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.array_element(),
+                symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (t.is_lvalue_reference()
             || t.is_rvalue_reference())
     {
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.references_to(),
-                    symbol_to_declare, symbol_to_define,
-                    define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.references_to(),
+                symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (t.is_function())
     {
-        if (!being_walked)
+        walk_type_for_symbols(t.returns(),
+                symbol_to_declare, symbol_to_define, define_entities_in_tree);
+
+        TL::ObjectList<TL::Type> params = t.parameters();
+        for (TL::ObjectList<TL::Type>::iterator it = params.begin();
+                it != params.end();
+                it++)
         {
-            walk_type_for_symbols(t.returns(),
-                    symbol_to_declare, symbol_to_define, define_entities_in_tree);
+            walk_type_for_symbols(*it,
+                    symbol_to_declare,
+                    symbol_to_define,
+                    define_entities_in_tree);
+        }
 
-            TL::ObjectList<TL::Type> params = t.parameters();
-            for (TL::ObjectList<TL::Type>::iterator it = params.begin();
-                    it != params.end();
-                    it++)
-            {
-                walk_type_for_symbols(*it,
-                        symbol_to_declare,
-                        symbol_to_define,
-                        define_entities_in_tree);
-            }
-
-            TL::ObjectList<TL::Type> nonadjusted_params = t.nonadjusted_parameters();
-            for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_params.begin();
-                    it != nonadjusted_params.end();
-                    it++)
-            {
-                walk_type_for_symbols(*it,
-                        symbol_to_declare,
-                        symbol_to_define,
-                        define_entities_in_tree);
-            }
+        TL::ObjectList<TL::Type> nonadjusted_params = t.nonadjusted_parameters();
+        for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_params.begin();
+                it != nonadjusted_params.end();
+                it++)
+        {
+            walk_type_for_symbols(*it,
+                    symbol_to_declare,
+                    symbol_to_define,
+                    define_entities_in_tree);
         }
     }
     else if (t.is_vector())
     {
-        if (!being_walked)
-        {
-            walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
-        }
+        walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
     else if (t.is_named_class())
     {
         TL::Symbol class_entry = t.get_symbol();
-        define_or_declare_if_complete(class_entry, symbol_to_declare, symbol_to_define);
+        if (needs_definition)
+        {
+            define_or_declare_if_complete(class_entry, symbol_to_declare, symbol_to_define);
+        }
+        else
+        {
+            (this->*symbol_to_declare)(class_entry);
+        }
     }
     else if (t.is_unnamed_class())
     {
@@ -5800,15 +5779,12 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         }
 
         // Members
-        if (!being_walked)
+        TL::ObjectList<TL::Symbol> members = t.get_all_members();
+        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                it != members.end();
+                it++)
         {
-            TL::ObjectList<TL::Symbol> members = t.get_all_members();
-            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
-                    it != members.end();
-                    it++)
-            {
-                walk_type_for_symbols(it->get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
-            }
+            walk_type_for_symbols(it->get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
         }
     }
     else if (t.is_unnamed_enum())
@@ -5826,10 +5802,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         TL::Symbol enum_entry = t.get_symbol();
 
-        if (!being_walked)
-        {
-            walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
-        }
+        walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
         define_or_declare_if_complete(enum_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unresolved_overload())
@@ -5840,7 +5813,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 it != unresolved_set.end();
                 it++)
         {
-                (this->*symbol_to_define)(*it);
+            (this->*symbol_to_define)(*it);
         }
     }
     else if (t.is_dependent_typename())
@@ -5864,11 +5837,6 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
         // Do nothing as it should be a builtin type
     }
 #undef return
-
-    if (!being_walked)
-    {
-        state.walked_types.erase(t);
-    }
 }
 
 void CxxBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)

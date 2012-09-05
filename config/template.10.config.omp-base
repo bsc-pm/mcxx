@@ -24,11 +24,11 @@ linker_options = -Xlinker --add-needed
 {ffast-math} options = --variable=ffast_math_enabled:1
 {ffast-math} compiler_options = -ffast-math
 #{acml} linker_options = -lacml_mv
-{openmp,!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
-{openmp,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
-{openmp,!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
-{openmp,debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
-{openmp,!ompss} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -pthread -lrt
-{openmp,ompss} linker_options = -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -pthread -lrt
+{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
+{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
+{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
+{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
+{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -pthread -lrt
+{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -pthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libcodegen-vector.so

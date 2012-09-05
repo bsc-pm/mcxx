@@ -33,3 +33,10 @@ tl_libadd=$(top_builddir)/src/tl/libtl.la \
 no_undefined=@WIN32_NO_UNDEFINED@
 
 tl_ldflags=-avoid-version $(no_undefined)
+if WINDOWS_BUILD
+else
+tl_ldflags += \
+    -Wl,@RPATH_PARAMETER@,\$$ORIGIN \
+	-Wl,-z,origin \
+	$(END)
+endif

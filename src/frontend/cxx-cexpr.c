@@ -445,7 +445,7 @@ const_value_t* const_value_round_to_nearest_bytes(const_value_t* val, int num_by
 
 const_value_t* const_value_round_to_nearest(const_value_t* val)
 {
-    return const_value_round_to_zero_bytes(val, type_get_size(get_signed_int_type()));
+    return const_value_round_to_nearest_bytes(val, type_get_size(get_signed_int_type()));
 }
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
@@ -506,6 +506,12 @@ char const_value_is_nonzero(const_value_t* v)
         case CVK_FLOAT128:
             return v->value.f128 != 0.0Q;
 #endif
+        case CVK_COMPLEX:
+            {
+                return const_value_is_nonzero(const_value_complex_get_real_part(v))
+                    || const_value_is_nonzero(const_value_complex_get_imag_part(v));
+
+            }
         OTHER_KIND;
     }
 
@@ -533,6 +539,12 @@ char const_value_is_one(const_value_t* v)
         case CVK_FLOAT128:
             return v->value.f128 == 1.0Q;
 #endif
+        case CVK_COMPLEX:
+            {
+                return const_value_is_one(const_value_complex_get_real_part(v))
+                    && const_value_is_zero(const_value_complex_get_imag_part(v));
+
+            }
         OTHER_KIND;
     }
 
@@ -1304,6 +1316,33 @@ const_value_t* const_value_cast_to_float128_value(const_value_t* val)
     return const_value_get_float128(const_value_cast_to_float128(val));
 }
 #endif 
+
+const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_t* floating_type)
+{
+    if (is_float_type(floating_type))
+    {
+        return const_value_cast_to_float_value(val);
+    }
+    else if (is_double_type(floating_type))
+    {
+        return const_value_cast_to_double_value(val);
+    }
+    else if (is_long_double_type(floating_type))
+    {
+        return const_value_cast_to_long_double_value(val);
+    }
+    else
+    {
+        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
+#ifdef HAVE_QUADMATH_H
+        if (floating_info->bits == 128)
+        {
+            return const_value_cast_to_float128_value(val);
+        }
+#endif
+        internal_error("Invalid floating type '%s'\n", print_declarator(floating_type));
+    }
+}
 
 const_value_t* integer_type_get_minimum(type_t* t)
 {
@@ -3010,4 +3049,22 @@ const_value_t* const_value_sqrt(const_value_t* val)
     {
         internal_error("Not implemented yet", 0);
     }
+}
+
+// This function is for supporting Fortran modules
+size_t const_value_get_raw_data_size(void)
+{
+    return sizeof(const_value_t);
+}
+
+// Only build simple types using this routine
+// This function is for supporting Fortran modules
+const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
+{
+    const_value_t* result = calloc(1, sizeof(*result));
+
+    // memcpy
+    memcpy(result, raw_buffer, sizeof(const_value_t));
+
+    return result;
 }

@@ -134,6 +134,13 @@ struct gather_decl_spec_tag {
 
 } gather_decl_spec_t;
 
+typedef
+struct gather_decl_spec_list_tag
+{
+    int num_items;
+    gather_decl_spec_t* items;
+} gather_decl_spec_list_t;
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_DECLS_H
