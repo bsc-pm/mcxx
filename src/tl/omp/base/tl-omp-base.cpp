@@ -227,6 +227,13 @@ namespace TL { namespace OpenMP {
                 _openmp_dry_run,
                 "0");
 
+        // FIXME - Remove once ticket #1089 is fixed
+        register_parameter("do_not_init_udr", 
+                "Disable initialization of UDRs. This may be needed in some setups due to a bug",
+                _core._do_not_init_udr,
+                "0");
+
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \

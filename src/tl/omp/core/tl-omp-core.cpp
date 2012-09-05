@@ -48,6 +48,7 @@ namespace TL
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
                     "It performs the common analysis part required by OpenMP");
+
             register_omp_constructs();
         }
 
@@ -91,7 +92,6 @@ namespace TL
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
             }
-
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
                 RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
@@ -113,7 +113,11 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // initialize_builtin_udr_reductions(global_scope);
+            // FIXME - Remove once ticket #1089 is fixed
+            if (_do_not_init_udr == "0")
+            {
+                initialize_builtin_udr_reductions(global_scope);
+            }
 
             PragmaCustomCompilerPhase::run(dto);
 
