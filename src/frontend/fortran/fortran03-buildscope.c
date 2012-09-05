@@ -716,10 +716,48 @@ static void build_scope_program_unit_internal(AST program_unit,
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
             {
-                warn_printf("%s: warning: pragmas outside of a program unit are unsupported\n",
-                        ast_location(program_unit));
-                build_scope_program_unit_internal(ASTSon1(program_unit),
-                        decl_context, program_unit_symbol, nodecl_output);
+                AST pragma_line = ASTSon0(program_unit);
+                AST nested_program_unit = ASTSon1(program_unit);
+
+                build_scope_program_unit_internal(nested_program_unit,
+                        decl_context, &_program_unit_symbol, nodecl_output);
+
+                if (_program_unit_symbol != NULL
+                        && !nodecl_is_null(*nodecl_output))
+                {
+                    decl_context_t context_in_scope = _program_unit_symbol->related_decl_context;
+                    nodecl_t nodecl_pragma_line = nodecl_null();
+                    common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, context_in_scope, &nodecl_pragma_line);
+
+                    nodecl_t nodecl_nested_pragma = nodecl_null();
+                    // Double nesting of pragmas
+                    if (ASTType(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+                    {
+                        int num_items = 0;
+                        nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
+
+                        ERROR_CONDITION((num_items != 2), "This list does not have the expected shape", 0);
+                        ERROR_CONDITION(nodecl_get_kind(list[1]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+                                "Invalid kind for second item of the list", 0);
+
+                        nodecl_nested_pragma = list[1];
+                        free(list);
+                    }
+
+                    nodecl_t nodecl_pragma_declaration =
+                        nodecl_make_pragma_custom_declaration(nodecl_pragma_line,
+                                nodecl_nested_pragma,
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(program_unit), ASTLine(program_unit)),
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(program_unit), ASTLine(program_unit)),
+                                _program_unit_symbol,
+                                strtolower(ASTText(program_unit)),
+                                ASTFileName(program_unit),
+                                ASTLine(program_unit));
+
+                    *nodecl_output = nodecl_make_list_2(
+                            nodecl_list_head(*nodecl_output),
+                            nodecl_pragma_declaration);
+                }
                 break;
             }
         case AST_UNKNOWN_PRAGMA:
