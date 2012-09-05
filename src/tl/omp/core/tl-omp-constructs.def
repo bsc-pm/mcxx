@@ -53,7 +53,7 @@ OMP_CONSTRUCT("ordered", ordered, true)
 
 OMP_DIRECTIVE("declare|reduction", declare_reduction, true)
 
-OMP_CONSTRUCT("target", target, true)
+OMP_CONSTRUCT_NOEND("target", target, true)
 
 OMP_CONSTRUCT_NOEND("parallel|do", parallel_do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
