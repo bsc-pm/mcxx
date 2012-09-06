@@ -401,7 +401,7 @@ namespace TL
 
                 void set_device_list(const ObjectList<std::string>& device_list);
 
-                ObjectList<std::string> get_device_list() const;
+                ObjectList<std::string> get_device_list();
 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);

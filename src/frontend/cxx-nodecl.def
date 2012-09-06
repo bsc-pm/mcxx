@@ -408,18 +408,19 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
-                 | NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
-                 | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
-                 | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
+                 | NODECL_OPEN_M_P*TARGET([devices] text-seq, [items] target-item-seq-opt)
 # Used for parallel + {sections,for}
                  | NODECL_OPEN_M_P*COMBINED_WORKSHARING()
 # Not yet decided
-                 | NODECL_OPEN_M_P*TARGET()
                  | NODECL_OPEN_M_P*PRIORITY([priority]expression)
                  | NODECL_OPEN_M_P*UNTIED()
                  | NODECL_OPEN_M_P*CRITICAL_NAME() text
                  | NODECL_OPEN_M_P*BARRIER_AT_END()
+
+target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
+                 | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
+                 | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
 
 reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
 

@@ -37,9 +37,8 @@ namespace TL
         void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx)
         {
             PragmaCustomClause device = pragma_line.get_clause("device");
-            if (!device.is_defined())
+            if (device.is_defined())
             {
-                //     std::cerr << pragma_line.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
                 target_ctx.device_list = device.get_tokenized_arguments();
             }
             else

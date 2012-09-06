@@ -117,8 +117,13 @@ namespace TL
             _device_list = device_list;
         }
 
-        ObjectList<std::string> FunctionTaskTargetInfo::get_device_list() const
+        ObjectList<std::string> FunctionTaskTargetInfo::get_device_list()
         {
+            // If empty, add smp
+            if (_device_list.empty())
+            {
+                _device_list.append("smp");
+            }
             return _device_list;
         }
 
