@@ -1583,7 +1583,7 @@ static void copy_outline_data_item(
     FORTRAN_LANGUAGE()
     {
         // We need an additional pointer due to pass by reference in Fortran
-        dest_info.set_field_type(dest_info.get_field_type().get_lvalue_reference_to());
+        dest_info.set_field_type(dest_info.get_field_type().get_pointer_to());
     }
 
     // Update dependences to reflect arguments as well
