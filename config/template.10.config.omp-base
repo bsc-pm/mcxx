@@ -15,6 +15,7 @@ linker_options = -Xlinker --add-needed
 {openmp} compiler_phase = libtlnanos-version.so
 # nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {acml} preprocessor_options = -include math.h -include smmintrin.h -include acml_mv_m128.h
 {acml} options = --variable=acml:1
 {interm-simd} options = --variable=interm-simd:1
