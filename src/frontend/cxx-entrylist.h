@@ -36,31 +36,31 @@ MCXX_BEGIN_DECLS
 
 // Basic creation and destruction
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_new(scope_entry_t*);
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_new(scope_entry_t*);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_remove(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_remove(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list, 
         scope_entry_t* position,
         scope_entry_t* entry);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list, 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list, 
         scope_entry_t* position,
         scope_entry_t* entry);
 
 LIBMCXX_EXTERN void entry_list_free(scope_entry_list_t* list);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
 
 // Queries
 LIBMCXX_EXTERN int entry_list_size(const scope_entry_list_t* list);
@@ -69,9 +69,9 @@ LIBMCXX_EXTERN int entry_list_size(const scope_entry_list_t* list);
 LIBMCXX_EXTERN scope_entry_t* entry_list_head(const scope_entry_list_t* list);
 
 // Iterator
-LIBMCXX_EXTERN scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list);
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list);
 
-LIBMCXX_EXTERN scope_entry_t* entry_list_iterator_current(scope_entry_list_iterator_t* it);
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_t* entry_list_iterator_current(scope_entry_list_iterator_t* it);
 LIBMCXX_EXTERN void entry_list_iterator_next(scope_entry_list_iterator_t* it);
 
 LIBMCXX_EXTERN char entry_list_iterator_end(scope_entry_list_iterator_t* it);
@@ -87,7 +87,7 @@ LIBMCXX_EXTERN char entry_list_contains(const scope_entry_list_t* l,
 
 LIBMCXX_EXTERN void entry_list_to_symbol_array(scope_entry_list_t*, scope_entry_t*** array, int* num_items);
 
-LIBMCXX_EXTERN scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t**);
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t**);
 
 MCXX_END_DECLS
 

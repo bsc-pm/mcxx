@@ -498,7 +498,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
         return;
 
     scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
-    entry_list_remove(entry_list, entry);
+    rb_tree_insert(sc->hash, entry->symbol_name, entry_list_remove(entry_list, entry));
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
