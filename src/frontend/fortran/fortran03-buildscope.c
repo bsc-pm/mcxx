@@ -5986,7 +5986,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 entry->entity_specs.is_module_procedure = 1;
 
                 // Add this symbol to the return list
-                entry_list_add(result_entry_list, entry);
+                result_entry_list = entry_list_add(result_entry_list, entry);
 
                 remove_unknown_kind_symbol(decl_context, entry);
 
@@ -6019,7 +6019,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 else
                 {
                     // Add this symbol to the return list
-                    entry_list_add(result_entry_list, entry);
+                    result_entry_list = entry_list_add(result_entry_list, entry);
 
                     if (generic_spec != NULL)
                     {
@@ -6048,7 +6048,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             return NULL;
 
         // Add this symbol to the return list
-        entry_list_add(result_entry_list, entry);
+        result_entry_list = entry_list_add(result_entry_list, entry);
 
         if (generic_spec != NULL)
         {
