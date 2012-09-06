@@ -735,8 +735,6 @@ void LoweringVisitor::fill_arguments(
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        Type t = (*it)->get_shared_expression().get_type();
-
                         fill_outline_arguments 
                             << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
