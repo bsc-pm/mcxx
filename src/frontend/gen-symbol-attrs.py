@@ -516,6 +516,8 @@ def print_deep_copy_entity_specs(lines):
               type_name = get_up_to_matching_paren(type_name[len("typeof"):])
           print "{"
           print "int i, N = source->entity_specs.%s;" % (num_name)
+          print "dest->entity_specs.%s = NULL;" % (list_name)
+          print "dest->entity_specs.%s = 0;" % (num_name)
           print "for (i = 0; i < N; i++)"
           print "{"
           if type_name == "symbol":
