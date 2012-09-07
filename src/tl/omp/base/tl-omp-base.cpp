@@ -215,7 +215,7 @@ namespace TL { namespace OpenMP {
                             );
                 }
 
-                FunctionTaskTargetInfo target_info = function_task_info.get_target_info();
+                TargetInfo target_info = function_task_info.get_target_info();
 
                 TL::ObjectList<Nodecl::NodeclBase> devices;
                 TL::ObjectList<Nodecl::NodeclBase> target_items;
@@ -1225,35 +1225,34 @@ namespace TL { namespace OpenMP {
                 filename, line,
                 result_list);
 
+        TargetInfo target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
 
-        TL::ObjectList<std::string> device_list;
-        data_sharing_env.get_all_devices(device_list);
-
+        ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
             devices.append(Nodecl::Text::make(*it, filename, line));
         }
 
-        TL::ObjectList<OpenMP::CopyItem> copies;
-        data_sharing_env.get_all_copies(copies);
-
+        ObjectList<CopyItem> copy_in = target_info.get_copy_in();
         make_copy_list<Nodecl::OpenMP::CopyIn>(
-                copies,
+                copy_in,
                 OpenMP::COPY_DIR_IN,
                 filename, line,
                 target_items);
 
+        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
         make_copy_list<Nodecl::OpenMP::CopyOut>(
-                copies,
+                copy_out,
                 OpenMP::COPY_DIR_OUT,
                 filename, line,
                 target_items);
 
+        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
         make_copy_list<Nodecl::OpenMP::CopyInout>(
-                copies,
+                copy_inout,
                 OpenMP::COPY_DIR_INOUT,
                 filename, line,
                 target_items);
