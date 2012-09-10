@@ -149,6 +149,8 @@ static void fortran_init_globals(decl_context_t decl_context)
     }
 }
 
+static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units);
+
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
@@ -161,6 +163,11 @@ nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_un
     if (list != NULL)
     {
         build_scope_program_unit_seq(list, decl_context, &nodecl_program_units);
+    }
+
+    if (!CURRENT_CONFIGURATION->fortran_no_whole_file)
+    {
+        resolve_external_calls_inside_file(nodecl_program_units);
     }
 
     return nodecl_program_units;
@@ -9448,3 +9455,181 @@ scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
 
     return result;
 }
+
+static scope_entry_t* symbol_name_is_in_external_list(const char *name,
+        scope_entry_list_t* external_function_list)
+{
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(external_function_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+
+        if (strcmp(current->symbol_name, name) == 0)
+        {
+            entry_list_iterator_free(it);
+            return current;
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return NULL;
+}
+
+static void resolve_external_calls_rec(nodecl_t node,
+        scope_entry_list_t* external_function_list)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        resolve_external_calls_rec(
+                nodecl_get_child(node, i),
+                external_function_list);
+    }
+
+    // We only fix up function calls, function references in actual arguments are not considered
+    nodecl_t called = nodecl_null();
+    if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL
+            && nodecl_get_kind((called = nodecl_get_child(node, 0))) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(called);
+
+        if (entry->kind == SK_FUNCTION
+                && (entry->decl_context.current_scope->related_entry == NULL
+                    || !symbol_is_parameter_of_function(entry,
+                        entry->decl_context.current_scope->related_entry))
+                && !entry->entity_specs.is_nested_function
+                && !entry->entity_specs.is_module_procedure
+                && !entry->entity_specs.is_builtin
+                && !entry->entity_specs.is_stmt_function)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "%s: info: reference to external procedure '%s'\n",
+                        nodecl_get_locus(node),
+                        entry->symbol_name);
+            }
+
+            scope_entry_t* external_symbol = symbol_name_is_in_external_list(entry->symbol_name, external_function_list);
+            if (external_symbol != NULL)
+            {
+                // Now we should check the types
+                type_t* current_type = entry->type_information;
+
+                ERROR_CONDITION(!is_function_type(current_type), "Something is amiss here", 0);
+
+                if (function_type_get_lacking_prototype(current_type))
+                {
+                    // Given that the existing function does not have prototype
+                    // it may be sensible to fix it up without further ado
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "%s: info: fixing reference to unknown interface '%s'\n",
+                                nodecl_get_locus(node),
+                                entry->symbol_name);
+                        fprintf(stderr, "%s:%d: info: to this program unit definition\n",
+                                external_symbol->file, external_symbol->line);
+                    }
+
+                    //  Fix up
+                    nodecl_set_symbol(called, external_symbol);
+
+                    // Use the alternate name to keep the original symbol
+                    nodecl_t alternate_name = nodecl_get_child(node, 2);
+                    if (nodecl_is_null(alternate_name))
+                    {
+                        alternate_name = nodecl_make_symbol(entry, 
+                                nodecl_get_filename(node),
+                                nodecl_get_line(node));
+
+                        nodecl_set_child(node, 2, alternate_name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void resolve_external_calls_inside_a_function(nodecl_t function_code,
+        scope_entry_list_t* external_function_list)
+{
+    nodecl_t body = nodecl_get_child(function_code, 0);
+
+    nodecl_t internals = nodecl_get_child(function_code, 1);
+
+    resolve_external_calls_rec(body, external_function_list);
+
+    int i, n = 0;
+    nodecl_t* list = nodecl_unpack_list(internals, &n);
+
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            resolve_external_calls_inside_a_function(list[i], external_function_list);
+        }
+    }
+
+    free(list);
+}
+
+static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
+{
+    if (nodecl_is_null(nodecl_program_units))
+        return;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Resolving calls with unknown interface\n");
+    }
+
+    // Gather functions
+    int i, n = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_program_units, &n);
+
+    scope_entry_list_t* external_function_list = NULL;
+
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            scope_entry_t* function = nodecl_get_symbol(list[i]);
+
+            if (function->kind == SK_FUNCTION
+                    && !function->entity_specs.is_nested_function
+                    && !function->entity_specs.is_module_procedure
+                    && (function->decl_context.current_scope == function->decl_context.global_scope))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "%s: info: found program unit of external procedure '%s'\n",
+                            nodecl_get_locus(list[i]),
+                            function->symbol_name);
+                }
+                external_function_list = entry_list_add(external_function_list, function);
+            }
+        }
+    }
+
+    // Now review every body of function code looking for calls to external entities
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            resolve_external_calls_inside_a_function(list[i], external_function_list);
+        }
+    }
+
+    free(list);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "End resolving calls with unknown interface\n");
+    }
+
+}
+
