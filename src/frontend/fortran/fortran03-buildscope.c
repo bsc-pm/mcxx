@@ -7812,6 +7812,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     entry_list_free(check_repeated_name);
     
     // Always insert the ultimate symbol
+    scope_entry_t* named_entry_from_module = entry;
     if (entry->entity_specs.from_module != NULL)
     {
         ERROR_CONDITION(entry->entity_specs.alias_to == NULL, 
@@ -7840,6 +7841,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
 
+    current_symbol->entity_specs.is_renamed = 0;
+
     // Always alias to the ultimate symbol
     if (entry->entity_specs.from_module != NULL
             && entry->entity_specs.alias_to != NULL)
@@ -7850,7 +7853,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     // Also set the access to be the default
     current_symbol->entity_specs.access = AS_UNKNOWN;
 
-    if (strcmp(aliased_name, entry->symbol_name) != 0)
+    if (strcmp(aliased_name, named_entry_from_module->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
     }
