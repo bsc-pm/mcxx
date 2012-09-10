@@ -4217,10 +4217,10 @@ OPERATOR_TABLE
 
             indent();
 
-            file << "USE" 
+            file << "USE"
                 << module_nature
                 << module.get_name()
-                << ", ONLY: " 
+                << ", ONLY: "
                 ;
 
             for (TL::ObjectList<UseStmtItem>::iterator it2 = item_list.begin();
@@ -4228,11 +4228,28 @@ OPERATOR_TABLE
                     it2++)
             {
                 UseStmtItem& item (*it2);
-
-                if (it2 != item_list.begin()) 
-                    file << ", ";
-
                 TL::Symbol entry = item.symbol;
+
+                // We cannot use the generic specifier of an interface if it has not any implementation
+                // Example:
+                //
+                //      MODULE M
+                //       IMPLICIT NONE
+                //       INTERFACE P
+                //       END INTERFACE P
+                //      END MODULE M
+                //
+                //      MODULE N
+                //       IMPLICIT NONE
+                //       USE M, ONLY: P <---------- WRONG!
+                //      END MODULE N
+                //
+                if (entry.is_generic_specifier()
+                        && entry.get_num_related_symbols() == 0)
+                    continue;
+
+                if (it2 != item_list.begin())
+                    file << ", ";
 
                 if (!entry.get_internal_symbol()->entity_specs.is_renamed)
                 {
