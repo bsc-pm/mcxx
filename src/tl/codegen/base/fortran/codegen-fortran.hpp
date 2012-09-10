@@ -386,6 +386,8 @@ namespace Codegen
             bool symbol_is_public_in_module(TL::Symbol current_module, TL::Symbol entry);
 
             static Nodecl::NodeclBase advance_parenthesized_expression(Nodecl::NodeclBase n);
+
+            void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
     };
 }
 

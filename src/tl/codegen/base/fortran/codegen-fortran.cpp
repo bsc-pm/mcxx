@@ -1484,6 +1484,52 @@ OPERATOR_TABLE
         file << "CONTINUE\n";
     }
 
+    void FortranBase::if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_)
+    {
+        inc_indent();
+        walk(then);
+        dec_indent();
+
+        bool skip_end_if = false;
+
+        if (!else_.is_null())
+        {
+            indent();
+
+            Nodecl::List else_items = else_.as<Nodecl::List>();
+
+            if (else_items.size() == 1
+                    && else_items[0].is<Nodecl::IfElseStatement>())
+            {
+                Nodecl::IfElseStatement nested_if = else_items[0].as<Nodecl::IfElseStatement>();
+
+                Nodecl::NodeclBase condition = nested_if.get_condition();
+
+                file << "ELSE IF (";
+                walk(condition);
+                file << ") THEN\n";
+
+                if_else_body(nested_if.get_then(), nested_if.get_else());
+
+                skip_end_if = true;
+            }
+            else
+            {
+                file << "ELSE\n";
+
+                inc_indent();
+                walk(else_);
+                dec_indent();
+            }
+        }
+
+        if (!skip_end_if)
+        {
+            indent();
+            file << "END IF\n";
+        }
+    }
+
     void FortranBase::visit(const Nodecl::IfElseStatement& node)
     {
         Nodecl::NodeclBase condition = node.get_condition();
@@ -1495,22 +1541,7 @@ OPERATOR_TABLE
         walk(condition);
         file << ") THEN\n";
 
-        inc_indent();
-        walk(then);
-        dec_indent();
-
-        if (!else_.is_null())
-        {
-            indent();
-            file << "ELSE\n";
-
-            inc_indent();
-            walk(else_);
-            dec_indent();
-        }
-
-        indent();
-        file << "END IF\n";
+        if_else_body(then, else_);
     }
 
     void FortranBase::visit(const Nodecl::ReturnStatement& node)
