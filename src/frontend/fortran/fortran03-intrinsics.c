@@ -4953,12 +4953,11 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = no_ref(argument_types[1]);
     type_t* t2 = no_ref(argument_types[2]);
 
-    if (fortran_is_array_type(t0)
-            && is_integer_type(t1)
+    if( is_integer_type(t1)
             && is_integer_type(t2))
     {
         return GET_INTRINSIC_TRANSFORMATIONAL("spread", 
-                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0), symbol->decl_context),
+                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) + 1, symbol->decl_context),
                 t0, t1, t2);
     }
 
