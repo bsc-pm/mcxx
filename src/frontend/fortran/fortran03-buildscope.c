@@ -8278,43 +8278,68 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
     AST mask_expr = ASTSon1(where_construct_stmt);
     nodecl_t nodecl_mask_expr = nodecl_null();
     fortran_check_expression(mask_expr, decl_context, &nodecl_mask_expr);
-    
+
     AST where_construct_body = ASTSon1(a);
 
-
-    AST main_where_body = ASTSon0(where_construct_body);
-    nodecl_t nodecl_body = nodecl_null();
-    build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
-
-    nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
-                nodecl_mask_expr, nodecl_list_head(nodecl_body), 
-                ASTFileName(a), ASTLine(a)));
-
-    AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
-    nodecl_t nodecl_elsewhere_parts = nodecl_null();
-    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere_parts);
-
-    nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts, nodecl_elsewhere_parts);
-    
-    // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
-
-    AST elsewhere_body = ASTSon3(where_construct_body);
-
-    if (elsewhere_body != NULL)
+    if (where_construct_body == NULL)
     {
-        nodecl_t nodecl_elsewhere_body = nodecl_null();
-        build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
-        nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
-            nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), 
-                    nodecl_list_head(nodecl_elsewhere_body), 
-                    ASTFileName(a), ASTLine(a))));
+        nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                    nodecl_mask_expr, nodecl_null(), ASTFileName(a), ASTLine(a)));
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
+                    );
     }
+    else
+    {
+
+        AST main_where_body = ASTSon0(where_construct_body);
+        nodecl_t nodecl_body = nodecl_null();
+
+        nodecl_t nodecl_where_parts = nodecl_null();
+
+        if (main_where_body != NULL)
+        {
+            build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
+
+            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                        nodecl_mask_expr, nodecl_list_head(nodecl_body), 
+                        ASTFileName(a), ASTLine(a)));
+        }
+        else
+        {
+            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                        nodecl_mask_expr, nodecl_null(),
+                        ASTFileName(a), ASTLine(a)));
+        }
+
+        AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
+
+        nodecl_t nodecl_elsewhere_parts = nodecl_null();
+        build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere_parts);
+
+        nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts, nodecl_elsewhere_parts);
+
+        // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
+
+        AST elsewhere_body = ASTSon3(where_construct_body);
+
+        if (elsewhere_body != NULL)
+        {
+            nodecl_t nodecl_elsewhere_body = nodecl_null();
+            build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
+            nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
+                    nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), 
+                            nodecl_list_head(nodecl_elsewhere_body), 
+                            ASTFileName(a), ASTLine(a))));
+        }
 
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
-                );
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
+                    );
+    }
 }
 
 static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
