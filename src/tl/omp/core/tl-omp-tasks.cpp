@@ -646,6 +646,32 @@ namespace TL
             std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
+
+            FORTRAN_LANGUAGE()
+            {
+                TL::Scope sc = construct.retrieve_context();
+                decl_context_t decl_context = sc.get_decl_context();
+                static bool already_nagged = false;
+
+                if (decl_context.current_scope == decl_context.global_scope)
+                {
+                    std::cerr
+                        << construct.get_locus()
+                        << ": warning: !$OMP TASK at top level only applies to calls in the current file"
+                        << std::endl
+                        ;
+
+                    if (!already_nagged)
+                    {
+                        std::cerr
+                            << construct.get_locus()
+                            << ": info: use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files"
+                            << std::endl
+                            ;
+                        already_nagged = true;
+                    }
+                }
+            }
         }
 
         void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)
