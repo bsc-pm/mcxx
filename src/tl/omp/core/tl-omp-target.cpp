@@ -44,6 +44,10 @@ namespace TL
             else
             {
                 // Default is smp
+             std::cerr << pragma_line.get_locus() << ": "
+                    << "warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'"
+                    << std::endl;
+
                 target_ctx.device_list.clear();
                 target_ctx.device_list.append("smp");
             }
