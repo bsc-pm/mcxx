@@ -10560,6 +10560,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         return;
     }
 
+    int line = line;
+    const char* filename = filename;
+
     char braced_initializer_is_dependent = nodecl_expr_is_type_dependent(braced_initializer);
 
     nodecl_t initializer_clause_list = nodecl_get_child(braced_initializer, 0);
@@ -10569,7 +10572,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 || is_vector_type(declared_type))
             && is_aggregate_type(declared_type))
     {
-        nodecl_t nodecl_initializer_list_output = nodecl_null();
+        nodecl_t init_list_output = nodecl_null();
 
         type_t* initializer_type = declared_type;
         if (!nodecl_is_null(initializer_clause_list))
@@ -10586,15 +10589,13 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     error_printf("%s: error: array types, struct, class, union or vector types\n",
                             nodecl_get_locus(braced_initializer));
                 }
-                *nodecl_output = nodecl_make_err_expr(
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
             // Special case for this sort of initializations
             //   char a[] = { "hello" };
-            
+
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
             type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
             if (nodecl_list_length(initializer_clause_list) == 1
@@ -10619,52 +10620,33 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     return;
             }
 
-            int i, num_items = 0;
-            nodecl_t* list = nodecl_unpack_list(initializer_clause_list, &num_items);
+            // We precalculate some useful information beforehand. This
+            // information will be used only when the declared type is a class type
+            scope_entry_list_t* nonstatic_data_members = NULL;
+            scope_entry_list_iterator_t* next_nonstatic_data_member = NULL;
+            if (is_class_type(declared_type))
+            {
+                type_t* actual_class_type = get_actual_class_type(declared_type);
+                nonstatic_data_members = class_type_get_nonstatic_data_members(actual_class_type);
+                next_nonstatic_data_member = entry_list_iterator_begin(nonstatic_data_members);
+            }
 
-            for (i = 0; i < num_items; i++)
+            int i = 0, num_items = 0;
+            nodecl_t* list = nodecl_unpack_list(initializer_clause_list, &num_items);
+            while (i < num_items)
             {
                 nodecl_t nodecl_initializer_clause = list[i];
 
                 type_t* type_in_context = declared_type;
-
                 if (nodecl_get_kind(nodecl_initializer_clause) != NODECL_C99_DESIGNATED_INITIALIZER)
                 {
                     if (is_class_type(declared_type))
                     {
-                        type_t* actual_class_type = get_actual_class_type(declared_type);
+                        scope_entry_t* data_member = entry_list_iterator_current(next_nonstatic_data_member);
+                        type_in_context = data_member->type_information;
 
-                        scope_entry_list_t* nonstatic_data_members = 
-                            class_type_get_nonstatic_data_members(actual_class_type);
-
-                        if (i >= entry_list_size(nonstatic_data_members))
-                        {
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: too many initializers for aggregated data type\n",
-                                        nodecl_get_locus(braced_initializer));
-                            }
-                            *nodecl_output = nodecl_make_err_expr(
-                                    nodecl_get_filename(braced_initializer), 
-                                    nodecl_get_line(braced_initializer));
-                            return;
-                        }
-                        else
-                        {
-                            scope_entry_list_iterator_t* it = entry_list_iterator_begin(nonstatic_data_members);
-                            int j;
-                            for (j = 0; j < i; j++)
-                            {
-                                entry_list_iterator_next(it);
-                            }
-
-                            scope_entry_t* data_member = entry_list_iterator_current(it);
-                            type_in_context = data_member->type_information;
-
-                            entry_list_iterator_free(it);
-                        }
-
-                        entry_list_free(nonstatic_data_members);
+                        // Advance the iterator to the next nonstatic data member
+                        entry_list_iterator_next(next_nonstatic_data_member);
                     }
                     else if (is_array_type(declared_type))
                     {
@@ -10676,27 +10658,103 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     }
                     else
                     {
-                        internal_error("Invalid aggregated type '%s'",
-                                print_decl_type_str(declared_type, decl_context, ""));
+                        internal_error("Invalid aggregated type '%s'", print_decl_type_str(declared_type, decl_context, ""));
                     }
                 }
 
-                nodecl_t nodecl_initializer_clause_output = nodecl_null();
-                check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_in_context,
-                        &nodecl_initializer_clause_output);
-
-                if (nodecl_is_err_expr(nodecl_initializer_clause_output))
+                // if the initializer-list for a subaggregate does not begin with a left brace,
+                // then only enough initializers from the list are taken to initialize the
+                // members of the subaggregate; any remaining initializers are left to
+                // initialize the next member of the aggregate of which the current
+                // subaggregate is a member.
+                //
+                // C++ Standard 2003
+                if (is_aggregate_type(type_in_context)
+                        && nodecl_get_kind(nodecl_initializer_clause) != NODECL_CXX_BRACED_INITIALIZER
+                        && nodecl_get_kind(nodecl_initializer_clause) != NODECL_C99_DESIGNATED_INITIALIZER)
                 {
-                    *nodecl_output = nodecl_make_err_expr(
-                            nodecl_get_filename(braced_initializer), 
-                            nodecl_get_line(braced_initializer));
-                    return;
-                }
+                    if (is_array_type(type_in_context))
+                    {
+                        int j;
+                        type_t* element_type = array_type_get_element_type(type_in_context);
+                        int number_of_elements = array_type_get_total_number_of_elements(type_in_context);
+                        for (j = 0; j < number_of_elements && i < num_items; ++j)
+                        {
+                            nodecl_initializer_clause = list[i];
+                            nodecl_t nodecl_init_output = nodecl_null();
 
-                nodecl_initializer_list_output = nodecl_append_to_list(nodecl_initializer_list_output, nodecl_initializer_clause_output);
+                            check_nodecl_initializer_clause(nodecl_initializer_clause,
+                                    decl_context, element_type, &nodecl_init_output);
+
+                            if (nodecl_is_err_expr(nodecl_init_output))
+                            {
+                                *nodecl_output = nodecl_make_err_expr(filename, line);
+                                return;
+                            }
+
+                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                            i++;
+                        }
+                    }
+                    else if (is_class_type(type_in_context))
+                    {
+                        type_t* inner_class_type = get_actual_class_type(type_in_context);
+
+                        scope_entry_list_t* inner_nonstatic_data_members =
+                            class_type_get_nonstatic_data_members(inner_class_type);
+
+                        scope_entry_list_iterator_t* it;
+                        for (it = entry_list_iterator_begin(inner_nonstatic_data_members);
+                                !entry_list_iterator_end(it) && i < num_items;
+                                entry_list_iterator_next(it))
+                        {
+                            nodecl_initializer_clause = list[i];
+                            scope_entry_t* data_member = entry_list_iterator_current(it);
+                            nodecl_t nodecl_init_output = nodecl_null();
+
+                            check_nodecl_initializer_clause(nodecl_initializer_clause,
+                                    decl_context, data_member->type_information, &nodecl_init_output);
+
+                            if (nodecl_is_err_expr(nodecl_init_output))
+                            {
+                                *nodecl_output = nodecl_make_err_expr(filename, line);
+                                return;
+                            }
+
+                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                            i++;
+                        }
+
+                        entry_list_iterator_free(it);
+                        entry_list_free(inner_nonstatic_data_members);
+                    }
+                    else
+                    {
+                        internal_error("Unexpected type '%s'", print_decl_type_str(type_in_context, decl_context, ""));
+                    }
+                }
+                else
+                {
+                    nodecl_t nodecl_init_output = nodecl_null();
+                    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_in_context, &nodecl_init_output);
+                    if (nodecl_is_err_expr(nodecl_init_output))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(filename, line);
+                        return;
+                    }
+
+                    init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                    i++;
+                }
             }
 
+            // Deallocate nonstatic data members if needed
+            entry_list_iterator_free(next_nonstatic_data_member);
+            entry_list_free(nonstatic_data_members);
+
+            // Deallocate nodecl list
             free(list);
+
 
             if (is_class_type(declared_type))
             {
@@ -10710,8 +10768,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
                 nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
                         const_value_get_unsigned_int(num_items), 
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
 
                 initializer_type = get_array_type(
                         array_type_get_element_type(declared_type),
@@ -10727,10 +10785,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
         }
 
-        *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list_output,
-                initializer_type,
-                nodecl_get_filename(braced_initializer), 
-                nodecl_get_line(braced_initializer));
+        *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, filename, line);
         return;
     }
     // Not an aggregate class
@@ -10757,8 +10812,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(declared_type));
 
         scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-                nodecl_get_filename(braced_initializer), 
-                nodecl_get_line(braced_initializer),
+                filename, 
+                line,
                 /* mandatory */ 0);
 
         char has_initializer_list_ctor = 0;
@@ -10812,8 +10867,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     num_args,
                     /* is_explicit */ 0,
                     decl_context,
-                    nodecl_get_filename(braced_initializer), 
-                    nodecl_get_line(braced_initializer),
+                    filename, 
+                    line,
                     conversors,
                     &candidates);
             entry_list_free(candidates);
@@ -10827,19 +10882,19 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             print_type_str(declared_type, decl_context));
                 }
                 *nodecl_output = nodecl_make_err_expr(
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
                 return;
             }
             else
             {
                 if (function_has_been_deleted(decl_context, constructor, 
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer)))
+                        filename, 
+                        line))
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            nodecl_get_filename(braced_initializer), 
-                            nodecl_get_line(braced_initializer));
+                            filename, 
+                            line);
                     return;
                 }
                 for (i = 0; i < num_args; i++)
@@ -10847,12 +10902,12 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (conversors[i] != NULL)
                     {
                         if (function_has_been_deleted(decl_context, conversors[i], 
-                                    nodecl_get_filename(braced_initializer), 
-                                    nodecl_get_line(braced_initializer)))
+                                    filename, 
+                                    line))
                         {
                             *nodecl_output = nodecl_make_err_expr(
-                                    nodecl_get_filename(braced_initializer), 
-                                    nodecl_get_line(braced_initializer));
+                                    filename, 
+                                    line);
                             return;
                         }
                     }
@@ -10882,14 +10937,14 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor,
-                            nodecl_get_filename(braced_initializer),
-                            nodecl_get_line(braced_initializer)),
+                            filename,
+                            line),
                         nodecl_arguments_output,
-                        nodecl_make_cxx_function_form_implicit(nodecl_get_filename(braced_initializer),
-                            nodecl_get_line(braced_initializer)),
+                        nodecl_make_cxx_function_form_implicit(filename,
+                            line),
                         declared_type,
-                        nodecl_get_filename(braced_initializer),
-                        nodecl_get_line(braced_initializer));
+                        filename,
+                        line);
                 return;
             }
         }
@@ -10922,7 +10977,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             type_t* specialized_std_initializer = 
                 template_type_get_specialized_type(std_initializer_list_template->type_information,
                         updated_template_parameters, decl_context, 
-                        nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer));
+                        filename, line);
 
             // Now solve the constructor using this specialization
             // Should it be a const T&  ?
@@ -10935,7 +10990,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     num_args,
                     /* is_explicit */ 0,
                     decl_context,
-                    nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer),
+                    filename, line,
                     conversors,
                     &candidates);
             entry_list_free(candidates);
@@ -10949,19 +11004,19 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             print_type_str(declared_type, decl_context));
                 }
                 *nodecl_output = nodecl_make_err_expr(
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
                 return;
             }
             else
             {
                 if (function_has_been_deleted(decl_context, constructor, 
-                            nodecl_get_filename(braced_initializer), 
-                            nodecl_get_line(braced_initializer)))
+                            filename, 
+                            line))
                 {
                     *nodecl_output = nodecl_make_err_expr(
-                            nodecl_get_filename(braced_initializer), 
-                            nodecl_get_line(braced_initializer));
+                            filename, 
+                            line);
                     return;
                 }
 
@@ -10971,12 +11026,12 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (conversors[j] != NULL)
                     {
                         if (function_has_been_deleted(decl_context, conversors[j], 
-                                    nodecl_get_filename(braced_initializer), 
-                                    nodecl_get_line(braced_initializer)))
+                                    filename, 
+                                    line))
                         {
                             *nodecl_output = nodecl_make_err_expr(
-                                    nodecl_get_filename(braced_initializer), 
-                                    nodecl_get_line(braced_initializer));
+                                    filename, 
+                                    line);
                             return;
                         }
                     }
@@ -11006,14 +11061,14 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 }
 
                 *nodecl_output = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(constructor, nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer)),
+                        nodecl_make_symbol(constructor, filename, line),
                         nodecl_make_list_1(nodecl_make_structured_value(nodecl_arguments_output,
                                 specialized_std_initializer,
-                                nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer))),
+                                filename, line)),
                         nodecl_make_cxx_function_form_implicit(
-                            nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer)),
+                            filename, line),
                         declared_type,
-                        nodecl_get_filename(braced_initializer), nodecl_get_line(braced_initializer));
+                        filename, line);
 
                 return;
             }
@@ -11034,8 +11089,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_get_locus(braced_initializer));
                 }
                 *nodecl_output = nodecl_make_err_expr(
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
                 return;
             }
 
@@ -11046,8 +11101,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             if (nodecl_is_err_expr(nodecl_expr_out))
             {
                 *nodecl_output = nodecl_make_err_expr(
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
                 return;
             }
             else
@@ -11055,8 +11110,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 *nodecl_output = nodecl_make_structured_value(
                         nodecl_make_list_1(nodecl_expr_out),
                         declared_type,
-                        nodecl_get_filename(braced_initializer), 
-                        nodecl_get_line(braced_initializer));
+                        filename, 
+                        line);
 
                 nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_expr_out));
             }
@@ -11067,8 +11122,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             // Empty is OK
             *nodecl_output = nodecl_make_structured_value(nodecl_null(), 
                     declared_type,
-                    nodecl_get_filename(braced_initializer), 
-                    nodecl_get_line(braced_initializer));
+                    filename, 
+                    line);
             return;
         }
     }
