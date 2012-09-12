@@ -1691,6 +1691,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         argument_outline_data_item.set_shared_expression(it->second);
     }
 
+    TL::Symbol alternate_name;
+    if (!function_call.get_alternate_name().is_null())
+    {
+        alternate_name = function_call.get_alternate_name().get_symbol();
+    }
+
     // Craft a new function call with the new mcc_arg_X symbols
     TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
     TL::ObjectList<Nodecl::NodeclBase> arg_list;
@@ -1704,17 +1710,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         nodecl_arg.set_type( args_it->get_type() );
 
         // We must respect symbols in Fortran because of optional stuff
-        if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE
+                // If the alternate name lacks prototype, do not add keywords
+                // here
+                && !(alternate_name.is_valid()
+                    && alternate_name.get_type().lacks_prototype()))
         {
             Nodecl::Symbol nodecl_param = Nodecl::Symbol::make(
                     params_it->first,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
 
             nodecl_arg = Nodecl::FortranNamedPairSpec::make(
                     nodecl_param,
                     nodecl_arg,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
         }
 
