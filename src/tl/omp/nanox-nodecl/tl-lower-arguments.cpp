@@ -337,6 +337,15 @@ namespace TL { namespace Nanox {
 
             TL::Type field_type = (*it)->get_field_type();
 
+            if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+            {
+                if (field_type.is_const())
+                {
+                    field_type = field_type.get_unqualified_type();
+                }
+            }
+            field.get_internal_symbol()->type_information = field_type.get_internal_type();
+
             field.get_internal_symbol()->entity_specs.is_member = 1;
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
@@ -354,7 +363,6 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            field.get_internal_symbol()->type_information = field_type.get_internal_type();
             class_type_add_member(new_class_type, field.get_internal_symbol());
         }
 
