@@ -66,6 +66,24 @@ char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* node
     return !nodecl_is_err_expr(*nodecl_output);
 }
 
+static int _checking_initializer = 0;
+static void fortran_push_checking_initializer(void)
+{
+    _checking_initializer++;
+}
+
+static void fortran_pop_checking_initializer(void)
+{
+    _checking_initializer--;
+    ERROR_CONDITION(_checking_initializer < 0, 
+            "Invalid value %d for _checking_initializer", _checking_initializer);
+}
+
+static char fortran_checking_initializer(void)
+{
+    return _checking_initializer != 0;
+}
+
 static int _checking_array_expression = 0;
 static void fortran_push_checking_array_expression(void)
 {
@@ -3671,9 +3689,15 @@ static void check_symbol_of_called_name(AST sym,
 
             if (entry_is_an_intrinsic) 
             {
-                // Inserting the intrinsic as an alias is okay here since there
-                // is no doubt about the name being the INTRINSIC symbol
-                insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                if (!fortran_checking_initializer())
+                {
+                    // Inserting the intrinsic as an alias is okay here since there
+                    // is no doubt about the name being the INTRINSIC symbol
+                    //
+                    // We do not insert intrinsics from initializations just in case
+                    // an INTRINSIC or EXTERNAL statement appears later
+                    insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                }
 
                 // We are done, this is the single name being called
                 *call_list = entry_list_new(entry);
@@ -4607,7 +4631,9 @@ void fortran_check_initialization(
         return;
     }
 
+    fortran_push_checking_initializer();
     fortran_check_expression(expr, decl_context, nodecl_output);
+    fortran_pop_checking_initializer();
 
     if (nodecl_is_err_expr(*nodecl_output))
         return;
@@ -4907,15 +4933,9 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
 
             if (!nodecl_is_err_expr(nodecl_check_expr))
             {
-                if (correct_option < 0)
-                {
-                    correct_option = prioritize[i].idx;
-                }
-                else
-                {
-                    internal_error("%s: more than one interpretation valid for '%s'\n",
-                            fortran_prettyprint_in_buffer(current_expr));
-                }
+                // Use the first one that works
+                correct_option = prioritize[i].idx;
+                break;
             }
         }
     }
