@@ -202,7 +202,7 @@ struct class_info_tag {
 // functions to something neither arrays to something.  So every basic type is
 // represented here including builtin types, classes, structs, enums, unions
 // and other nuclear types (like type template parameters)
-typedef 
+typedef
 struct simple_type_tag {
     // Kind
     simple_type_kind_t kind:4;
@@ -222,6 +222,9 @@ struct simple_type_tag {
 
     // States that the STK_INDIRECT is a not the last indirect
     unsigned char is_indirect:1;
+
+    // States that the type is a transparent union (GCC extension)
+    unsigned char is_transparent_union:1;
 
 #if 0
     // States that this STK_TEMPLATE_DEPENDENT_TYPE does not come from user code
@@ -1311,6 +1314,17 @@ char dependent_typename_is_artificial(type_t* t)
     return t->type->is_artificial;
 }
 #endif
+
+char is_transparent_union(type_t* t)
+{
+    return (t != NULL && t->type->is_transparent_union);
+}
+
+void set_is_transparent_union(type_t* t, char is_transp_union)
+{
+    ERROR_CONDITION(t == NULL, "This type cannot be NULL", 0);
+    t->type->is_transparent_union = is_transp_union;
+}
 
 enum type_tag_t get_dependent_entry_kind(type_t* t)
 {

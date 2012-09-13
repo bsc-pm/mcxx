@@ -469,6 +469,10 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             gather_info->cuda.is_constant = 1;
         }
     }
+    else if (strcmp(attribute_name, "__transparent_union__") == 0)
+    {
+        gather_info->is_transparent_union = 1;
+    }
     else
     {
         // Unknown attribute, keep its arguments as a literal list

@@ -7992,9 +7992,28 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
         int num_parameter, nodecl_t *arg UNUSED_PARAMETER, check_arg_data_t *p)
 {
     standard_conversion_t result;
-    if (!standard_conversion_between_types(&result, arg_type, param_type))
+    char found_a_conversion = 0;
+    found_a_conversion = standard_conversion_between_types(&result, arg_type, param_type);
+    if (!found_a_conversion)
     {
-        if (!checking_ambiguity())
+        if (is_class_type(param_type))
+        {
+            if (is_transparent_union(param_type))
+            {
+                type_t* class_type = get_actual_class_type(param_type);
+                scope_entry_list_t* list_of_members = class_type_get_members(class_type);
+                scope_entry_list_iterator_t* it = entry_list_iterator_begin(list_of_members);
+
+                while (!found_a_conversion && !entry_list_iterator_end(it))
+                {
+                    scope_entry_t* current_member = entry_list_iterator_current(it);
+                    found_a_conversion = standard_conversion_between_types(&result, arg_type, current_member->type_information);
+                    entry_list_iterator_next(it);
+                }
+                entry_list_free(list_of_members);
+            }
+        }
+        if (!found_a_conversion && !checking_ambiguity())
         {
             error_printf("%s: error: argument %d of type '%s' cannot be "
                     "converted to type '%s' of parameter\n",
@@ -8003,9 +8022,8 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
                     print_type_str(no_ref(arg_type), p->decl_context),
                     print_type_str(param_type, p->decl_context));
         }
-        return 0;
     }
-    return 1;
+    return found_a_conversion;
 }
 
 static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_type, 

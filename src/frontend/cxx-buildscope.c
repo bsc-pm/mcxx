@@ -1552,6 +1552,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry == NULL)
                 return;
 
+            if (current_gather_info.is_transparent_union)
+            {
+                set_is_transparent_union(entry->type_information, /* is_transparent_union */ 1);
+            }
+
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &current_gather_info);
 
@@ -5818,6 +5823,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_key = ASTSon0(class_head);
     AST class_id_expression = ASTSon1(class_head);
     AST base_clause = ASTSon2(class_head);
+    AST attribute_list = ASTSon3(class_head);
+
+    if (attribute_list != NULL)
+    {
+        gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
+    }
 
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
@@ -6270,8 +6281,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
             "The inner context was incorrectly set", 0);
 
-
     gather_info->defined_type = class_entry;
+
+    C_LANGUAGE()
+    {
+        if (class_kind == TT_UNION
+                && gather_info->is_transparent_union)
+        {
+            set_is_transparent_union(class_type, /* is_transparent_union */ 1);
+        }
+    }
 
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
