@@ -4726,10 +4726,14 @@ OPERATOR_TABLE
         }
 
         file << "\n";
+
+        inc_indent();
     }
     
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
+        dec_indent();
+
         TL::Type function_type = entry.get_type();
         if (function_type.is_any_reference())
             function_type = function_type.references_to();
