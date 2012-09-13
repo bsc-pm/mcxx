@@ -859,20 +859,23 @@ static void build_scope_main_program_unit(AST program_unit,
 
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
+    nodecl_t function_code = nodecl_make_function_code(
                 nodecl_make_context(
                     nodecl_body,
                     program_unit_context,
-                    ASTFileName(program_unit), 
+                    ASTFileName(program_unit),
                     ASTLine(program_unit)),
                 /* initializers */ nodecl_null(),
                 nodecl_internal_subprograms,
                 program_sym,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+                ASTFileName(program_unit), ASTLine(program_unit));
+
+    program_sym->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
-static scope_entry_t* register_function(AST program_unit, 
+static scope_entry_t* register_function(AST program_unit,
         decl_context_t decl_context,
         decl_context_t program_unit_context)
 {
@@ -888,7 +891,7 @@ static scope_entry_t* register_function(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(
             decl_context,
             program_unit_context,
-            name, prefix, suffix, 
+            name, prefix, suffix,
             dummy_arg_name_list, /* is_function */ 1);
 
     return new_entry;
@@ -964,17 +967,20 @@ static void build_scope_function_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_body,
-                    program_unit_context,
-                    ASTFileName(program_unit), 
-                    ASTLine(program_unit)),
-                /* initializers */ nodecl_null(),
-                nodecl_internal_subprograms,
-                new_entry,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+    nodecl_t function_code = nodecl_make_function_code(
+            nodecl_make_context(
+                nodecl_body,
+                program_unit_context,
+                ASTFileName(program_unit), 
+                ASTLine(program_unit)),
+            /* initializers */ nodecl_null(),
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit));
+
+    new_entry->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
 static scope_entry_t* register_subroutine(AST program_unit,
@@ -1069,17 +1075,20 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_body,
-                    program_unit_context,
-                    ASTFileName(program_unit), 
-                    ASTLine(program_unit)),
-                /* initializers */ nodecl_null(),
-                nodecl_internal_subprograms,
-                new_entry,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+    nodecl_t function_code = nodecl_make_function_code(
+            nodecl_make_context(
+                nodecl_body,
+                program_unit_context,
+                ASTFileName(program_unit), 
+                ASTLine(program_unit)),
+            /* initializers */ nodecl_null(),
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit));
+
+    new_entry->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
@@ -2244,7 +2253,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                             internal_subprograms_info[i].line));
             }
 
-            internal_subprograms_info[i].nodecl_output = 
+            nodecl_t function_code = 
                 nodecl_make_function_code(
                         nodecl_make_context(
                             nodecl_statements,
@@ -2256,6 +2265,9 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                         internal_subprograms_info[i].symbol,
                         internal_subprograms_info[i].filename,
                         internal_subprograms_info[i].line);
+
+            internal_subprograms_info[i].symbol->entity_specs.function_code = function_code;
+            internal_subprograms_info[i].nodecl_output = function_code;
         }
         i++;
     }

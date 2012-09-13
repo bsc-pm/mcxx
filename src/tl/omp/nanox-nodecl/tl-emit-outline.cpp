@@ -513,7 +513,9 @@ namespace TL { namespace Nanox {
         function_symbol.get_internal_symbol()->defined = 1;
 
         function_code = Nodecl::FunctionCode::make(context,
+                // Initializers
                 Nodecl::NodeclBase::null(),
+                // Internal functions
                 Nodecl::NodeclBase::null(),
                 function_symbol,
                 "", 0);
@@ -775,6 +777,17 @@ namespace TL { namespace Nanox {
         build_empty_body_for_function(unpacked_function, 
                 unpacked_function_code,
                 unpacked_function_body);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Replicate internal functions
+            Nodecl::FunctionCode function_code = current_function.get_function_code().as<Nodecl::FunctionCode>();
+            Nodecl::NodeclBase internal_functions = function_code.get_internal_functions();
+
+            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(
+                    Nodecl::Utils::deep_copy(internal_functions, current_function.get_related_scope(), *symbol_map));
+        }
+
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         Source unpacked_source;
@@ -849,7 +862,7 @@ namespace TL { namespace Nanox {
         unpacked_function_body.replace(new_unpacked_body);
 
         Nodecl::NodeclBase outline_function_code, outline_function_body;
-        build_empty_body_for_function(outline_function, 
+        build_empty_body_for_function(outline_function,
                 outline_function_code,
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
