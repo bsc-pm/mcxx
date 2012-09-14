@@ -47,6 +47,35 @@
  * Very specific bits of gcc support should be in this file
  */
 
+const char* list_of_gcc_type_attributes[] =
+{
+    "aligned",
+    "deprecated",
+    "may_alias",
+    "packed",
+    "transparent_union",
+    "unused",
+
+    NULL
+};
+
+char gcc_attribute_is_type_attribute(const char* identifier)
+{
+    char is_type_attribute = 0;
+    int i = 0;
+    while (!is_type_attribute
+            && list_of_gcc_type_attributes[i] != NULL)
+    {
+        const char* attribute_name = list_of_gcc_type_attributes[i];
+        const char* __attribute_name__ = strappend(strprepend("__", identifier),"__");
+        is_type_attribute =
+            (strcmp(identifier, attribute_name) == 0)
+            || (strcmp(identifier, __attribute_name__) == 0);
+        ++i;
+    }
+    return is_type_attribute;
+}
+
 static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info, 
         char floating,
         _size_t bytes)

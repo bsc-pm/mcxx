@@ -36,6 +36,7 @@
 
 MCXX_BEGIN_DECLS
 
+LIBMCXX_EXTERN char gcc_attribute_is_type_attribute(const char* identifier);
 LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute, 
         gather_decl_spec_t* gather_info, 
         decl_context_t decl_context);
