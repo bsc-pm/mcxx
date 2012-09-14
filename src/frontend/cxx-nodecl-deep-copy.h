@@ -17,6 +17,7 @@ nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t, symbol_map_t*);
 // Copies local entities like functions 
 void copy_fortran_program_unit(scope_entry_t* new_program_unit,
         scope_entry_t* original_program_unit,
+        symbol_map_t* original_map,
         symbol_map_t** out_symbol_map);
 
 typedef struct nested_symbol_map_tag nested_symbol_map_t;

@@ -188,8 +188,10 @@ static char any_symbols(scope_entry_t* entry UNUSED_PARAMETER)
 
 static char symbols_of_fortran_program_unit(scope_entry_t* entry)
 {
-    return (entry->kind == SK_FUNCTION
-            && !entry->entity_specs.is_nested_function);
+    return ((entry->kind == SK_FUNCTION
+            && !entry->entity_specs.is_nested_function)
+            // Should we copy SK_COMMON as well?
+            || entry->kind == SK_NAMELIST);
 }
 
 static void register_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
@@ -284,9 +286,10 @@ static void register_symbols_of_fortran_program_unit(const char* name, scope_ent
 
 void copy_fortran_program_unit(scope_entry_t* new_program_unit,
         scope_entry_t* original_program_unit,
+        symbol_map_t* original_map,
         symbol_map_t** out_symbol_map)
 {
-    nested_symbol_map_t *nested_symbol_map = new_nested_symbol_map(get_empty_map());
+    nested_symbol_map_t *nested_symbol_map = new_nested_symbol_map(original_map);
 
     decl_context_t new_block_context_ = new_program_unit->related_decl_context;
     scope_t* block_scope = original_program_unit->related_decl_context.block_scope;
