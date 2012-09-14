@@ -4379,12 +4379,15 @@ scope_entry_t* fortran_query_label(AST label,
 }
 
 scope_entry_t* fortran_query_construct_name_str(
-        const char* construct_name, decl_context_t decl_context, char is_definition,
+        const char* construct_name, 
+        decl_context_t decl_context, char is_definition,
         const char* filename, int line
         )
 {
+    construct_name = strtolower(construct_name);
+
     scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
-            construct_name, 
+            construct_name,
             DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
@@ -6225,22 +6228,30 @@ static void build_scope_interface_block(AST a,
     }
 }
 
-static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_intrinsic_stmt(AST a, 
+        decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST intrinsic_list = ASTSon0(a);
+
+    scope_entry_t* current_program_unit = decl_context.current_scope->related_entry;
 
     AST it;
     for_each_element(intrinsic_list, it)
     {
         AST name = ASTSon1(it);
 
-        // Intrinsics are kept in global scope
-        decl_context_t global_context = decl_context;
-        global_context.current_scope = decl_context.global_scope;
+        // Query for a local INTRINSIC only in this program unit
+        scope_entry_t* entry = NULL;
+        scope_entry_list_t* entry_list = 
+            query_in_scope_str_flags(current_program_unit->related_decl_context, strtolower(ASTText(name)), DF_ONLY_CURRENT_SCOPE);
+        if (entry_list != NULL)
+        {
+            entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
+        }
 
-        scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name), ASTFileName(name), ASTLine(name));
-        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(global_context, ASTText(name));
+        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
         
         // The symbol exists in the current scope 
         if (entry != NULL)
@@ -8381,7 +8392,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     AST block = ASTSon1(a);
     AST end_do_statement = ASTSon2(a);
 
-    const char* construct_name = ASTText(a);
+    const char* construct_name = strtolower(ASTText(a));
 
     nodecl_t nodecl_named_label = nodecl_null();
     if (construct_name != NULL)
