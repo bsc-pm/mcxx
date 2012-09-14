@@ -7998,9 +7998,9 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
     {
         if (is_class_type(param_type))
         {
-            if (is_transparent_union(param_type))
+            type_t* class_type = get_actual_class_type(param_type);
+            if (is_transparent_union(param_type) || is_transparent_union(class_type))
             {
-                type_t* class_type = get_actual_class_type(param_type);
                 scope_entry_list_t* list_of_members = class_type_get_members(class_type);
                 scope_entry_list_iterator_t* it = entry_list_iterator_begin(list_of_members);
 
