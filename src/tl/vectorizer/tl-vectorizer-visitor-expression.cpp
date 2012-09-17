@@ -152,6 +152,22 @@ namespace TL
             n.replace(vector_lt);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorGreaterThan vector_gt = 
+                Nodecl::VectorGreaterThan::make(
+                        n.get_lhs().shallow_copy(), 
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_gt);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::Equal& n)
         {
             walk(n.get_lhs());
@@ -273,9 +289,116 @@ namespace TL
 
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::AddAssignment& n)
+        {
+            const Nodecl::Assignment assignment = 
+                Nodecl::Assignment::make(
+                        n.get_lhs().shallow_copy(), 
+                        Nodecl::Add::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            n.get_type(),
+                            n.get_filename(),
+                            n.get_line()),
+                        n.get_type(),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(assignment);
+
+            // Visit standard assignment
+            walk(n);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::MinusAssignment& n)
+        {
+            const Nodecl::Assignment assignment = 
+                Nodecl::Assignment::make(
+                        n.get_lhs().shallow_copy(), 
+                        Nodecl::Minus::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            n.get_type(),
+                            n.get_filename(),
+                            n.get_line()),
+                        n.get_type(),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(assignment);
+
+            // Visit standard assignment
+            walk(n);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::MulAssignment& n)
+        {
+            const Nodecl::Assignment assignment = 
+                Nodecl::Assignment::make(
+                        n.get_lhs().shallow_copy(), 
+                        Nodecl::Mul::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            n.get_type(),
+                            n.get_filename(),
+                            n.get_line()),
+                        n.get_type(),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(assignment);
+
+            // Visit standard assignment
+            walk(n);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::DivAssignment& n)
+        {
+            const Nodecl::Assignment assignment = 
+                Nodecl::Assignment::make(
+                        n.get_lhs().shallow_copy(), 
+                        Nodecl::Div::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            n.get_type(),
+                            n.get_filename(),
+                            n.get_line()),
+                        n.get_type(),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(assignment);
+
+            // Visit standard assignment
+            walk(n);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
         {
             walk(n.get_nest());
+            
+            const Nodecl::VectorConversion vector_conv = 
+                Nodecl::VectorConversion::make(
+                        n.get_nest().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_conv);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
+        {
+            walk(n.get_rhs());
+            
+            const Nodecl::VectorConversion vector_conv = 
+                Nodecl::VectorConversion::make(
+                        n.get_rhs().shallow_copy(), 
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(), 
+                        n.get_line());
+
+            n.replace(vector_conv);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)

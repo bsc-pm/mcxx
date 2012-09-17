@@ -740,7 +740,7 @@ namespace TL
             * true, but this function might return true even if 'operator==' returned false.
             * So do not use 'operator==' to check type system equality.
             */
-            bool is_same_type(Type t);
+            bool is_same_type(Type t) const;
 
             /* We should consider to remove this one day */
             friend class Symbol;

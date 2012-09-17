@@ -75,10 +75,14 @@ namespace TL
                 const unsigned int vector_length,
                 const Type& target_type) const
         {
-            typename versions_map_t::const_iterator it = _versions.find(func_name);
+            std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range = 
+                _versions.equal_range(func_name);
+
+            typename versions_map_t::const_iterator it;
             typename versions_map_t::const_iterator best_version = _versions.end();
 
-            for (;it != _versions.end();
+            for (it = func_range.first;
+                    it != func_range.second;
                     it++)
             {
                 if (it->second.has_kind(device, vector_length, target_type))
@@ -88,7 +92,7 @@ namespace TL
                 }
             }
 
-            for (;it != _versions.end();
+            for (;it != func_range.second;
                     it++)
             {
                 if (it->second.has_kind(device, vector_length, target_type) &&

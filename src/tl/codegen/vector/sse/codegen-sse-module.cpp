@@ -141,7 +141,8 @@ namespace Codegen
         else if (type.is_double()) 
         { 
             file << "_pd"; 
-        } 
+        }
+       /* 
         else if (type.is_signed_int() ||
             type.is_unsigned_int()) 
         { 
@@ -157,7 +158,8 @@ namespace Codegen
             type.is_unsigned_char()) 
         { 
             file << "_epi8"; 
-        } 
+        }
+       */ 
         else
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
@@ -260,19 +262,203 @@ namespace Codegen
         file << ")"; 
     }                                                 
 
+    void SSEModuleVisitor::visit(const Nodecl::VectorGreaterThan& node) 
+    { 
+        TL::Type type = node.get_lhs().get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_cmpgt";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorEqual& node) 
+    { 
+        TL::Type type = node.get_lhs().get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_cmpeq";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+            type.is_signed_char() ||
+            type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorBitwiseAnd& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_and";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_integral_type())
+        { 
+            file << "_si128"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorBitwiseOr& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_or";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_integral_type())
+        { 
+            file << "_si128"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorBitwiseXor& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_xor";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_integral_type())
+        { 
+            file << "_si128"; 
+        }
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")"; 
+    }   
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorLogicalOr& node) 
+    { 
+        fprintf(stderr, "Warning: Logical Or operation in '%s' is not "
+                "supported in SSE. Bitwise Or operation will be used instead. "
+                "This might change the expected behaviour of the application.\n",
+                node.get_locus().c_str()); 
+
+        visit(node.as<Nodecl::VectorBitwiseOr>());
+    }                                                 
+
     void SSEModuleVisitor::visit(const Nodecl::VectorNeg& node) 
     { 
         TL::Type type = node.get_type().basic_type();
         
         if (type.is_float()) 
         { 
-            file << "_mm_xor_ps((__m128) _mm_set1_epi32(0x80000000), ";
+            file << "_mm_xor_ps(_mm_castsi128_ps(_mm_set1_epi32(0x80000000)), ";
             walk(node.get_rhs());
             file << ")";
         } 
         else if (type.is_double()) 
         { 
-            file << "_mm_xor_pd((__m128d) _mm_set1_epi64(0x8000000000000000LL), ";
+            file << "_mm_xor_pd(_mm_castsi128_pd(_mm_set1_epi64(0x8000000000000000LL)), ";
             walk(node.get_rhs());
             file << ")";
         }
@@ -305,6 +491,53 @@ namespace Codegen
                     node.get_locus().c_str());
         }      
     }                                                 
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorConversion& node) 
+    {
+        const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
+        const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
+
+        // Intrinsic name
+        file << "_mm_cvt";
+        
+        // Postfix
+        if (src_type.is_same_type(dst_type))
+        {
+            walk(node.get_nest());
+            return;
+        }
+        /*
+        else if (src_type.is_float() &&
+                dst_type.is_double()) 
+        { 
+            file << "ps_pd"; 
+        } 
+        else if (src_type.is_double() &&
+                dst_type.is_float()) 
+        { 
+            file << "pd_ps"; 
+        } 
+        */
+        else if (src_type.is_signed_int() &&
+                dst_type.is_float()) 
+        { 
+            file << "epi32_ps"; 
+        } 
+        else if (src_type.is_float() &&
+                dst_type.is_signed_int()) 
+        { 
+            file << "ps_epi32"; 
+        } 
+        else
+        {
+            fprintf(stderr, "SSE Codegen: Conversion at '%s' is not supported yet.\n", 
+                    node.get_locus().c_str());
+        }      
+
+        file << "("; 
+        walk(node.get_nest());
+        file << ")"; 
+    }
 
     void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
     { 
@@ -456,15 +689,15 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
         // Postfix
         if (type.is_float()) 
         { 
-            file << "_ps"; 
+            file << "_ps("; 
         } 
         else if (type.is_double()) 
         { 
-            file << "_pd"; 
+            file << "_pd("; 
         } 
         else if (type.is_integral_type()) 
         { 
-            file << "_si128"; 
+            file << "_si128((__m128i *)"; 
         } 
         else
         {
@@ -473,7 +706,6 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
                     node.get_locus().c_str());
         }
        
-        file << "("; 
         walk(node.get_lhs());
         file << ", ";
         walk(node.get_rhs());
@@ -495,13 +727,13 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
         { 
             file << "(_mm_and_ps(";
             walk(node.get_arguments());
-            file << ", (__m128) _mm_set1_epi32(0x7FFFFFFF)))"; 
+            file << ", _mm_castsi128_ps(_mm_set1_epi32(0x7FFFFFFF))))"; 
         } 
         else if (type.is_double()) 
         { 
             file << "(_mm_and_pd(";
             walk(node.get_arguments());
-            file << ", (__m128) _mm_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
+            file << ", _mm_castsi128_pd(_mm_set1_epi64(0x7FFFFFFFFFFFFFFFLL))))"; 
         }
         else
         {
@@ -536,7 +768,7 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
 
     Nodecl::NodeclVisitor<void>::Ret SSEModuleVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     { 
-        fprintf(stderr, "SSE Codegen: Unknown node %s at %s.",
+        fprintf(stderr, "SSE Codegen: Unknown node %s at %s.\n",
                 ast_print_node_type(n.get_kind()),
                 n.get_locus().c_str()); 
 /*

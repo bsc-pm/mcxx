@@ -177,14 +177,13 @@ expression : literal
            | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt module(vector)
- 
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_SCATTER([lhs] expression, [rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_GATHER([rhs] expression) type const-value-opt module(vector)
            | NODECL_CONSTANT_VECTOR_PROMOTION([rhs] expression) type const-value-opt module(vector)
-           | NODECL_VECTOR_CONVERSION([src] expression, [dst] expression, [offset] literal) type const-value-opt module(vector)
+           | NODECL_VECTOR_CONVERSION([nest] expression) type const-value-opt module(vector)
            | NODECL_VECTOR_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt module(vector)
            | NODECL_VECTOR_FABS([arguments] argument-seq) type const-value-opt module(vector)
            | c-cxx-expressions

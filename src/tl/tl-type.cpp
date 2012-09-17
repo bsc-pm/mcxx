@@ -914,7 +914,7 @@ namespace TL
         return template_type_get_related_symbol(_type_info);
     }
 
-    bool Type::is_same_type(Type t)
+    bool Type::is_same_type(Type t) const
     {
         return equivalent_types(this->_type_info, t._type_info);
     }
