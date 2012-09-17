@@ -172,21 +172,19 @@ namespace Nodecl
         struct FortranProgramUnitSymbolMap : public SymbolMap
         {
             private:
-                SymbolMap* _orig_symbol_map;
-
                 symbol_map_t* _out_map_info;
 
             public:
                 FortranProgramUnitSymbolMap(SymbolMap* original_symbol_map,
                         TL::Symbol source_program_unit,
                         TL::Symbol target_program_unit)
-                    : _orig_symbol_map(original_symbol_map),
-                    _out_map_info(NULL)
+                    : _out_map_info(NULL)
                 {
                     // Copy Fortran functions
                     copy_fortran_program_unit(
                             target_program_unit.get_internal_symbol(),
                             source_program_unit.get_internal_symbol(),
+                            original_symbol_map->get_symbol_map(),
                             &_out_map_info);
                 }
 
@@ -198,11 +196,6 @@ namespace Nodecl
                     if (_out_map_info != NULL)
                     {
                         m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
-                    }
-                    if (s == m
-                            && _orig_symbol_map != NULL)
-                    {
-                        m = _orig_symbol_map->map(s);
                     }
                     return m;
                 }

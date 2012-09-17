@@ -82,8 +82,7 @@ namespace TL
             _enclosing(ds._enclosing),
             _reduction_symbols(ds._reduction_symbols),
             _dependency_items(ds._dependency_items),
-            _copy_items(ds._copy_items),
-            _device_list(ds._device_list)
+            _target_info(ds._target_info)
         {
             (*_num_refs)++;
             if (_enclosing != NULL)
@@ -183,6 +182,16 @@ namespace TL
             symbols = _reduction_symbols;
         }
 
+        TargetInfo DataSharingEnvironment::get_target_info()
+        {
+            return _target_info;
+        }
+
+        void DataSharingEnvironment::set_target_info(const TargetInfo & target_info)
+        {
+            _target_info = target_info;
+        }
+
         DataSharingAttribute DataSharingEnvironment::get_internal(Symbol sym)
         {
             std::map<Symbol, DataSharingAttribute>::iterator it = _map->find(sym);
@@ -220,41 +229,6 @@ namespace TL
         void DataSharingEnvironment::get_all_dependences(ObjectList<DependencyItem>& dependency_items)
         {
             dependency_items = _dependency_items;
-        }
-
-        void DataSharingEnvironment::add_copy(const CopyItem& copy_item)
-        {
-            if (!_copy_items.contains(copy_item))
-            {
-                _copy_items.append(copy_item);
-            }
-            else
-            {
-                ObjectList<CopyItem> item_list = _copy_items.find(copy_item);
-
-                item_list[0] = copy_item;
-            }
-        }
-
-        void DataSharingEnvironment::get_all_copies(ObjectList<CopyItem>& copy_items)
-        {
-            copy_items = _copy_items;
-        }
-
-        void DataSharingEnvironment::add_device(const std::string& str)
-        {
-            _device_list.append(str);
-        }
-
-        void DataSharingEnvironment::get_all_devices(ObjectList<std::string>& device_names)
-        {
-            device_names = _device_list;
-
-            // If empty, add smp
-            if (_device_list.empty())
-            {
-                device_names.append("smp");
-            }
         }
 
         void OpenMPPhase::run(DTO& dto)

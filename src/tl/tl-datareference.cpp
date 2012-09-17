@@ -220,6 +220,11 @@ namespace TL
                 return rebuilt_type;
             }
 
+            virtual void visit(const Nodecl::Conversion& c)
+            {
+               walk(c.get_nest());
+            }
+
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());

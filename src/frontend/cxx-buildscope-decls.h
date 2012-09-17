@@ -73,6 +73,9 @@ struct gather_decl_spec_tag {
     char is_overriden_type;
     char emit_always;
 
+    // GCC extension
+    char is_transparent_union;
+
     // We are in the declarator of "new T[e]" 
     // 'e' may be non-constant, do not create a VLA entity for it
     char is_cxx_new_declarator;

@@ -144,6 +144,9 @@ namespace TL { namespace OpenMP {
                     TL::Symbol function_sym,
                     FunctionTaskInfo& function_task_info)
             {
+                int line = call.get_line();
+                std::string filename = call.get_filename();
+
                 TL::ObjectList<Nodecl::NodeclBase> result_list;
 
                 TL::ObjectList<FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
@@ -151,22 +154,22 @@ namespace TL { namespace OpenMP {
                 make_dependency_list<Nodecl::OpenMP::DepIn>(
                         task_dependences,
                         OpenMP::DEP_DIR_IN,
-                        call.get_filename(),
-                        call.get_line(),
+                        filename,
+                        line,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::DepOut>(
-                        task_dependences, 
+                        task_dependences,
                         OpenMP::DEP_DIR_OUT,
-                        call.get_filename(), 
-                        call.get_line(),
+                        filename,
+                        line,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::DepInout>(
-                        task_dependences, 
+                        task_dependences,
                         OpenMP::DEP_DIR_INOUT,
-                        call.get_filename(), 
-                        call.get_line(),
+                        filename,
+                        line,
                         result_list);
 
                 // Make sure the remaining symbols are firstprivate
@@ -198,7 +201,7 @@ namespace TL { namespace OpenMP {
                     if (!has_dep[i])
                     {
                         Nodecl::Symbol symbol_ref = 
-                            Nodecl::Symbol::make(*it, call.get_filename(), call.get_line());
+                            Nodecl::Symbol::make(*it, filename, line);
                         symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
                         assumed_firstprivates.append(symbol_ref);
@@ -209,9 +212,47 @@ namespace TL { namespace OpenMP {
                 {
                     result_list.append(
                             Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates), 
-                                call.get_filename(), call.get_line())
+                                filename, line)
                             );
                 }
+
+                TargetInfo target_info = function_task_info.get_target_info();
+
+                TL::ObjectList<Nodecl::NodeclBase> devices;
+                TL::ObjectList<Nodecl::NodeclBase> target_items;
+
+                ObjectList<std::string> device_list = target_info.get_device_list();
+                for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
+                {
+                    devices.append(Nodecl::Text::make(*it, filename, line));
+                }
+
+                ObjectList<CopyItem> copy_in = target_info.get_copy_in();
+                make_copy_list<Nodecl::OpenMP::CopyIn>(
+                        copy_in,
+                        OpenMP::COPY_DIR_IN,
+                        filename, line,
+                        target_items);
+
+                ObjectList<CopyItem> copy_out = target_info.get_copy_out();
+                make_copy_list<Nodecl::OpenMP::CopyOut>(
+                        copy_out,
+                        OpenMP::COPY_DIR_OUT,
+                        filename, line,
+                        target_items);
+
+                ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
+                make_copy_list<Nodecl::OpenMP::CopyInout>(
+                        copy_inout,
+                        OpenMP::COPY_DIR_INOUT,
+                        filename, line,
+                        target_items);
+
+                result_list.append(
+                        Nodecl::OpenMP::Target::make(
+                            Nodecl::List::make(devices),
+                            Nodecl::List::make(target_items),
+                            filename, line));
 
                 return Nodecl::List::make(result_list);
             }
@@ -817,7 +858,7 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+        Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
@@ -1330,42 +1371,45 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
+        int line = pragma_line.get_line();
+        std::string filename = pragma_line.get_filename();
+
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Firstprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Lastprivate>(
                 data_sharing_env, OpenMP::DS_LASTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::FirstLastprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Auto>(
                 data_sharing_env, OpenMP::DS_AUTO,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
         if (!reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(pragma_line.get_filename(), pragma_line.get_line()));
+            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(filename, line));
 
             result_list.append(
                     Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes),
-                        pragma_line.get_filename(), pragma_line.get_line())
+                        filename, line)
                     );
         }
 
@@ -1375,40 +1419,57 @@ namespace TL { namespace OpenMP {
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::DepOut>(
                 dependences,
                 OpenMP::DEP_DIR_OUT,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
 
-        TL::ObjectList<OpenMP::CopyItem> copies;
-        data_sharing_env.get_all_copies(copies);
+        TargetInfo target_info = data_sharing_env.get_target_info();
 
+        TL::ObjectList<Nodecl::NodeclBase> devices;
+        TL::ObjectList<Nodecl::NodeclBase> target_items;
+
+        ObjectList<std::string> device_list = target_info.get_device_list();
+        for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
+        {
+            devices.append(Nodecl::Text::make(*it, filename, line));
+        }
+
+        ObjectList<CopyItem> copy_in = target_info.get_copy_in();
         make_copy_list<Nodecl::OpenMP::CopyIn>(
-                copies,
+                copy_in,
                 OpenMP::COPY_DIR_IN,
-                pragma_line.get_filename(), pragma_line.get_line(),
-                result_list);
+                filename, line,
+                target_items);
 
+        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
         make_copy_list<Nodecl::OpenMP::CopyOut>(
-                copies,
-                OpenMP::COPY_DIR_IN,
-                pragma_line.get_filename(), pragma_line.get_line(),
-                result_list);
+                copy_out,
+                OpenMP::COPY_DIR_OUT,
+                filename, line,
+                target_items);
 
+        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
         make_copy_list<Nodecl::OpenMP::CopyInout>(
-                copies,
+                copy_inout,
                 OpenMP::COPY_DIR_INOUT,
-                pragma_line.get_filename(), pragma_line.get_line(),
-                result_list);
+                filename, line,
+                target_items);
+
+        result_list.append(
+                Nodecl::OpenMP::Target::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(target_items),
+                    filename, line));
 
         return Nodecl::List::make(result_list);
     }

@@ -1287,6 +1287,10 @@ OPERATOR_TABLE
         Nodecl::NodeclBase subscripted = node.get_subscripted();
         Nodecl::NodeclBase subscripts = node.get_subscripts();
 
+        // Sometimes spurious parenthesis may get here
+        // because this node was created in C
+        subscripted = advance_parenthesized_expression(subscripted);
+
         walk(subscripted);
         file << "(";
         codegen_reverse_comma_separated_list(subscripts);
@@ -1480,6 +1484,52 @@ OPERATOR_TABLE
         file << "CONTINUE\n";
     }
 
+    void FortranBase::if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_)
+    {
+        inc_indent();
+        walk(then);
+        dec_indent();
+
+        bool skip_end_if = false;
+
+        if (!else_.is_null())
+        {
+            indent();
+
+            Nodecl::List else_items = else_.as<Nodecl::List>();
+
+            if (else_items.size() == 1
+                    && else_items[0].is<Nodecl::IfElseStatement>())
+            {
+                Nodecl::IfElseStatement nested_if = else_items[0].as<Nodecl::IfElseStatement>();
+
+                Nodecl::NodeclBase condition = nested_if.get_condition();
+
+                file << "ELSE IF (";
+                walk(condition);
+                file << ") THEN\n";
+
+                if_else_body(nested_if.get_then(), nested_if.get_else());
+
+                skip_end_if = true;
+            }
+            else
+            {
+                file << "ELSE\n";
+
+                inc_indent();
+                walk(else_);
+                dec_indent();
+            }
+        }
+
+        if (!skip_end_if)
+        {
+            indent();
+            file << "END IF\n";
+        }
+    }
+
     void FortranBase::visit(const Nodecl::IfElseStatement& node)
     {
         Nodecl::NodeclBase condition = node.get_condition();
@@ -1491,22 +1541,7 @@ OPERATOR_TABLE
         walk(condition);
         file << ") THEN\n";
 
-        inc_indent();
-        walk(then);
-        dec_indent();
-
-        if (!else_.is_null())
-        {
-            indent();
-            file << "ELSE\n";
-
-            inc_indent();
-            walk(else_);
-            dec_indent();
-        }
-
-        indent();
-        file << "END IF\n";
+        if_else_body(then, else_);
     }
 
     void FortranBase::visit(const Nodecl::ReturnStatement& node)
@@ -4213,10 +4248,10 @@ OPERATOR_TABLE
 
             indent();
 
-            file << "USE" 
+            file << "USE"
                 << module_nature
                 << module.get_name()
-                << ", ONLY: " 
+                << ", ONLY: "
                 ;
 
             for (TL::ObjectList<UseStmtItem>::iterator it2 = item_list.begin();
@@ -4224,11 +4259,28 @@ OPERATOR_TABLE
                     it2++)
             {
                 UseStmtItem& item (*it2);
-
-                if (it2 != item_list.begin()) 
-                    file << ", ";
-
                 TL::Symbol entry = item.symbol;
+
+                // We cannot use the generic specifier of an interface if it has not any implementation
+                // Example:
+                //
+                //      MODULE M
+                //       IMPLICIT NONE
+                //       INTERFACE P
+                //       END INTERFACE P
+                //      END MODULE M
+                //
+                //      MODULE N
+                //       IMPLICIT NONE
+                //       USE M, ONLY: P <---------- WRONG!
+                //      END MODULE N
+                //
+                if (entry.is_generic_specifier()
+                        && entry.get_num_related_symbols() == 0)
+                    continue;
+
+                if (it2 != item_list.begin())
+                    file << ", ";
 
                 if (!entry.get_internal_symbol()->entity_specs.is_renamed)
                 {
@@ -4674,10 +4726,14 @@ OPERATOR_TABLE
         }
 
         file << "\n";
+
+        inc_indent();
     }
     
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
+        dec_indent();
+
         TL::Type function_type = entry.get_type();
         if (function_type.is_any_reference())
             function_type = function_type.references_to();

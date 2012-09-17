@@ -614,7 +614,7 @@ scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** 
     int ind;
     for (ind = 0; ind < num_items; ++ind)
     {
-        entry_list_add(result, list[ind]);
+        result = entry_list_add(result, list[ind]);
     }
     return result;
 }

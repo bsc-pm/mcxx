@@ -254,6 +254,8 @@
 "                           See --vector-list-flavors\n" \
 "  --list-vector-flavors    Lists the supported vector flavors\n" \
 "                           and quits\n" \
+"  --no-whole-file          Fortran front-end does not resolve\n" \
+"                           external procedure calls inside a file\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -354,12 +356,13 @@ typedef enum
     OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
     OPTION_VECTOR_FLAVOR,
     OPTION_LIST_VECTOR_FLAVORS,
+    OPTION_NO_WHOLE_FILE,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:J:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vkKcho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -369,7 +372,6 @@ struct command_line_long_options command_line_long_options[] =
     {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
     {"keep-all-files", CLP_NO_ARGUMENT, 'K'},
-    {"check-dates", CLP_NO_ARGUMENT, 'a'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
     // to open the configuration file we overwrite variables defined in the
@@ -428,6 +430,7 @@ struct command_line_long_options command_line_long_options[] =
     {"vector-flavour", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
     {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     {"list-vector-flavours", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
+    {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1379,9 +1382,26 @@ int parse_arguments(int argc, const char* argv[],
                         list_vector_flavors();
                         break;
                     }
+                case OPTION_NO_WHOLE_FILE:
+                    {
+                        CURRENT_CONFIGURATION->fortran_no_whole_file = 1;
+                        break;
+                    }
                 default:
                     {
-                        internal_error("Unhandled known option\n", 0);
+                        const char* unhandled_flag = "<<<unknown!>>>";
+
+                        int i;
+                        for (i = 0; command_line_long_options[i].option_name != NULL; i++)
+                        {
+                            if (command_line_long_options[i].value == parameter_info.value)
+                            {
+                                unhandled_flag = command_line_long_options[i].option_name;
+                                break;
+                            }
+                        }
+
+                        internal_error("Unhandled '%s' parameter\n", unhandled_flag);
                     }
             }
         }
@@ -1633,15 +1653,19 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     {
                         CURRENT_CONFIGURATION->code_shape.short_enums = 1;
                     }
-                    if (strcmp(argument, "-ffree-form") == 0)
+                    else if (strcmp(argument, "-ffree-form") == 0)
                     {
                         CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FREE_FORM;
                         hide_parameter = 1;
                     }
-                    if (strcmp(argument, "-ffixed-form") == 0)
+                    else if (strcmp(argument, "-ffixed-form") == 0)
                     {
                         CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FIXED_FORM;
                         hide_parameter = 1;
+                    }
+                    else if (strcmp(argument, "-fno-whole-file") == 0)
+                    {
+                        CURRENT_CONFIGURATION->fortran_no_whole_file = 1;
                     }
                 }
                 if (!hide_parameter)

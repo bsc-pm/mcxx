@@ -38,6 +38,7 @@
 %type<ast2> pragma_custom_construct_range
 %type<ast2> pragma_custom_noend_construct_range
 %type<ast> pragma_custom_noend_line_construct
+%type<ast> pragma_custom_line_or_noend_construct
 %type<ast> pragma_custom_end_construct
 %type<ast> pragma_custom_end_construct_noend
 %type<ast> pragma_custom_construct_internal_program_unit
@@ -255,7 +256,11 @@ pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom
 module_subprogram : pragma_custom_construct_module_subprogram_unit
 ;
 
-pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_construct module_subprogram
+pragma_custom_line_or_noend_construct : pragma_custom_line_construct
+|  pragma_custom_noend_line_construct
+;
+
+pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct module_subprogram
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -264,7 +269,7 @@ pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_lin
 internal_subprogram : pragma_custom_construct_internal_program_unit
 ;
 
-pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct internal_subprogram
+pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct internal_subprogram
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -273,7 +278,7 @@ pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line
 interface_body : pragma_custom_construct_interface_body
 ;
 
-pragma_custom_construct_interface_body : PRAGMA_CUSTOM pragma_custom_line_construct interface_body
+pragma_custom_construct_interface_body : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct interface_body
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }

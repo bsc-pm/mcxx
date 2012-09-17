@@ -37,14 +37,17 @@ namespace TL
         void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx)
         {
             PragmaCustomClause device = pragma_line.get_clause("device");
-            if (!device.is_defined())
+            if (device.is_defined())
             {
-                //     std::cerr << pragma_line.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
                 target_ctx.device_list = device.get_tokenized_arguments();
             }
             else
             {
                 // Default is smp
+             std::cerr << pragma_line.get_locus() << ": "
+                    << "warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'"
+                    << std::endl;
+
                 target_ctx.device_list.clear();
                 target_ctx.device_list.append("smp");
             }
@@ -235,8 +238,11 @@ namespace TL
         static void add_copy_items(PragmaCustomLine construct, 
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<Nodecl::NodeclBase>& list,
-                CopyDirection copy_direction)
+                CopyDirection copy_direction,
+                TargetInfo& target_info)
         {
+            TL::ObjectList<CopyItem> items;
+
             for (ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
                     it != list.end();
                     it++)
@@ -304,7 +310,30 @@ namespace TL
                 }
 
                 CopyItem copy_item(expr, copy_direction);
-                data_sharing.add_copy(copy_item);
+                items.append(copy_item);
+            }
+
+            switch (copy_direction)
+            {
+                case COPY_DIR_IN:
+                    {
+                        target_info.append_to_copy_in(items);
+                        break;
+                    }
+                case COPY_DIR_OUT:
+                    {
+                        target_info.append_to_copy_out(items);
+                        break;
+                    }
+                case COPY_DIR_INOUT:
+                    {
+                        target_info.append_to_copy_inout(items);
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
             }
         }
 
@@ -313,24 +342,25 @@ namespace TL
             if (_target_context.empty())
                 return;
 
+            TargetInfo target_info;
             TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_in,
-                    COPY_DIR_IN);
+                    COPY_DIR_IN,
+                    target_info);
+
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
-                    COPY_DIR_OUT);
+                    COPY_DIR_OUT,
+                    target_info);
+
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_inout,
-                    COPY_DIR_INOUT);
+                    COPY_DIR_INOUT,
+                    target_info);
 
-            for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
-                    it != target_ctx.device_list.end();
-                    it++)
-            {
-                data_sharing.add_device(*it);
-            }
+            target_info.append_to_device_list(target_ctx.device_list);
 
             // Set data sharings for referenced entities in copies
             if (target_ctx.copy_deps)
@@ -369,22 +399,26 @@ namespace TL
                     p->append(it->get_dependency_expression());
                 }
 
-                add_copy_items(construct, 
-                        data_sharing,
+                add_copy_items(construct, data_sharing,
                         dep_list_in,
-                        COPY_DIR_IN);
-                add_copy_items(construct, 
-                        data_sharing,
+                        COPY_DIR_IN,
+                        target_info);
+
+                add_copy_items(construct, data_sharing,
                         dep_list_out,
-                        COPY_DIR_OUT);
-                add_copy_items(construct, 
-                        data_sharing,
+                        COPY_DIR_OUT,
+                        target_info);
+
+                add_copy_items(construct, data_sharing,
                         dep_list_inout,
-                        COPY_DIR_INOUT);
+                        COPY_DIR_INOUT,
+                        target_info);
             }
 
             ObjectList<CopyItem> all_copies;
-            data_sharing.get_all_copies(all_copies);
+            all_copies.append(target_info.get_copy_in());
+            all_copies.append(target_info.get_copy_out());
+            all_copies.append(target_info.get_copy_inout());
 
             ObjectList<Symbol> all_copied_syms = all_copies
                 .map(functor(&CopyItem::get_copy_expression))
@@ -419,9 +453,14 @@ namespace TL
                             );
                 }
 			}
-		    add_copy_items(construct, data_sharing,
+
+            add_copy_items(construct, data_sharing,
 		            shared_to_inout,
-		            COPY_DIR_INOUT);
+		            COPY_DIR_INOUT,
+                    target_info);
+
+            // Store the target information in the current data sharing
+            data_sharing.set_target_info(target_info);
         }
     }
 }

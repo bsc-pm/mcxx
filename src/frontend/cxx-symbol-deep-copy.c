@@ -35,8 +35,6 @@ void symbol_deep_copy(scope_entry_t* dest,
 
     dest->do_not_print = source->do_not_print;
 
-    dest->value = nodecl_deep_copy(source->value, new_decl_context, symbol_map);
-
     symbol_deep_copy_entity_specs(dest, source, new_decl_context, symbol_map);
 
     // FIXME - Not copying extended data. There is no way to reliably copy such information

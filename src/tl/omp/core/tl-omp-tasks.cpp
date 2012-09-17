@@ -55,7 +55,7 @@ namespace TL
 
     namespace OpenMP
     {
-        FunctionTaskTargetInfo::FunctionTaskTargetInfo()
+        TargetInfo::TargetInfo()
             : _copy_in(),
             _copy_out(),
             _copy_inout(),
@@ -64,7 +64,7 @@ namespace TL
         {
         }
 
-        bool FunctionTaskTargetInfo::can_be_ommitted()
+        bool TargetInfo::can_be_ommitted()
         {
             return _copy_in.empty()
                 && _copy_out.empty()
@@ -72,57 +72,62 @@ namespace TL
                 && _device_list.empty();
         }
 
-        void FunctionTaskTargetInfo::set_copy_in(const ObjectList<CopyItem>& copy_items)
+        void TargetInfo::append_to_copy_in(const ObjectList<CopyItem>& copy_items)
         {
-            _copy_in = copy_items;
+            _copy_in.append(copy_items);
         }
 
-        void FunctionTaskTargetInfo::set_copy_out(const ObjectList<CopyItem>& copy_items)
+        void TargetInfo::append_to_copy_out(const ObjectList<CopyItem>& copy_items)
         {
-            _copy_out = copy_items;
+            _copy_out.append(copy_items);
         }
 
-        void FunctionTaskTargetInfo::set_copy_inout(const ObjectList<CopyItem>& copy_items)
+        void TargetInfo::append_to_copy_inout(const ObjectList<CopyItem>& copy_items)
         {
-            _copy_inout = copy_items;
+            _copy_inout.append(copy_items);
         }
 
-        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_in() const
+        ObjectList<CopyItem> TargetInfo::get_copy_in() const
         {
             return _copy_in;
         }
 
-        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_out() const
+        ObjectList<CopyItem> TargetInfo::get_copy_out() const
         {
             return _copy_out;
         }
 
-        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_inout() const
+        ObjectList<CopyItem> TargetInfo::get_copy_inout() const
         {
             return _copy_inout;
         }
 
-        void FunctionTaskTargetInfo::set_copy_deps(bool b)
+        void TargetInfo::set_copy_deps(bool b)
         {
             _copy_deps = b;
         }
 
-        bool FunctionTaskTargetInfo::has_copy_deps() const
+        bool TargetInfo::has_copy_deps() const
         {
             return _copy_deps;
         }
 
-        void FunctionTaskTargetInfo::set_device_list(const ObjectList<std::string>& device_list)
+        void TargetInfo::append_to_device_list(const ObjectList<std::string>& device_list)
         {
-            _device_list = device_list;
+            _device_list.append(device_list);
         }
 
-        ObjectList<std::string> FunctionTaskTargetInfo::get_device_list() const
+        ObjectList<std::string> TargetInfo::get_device_list()
         {
+            // If empty, add smp
+            if (_device_list.empty())
+            {
+                _device_list.append("smp");
+            }
             return _device_list;
         }
 
-        void FunctionTaskTargetInfo::module_write(ModuleWriter& mw)
+        void TargetInfo::module_write(ModuleWriter& mw)
         {
             mw.write(_copy_in);
             mw.write(_copy_out);
@@ -131,7 +136,7 @@ namespace TL
             mw.write(_copy_deps);
         }
 
-        void FunctionTaskTargetInfo::module_read(ModuleReader& mr)
+        void TargetInfo::module_read(ModuleReader& mr)
         {
             mr.read(_copy_in);
             mr.read(_copy_out);
@@ -141,12 +146,10 @@ namespace TL
         }
 
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
-                ObjectList<FunctionTaskDependency> parameter_info,
-                FunctionTaskTargetInfo target_info)
+                ObjectList<FunctionTaskDependency> parameter_info)
             : _sym(sym),
             _parameters(parameter_info),
-            _implementation_table(),
-            _target_info(target_info)
+            _implementation_table()
         {
         }
 
@@ -159,7 +162,7 @@ namespace TL
         {
            return _implementation_table;
         }
-        
+
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
@@ -225,21 +228,31 @@ namespace TL
             return result;
         }
 
-        void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
+        TargetInfo FunctionTaskInfo::get_target_info() const
         {
-            _real_time_info = rt_info;
+            return _target_info;
+        }
+
+        void FunctionTaskInfo::set_target_info(const TargetInfo& target_info)
+        {
+            _target_info = target_info;
         }
 
         RealTimeInfo FunctionTaskInfo::get_real_time_info()
         {
             return _real_time_info;
         }
-        
+
+        void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
+        {
+            _real_time_info = rt_info;
+        }
+
         void FunctionTaskInfo::set_if_clause_conditional_expression(Nodecl::NodeclBase expr)
         {
             _if_clause_cond_expr = expr;
         }
-        
+
         Nodecl::NodeclBase FunctionTaskInfo::get_if_clause_conditional_expression() const
         {
             return _if_clause_cond_expr;
@@ -299,7 +312,7 @@ namespace TL
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
         }
-        
+
         void FunctionTaskInfo::module_read(ModuleReader& mr)
         {
             mr.read(_sym);
@@ -387,10 +400,6 @@ namespace TL
             }
         }
 
-        FunctionTaskTargetInfo FunctionTaskInfo::get_target_info() const
-        {
-            return _target_info;
-        }
 
         struct FunctionTaskDependencyGenerator : public Functor<FunctionTaskDependency, Nodecl::NodeclBase>
         {
@@ -574,7 +583,7 @@ namespace TL
             }
 
             ObjectList<FunctionTaskDependency> dependence_list;
-            FunctionTaskTargetInfo target_info;
+
 
             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
                             param_ref_tree)));
@@ -590,32 +599,35 @@ namespace TL
 
             dependence_list_check(dependence_list);
 
-            // Now gather task information
+            FunctionTaskInfo task_info(function_sym, dependence_list);
+
+            // Now gather target information
+            TargetInfo target_info;
             if (!_target_context.empty())
             {
                 TargetContext& target_context = _target_context.top();
 
                 ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
                             COPY_DIR_IN, param_ref_tree));
-                target_info.set_copy_in(copy_in);
+                target_info.append_to_copy_in(copy_in);
 
                 ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
                             COPY_DIR_OUT, param_ref_tree));
-                target_info.set_copy_out(copy_out);
+                target_info.append_to_copy_out(copy_out);
 
                 ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
                             COPY_DIR_INOUT, param_ref_tree));
-                target_info.set_copy_inout(copy_inout);
+                target_info.append_to_copy_inout(copy_inout);
 
-                target_info.set_device_list(target_context.device_list);
+                target_info.append_to_device_list(target_context.device_list);
 
                 target_info.set_copy_deps(target_context.copy_deps);
             }
 
+            // Store the target information in the current function task
+            task_info.set_target_info(target_info);
 
-            FunctionTaskInfo task_info(function_sym, dependence_list, target_info);
-
-            //adding real time information to the task
+            //Add real time information to the task
             task_info.set_real_time_info(rt_info);
 
             // Support if clause 
@@ -634,6 +646,32 @@ namespace TL
             std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
+
+            FORTRAN_LANGUAGE()
+            {
+                TL::Scope sc = construct.retrieve_context();
+                decl_context_t decl_context = sc.get_decl_context();
+                static bool already_nagged = false;
+
+                if (decl_context.current_scope == decl_context.global_scope)
+                {
+                    std::cerr
+                        << construct.get_locus()
+                        << ": warning: !$OMP TASK at top level only applies to calls in the current file"
+                        << std::endl
+                        ;
+
+                    if (!already_nagged)
+                    {
+                        std::cerr
+                            << construct.get_locus()
+                            << ": info: use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files"
+                            << std::endl
+                            ;
+                        already_nagged = true;
+                    }
+                }
+            }
         }
 
         void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)

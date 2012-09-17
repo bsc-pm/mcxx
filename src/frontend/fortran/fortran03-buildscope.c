@@ -149,6 +149,8 @@ static void fortran_init_globals(decl_context_t decl_context)
     }
 }
 
+static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units);
+
 nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
@@ -161,6 +163,11 @@ nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_un
     if (list != NULL)
     {
         build_scope_program_unit_seq(list, decl_context, &nodecl_program_units);
+    }
+
+    if (!CURRENT_CONFIGURATION->fortran_no_whole_file)
+    {
+        resolve_external_calls_inside_file(nodecl_program_units);
     }
 
     return nodecl_program_units;
@@ -716,10 +723,48 @@ static void build_scope_program_unit_internal(AST program_unit,
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
             {
-                warn_printf("%s: warning: pragmas outside of a program unit are unsupported\n",
-                        ast_location(program_unit));
-                build_scope_program_unit_internal(ASTSon1(program_unit),
-                        decl_context, program_unit_symbol, nodecl_output);
+                AST pragma_line = ASTSon0(program_unit);
+                AST nested_program_unit = ASTSon1(program_unit);
+
+                build_scope_program_unit_internal(nested_program_unit,
+                        decl_context, &_program_unit_symbol, nodecl_output);
+
+                if (_program_unit_symbol != NULL
+                        && !nodecl_is_null(*nodecl_output))
+                {
+                    decl_context_t context_in_scope = _program_unit_symbol->related_decl_context;
+                    nodecl_t nodecl_pragma_line = nodecl_null();
+                    common_build_scope_pragma_custom_line(pragma_line, /* end_clauses */ NULL, context_in_scope, &nodecl_pragma_line);
+
+                    nodecl_t nodecl_nested_pragma = nodecl_null();
+                    // Double nesting of pragmas
+                    if (ASTType(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+                    {
+                        int num_items = 0;
+                        nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
+
+                        ERROR_CONDITION((num_items != 2), "This list does not have the expected shape", 0);
+                        ERROR_CONDITION(nodecl_get_kind(list[1]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+                                "Invalid kind for second item of the list", 0);
+
+                        nodecl_nested_pragma = list[1];
+                        free(list);
+                    }
+
+                    nodecl_t nodecl_pragma_declaration =
+                        nodecl_make_pragma_custom_declaration(nodecl_pragma_line,
+                                nodecl_nested_pragma,
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(program_unit), ASTLine(program_unit)),
+                                nodecl_make_pragma_context(context_in_scope, ASTFileName(program_unit), ASTLine(program_unit)),
+                                _program_unit_symbol,
+                                strtolower(ASTText(program_unit)),
+                                ASTFileName(program_unit),
+                                ASTLine(program_unit));
+
+                    *nodecl_output = nodecl_make_list_2(
+                            nodecl_list_head(*nodecl_output),
+                            nodecl_pragma_declaration);
+                }
                 break;
             }
         case AST_UNKNOWN_PRAGMA:
@@ -814,20 +859,23 @@ static void build_scope_main_program_unit(AST program_unit,
 
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
+    nodecl_t function_code = nodecl_make_function_code(
                 nodecl_make_context(
                     nodecl_body,
                     program_unit_context,
-                    ASTFileName(program_unit), 
+                    ASTFileName(program_unit),
                     ASTLine(program_unit)),
                 /* initializers */ nodecl_null(),
                 nodecl_internal_subprograms,
                 program_sym,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+                ASTFileName(program_unit), ASTLine(program_unit));
+
+    program_sym->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
-static scope_entry_t* register_function(AST program_unit, 
+static scope_entry_t* register_function(AST program_unit,
         decl_context_t decl_context,
         decl_context_t program_unit_context)
 {
@@ -843,7 +891,7 @@ static scope_entry_t* register_function(AST program_unit,
     scope_entry_t *new_entry = new_procedure_symbol(
             decl_context,
             program_unit_context,
-            name, prefix, suffix, 
+            name, prefix, suffix,
             dummy_arg_name_list, /* is_function */ 1);
 
     return new_entry;
@@ -919,17 +967,20 @@ static void build_scope_function_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_body,
-                    program_unit_context,
-                    ASTFileName(program_unit), 
-                    ASTLine(program_unit)),
-                /* initializers */ nodecl_null(),
-                nodecl_internal_subprograms,
-                new_entry,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+    nodecl_t function_code = nodecl_make_function_code(
+            nodecl_make_context(
+                nodecl_body,
+                program_unit_context,
+                ASTFileName(program_unit), 
+                ASTLine(program_unit)),
+            /* initializers */ nodecl_null(),
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit));
+
+    new_entry->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
 static scope_entry_t* register_subroutine(AST program_unit,
@@ -1024,17 +1075,20 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_body,
-                    program_unit_context,
-                    ASTFileName(program_unit), 
-                    ASTLine(program_unit)),
-                /* initializers */ nodecl_null(),
-                nodecl_internal_subprograms,
-                new_entry,
-                ASTFileName(program_unit), ASTLine(program_unit)));
+    nodecl_t function_code = nodecl_make_function_code(
+            nodecl_make_context(
+                nodecl_body,
+                program_unit_context,
+                ASTFileName(program_unit), 
+                ASTLine(program_unit)),
+            /* initializers */ nodecl_null(),
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit));
+
+    new_entry->entity_specs.function_code = function_code;
+
+    *nodecl_output = nodecl_make_list_1(function_code);
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
@@ -2199,7 +2253,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                             internal_subprograms_info[i].line));
             }
 
-            internal_subprograms_info[i].nodecl_output = 
+            nodecl_t function_code = 
                 nodecl_make_function_code(
                         nodecl_make_context(
                             nodecl_statements,
@@ -2211,6 +2265,9 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                         internal_subprograms_info[i].symbol,
                         internal_subprograms_info[i].filename,
                         internal_subprograms_info[i].line);
+
+            internal_subprograms_info[i].symbol->entity_specs.function_code = function_code;
+            internal_subprograms_info[i].nodecl_output = function_code;
         }
         i++;
     }
@@ -4322,12 +4379,15 @@ scope_entry_t* fortran_query_label(AST label,
 }
 
 scope_entry_t* fortran_query_construct_name_str(
-        const char* construct_name, decl_context_t decl_context, char is_definition,
+        const char* construct_name, 
+        decl_context_t decl_context, char is_definition,
         const char* filename, int line
         )
 {
+    construct_name = strtolower(construct_name);
+
     scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
-            construct_name, 
+            construct_name,
             DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
@@ -5948,7 +6008,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 entry->entity_specs.is_module_procedure = 1;
 
                 // Add this symbol to the return list
-                entry_list_add(result_entry_list, entry);
+                result_entry_list = entry_list_add(result_entry_list, entry);
 
                 remove_unknown_kind_symbol(decl_context, entry);
 
@@ -5981,7 +6041,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 else
                 {
                     // Add this symbol to the return list
-                    entry_list_add(result_entry_list, entry);
+                    result_entry_list = entry_list_add(result_entry_list, entry);
 
                     if (generic_spec != NULL)
                     {
@@ -6010,7 +6070,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             return NULL;
 
         // Add this symbol to the return list
-        entry_list_add(result_entry_list, entry);
+        result_entry_list = entry_list_add(result_entry_list, entry);
 
         if (generic_spec != NULL)
         {
@@ -6168,22 +6228,30 @@ static void build_scope_interface_block(AST a,
     }
 }
 
-static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_intrinsic_stmt(AST a, 
+        decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST intrinsic_list = ASTSon0(a);
+
+    scope_entry_t* current_program_unit = decl_context.current_scope->related_entry;
 
     AST it;
     for_each_element(intrinsic_list, it)
     {
         AST name = ASTSon1(it);
 
-        // Intrinsics are kept in global scope
-        decl_context_t global_context = decl_context;
-        global_context.current_scope = decl_context.global_scope;
+        // Query for a local INTRINSIC only in this program unit
+        scope_entry_t* entry = NULL;
+        scope_entry_list_t* entry_list = 
+            query_in_scope_str_flags(current_program_unit->related_decl_context, strtolower(ASTText(name)), DF_ONLY_CURRENT_SCOPE);
+        if (entry_list != NULL)
+        {
+            entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
+        }
 
-        scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(name), ASTFileName(name), ASTLine(name));
-        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(global_context, ASTText(name));
+        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
         
         // The symbol exists in the current scope 
         if (entry != NULL)
@@ -7767,6 +7835,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     entry_list_free(check_repeated_name);
     
     // Always insert the ultimate symbol
+    scope_entry_t* named_entry_from_module = entry;
     if (entry->entity_specs.from_module != NULL)
     {
         ERROR_CONDITION(entry->entity_specs.alias_to == NULL, 
@@ -7795,6 +7864,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     current_symbol->entity_specs.from_module = module_symbol;
     current_symbol->entity_specs.alias_to = entry;
 
+    current_symbol->entity_specs.is_renamed = 0;
+
     // Always alias to the ultimate symbol
     if (entry->entity_specs.from_module != NULL
             && entry->entity_specs.alias_to != NULL)
@@ -7805,7 +7876,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     // Also set the access to be the default
     current_symbol->entity_specs.access = AS_UNKNOWN;
 
-    if (strcmp(aliased_name, entry->symbol_name) != 0)
+    if (strcmp(aliased_name, named_entry_from_module->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
     }
@@ -8230,43 +8301,68 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
     AST mask_expr = ASTSon1(where_construct_stmt);
     nodecl_t nodecl_mask_expr = nodecl_null();
     fortran_check_expression(mask_expr, decl_context, &nodecl_mask_expr);
-    
+
     AST where_construct_body = ASTSon1(a);
 
-
-    AST main_where_body = ASTSon0(where_construct_body);
-    nodecl_t nodecl_body = nodecl_null();
-    build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
-
-    nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
-                nodecl_mask_expr, nodecl_list_head(nodecl_body), 
-                ASTFileName(a), ASTLine(a)));
-
-    AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
-    nodecl_t nodecl_elsewhere_parts = nodecl_null();
-    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere_parts);
-
-    nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts, nodecl_elsewhere_parts);
-    
-    // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
-
-    AST elsewhere_body = ASTSon3(where_construct_body);
-
-    if (elsewhere_body != NULL)
+    if (where_construct_body == NULL)
     {
-        nodecl_t nodecl_elsewhere_body = nodecl_null();
-        build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
-        nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
-            nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), 
-                    nodecl_list_head(nodecl_elsewhere_body), 
-                    ASTFileName(a), ASTLine(a))));
+        nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                    nodecl_mask_expr, nodecl_null(), ASTFileName(a), ASTLine(a)));
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
+                    );
     }
+    else
+    {
+
+        AST main_where_body = ASTSon0(where_construct_body);
+        nodecl_t nodecl_body = nodecl_null();
+
+        nodecl_t nodecl_where_parts = nodecl_null();
+
+        if (main_where_body != NULL)
+        {
+            build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
+
+            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                        nodecl_mask_expr, nodecl_list_head(nodecl_body), 
+                        ASTFileName(a), ASTLine(a)));
+        }
+        else
+        {
+            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+                        nodecl_mask_expr, nodecl_null(),
+                        ASTFileName(a), ASTLine(a)));
+        }
+
+        AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
+
+        nodecl_t nodecl_elsewhere_parts = nodecl_null();
+        build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere_parts);
+
+        nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts, nodecl_elsewhere_parts);
+
+        // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
+
+        AST elsewhere_body = ASTSon3(where_construct_body);
+
+        if (elsewhere_body != NULL)
+        {
+            nodecl_t nodecl_elsewhere_body = nodecl_null();
+            build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
+            nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
+                    nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), 
+                            nodecl_list_head(nodecl_elsewhere_body), 
+                            ASTFileName(a), ASTLine(a))));
+        }
 
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
-                );
+        *nodecl_output = 
+            nodecl_make_list_1(
+                    nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a))
+                    );
+    }
 }
 
 static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8296,7 +8392,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     AST block = ASTSon1(a);
     AST end_do_statement = ASTSon2(a);
 
-    const char* construct_name = ASTText(a);
+    const char* construct_name = strtolower(ASTText(a));
 
     nodecl_t nodecl_named_label = nodecl_null();
     if (construct_name != NULL)
@@ -9410,3 +9506,181 @@ scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
 
     return result;
 }
+
+static scope_entry_t* symbol_name_is_in_external_list(const char *name,
+        scope_entry_list_t* external_function_list)
+{
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(external_function_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+
+        if (strcmp(current->symbol_name, name) == 0)
+        {
+            entry_list_iterator_free(it);
+            return current;
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return NULL;
+}
+
+static void resolve_external_calls_rec(nodecl_t node,
+        scope_entry_list_t* external_function_list)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        resolve_external_calls_rec(
+                nodecl_get_child(node, i),
+                external_function_list);
+    }
+
+    // We only fix up function calls, function references in actual arguments are not considered
+    nodecl_t called = nodecl_null();
+    if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL
+            && nodecl_get_kind((called = nodecl_get_child(node, 0))) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(called);
+
+        if (entry->kind == SK_FUNCTION
+                && (entry->decl_context.current_scope->related_entry == NULL
+                    || !symbol_is_parameter_of_function(entry,
+                        entry->decl_context.current_scope->related_entry))
+                && !entry->entity_specs.is_nested_function
+                && !entry->entity_specs.is_module_procedure
+                && !entry->entity_specs.is_builtin
+                && !entry->entity_specs.is_stmt_function)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "%s: info: reference to external procedure '%s'\n",
+                        nodecl_get_locus(node),
+                        entry->symbol_name);
+            }
+
+            scope_entry_t* external_symbol = symbol_name_is_in_external_list(entry->symbol_name, external_function_list);
+            if (external_symbol != NULL)
+            {
+                // Now we should check the types
+                type_t* current_type = entry->type_information;
+
+                ERROR_CONDITION(!is_function_type(current_type), "Something is amiss here", 0);
+
+                if (function_type_get_lacking_prototype(current_type))
+                {
+                    // Given that the existing function does not have prototype
+                    // it may be sensible to fix it up without further ado
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "%s: info: fixing reference to unknown interface '%s'\n",
+                                nodecl_get_locus(node),
+                                entry->symbol_name);
+                        fprintf(stderr, "%s:%d: info: to this program unit definition\n",
+                                external_symbol->file, external_symbol->line);
+                    }
+
+                    //  Fix up
+                    nodecl_set_symbol(called, external_symbol);
+
+                    // Use the alternate name to keep the original symbol
+                    nodecl_t alternate_name = nodecl_get_child(node, 2);
+                    if (nodecl_is_null(alternate_name))
+                    {
+                        alternate_name = nodecl_make_symbol(entry, 
+                                nodecl_get_filename(node),
+                                nodecl_get_line(node));
+
+                        nodecl_set_child(node, 2, alternate_name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void resolve_external_calls_inside_a_function(nodecl_t function_code,
+        scope_entry_list_t* external_function_list)
+{
+    nodecl_t body = nodecl_get_child(function_code, 0);
+
+    nodecl_t internals = nodecl_get_child(function_code, 1);
+
+    resolve_external_calls_rec(body, external_function_list);
+
+    int i, n = 0;
+    nodecl_t* list = nodecl_unpack_list(internals, &n);
+
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            resolve_external_calls_inside_a_function(list[i], external_function_list);
+        }
+    }
+
+    free(list);
+}
+
+static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
+{
+    if (nodecl_is_null(nodecl_program_units))
+        return;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Resolving calls with unknown interface\n");
+    }
+
+    // Gather functions
+    int i, n = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_program_units, &n);
+
+    scope_entry_list_t* external_function_list = NULL;
+
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            scope_entry_t* function = nodecl_get_symbol(list[i]);
+
+            if (function->kind == SK_FUNCTION
+                    && !function->entity_specs.is_nested_function
+                    && !function->entity_specs.is_module_procedure
+                    && (function->decl_context.current_scope == function->decl_context.global_scope))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "%s: info: found program unit of external procedure '%s'\n",
+                            nodecl_get_locus(list[i]),
+                            function->symbol_name);
+                }
+                external_function_list = entry_list_add(external_function_list, function);
+            }
+        }
+    }
+
+    // Now review every body of function code looking for calls to external entities
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_FUNCTION_CODE)
+        {
+            resolve_external_calls_inside_a_function(list[i], external_function_list);
+        }
+    }
+
+    free(list);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "End resolving calls with unknown interface\n");
+    }
+
+}
+

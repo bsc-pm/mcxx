@@ -423,14 +423,6 @@ void LoweringVisitor::emit_async_common(
     Nodecl::Utils::SymbolMap *symbol_map = NULL;
     emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
 
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        // Copy FUNCTIONs and other local stuff
-        symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                function_symbol,
-                outline_info.get_unpacked_function_symbol());
-    }
-
     Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
     delete symbol_map;
 
@@ -735,8 +727,6 @@ void LoweringVisitor::fill_arguments(
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        Type t = (*it)->get_shared_expression().get_type();
-
                         fill_outline_arguments 
                             << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
@@ -1583,7 +1573,7 @@ static void copy_outline_data_item(
     FORTRAN_LANGUAGE()
     {
         // We need an additional pointer due to pass by reference in Fortran
-        dest_info.set_field_type(dest_info.get_field_type().get_lvalue_reference_to());
+        dest_info.set_field_type(dest_info.get_field_type().get_pointer_to());
     }
 
     // Update dependences to reflect arguments as well
@@ -1693,6 +1683,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         argument_outline_data_item.set_shared_expression(it->second);
     }
 
+    TL::Symbol alternate_name;
+    if (!function_call.get_alternate_name().is_null())
+    {
+        alternate_name = function_call.get_alternate_name().get_symbol();
+    }
+
     // Craft a new function call with the new mcc_arg_X symbols
     TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
     TL::ObjectList<Nodecl::NodeclBase> arg_list;
@@ -1706,17 +1702,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         nodecl_arg.set_type( args_it->get_type() );
 
         // We must respect symbols in Fortran because of optional stuff
-        if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE
+                // If the alternate name lacks prototype, do not add keywords
+                // here
+                && !(alternate_name.is_valid()
+                    && alternate_name.get_type().lacks_prototype()))
         {
             Nodecl::Symbol nodecl_param = Nodecl::Symbol::make(
                     params_it->first,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
 
             nodecl_arg = Nodecl::FortranNamedPairSpec::make(
                     nodecl_param,
                     nodecl_arg,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
         }
 
@@ -1757,23 +1757,25 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
     list_stmt.append(expr_statement);
 
-    Nodecl::NodeclBase statement = 
-        Nodecl::Context::make(
-                Nodecl::List::make(list_stmt),
-                function_call.retrieve_context(),
-                function_call.get_filename(),
-                function_call.get_line()
-                );
+    Nodecl::NodeclBase statements =
+        Nodecl::List::make(
+                Nodecl::Context::make(
+                    Nodecl::List::make(list_stmt),
+                    function_call.retrieve_context(),
+                    function_call.get_filename(),
+                    function_call.get_line()
+                    ));
+
+    construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
             construct,
-            function_symbol, 
-            statement,
+            function_symbol,
+            statements,
             /* priority */ Nodecl::NodeclBase::null(),
             /* is_untied */ false,
-
             arguments_outline_info);
 }
 

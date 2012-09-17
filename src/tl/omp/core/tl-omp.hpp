@@ -249,6 +249,39 @@ namespace TL
                 void module_read(ModuleReader& mw);
         };
 
+        class LIBTL_CLASS TargetInfo
+        {
+            private:
+                ObjectList<CopyItem> _copy_in;
+                ObjectList<CopyItem> _copy_out;
+                ObjectList<CopyItem> _copy_inout;
+
+                ObjectList<std::string> _device_list;
+
+                bool _copy_deps;
+            public:
+                TargetInfo();
+                bool can_be_ommitted();
+
+                void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
+                void append_to_copy_out(const ObjectList<CopyItem>& copy_items);
+                void append_to_copy_inout(const ObjectList<CopyItem>& copy_items);
+
+                ObjectList<CopyItem> get_copy_in() const;
+                ObjectList<CopyItem> get_copy_out() const;
+                ObjectList<CopyItem> get_copy_inout() const;
+
+                void set_copy_deps(bool b);
+                bool has_copy_deps() const;
+
+                void append_to_device_list(const ObjectList<std::string>& device_list);
+
+                ObjectList<std::string> get_device_list();
+
+                void module_write(ModuleWriter& mw);
+                void module_read(ModuleReader& mr);
+        };
+
         //! This class represents data sharing environment in a OpenMP construct
         class LIBTL_CLASS DataSharingEnvironment
         {
@@ -262,14 +295,13 @@ namespace TL
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
                 ObjectList<DependencyItem> _dependency_items;
-                ObjectList<CopyItem> _copy_items;
 
-                ObjectList<std::string> _device_list;
+                TargetInfo _target_info;
 
                 bool _is_parallel;
 
                 DataSharingAttribute get_internal(Symbol sym);
-                
+
                 RealTimeInfo _real_time_info;
             public:
                 //! Constructor
@@ -304,7 +336,7 @@ namespace TL
                  * also their attribute and keeps the extra information stored in the ReductionSymbol
                  */
                 void set_reduction(const ReductionSymbol& reduction_symbol);
-				
+
                 //! Gets the data sharing attribute of a symbol
                 /*!
                  * \param sym The symbol requested its data sharing attribute
@@ -321,26 +353,23 @@ namespace TL
 
                 //! Returns the enclosing data sharing
                 DataSharingEnvironment* get_enclosing();
-			
+
                 //! Returns all symbols that match the given data attribute
                 void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
                 void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+
+                TargetInfo get_target_info();
+                void set_target_info(const TargetInfo & target_info);
+
+                void set_real_time_info(const RealTimeInfo & rt_info);
+                RealTimeInfo get_real_time_info();
 
                 DataSharingEnvironment& set_is_parallel(bool b);
                 bool get_is_parallel();
 
                 void add_dependence(const DependencyItem &dependency_item);
                 void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
-
-                void add_copy(const CopyItem& copy_item);
-                void get_all_copies(ObjectList<CopyItem>& copy_items);
-
-                void add_device(const std::string& str);
-                void get_all_devices(ObjectList<std::string>& devices);
-                
-                void set_real_time_info(const RealTimeInfo & rt_info);
-                RealTimeInfo get_real_time_info();
         };
 
         class LIBTL_CLASS Info : public Object
@@ -373,40 +402,6 @@ namespace TL
                 void reset();
         };
 
-
-        class LIBTL_CLASS FunctionTaskTargetInfo
-        {
-            private:
-                ObjectList<CopyItem> _copy_in;
-                ObjectList<CopyItem> _copy_out;
-                ObjectList<CopyItem> _copy_inout;
-
-                ObjectList<std::string> _device_list;
-
-                bool _copy_deps;
-            public:
-                FunctionTaskTargetInfo();
-                bool can_be_ommitted();
-
-                void set_copy_in(const ObjectList<CopyItem>& copy_items);
-                void set_copy_out(const ObjectList<CopyItem>& copy_items);
-                void set_copy_inout(const ObjectList<CopyItem>& copy_items);
-
-                ObjectList<CopyItem> get_copy_in() const;
-                ObjectList<CopyItem> get_copy_out() const;
-                ObjectList<CopyItem> get_copy_inout() const;
-
-                void set_copy_deps(bool b);
-                bool has_copy_deps() const;
-
-                void set_device_list(const ObjectList<std::string>& device_list);
-
-                ObjectList<std::string> get_device_list() const;
-
-                void module_write(ModuleWriter& mw);
-                void module_read(ModuleReader& mr);
-        };
-
         class LIBTL_CLASS FunctionTaskDependency : public DependencyItem
         {
             public:
@@ -435,7 +430,7 @@ namespace TL
                 }
         };
 
-        class LIBTL_CLASS FunctionTaskInfo 
+        class LIBTL_CLASS FunctionTaskInfo
         {
             public:
                 typedef std::map<std::string, Symbol> implementation_table_t;
@@ -446,8 +441,8 @@ namespace TL
 
                 implementation_table_t _implementation_table;
 
-                FunctionTaskTargetInfo _target_info;
-                
+                TargetInfo _target_info;
+
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
@@ -458,17 +453,14 @@ namespace TL
                 FunctionTaskInfo() { }
 
                 FunctionTaskInfo(Symbol sym,
-                        ObjectList<FunctionTaskDependency> parameter_info,
-                        FunctionTaskTargetInfo target_info);
-                
+                        ObjectList<FunctionTaskDependency> parameter_info);
+
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
 
-                FunctionTaskTargetInfo get_target_info() const;
-
                 void add_device(const std::string& device_name);
-                
+
                 void add_device_with_implementation(
                         const std::string& device_name,
                         Symbol implementor_symbol);
@@ -478,18 +470,19 @@ namespace TL
                 typedef std::pair<std::string, Symbol> implementation_pair_t;
 
                 ObjectList<implementation_pair_t> get_devices_with_implementation() const;
-                
-                void set_real_time_info(const RealTimeInfo & rt_info);
+
+                TargetInfo get_target_info() const;
+                void set_target_info(const TargetInfo& target_info);
 
                 RealTimeInfo get_real_time_info();
-                
+                void set_real_time_info(const RealTimeInfo & rt_info);
+
                 bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
 
                 Symbol get_symbol() const;
 
-                // 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);
         };

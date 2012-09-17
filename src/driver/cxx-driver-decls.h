@@ -468,6 +468,10 @@ typedef struct compilation_configuration_tag
     // C/C++ FE does not preserve parentheses
     // unless this flag is set
     char preserve_parentheses;
+
+    // Do not make an extra pass to resolve externall calls to functions in the
+    // same file
+    char fortran_no_whole_file;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

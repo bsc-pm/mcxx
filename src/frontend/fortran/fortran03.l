@@ -134,6 +134,10 @@ kind (({digit}+)|({identifier}))
 
  /* Sentinels as much as 32 letters */
 sentinel [!][$][a-zA-Z0-9_]{0,32}
+
+empty_sentinel [!][$]
+nonempty_sentinel [!][$][a-zA-Z0-9_]{1,32}
+
 comment_not_sentinel [!]([^$][^\n\r]*)?
 
  /* Minimal C stuff */
@@ -525,7 +529,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	BEGIN(COMMENT);
 }
 
-^[[:blank:]]*{sentinel} {
+^[[:blank:]]*{nonempty_sentinel} {
     // Custom pragmas
     const char *sentinel = yytext;
 
@@ -537,56 +541,53 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     ERROR_CONDITION(*sentinel != '$', "Invalid sentinel '%s'", yytext);
     sentinel++;
 
-    if (*sentinel == '\0')
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
-        // !$ foo 
-        // This is a zero-length sentinel (note the blank, not to be confused to !$foo)
-        if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
         {
-            // Move on as if nothing happened
-            // This should look like as if this had never happened
-            last_eos = 1;
-            BEGIN(INITIAL);
+            found = 1;
+            break;
         }
-        else
-        {
-            // Handle this as a comment
-            BEGIN(COMMENT);
-        }
+    }
+
+    if (found)
+    {
+        BEGIN(pragma_custom_directive);
+        parse_token_text_str(sentinel);
+        current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
+        //return PRAGMA_CUSTOM;
+        RETURN_TOKEN(PRAGMA_CUSTOM);
     }
     else
     {
-        int i;
-        char found = 0;
-        for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
-        {
-            if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
-            {
-                found = 1;
-                break;
-            }
-        }
+        // Ignore this sentinel
+        BEGIN(unknown_pragma);
+        yymore();
+    }
+}
 
-        if (found)
-        {
-            BEGIN(pragma_custom_directive);
-            parse_token_text_str(sentinel);
-            current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
-            //return PRAGMA_CUSTOM;
-            RETURN_TOKEN(PRAGMA_CUSTOM);
-        }
-        else
-        {
-            // Ignore this sentinel
-            BEGIN(unknown_pragma);
-            yymore();
-        }
+^[[blank:]]*{empty_sentinel}/[ \t] {
+    // !$ foo
+    // This is a zero-length sentinel used for conditional compilation in OpenMP
+    if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
+    {
+        // Move on as if nothing happened
+        // This should look like as if this had never happened
+        last_eos = 1;
+        BEGIN(INITIAL);
+    }
+    else
+    {
+        // Handle this as a comment
+        BEGIN(COMMENT);
     }
 }
 
 <unknown_pragma>{
 [^\n\r]* {
-  
+
   /* This will also catch #pragma gcc */
   // Fortran does not work with pragmas so, if it's failed matching a prefix, the whole line will be considered a comment.
 	parse_token_text();

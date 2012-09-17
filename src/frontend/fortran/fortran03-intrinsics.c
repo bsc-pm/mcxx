@@ -281,7 +281,7 @@ FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
-FORTRAN_GENERIC_INTRINSIC(getarg, "POS,VALUE", S, NULL)
+FORTRAN_GENERIC_INTRINSIC(getarg, NULL, S, NULL)
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -4953,12 +4953,11 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = no_ref(argument_types[1]);
     type_t* t2 = no_ref(argument_types[2]);
 
-    if (fortran_is_array_type(t0)
-            && is_integer_type(t1)
+    if( is_integer_type(t1)
             && is_integer_type(t2))
     {
         return GET_INTRINSIC_TRANSFORMATIONAL("spread", 
-                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0), symbol->decl_context),
+                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) + 1, symbol->decl_context),
                 t0, t1, t2);
     }
 
@@ -5389,17 +5388,21 @@ scope_entry_t* compute_intrinsic_getarg(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    type_t* t0 = no_ref(argument_types[0]);
-    type_t* t1 = no_ref(argument_types[1]);
-
-    if (is_integer_type(t0)
-            && fortran_is_character_type(t1))
+    if (num_arguments == 2)
     {
-        return GET_INTRINSIC_IMPURE("getarg",
-                /* subroutine */ get_void_type(),
-                t0,
-                t1);
+        type_t* t0 = no_ref(argument_types[0]);
+        type_t* t1 = no_ref(argument_types[1]);
+
+        if (is_integer_type(t0)
+                && fortran_is_character_type(t1))
+        {
+            return GET_INTRINSIC_IMPURE("getarg",
+                    /* subroutine */ get_void_type(),
+                    t0,
+                    t1);
+        }
     }
+
     return NULL;
 }
 

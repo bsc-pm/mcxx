@@ -498,7 +498,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
         return;
 
     scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
-    entry_list_remove(entry_list, entry);
+    rb_tree_insert(sc->hash, entry->symbol_name, entry_list_remove(entry_list, entry));
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
@@ -2742,8 +2742,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        template_parameters_context, 
-                        &dummy_nodecl_output);
+                        template_parameters_context, /* first declarator */ NULL, &dummy_nodecl_output);
 
                 if (is_error_type(type_info))
                 {
@@ -2758,7 +2757,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 type_t* declarator_type;
                 compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        template_parameters_context, &dummy_nodecl_output);
+                        template_parameters_context, abstract_decl, &dummy_nodecl_output);
 
                 if (is_named_type(declarator_type)
                         && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE

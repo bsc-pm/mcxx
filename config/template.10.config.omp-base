@@ -15,6 +15,7 @@ linker_options = -Xlinker --add-needed
 {openmp} compiler_phase = libtlnanos-version.so
 # nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{openmp} fortran_preprocessor_options = -D_OPENMP=200805
 #{interm-simd} options = --variable=interm-simd:1
 {simd} preprocessor_options = @SIMD_INCLUDES@
 {simd} compiler_options = @SIMD_FLAGS@
