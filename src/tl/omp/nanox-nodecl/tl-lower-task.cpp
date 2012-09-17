@@ -423,14 +423,6 @@ void LoweringVisitor::emit_async_common(
     Nodecl::Utils::SymbolMap *symbol_map = NULL;
     emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
 
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        // Copy FUNCTIONs and other local stuff
-        symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                function_symbol,
-                outline_info.get_unpacked_function_symbol());
-    }
-
     Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
     delete symbol_map;
 

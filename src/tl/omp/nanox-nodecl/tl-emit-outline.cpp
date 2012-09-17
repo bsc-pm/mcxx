@@ -780,6 +780,11 @@ namespace TL { namespace Nanox {
 
         if (IS_FORTRAN_LANGUAGE)
         {
+            // Copy FUNCTIONs and other local stuff
+            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
+                    current_function,
+                    unpacked_function);
+
             // Replicate internal functions
             Nodecl::FunctionCode function_code = current_function.get_function_code().as<Nodecl::FunctionCode>();
             Nodecl::NodeclBase internal_functions = function_code.get_internal_functions();

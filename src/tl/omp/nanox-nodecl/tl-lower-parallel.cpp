@@ -96,14 +96,6 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Copy FUNCTIONs and other local stuff
-            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                    function_symbol,
-                    outline_info.get_unpacked_function_symbol());
-        }
-
         Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, inner_placeholder, *symbol_map);
         delete symbol_map;
 
