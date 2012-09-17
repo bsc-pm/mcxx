@@ -3673,15 +3673,19 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     C_LANGUAGE()
     {
         indent();
-        // The symbol will be already called 'struct/union X' in C
+
+        // We generate the gcc attributes at this point (and not at the end of
+        // the class definition) because the attribute "visibility" is a bit
+        // special and needs to be placed here.
+        file << class_key << " " << gcc_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
-            file << symbol.get_name() << "\n";
+            // The symbol is called 'struct/union X' in C. We should ignore the
+            // class key because it has been already printed.
+            file << " " << symbol.get_name().substr(class_key.length() + 1);
         }
-        else
-        {
-            file << class_key << "\n";
-        }
+        file << "\n";
+
         indent();
         file << "{\n";
     }
@@ -3796,14 +3800,13 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             qualified_name += get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
         }
 
-
+        // We generate the gcc attributes at this point (and not at the end of
+        // the class definition) because the attribute "visibility" is a bit
+        // special and needs to be placed here.
+        file << class_key << " " << gcc_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
-            file << class_key << " " << qualified_name;
-        }
-        else
-        {
-            file << class_key;
+            file << " " << qualified_name;
         }
 
         TL::ObjectList<TL::Type::BaseInfo> bases = symbol_type.get_bases();
@@ -4139,15 +4142,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     indent();
-
-    if (symbol.has_gcc_attributes())
-    {
-        file << "} " << gcc_attributes_to_str(symbol) << ";\n";
-    }
-    else
-    {
-        file << "};\n";
-    }
+    file << "};\n";
 }
 
 void CxxBase::define_class_symbol(TL::Symbol symbol,

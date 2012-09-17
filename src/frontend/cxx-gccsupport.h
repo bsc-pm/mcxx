@@ -37,15 +37,21 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN char gcc_attribute_is_type_attribute(const char* identifier);
-LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute, 
-        gather_decl_spec_t* gather_info, 
+
+LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
-LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list, 
-        gather_decl_spec_t *gather_info, 
+LIBMCXX_EXTERN void gather_one_gcc_attribute(const char* attribute_name,
+        AST expression_list,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
-LIBMCXX_EXTERN void check_gxx_type_traits(AST expression, 
+LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context);
+
+LIBMCXX_EXTERN void check_gxx_type_traits(AST expression,
         decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void common_check_gxx_type_traits(type_t* lhs_type,

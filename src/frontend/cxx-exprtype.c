@@ -216,15 +216,16 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
     nodecl_t dummy_nodecl_output = nodecl_null();
 
     type_t* simple_type_info = NULL;
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context, abstract_declarator, &dummy_nodecl_output);
 
     type_t* declarator_type = simple_type_info;
 
     if (!is_error_type(declarator_type))
     {
-        compute_declarator_type(abstract_declarator, 
-                &gather_info, simple_type_info, 
-                &declarator_type, decl_context, 
+        compute_declarator_type(abstract_declarator,
+                &gather_info, simple_type_info,
+                &declarator_type, decl_context,
+                abstract_declarator,
                 &dummy_nodecl_output);
     }
 
@@ -7300,7 +7301,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     gather_info.is_cxx_new_declarator = 1;
 
     nodecl_t dummy_nodecl_output = nodecl_null();
-    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type,
+            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
 
     if (is_error_type(dummy_type))
     {
@@ -7309,7 +7311,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     }
 
     type_t* declarator_type = NULL;
-    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, &dummy_nodecl_output);
+    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, new_declarator, &dummy_nodecl_output);
 
     nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
@@ -7689,7 +7691,8 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
     memset(&gather_info, 0, sizeof(gather_info));
 
     nodecl_t dummy_nodecl_output = nodecl_null();
-    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
+            decl_context, /* first declarator */ NULL,  &dummy_nodecl_output);
 
     if (is_error_type(type_info))
     {
@@ -9091,8 +9094,8 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     nodecl_t dummy_nodecl_output = nodecl_null();
 
     type_t* simple_type_info = NULL;
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-            decl_context, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info,
+            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
 
     if (is_error_type(simple_type_info))
     {
@@ -9101,8 +9104,8 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     }
 
     type_t* declarator_type = simple_type_info;
-    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-            &declarator_type, decl_context, &dummy_nodecl_output);
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info,
+            &declarator_type, decl_context, abstract_declarator, &dummy_nodecl_output);
 
     check_nodecl_cast_expr(nodecl_casted_expr, decl_context, declarator_type, cast_kind,
             ASTFileName(expr), ASTLine(expr),

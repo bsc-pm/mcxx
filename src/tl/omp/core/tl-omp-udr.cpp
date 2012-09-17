@@ -321,11 +321,11 @@ namespace TL
                 
                 nodecl_t dummy_nodecl_output = { NULL };
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        decl_context, &dummy_nodecl_output);
+                        decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
 
                 type_t* declarator_type = type_info;
                 compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        decl_context, &dummy_nodecl_output);
+                        decl_context, abstract_decl, &dummy_nodecl_output);
 
                 udr_parsed_info.type = Type(declarator_type);
 

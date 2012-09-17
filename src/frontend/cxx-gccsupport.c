@@ -67,7 +67,7 @@ char gcc_attribute_is_type_attribute(const char* identifier)
             && list_of_gcc_type_attributes[i] != NULL)
     {
         const char* attribute_name = list_of_gcc_type_attributes[i];
-        const char* __attribute_name__ = strappend(strprepend("__", identifier),"__");
+        const char* __attribute_name__ = strappend(strappend("__", attribute_name),"__");
         is_type_attribute =
             (strcmp(identifier, attribute_name) == 0)
             || (strcmp(identifier, __attribute_name__) == 0);
@@ -152,7 +152,7 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
     return match_found;
 }
 
-static void gather_one_gcc_attribute(const char* attribute_name,
+void gather_one_gcc_attribute(const char* attribute_name,
         AST expression_list,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
@@ -551,6 +551,9 @@ void gather_gcc_attribute(AST attribute,
             AST expression_list = ASTSon2(gcc_attribute_expr);
 
             const char *attribute_name = ASTText(identif);
+
+            if (attribute_name == NULL)
+                continue;
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }
