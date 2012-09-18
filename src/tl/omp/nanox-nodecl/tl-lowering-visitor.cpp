@@ -29,7 +29,14 @@
 namespace TL { namespace Nanox {
 
 LoweringVisitor::LoweringVisitor()
+     : _ancillary_file(NULL)
 {
+}
+
+LoweringVisitor::~LoweringVisitor()
+{
+    if (_ancillary_file != NULL)
+        fclose(_ancillary_file);
 }
 
 } }

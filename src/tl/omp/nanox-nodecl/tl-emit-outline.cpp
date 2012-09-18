@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-replace.hpp"
+#include "tl-compilerpipeline.hpp"
 
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
@@ -38,6 +39,11 @@
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
+
+#include "cxx-profile.h"
+#include "cxx-driver-utils.h"
+#include <errno.h>
+#include <string.h>
 
 using TL::Source;
 
@@ -87,6 +93,225 @@ namespace TL { namespace Nanox {
                 }
             }
     };
+
+    static TL::Symbol new_function_symbol_forward(
+            TL::Symbol current_function,
+            const std::string& function_name,
+            OutlineInfo& outline_info)
+    {
+        Scope sc = current_function.get_scope();
+
+        decl_context_t decl_context = sc.get_decl_context();
+        decl_context_t function_context;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            TL::Symbol sym = (*it)->get_symbol();
+
+            std::string name;
+            if (sym.is_valid())
+            {
+                name = sym.get_name();
+                if (IS_CXX_LANGUAGE
+                        && name == "this")
+                {
+                    name = "this_";
+                }
+            }
+            else
+            {
+                name = (*it)->get_field_name();
+            }
+
+            bool already_mapped = false;
+
+            switch ((*it)->get_sharing())
+            {
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED_PRIVATE:
+                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
+                    {
+                        /* FALL THROUGH */
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        switch ((*it)->get_item_kind())
+                        {
+                            case OutlineDataItem::ITEM_KIND_NORMAL:
+                            case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
+                                {
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                            name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    if ((*it)->get_field_type().is_pointer()
+                                            && (*it)->get_field_type().points_to().is_void())
+                                    {
+                                        // Preserve void*
+                                        private_sym->type_information = (*it)
+                                            ->get_field_type()
+                                            .get_internal_type();
+                                    }
+                                    else
+                                    {
+                                        private_sym->type_information = (*it)
+                                            ->get_field_type()
+                                            .get_lvalue_reference_to()
+                                            .get_internal_type();
+                                    }
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    parameter_symbols.append(private_sym);
+                                    break;
+                                }
+                            case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
+                                {
+                                    scope_entry_t* param_addr_sym = ::new_symbol(function_context, function_context.current_scope, 
+                                            ("ptr_" + name).c_str());
+                                    param_addr_sym->kind = SK_VARIABLE;
+                                    param_addr_sym->type_information = ::get_pointer_type(::get_void_type());
+                                    param_addr_sym->defined = param_addr_sym->entity_specs.is_user_declared = 1;
+
+                                    parameter_symbols.append(param_addr_sym);
+
+                                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                                    private_sym->kind = SK_VARIABLE;
+                                    if ((*it)->get_field_type().is_pointer()
+                                            && (*it)->get_field_type().points_to().is_void())
+                                    {
+                                        // Preserve void*
+                                        private_sym->type_information = (*it)
+                                            ->get_field_type()
+                                            .get_internal_type();
+                                    }
+                                    else
+                                    {
+                                        private_sym->type_information = (*it)
+                                            ->get_field_type()
+                                            .get_lvalue_reference_to()
+                                            .get_internal_type();
+                                    }
+                                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Code unreachable", 0);
+                                }
+                        }
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected data sharing kind", 0);
+                    }
+            }
+        }
+
+        // // Update types of parameters (this is needed by VLAs)
+        // for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+        //         it != parameter_symbols.end();
+        //         it++)
+        // {
+        //     it->get_internal_symbol()->type_information =
+        //         type_deep_copy(it->get_internal_symbol()->type_information,
+        //                function_context,
+        //                symbol_map->get_symbol_map());
+        // }
+        // Update types of privates (this is needed by VLAs)
+        // for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
+        //         it != private_symbols.end();
+        //         it++)
+        // {
+        //     it->get_internal_symbol()->type_information =
+        //         type_deep_copy(it->get_internal_symbol()->type_information,
+        //                function_context,
+        //                symbol_map->get_symbol_map());
+        // }
+
+        // Now everything is set to register the function
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+        new_function_sym->entity_specs.is_user_declared = 1;
+
+        new_function_sym->kind = SK_FUNCTION;
+        new_function_sym->file = "";
+        new_function_sym->line = 0;
+
+        // Make it static
+        new_function_sym->entity_specs.is_static = 1;
+
+        // Make it member if the enclosing function is member
+        if (current_function.is_member())
+        {
+            new_function_sym->entity_specs.is_member = 1;
+            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+            new_function_sym->entity_specs.access = AS_PUBLIC;
+
+            ::class_type_add_member(new_function_sym->entity_specs.class_type,
+                    new_function_sym);
+        }
+
+        function_context.function_scope->related_entry = new_function_sym;
+        function_context.block_scope->related_entry = new_function_sym;
+
+        new_function_sym->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++, it_ptypes++)
+        {
+            scope_entry_t* param = it->get_internal_symbol();
+
+            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+
+            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
+                    new_function_sym->entity_specs.num_related_symbols,
+                    param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+
+            // FIXME - We should do all the remaining lvalue adjustments
+            type_t* param_type = get_unqualified_type(param->type_information);
+            it_ptypes->type_info = param_type;
+        }
+
+        type_t *function_type = get_new_function_type(
+                get_void_type(),
+                p_types,
+                parameter_symbols.size());
+
+        new_function_sym->type_information = function_type;
+
+        delete[] p_types;
+
+        return new_function_sym;
+    }
 
     static TL::Symbol new_function_symbol_unpacked(
             TL::Symbol current_function,
@@ -153,7 +378,7 @@ namespace TL { namespace Nanox {
                             symbol_map->add_map(sym, private_sym);
 
                             // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = sym.is_allocatable();
+                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
                         }
 
                         private_symbols.append(private_sym);
@@ -173,7 +398,7 @@ namespace TL { namespace Nanox {
                             symbol_map->add_map(sym, private_sym);
 
                             // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = sym.is_allocatable();
+                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
 
                             // We do not want it be mapped again
                             // in the fall-through branch
@@ -199,10 +424,15 @@ namespace TL { namespace Nanox {
                                     private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                                     private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                                    if (sym.is_valid()
-                                            && !already_mapped)
+
+                                    if (sym.is_valid())
                                     {
-                                        symbol_map->add_map(sym, private_sym);
+                                        private_sym->entity_specs.is_allocatable =
+                                            !sym.is_member() && sym.is_allocatable();
+                                        if (!already_mapped)
+                                        {
+                                            symbol_map->add_map(sym, private_sym);
+                                        }
                                     }
 
                                     parameter_symbols.append(private_sym);
@@ -261,18 +491,22 @@ namespace TL { namespace Nanox {
                         shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
                         parameter_symbols.append(shared_reduction_sym);
 
+                        shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
+                            && !sym.is_member()
+                            && sym.is_allocatable();
+
                         // Private vector of partial reductions. This is a local pointer variable
                         // rdv stands for reduction vector
-                        TL::Type private_reduction_vector_type = (*it)->get_field_type();
+                        TL::Type private_reduction_vector_type = (*it)->get_private_type();
                         if (IS_C_LANGUAGE
                                 || IS_CXX_LANGUAGE)
                         {
-                            // The type will already be a convenient T*
+                            // T*
+                            private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             // The type will be a pointer to a descripted array
-                            private_reduction_vector_type = private_reduction_vector_type.points_to();
                             private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
                                     Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
@@ -730,11 +964,27 @@ namespace TL { namespace Nanox {
             }
         }
 
-        TL::Symbol unpacked_function = new_function_symbol_unpacked(
-                current_function,
-                outline_name + "_unpacked",
-                outline_info,
-                symbol_map);
+        TL::Symbol unpacked_function, forward_function;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            forward_function = new_function_symbol_forward(
+                    current_function,
+                    outline_name + "_forward",
+                    outline_info);
+            unpacked_function = new_function_symbol_unpacked(
+                    current_function,
+                    outline_name + "_unpack",
+                    outline_info,
+                    symbol_map);
+        }
+        else
+        {
+            unpacked_function = new_function_symbol_unpacked(
+                    current_function,
+                    outline_name + "_unpacked",
+                    outline_info,
+                    symbol_map);
+        }
 
         outline_info.set_unpacked_function_symbol(unpacked_function);
 
@@ -900,8 +1150,7 @@ namespace TL { namespace Nanox {
         {
             outline_src
                 << unpack_code << "\n"
-                << "CALL " << outline_name << "_unpacked(" << unpacked_arguments << ")\n"
-                << cleanup_code
+                << "CALL " << outline_name << "_forward(" << unpacked_arguments << ")\n"
                 ;
 
             TL::ReferenceScope ref_scope(outline_function_body);
@@ -923,6 +1172,9 @@ namespace TL { namespace Nanox {
                             original_used_modules_info->entity_specs.related_symbols[i]);
                 }
             }
+
+            // Generate ancillary code in C
+            generate_ancillary_forward_code(outline_name, data_items);
         }
         else
         {
@@ -948,4 +1200,134 @@ namespace TL { namespace Nanox {
         return outline_name;
     }
 
+    FILE* LoweringVisitor::get_ancillary_file()
+    {
+        if (_ancillary_file == NULL)
+        {
+            std::string file_name = "aux_nanox_outline_file_" 
+                + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
+            _ancillary_file = fopen(file_name.c_str(), "w");
+            if (_ancillary_file == NULL)
+            {
+                running_error("%s: error: cannot open file '%s'. %s\n", 
+                        TL::CompilationProcess::get_current_file().get_filename().c_str(),
+                        file_name.c_str(),
+                        strerror(errno));
+            }
+
+            // Global headers
+            fprintf(_ancillary_file, 
+                    "#include <stdlib.h>\n"
+                    "#include <stdint.h>\n"
+                    "#include <string.h>\n"
+                    "\n"
+                    );
+
+            compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+            ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+            // Make sure phases are loaded (this is needed for codegen)
+            load_compiler_phases(configuration);
+
+            TL::CompilationProcess::add_file(file_name, "auxcc");
+
+            ::mark_file_for_cleanup(file_name.c_str());
+        }
+        return _ancillary_file;
+    }
+
+
+    void LoweringVisitor::generate_ancillary_forward_code(
+            const std::string& outline_name, 
+            TL::ObjectList<OutlineDataItem*> data_items)
+    {
+        std::stringstream ancillary_source, parameters;
+
+        ancillary_source
+            << "extern void " << outline_name << "_forward_" << "(";
+        int num_data_items = data_items.size();
+        if (num_data_items == 0)
+        {
+            ancillary_source << "void";
+        }
+        else
+        {
+            for (int i = 0; i < num_data_items; i++)
+            {
+                if (i > 0)
+                {
+                    ancillary_source << ", ";
+                }
+                ancillary_source << "void *p" << i;
+            }
+        }
+        ancillary_source << ")\n{\n"
+            << "    extern int nanos_free(void*);\n"
+            << "    extern int nanos_handle_error(int);\n"
+            << "    extern void " << outline_name << "_unpack_(";
+        if (num_data_items == 0)
+        {
+            ancillary_source << "void";
+        }
+        else
+        {
+            for (int i = 0; i < num_data_items; i++)
+            {
+                if (i > 0)
+                {
+                    ancillary_source << ", ";
+                }
+                ancillary_source << "void*";
+            }
+        }
+        ancillary_source << ");\n\n    " << outline_name << "_unpack_(";
+        for (int i = 0; i < num_data_items; i++)
+        {
+            if (i > 0)
+            {
+                ancillary_source << ", ";
+            }
+            ancillary_source << "p" << i;
+        }
+        ancillary_source << ");\n";
+
+        // Free all the allocated descriptors
+        bool first = true;
+        int i = 0;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++, i++)
+        {
+            OutlineDataItem &item (*(*it));
+
+            if (item.get_symbol().is_valid()
+                    && item.get_sharing() == OutlineDataItem::SHARING_SHARED)
+            {
+                TL::Type t = item.get_symbol().get_type();
+
+                if (!item.get_symbol().is_allocatable()
+                        && t.is_lvalue_reference()
+                        && t.references_to().is_array()
+                        && t.references_to().array_requires_descriptor())
+                {
+                    if (first)
+                    {
+                        ancillary_source
+                            << "    int v;\n"
+                            ;
+                        first = false;
+                    }
+                    ancillary_source
+                        << "    v = nanos_free(p" << i << ");\n"
+                        << "    if (v != 0) nanos_handle_error(v);\n"
+                        ;
+                }
+            }
+        }
+
+        ancillary_source << "}\n\n";
+
+        FILE* ancillary_file = get_ancillary_file();
+        fprintf(ancillary_file, "%s", ancillary_source.str().c_str());
+    }
 } }

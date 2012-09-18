@@ -190,12 +190,12 @@ namespace TL { namespace Nanox {
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
         nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
-        }
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            wsd_data_item.set_in_outline_type(nanos_ws_desc_type.get_lvalue_reference_to());
+        }
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         // Build the structure

@@ -56,6 +56,10 @@ namespace TL { namespace Nanox {
         OutlineDataItem& outline_data_item = outline_info.get_entity_for_symbol(saved_expr.get_symbol());
         outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
         outline_data_item.set_field_type(saved_expr.get_type().get_unqualified_type());
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            outline_data_item.set_in_outline_type(saved_expr.get_type().get_unqualified_type().get_lvalue_reference_to());
+        }
     }
 
     void LoweringVisitor::handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -241,15 +245,7 @@ namespace TL { namespace Nanox {
                         }
                     case OutlineDataItem::SHARING_SHARED:
                         {
-                            int rank = ::fortran_get_rank_of_type(t.get_internal_type());
-                            TL::Type deferred_array_descriptor = TL::Type(
-                                    ::fortran_get_n_ranked_type_with_descriptor(
-                                        ::fortran_get_rank0_type(t.get_internal_type()), rank, CURRENT_COMPILED_FILE->global_decl_context)
-                                    );
-
-                            // We do not modify the outline type because we want to preserve the original type of the item
-
-                            data_item.set_field_type(deferred_array_descriptor.get_pointer_to());
+                            // This will be an opaque pointer. Do nothing
                             break;
                         }
                     default:

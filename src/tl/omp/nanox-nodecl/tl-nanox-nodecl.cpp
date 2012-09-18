@@ -107,7 +107,7 @@ namespace TL { namespace Nanox {
         {
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
 
-            std::string file_name = "aux_omp_file_" + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
+            std::string file_name = "aux_nanox_omp_file_" + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
             FILE* new_file = fopen(file_name.c_str(), "w");
             if (new_file == NULL)
             {
@@ -134,9 +134,7 @@ namespace TL { namespace Nanox {
 
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
         }
-
     }
-
 } }
 
 

@@ -7,7 +7,8 @@
 namespace TL { namespace Nanox {
     
     // This is for Fortran only
-    TL::Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
+    TL::Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope, FILE* ancillary_file);
+    TL::Symbol get_function_ptr_of(TL::Type type, TL::Scope original_scope, FILE* ancillary_file);
 
 } }
 

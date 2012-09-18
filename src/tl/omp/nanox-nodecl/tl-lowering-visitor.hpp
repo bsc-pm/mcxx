@@ -29,6 +29,7 @@
 #include "tl-nodecl-utils.hpp"
 
 #include <set>
+#include <stdio.h>
 
 namespace TL { namespace Nanox {
 
@@ -36,6 +37,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
         LoweringVisitor();
+        ~LoweringVisitor();
         virtual void visit(const Nodecl::OpenMP::Task& construct);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
@@ -51,6 +53,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
 
     private:
+
+        FILE *_ancillary_file;
+
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
 
@@ -205,6 +210,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 int &lower_bound_index, int &upper_bound_index);
 
         Source update_lastprivates(OutlineInfo& outline_info);
+
+        FILE* get_ancillary_file();
+        void generate_ancillary_forward_code(
+                const std::string& outline_name, 
+                TL::ObjectList<OutlineDataItem*> data_items);
 };
 
 } }

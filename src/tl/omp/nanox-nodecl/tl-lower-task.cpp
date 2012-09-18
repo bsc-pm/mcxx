@@ -764,12 +764,28 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
-                        fill_outline_arguments << 
-                            "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
-                            ;
+                        TL::Type t = sym.get_type();
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        if (t.is_pointer())
+                        {
+                            fill_outline_arguments <<
+                                "ol_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            fill_outline_arguments <<
+                                "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -793,69 +809,43 @@ void LoweringVisitor::fill_arguments(
                             }
                         }
 
-                        if ((*it)->get_symbol().is_target())
-                        {
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_symbol().get_type(),
-                                    ctr.retrieve_context());
+                        TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_symbol(),
+                                ctr.retrieve_context(), get_ancillary_file());
 
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
-                                ;
-                        }
+                        fill_outline_arguments << 
+                            "ol_args %" << (*it)->get_field_name() << " => " 
+                            << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args % " << (*it)->get_field_name() << " => " 
+                            << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                            ;
 
                         break;
                     }
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        if ((*it)->get_symbol().is_target())
-                        {
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression()) << "\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression()) << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_shared_expression().get_type(),
-                                    ctr.retrieve_context());
+                        TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of(
+                                (*it)->get_shared_expression().get_type(),
+                                ctr.retrieve_context(),
+                                get_ancillary_file());
 
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
-                                ;
-                        }
+                        fill_outline_arguments
+                            << "ol_args %" << (*it)->get_field_name() << " => "
+                            << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
+                            ;
+                        fill_immediate_arguments
+                            << "imm_args % " << (*it)->get_field_name() << " => "
+                            << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
+                            ;
 
                         // Best effort, this may fail sometimes
                         DataReference data_ref((*it)->get_shared_expression());
                         if (!data_ref.is_valid())
                         {
-                            std::cerr 
-                                << (*it)->get_shared_expression().get_locus() 
-                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
+                            std::cerr
+                                << (*it)->get_shared_expression().get_locus()
+                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail"
                                 << std::endl;
                         }
                         break;
@@ -1333,7 +1323,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     result_src
                         << "dependences[" << current_dep_num << "].address = "
-                                   << "&(*" << arguments_accessor << (*it)->get_field_name() << ");"
+                                   << as_expression(dep_expr.get_base_address()) << ";"
                         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
@@ -1405,7 +1395,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     // We use plain assignments in Fortran
                     result_src
-                        << "dependences[" << current_dep_num << "].address = " << "(void**)&(" << arguments_accessor << (*it)->get_field_name() << ");"
+                        << "dependences[" << current_dep_num << "].address = " << as_expression(dep_expr.get_base_address()) << ";"
                         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
                         << "dependences[" << current_dep_num << "].size = " << dependency_size << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
@@ -1680,6 +1670,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
+        }
+
         argument_outline_data_item.set_shared_expression(it->second);
     }
 
