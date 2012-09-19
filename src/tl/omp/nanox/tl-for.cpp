@@ -948,7 +948,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         {
             current_ws_policy
                 << "int _chunk;"
-                << "omp_sched_t _runtime_sched;"
+                << "nanos_omp_sched_t _runtime_sched;"
                 << "err = nanos_omp_get_schedule(&_runtime_sched, &_chunk);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
                 << "nanos_ws_t* current_ws_policy = &ws_policy[_runtime_sched - 1];"
