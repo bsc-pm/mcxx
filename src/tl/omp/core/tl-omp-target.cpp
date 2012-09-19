@@ -197,13 +197,17 @@ namespace TL
                             it != target_ctx.device_list.end();
                             it++)
                     {
-                        if (!devices_with_impl.contains(std::make_pair(*it, function_sym)))
+                        // Before you could not implement the same function multiple times per device
+                        // Now you can, so the way to check if a function is already added to implement
+                        // list is based on function name + position
+                        if (!added_devices_pos.contains(*it + ctr.get_ast().get_locus()))
                         {
                             std::cerr << ctr.get_ast().get_locus() << 
                                 ": note: adding function '" << function_sym.get_qualified_name() << "'"
                                 << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
                                 << " for device '" << *it << "'" << std::endl;
                             function_task_info.add_device_with_implementation(*it, function_sym);
+                            added_devices_pos.insert(*it+ctr.get_ast().get_locus());
                         }
                     }
                 }

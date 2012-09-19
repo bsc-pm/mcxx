@@ -36,6 +36,10 @@ namespace TL
 {
     namespace OpenMP
     {
+        // This struct controls we do not add the same device implementation
+        // twice, uses device_name + ctr.get_locus() as id
+        static ObjectList<std::string> added_devices_pos;
+
         struct TargetContext
         {
             ObjectList<std::string> device_list;
