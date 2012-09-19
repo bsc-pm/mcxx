@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 #include "cxx-codegen.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -40,16 +41,20 @@ namespace Analysis {
     static void makeup_dot_block( std::string& str );
     static std::string prettyprint_reaching_definitions( nodecl_map syms_def );
     static std::string prettyprint_ext_sym_set(  Utils::ext_sym_set s );
+    static std::string print_node_usage( Node* current, bool analysis_is_performed );
+    static std::string print_node_liveness( Node* current, bool analysis_is_performed );
+    static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed );
+    static std::string print_node_data_sharing( Node* current, bool analysis_is_performed );
+    static std::string print_node_deps( Node* current, bool analysis_is_performed );
 
-    void ExtensibleGraph::print_graph_to_dot( )
+    void ExtensibleGraph::print_graph_to_dot( bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_cfg;
 
         char buffer[1024];
         getcwd(buffer, 1024);
-        std::stringstream ss; ss << rand( );
 
-        // Create the directory of dot files if necessary and the new dot file
+        // Create the directory of dot files if it has not been previously created
         struct stat st;
         std::string directory_name = std::string(buffer) + "/dot/";
         if( stat(directory_name.c_str( ), &st) != 0 )
@@ -60,15 +65,11 @@ namespace Analysis {
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
             }
         }
-        std::string dot_file_name = directory_name + _name /*+ ss.str( )*/ + ".dot";
+        std::string dot_file_name = directory_name + _name + ".dot";
         dot_cfg.open( dot_file_name.c_str( ) );
-
-        // Create the dog graphs
         if( dot_cfg.good( ) )
-        {
-            if( CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-                CURRENT_CONFIGURATION->debug_options.enable_debug_code ||
-                CURRENT_CONFIGURATION->debug_options.print_pcfg )
+        {   // Create the dot graphs
+            if( VERBOSE )
                 std::cerr << "   ==> File '" << dot_file_name << "'" << std::endl;
 
             int subgraph_id = 0;
@@ -76,93 +77,73 @@ namespace Analysis {
                 std::string graph_data = "";
                 std::vector<std::string> outer_edges;
                 std::vector<Node*> outer_nodes;
-                get_nodes_dot_data( _graph, graph_data, outer_edges, outer_nodes, "\t", subgraph_id );
+                get_nodes_dot_data( _graph, graph_data, outer_edges, outer_nodes, "\t", subgraph_id,
+                                    use_def, liveness, reaching_defs, auto_scoping, auto_deps );
                 dot_cfg << graph_data;
             dot_cfg << "}\n";
 
             ExtensibleGraph::clear_visits( _graph );
 
             dot_cfg.close( );
-
             if( !dot_cfg.good( ) )
             {
-                internal_error ("Unable to close the file '%s' where CFG has been stored.", dot_file_name.c_str( ) );
+                internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str( ) );
             }
         }
         else
         {
-            internal_error ("Unable to open the file '%s' to store the CFG.", dot_file_name.c_str( ) );
+            internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
         }
     }
 
     // Preorder traversal
     void ExtensibleGraph::get_nodes_dot_data( Node* current, std::string& dot_graph,
                                               std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
-                                             std::string indent, int& subgraph_id )
+                                              std::string indent, int& subgraph_id,
+                                              bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         if( !current->is_visited( ) )
         {
-            current->set_visited(true);
+            current->set_visited( true );
             if( current->is_graph_node( ) )
             {
-                std::stringstream ssgid; ssgid << subgraph_id;
-                std::stringstream ssnode; ssnode << current->get_id( );
-                std::string subgraph_label = ssnode.str( ) + " ";
-                Nodecl::NodeclBase actual_label(current->get_graph_label( ) );
-                if(!actual_label.is_null( ) )
+                // Calculate the name of the new dot subgraph
+                std::stringstream node_id; node_id << current->get_id( );
+                std::string subgraph_label = node_id.str( ) + " ";
+                Nodecl::NodeclBase actual_label( current->get_graph_label( ) );
+                if( !actual_label.is_null( ) )
                 {
                     subgraph_label += codegen_to_str(actual_label.get_internal_nodecl( ),
-                            nodecl_retrieve_context(actual_label.get_internal_nodecl( ) ) );
-//                         actual_label.get_text( );
+                                                     nodecl_retrieve_context(actual_label.get_internal_nodecl( ) ) );
                 }
 
-                std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ) );
-                std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ) );
-                std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ) );
-                std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ) );
-                std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ) );
-                std::string reach_defs = prettyprint_reaching_definitions( current->get_reaching_definitions( ) );
-                std::string subgr_liveness;
-                if( _use_def_computed != '0' )
-                    subgr_liveness = "LI: "         + live_in  + "\\n" +
-                                        "KILL: "       + killed   + "\\n" +
-                                        "UE: "         + ue       + "\\n" +
-                                        "UNDEEF: "     + undef    + "\\n" +
-                                        "LO: "         + live_out + "\\n" +
-                                        "REACH DEFS: " + reach_defs;
+                std::string node_info = "";
+                node_info += print_node_usage( current, use_def );
+                node_info += print_node_liveness( current, liveness );
+                node_info += print_node_reaching_defs( current, reaching_defs );
 
-                std::string task_deps = "";
                 if( current->is_task_node( ) )
-                {
-                    task_deps = "\\n"
-                                "input: "  + prettyprint_ext_sym_set( current->get_input_deps( ) ) + "\\n" +
-                                "output: " + prettyprint_ext_sym_set( current->get_output_deps( ) ) + "\\n" +
-                                "inout: "  + prettyprint_ext_sym_set( current->get_inout_deps( ) );
-                }
+                    node_info = "\\n" + print_node_data_sharing( current, auto_scoping ) + "\\n" + print_node_deps( current, auto_deps );
 
+                std::stringstream ssgid; ssgid << subgraph_id;
                 dot_graph += indent + "subgraph cluster" + ssgid.str( ) + "{\n";
-
                 makeup_dot_block( subgraph_label );
                 dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
                 subgraph_id++;
 
                 std::vector<std::string> new_outer_edges;
                 std::vector<Node*> new_outer_nodes;
-                get_dot_subgraph(current, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);
-                std::stringstream ss; ss << current->get_id( );
-                if( _use_def_computed != '0' && current->has_deps_computed( ) )
-                    dot_graph += indent + "\t-" + ss.str( ) + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
-                else if( _use_def_computed != '0' )
-                    dot_graph += indent + "\t-" + ss.str( ) + "[label=\"" + subgr_liveness + " \", shape=box]\n";
+                get_dot_subgraph( current, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id,
+                                  use_def, liveness, reaching_defs, auto_scoping, auto_deps );
+                dot_graph += indent + "\t-" + node_id.str( ) + "[label=\"" + node_info + " \", shape=box]\n";
                 dot_graph += indent + "}\n";
 
-                for( std::vector<Node*>::iterator it = new_outer_nodes.begin( );
-                        it != new_outer_nodes.end( );
-                        ++it)
+                for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
                 {
                     std::vector<std::string> new_outer_edges_2;
                     std::vector<Node*> new_outer_nodes_2;
-                    get_nodes_dot_data( *it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id );
+                    get_nodes_dot_data( *it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id,
+                                        use_def, liveness, reaching_defs, auto_scoping, auto_deps);
                 }
                 for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
                 {
@@ -172,7 +153,7 @@ namespace Analysis {
 
             if( current->is_exit_node( ) )
             {   // Ending the graph traversal, either the master graph or any subgraph
-                get_node_dot_data( current, dot_graph, indent );
+                get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
             }
             else
             {
@@ -186,7 +167,7 @@ namespace Analysis {
                             current->is_entry_node( ) ) ) )
                     {
                         sss << current->get_id( );
-                        get_node_dot_data( current, dot_graph, indent );
+                        get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
                     }
                     else
                     {
@@ -236,21 +217,20 @@ namespace Analysis {
                         if( belongs_to_the_same_graph( *it ) )
                         {
                             dot_graph += indent + sss.str( ) + " -> " + sst.str( ) +
-                                        " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
-                            get_nodes_dot_data(( *it )->get_target( ), dot_graph,
-                                            outer_edges, outer_nodes,
-                                            indent, subgraph_id);
+                                         " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                            get_nodes_dot_data( ( *it )->get_target( ), dot_graph, outer_edges, outer_nodes, indent, subgraph_id,
+                                                use_def, liveness, reaching_defs, auto_scoping, auto_deps);
                         }
                         else
                         {
                             if( current->is_graph_node( ) )
                             {
-                                get_node_dot_data(current, dot_graph, indent);
+                                get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
                             }
                             std::string mes = sss.str( ) + " -> " + sst.str( ) +
-                                            " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                                              " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
-                            outer_nodes.push_back(( *it )->get_target( ) );
+                            outer_nodes.push_back( ( *it )->get_target( ) );
                         }
                     }
                 }
@@ -260,13 +240,16 @@ namespace Analysis {
 
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph,
                                             std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
-                                            std::string indent, int& subgraph_id )
+                                            std::string indent, int& subgraph_id,
+                                            bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         Node* entry_node = current->get_graph_entry_node( );
-        get_nodes_dot_data( entry_node, dot_graph, outer_edges, outer_nodes, indent+"\t", subgraph_id );
+        get_nodes_dot_data( entry_node, dot_graph, outer_edges, outer_nodes, indent+"\t", subgraph_id,
+                            use_def, liveness, reaching_defs, auto_scoping, auto_deps );
     }
 
-    void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string indent )
+    void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string indent,
+                                             bool use_def, bool liveness, bool reaching_defs )
     {
         std::string basic_block = "";
         std::stringstream ss; ss << current->get_id( );
@@ -277,20 +260,10 @@ namespace Analysis {
 
         std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
 
-        std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ) );
-        std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ) );
-        std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ) );
-        std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ) );
-        std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ) );
-        std::string reach_defs = prettyprint_reaching_definitions(current->get_reaching_definitions( ) );
-        std::string live_info;
-        if( _use_def_computed != '0' )
-            live_info = " | LI: "           + live_in +
-                        " | KILL: "         + killed +
-                        " | UE: "           + ue +
-                        " | UNDEF: "        + undef +
-                        " | LO: "           + live_out +
-                        " | REACH DEFS: "   + reach_defs;
+        std::string node_info = "";
+        node_info += print_node_usage( current, use_def );
+        node_info += print_node_liveness( current, liveness );
+        node_info += print_node_reaching_defs( current, reaching_defs );
 
         switch( current->get_type( ) )
         {
@@ -367,7 +340,7 @@ namespace Analysis {
                 }
                 basic_block = basic_block.substr( 0, basic_block.size( ) - 2 );   // Remove the last back space
 
-                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + basic_block + live_info + "}\", shape=record, "
+                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + basic_block + node_info + "}\", shape=record, "
                             + basic_attrs + "];\n";
 
                 break;
@@ -438,6 +411,77 @@ namespace Analysis {
             str.replace ( pos, 1, "\\?" );
             pos += 2;
         }
+    }
+
+    static std::string print_node_usage( Node* current, bool analysis_is_performed )
+    {
+        std::string usage = "";
+        if( analysis_is_performed )
+        {
+            std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ) );
+            std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ) );
+            std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ) );
+
+            usage = "KILL: " + killed + "\\n" + "UE: " + ue + "\\n" + "UNDEEF: " + undef;
+        }
+        return usage;
+    }
+
+    static std::string print_node_liveness( Node* current, bool analysis_is_performed )
+    {
+        std::string liveness = "";
+        if( analysis_is_performed )
+        {
+            std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ) );
+            std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ) );
+            liveness = "LI: " + live_in + "\\n" + "LO: " + live_out;
+        }
+        return liveness;
+    }
+
+    static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed )
+    {
+        std::string reaching_defs = "";
+        if( analysis_is_performed )
+        {
+            reaching_defs = "REACH DEFS: " + prettyprint_reaching_definitions( current->get_reaching_definitions( ) );
+        }
+        return reaching_defs;
+    }
+
+    static std::string print_node_data_sharing( Node* current, bool analysis_is_performed )
+    {
+        std::string auto_scope = "";
+        if( analysis_is_performed )
+        {
+            std::string sc_private = prettyprint_ext_sym_set( current->get_sc_private_vars( ) );
+            std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ) );
+            std::string sc_shared = prettyprint_ext_sym_set( current->get_sc_shared_vars( ) );
+            std::string sc_undefined = prettyprint_ext_sym_set( current->get_sc_undef_vars( ) );
+            auto_scope = "AUTO-SC_PRIVATE: " + sc_private + "\\n" + "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" +
+                         "AUTO-SC_SHARED: " + sc_shared + "\\n" + "AUTO-SC_UNDEFINED: " + sc_undefined + "\\n";
+        }
+        return auto_scope;
+    }
+
+    static std::string print_node_deps( Node* current, bool analysis_is_performed )
+    {
+        std::string auto_deps = "";
+        if( analysis_is_performed )
+        {
+            std::string deps_private = prettyprint_ext_sym_set( current->get_deps_private_vars( ) );
+            std::string deps_firstprivate = prettyprint_ext_sym_set( current->get_deps_firstprivate_vars( ) );
+            std::string deps_shared = prettyprint_ext_sym_set( current->get_deps_shared_vars( ) );
+            std::string deps_in = prettyprint_ext_sym_set( current->get_deps_in_exprs( ) );
+            std::string deps_out = prettyprint_ext_sym_set( current->get_deps_out_exprs( ) );
+            std::string deps_inout = prettyprint_ext_sym_set( current->get_deps_inout_exprs( ) );
+            std::string deps_undefined = prettyprint_ext_sym_set( current->get_deps_undef_vars( ) );
+            auto_deps = "AUTO-DEPS_PRIVATE: " + deps_private + "\\n" + "AUTO-DEPS_FIRSTPRIVATE: " + deps_firstprivate + "\\n" +
+                        "AUTO-DEPS_SHARED: " + deps_shared + "\\n" + "AUTO-DEPS_IN: " + deps_in + "\\n" +
+                        "AUTO-DEPS_OUT: " + deps_out + "\\n" + "AUTO-DEPS_INOUT: " + deps_inout + "\\n" +
+                        "AUTO-DEPS_UNDEFINED: " + deps_undefined + "\\n";
+        }
+        return auto_deps;
     }
 
     static std::string prettyprint_reaching_definitions( nodecl_map reach_defs )

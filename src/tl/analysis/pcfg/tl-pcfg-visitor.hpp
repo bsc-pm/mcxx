@@ -92,7 +92,7 @@ namespace Analysis {
         * \param subscripted Pointer to the node containing the subscripted part
         * \param subscript Pointer to the node containing the actual subscript
         */
-        Node* merge_nodes(Node* subscripted, Node* subscript);
+//         Node* merge_nodes(Node* subscripted, Node* subscript);
 
 
 

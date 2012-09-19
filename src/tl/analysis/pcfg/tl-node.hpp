@@ -95,6 +95,33 @@ namespace Analysis {
             //! Returns the list of live out variables in the node (Used in composite nodes)
             Utils::ext_sym_set get_live_out_over_nodes();
 
+
+
+            // ****************************************************************************** //
+            // ********** Templated methods setting one or more extended symbols ************ //
+
+            template <class T>
+            void set_sc_shared_var_any( T t );
+
+            template <class T>
+            void set_sc_private_var_any( T t );
+
+            template <class T>
+            void set_sc_firstprivate_var_any( T t );
+
+            template <class T>
+            void set_sc_shared_or_firstprivate_var_any( T t );
+
+            template <class T>
+            void set_sc_undef_var_any( T t );
+
+            template <class T>
+            void set_sc_race_var_any( T t );
+
+            // ******** END templated methods setting one or more extended symbols ********** //
+            // ****************************************************************************** //
+
+
         public:
             // *** Constructors *** //
 
@@ -223,11 +250,23 @@ namespace Analysis {
             //! Returns true when the node is a composite node (contains nodes inside)
             bool is_graph_node();
 
-            //! Returns true when the node is an entry node
+            //! Returns true when the node is an ENTRY node
             bool is_entry_node();
 
-            //! Returns true when the node is an exit node
+            //! Returns true when the node is an EXIT node
             bool is_exit_node();
+
+            //! Returns true when the node is a BREAK node
+            bool is_break_node( );
+
+            //! Returns true when the node is a CONTINUE node
+            bool is_continue_node( );
+
+            //! Returns true when the node is a GOTO node
+            bool is_goto_node( );
+
+            //! Returns true when the node is a UNCLASSIFIED node
+            bool is_unclassified_node( );
 
             //! Returns true when the node is the exit node of composite node \graph
             bool is_graph_entry_node( Node* graph );
@@ -235,17 +274,21 @@ namespace Analysis {
             //! Returns true when the node is the exit node of composite node \graph
             bool is_graph_exit_node( Node* graph );
 
-            //! Returns true when the node is a composite node of Loop type
+            //! Returns true when the node is a composite node of LOOP type
             bool is_loop_node( );
 
             bool is_loop_stride( Node* loop );
 
+            //! Returns true when the node is a NORMAL node
             bool is_normal_node( );
 
+            //! Returns true when the node is a LABELED node
             bool is_labeled_node( );
 
+            //! Returns true when the node is a FUNCTION_CALL node
             bool is_function_call_node( );
 
+            //! Returns true when the node is a TASK node
             bool is_task_node( );
 
             //! Returns true when the node is connected to any parent and/or any child
@@ -508,29 +551,38 @@ namespace Analysis {
             // ****************************************************************************** //
             // ************** Getters and setters for task dependence analysis ************** //
 
+            Utils::ext_sym_set get_deps_private_vars( );
+            void set_deps_private_vars( Utils::ext_sym_set new_deps_private_var );
+
+            Utils::ext_sym_set get_deps_firstprivate_vars( );
+            void set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var );
+
+            Utils::ext_sym_set get_deps_shared_vars( );
+            void set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var );
+
             //! Returns the list of input dependences of a task node
-            Utils::ext_sym_set get_input_deps();
+            Utils::ext_sym_set get_deps_in_exprs( );
 
             //! Insert a list of input dependencies to the node
-            void set_input_deps(Utils::ext_sym_set new_input_deps);
+            void set_deps_in_exprs( Utils::ext_sym_set new_in_deps );
 
             //! Returns the list of output dependences of a task node
-            Utils::ext_sym_set get_output_deps();
+            Utils::ext_sym_set get_deps_out_exprs( );
 
             //! Insert a list of output dependencies to the node
-            void set_output_deps(Utils::ext_sym_set new_output_deps);
+            void set_deps_out_exprs( Utils::ext_sym_set new_out_deps );
 
             //! Returns the list of inout dependences of a task node
-            Utils::ext_sym_set get_inout_deps();
+            Utils::ext_sym_set get_deps_inout_exprs( );
 
             //! Insert a list of inout dependencies to the node
-            void set_inout_deps(Utils::ext_sym_set new_inout_deps);
+            void set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps );
 
             //! Returns the list of undefined dependences of a task node
-            Utils::ext_sym_set get_undef_deps();
+            Utils::ext_sym_set get_deps_undef_vars( );
 
             //! Insert a list of undefined dependencies to the node
-            void set_undef_deps(Utils::ext_sym_set new_undef_deps);
+            void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
             // ****************************************************************************** //
@@ -540,33 +592,35 @@ namespace Analysis {
             // ****************************************************************************** //
             // *************** Getters and setters for auto-scoping analysis **************** //
 
-            Utils::ext_sym_set get_shared_vars();
+            // Shared variables
+            Utils::ext_sym_set get_sc_shared_vars( );
+            void set_sc_shared_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_var( Utils::ext_sym_set es_list );
 
-            void set_shared_var(Utils::ExtendedSymbol ei);
+            // Private variables
+            Utils::ext_sym_set get_sc_private_vars( );
+            void set_sc_private_var( Utils::ExtendedSymbol es );
+            void set_sc_private_var( Utils::ext_sym_set es_list );
 
-            void set_shared_var(Utils::ext_sym_set new_shared_vars);
+            // Firstprivate variables
+            Utils::ext_sym_set get_sc_firstprivate_vars( );
+            void set_sc_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_firstprivate_var( Utils::ext_sym_set es_list );
 
-            Utils::ext_sym_set get_private_vars();
+            // Shared or Firstprivate variables
+            Utils::ext_sym_set get_sc_shared_or_firstprivate_vars( );
+            void set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list );
 
-            void set_private_var(Utils::ExtendedSymbol ei);
+            // Undefined variables
+            Utils::ext_sym_set get_sc_undef_vars( );
+            void set_sc_undef_var( Utils::ExtendedSymbol es );
+            void set_sc_undef_var( Utils::ext_sym_set es_list );
 
-            void set_private_var(Utils::ext_sym_set new_private_vars);
-
-            Utils::ext_sym_set get_firstprivate_vars();
-
-            void set_firstprivate_var(Utils::ExtendedSymbol ei);
-
-            void set_firstprivate_var(Utils::ext_sym_set new_firstprivate_vars);
-
-            Utils::ext_sym_set get_undef_sc_vars();
-
-            void set_undef_sc_var(Utils::ExtendedSymbol ei);
-
-            void set_undef_sc_var(Utils::ext_sym_set new_undef_sc_vars);
-
-            Utils::ext_sym_set get_race_vars();
-
-            void set_race_var(Utils::ExtendedSymbol ei);
+            // Race condition variables
+            Utils::ext_sym_set get_sc_race_vars();
+            void set_sc_race_var( Utils::ExtendedSymbol es );
+            void set_sc_race_var( Utils::ext_sym_set es_list );
 
             // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //
@@ -576,15 +630,13 @@ namespace Analysis {
             // ****************************************************************************** //
             // *********************************** Utils ************************************ //
 
-            void print_use_def_chains();
-            void print_liveness();
-            void print_auto_scoping();
-            void print_task_dependencies();
+            void print_use_def_chains( );
+            void print_liveness( );
+            void print_auto_scoping( );
+            void print_task_dependencies( );
 
             // ********************************* END utils ********************************** //
             // ****************************************************************************** //
-
-        friend class CfgAnalysisVisitor;
     };
 }
 }

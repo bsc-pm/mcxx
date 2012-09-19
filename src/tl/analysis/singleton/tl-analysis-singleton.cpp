@@ -36,57 +36,88 @@ namespace Analysis {
     // ************************ Analysis Memento class ************************ //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _constants( false ), _canonical( false ), _use_def( false ), _liveness( ), _loops( false )
+        : _constants( false ), _canonical( false ), _use_def( false ), _liveness( ),
+          _loops( false ), _reaching_defs( false ), _auto_scoping( false ), _auto_deps( false )
     {}
 
-    bool PCFGAnalysis_memento::get_constants( )
+    bool PCFGAnalysis_memento::is_constants_computed( )
     {
         return _constants;
     }
 
-    void PCFGAnalysis_memento::set_constants( )
+    void PCFGAnalysis_memento::set_constants_computed( )
     {
         _constants = true;
     }
 
-    bool PCFGAnalysis_memento::get_canonical( )
+    bool PCFGAnalysis_memento::is_canonical_computed( )
     {
         return _canonical;
     }
 
-    void PCFGAnalysis_memento::set_canonical( )
+    void PCFGAnalysis_memento::set_canonical_computed( )
     {
         _canonical = true;
     }
 
-    bool PCFGAnalysis_memento::get_use_def( )
+    bool PCFGAnalysis_memento::is_usage_computed( )
     {
         return _use_def;
     }
 
-    void PCFGAnalysis_memento::set_use_def( )
+    void PCFGAnalysis_memento::set_usage_computed( )
     {
         _use_def = true;
     }
 
-    bool PCFGAnalysis_memento::get_liveness( )
+    bool PCFGAnalysis_memento::is_liveness_computed( )
     {
         return _liveness;
     }
 
-    void PCFGAnalysis_memento::set_liveness( )
+    void PCFGAnalysis_memento::set_liveness_computed( )
     {
         _liveness = true;
     }
 
-    bool PCFGAnalysis_memento::get_loops( )
+    bool PCFGAnalysis_memento::is_loops_computed( )
     {
         return _loops;
     }
 
-    void PCFGAnalysis_memento::set_loops( )
+    void PCFGAnalysis_memento::set_loops_computed( )
     {
         _loops = true;
+    }
+
+    bool PCFGAnalysis_memento::is_reaching_defs_computed( )
+    {
+        return _reaching_defs;
+    }
+
+    void PCFGAnalysis_memento::set_reaching_defs_computed( )
+    {
+        _reaching_defs = true;
+    }
+
+    bool PCFGAnalysis_memento::is_auto_scoping_computed( )
+    {
+        return _auto_scoping;
+    }
+
+    void PCFGAnalysis_memento::set_auto_scoping_computed( )
+    {
+        _auto_scoping = true;
+    }
+
+    bool PCFGAnalysis_memento::is_auto_deps_computed( )
+    {
+        return _auto_deps;
+    }
+
+    void PCFGAnalysis_memento::set_auto_deps_computed( )
+    {
+        _auto_deps = true;
     }
 
     void PCFGAnalysis_memento::reset_state( )
@@ -96,6 +127,9 @@ namespace Analysis {
         _use_def = false;
         _liveness = false;
         _loops = false;
+        _reaching_defs = false;
+        _auto_scoping = false;
+        _auto_deps = false;
     }
 
     // ********************** END Analysis Memento class ********************** //
@@ -195,7 +229,9 @@ namespace Analysis {
 
     void AnalysisSingleton::print_pcfg( ExtensibleGraph* graph )
     {
-        graph->print_graph_to_dot( );
+        PCFGAnalysis_memento* current_state = _states[graph->get_name( )];
+        graph->print_graph_to_dot( current_state->_use_def, current_state->_liveness, current_state->_reaching_defs,
+                                   current_state->_auto_scoping, current_state->_auto_deps );
     }
 }
 }

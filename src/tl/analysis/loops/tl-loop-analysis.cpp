@@ -348,27 +348,26 @@ namespace Analysis {
 
     void LoopAnalysis::compute_induction_variables_info(Node* node)
     {
-        if (!node->is_visited())
+        if ( !node->is_visited( ) )
         {
-            node->set_visited(true);
+            node->set_visited( true );
 
-            Node_type ntype = node->get_data<Node_type>(_NODE_TYPE);
-            if ( !node->is_graph_exit_node( ) )
+            if( !node->is_graph_exit_node( ) )
             {
-                if ( node->is_loop_node( ) )
+                if( node->is_loop_node( ) )
                 {
-                    if ( node->get_data<Graph_type>( _GRAPH_TYPE ) == LOOP_FOR )
+                    if( node->get_data<Graph_type>( _GRAPH_TYPE ) == LOOP_FOR )
                     {
                         // Get the info about induction variables in the loop control
                         compute_loop_induction_vars(node);
                     }
-                    compute_induction_variables_info(node->get_data<Node*>(_ENTRY_NODE));
+                    compute_induction_variables_info( node->get_graph_entry_node( ) );
                 }
 
-                ObjectList<Node*> children = node->get_children();
-                for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                ObjectList<Node*> children = node->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    compute_induction_variables_info(*it);
+                    compute_induction_variables_info( *it );
                 }
             }
         }
