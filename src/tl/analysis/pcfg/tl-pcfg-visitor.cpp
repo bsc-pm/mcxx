@@ -1276,9 +1276,6 @@ namespace Analysis {
         Node* atomic_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_ATOMIC );
         _pcfg->connect_nodes( _utils->_last_nodes, atomic_node );
 
-        // Create implicit flush at the entry of the atomic
-        _pcfg->create_flush_node( atomic_node );
-
         // Set clauses info to the atomic node
         PCFGClause atomic_clause( ATOMIC_CLAUSE, n.get_name( ) );
         PCFGPragmaInfo current_pragma( atomic_clause );
@@ -1287,9 +1284,6 @@ namespace Analysis {
         // Traverse the statements of the current atomic
         _utils->_last_nodes = ObjectList<Node*>( 1, atomic_node->get_graph_entry_node( ) );
         walk( n.get_statements( ) );
-
-        // Create implicit flush at the exit of a atomic
-        _pcfg->create_flush_node( atomic_node );
 
         Node* atomic_exit = atomic_node->get_graph_exit_node( );
         atomic_exit->set_id( ++( _utils->_nid ) );
@@ -1309,13 +1303,14 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
     {
-        _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
-        return PCFGVisitor::Ret( );
+        Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
+        return ObjectList<Node*>( 1, first_flush );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
     {
-        internal_error( "BarrierFull not yet implemented", 0 );
+        Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
+        return ObjectList<Node*>( 1, first_flush );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
@@ -1330,7 +1325,8 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {   // No deeper Nodecls
-        internal_error( "CombinedWorksharing not yet implemented", 0 )
+        internal_error( "CombinedWorksharing not yet implemented ( %s )", codegen_to_str( n.get_internal_nodecl( ),
+                                                                                          nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
@@ -1360,9 +1356,6 @@ namespace Analysis {
         Node* critical_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_CRITICAL );
         _pcfg->connect_nodes( _utils->_last_nodes, critical_node );
 
-        // Create implicit flush at the entry of the critical
-        _pcfg->create_flush_node( critical_node );
-
         // Set clauses info to the critical node
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
@@ -1373,9 +1366,6 @@ namespace Analysis {
         // Traverse the statements of the current critical
         _utils->_last_nodes = ObjectList<Node*>( 1, critical_node->get_graph_entry_node( ) );
         walk( n.get_statements( ) );
-
-        // Create implicit flush at the exit of a critical
-        _pcfg->create_flush_node( critical_node );
 
         Node* critical_exit = critical_node->get_graph_exit_node( );
         critical_exit->set_id( ++( _utils->_nid ) );
@@ -1448,10 +1438,6 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, for_node->get_graph_entry_node( ) );
         walk( n.get_statements( ) );
 
-        // Create implicit barrier at the exit of a for
-        if ( !current_pragma.has_clause( NOWAIT ) )
-            _pcfg->create_barrier_node( for_node );
-
         Node* for_exit = for_node->get_graph_exit_node( );
         for_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
@@ -1502,6 +1488,7 @@ namespace Analysis {
         // Create the new graph node containing the parallel
         Node* parallel_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_PARALLEL );
         _pcfg->connect_nodes( _utils->_last_nodes, parallel_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node->get_graph_entry_node( ) );
 
         // Set clauses info to the parallel node
         PCFGPragmaInfo current_pragma;
@@ -1510,18 +1497,8 @@ namespace Analysis {
         parallel_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
 
-        // Create implicit flush at the entry of the parallel
-        _pcfg->create_flush_node( parallel_node );
-
         // Traverse the statements of the current sections
-        _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node->get_graph_entry_node( ) );
         walk( n.get_statements( ) );
-
-        // Create implicit flush or barrier at the exit of a parallel
-        if ( current_pragma.has_clause( NOWAIT ) )
-            _pcfg->create_flush_node( parallel_node );
-        else
-            _pcfg->create_barrier_node( parallel_node );
 
         Node* parallel_exit = parallel_node->get_graph_exit_node( );
         parallel_exit->set_id( ++( _utils->_nid ) );
@@ -1570,18 +1547,24 @@ namespace Analysis {
     {
         ObjectList<Node*> section_last_nodes = _utils->_last_nodes;
 
+        // Create the graph node containing the SECTION
         Node* section_node = _pcfg->create_graph_node( _utils->_outer_nodes.top(), n, OMP_SECTION );
         _pcfg->connect_nodes( _utils->_last_nodes, section_node );
-
         _utils->_last_nodes = ObjectList<Node*>( 1, section_node->get_graph_entry_node( ) );
+
+        // Traverse the statements of the SECTION
         walk ( n.get_statements( ) );
 
+        // Set the exit node of the SECTION graph node
         Node* section_exit = section_node->get_graph_exit_node( );
         section_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, section_exit );
         _utils->_outer_nodes.pop( );
 
         _utils->_last_nodes = section_last_nodes;
+        _utils->_section_nodes.top( ).append( section_node );
+
+        return ObjectList<Node*>( 1, section_node );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Sections& n )
@@ -1589,21 +1572,22 @@ namespace Analysis {
         // Create the new graph node containing the sections
         Node* sections_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SECTIONS );
         _pcfg->connect_nodes( _utils->_last_nodes, sections_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, sections_node->get_graph_entry_node( ) );
 
-        // Set clauses info to the sections node
+        // Traverse all section blocks
+        _utils->_last_nodes = ObjectList<Node*>( 1, sections_node->get_graph_entry_node( ) );
+        ObjectList<Node*> section_nodes;
+        _utils->_section_nodes.push( section_nodes );
+        walk( n.get_sections( ) );
+        _utils->_last_nodes = _utils->_section_nodes.top( );
+        _utils->_section_nodes.pop( );
+
+        // Set clauses info to the sections node and implicit barriers if necessary
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
-        walk( n.get_environment( ) );   // This traversal will never create new nodes
+        walk( n.get_environment( ) );
         sections_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
-
-        // Traverse the statements of the current sections
-        _utils->_last_nodes = ObjectList<Node*>( 1, sections_node->get_graph_entry_node( ) );
-        walk( n.get_sections( ) );
-
-        // Create implicit flush or barrier at the exit of a sections
-        if ( !current_pragma.has_clause( NOWAIT ) )
-            _pcfg->create_barrier_node( sections_node );
 
         Node* sections_exit = sections_node->get_graph_exit_node( );
         sections_exit->set_id( ++( _utils->_nid ) );
@@ -1626,6 +1610,7 @@ namespace Analysis {
         // Create the new graph node containing the single
         Node* single_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SINGLE );
         _pcfg->connect_nodes( _utils->_last_nodes, single_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, single_node->get_graph_entry_node( ) );
 
         // Set clauses info to the single node
         PCFGPragmaInfo current_pragma;
@@ -1637,10 +1622,6 @@ namespace Analysis {
         // Traverse the statements of the current single
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node->get_graph_entry_node( ) );
         walk( n.get_statements( ) );
-
-        // Create implicit flush or barrier at the exit of a single
-        if ( !current_pragma.has_clause( NOWAIT ) )
-            _pcfg->create_barrier_node( single_node );
 
         Node* single_exit = single_node->get_graph_exit_node( );
         single_exit->set_id( ++( _utils->_nid ) );
@@ -1676,14 +1657,8 @@ namespace Analysis {
         task_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
 
-        // Create implicit flush before a task scheduling point
-        _pcfg->create_flush_node( task_node );
-
         // Traverse the statements of the current task
         walk( n.get_statements( ) );
-
-        // Create implicit flush after a task scheduling point
-        _pcfg->create_flush_node( task_node );
 
         Node* task_exit = task_node->get_graph_exit_node( );
         task_exit->set_id( ++( _utils->_nid ) );

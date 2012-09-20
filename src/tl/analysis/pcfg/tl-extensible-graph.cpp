@@ -448,15 +448,19 @@ namespace Analysis {
         return result;
     }
 
-    void ExtensibleGraph::create_barrier_node( Node* outer_node )
+    Node* ExtensibleGraph::create_barrier_node( Node* outer_node )
     {
-        Node* flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
-        connect_nodes( _utils->_last_nodes, flush_node );
+        Node* flush_node_1 = new Node( _utils->_nid, OMP_FLUSH, outer_node );
+        connect_nodes( _utils->_last_nodes, flush_node_1 );
+
         Node* barrier_node = new Node( _utils->_nid, OMP_BARRIER, outer_node );
-        connect_nodes( flush_node, barrier_node );
-        flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
-        connect_nodes( barrier_node, flush_node );
-        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node );
+        connect_nodes( flush_node_1, barrier_node );
+
+        Node* flush_node_2 = new Node( _utils->_nid, OMP_FLUSH, outer_node );
+        connect_nodes( barrier_node, flush_node_2 );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node_2 );
+        return flush_node_1;
     }
 
     void ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )

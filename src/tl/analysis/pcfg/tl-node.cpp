@@ -76,7 +76,7 @@ namespace Analysis {
         set_data( _NODE_STMTS, ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
     }
 
-    bool Node::operator==(const Node& node) const
+    bool Node::operator==( const Node& node ) const
     {
         return ( _id == node._id );
     }
@@ -104,11 +104,11 @@ namespace Analysis {
     void Node::erase_exit_edge( Node* target )
     {
         ObjectList<Edge*>::iterator it;
-        for (it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it)
+        for( it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
             if ( ( *it )->get_target( ) == target )
             {
-                _exit_edges.erase(it);
+                _exit_edges.erase( it );
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
@@ -164,7 +164,7 @@ namespace Analysis {
 
     bool Node::is_empty_node( )
     {
-        return ( _id==-1 && get_data<Node_type>( _NODE_TYPE ) == UNCLASSIFIED_NODE );
+        return ( _id==-1 && is_unclassified_node( ) );
     }
 
     ObjectList<Edge*> Node::get_entry_edges( ) const
@@ -195,7 +195,7 @@ namespace Analysis {
 
         for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
-            result.append((*it)->get_label());
+            result.append( ( *it )->get_label( ) );
         }
 
         return result;
@@ -253,7 +253,7 @@ namespace Analysis {
         int id = target->get_id( );
         for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if ( ( *it )->get_target( )->get_id( ) == id)
+            if ( ( *it )->get_target( )->get_id( ) == id )
             {
                 result = *it;
                 break;
@@ -365,9 +365,9 @@ namespace Analysis {
         bool result = false;
         int id = n->_id;
 
-        for (ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if ((*it)->get_target()->_id == id)
+            if( ( *it )->get_target( )->_id == id )
             {
                 result = true;
                 break;
@@ -377,14 +377,14 @@ namespace Analysis {
         return result;
     }
 
-    bool Node::has_parent(Node* n)
+    bool Node::has_parent( Node* n )
     {
         bool result = false;
         int id = n->_id;
 
-        for (ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
-            if ((*it)->get_source()->_id == id)
+            if( ( *it )->get_source( )->_id == id )
             {
                 result = true;
                 break;
@@ -394,39 +394,39 @@ namespace Analysis {
         return result;
     }
 
-    bool Node::operator==(const Node* &n) const
+    bool Node::operator==( const Node* &n ) const
     {
-        return ((_id == n->_id) && (_entry_edges == n->_entry_edges) && (_exit_edges == n->_exit_edges));
+        return ( ( _id == n->_id ) && ( _entry_edges == n->_entry_edges ) && ( _exit_edges == n->_exit_edges ) );
     }
 
-    Symbol Node::get_function_node_symbol()
+    Symbol Node::get_function_node_symbol( )
     {
 
-        if (get_data<Node_type>(_NODE_TYPE) != FUNCTION_CALL)
+        if( !is_function_call_node( ) )
         {
-            return Symbol();
+            return Symbol( );
         }
 
-        Nodecl::NodeclBase stmt = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
+        Nodecl::NodeclBase stmt = get_statements( )[0];
         Symbol s;
-        if (stmt.is<Nodecl::FunctionCall>())
+        if( stmt.is<Nodecl::FunctionCall>( ) )
         {
-            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
-            s = f.get_called().get_symbol();
+            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>( );
+            s = f.get_called( ).get_symbol( );
         }
-        else if (stmt.is<Nodecl::VirtualFunctionCall>())
+        else if( stmt.is<Nodecl::VirtualFunctionCall>( ) )
         {
-            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
-            s = f.get_called().get_symbol();
+            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>( );
+            s = f.get_called( ).get_symbol( );
         }
 
         return s;
     }
 
-    Node_type Node::get_type()
+    Node_type Node::get_type( )
     {
-        if (has_key(_NODE_TYPE))
-            return get_data<Node_type>(_NODE_TYPE);
+        if( has_key( _NODE_TYPE ) )
+            return get_data<Node_type>( _NODE_TYPE );
         else
             return UNCLASSIFIED_NODE;
     }
@@ -467,10 +467,10 @@ namespace Analysis {
     std::string Node::get_graph_type_as_string( )
     {
         std::string graph_type = "";
-        if (has_key(_GRAPH_TYPE))
+        if ( has_key( _GRAPH_TYPE ) )
         {
-            Graph_type ntype = get_data<Graph_type>(_GRAPH_TYPE);
-            switch(ntype)
+            Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
+            switch( ntype )
             {
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
                 case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
@@ -482,6 +482,7 @@ namespace Analysis {
                 case OMP_CRITICAL:      graph_type = "OMP_CRITICAL";        break;
                 case OMP_LOOP:          graph_type = "OMP_LOOP";            break;
                 case OMP_PARALLEL:      graph_type = "OMP_PARALLEL";        break;
+                case OMP_SECTION:       graph_type = "OMP_SECTION";         break;
                 case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
                 case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
                 case OMP_TASK:          graph_type = "OMP_TASK";            break;
@@ -491,152 +492,152 @@ namespace Analysis {
         }
         else
         {
-            internal_error("The node '%s' has no graph type assigned, this operation is not allowed", 0);
+            internal_error( "The node '%s' has no graph type assigned, this operation is not allowed", 0 );
         }
 
         return graph_type;
     }
 
-    Node* Node::get_graph_entry_node()
+    Node* Node::get_graph_entry_node( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        if( is_graph_node( ) )
         {
-            return get_data<Node*>(_ENTRY_NODE);
+            return get_data<Node*>( _ENTRY_NODE );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the entry node to node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while getting the entry node to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_graph_entry_node(Node* node)
+    void Node::set_graph_entry_node( Node* node )
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) != ENTRY)
+        if( !node->is_entry_node( ) )
         {
-            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. ENTRY expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the entry node to node '%s'. ENTRY expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
-        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        else if( is_graph_node( ) )
         {
-            return set_data(_ENTRY_NODE, node);
+            return set_data( _ENTRY_NODE, node );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the entry node to node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the entry node to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Node* Node::get_graph_exit_node()
+    Node* Node::get_graph_exit_node( )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        if( is_graph_node( ) )
         {
-            return get_data<Node*>(_EXIT_NODE);
+            return get_data<Node*>( _EXIT_NODE );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the exit node to node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while getting the exit node to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_graph_exit_node(Node* node)
+    void Node::set_graph_exit_node( Node* node )
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) != EXIT)
+        if( !node->is_exit_node( ) )
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. EXIT expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. EXIT expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
-        else if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        else if( is_graph_node( ) )
         {
-            return set_data(_EXIT_NODE, node);
+            return set_data( _EXIT_NODE, node );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Node* Node::get_outer_node()
+    Node* Node::get_outer_node( )
     {
         Node* outer_node = NULL;
-        if (has_key(_OUTER_NODE))
+        if( has_key( _OUTER_NODE ) )
         {
-            outer_node = get_data<Node*>(_OUTER_NODE);
+            outer_node = get_data<Node*>( _OUTER_NODE );
         }
         return outer_node;
     }
 
-    void Node::set_outer_node(Node* node)
+    void Node::set_outer_node( Node* node )
     {
-        if (node->get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        if ( node->is_graph_node( ) )
         {
-            set_data(_OUTER_NODE, node);
+            set_data( _OUTER_NODE, node );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
-                        node->get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
+                            node->get_type_as_string( ).c_str( ), _id );
         }
     }
 
     Scope Node::get_scope()
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        if( is_graph_node( ) )
         {
-            if (has_key(_SCOPE))
+            if( has_key( _SCOPE ) )
             {
-                return get_data<Scope>(_SCOPE);
+                return get_data<Scope>( _SCOPE );
             }
             else
             {
-                return Scope();
+                return Scope( );
             }
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_scope(Scope sc)
+    void Node::set_scope( Scope sc )
     {
-        if (get_data<Node_type>(_NODE_TYPE) == GRAPH)
+        if( is_graph_node( ) )
         {
-            set_data(_SCOPE, sc);
+            set_data( _SCOPE, sc );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    ObjectList<Nodecl::NodeclBase> Node::get_statements()
+    ObjectList<Nodecl::NodeclBase> Node::get_statements( )
     {
         ObjectList<Nodecl::NodeclBase> stmts;
-        if (has_key(_NODE_STMTS))
+        if( has_key( _NODE_STMTS ) )
         {
-            stmts = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            stmts = get_data<ObjectList<Nodecl::NodeclBase> >( _NODE_STMTS );
         }
         return stmts;
     }
 
-    void Node::set_statements(ObjectList<Nodecl::NodeclBase> stmts)
+    void Node::set_statements( ObjectList<Nodecl::NodeclBase> stmts )
     {
         Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if (ntype == NORMAL || ntype == FUNCTION_CALL || ntype == LABELED
-            || ntype == BREAK || ntype == CONTINUE || ntype == GOTO)
+        if( is_normal_node( ) || is_function_call_node( ) || is_labeled_node( )
+            || is_break_node( ) || is_continue_node( ) || is_labeled_node( ) )
         {
-            set_data(_NODE_STMTS, stmts);
+            set_data( _NODE_STMTS, stmts );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting the statements to node '%s'. GRAPH expected.",
-                        get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting the statements to node '%s'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 

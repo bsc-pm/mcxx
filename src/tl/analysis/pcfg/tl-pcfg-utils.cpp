@@ -155,7 +155,7 @@ namespace Analysis {
         : _last_nodes( ), _return_nodes( ), _outer_nodes( ),
           _continue_nodes( ), _break_nodes( ), _labeled_nodes( ), _goto_nodes( ),
           _switch_condition_nodes( ), _nested_loop_nodes( ), _tryblock_nodes( ),
-          _pragma_nodes( ), _context_nodecl( ), _nid( -1 )
+          _pragma_nodes( ), _context_nodecl( ), _section_nodes( ), _nid( -1 )
     {}
 
     // ************************************************************************************** //

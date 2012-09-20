@@ -214,6 +214,9 @@ namespace Analysis {
         //! Container to store information about the current context
         std::stack<Nodecl::NodeclBase> _context_nodecl;
 
+        //! Container to store all SECTION nodes within a SECTIONS
+        std::stack<ObjectList<Node*> > _section_nodes;
+
         //! Counter used to create a unique key for each new node
         int _nid;
 

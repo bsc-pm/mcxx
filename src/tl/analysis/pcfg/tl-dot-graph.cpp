@@ -109,13 +109,13 @@ namespace Analysis {
             {
                 // Calculate the name of the new dot subgraph
                 std::stringstream node_id; node_id << current->get_id( );
-                std::string subgraph_label = node_id.str( ) + " ";
-                Nodecl::NodeclBase actual_label( current->get_graph_label( ) );
-                if( !actual_label.is_null( ) )
-                {
-                    subgraph_label += codegen_to_str(actual_label.get_internal_nodecl( ),
-                                                     nodecl_retrieve_context(actual_label.get_internal_nodecl( ) ) );
-                }
+                std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( );
+//                 Nodecl::NodeclBase actual_label( current->get_graph_label( ) );
+//                 if( !actual_label.is_null( ) )
+//                 {
+//                     subgraph_label += codegen_to_str(actual_label.get_internal_nodecl( ),
+//                                                      nodecl_retrieve_context(actual_label.get_internal_nodecl( ) ) );
+//                 }
 
                 std::string node_info = "";
                 node_info += print_node_usage( current, use_def );
@@ -223,7 +223,7 @@ namespace Analysis {
                         }
                         else
                         {
-                            if( current->is_graph_node( ) )
+                            if( !current->is_graph_node( ) )
                             {
                                 get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
                             }
