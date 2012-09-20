@@ -1602,16 +1602,24 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
-    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
-    TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
+    // Copy device information from parameters_outline_info to arguments_outline_info
+    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
+    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
+            it != _device_names.end();
+            it++)
+    {
+        arguments_outline_info.add_device_name(*it);
+    }
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
+    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
     TL::ObjectList<TL::Symbol> new_arguments;
     Scope sc = construct.retrieve_context();
+    TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
             it++)
