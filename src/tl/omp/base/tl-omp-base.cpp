@@ -215,6 +215,7 @@ namespace TL { namespace OpenMP {
                             );
                 }
 
+                // Build the tree which contains the target information
                 TargetInfo target_info = function_task_info.get_target_info();
 
                 TL::ObjectList<Nodecl::NodeclBase> devices;
@@ -1075,32 +1076,35 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
+        int line = line;
+        std::string filename = pragma_line.get_filename();
+
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         // Everything should go transparent here
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_LASTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_AUTO,
-                pragma_line.get_filename(), pragma_line.get_line(),
+                filename, line,
                 result_list);
 
         TL::ObjectList<ReductionSymbol> reductions;
@@ -1108,12 +1112,32 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Symbol> reduction_symbols = reductions.map(functor(&ReductionSymbol::get_symbol));
         if (!reduction_symbols.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = 
-                reduction_symbols.map(SymbolBuilder(pragma_line.get_filename(), pragma_line.get_line()));
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
+                reduction_symbols.map(SymbolBuilder(filename, line));
 
-            result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols), 
-                        pragma_line.get_filename(), pragma_line.get_line()));
+            result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols),
+                        filename, line));
         }
+
+
+        // Build the tree which contains the target information
+        TargetInfo target_info = data_sharing_env.get_target_info();
+
+        TL::ObjectList<Nodecl::NodeclBase> devices;
+        TL::ObjectList<Nodecl::NodeclBase> target_items;
+
+        ObjectList<std::string> device_list = target_info.get_device_list();
+        for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
+        {
+            devices.append(Nodecl::Text::make(*it, filename, line));
+        }
+
+        result_list.append(
+                Nodecl::OpenMP::Target::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(target_items),
+                    filename, line));
+
 
         // FIXME - Dependences and copies for combined worksharings???
         //
@@ -1225,6 +1249,7 @@ namespace TL { namespace OpenMP {
                 filename, line,
                 result_list);
 
+        // Build the tree which contains the target information
         TargetInfo target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
