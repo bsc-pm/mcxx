@@ -31,7 +31,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-nanox-ptr.hpp"
-
+#include "tl-devices.hpp"
 #include "cxx-cexpr.h"
 
 using TL::Source;
@@ -63,6 +63,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 
 static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
+    // FIXME: Move this to the class! 
     static std::map<int, Symbol> _map;
     std::map<int, Symbol>::iterator it = _map.find(num_devices);
 
@@ -182,54 +183,44 @@ Source LoweringVisitor::fill_const_wd_info(
         const std::string& outline_name,
         bool is_untied,
         bool mandatory_creation,
+        const ObjectList<std::string>& device_names,
         Nodecl::NodeclBase construct)
 {
     // Static stuff
     //
-    // typedef struct { 
-    //     nanos_wd_props_t props; 
-    //     size_t data_alignment; 
-    //     size_t num_copies; 
-    //     size_t num_devices; 
-    // } nanos_const_wd_definition_t; 
+    // typedef struct {
+    //     nanos_wd_props_t props;
+    //     size_t data_alignment;
+    //     size_t num_copies;
+    //     size_t num_devices;
+    // } nanos_const_wd_definition_t;
 
-    // FIXME
-    int num_devices = 1;
+    int num_devices = device_names.size();
     TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
     Source alignment, props_init, num_copies;
 
-    Source device_descriptor, 
-           device_description, 
-           device_description_init, 
-           num_devices_src,
-           ancillary_device_description,
-           fortran_dynamic_init;
+    Source ancillary_device_descriptions,
+           device_descriptions,
+           opt_fortran_dynamic_init;
 
     Source result;
     result
-        << device_description
+        << ancillary_device_descriptions
         << "static " << const_wd_type.get_name() << " nanos_wd_const_data = {"
         << "{"
         << /* ".props = " << */ props_init << ", \n"
         << /* ".data_alignment = " << */ alignment << ", \n"
         << /* ".num_copies = " << */ num_copies << ",\n"
-        << /* ".num_devices = " << */ num_devices_src << ",\n"
+        << /* ".num_devices = " << */ num_devices << ",\n"
         << "}, "
-        << /* ".devices = " << */ "{" << device_description_init << "}"
+        << /* ".devices = " << */ "{" << device_descriptions << "}"
         << "};"
-
-        << fortran_dynamic_init
-
+        << opt_fortran_dynamic_init
         ;
 
     alignment << "__alignof__(" << struct_arg_type_name << ")";
     num_copies << "0";
-
-    device_descriptor << outline_name << "_devices";
-    device_description
-        << ancillary_device_description
-        ;
 
     Source tiedness,
            priority;
@@ -237,7 +228,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // We expand all the struct due to a limitation in the FE. See ticket
     // #963
     props_init
-        << "{ " 
+        << "{ "
         << /* ".mandatory_creation = " << */ (int)mandatory_creation << ",\n"
         << /* ".tied = " << */ tiedness << ",\n"
         << /* ".reserved0 =" << */ "0,\n"
@@ -251,41 +242,28 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
-    // FIXME - No devices yet, let's mimick the structure of one SMP
+    // Fill device information
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (ObjectList<std::string>::const_iterator it = device_names.begin();
+            it != device_names.end();
+            ++it)
     {
-        num_devices_src << num_devices;
+        Source ancillary_device_description, device_description, aux_fortran_init;
 
-        if (!IS_FORTRAN_LANGUAGE)
-        {
-            ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
-                << ".outline = (void(*)(void*))&" << outline_name 
-                << "};"
-                ;
-            device_description_init
-                << "{"
-                << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
-                << "}"
-                ;
-        }
-        else
-        {
-            // We'll fill them later because of Fortran limitations
-            ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args;" 
-                ;
-            device_description_init
-                << "{"
-                // factory, arg
-                << "0, 0"
-                << "}"
-                ;
-            fortran_dynamic_init
-                << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
-                ;
-        }
+        if (it != device_names.begin())
+            ancillary_device_descriptions <<  ", ";
+
+        std::string device_name = *it;
+        DeviceProvider* device = device_handler.get_device(device_name);
+
+        // Can it be done only once?
+        DeviceDescriptorInfo info(outline_name);
+        device->get_device_descriptor(info, ancillary_device_description, device_description, aux_fortran_init);
+
+        device_descriptions << device_description;
+        ancillary_device_descriptions << ancillary_device_description;
+        opt_fortran_dynamic_init << aux_fortran_init;
+
     }
 
     return result;
@@ -392,6 +370,7 @@ void LoweringVisitor::emit_async_common(
             outline_name,
             is_untied,
             /* mandatory_creation */ 0,
+            outline_info.get_device_names(),
             construct);
 
     if (priority_expr.is_null())

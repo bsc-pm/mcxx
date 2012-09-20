@@ -1099,6 +1099,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile
+           src/tl/omp/nanox-nodecl/devices/Makefile
+           src/tl/omp/nanox-nodecl/devices/smp/Makefile
            src/tl/omp/nanox/Makefile
            src/tl/omp/nanox/devices/Makefile
            src/tl/omp/nanox/devices/common/Makefile

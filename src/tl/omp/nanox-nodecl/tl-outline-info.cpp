@@ -415,6 +415,19 @@ namespace TL { namespace Nanox {
 
                 add_reduction(symbol, udr_info);
             }
+
+            void visit(const Nodecl::OpenMP::Target& target)
+            {
+                Nodecl::List devices = target.get_devices().as<Nodecl::List>();
+
+                for (Nodecl::List::iterator it = devices.begin();
+                        it != devices.end();
+                        it++)
+                {
+                    std::string current_device = it->as<Nodecl::Text>().get_text();
+                    _outline_info.add_device_name(current_device);
+                }
+            }
     };
 
     OutlineInfo::OutlineInfo() : _data_env_items() { }
@@ -452,6 +465,16 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
+    }
+
+    void OutlineInfo::add_device_name(std::string device_name)
+    {
+        _device_names.append(device_name);
+    }
+
+    ObjectList<std::string> OutlineInfo::get_device_names()
+    {
+        return _device_names;
     }
 
 } }

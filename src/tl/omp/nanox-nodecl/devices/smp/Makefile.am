@@ -24,47 +24,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=. devices
 
-include ../../Makefile.phases
-
-phases_LTLIBRARIES = libtlnanox-lowering.la
-
-libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
-libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
-
-libtlnanox_lowering_la_LIBADD = $(tl_libadd) \
-								../core/libtlomp-core.la \
-								../nanos-common/libtlnanos-version.la
-libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
+include ../../../../Makefile.phases
 
 END=
 
-libtlnanox_lowering_la_SOURCES = \
-								 tl-nanox-nodecl.cpp \
-								 tl-nanox-nodecl.hpp \
-								 tl-nanox-nodecl-prerun.cpp \
-								 tl-lowering-visitor.cpp \
-								 tl-lowering-visitor.hpp \
-								 tl-lower-arguments.cpp \
-								 tl-lower-task.cpp \
-								 tl-lower-taskwait.cpp \
-								 tl-emit-outline.cpp \
-								 tl-outline-info.hpp \
-								 tl-outline-info.cpp \
-								 tl-lower-single.cpp \
-								 tl-lower-master.cpp \
-								 tl-lower-barrier.cpp \
-								 tl-lower-parallel.cpp \
-								 tl-lower-for.cpp \
-								 tl-lower-sections.cpp \
-								 tl-lower-critical.cpp \
-								 tl-lower-flush.cpp \
-								 tl-lower-atomic.cpp \
-								 tl-parallel-spawn.cpp \
-								 tl-loop-spawn.cpp \
-								 tl-reduction-common.cpp \
-								 tl-nanox-ptr.cpp \
-								 tl-nanox-ptr.hpp \
-								 tl-devices.cpp \
-								 $(END)
+phases_LTLIBRARIES=libtlnanox-smp.la
+
+device_flags=$(tl_cflags) -I$(srcdir)/../..
+
+libtlnanox_smp_la_CFLAGS = $(device_flags)
+libtlnanox_smp_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_smp_la_SOURCES = \
+       nanox-smp.hpp \
+       nanox-smp.cpp \
+       $(END)

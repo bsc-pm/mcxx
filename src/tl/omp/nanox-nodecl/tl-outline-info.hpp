@@ -332,8 +332,8 @@ namespace TL
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
-                // -- FIXME --
-                // Devices!
+                // Devices information
+                ObjectList<std::string> _device_names;
 
                 std::string get_field_name(std::string name);
 
@@ -362,6 +362,9 @@ namespace TL
 
                 OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
                 OutlineDataItem& append_field(const std::string& str, TL::Type t);
+
+                void add_device_name(std::string device_name);
+                ObjectList<std::string> get_device_names();
 
                 TL::Symbol get_unpacked_function_symbol() const
                 {

@@ -97,6 +97,7 @@ namespace TL { namespace Nanox {
                 outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
+                outline_info.get_device_names(),
                 construct);
 
         Source num_threads;

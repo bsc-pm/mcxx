@@ -1,0 +1,2950 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+#include "tl-devices.hpp"
+#include "nanox-smp.hpp"
+
+namespace TL { namespace Nanox {
+//const unsigned int _vector_width = 16;
+
+//void ReplaceSrcSMP::set_min_expr_size(const int min_expr_size)
+//{
+//    _min_expr_size = min_expr_size;
+//}
+//
+//int ReplaceSrcSMP::compute_new_step(const int step)
+//{
+//    return step * (_vector_width / _min_expr_size);
+//}
+//
+////TODO: Move this function to ForStatement Class
+////EPILOG: if (Epilog is necessary) then upper-bound = upper-bound - (step-1)
+////TODO: This approach does not work with decreasing loops
+//int ReplaceSrcSMP:: needs_epilog(Expression upper_bound_exp, 
+//        Expression lower_bound_exp,
+//        Expression step_exp)
+//{
+//   /* 
+//       if (upper_bound_exp.is_constant())
+//       {
+//       std::cout << "UPPER IS CONSTANT "
+//       << upper_bound_exp.prettyprint()
+//       << std::endl;
+//       }
+//       else
+//       {
+//       std::cout << "UPPER IS NOT CONSTANT "
+//       << upper_bound_exp.prettyprint()
+//       << std::endl;
+//       }
+//
+//       if (lower_bound_exp.is_constant())
+//       {
+//       std::cout << "LOWER IS CONSTANT "
+//       << lower_bound_exp.prettyprint()
+//       << std::endl;
+//       }
+//       else
+//       {
+//       std::cout << "LOWER IS NOT CONSTANT "
+//       << lower_bound_exp.prettyprint()
+//       << std::endl;
+//       }
+//
+//       if (step_exp.is_constant())
+//       {
+//       std::cout << "STEP IS CONSTANT "
+//       << step_exp.prettyprint()
+//       << std::endl;
+//       }
+//       else
+//       {
+//       std::cout << "STEP IS NOT CONSTANT "
+//       << step_exp.prettyprint()
+//       << std::endl;
+//       }
+//    */
+//
+//    if (upper_bound_exp.is_constant() 
+//            && lower_bound_exp.is_constant() 
+//            && step_exp.is_constant())
+//    {
+//        bool valid_upper, valid_lower, valid_step;
+//
+//        int upper_i = upper_bound_exp.evaluate_constant_int_expression(valid_upper);
+//        int lower_i = lower_bound_exp.evaluate_constant_int_expression(valid_lower);
+//        int step_i = step_exp.evaluate_constant_int_expression(valid_step);
+//
+//        if (valid_upper && valid_lower && valid_step)
+//        {
+//            int new_step = compute_new_step(step_i);
+//            int remain = ((upper_i - lower_i + 1) % new_step);
+//
+//            return remain;
+//        }
+//    }
+//    return -1;
+//}
+//
+//
+//std::string ReplaceSrcSMP::scalar_expansion(Expression expr)
+//{
+//    Source result, vector_elements, vector_casting, scalar_expr;
+//    unsigned char num_elements, i;
+//
+//    TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
+//
+//    result << "("
+//        << "(" << vector_casting << ")"
+//        << "{" << vector_elements << "}"
+//        << ")"
+//        ;
+//
+//    vector_casting 
+//        << vector_type.get_simple_declaration(expr.get_scope(), "");
+//
+//    scalar_expr << recursive_prettyprint(expr.get_ast(), (void *)this);
+//    num_elements = (_vector_width/vector_type.basic_type().get_size());
+//
+//    for (i=0; i<num_elements; i++)
+//    {
+//        //Don't use recursive
+//        vector_elements.append_with_separator(
+//                scalar_expr, ",");
+//    }
+//
+//    return result.get_source();
+//}
+//
+//std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr)
+//{
+//    Source result, vector_casting, ind_var_vector, offset_vector, old_ind_var, new_ind_var, new_vector_ind_var;
+//    unsigned char num_elements, i;
+//
+//    int expr_size = expr.get_type().get_size();
+//
+//    TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
+//
+//    result << "("
+//        << "(" << vector_casting << "){" << ind_var_vector << "}"
+//        << "+"
+//        << "(" << vector_casting << "){" << offset_vector << "}"
+//        << ")"
+//        ;
+//
+//    vector_casting 
+//        << vector_type.get_simple_declaration(expr.get_scope(), "");
+//
+//    //Special prettyprint is needed! Replication offset is added in the 'offset' Source.
+//    Symbol induction_variable = expr.get_id_expression().get_symbol();
+//    std::string orig_repl_for_ind = this->get_replacement(induction_variable);
+//
+//    num_elements = (_vector_width/vector_type.basic_type().get_size());
+//
+//    for (i=0; i<num_elements; i++)
+//    {
+//        Source offset;
+//
+//        new_vector_ind_var.append_with_separator(orig_repl_for_ind, ","); 
+//
+//        //In replication state the offset is different depending on the replication number
+//        if (this->_replication_state.top())
+//        {
+// utomake help           offset << i + (num_elements * this->_num_repl);
+//        }
+//        else
+//        {
+//            offset << i;
+//        }
+//
+//        offset_vector.append_with_separator(offset.get_source(), ",");
+//    }
+//
+//    // New Replacement to replace the induction variable with the new_ind_var
+//    // that contains the original replacement
+//    ReplaceSrcSMP induct_var_rmplmt(*this);
+//    induct_var_rmplmt.add_replacement(
+//            induction_variable, new_vector_ind_var.get_source());
+//    // Do the replacement
+//    ind_var_vector
+//        << induct_var_rmplmt.replace(expr.get_ast());
+//
+//    return result.get_source();
+//}
+//
+//
+//const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
+//{
+//    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+//            &ReplaceSrcSMP::prettyprint_callback, data);
+//}
+//
+//
+//const char* ReplaceSrcSMP::recursive_prettyprint_without_simd_repls(AST_t a, void* data)
+//{
+//    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+//            &ReplaceSrcGenericFunction::prettyprint_callback, data);
+//}
+//
+//
+//Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name)
+//{
+//    Scope scope = func_sym.get_scope();
+//    int i, j;
+//
+//    Type func_type = func_sym.get_type();
+//
+//    if (!func_type.is_function())
+//    {
+//        running_error("Expected function Symbol");
+//    }        
+//            
+//    ObjectList<Type> type_param_list = func_type.parameters();
+//
+//    Type func_ret_type = func_type.returns()
+//        .basic_type()
+//        .get_vector_to(_width);
+//
+//    Source static_inline_spec;
+//
+//    
+////    if (func_sym.is_static())
+////    {
+//        static_inline_spec << "static ";
+////    }
+//
+//        
+////    if (func_sym.is_inline())
+////    {
+//        static_inline_spec << "inline ";
+////    }
+//
+//    Source func_src, func_body_src, parameter_decl_list;
+//    func_src
+//        << static_inline_spec
+//        << func_ret_type.get_simple_declaration(
+//                scope, naive_func_name)
+//        << "(" << parameter_decl_list << ")"
+//        << "{"
+//        << func_body_src
+//        << "}"
+//        ;
+//
+//
+///*
+//*  Gcc does not generate the best assembler code when 
+//*  EXTRACT (the worst) and MIX (worse) are used:
+//*
+//*  movaps %xmm0,%xmm4       <-- This movement is not necessary
+//*  movss  (%r15),%xmm0
+//*  movss  %xmm4,0x40(%rsp)
+//*  callq  400a50 <expf@plt>
+//*  ...
+//*  movss  0x40(%rsp),%xmm4  <-- because %xmm4 is not read.
+//*
+//*  Better code:
+//*  movss  %xmm0,0x40(%rsp)
+//*  movss  (%r15),%xmm0
+//*  callq  400a50 <expf@plt>
+//*  ...
+//*  movss  0x40(%rsp),%xmm4
+//*
+//*/
+//
+////MIX VERSION
+///*   
+//    //Function arguments and Unions
+//    ObjectList<Type>::iterator it;
+//    for (i = 0, it = type_param_list.begin();
+//            it != type_param_list.end();
+//            i++, it++)
+//    {
+//        std::stringstream param_name;
+//        param_name << "a" << i
+//            ;
+//
+//        Type param_vec_type = it->basic_type()
+//            .get_vector_to(_width);
+//
+//        parameter_decl_list.append_with_separator(
+//            param_vec_type.get_simple_declaration(
+//                    scope, param_name.str()),
+//            ",");
+//    }
+//
+//    Source vec_elemnts_src;
+//    int vec_elemnts = _width/func_ret_type.basic_type().get_size();
+//    vec_elemnts_src << vec_elemnts;
+//
+//    //Last union from the arguments + result union
+//    func_body_src
+//        << "union u_return{"
+//        << func_ret_type.get_simple_declaration(scope, "v") << ";"
+//        << func_ret_type.basic_type().get_array_to(
+//                vec_elemnts_src.parse_expression(
+//                    func_sym.get_point_of_declaration(), _sl), scope)
+//        .get_simple_declaration(scope, "w") << ";"
+//        << "};"
+//
+//        << "union u_return _result;"
+//        ;
+//
+//
+//    for (i=0; i<vec_elemnts; i++)
+//    {
+//        Source scalar_ops, params;
+//
+//        func_body_src
+//            << "_result.w[" << i << "] = " << func_sym.get_name() 
+//            << "("
+//            << scalar_ops
+//            << ");"
+//            ;
+//
+//        for (j = 0, it = type_param_list.begin();
+//                it != type_param_list.end();
+//                j++, it++)
+//        {
+//            TL::Type param_type = *it;
+//            std::stringstream param;
+//
+//            if (param_type.is_signed_int()
+//                    || param_type.is_unsigned_int())
+//            {
+//                param << "__builtin_ia32_vec_ext_v4si(";
+//            }
+//            else if (param_type.is_signed_long_long_int()
+//                    || param_type.is_unsigned_long_long_int())
+//            {
+//                param << "__builtin_ia32_vec_ext_v2di(";
+//            }
+// 
+//            else if (param_type.is_float())
+//            {
+//                param << "__builtin_ia32_vec_ext_v4sf(";
+//            }
+//            else
+//            {
+//                running_error("Extract instruction is not available for type '%s'. Waiting for next SSE or AVX version.",
+//                        param_type.get_declaration(scope,"").c_str());
+//            }
+//
+//            param
+//                << "a" << j 
+//                << ","
+//                << i
+//                << ")"
+//                ;
+//
+//            params.append_with_separator(param.str(), ",");
+//        }
+//
+//        scalar_ops.append_with_separator(params, ",");
+//    }
+//
+//    func_body_src << "return _result.v;";
+//    return func_src;
+//*/
+//
+//
+////EXTRACT VERSION
+//    /*
+//    //Function arguments and Unions
+//    ObjectList<Type>::iterator it;
+//    for (i = 0, it = type_param_list.begin();
+//            it != type_param_list.end();
+//            i++, it++)
+//    {
+//        std::stringstream param_name;
+//        param_name << "a" << i
+//            ;
+//
+//        Type param_vec_type = it->basic_type()
+//            .get_vector_to(_width);
+//
+//        parameter_decl_list.append_with_separator(
+//            param_vec_type.get_simple_declaration(
+//                    scope, param_name.str()),
+//            ",");
+//    }
+//
+//    int vec_elemns = _width/func_ret_type.basic_type().get_size();
+//
+//    //Last union from the arguments + result union
+//    Source func_ret_type_src, scalar_ops;
+//
+//    func_ret_type_src
+//        << func_ret_type.basic_type().get_vector_to(_width)
+//        .get_declaration(scope, "");
+//
+//    func_body_src
+//        << "return (" << func_ret_type_src << ")"
+//        << "{" << scalar_ops << "};"
+//        ;
+//
+//
+//    for (i=0; i<vec_elemns; i++)
+//    {
+//        Source scalar_op, params;
+//
+//        scalar_op
+//            << func_sym.get_name()
+//            << "(" << params << ")"
+//            ;
+//
+//        for (j = 0, it = type_param_list.begin();
+//                it != type_param_list.end();
+//                j++, it++)
+//        {
+//            TL::Type param_type = *it;
+//            std::stringstream param;
+//
+//            if (param_type.is_signed_int()
+//                    || param_type.is_unsigned_int())
+//            {
+//                param << "__builtin_ia32_vec_ext_v4si(";
+//            }
+//            else if (param_type.is_signed_long_long_int()
+//                    || param_type.is_unsigned_long_long_int())
+//            {
+//                param << "__builtin_ia32_vec_ext_v2di(";
+//            }
+// 
+//            else if (param_type.is_float())
+//            {
+//                param << "__builtin_ia32_vec_ext_v4sf(";
+//            }
+//            else
+//            {
+//                running_error("Extract instruction is not available for type '%s'. Waiting for next SSE or AVX version.",
+//                        param_type.get_declaration(scope,"").c_str());
+//            }
+//
+//            param
+//                << "a" << j
+//                << ","
+//                << i
+//                << ")"
+//                ;
+//
+//            params.append_with_separator(param.str(), ",");
+//        }
+//
+//        scalar_ops.append_with_separator(scalar_op, ",");
+//    }
+//
+//    return func_src;
+//*/
+//
+////UNIONS VERSION
+//
+//    //Function arguments and Unions
+//    ObjectList<Type>::iterator it;
+//    for (i = 0, it = type_param_list.begin();
+//            it != type_param_list.end();
+//            i++, it++)
+//    {
+//        std::stringstream param_name;
+//        param_name << "a" << i
+//            ;
+//
+//        Type param_vec_type = it->basic_type()
+//            .get_vector_to(_width);
+//
+//        parameter_decl_list.append_with_separator(
+//            param_vec_type.get_simple_declaration(
+//                    scope, param_name.str()),
+//            ",");
+//
+//        func_body_src
+//            << "union {"
+//            << param_vec_type.get_pointer_to()
+//            .get_simple_declaration(scope, "v") << ";"
+//            << param_vec_type.basic_type().get_pointer_to()
+//            .get_simple_declaration(scope, "w") << ";"
+//            << "} u_" << param_name.str() << " = { &" << param_name.str() << " };"
+//            ;
+//    }
+//
+//    Source vec_elemnts_src;
+//    int vec_elemnts = _width/func_ret_type.basic_type().get_size();
+//    vec_elemnts_src << vec_elemnts;
+//
+//    //Last union from the arguments + result union
+//    func_body_src
+//        << "union u_return{"
+//        << func_ret_type.get_simple_declaration(scope, "v") << ";"
+//        << func_ret_type.basic_type().get_array_to(
+//                vec_elemnts_src.parse_expression(
+//                    func_sym.get_point_of_declaration(), _sl), scope)
+//           .get_simple_declaration(scope, "w") << ";"
+//           << "};"
+//
+//           << "union u_return _result;"
+//           ;
+//
+//    for (i=0; i<vec_elemnts; i++)
+//    {
+//        Source scalar_ops;
+//        
+//        func_body_src
+//            << "_result.w[" << i << "] = " << func_sym.get_name() 
+//            << "("
+//            << scalar_ops
+//            << ");"
+//            ;
+//
+//        for (j = 0, it = type_param_list.begin();
+//                it != type_param_list.end();
+//                j++, it++)
+//        {
+//            std::stringstream param_name, scalar_op;
+//
+//            param_name << "a" << j;
+//            scalar_op << "u_" << param_name.str() << ".w[" << i << "]";
+//
+//            scalar_ops.append_with_separator(scalar_op.str(),",");
+//        }
+//    }
+//
+//    func_body_src << "return _result.v;";
+//    
+//
+//    return func_src;
+//}
+//
+//Source ReplaceSrcSMP::replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name)
+//{
+//    if (!func_sym.is_function())
+//    {
+//        running_error("Expected function Symbol");
+//    }        
+//
+//    this->add_replacement(func_sym, simd_func_name);
+//    
+//    Source result;
+//   
+//    if (func_sym.is_static())
+//    {
+//        result << "static ";
+//    }
+//
+//    if (func_sym.is_inline())
+//    {
+//        result << "inline ";
+//    }
+//
+//    result 
+//        <<  this->replace(func_sym.get_point_of_definition())
+//        ;
+//
+//    return result;
+//}
+//
+//
+//std::string ReplaceSrcSMP::get_integer_casting(AST_t ast, Type type1, Type type2)
+//{
+//    if (!type1.is_same_type(type2))
+//    {
+//        running_error("%s: error: true expression and false expression types have to be the same in a conditional operation",
+//                ast.get_locus().c_str());
+//    }
+//
+//    std::stringstream result;
+//    std::string basic_type;
+//
+//    switch(type1.get_size())
+//    {
+//        case 1:
+//            basic_type = "char";
+//            break;
+//        case 2:
+//            basic_type = "short int";
+//            break;
+//        case 4:
+//            basic_type = "int";
+//            break;
+//        case 8:
+//            basic_type = "long long";
+//            break;
+//        default:
+//            running_error("Type not supported in conditional operation");
+//    }
+//
+//    result
+//        << "("
+//        << basic_type
+//        << " __attribute__((vector_size(" << _vector_width << "))))"
+//        ;
+//
+//    return result.str();
+//}
+//
+//std::string ReplaceSrcSMP::statement_replication(
+//        Expression expr, 
+//        int num_repls, 
+//        AST_t statement_ast)
+//{
+//    Source result;
+//    int i;
+//
+//    DEBUG_CODE()
+//    {
+//        std::cerr << "SIMD-SMP: Replicating statement '" 
+//            << statement_ast.prettyprint()
+//            << "' "
+//            << num_repls
+//            << " times."
+//            << std::endl;
+//    }
+//
+//    //Starting replication state
+//    this->_replication_state.push(true);
+//
+//    this->_num_repl = 0;
+//    result
+//        << recursive_prettyprint(statement_ast, (void *)this)
+//        ;
+//    
+//    for (int i=1; i < num_repls; i++)
+//    {
+//        std::stringstream new_ind_var;
+//
+//        //New ReplaceSrcSMP to add the specific replacements for this num_rep
+//        this->_num_repl = i;
+//        // ReplaceSrcSMP induct_var_rmplmt(*_this);
+//
+//        // new_ind_var
+//        //     << "(" 
+//        //     << _this->_ind_var_sym.get_name()
+//        //     << "+" 
+//        //     << i*(_vector_width/expr.get_type().get_size())
+//        //     << ")"
+//        //     ;
+//
+//        // induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+//        //         new_ind_var.str());
+//
+//        result << this->replace(statement_ast);
+//    }
+//
+//    /*
+//    result
+//        << recursive_prettyprint(statement_ast, (void *) _this)
+//        ;
+//    
+//    for (int i=1; i < num_repls; i++)
+//    {
+//        std::stringstream new_ind_var;
+//
+//        //New ReplaceSrcSMP to add the specific replacements for this num_rep
+//        ReplaceSrcSMP induct_var_rmplmt(*_this);
+//
+//        new_ind_var
+//            << "(" 
+//            << _this->_ind_var_sym.get_name()
+//            << "+" 
+//            << i*(_vector_width/expr.get_type().get_size())
+//            << ")"
+//            ;
+//
+//        induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+//                new_ind_var.str());
+//
+//        result << induct_var_rmplmt.replace(statement_ast);
+//    }
+//*/
+//    //Ending replication state
+//    this->_replication_state.pop();
+//
+//    return result.get_source();
+//}
+//
+//
+//std::string ReplaceSrcSMP::declaration_replication(
+//        Declaration decl, 
+//        int num_repls, 
+//        AST_t decl_ast)
+//{
+//    Source result, old_decl;
+//    int i;
+//
+//    DEBUG_CODE()
+//    {
+//        std::cerr << "SIMD-SMP: Replicating declaration '" 
+//            << decl_ast.prettyprint()
+//            << "' "
+//            << num_repls
+//            << " times."
+//            << std::endl;
+//    }
+//
+//    //Starting replication state
+//    this->_replication_state.push(true);
+//
+//    for (int i=0; i < num_repls; i++)
+//    {
+//        this->_num_repl = i;
+//        result << recursive_prettyprint(decl_ast, (void *) this);
+//    }
+//
+//    //Ending replication state
+//    this->_replication_state.pop();
+//
+//    return result.get_source();
+//}
+//
+//
+//const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
+//{
+//    ObjectList<Expression> arg_list;
+//    Source result;
+//    unsigned char i, counter;
+//
+//    //Standar prettyprint_callback
+//    const char *c = ReplaceSrcGenericFunction::prettyprint_callback(a, data);
+//
+//    //__attribute__((generic_vector)) replacement
+//    if (c == NULL)
+//    {
+//        ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
+//
+//        AST_t ast(a);
+//
+//        if (!_this->_inside_simd_for.top() 
+//                && ast.has_attribute(LANG_HLT_SIMD_FOR_INFO))
+//        {
+//            _this->_inside_simd_for.push(true);
+//
+//            ForStatementInfo for_stmt_info = *dynamic_cast<ForStatementInfo*>(
+//                    ast.get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer());
+//
+//            if (!for_stmt_info.is_valid())
+//            {
+//                internal_error("ForStatementInfo is invalid.", BUILTIN_GF_NAME);
+//            }
+//            _this->_min_expr_size = for_stmt_info.get_min_expr_size();
+//            _this->_ind_var_sym = for_stmt_info.get_ind_var_sym();
+//            _this->_nonlocal_symbols = for_stmt_info.get_nonlocal_symbols();
+//
+//            result << recursive_prettyprint(ast, data);
+//
+//            _this->_inside_simd_for.pop();
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        //Declarations Replication
+//        if (_this->_inside_simd_for.top()
+//                && !_this->_replication_state.top()
+//                && Declaration::predicate(ast))
+//        {
+//            Declaration decl(ast, _this->_sl);
+//
+//            int decl_size = decl.get_declaration_specifiers()
+//                .get_type_spec().get_type().get_size();
+//
+//            if (decl_size > _this->_min_expr_size)
+//            {
+//                int num_repls = decl_size/_this->_min_expr_size;
+//                result << _this->declaration_replication(
+//                        decl, num_repls, ast);
+//
+//                return uniquestr(result.get_source().c_str());
+//            }
+//        }
+//        //Vector expansion in DeclaredEntity
+//        if (_this->_inside_simd_for.top() 
+//                && DeclaredEntity::predicate(ast))
+//        {
+//            DeclaredEntity decl_ent(ast, _this->_sl);
+//
+//            //Vector expansion in DeclaredEntity
+//            if (decl_ent.has_initializer())
+//            {
+//                Symbol decl_sym = decl_ent.get_declared_symbol();
+//                Type decl_sym_type = decl_sym.get_type();
+//                int decl_size = decl_sym_type.get_size();
+//
+//                if (decl_sym_type.is_vector() &&
+//                        (!decl_ent.get_initializer().get_type().is_vector()))
+//                {
+//                    result
+//                        << recursive_prettyprint(decl_ent.get_declarator_tree(), data)
+//                        << " = "
+//                        << _this->scalar_expansion(decl_ent.get_initializer());
+//
+//                    return uniquestr(result.get_source().c_str());
+//                }
+//            }    
+//        }
+//        //Statements replication
+//        if (_this->_inside_simd_for.top() 
+//                && !_this->_replication_state.top() 
+//                && Statement::predicate(ast))
+//        {
+//            Statement statement(ast, _this->_sl);
+//
+//            if (statement.is_expression())
+//            {
+//                Expression expr = statement.get_expression();
+//                if (expr.is_assignment() 
+//                        || expr.is_operation_assignment()
+//                        || expr.is_function_call())
+//                {
+//                    int expr_size = expr.get_type().get_size();
+//
+//                    if (expr_size > _this->_min_expr_size)
+//                    {
+//                        int num_repls = expr_size/_this->_min_expr_size;
+//                        result << _this->statement_replication(
+//                                expr, num_repls, ast);
+//
+//                        return uniquestr(result.get_source().c_str());
+//                    }
+//                }
+//            }
+//        }
+//        //a -> _a_repX if replication_state && declarator_id_expr
+//        if (_this->_replication_state.top()
+//                && ast.has_attribute(LANG_DECLARATOR_ID_EXPR))
+//        {
+//            //Don't use recursive  
+//            result
+//                << "_"
+//                << ast.prettyprint()
+//                << "_rep"
+//                << _this->_num_repl
+//                ;
+//
+//            return (uniquestr(result.get_source().c_str()));
+//        }
+//        if (Expression::predicate(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//
+//            //Don't skip ';'
+//            if ((expr.original_tree() == expr.get_ast()))
+//            {
+//                //IdExpression renaming: a -> _a_rep0 if IdExpr.size() > min
+//                if (_this->_inside_simd_for.top()
+//                        && expr.is_id_expression())
+//                {
+//                    IdExpression id_expr = expr.get_id_expression();
+//                    Symbol sym = id_expr.get_symbol();
+//
+//                    if (sym.is_variable())
+//                    {
+//                        int sym_size = sym.get_type().get_size();
+//
+//                        if (sym_size > _this->_min_expr_size
+//                                && !_this->_nonlocal_symbols.contains(sym))
+//                        {
+//                            //Don't use recursive
+//                            result
+//                                << "_"
+//                                << id_expr.prettyprint()
+//                                << "_rep"
+//                                << _this->_num_repl
+//                                ;
+//
+//                            return (uniquestr(result.get_source().c_str()));
+//                        }
+//                    }
+//                }
+//                //Conditional Expression: a ? b : c
+//                else if (expr.is_conditional())
+//                {
+//                    Expression cond_expr(expr.get_condition_expression());
+//                    Expression true_expr(expr.get_true_expression());
+//                    Expression false_expr(expr.get_false_expression());
+//
+//                    Type true_type = true_expr.get_type();
+//                    Type false_type = false_expr.get_type();
+//
+//                    if (true_type.is_vector() && false_type.is_vector())
+//                    {
+//                        true_type = true_type.basic_type();
+//                        false_type = false_type.basic_type();
+//
+//                        if (true_type.is_integral_type()
+//                                && false_type.is_integral_type())
+//                        {
+//                            result
+//                                << "__builtin_ia32_pblendvb128(";
+//                        }
+//                        else if (true_type.is_float() 
+//                                && false_type.is_float())
+//                        {
+//                            result
+//                                << "__builtin_ia32_blendvps(";
+//                        }
+//                        else if (true_type.is_double())
+//                        {
+//                            result
+//                                << "__builtin_ia32_blendvpd(";
+//                        }
+//                        else
+//                        {
+//                            running_error("Type is not supported in a conditional Expression", 0);
+//                        }
+//
+//                        result
+//                            << recursive_prettyprint(false_expr.get_ast(), data)
+//                            << ","
+//                            << recursive_prettyprint(true_expr.get_ast(), data)
+//                            << ","
+//                            << "((" << true_type.get_vector_to(_this->_width).get_declaration(_this->_sl.get_scope(ast), "") << ")("
+//                            << recursive_prettyprint(cond_expr.get_ast(), data)
+//                            << ")))"
+//                            ;
+//
+//                        return uniquestr(result.get_source().c_str());
+//
+//                        //First Implementation
+//                        /*
+//                        std::string integer_casting = get_integer_casting(true_exp.get_ast(), true_exp.get_type(), false_exp.get_type());
+//
+//                        result 
+//                            << "(" << true_exp.get_type().basic_type().get_vector_to(_vector_width)
+//                            .get_simple_declaration(_this->_sl.get_scope(ast), "") << ")"
+//                            << "("
+//                            << "(((" << integer_casting << "(" << recursive_prettyprint(true_exp.get_ast(), data) << "))"
+//                            << "^"
+//                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << ")))"
+//                            << "&"
+//                            << "(" << integer_casting << recursive_prettyprint(cond_exp.get_ast(), data) << "))" 
+//                            << "^"
+//                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << "))"
+//                            << ")"
+//                            ;
+//
+//                            return uniquestr(result.get_source().c_str());
+//                        */
+//                    }
+//                }
+//                else if (expr.is_binary_operation())
+//                {
+//                    Expression first_op(expr.get_first_operand());
+//                    Expression second_op(expr.get_second_operand());
+//
+//                    Type first_type(first_op.get_type());
+//                    Type second_type(second_op.get_type());
+//
+//                    Source first_op_src;
+//                    Source second_op_src;
+//
+//                    if (first_type.is_generic_vector() && second_type.is_generic_vector())
+//                    {
+//                        Type first_basic_type = first_type.basic_type();
+//                        Type second_basic_type = second_type.basic_type();
+//
+//                        //if x86 architecture
+//                        Expression::OperationKind op_kind = expr.get_operation_kind();
+//
+//                        //Logical 'or' and 'and' are not supported in SSE
+//                        //so '||' -> '|' and '&&' -> '&&'
+//                        if (op_kind == Expression::LOGICAL_OR)
+//                        {
+//                            result 
+//                                << recursive_prettyprint(first_op.get_ast(), data)
+//                                << "|"
+//                                << recursive_prettyprint(second_op.get_ast(), data)
+//                                ;
+//
+//                            return uniquestr(result.get_source().c_str());
+//                        }
+//                        else if(op_kind == Expression::LOGICAL_AND)
+//                        {
+//                            result 
+//                                << recursive_prettyprint(first_op.get_ast(), data)
+//                                << "&"
+//                                << recursive_prettyprint(second_op.get_ast(), data)
+//                                ;
+//
+//                            return uniquestr(result.get_source().c_str());
+//                        }
+//                        //Relational Operators (<, >, <=, ...)
+//                        else if (op_kind == Expression::LOWER_THAN)
+//                        {
+//                            if (first_basic_type.is_float()
+//                                    && second_basic_type.is_float())
+//                            {
+//                                result << "__builtin_ia32_cmpltps("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_int() 
+//                                        || first_basic_type.is_unsigned_int())
+//                                    && (second_basic_type.is_signed_int() 
+//                                        || second_basic_type.is_unsigned_int()))
+//                            {
+//                                //<(A,B) --> >(B,A)
+//                                result << "__builtin_ia32_pcmpgtd128("
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_short_int() 
+//                                        || first_basic_type.is_unsigned_short_int())
+//                                    && (second_basic_type.is_signed_short_int() 
+//                                        || second_basic_type.is_unsigned_short_int()))
+//                            {
+//                                //<(A,B) --> >(B,A)
+//                                result << "__builtin_ia32_pcmpgtw128("
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_char() 
+//                                        || first_basic_type.is_unsigned_char()
+//                                        || first_basic_type.is_char())
+//                                    && (second_basic_type.is_signed_char() 
+//                                        || second_basic_type.is_unsigned_char()
+//                                        || second_basic_type.is_char()))
+//                            {
+//                                //<(A,B) --> >(B,A)
+//                                result << "__builtin_ia32_pcmpgtb128("
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else
+//                            {
+//                                running_error("Relational operator 'LOWER_THAN' is not supported yet on types '%s' and '%s'",
+//                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+//                            }
+//                        }
+//                        else if (op_kind == Expression::GREATER_THAN)
+//                        {
+//                            if ((first_basic_type.is_float())
+//                                    && second_basic_type.is_float())
+//                            {
+//                                result << "__builtin_ia32_cmpgtps("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_int() 
+//                                        || first_basic_type.is_unsigned_int())
+//                                    && (second_basic_type.is_signed_int() 
+//                                        || second_basic_type.is_unsigned_int()))
+//                            {
+//                                result << "__builtin_ia32_pcmpgtd128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_short_int() 
+//                                        || first_basic_type.is_unsigned_short_int())
+//                                    && (second_basic_type.is_signed_short_int() 
+//                                        || second_basic_type.is_unsigned_short_int()))
+//                            {
+//                                result << "__builtin_ia32_pcmpgtw128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_char() 
+//                                        || first_basic_type.is_unsigned_char()
+//                                        || first_basic_type.is_char())
+//                                    && (second_basic_type.is_signed_char() 
+//                                        || second_basic_type.is_unsigned_char()
+//                                        || second_basic_type.is_char()))
+//                            {
+//                                result << "__builtin_ia32_pcmpgtb128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else
+//                            {
+//                                running_error("Relational operator 'GREATER_THAN' is not supported yet on types '%s' and '%s'",
+//                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+//                            }
+//                        }
+//                        else if (op_kind == Expression::COMPARISON)
+//                        {
+//                            if ((first_basic_type.is_float())
+//                                    && second_basic_type.is_float())
+//                            {
+//                                result << "__builtin_ia32_cmpeqps("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_int() 
+//                                        || first_basic_type.is_unsigned_int())
+//                                    && (second_basic_type.is_signed_int() 
+//                                        || second_basic_type.is_unsigned_int()))
+//                            {
+//                                result << "__builtin_ia32_pcmpeqd128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_short_int() 
+//                                        || first_basic_type.is_unsigned_short_int())
+//                                    && (second_basic_type.is_signed_short_int() 
+//                                        || second_basic_type.is_unsigned_short_int()))
+//                            {
+//                                result << "__builtin_ia32_pcmpeqw128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else if((first_basic_type.is_signed_char() 
+//                                        || first_basic_type.is_unsigned_char()
+//                                        || first_basic_type.is_char())
+//                                    && (second_basic_type.is_signed_char() 
+//                                        || second_basic_type.is_unsigned_char()
+//                                        || second_basic_type.is_char()))
+//                            {
+//                                result << "__builtin_ia32_pcmpeqb128("
+//                                    << recursive_prettyprint(first_op.get_ast(), data)
+//                                    << ", "
+//                                    << recursive_prettyprint(second_op.get_ast(), data)
+//                                    << ")"
+//                                    ;
+//
+//                                return uniquestr(result.get_source().c_str());
+//                            }
+//                            else
+//                            {
+//                                running_error("Relational operator 'COMPARISON' is not supported yet on types '%s' and '%s'",
+//                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
+//        {
+//            result << "__attribute__((vector_size(" << _this->_width << "))) ";
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        else if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//
+//            ObjectList<Expression> arg_list = expr.get_argument_list();
+//            if (arg_list.size() != 1){
+//                internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
+//            }
+//
+//            Type casting_type = arg_list[0].get_type();
+//
+//            //C++
+//            if (casting_type.is_reference())
+//                casting_type = casting_type.references_to();
+//
+//            Source vector_reference;
+//
+//            result << "*((" 
+//                << casting_type.get_vector_to(_this->_width)
+//                .get_pointer_to()
+//                .get_simple_declaration(_this->_sl.get_scope(ast),"")
+//                << ") &("
+//                << vector_reference
+//                << "))"
+//                ;
+//
+//            //When replication state, induction variable needs a special offset 
+//            if (_this->_replication_state.top()
+//                    && _this->_num_repl > 0)
+//            {
+//                std::string orig_repl_for_ind = _this->get_replacement(_this->_ind_var_sym);
+//                int type_size = arg_list[0].get_type().basic_type().get_size();
+//                int num_elements_per_vector = (_vector_width/type_size);
+//                Source new_ind_var;
+//
+//                new_ind_var << "("
+//                    << orig_repl_for_ind
+//                    << "+"
+//                    << num_elements_per_vector * _this->_num_repl
+//                    << ")"
+//                    ;
+//
+//                // New Replacement to replace the induction variable with the new_ind_var
+//                // that contains the original replacement
+//                ReplaceSrcSMP induct_var_rmplmt(*_this);
+//
+//                induct_var_rmplmt.add_replacement(
+//                        _this->_ind_var_sym, new_ind_var.get_source());
+//                // Do the replacement
+//                vector_reference
+//                    << induct_var_rmplmt.replace(arg_list[0].get_ast());
+//            }
+//            else
+//            {
+//                vector_reference
+//                    << _this->replace(arg_list[0].get_ast());
+//            }
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        else if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list();
+//
+//            if (arg_list.size() != 1){
+//                internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
+//            }
+//
+//            result << recursive_prettyprint(arg_list[0].get_ast(), data);
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        else if (FindFunction(_this->_sl, BUILTIN_VE_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list();
+//
+//            if (arg_list.size() != 1)
+//            {
+//                internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
+//            }
+//
+//            result << _this->scalar_expansion(arg_list[0]);
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        else if (FindFunction(_this->_sl, BUILTIN_VI_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list();
+//
+//            if (arg_list.size() != 2)
+//            {
+//                internal_error("Wrong number of arguments in %s", BUILTIN_VI_NAME);
+//            }
+//
+//            result 
+//                << INDEX_W_VECTOR_SMP_16
+//                << "("
+//                << recursive_prettyprint(arg_list.at(0).get_ast(), data) 
+//                << ", "
+//                << recursive_prettyprint(arg_list.at(1).get_ast(), data) 
+//                << ")"
+//                ;
+//
+//            generic_functions.add_specific_definition(
+//                    _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_INDEX_W_VECTOR_SMP_16),
+//                    _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_INDEX_W_VECTOR_SMP_16), 
+//                    TL::SIMD::COMPILER_DEFAULT, 
+//                    _this->_device_name, 
+//                    _this->_width, 
+//                    true, true,
+//                    INDEX_W_VECTOR_SMP_16);
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//
+//        else if (FindFunction(_this->_sl, BUILTIN_IVVE_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list(); 
+//
+//            if (arg_list.size() != 1)
+//            {
+//                internal_error("Wrong number of arguments in %s", BUILTIN_IVVE_NAME);
+//            }
+//
+//            result << _this->ind_var_scalar_expansion(arg_list[0]);
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        else if(FindFunction(_this->_sl, BUILTIN_GF_NAME).do_(ast))
+//        {
+//            int i, j;
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list();
+//
+//            if (!arg_list[0].is_id_expression())
+//            {
+//                internal_error("Wrong arguments in %s", BUILTIN_GF_NAME);
+//            }
+//
+//            Symbol func_sym = arg_list[0].get_id_expression().get_symbol(); 
+//
+//            //If a generic function have not been added yet, it is a Naive function
+//            generic_functions.add_generic_function(func_sym);
+//            generic_functions.add_specific_definition(
+//                    func_sym, TL::SIMD::AUTO, _this->_device_name, _this->_width, true, true);
+//
+//            //Call to the new function
+//            result << generic_functions.get_specific_func_name(func_sym, _this->_device_name, _this->_width)
+//                << "("
+//                ;
+//
+//            Source args_src;
+//
+//            for (i=1; i<(arg_list.size()); i++)
+//            {
+//                args_src.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
+//            }
+//
+//            result << args_src.get_source()
+//                << ")"
+//                ;
+//
+//            return uniquestr(result.get_source().c_str());
+//        }
+//        //Conversions
+//        else if(FindFunction(_this->_sl, BUILTIN_VC_NAME).do_(ast))
+//        {
+//            Expression expr(ast, _this->_sl);
+//            arg_list = expr.get_argument_list();
+//
+//            if ((arg_list.size() != 2)) // && (arg_list.size() != 3))
+//            {
+//                internal_error("Wrong number of arguments in %s", BUILTIN_VC_NAME);
+//            }
+//
+//            Expression src_expr = arg_list.at(0);
+//
+//            TL::Type src_expr_type = src_expr.get_type().vector_element();
+//            TL::Type dst_expr_type = arg_list.at(1).get_type();
+//            
+//            //Implicit conversion
+//            if (dst_expr_type.is_vector())
+//            {
+//                dst_expr_type = dst_expr_type.vector_element();
+//            }
+//
+//            int src_size = src_expr_type.get_size();
+//            int dst_size = dst_expr_type.get_size();
+//
+//            DEBUG_CODE()
+//            {
+//                std::cerr << "SIMD: SMP conversion from "
+//                    << "'" <<  src_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+//                    << "(" << src_size << ")"
+//                    << " to "
+//                    << "'" <<  dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+//                    << "(" << dst_size << ")"
+//                    << ": "
+//                    << ast.prettyprint()
+//                    << std::endl
+//                    ;
+//            }
+//
+//            //Example: From float to char
+//            if (src_size > dst_size)
+//            {
+//                //Only HLT SIMD for conversions are supported
+//                if (!_this->_inside_simd_for.top())
+//                {
+//                    running_error("Conversions between vectors with different number of elements are not supported in HLT SIMD functions yet");
+//                }
+//
+//                _this->_num_repl = 0;
+//
+//                if (src_expr_type.is_float()
+//                        && dst_expr_type.is_unsigned_char())
+//                {
+//                    result 
+//                        << CONV_FLOAT2UCHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_FLOAT2UCHAR_SMP16);
+//                }
+//                else if (src_expr_type.is_float() 
+//                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+//                {
+//                    result 
+//                        << CONV_FLOAT2CHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_FLOAT2CHAR_SMP16);
+//                }
+//                else if (src_expr_type.is_unsigned_int() 
+//                        && (dst_expr_type.is_unsigned_char()))
+//                {
+//                    result 
+//                        << CONV_UINT2UCHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_UINT2UCHAR_SMP16);
+//                }
+//                else if (src_expr_type.is_unsigned_int() 
+//                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+//                {
+//                    result 
+//                        << CONV_UINT2CHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_UINT2CHAR_SMP16);
+//                }
+//                else if (src_expr_type.is_signed_int() 
+//                        && (dst_expr_type.is_unsigned_char()))
+//                {
+//                    result 
+//                        << CONV_INT2UCHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_INT2UCHAR_SMP16);
+//                }
+//                else if (src_expr_type.is_signed_int() 
+//                        && (dst_expr_type.is_signed_char()))
+//                {
+//                    result 
+//                        << CONV_INT2CHAR_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_INT2CHAR_SMP16);
+//                }
+//                else
+//                {
+//                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
+//                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+//                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                            ast.prettyprint().c_str());
+//                }
+//
+//                //Replicating expressions
+//                int num_repls = src_size / dst_size;
+//
+//                for (i=1; i < num_repls; i++)
+//                {
+//                    Source new_stmt_src;
+//
+//                    _this->_num_repl = i;
+//                    ReplaceSrcSMP induct_var_rmplmt(*_this);
+//                    std::stringstream new_ind_var;
+//
+//                    new_ind_var
+//                        << "(" 
+//                        << _this->get_replacement(_this->_ind_var_sym)
+//                        << "+" 
+//                        << i*(_vector_width/src_size)
+//                        << ")"
+//                        ;
+//
+//                    induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+//                            new_ind_var.str());
+//
+//                    result.append_with_separator(induct_var_rmplmt.replace(src_expr.get_ast()), ",");
+//                }
+//
+//                result << ")";
+//
+//                return uniquestr(result.get_source().c_str());
+//            }
+//            //Example: From int to float
+//            else if (src_size == dst_size)
+//            {
+//                if (src_expr_type.is_float()
+//                        && dst_expr_type.is_signed_int())
+//                {
+//                    result 
+//                        << CONV_FLOAT2INT_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        << ")"
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_FLOAT2INT_SMP16);
+//
+//                    return uniquestr(result.get_source().c_str());
+//                }
+//                else if (src_expr_type.is_float()
+//                        && dst_expr_type.is_unsigned_int())
+//                {
+//                    result 
+//                        << CONV_FLOAT2UINT_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        << ")"
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_FLOAT2UINT_SMP16);
+//
+//                    return uniquestr(result.get_source().c_str());
+//                }
+//                else if (src_expr_type.is_unsigned_int() 
+//                        && (dst_expr_type.is_float()))
+//                {
+//                    result 
+//                        << CONV_UINT2FLOAT_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        << ")"
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_UINT2FLOAT_SMP16);
+//
+//                    return uniquestr(result.get_source().c_str());
+//                }
+//                else if (src_expr_type.is_signed_int() 
+//                        && (dst_expr_type.is_float()))
+//                {
+//                    result 
+//                        << CONV_INT2FLOAT_SMP16
+//                        << "("
+//                        << recursive_prettyprint(src_expr.get_ast(), data) 
+//                        << ")"
+//                        ;
+//
+//                    generic_functions.add_specific_definition(
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16),
+//                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16), 
+//                            TL::SIMD::COMPILER_DEFAULT, 
+//                            _this->_device_name, 
+//                            _this->_width, 
+//                            true, true,
+//                            CONV_INT2FLOAT_SMP16);
+//
+//                    return uniquestr(result.get_source().c_str());
+//                }
+//                else
+//                {
+//                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
+//                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+//                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                            ast.prettyprint().c_str());
+//                }
+//            }
+//            //Example: From char to float
+//            else
+//            {
+//                running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
+//                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+//                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+//                        ast.prettyprint().c_str());
+//            }
+//        }
+//        else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))
+//        {
+//            ForStatement for_stmt(ast, _this->_sl);
+//
+//            Expression lower_bound_exp = *dynamic_cast<Expression *>(
+//                    ast.get_attribute(LANG_HLT_SIMD_EPILOG).get_pointer());
+//            Expression upper_bound_exp = for_stmt.get_upper_bound();
+//            Expression step_exp = for_stmt.get_step();
+//
+//            int iters_epilog = _this->needs_epilog(
+//                    upper_bound_exp,
+//                    lower_bound_exp,
+//                    step_exp);
+//
+//            if (iters_epilog == 0)
+//            {
+//                return "";
+//            }
+//            else if (iters_epilog == 1)
+//            {
+//                return recursive_prettyprint_without_simd_repls(
+//                        for_stmt.get_loop_body().get_ast(), data);
+//            }
+//        }
+//
+//        return NULL;
+//    }
+//
+//    return c;
+//}
+//
+//
+//void ReplaceSrcSMP::add_replacement(Symbol sym, const std::string& str)
+//{
+//    ReplaceSrcGenericFunction::add_replacement(sym, str);
+//}
+//
+//
+//void ReplaceSrcSMP::add_this_replacement(const std::string& str)
+//{
+//    ReplaceSrcGenericFunction::add_this_replacement(str);
+//}
+//
+//
+//Source ReplaceSrcSMP::replace(AST_t a) const
+//{
+//    Source result;
+//
+//    const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
+//            &ReplaceSrcSMP::prettyprint_callback, (void*)this);
+//
+//    // Not sure whether this could happen or not
+//    if (c != NULL)
+//    {
+//        result << std::string(c);
+//    }
+//
+//    // The returned pointer came from C code, so 'free' it
+//    free((void*)c);
+//
+//    return result;
+//}
+//
+//
+//static std::string smp_outline_name(const std::string &task_name)
+//{
+//    return "_smp_" + task_name;
+//}
+//
+//static bool is_nonstatic_member_symbol(Symbol s)
+//{
+//    return s.is_member()
+//        && !s.is_static();
+//}
+
+// void DeviceSMP::do_smp_inline_get_addresses(
+//         const Scope& sc,
+//         const DataEnvironInfo& data_env_info,
+//         Source &copy_setup,
+//         ReplaceSrcIdExpression& replace_src,
+//         bool &err_declared)
+// {
+//     Source current_wd_param;
+//     if (Nanos::Version::interface_is_at_least("master", 5005))
+//     {
+//         copy_setup
+//             << "nanos_wd_t current_wd = nanos_current_wd();"
+//             ;
+//         current_wd_param
+//             << ", current_wd"
+//             ;
+//     }
+// 
+//     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+//     unsigned int j = 0;
+//     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+//             it != copies.end();
+//             it++, j++)
+//     {
+//         DataReference data_ref = it->get_copy_expression();
+//         Symbol sym = data_ref.get_base_symbol();
+// 
+//         OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+//         OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+// 
+//         DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+// 
+//         ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+//                 "Invalid data for copy symbol", 0);
+// 
+//         bool is_shared = data_env_item.is_shared();
+// 
+//         Type type = sym.get_type();
+// 
+// 
+//         if (data_env_item.is_vla_type())
+//         {
+//             ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+// 
+//             ObjectList<Source> arg_vla_dims;
+//             for (ObjectList<Source>::iterator it = vla_dims.begin();
+//                     it != vla_dims.end();
+//                     it++)
+//             {
+//                 Source new_dim;
+//                 new_dim << "_args->" << *it;
+// 
+//                 arg_vla_dims.append(new_dim);
+//             }
+// 
+//             type = compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+//                     arg_vla_dims.begin(), arg_vla_dims.end());
+//         }
+// 
+//         if (type.is_array())
+//         {
+//             type = type.array_element().get_pointer_to();
+//             is_shared = false;
+//         } 
+//         else if (is_shared)
+//         {
+//             type = type.get_pointer_to();
+//         }
+// 
+//         std::string copy_name = "_cp_" + sym.get_name();
+// 
+//         if (!err_declared)
+//         {
+//             copy_setup
+//                 << "nanos_err_t cp_err;"
+//                 ;
+//             err_declared = true;
+//         }
+// 
+//         copy_setup
+//             << type.get_declaration(sc, copy_name) << ";"
+//             << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
+//             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+//             ;
+// 
+//         if (!is_shared)
+//         {
+//             replace_src.add_replacement(sym, copy_name);
+//         }
+//         else
+//         {
+//             replace_src.add_replacement(sym, "(*" + copy_name + ")");
+//         }
+//     }
+// }
+// 
+// void DeviceSMP::do_smp_outline_replacements(AST_t body,
+//         ScopeLink scope_link,
+//         const DataEnvironInfo& data_env_info,
+//         Source &initial_code,
+//         Source &replaced_outline)
+// {   
+//     int i, counter;
+//     //AST_t ast;
+// 
+//     //ObjectList<AST_t> builtin_ast_list;
+//     //ObjectList<Expression> arg_list;
+// 
+//     ReplaceSrcSMP replace_src(scope_link, _vector_width);
+//     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+//     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
+// 
+//     //SIMD INITIAL REPLACEMENTS
+//     simd_replacements(replace_src, body);
+// 
+//     replace_src.add_this_replacement("_args->_this");
+// 
+//     Source copy_setup;
+//     initial_code
+//         << copy_setup;
+// 
+//     // First set up all replacements and needed castings
+//     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+//             it != data_env_items.end();
+//             it++)
+//     {
+//         DataEnvironItem& data_env_item(*it);
+// 
+//         if (data_env_item.is_private())
+//             continue;
+// 
+//         Symbol sym = data_env_item.get_symbol();
+//         Type type = sym.get_type();
+//         const std::string field_name = data_env_item.get_field_name();
+// 
+//         if (!data_env_item.is_vla_type())
+//         {
+//             // If this is not a copy this corresponds to a SHARED entity
+//             if (data_env_item.is_shared())
+//             {
+//                 if (type.is_array())
+//                 {
+//                     // Just replace a[i] by (_args->a), no need to derreferentiate
+//                     Type array_elem_type = type.array_element();
+//                     // Set up a casting pointer
+//                     initial_code
+//                             << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
+//                             << "="
+//                             << "("
+//                             << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), "")
+//                             << ") (_args->" << field_name << ");"
+//                             ;
+//                     replace_src.add_replacement(sym, field_name);
+//                 }
+//                 else
+//                 {
+//                     // Set up a casting pointer
+//                     initial_code
+//                             << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
+//                             << "="
+//                             << "("
+//                             << type.get_pointer_to().get_declaration(sym.get_scope(), "")
+//                             << ") (_args->" << field_name << ");"
+//                             ;
+//                     replace_src.add_replacement(sym, "(*" + field_name + ")");
+//                 }
+//             }
+//             // Firstprivate entity (or something to be copied)
+//             else if (data_env_item.is_firstprivate())
+//             {
+//                 // This is the usual path for firstprivates
+//                 if (!data_env_item.is_raw_buffer())
+//                 {
+//                     if (data_env_info.has_local_copies() && 
+//                             (data_env_item.get_type().is_pointer() 
+//                              || data_env_item.get_type().is_scalar_type()))
+//                     {
+//                         replace_src.add_replacement(sym, "(_" + field_name + ")");
+//                     }
+//                     else
+//                     {
+//                         replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+//                     }
+//                 }
+//                 // Raw buffers char[sizeof(ClassName]) are handled here
+//                 else if (data_env_item.is_raw_buffer())
+//                 {
+//                     C_LANGUAGE()
+//                     {
+//                         replace_src.add_replacement(sym, "(*" + field_name + ")");
+//                     }
+//                     CXX_LANGUAGE()
+//                     {
+//                         // Set up a reference to the raw buffer properly casted to the data type
+// 
+//                         Type ref_type = type;
+//                         Type ptr_type = type;
+// 
+//                         if (!type.is_reference())
+//                         {
+//                             ref_type = type.get_reference_to();
+//                             ptr_type = type.get_pointer_to();
+// 
+//                             initial_code
+//                                 << ref_type.get_declaration(sym.get_scope(), field_name)
+//                                 << "(" 
+//                                 << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+//                                 << "_args->" << field_name
+//                                 << ");"
+//                                 ;
+//                         }
+//                         else
+//                         {
+//                             ptr_type = ref_type.references_to().get_pointer_to();
+// 
+//                             initial_code
+//                                 << ref_type.get_declaration(sym.get_scope(), field_name)
+//                                 << "(" 
+//                                 << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+//                                 << "_args->" << field_name
+//                                 << ");"
+//                                 ;
+//                         }
+// 
+//                         // This is the neatest aspect of references
+//                         replace_src.add_replacement(sym, field_name);
+//                     }
+//                 }
+//                 else
+//                 {
+//                     running_error("Code unreachable", 0);
+//                 }
+//             }
+//             else
+//             {
+//                 running_error("Code unreachable", 0);
+//             }
+//         }
+//         // This is a bit redundant but makes thing a lot easier
+//         else if (data_env_item.is_vla_type())
+//         {
+//             // These do not require replacement because we define a
+//             // local variable for them
+//             ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+// 
+//             ObjectList<Source> arg_vla_dims;
+//             for (ObjectList<Source>::iterator it = vla_dims.begin();
+//                     it != vla_dims.end();
+//                     it++)
+//             {
+//                 Source new_dim;
+//                 new_dim << "_args->" << *it;
+// 
+//                 arg_vla_dims.append(new_dim);
+//             }
+// 
+//             // Now compute a replacement type which we will use to declare the proper type
+//             Type repl_type = 
+//                 compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+//                         arg_vla_dims.begin(), arg_vla_dims.end());
+// 
+//             // Adjust the type if it is an array
+//             if (repl_type.is_array())
+//             {
+//                 repl_type = repl_type.array_element().get_pointer_to();
+//             }
+// 
+//             initial_code
+//                 << repl_type.get_declaration(sym.get_scope(), sym.get_name())
+//                 << "="
+//                 << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
+//                 << "("
+//                 << "_args->" << field_name
+//                 << ");"
+//                 ;
+//         }
+//         else
+//         {
+//             internal_error("Code unreachable", 0);
+//         }
+//     }
+// 
+//     // Nonstatic members have a special replacement (this may override some symbols!)
+//     ObjectList<Symbol> symbols_in_data_env = data_env_info.get_items().map(functor(&DataEnvironItem::get_symbol));
+//     ObjectList<Symbol> nonstatic_members; 
+//     nonstatic_members.insert(Statement(body, scope_link)
+//         .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
+//         .filter(predicate(is_nonstatic_member_symbol)));
+// 
+//     for (ObjectList<Symbol>::iterator it = nonstatic_members.begin();
+//             it != nonstatic_members.end();
+//             it++)
+//     {
+//         if(!symbols_in_data_env.contains(*it))
+//         {
+//             replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+//         }
+//     }
+// 
+//     // Create local variables for reduction symbols
+//     for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+//             it != reduction_symbols.end();
+//             it++)
+//     {
+//         Symbol red_sym = it->get_symbol();
+//         Source static_initializer, type_declaration;
+//         std::string red_var_name = "rdp_" + red_sym.get_name();
+//         OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
+//         
+//         initial_code
+//             << comment("Reduction private entity : '" + red_var_name + "'")
+//             << type_declaration << static_initializer << ";"
+//         ;
+//         
+//         type_declaration
+//             << udr2.get_type().get_declaration(scope_link.get_scope(body), red_var_name)
+//         ;
+//         
+//         replace_src.add_replacement(red_sym, red_var_name);
+//         
+//         CXX_LANGUAGE()
+//         {
+//             if (udr2.has_identity())
+//             {
+//                 if (udr2.get_need_equal_initializer())
+//                 {
+//                     static_initializer << " = " << udr2.get_identity().prettyprint();
+//                 }
+//                 else
+//                 {
+//                     if (udr2.get_is_constructor())
+//                     {
+//                         static_initializer << udr2.get_identity().prettyprint();
+//                     }
+//                     else if (!udr2.get_type().is_enum())
+//                     {
+//                         static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
+//                     }
+//                 }
+//             }
+//         }
+//         
+//         C_LANGUAGE()
+//         {
+//             static_initializer << " = " << udr2.get_identity().prettyprint();
+//         }
+//     }
+// 
+//     // Copies
+//     if (create_translation_function())
+//     {
+//         // We already created a function that performs the translation in the runtime
+//         copy_setup
+//             << comment("Translation is done by the runtime")
+//             ;
+//     }
+//     else
+//     {
+//         Scope sc = scope_link.get_scope(body);
+// 
+//         bool err_declared = false;
+//         do_smp_inline_get_addresses(
+//                 sc,
+//                 data_env_info,
+//                 copy_setup,
+//                 replace_src,
+//                 err_declared);
+//     }
+// 
+//     replaced_outline << replace_src.replace(body);
+// }
+// 
+
+DeviceSMP::DeviceSMP()
+    : DeviceProvider(/* device_name */ std::string("smp"))
+{
+    set_phase_name("Nanox SMP support");
+    set_phase_description("This phase is used by Nanox phases to implement SMP device support");
+}
+
+void DeviceSMP::pre_run(DTO& dto)
+{
+}
+
+void DeviceSMP::run(DTO& dto)
+{
+    DeviceProvider::run(dto);
+}
+
+// void DeviceSMP::create_outline(
+//         const std::string& task_name,
+//         const std::string& struct_typename,
+//         DataEnvironInfo &data_environ,
+//         const OutlineFlags& outline_flags,
+//         AST_t reference_tree,
+//         ScopeLink sl,
+//         Source initial_setup,
+//         Source outline_body)
+// {
+//     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
+//     FunctionDefinition enclosing_function(function_def_tree, sl);
+// 
+//     Source result, body, outline_name, full_outline_name, parameter_list,
+//            local_copies, generic_functions_src, generic_declarations_src;
+// 
+//     Source forward_declaration;
+//     Symbol function_symbol = enclosing_function.get_function_symbol();
+// 
+//     Source template_header, member_template_header, linkage_specifiers;
+//     if (enclosing_function.is_templated())
+//     {
+//         ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+//         for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+//                 it != template_header_list.end();
+//                 it++)
+//         {
+//             Source template_params;
+//             template_header
+//                 << "template <" << template_params << ">"
+//                 ;
+//             ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+//             for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+//                     it2 != tpl_params.end();
+//                     it2++)
+//             {
+//                 template_params.append_with_separator(it2->prettyprint(), ",");
+//             }
+//         }
+//     }
+//     else if (enclosing_function.has_linkage_specifier())
+//     {
+//         linkage_specifiers << concat_strings(enclosing_function.get_linkage_specifier(), " ");
+//     }
+// 
+//     bool is_inline_member_function = false;
+//     Source member_declaration, static_specifier, member_parameter_list;
+// 
+//     if (!function_symbol.is_member())
+//     {
+//         IdExpression function_name = enclosing_function.get_function_name();
+//         Declaration point_of_decl = function_name.get_declaration();
+//         DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
+//         ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
+//         DeclaredEntity declared_entity = *(declared_entities.begin());
+// 
+//         forward_declaration 
+//             << linkage_specifiers
+//             << template_header
+//             << decl_specs.prettyprint()
+//             << " "
+//             << declared_entity.prettyprint()
+//             << ";";
+// 
+//         static_specifier
+//             << "static "
+//             ;
+//     }
+//     else
+//     {
+//         member_declaration
+//             << member_template_header
+//             << "static void " << outline_name << "(" << member_parameter_list << ");" 
+//             ;
+// 
+//         if (function_symbol.get_type().is_template_specialized_type())
+//         {
+//             Declaration decl(function_symbol.get_point_of_declaration(), sl);
+// 
+//             ObjectList<TemplateHeader> template_header_list = decl.get_template_header();
+//             member_template_header
+//                 << "template <" << concat_strings(template_header_list.back().get_parameters(), ",") << "> "
+//                 ;
+//         }
+// 
+//         // This is a bit crude but allows knowing if the function is inline or not
+//         is_inline_member_function = reference_tree.get_enclosing_class_specifier().is_valid();
+// 
+//         if (!is_inline_member_function)
+//         {
+//             full_outline_name 
+//                 << function_symbol.get_class_type().get_symbol().get_qualified_name(sl.get_scope(reference_tree)) << "::" ;
+//         }
+//         else
+//         {
+//             static_specifier << " static ";
+//         }
+//     }
+// 
+//     Source instrument_before, instrument_after;
+// 
+//     result
+//         << generic_declarations_src
+//         << generic_functions_src
+//         << forward_declaration
+//         << template_header
+//         << static_specifier
+//         << "void " << full_outline_name << "(" << parameter_list << ")"
+//         << "{"
+//         << instrument_before
+//         << body
+//         << instrument_after
+//         << "}"
+//         ;
+// 
+//     //Prettyprinting generic_functions
+//     ReplaceSrcSMP function_replacement(sl, _vector_width);
+// 
+//     std::string generic_declaration_str;
+// 
+//     while(!(generic_declaration_str 
+//                 = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
+//     {
+//         generic_declarations_src
+//             << generic_declaration_str;
+//  
+//         generic_functions_src
+//             << generic_functions.get_pending_specific_functions(function_replacement).get_source();
+//     } 
+// 
+// 
+//     if (instrumentation_enabled())
+//     {
+//         Source uf_name_id, uf_name_descr;
+//         Source uf_location_id, uf_location_descr;
+//         Symbol function_symbol = enclosing_function.get_function_symbol();
+// 
+//         instrument_before
+//             << "static int nanos_funct_id_init = 0;"
+//             << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+//             << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+//             << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+//             << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+//             << "if (nanos_funct_id_init == 0)"
+//             << "{"
+//             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+//             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+//             <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
+//             <<               uf_name_id << "," << uf_name_descr << ", 0);"
+//             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+// 
+//             <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+//             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+//             <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+//             <<               uf_location_id << "," << uf_location_descr << ", 0);"
+//             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+//             <<    "nanos_funct_id_init = 1;"
+//             << "}"
+//             << "nanos_event_t events_before[2];"
+//             << "events_before[0].type = NANOS_BURST_START;"
+//             << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+//             << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+//             << "events_before[1].type = NANOS_BURST_START;"
+//             << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+//             << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+//             << "nanos_instrument_events(2, events_before);"
+//             // << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
+//             // << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
+//             ;
+// 
+//         instrument_after
+//             << "nanos_event_t events_after[2];"
+//             << "events_after[0].type = NANOS_BURST_END;"
+//             << "events_after[0].info.burst.key = nanos_instr_uf_name_key;"
+//             << "events_after[0].info.burst.value = nanos_instr_uf_name_value;"
+//             << "events_after[1].type = NANOS_BURST_END;"
+//             << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
+//             << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
+//             << "nanos_instrument_events(2, events_after);"
+//             //            << "nanos_instrument_leave_burst(nanos_instr_uf_name_key);"
+//             ;
+// 
+// 
+//         if (outline_flags.task_symbol != NULL)
+//         {
+//             uf_name_id
+//                 << "\"" << outline_flags.task_symbol.get_name() << "\""
+//                 ;
+//             uf_location_id
+//                 << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+//                 ;
+// 
+//             uf_name_descr
+//                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
+//                 ;
+//             uf_location_descr
+//                 << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+//                 << " in construct at '" << reference_tree.get_locus() << "'\""
+//                 ;
+//         }
+//         else
+//         {
+//             uf_name_id
+//                 << uf_location_id
+//                 ;
+//             uf_location_id
+//                 << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+//                 ;
+// 
+//             uf_name_descr
+//                 << uf_location_descr
+//                 ;
+//             uf_location_descr
+//                 << "\"Outline from '"
+//                 << reference_tree.get_locus()
+//                 << "' in '" << function_symbol.get_qualified_name() << "'\""
+//                 ;
+//         }
+//     }
+// 
+//     parameter_list
+//         << struct_typename << "* const __restrict__ _args"
+//         ;
+// 
+//     outline_name
+//         << smp_outline_name(task_name)
+//         ;
+// 
+//     full_outline_name
+//         << outline_name
+//         ;
+// 
+//     Source private_vars, final_code, init_code;
+// 
+//     body
+//         << init_code
+//         << local_copies
+//         << private_vars
+//         << initial_setup
+//         << outline_body
+//         << final_code
+//         ;
+// 
+//     // Local Copies
+//     /*
+//     Scope sc = sl.get_scope(reference_tree);
+//     Symbol struct_sym = sc.get_symbol_from_name(struct_typename);
+// 
+//     if (struct_sym.is_valid())
+//     {
+//         Type struct_typename_type = struct_sym.get_type();
+//         ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
+//         int i;
+// 
+//         for (ObjectList<Symbol>::iterator it = data_member_list.begin();
+//                 it != data_member_list.end();
+//                 it ++)
+//         {
+//             const Symbol& sym = (Symbol)*it;
+//             const Type& sym_type = sym.get_type();
+// 
+// //            if (sym_type.is_scalar_type() || sym_type.is_pointer())
+//             if (sym_type.is_pointer())
+//             {
+//                 local_copies
+//                     << sym_type.get_simple_declaration(sc, "_" + sym.get_name())
+//                     << " = "
+//                     << "_args->" << sym.get_name() 
+//                     << ";\n"
+//                     ;
+//             }
+//         }
+//     }
+//     */
+// 
+//     ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
+// 
+//     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+//             it != data_env_items.end();
+//             it++)
+//     {
+//         if (it->is_private())
+//         {
+//             Symbol sym = it->get_symbol();
+//             Type type = sym.get_type();
+// 
+//             if (type.is_reference())
+//                 type = type.references_to();
+// 
+//             private_vars
+//                 << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+//                 ;
+//         }
+//         else if (it->is_raw_buffer())
+//         {
+//             Symbol sym = it->get_symbol();
+//             Type type = sym.get_type();
+//             std::string field_name = it->get_field_name();
+// 
+//             if (type.is_reference())
+//             {
+//                 type = type.references_to();
+//             }
+// 
+//             if (!type.is_named_class())
+//             {
+//                 internal_error("invalid class type in field of raw buffer", 0);
+//             }
+// 
+//             final_code
+//                 << field_name << ".~" << type.get_symbol().get_name() << "();"
+//                 ;
+//         } 
+//         // VLA types are handled specially and their declaration has
+//         // been generated earlier in this file
+//         else if (it->is_firstprivate() 
+//                 && !it->is_vla_type())
+//         {
+//             // Local Copies
+//             if (data_environ.has_local_copies())
+//             {
+//                 Symbol sym = it->get_symbol();
+//                 Type type = sym.get_type();
+//                 if(type.is_reference()) 
+//                 {
+//                     type = type.references_to();
+//                 }
+// 
+//                 // Only pointers or scalars are cached locally
+//                 if (type.is_pointer() 
+//                         || type.is_scalar_type())
+//                 {
+//                     local_copies
+//                         << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())
+//                         << " = "
+//                         << "_args->" << it->get_field_name() 
+//                         << ";\n"
+//                         ;
+//                 }
+//             }
+//         }
+//     }
+// 
+//     if (outline_flags.parallel)
+//     {
+//        // This task is an implicit one created after a parallel execution
+//        init_code 
+//           << "nanos_omp_set_implicit(nanos_current_wd());"
+//           ;
+//     }
+// 
+//     final_code
+//         << get_reduction_update(data_environ.get_reduction_symbols(), sl);
+//     ;
+//     
+//     if (outline_flags.parallel || outline_flags.barrier_at_end)
+//     {
+//         final_code
+//             << OMPTransform::get_barrier_code(reference_tree)
+//             ;
+//     }
+// 
+//     if (!is_inline_member_function)
+//     {
+//         if (function_symbol.is_member())
+//         {
+//             AST_t decl_point = function_symbol.get_point_of_declaration();
+// 
+//             AST_t ref_tree;
+//             if (FunctionDefinition::predicate(decl_point))
+//             {
+//                 FunctionDefinition funct_def(decl_point, sl);
+//                 ref_tree = funct_def.get_point_of_declaration();
+//             }
+//             else 
+//             {
+//                 Declaration decl(decl_point, sl);
+//                 ref_tree = decl.get_point_of_declaration();
+//             }
+// 
+//             Type t = Source(struct_typename).parse_type(reference_tree, sl);
+// 
+//             member_parameter_list << 
+//                 t.get_pointer_to().get_declaration(sl.get_scope(decl_point), " const __restrict__ args");
+// 
+//             AST_t member_decl_tree = 
+//                 member_declaration.parse_member(decl_point,
+//                         sl,
+//                         function_symbol.get_class_type().get_symbol());
+// 
+//             decl_point.prepend(member_decl_tree);
+//         }
+// 
+//         // Parse it in a sibling function context
+//         AST_t outline_code_tree
+//             = result.parse_declaration(reference_tree.get_enclosing_function_definition_declaration().get_parent(), 
+//                     sl);
+//         reference_tree.prepend_sibling_function(outline_code_tree);
+//     }
+//     else
+//     {
+//         AST_t outline_code_tree
+//             = result.parse_member(reference_tree.get_enclosing_function_definition_declaration().get_parent(),
+//                     sl, 
+//                     function_symbol.get_class_type().get_symbol());
+//         reference_tree.prepend_sibling_function(outline_code_tree);
+//     }
+// }
+
+void DeviceSMP::get_device_descriptor(DeviceDescriptorInfo& info,
+         Source &ancillary_device_description,
+         Source &device_descriptor,
+         Source &fortran_dynamic_init)
+{
+    std::string outline_name = info._task_name;
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        ancillary_device_description
+            << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
+            << ".outline = (void(*)(void*))&" << outline_name 
+            << "};"
+            ;
+        device_descriptor
+            << "{"
+            << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
+            << "}"
+            ;
+    }
+    else
+    {
+        ancillary_device_description
+            << "static nanos_smp_args_t " << outline_name << "_smp_args;"
+            ;
+
+        device_descriptor
+            << "{"
+            // factory, arg
+            << "0, 0"
+            << "}"
+            ;
+
+        fortran_dynamic_init
+            << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
+            << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
+            << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
+            ;
+    }
+
+//     Source outline_name;
+//     outline_name
+//         << smp_outline_name(task_name)
+//         ;
+// 
+//     Source template_args;
+//     FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+//     Symbol function_symbol = enclosing_function_def.get_function_symbol();
+// 
+//     Source additional_casting;
+//     if (enclosing_function_def.is_templated()
+//             && function_symbol.get_type().is_template_specialized_type())
+//     {
+//         Source template_args_list;
+//         template_args
+//             << "<" << template_args_list << ">";
+//         ObjectList<TemplateHeader> template_header_list = enclosing_function_def.get_template_header();
+// 
+//         ObjectList<TemplateParameterConstruct> tpl_params = template_header_list.back().get_parameters();
+//         for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+//                 it2 != tpl_params.end();
+//                 it2++)
+//         {
+//             template_args_list.append_with_separator(it2->get_name(), ",");
+//         }
+//         outline_name << template_args;
+// 
+//         // Because of a bug in g++ (solved in 4.5) we need an additional casting
+//         AST_t id_expr = outline_name.parse_id_expression(reference_tree, sl);
+//         Scope sc = sl.get_scope(reference_tree);
+//         ObjectList<Symbol> sym_list = sc.get_symbols_from_id_expr(id_expr);
+//         if (!sym_list.empty()
+//                 && sym_list[0].is_template_function_name())
+//         {
+//             Type t = sym_list[0].get_type()
+//                 // This symbol is a template, get the primary one
+//                 // This is safe since we know there will be only one template
+//                 // function under this name
+//                 .get_primary_template()
+//                 // Primary template type is a named type, get its symbol
+//                 .get_symbol()
+//                 // Is type is a function type
+//                 .get_type()
+//                 // A function type is not directly useable, get a pointer to
+//                 .get_pointer_to();
+//             additional_casting << "(" << t.get_declaration(sl.get_scope(reference_tree), "") << ")";
+//         }
+//     }
+// 
+//     Source nanos_dd_size_opt;
+//     if (Nanos::Version::interface_is_at_least("master", 5012))
+//     {
+//         ancillary_device_description
+//             << comment("SMP device descriptor")
+//             << "static nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+//             ;
+//     }
+//     else
+//     {
+//         ancillary_device_description
+//             << comment("SMP device descriptor")
+//             << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+//             ;
+//         nanos_dd_size_opt << "nanos_smp_dd_size, ";
+//     }
+// 
+//     device_descriptor
+//         << "{ nanos_smp_factory, " << nanos_dd_size_opt << "&" << task_name << "_smp_args },"
+//         ;
+}
+// 
+// void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
+//         AST_t body,
+//         ScopeLink scope_link,
+//         Source &initial_setup,
+//         Source &replaced_src)
+// {
+//     do_smp_outline_replacements(body,
+//             scope_link,
+//             data_environ,
+//             initial_setup,
+//             replaced_src);
+// }
+// 
+// void DeviceSMP::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
+// {
+//     ERROR_CONDITION(is_copy, "Invalid copied pragma tree", 0);
+// 
+//     ScopeLink scope_link = ctr.get_scope_link();
+//     FunctionDefinition func_def(ctr.get_declaration(), scope_link);
+//     AST_t body_ast = func_def.get_function_body().get_ast();
+// 
+//     ReplaceSrcSMP replace_src(scope_link, _vector_width);
+//     Source replaced_body;
+// 
+//     //SIMD replacements
+//     simd_replacements(replace_src, body_ast);
+// 
+//     replaced_body
+//         << replace_src.replace(body_ast);
+// 
+//     //Prettyprinting generic_functions
+//     ReplaceSrcSMP function_replacement(ctr.get_scope_link(), _vector_width);
+//     Source generic_declarations_src, generic_functions_src;
+//     std::string generic_declaration_str;
+// 
+//     while(!(generic_declaration_str
+//                 = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
+//     {
+//         generic_declarations_src
+//             << generic_declaration_str;
+// 
+//         generic_functions_src
+//             << generic_functions.get_pending_specific_functions(function_replacement).get_source();
+//     }
+// 
+//     AST_t generic_declarations_tree = generic_declarations_src.parse_declaration(
+//             ctr.get_ast(),
+//             ctr.get_scope_link());
+//     AST_t generic_functions_tree = generic_functions_src.parse_declaration(
+//             ctr.get_ast(),
+//             ctr.get_scope_link());
+// 
+// 
+//     // Replace function body with SIMD replacements
+//     body_ast.replace(replaced_body.parse_statement(body_ast, scope_link));
+// 
+//     // Prepend generic functions definitions
+//     ctr.get_ast().prepend_sibling_global(generic_declarations_tree);
+//     ctr.get_ast().prepend_sibling_global(generic_functions_tree);
+// 
+//     // Remove #pragma with its nested declaration
+//     ctr.get_ast().replace(ctr.get_declaration());
+// }
+// 
+// void DeviceSMP::insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
+// {
+//     ERROR_CONDITION(is_copy, "Invalid copied pragma tree", 0);
+// 
+//     ctr.get_ast().replace(ctr.get_declaration());
+// }
+// 
+// void DeviceSMP::simd_replacements(ReplaceSrcSMP& replace_src, AST_t body)
+// {
+//     ScopeLink scope_link = replace_src.get_scope_link();
+//     ObjectList<AST_t> builtin_ast_list;
+//     ObjectList<Expression> arg_list;
+// 
+//     AST_t ast;
+//     bool constant_evaluation;
+// 
+// 
+//     //SIMD loop unrolling
+//     builtin_ast_list =
+//         body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));
+// 
+//     for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+//             it != builtin_ast_list.end();
+//             it++)
+//     {
+//         ForStatement for_stmt (*it, scope_link);
+//         const int min_expr_size = dynamic_cast<ForStatementInfo*>(
+//                 for_stmt.get_ast().get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer())->get_min_expr_size();
+// 
+//         replace_src.set_min_expr_size(min_expr_size);
+// 
+//         //Unrolling
+//         Expression it_exp = for_stmt.get_iterating_expression();
+//         Expression upper_bound_exp = for_stmt.get_upper_bound();
+//         Expression lower_bound_exp = for_stmt.get_lower_bound(); 
+//         Expression step_exp = for_stmt.get_step();
+//         IdExpression ind_var = for_stmt.get_induction_variable();
+// 
+//         AST_t it_exp_ast = it_exp.get_ast();
+//         Source it_exp_source;
+// 
+//         if (it_exp.is_unary_operation())
+//         {
+//             it_exp_source
+//                 << it_exp.get_unary_operand();
+//         } 
+//         else if (it_exp.is_binary_operation())
+//         {
+//             it_exp_source
+//                 << it_exp.get_first_operand();
+//         }
+//         else
+//         {
+//             internal_error("Wrong Expression in ForStatement iterating Expression", 0);
+//         }
+// 
+//         int new_step = replace_src.compute_new_step(
+//                 step_exp.evaluate_constant_int_expression(constant_evaluation));
+// 
+//         it_exp_source
+//             << " += "
+//             << new_step
+//             ;
+// 
+//         it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+// 
+//         //Modifying the upper_bound if needs_epilog is necessary. 
+//         if(replace_src.needs_epilog(upper_bound_exp, 
+//                     lower_bound_exp,
+//                     step_exp))
+//         {
+//             Expression it_cond_exp = for_stmt.get_iterating_condition();
+//             if (!it_cond_exp.is_binary_operation())
+//             {
+//                 running_error("Iterating condition Expression '%s'is not a binary operation.",
+//                         it_cond_exp.prettyprint().c_str());
+//             }
+// 
+//             Expression first_op_exp = it_cond_exp.get_first_operand();
+//             Expression second_op_exp = it_cond_exp.get_second_operand();
+//             int first_num_occurs = 0;
+//             int second_num_occurs = 0;
+// 
+//             //Looking for ind_var occurrences in the first expression
+//             ObjectList<IdExpression> first_symbol_occurrs = first_op_exp.all_symbol_occurrences();
+//             for (ObjectList<IdExpression>::const_iterator it = first_symbol_occurrs.begin();
+//                     it != first_symbol_occurrs.end();
+//                     it++)
+//             {
+//                 const IdExpression& id_exp = *it;
+//                 if (id_exp.get_symbol() == ind_var.get_symbol())
+//                 {
+//                     first_num_occurs++;
+//                     break;
+//                 }
+//             }
+// 
+//             //Looking for ind_var occurrences in the second expression
+//             ObjectList<IdExpression> second_symbol_occurrs = second_op_exp.all_symbol_occurrences();
+//             for (ObjectList<IdExpression>::const_iterator it = second_symbol_occurrs.begin();
+//                     it != second_symbol_occurrs.end();
+//                     it++)
+//             {
+//                 const IdExpression& id_exp = *it;
+//                 if (id_exp.get_symbol() == ind_var.get_symbol())
+//                 {
+//                     second_num_occurs++;
+//                     break;
+//                 }
+//             }
+// 
+//             if ((first_num_occurs != 0) && (second_num_occurs != 0))
+//             {
+//                 running_error("Induction variable cannot be present in both sides of the iterating condition Expression '%s'.",
+//                         it_cond_exp.prettyprint().c_str());
+//             }
+//             else if (first_num_occurs == 0)
+//             {
+//                 AST_t first_ast = first_op_exp.get_ast();
+//                 Source new_upper_bound_src;
+// 
+//                 new_upper_bound_src << "(("
+//                     << first_op_exp
+//                     << ")"
+//                     << "- (" << new_step << "-1)"
+//                     << ")"
+//                     ;
+// 
+//                 first_ast.replace(new_upper_bound_src.parse_expression(first_ast, scope_link));
+//             }
+//             else if (second_num_occurs == 0)
+//             {
+//                 AST_t second_ast = second_op_exp.get_ast();
+//                 Source new_upper_bound_src;
+// 
+//                 new_upper_bound_src << "(("
+//                     << second_op_exp
+//                     << ")"
+//                     << "- (" << new_step << "-1)"
+//                     << ")"
+//                     ;
+// 
+//                 second_ast.replace(new_upper_bound_src.parse_expression(second_ast, scope_link));
+//             }
+//             else
+//             {
+//                 running_error("Induction variable is not present in the iterating condition Expression '%s'.",
+//                         it_cond_exp.prettyprint().c_str());
+//             }
+//         }
+//                           
+// 
+// 
+//         //Statements replication
+//         /*
+//         Statement stmt = for_stmt.get_loop_body();
+//     
+//         if (stmt.is_compound_statement())
+//         {
+//             ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+// 
+//             for (ObjectList<Statement>::iterator it = stmt_list.begin();
+//                     it != stmt_list.end();
+//                     it++)
+//             {
+//                 Statement& statement = (Statement&)*it;
+// 
+//                 if (statement.is_expression())
+//                 {
+//                     Expression exp = statement.get_expression();
+//                     if (exp.is_assignment() 
+//                             || exp.is_operation_assignment()
+//                             || exp.is_function_call())
+//                     {
+//                         int exp_size = exp.get_type().get_size();
+// 
+//                         if (exp_size > min_stmt_size)
+//                         {
+//                             Source compound_stmt_src;
+//                             AST_t stmt_ast = statement.get_ast();
+//                             int num_repls = exp_size/min_stmt_size;
+//                             int i;
+// 
+//                             DEBUG_CODE()
+//                             {
+//                                 std::cerr << "SIMD-SMP: Replicating statement '" 
+//                                     << statement.prettyprint()
+//                                     << "' "
+//                                     << num_repls
+//                                     << " times."
+//                                     << std::endl;
+//                             }
+// 
+//                             compound_stmt_src 
+//                                 << "{" 
+//                                 << statement
+//                                 ;
+// 
+//                             for (i=1; i < num_repls; i++)
+//                             {
+//                                 Source new_stmt_src;
+// 
+//                                 ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+//                                 std::stringstream new_ind_var;
+// 
+//                                 new_ind_var
+//                                     << "(" 
+//                                     << for_stmt.get_induction_variable().get_symbol().get_name()
+//                                     << "+" 
+//                                     << i*(_vector_width/exp_size)
+//                                     << ")"
+//                                     ;
+// 
+//                                 induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+//                                         new_ind_var.str());
+// 
+//                                 compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
+//                             }
+// 
+//                             compound_stmt_src << "}";
+// 
+//                             stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+//                         }
+//                     }
+//                 }
+//             }
+//         }*/
+// 
+//     }
+// 
+//     //FIXME: Move me to prettyprint_callback
+//     //__builtin_vector_reference AST replacement
+//     /*
+// 
+//     */
+// }
+
+} }
+EXPORT_PHASE(TL::Nanox::DeviceSMP);

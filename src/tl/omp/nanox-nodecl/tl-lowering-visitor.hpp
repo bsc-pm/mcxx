@@ -134,6 +134,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 bool is_untied,
                 bool mandatory_creation,
+                const ObjectList<std::string>& device_names,
                 Nodecl::NodeclBase construct);
 
         void allocate_immediate_structure(
