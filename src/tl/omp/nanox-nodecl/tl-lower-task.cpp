@@ -255,6 +255,8 @@ Source LoweringVisitor::fill_const_wd_info(
         std::string device_name = *it;
         DeviceProvider* device = device_handler.get_device(device_name);
 
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
         // FIXME: Can it be done only once?
         DeviceDescriptorInfo info(outline_name);
         device->get_device_descriptor(info, ancillary_device_description, device_description, aux_fortran_init);
@@ -407,6 +409,8 @@ void LoweringVisitor::emit_async_common(
     {
         std::string device_name = *it;
         DeviceProvider* device = device_handler.get_device(device_name);
+
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
         // FIXME: Can it be done only once?
         CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);

@@ -49,24 +49,30 @@ namespace TL
 
                 virtual void phase_cleanup(DTO& data_flow);
 
-                virtual void create_outline(CreateOutlineInfo &info,
+                virtual void create_outline(
+                        CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
                         Nodecl::Utils::SymbolMap* &symbol_map);
 
-                virtual void get_device_descriptor(DeviceDescriptorInfo& info,
+                virtual void get_device_descriptor(
+                        DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
 
             private:
 
-                FILE *_ancillary_file;
+                Nodecl::List _extra_c_code;
 
-                Source emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index);
+                Source emit_allocate_statement(
+                        TL::Symbol sym,
+                        int &lower_bound_index,
+                        int &upper_bound_index);
 
-                FILE* get_ancillary_file();
-
-                void generate_ancillary_forward_code(const std::string& outline_name, TL::ObjectList<OutlineDataItem*> data_items);
+                void add_forward_code_to_extra_c_code(
+                        const std::string& outline_name,
+                        TL::ObjectList<OutlineDataItem*> data_items,
+                        Nodecl::NodeclBase parse_context);
         };
     }
 }

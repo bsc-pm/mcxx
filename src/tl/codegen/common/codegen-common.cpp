@@ -58,6 +58,9 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     this->_is_file_output = true;
 
     this->push_scope( n.retrieve_context() );
+
+    this->codegen_cleanup();
+
     std::string str ( this->codegen(n) );
     this->pop_scope();
 
