@@ -92,6 +92,8 @@ namespace TL { namespace Nanox {
             std::string device_name = *it;
             DeviceProvider* device = device_handler.get_device(device_name);
 
+            ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
             Nodecl::NodeclBase outline_placeholder;
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
 
