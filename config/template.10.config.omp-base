@@ -30,3 +30,4 @@ linker_options = -Xlinker --add-needed
 {acml} linker_options = -lacml_mv
 {simd} linker_options = -lm
 {openmp} compiler_phase = libtlnanox-lowering.so
+{openmp} compiler_phase = libtlnanox-smp.so
