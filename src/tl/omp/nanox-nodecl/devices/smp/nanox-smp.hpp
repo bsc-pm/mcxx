@@ -36,71 +36,6 @@ namespace TL
 {
     namespace Nanox
     {
-        // class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
-        // {
-        //     private:
-        //         int _min_expr_size;
-        //         Symbol _ind_var_sym;
-        //         int _num_repl;
-        //         std::stack<bool> _inside_simd_for;
-        //         std::stack<bool> _replication_state;
-        //         ObjectList<Symbol> _nonlocal_symbols;
-
-        //     protected:
-        //         static const char* prettyprint_callback (AST a, void* data);
-        //         static const char* recursive_prettyprint (AST_t a, void* data);
-        //         static const char* recursive_prettyprint_without_simd_repls (AST_t a, void* data);
-        //         std::string get_integer_casting(AST_t a, Type type1, Type type2);
-        //         std::string scalar_expansion(Expression expr);
-        //         std::string ind_var_scalar_expansion(Expression expr);
-        //         std::string statement_replication(
-        //                 Expression expr, 
-        //                 int num_repls, 
-        //                 AST_t statement_ast);
-        //         std::string declaration_replication(
-        //                 Declaration declaration, 
-        //                 int num_repls, 
-        //                 AST_t declaration_ast);
-
-        //     public:
-        //         ReplaceSrcSMP(ScopeLink sl, int width) 
-        //             : ReplaceSrcGenericFunction(sl, "smp", width), 
-        //             _min_expr_size(0), _ind_var_sym(NULL), _num_repl(-1)
-        //         {
-        //             _inside_simd_for.push(false);
-        //             _replication_state.push(false);
-        //         }
-
-        //         ReplaceSrcSMP(ScopeLink sl, 
-        //                 int width, 
-        //                 int min_expr_size,
-        //                 Symbol ind_var_sym,
-        //                 bool inside_simd_for, 
-        //                 bool replication_state) 
-        //             : ReplaceSrcGenericFunction(sl, "smp", width),
-        //             _min_expr_size(min_expr_size), _ind_var_sym(ind_var_sym), _num_repl(-1)
-        //         {
-        //             _inside_simd_for.push(inside_simd_for);
-        //             _replication_state.push(replication_state);
-        //             
-        //         }
-
-        //         void set_min_expr_size(int min_expr_size);
-
-        //         void add_replacement(Symbol sym, const std::string& str);
-        //         void add_this_replacement(const std::string& str);
-
-        //         Source replace(AST_t a) const;
-        //         Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name);
-        //         Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name);
-
-        //         int compute_new_step(int step);
-        //         int needs_epilog(Expression upper_bound_exp, 
-        //                 Expression lower_bound_exp,
-        //                 Expression step_exp);
-        // };
-
-
         class DeviceSMP : public DeviceProvider
         {
             public:
@@ -112,48 +47,26 @@ namespace TL
 
                 virtual ~DeviceSMP() { }
 
-                // virtual void create_outline(
-                //         const std::string& task_name,
-                //         const std::string& struct_typename,
-                //         DataEnvironInfo &data_environ,
-                //         const OutlineFlags& outline_flags,
-                //         AST_t reference_tree,
-                //         ScopeLink sl,
-                //         Source initial_setup,
-                //         Source outline_body);
+                virtual void phase_cleanup(DTO& data_flow);
 
-                // virtual void do_replacements(DataEnvironInfo& data_environ,
-                //         AST_t body,
-                //         ScopeLink scope_link,
-                //         Source &initial_setup,
-                //         Source &replace_src);
+                virtual void create_outline(CreateOutlineInfo &info,
+                        Nodecl::NodeclBase &outline_placeholder,
+                        Nodecl::Utils::SymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
 
-                 // virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
-                // virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
+            private:
 
-            // private:
-                // void do_smp_inline_get_addresses(
-                //         const Scope& sc,
-                //         const DataEnvironInfo& data_env_info,
-                //         Source &copy_setup,
-                //         ReplaceSrcIdExpression& replace_src,
-                //         bool &err_declared);
+                FILE *_ancillary_file;
 
-                // void do_smp_outline_replacements(AST_t body,
-                //         ScopeLink scope_link,
-                //         const DataEnvironInfo& data_env_info,
-                //         Source &initial_code,
-                //         Source &replaced_outline);
+                Source emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index);
 
-                // virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy);
-                // virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy);
+                FILE* get_ancillary_file();
 
-                // void simd_replacements(ReplaceSrcSMP& replace_src, AST_t body);
+                void generate_ancillary_forward_code(const std::string& outline_name, TL::ObjectList<OutlineDataItem*> data_items);
         };
     }
 }

@@ -28,9 +28,11 @@
 #ifndef NANOX_DEVICES_H
 #define NANOX_DEVICES_H
 
+
 #include "tl-compilerphase.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-source.hpp"
+#include "tl-outline-info.hpp"
 //#include "tl-data-env.hpp"
 
 namespace TL { namespace Nanox {
@@ -77,8 +79,26 @@ namespace TL { namespace Nanox {
     // DTO used to store device descriptor information
     struct DeviceDescriptorInfo
     {
-        const std::string& _task_name;
-        DeviceDescriptorInfo(std::string task_name) : _task_name(task_name) { }
+        const std::string& _outline_name;
+        DeviceDescriptorInfo(std::string outline_name) : _outline_name(outline_name) { }
+    };
+
+    // This DTO stores information used in 'create_outline' function
+    struct CreateOutlineInfo
+    {
+        const std::string& _outline_name;
+        OutlineInfo& _outline_info;
+        Nodecl::NodeclBase& _original_statements;
+        TL::Symbol& _structure_symbol;
+
+        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& structure_symbol)
+            : _outline_name(outline_name), _outline_info(outline_info), _original_statements(statements), _structure_symbol(structure_symbol)
+        {
+            //_outline_name = outline_name;
+            //_outline_info = outline_info;
+            //_original_statements = statements;
+            //_structure_symbol = structure_symbol;
+        }
     };
 
     /*!
@@ -156,6 +176,11 @@ namespace TL { namespace Nanox {
     //                                before outline_body
     //           \param outline_body The body of the outline. This body is normally derived from replaced_src parameter of do_replacements
     //           */
+    //
+             virtual void create_outline(CreateOutlineInfo &info,
+                     Nodecl::NodeclBase &outline_placeholder,
+                     Nodecl::Utils::SymbolMap* &symbol_map) = 0;
+    
     //         virtual void create_outline(
     //                 const std::string& task_name,
     //                 const std::string& struct_typename,

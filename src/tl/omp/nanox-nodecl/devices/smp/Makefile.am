@@ -31,7 +31,9 @@ END=
 
 phases_LTLIBRARIES=libtlnanox-smp.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../..
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../core
 
 libtlnanox_smp_la_CFLAGS = $(device_flags)
 libtlnanox_smp_la_CXXFLAGS = $(device_flags)

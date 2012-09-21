@@ -1,4 +1,30 @@
-#include "tl-nanox-ptr.hpp"
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+#include "tl-lowering-visitor.hpp"
 
 #include "tl-scope.hpp"
 #include "cxx-utils.h"
@@ -13,9 +39,8 @@
 
 #include "tl-nodecl.hpp"
 #include "tl-source.hpp"
-#include "tl-nodecl-utils.hpp"
 
-namespace TL { 
+namespace TL { namespace Nanox {
 
     // FIXME - Move this to a SymbolKit
     static TL::Symbol new_function_symbol(Scope sc,
@@ -154,7 +179,7 @@ namespace TL {
     }
 
     // This is for Fortran only
-    TL::Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope, FILE* ancillary_file)
+    TL::Symbol LoweringVisitor::get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
     {
         static int num = 0;
 
@@ -212,52 +237,58 @@ namespace TL {
         // Propagate ALLOCATABLE attribute
         parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
 
-        if (ancillary_file != NULL)
+        Source src;
+        if (!assumed_shape)
         {
-            if (!assumed_shape)
-            {
-                fprintf(ancillary_file,
-                        "extern void* %s_ (void*p)\n"
-                        "{\n"
-                        "   return p;\n"
-                        "}\n"
-                        ,
-                        ss.str().c_str());
-            }
-            else
-            {
-                // Copy the descriptor
-                size_t size_of_array = type_get_size(t.get_internal_type());
-                fprintf(ancillary_file,
-                        "extern void* %s_(void *p) \n"
-                        "{\n"
-                        "    extern int nanos_malloc(void **, size_t, const char*, int);\n"
-                        "    extern int nanos_handle_error(int);\n"
-                        "    void* result;\n"
-                        "\n"
-                        "    int v = nanos_malloc(&result, %zd, \"\", 0);\n"
-                        "    if (v != 0) nanos_handle_error(v);\n"
-                        "    memcpy(result, p, %zd);\n"
-                        "    return result;\n"
-                        "}\n\n",
-                        ss.str().c_str(),
-                        size_of_array,
-                        size_of_array
-                       );
-            }
+            src << "extern void* " << ss.str() << "_ (void*p)"
+                << "{"
+                << "   return p;"
+                << "}"
+                ;
+        }
+        else
+        {
+            // Copy the descriptor
+            size_t size_of_array_descriptor = type_get_size(t.get_internal_type());
+            src
+                << "extern void* " << ss.str() << "_(void *p) "
+                << "{"
+                << "    void* result;"
+                << "    nanos_err_t v = nanos_malloc(&result, " << size_of_array_descriptor << ", \"\", 0);"
+                << "    if (v != NANOS_OK) nanos_handle_error(v);"
+                << "    nanos_memcpy(result, p, " <<  size_of_array_descriptor << " );"
+                << "    return result;"
+                << "}"
+                ;
+        }
+
+        // Parse as C
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+        Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+        Nodecl::List& extra_c_code = _lowering->get_extra_c_code();
+
+        // Figure a better way!
+        for (Nodecl::List::iterator it = n.begin();
+                it != n.end();
+                it++)
+        {
+            extra_c_code.push_back(*it);
         }
 
         return result;
     }
 
-    TL::Symbol Nanox::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope, FILE* ancillary_file)
+    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
     {
-        return get_function_ptr_of_impl(sym, sym.get_type(), original_scope, ancillary_file);
+        return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
     }
 
-    TL::Symbol Nanox::get_function_ptr_of(TL::Type t, TL::Scope original_scope, FILE* ancillary_file)
+    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
     {
-        return get_function_ptr_of_impl(Symbol(NULL), t, original_scope, ancillary_file);
+        return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
     }
-}
+
+} }
 

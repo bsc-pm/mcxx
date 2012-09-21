@@ -30,7 +30,6 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
-#include "tl-nanox-ptr.hpp"
 #include "tl-devices.hpp"
 #include "cxx-cexpr.h"
 
@@ -256,7 +255,7 @@ Source LoweringVisitor::fill_const_wd_info(
         std::string device_name = *it;
         DeviceProvider* device = device_handler.get_device(device_name);
 
-        // Can it be done only once?
+        // FIXME: Can it be done only once?
         DeviceDescriptorInfo info(outline_name);
         device->get_device_descriptor(info, ancillary_device_description, device_description, aux_fortran_init);
 
@@ -358,19 +357,22 @@ void LoweringVisitor::emit_async_common(
         fill_dependences_immediate_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
-    
+
     std::string outline_name = get_outline_name(function_symbol);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
     struct_arg_type_name << structure_symbol.get_name();
 
+    // List of device names
+    TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             outline_name,
             is_untied,
             /* mandatory_creation */ 0,
-            outline_info.get_device_names(),
+            device_names,
             construct);
 
     if (priority_expr.is_null())
@@ -398,14 +400,26 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // Outline
-    Nodecl::NodeclBase outline_placeholder;
-    Nodecl::Utils::SymbolMap *symbol_map = NULL;
-    emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+            it != device_names.end();
+            it++)
+    {
+        std::string device_name = *it;
+        DeviceProvider* device = device_handler.get_device(device_name);
 
-    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
-    delete symbol_map;
+        // FIXME: Can it be done only once?
+        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
 
-    outline_placeholder.replace(outline_statements_code);
+        device->create_outline(info, outline_placeholder, symbol_map);
+
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
+        delete symbol_map;
+
+        outline_placeholder.replace(outline_statements_code);
+    }
 
     Source err_name;
     err_name << "err";
@@ -788,8 +802,8 @@ void LoweringVisitor::fill_arguments(
                             }
                         }
 
-                        TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_symbol(),
-                                ctr.retrieve_context(), get_ancillary_file());
+                        TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                ctr.retrieve_context());
 
                         fill_outline_arguments << 
                             "ol_args %" << (*it)->get_field_name() << " => " 
@@ -804,10 +818,9 @@ void LoweringVisitor::fill_arguments(
                     }
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of(
+                        TL::Symbol ptr_of_sym = get_function_ptr_of(
                                 (*it)->get_shared_expression().get_type(),
-                                ctr.retrieve_context(),
-                                get_ancillary_file());
+                                ctr.retrieve_context());
 
                         fill_outline_arguments
                             << "ol_args %" << (*it)->get_field_name() << " => "
