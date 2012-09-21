@@ -10581,8 +10581,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         return;
     }
 
-    int line = line;
-    const char* filename = filename;
+    const char* filename = nodecl_get_filename(braced_initializer);
+    int line = nodecl_get_line(braced_initializer);
 
     char braced_initializer_is_dependent = nodecl_expr_is_type_dependent(braced_initializer);
 
