@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -139,7 +139,7 @@ namespace TL { namespace OpenMP {
             }
 
         private:
-            Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call, 
+            Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call,
                     TL::Symbol function_sym,
                     FunctionTaskInfo& function_task_info)
             {
@@ -199,7 +199,7 @@ namespace TL { namespace OpenMP {
                     ERROR_CONDITION(i >= has_dep.size(), "Mismatch between parameters and related symbols", 0);
                     if (!has_dep[i])
                     {
-                        Nodecl::Symbol symbol_ref = 
+                        Nodecl::Symbol symbol_ref =
                             Nodecl::Symbol::make(*it, filename, line);
                         symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
@@ -210,7 +210,7 @@ namespace TL { namespace OpenMP {
                 if (!assumed_firstprivates.empty())
                 {
                     result_list.append(
-                            Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates), 
+                            Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates),
                                 filename, line)
                             );
                 }
@@ -270,7 +270,7 @@ namespace TL { namespace OpenMP {
                 "0");
 
         // FIXME - Remove once ticket #1089 is fixed
-        register_parameter("do_not_init_udr", 
+        register_parameter("do_not_init_udr",
                 "Disable initialization of UDRs. This may be needed in some setups due to a bug",
                 _core._do_not_init_udr,
                 "0");
@@ -586,8 +586,8 @@ namespace TL { namespace OpenMP {
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
-            code.push_back(
-                    Nodecl::OpenMP::BarrierFull::make(
+            execution_environment.push_back(
+                    Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
@@ -867,9 +867,9 @@ namespace TL { namespace OpenMP {
 
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
-        Nodecl::NodeclBase sections_code = sections_handler_common(directive, 
-                directive.get_statements(), 
-                barrier_at_end, 
+        Nodecl::NodeclBase sections_code = sections_handler_common(directive,
+                directive.get_statements(),
+                barrier_at_end,
                 /* is_combined_worksharing */ false);
         directive.replace(sections_code);
     }
@@ -985,7 +985,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::threadprivate_handler_pre(TL::PragmaCustomDirective) { }
-    void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive) 
+    void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive)
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
 
