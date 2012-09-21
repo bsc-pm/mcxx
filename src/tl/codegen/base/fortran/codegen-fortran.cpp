@@ -74,6 +74,14 @@ namespace Codegen
         return result;
     }
 
+    void FortranBase::codegen_cleanup()
+    {
+        // In some cases, we use the same codegen object to compile one or more
+        // sources (for example, it happens in ompss transformation). For this
+        // reason, we need to restore the codegen status of every symbol.
+        _codegen_status.clear();
+    }
+
     namespace
     {
         std::string to_binary(unsigned int t)

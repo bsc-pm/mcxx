@@ -89,6 +89,14 @@ void CxxBase::pop_scope()
     _scope_stack.pop_back();
 }
 
+void CxxBase::codegen_cleanup()
+{
+    // In some cases, we use the same codegen object to compile one or more
+    // sources (for example, it happens in ompss transformation). For this
+    // reason, we need to restore the codegen status of every symbol.
+    _codegen_status.clear();
+}
+
 void CxxBase::handle_parameter(int n, void* data)
 {
      switch (n)

@@ -1181,7 +1181,7 @@ namespace TL { namespace Nanox {
             }
 
             // Generate ancillary code in C
-            generate_ancillary_forward_code(outline_name, data_items);
+            add_forward_code_to_extra_c_code(outline_name, data_items, outline_placeholder);
         }
         else
         {
@@ -1192,48 +1192,12 @@ namespace TL { namespace Nanox {
         outline_function_body.replace(new_outline_body);
     }
 
-    FILE* DeviceSMP::get_ancillary_file()
+    void DeviceSMP::add_forward_code_to_extra_c_code(
+            const std::string& outline_name,
+            TL::ObjectList<OutlineDataItem*> data_items,
+            Nodecl::NodeclBase parse_context)
     {
-        if (_ancillary_file == NULL)
-        {
-            std::string file_name = "aux_nanox_outline_file_" 
-                + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
-            _ancillary_file = fopen(file_name.c_str(), "w");
-            if (_ancillary_file == NULL)
-            {
-                running_error("%s: error: cannot open file '%s'. %s\n", 
-                        TL::CompilationProcess::get_current_file().get_filename().c_str(),
-                        file_name.c_str(),
-                        strerror(errno));
-            }
-
-            // Global headers
-            fprintf(_ancillary_file, 
-                    "#include <stdlib.h>\n"
-                    "#include <stdint.h>\n"
-                    "#include <string.h>\n"
-                    "\n"
-                    );
-
-            compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-            ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
-
-            // Make sure phases are loaded (this is needed for codegen)
-            load_compiler_phases(configuration);
-
-            TL::CompilationProcess::add_file(file_name, "auxcc");
-
-            ::mark_file_for_cleanup(file_name.c_str());
-        }
-        return _ancillary_file;
-    }
-
-
-    void DeviceSMP::generate_ancillary_forward_code(
-            const std::string& outline_name, 
-            TL::ObjectList<OutlineDataItem*> data_items)
-    {
-        std::stringstream ancillary_source, parameters;
+        Source ancillary_source, parameters;
 
         ancillary_source
             << "extern void " << outline_name << "_forward_" << "(";
@@ -1304,14 +1268,13 @@ namespace TL { namespace Nanox {
                 {
                     if (first)
                     {
-                        ancillary_source
-                            << "    int v;\n"
-                            ;
+                        ancillary_source << "   nanos_err_t err;\n";
                         first = false;
                     }
+
                     ancillary_source
-                        << "    v = nanos_free(p" << i << ");\n"
-                        << "    if (v != 0) nanos_handle_error(v);\n"
+                        << "    err = nanos_free(p" << i << ");\n"
+                        << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
                         ;
                 }
             }
@@ -1319,13 +1282,25 @@ namespace TL { namespace Nanox {
 
         ancillary_source << "}\n\n";
 
-        FILE* ancillary_file = get_ancillary_file();
-        fprintf(ancillary_file, "%s", ancillary_source.str().c_str());
+        // Parse in C
+        Source::source_language = SourceLanguage::C;
+
+        Nodecl::List n = ancillary_source.parse_global(parse_context).as<Nodecl::List>();
+
+        // Restore original source language (Fortran)
+        Source::source_language = SourceLanguage::Current;
+
+        // Figure a better way!
+        for (Nodecl::List::iterator it = n.begin();
+                it != n.end();
+                it++)
+        {
+            _extra_c_code.push_back(*it);
+        }
     }
 
     DeviceSMP::DeviceSMP()
-        : DeviceProvider(/* device_name */ std::string("smp")),
-          _ancillary_file(NULL)
+        : DeviceProvider(/* device_name */ std::string("smp"))
     {
         set_phase_name("Nanox SMP support");
         set_phase_description("This phase is used by Nanox phases to implement SMP device support");
@@ -1382,9 +1357,39 @@ namespace TL { namespace Nanox {
 
     void DeviceSMP::phase_cleanup(DTO& data_flow)
     {
-        if (_ancillary_file != NULL)
-            fclose(_ancillary_file);
-        _ancillary_file = NULL;
+        if (_extra_c_code.is_null())
+            return;
+
+        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "aux_nanox_outline_file_" + original_filename  + ".c";
+
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        phase->codegen_top_level(_extra_c_code, ancillary_file);
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+        fclose(ancillary_file);
     }
 
 } }
