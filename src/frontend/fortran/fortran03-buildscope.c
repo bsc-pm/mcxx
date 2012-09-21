@@ -1337,14 +1337,32 @@ static scope_entry_t* new_procedure_symbol(
 {
     scope_entry_t* entry = NULL;
 
-    entry = fortran_query_name_str(decl_context, ASTText(name),
-            ASTFileName(name), ASTLine(name));
+    if (decl_context.current_scope != decl_context.global_scope)
+    {
+        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(ASTText(name)), DF_ONLY_CURRENT_SCOPE);
+        if (entry_list != NULL)
+        {
+            entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
+        }
+    }
 
     if (entry != NULL)
     {
-        if (entry->decl_context.current_scope == decl_context.current_scope)
+        if (entry->decl_context.current_scope != decl_context.current_scope)
         {
-            // It's been declared in the current scope
+            // We found something declared in another scope, ignore it
+            entry = NULL;
+        }
+        else if (entry->entity_specs.is_generic_spec)
+        {
+            // This is a generic specifier named like this symbol and in the
+            // same scope, ignore it
+            entry = NULL;
+        }
+        else
+        {
+            // It's been declared in the current scope and it is not a generic specifier
             // We do not allow redeclaration if the symbol has already been defined
             if (entry->defined
                     // If not defined it can only be a parameter of the current procedure
@@ -1361,11 +1379,6 @@ static scope_entry_t* new_procedure_symbol(
                 return NULL;
             }
             remove_unknown_kind_symbol(entry->decl_context, entry);
-        }
-        else
-        {
-            // We found something declared in another scope, ignore it
-            entry = NULL;
         }
     }
 
@@ -5995,8 +6008,13 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 {
                     entry = entry_list_head(entry_list);
                     entry_list_free(entry_list);
+
+                    // A generic specifier can be called like a specific interface
+                    if (entry->entity_specs.is_generic_spec)
+                        entry = NULL;
                 }
-                else
+
+                if (entry == NULL)
                 {
                     entry = create_fortran_symbol_for_name_(decl_context,
                             procedure_name, strtolower(ASTText(procedure_name)), /*no_implicit*/ 1);
