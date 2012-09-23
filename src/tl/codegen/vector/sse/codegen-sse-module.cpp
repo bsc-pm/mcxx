@@ -128,26 +128,40 @@ namespace Codegen
 
     void SSEModuleVisitor::visit(const Nodecl::VectorMul& node) 
     { 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type result_type = node.get_type().basic_type();
+        TL::Type first_op_type = node.get_rhs().get_type().basic_type();
+        TL::Type second_op_type = node.get_lhs().get_type().basic_type();
 
         // Intrinsic name
         file << "_mm_mul";
         
         // Postfix
-        if (type.is_float()) 
-        { 
-            file << "_ps"; 
+        if (result_type.is_float() &&
+                first_op_type.is_float() &&
+                second_op_type.is_float())
+        {
+           file << "_ps"; 
         } 
-        else if (type.is_double()) 
+        else if (result_type.is_double() &&
+                first_op_type.is_double() &&
+                second_op_type.is_double())
         { 
             file << "_pd"; 
         }
-       /* 
-        else if (type.is_signed_int() ||
-            type.is_unsigned_int()) 
-        { 
-            file << "_epi32"; 
+        else if (result_type.is_signed_int() &&
+                first_op_type.is_signed_int() &&
+                second_op_type.is_signed_int())
+        {
+            file << "lo_epi32"; 
         } 
+        else if (result_type.is_unsigned_int() &&
+                first_op_type.is_unsigned_int() &&
+                second_op_type.is_unsigned_int())
+        {
+            file << "lo_epi32"; 
+        } 
+ 
+       /* 
         else if (type.is_signed_short_int() ||
             type.is_unsigned_short_int()) 
         { 
@@ -497,15 +511,16 @@ namespace Codegen
         const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
         const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
 
-        // Intrinsic name
-        file << "_mm_cvt";
-        
-        // Postfix
         if (src_type.is_same_type(dst_type))
         {
             walk(node.get_nest());
             return;
         }
+
+        // Intrinsic name
+        file << "_mm_cvt";
+ 
+
         /*
         else if (src_type.is_float() &&
                 dst_type.is_double()) 
@@ -518,7 +533,8 @@ namespace Codegen
             file << "pd_ps"; 
         } 
         */
-        else if (src_type.is_signed_int() &&
+        // Postfix
+        if (src_type.is_signed_int() &&
                 dst_type.is_float()) 
         { 
             file << "epi32_ps"; 
@@ -593,7 +609,9 @@ namespace Codegen
 
         TL::Type true_type = true_node.get_type().basic_type();
         TL::Type false_type = false_node.get_type().basic_type();
-        TL::Type condition_type = condition_node.get_type();
+        TL::Type condiition_type = condition_node.get_type();
+
+        std::stringstream casting;
 
         // Intrinsic name
         file << "_mm_blend";
@@ -629,7 +647,26 @@ namespace Codegen
     file << ", ";
     walk(false_node);
     file << ", ";
-    walk(condition_node);
+
+    if (true_type.is_float()
+            && false_type.is_float())
+    {
+        file << "_mm_castsi128_ps(";
+        walk(condition_node);
+        file << ")";
+    }
+    else if (true_type.is_double()
+            && false_type.is_double())
+    {
+        file << "_mm_castsi128_pd(";
+        walk(condition_node);
+        file << ")";
+    }
+    else
+    {
+        walk(condition_node);
+    }
+
     file << ")"; 
 }        
 
