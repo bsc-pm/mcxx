@@ -633,28 +633,26 @@ static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_contex
 //
 // The difference of this function to fortran_get_variable_with_locus is that
 // fortran_get_variable_with_locus always creates a SK_VARIABLE
-static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context, 
-        AST locus, const char* name,
-        char no_implicit)
+static scope_entry_list_t* get_symbols_for_name(decl_context_t decl_context, 
+        AST locus, const char* name)
 {
-    scope_entry_t* result = NULL;
-    scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(name), DF_ONLY_CURRENT_SCOPE);
-    if (entry_list != NULL)
-    {
-        result = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-    }
+    scope_entry_list_t* result = query_in_scope_str_flags(decl_context, strtolower(name), DF_ONLY_CURRENT_SCOPE);
     if (result == NULL)
     {
-        result = create_fortran_symbol_for_name_(decl_context, locus, name, no_implicit); 
+        result = entry_list_new(create_fortran_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 0));
     }
 
     return result;
 }
 
-static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, 
+        AST locus, const char* name)
 {
-    return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 0);
+    scope_entry_list_t* entry_list = get_symbols_for_name(decl_context, locus, name);
+    scope_entry_t* result = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    return result;
 }
 
 static void build_scope_main_program_unit(AST program_unit, decl_context_t
@@ -3510,29 +3508,39 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
 
             const char* name = get_name_of_generic_spec(access_id);
 
-            scope_entry_t* sym = get_symbol_for_name(decl_context, access_id, name);
+            // There can be more than one because of generic specifiers called like a specific interface
+            scope_entry_list_t* entry_list = get_symbols_for_name(decl_context, access_id, name);
 
-            if (sym->entity_specs.access != AS_UNKNOWN)
+            scope_entry_list_iterator_t *entry_it = NULL;
+            for (entry_it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(entry_it);
+                    entry_list_iterator_next(entry_it))
             {
-                error_printf("%s: access specifier already given for entity '%s'\n",
-                        ast_location(access_id),
-                        sym->symbol_name);
-            }
-            else
-            {
-                if (attr_spec.is_public)
+                scope_entry_t* sym = entry_list_iterator_current(entry_it);
+                if (sym->entity_specs.access != AS_UNKNOWN)
                 {
-                    sym->entity_specs.access = AS_PUBLIC;
-                }
-                else if (attr_spec.is_private)
-                {
-                    sym->entity_specs.access = AS_PRIVATE;
+                    error_printf("%s: access specifier already given for entity '%s'\n",
+                            ast_location(access_id),
+                            sym->symbol_name);
                 }
                 else
                 {
-                    internal_error("Code unreachable", 0);
+                    if (attr_spec.is_public)
+                    {
+                        sym->entity_specs.access = AS_PUBLIC;
+                    }
+                    else if (attr_spec.is_private)
+                    {
+                        sym->entity_specs.access = AS_PRIVATE;
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
                 }
             }
+
+            entry_list_iterator_free(entry_it);
         }
     }
     else
