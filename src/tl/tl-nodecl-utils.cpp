@@ -812,21 +812,29 @@ namespace Nodecl
         if (src.is<Nodecl::List>()
                 && !dest.is<Nodecl::List>())
         {
-            ERROR_CONDITION(!dest.is_in_list(), "Cannot replace a non-list node by a list if the first is not inside a list", 0);
             Nodecl::List new_list = src.as<Nodecl::List>();
-
             List::iterator new_list_it = new_list.begin();
-            simple_replace(dest, *new_list_it);
-            new_list_it++;
 
-            Nodecl::List parent_list = dest.get_parent().as<Nodecl::List>();
-            Nodecl::List::iterator last_it = parent_list.last();
-
-            for (; new_list_it != new_list.end(); new_list_it++)
+            if (new_list.size() == 1)
             {
-                parent_list.insert(last_it + 1, *new_list_it);
-                // We may have a new last node now
-                last_it = new_list_it->get_parent().as<Nodecl::List>().last();
+                simple_replace(dest, *new_list_it);
+            }
+            else
+            {
+                ERROR_CONDITION(!dest.is_in_list(), "Cannot replace a non-list node by a list if the first is not inside a list", 0);
+
+                simple_replace(dest, *new_list_it);
+                new_list_it++;
+
+                Nodecl::List parent_list = dest.get_parent().as<Nodecl::List>();
+                Nodecl::List::iterator last_it = parent_list.last();
+
+                for (; new_list_it != new_list.end(); new_list_it++)
+                {
+                    parent_list.insert(last_it + 1, *new_list_it);
+                    // We may have a new last node now
+                    last_it = new_list_it->get_parent().as<Nodecl::List>().last();
+                }
             }
         }
         else

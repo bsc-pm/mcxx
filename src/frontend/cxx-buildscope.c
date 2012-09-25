@@ -12671,21 +12671,7 @@ static void build_scope_implicit_compound_statement(AST list,
         nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
     }
 
-    if (nodecl_list_length(nodecl_output_list) == 0)
-    {
-        *nodecl_output = nodecl_make_empty_statement(ASTFileName(list), ASTLine(list));
-    }
-    else if (nodecl_list_length(nodecl_output_list) == 1)
-    {
-        *nodecl_output = nodecl_list_head(nodecl_output_list);
-    }
-    else
-    {
-        // Do not create a context node for this one
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_compound_statement(nodecl_output_list, nodecl_null(), ASTFileName(list), ASTLine(list))
-                );
-    }
+   *nodecl_output = nodecl_output_list;
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
