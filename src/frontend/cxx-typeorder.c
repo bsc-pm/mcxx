@@ -128,10 +128,6 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
 
         return is_sound_type(function_type_get_return_type(t), decl_context);
     }
-    else if (is_dependent_typename_type(t))
-    {
-        internal_error("Such a type should not reach here", 0);
-    }
     else if (is_named_type(t))
     {
         scope_entry_t* entry = named_type_get_symbol(t);

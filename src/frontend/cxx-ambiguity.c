@@ -786,6 +786,42 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context))
                     return 0;
             }
+            else if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR)
+            {
+                // This ambiguity brought to you by C++0x
+                // A bit-field shall have integral or enumeration type. This
+                // check is done to avoid the following ambiguity:
+                //
+                // struct A {};
+                //
+                // struct B
+                // {
+                //      struct C : A {};
+                //      // Obviously, It is a member declaration of a nested
+                //      // struct C  which inherit from A.
+                //
+                //      int x : int {1};
+                //      // It is a bit-field member declaration
+                // };
+
+                type_t* bitfield_type = NULL;
+                gather_decl_spec_t dummy_gather_info;
+                memset(&dummy_gather_info, 0, sizeof(dummy_gather_info));
+
+                nodecl_t dummy_nodecl_output = nodecl_null();
+                build_scope_decl_specifier_seq(
+                        decl_specifier_seq,
+                        &dummy_gather_info,
+                        &bitfield_type,
+                        decl_context,
+                        /* first_declarator */ NULL,
+                        &dummy_nodecl_output);
+
+                if (!(is_enum_type(bitfield_type)
+                            || is_integral_type(bitfield_type)))
+                    return 0;
+            }
+
             first_declarator = ASTSon0(first_init_declarator);
         }
 
@@ -1672,8 +1708,8 @@ static char solve_ambiguous_parameter_declaration_check_interpretation(AST param
         type_t* t = NULL;
 
         nodecl_t dummy_nodecl_output = nodecl_null();
-        build_scope_decl_specifier_seq(decl_specifier_seq, 
-                &gather_info, &t, decl_context, &dummy_nodecl_output);
+        build_scope_decl_specifier_seq(decl_specifier_seq,
+                &gather_info, &t, decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
 
         current_valid = current_valid && (t != NULL);
     }

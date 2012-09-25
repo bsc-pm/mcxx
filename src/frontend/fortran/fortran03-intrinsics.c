@@ -160,7 +160,7 @@ FORTRAN_GENERIC_INTRINSIC(get_command_argument, "NUMBER,?VALUE,?LENGTH,?STATUS",
 FORTRAN_GENERIC_INTRINSIC(get_environment_variable, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(huge, "X", I, simplify_huge) \
 FORTRAN_GENERIC_INTRINSIC(hypot, "X,Y", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(iachar, "C,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(iachar, "C,?KIND", E, simplify_iachar) \
 FORTRAN_GENERIC_INTRINSIC_2(iall, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(iand, "I,J", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(iany, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
@@ -193,6 +193,7 @@ FORTRAN_GENERIC_INTRINSIC(log, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(log_gamma, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(log10, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(logical, "L,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(malloc, "SIZE", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskl, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskr, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(matmul, "MATRIX_A,MATRIX_B", T, NULL) \
@@ -280,6 +281,7 @@ FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
+FORTRAN_GENERIC_INTRINSIC(getarg, NULL, S, NULL)
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -1145,10 +1147,14 @@ static scope_entry_t* register_specific_intrinsic_name(
             if (nodecl_is_null(nodecl_actual_arguments[i]))
                 break;
 
+            symbol_set_as_parameter_of_function(
+                    specific_entry->entity_specs.related_symbols[i],
+                    new_specific_entry,
+                    new_specific_entry->entity_specs.num_related_symbols);
+
             P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
                     new_specific_entry->entity_specs.num_related_symbols,
                     specific_entry->entity_specs.related_symbols[i]);
-            real_num_parameters++;
         }
 
         insert_entry(generic_entry->decl_context.current_scope, new_specific_entry);
@@ -1321,6 +1327,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
     REGISTER_CUSTOM_INTRINSIC_1("sngl", fortran_get_default_real_type(), fortran_get_doubleprecision_type());
+    REGISTER_CUSTOM_INTRINSIC_0("iargc", fortran_get_default_integer_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -1484,7 +1491,12 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_bool_type(fortran_get_rank0_type(t0))
             && (t1 == NULL || is_integer_type(t1)))
     {
-        type_t* return_type = array_type_get_element_type(t0);
+        type_t* return_type = fortran_get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, 
+                    symbol->decl_context);
+        }
 
         return GET_INTRINSIC_TRANSFORMATIONAL("all", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
@@ -1567,7 +1579,12 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_bool_type(fortran_get_rank0_type(t0))
             && (t1 == NULL || is_integer_type(t1)))
     {
-        type_t* return_type = array_type_get_element_type(t0);
+        type_t* return_type = fortran_get_rank0_type(t0);
+        if (t1 != NULL)
+        {
+            return_type = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, 
+                    symbol->decl_context);
+        }
 
         return GET_INTRINSIC_TRANSFORMATIONAL("any", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
@@ -1667,7 +1684,7 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         if (is_floating_type(t0)
                 && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
         {
-            return GET_INTRINSIC_ELEMENTAL("atan", t1, t1, t0);
+            return GET_INTRINSIC_ELEMENTAL("atan2", t1, t1, t0);
         }
     }
     return NULL;
@@ -2569,7 +2586,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(kind, &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("floor", 
-                choose_float_type_from_kind(kind, dr),
+                choose_int_type_from_kind(kind, dr),
                 t0, fortran_get_default_integer_type());
     }
 
@@ -3418,6 +3435,24 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+// GNU Extension
+scope_entry_t* compute_intrinsic_malloc(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("malloc",
+                fortran_get_default_integer_type(),
+                t0, fortran_get_default_integer_type());
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -3735,7 +3770,6 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval", 
                     fortran_get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3743,7 +3777,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
+                    t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
@@ -3972,10 +4006,9 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
         if (t1 == NULL)
         {
             // If DIM is absent this is always a scalar
-            return GET_INTRINSIC_TRANSFORMATIONAL("minval", 
+            return GET_INTRINSIC_TRANSFORMATIONAL("minval",
                     fortran_get_rank0_type(t0),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
@@ -3983,7 +4016,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("minval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
-                    t1 == NULL ? fortran_get_default_integer_type() : t1,
+                    t1,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
     }
@@ -4920,12 +4953,11 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = no_ref(argument_types[1]);
     type_t* t2 = no_ref(argument_types[2]);
 
-    if (fortran_is_array_type(t0)
-            && is_integer_type(t1)
+    if( is_integer_type(t1)
             && is_integer_type(t2))
     {
         return GET_INTRINSIC_TRANSFORMATIONAL("spread", 
-                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0), symbol->decl_context),
+                fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) + 1, symbol->decl_context),
                 t0, t1, t2);
     }
 
@@ -5350,6 +5382,30 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_getarg(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments == 2)
+    {
+        type_t* t0 = no_ref(argument_types[0]);
+        type_t* t1 = no_ref(argument_types[1]);
+
+        if (is_integer_type(t0)
+                && fortran_is_character_type(t1))
+        {
+            return GET_INTRINSIC_IMPURE("getarg",
+                    /* subroutine */ get_void_type(),
+                    t0,
+                    t1);
+        }
+    }
+
+    return NULL;
+}
+
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
@@ -5376,9 +5432,10 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            new_keyword_sym->entity_specs.is_parameter = 1;
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
             new_keyword_sym->do_not_print = 1;
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -5397,7 +5454,8 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            new_keyword_sym->entity_specs.is_parameter = 1;
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
             P_LIST_ADD(entry->entity_specs.related_symbols,

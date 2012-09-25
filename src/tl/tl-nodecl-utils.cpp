@@ -65,9 +65,11 @@ namespace Nodecl
 
     static bool is_parameter_of_another_function(TL::Symbol symbol, TL::Scope sc)
     {
-        return (symbol.is_parameter()
-                && (symbol.get_scope().get_decl_context().current_scope->related_entry
-                    != sc.get_decl_context().current_scope->related_entry));
+        // If this symbol is a parameter of some function but not from the
+        // current one (if any), then it is a parameter of another function
+        return (symbol.is_parameter_of_a_function()
+                && sc.get_decl_context().current_scope->related_entry != NULL
+                && !symbol.is_parameter_of(sc.get_decl_context().current_scope->related_entry));
     }
 
     struct IsLocalSymbol : TL::Predicate<TL::Symbol>

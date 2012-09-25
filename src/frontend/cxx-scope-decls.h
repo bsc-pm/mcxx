@@ -259,6 +259,15 @@ struct default_argument_info_tag
     decl_context_t context;
 };
 
+// This acts as a map <function> -> information of the parameter
+struct function_parameter_info_tag
+{
+    scope_entry_t* function;
+
+    // Position of the parameter
+    int position;
+};
+
 typedef
 enum intent_kind_tag
 {

@@ -498,7 +498,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
         return;
 
     scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
-    entry_list_remove(entry_list, entry);
+    rb_tree_insert(sc->hash, entry->symbol_name, entry_list_remove(entry_list, entry));
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
@@ -2742,8 +2742,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        template_parameters_context, 
-                        &dummy_nodecl_output);
+                        template_parameters_context, /* first declarator */ NULL, &dummy_nodecl_output);
 
                 if (is_error_type(type_info))
                 {
@@ -2758,7 +2757,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 type_t* declarator_type;
                 compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        template_parameters_context, &dummy_nodecl_output);
+                        template_parameters_context, abstract_decl, &dummy_nodecl_output);
 
                 if (is_named_type(declarator_type)
                         && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE
@@ -4376,7 +4375,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             return NULL;
         }
 
-        current_symbol = entry_list_head(current_entry_list);
+        current_symbol = entry_advance_aliases(entry_list_head(current_entry_list));
 
         if (current_symbol->kind == SK_NAMESPACE)
         {
@@ -5172,4 +5171,90 @@ const char* symbol_to_source(scope_entry_t* entry)
             "@SYMBOL-LITERAL-REF@(", pack, ")");
 
     return c;
+}
+
+static scope_entry_t* get_ultimate_symbol_from_module(scope_entry_t* entry)
+{
+    if (entry->entity_specs.from_module
+            && entry->entity_specs.alias_to != NULL)
+    {
+        return get_ultimate_symbol_from_module(entry->entity_specs.alias_to);
+    }
+    else
+    {
+        return entry;
+    }
+}
+
+void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+    ERROR_CONDITION(position < 0, "Invalid position %d\n", position);
+
+    function = get_ultimate_symbol_from_module(function);
+
+    int index = -1;
+
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+            index = i;
+    }
+
+    if (index < 0)
+    {
+        function_parameter_info_t function_parameter_info;
+        memset(&function_parameter_info, 0, sizeof(function_parameter_info));
+
+        function_parameter_info.function = function;
+        function_parameter_info.position = position;
+
+        P_LIST_ADD(entry->entity_specs.function_parameter_info, 
+                entry->entity_specs.num_function_parameter_info,
+                function_parameter_info);
+    }
+    else
+    {
+        entry->entity_specs.function_parameter_info[index].function = function;
+        entry->entity_specs.function_parameter_info[index].position = position;
+    }
+}
+
+char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* function)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    function = get_ultimate_symbol_from_module(function);
+
+    int index = -1;
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+            index = i;
+    }
+
+    return !(index < 0);
+}
+
+int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    function = get_ultimate_symbol_from_module(function);
+
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+        {
+            return entry->entity_specs.function_parameter_info[i].position;
+        }
+    }
+
+    internal_error("This symbol is not a parameter of the function", 0);
 }

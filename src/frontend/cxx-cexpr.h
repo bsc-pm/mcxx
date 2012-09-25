@@ -240,6 +240,10 @@ UNOP_DECL(not, !)
 LIBMCXX_EXTERN const_value_t* const_value_square(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
 
+// Fortran module support
+LIBMCXX_EXTERN size_t const_value_get_raw_data_size(void);
+LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H

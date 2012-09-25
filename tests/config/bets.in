@@ -419,6 +419,7 @@ clean_test_vars ()
    unset test_nolink
    unset test_noexec
    unset test_ignore
+   unset test_ignore_reason
 }
 
 # run functions
@@ -464,6 +465,8 @@ run_gen_test ()
        /<\/testinfo>/d
        # Remove Fortran/C++ comments if any
        s/[[:blank:]]*\(!\|\/\/\)[[:blank:]]*\(.*\)/\2/
+       # Remove DOS CR characters if any
+       s/\r//g
        p
    }'
 
@@ -539,7 +542,12 @@ run_gen_test ()
    test_noexec=${test_noexec:-$test_nolink}
    if [ "$test_ignore" ]; then
       junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
-      filtered_message "Test $name ${YELLOW}ignored${NORMAL}"
+      local test_ignore_message="${YELLOW}ignored${NORMAL}"
+      if [ "$test_ignore_reason" ];
+      then
+          test_ignore_message="$test_ignore_message (${test_ignore_reason})"
+      fi
+      filtered_message "Test $name $test_ignore_message"
    else    
      for v in $all_compile_versions; do
         filtered_message -n "Compile test $name-$v "

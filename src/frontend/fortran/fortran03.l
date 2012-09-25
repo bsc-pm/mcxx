@@ -77,6 +77,8 @@ static int nonblock_do_stack_idx = 0;
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
 static char check_continued_sentinel_line(const char* line, const char** sentinel);
+static char is_valid_pragma_custom_prefix(const char* sentinel);
+static const char* get_real_second_line(const char* second_line, int* num_joined_lines, bool ignore_comments);
 static void reintroduce_continued_line(char* split_line, char double_continuation, const char *sentinel);
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
@@ -132,6 +134,11 @@ kind (({digit}+)|({identifier}))
 
  /* Sentinels as much as 32 letters */
 sentinel [!][$][a-zA-Z0-9_]{0,32}
+
+empty_sentinel [!][$]
+nonempty_sentinel [!][$][a-zA-Z0-9_]{1,32}
+
+comment_not_sentinel [!]([^$][^\n\r]*)?
 
  /* Minimal C stuff */
 c_octaldigit      [0-7]
@@ -414,7 +421,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	free(filename);
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}[[:blank:]]*{sentinel}[[:blank:]]*&[^\n\r]+{newline} {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}([[:blank:]]*({comment_not_sentinel})?{newline})*[[:blank:]]*{sentinel}[[:blank:]]*&[^\n\r]+{newline} {
 	// !$SENTINEL INT&
 	// !$SENTINEL   &EGE&
 	// !$SENTINEL &R :: A=3
@@ -426,9 +433,13 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-	            fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number);
+
+        if (is_valid_pragma_custom_prefix(sentinel))
+        {
+            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
+                    fortran_scanning_now->current_filename, 
+                    fortran_scanning_now->line_number);
+        }
 	    REJECT;
 	}
 }
@@ -449,7 +460,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, NULL);
 }
 
-^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})([[:blank:]]*({comment_not_sentinel})?{newline})*[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n\r]*{newline} {
 	// !$SENTINEL INTEGER &
 	// !$SENTINEL :: A=3
 
@@ -460,10 +471,14 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-	            fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number);
-	    REJECT;
+
+        if (is_valid_pragma_custom_prefix(sentinel))
+        {
+            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
+                    fortran_scanning_now->current_filename, 
+                    fortran_scanning_now->line_number);
+        }
+        REJECT;
 	}
 }
 
@@ -514,7 +529,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	BEGIN(COMMENT);
 }
 
-^[[:blank:]]*{sentinel} {
+^[[:blank:]]*{nonempty_sentinel} {
     // Custom pragmas
     const char *sentinel = yytext;
 
@@ -526,56 +541,53 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
     ERROR_CONDITION(*sentinel != '$', "Invalid sentinel '%s'", yytext);
     sentinel++;
 
-    if (*sentinel == '\0')
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
-        // !$ foo 
-        // This is a zero-length sentinel (note the blank, not to be confused to !$foo)
-        if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
         {
-            // Move on as if nothing happened
-            // This should look like as if this had never happened
-            last_eos = 1;
-            BEGIN(INITIAL);
+            found = 1;
+            break;
         }
-        else
-        {
-            // Handle this as a comment
-            BEGIN(COMMENT);
-        }
+    }
+
+    if (found)
+    {
+        BEGIN(pragma_custom_directive);
+        parse_token_text_str(sentinel);
+        current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
+        //return PRAGMA_CUSTOM;
+        RETURN_TOKEN(PRAGMA_CUSTOM);
     }
     else
     {
-        int i;
-        char found = 0;
-        for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
-        {
-            if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
-            {
-                found = 1;
-                break;
-            }
-        }
+        // Ignore this sentinel
+        BEGIN(unknown_pragma);
+        yymore();
+    }
+}
 
-        if (found)
-        {
-            BEGIN(pragma_custom_directive);
-            parse_token_text_str(sentinel);
-            current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
-            //return PRAGMA_CUSTOM;
-            RETURN_TOKEN(PRAGMA_CUSTOM);
-        }
-        else
-        {
-            // Ignore this sentinel
-            BEGIN(unknown_pragma);
-            yymore();
-        }
+^[[blank:]]*{empty_sentinel}/[ \t] {
+    // !$ foo
+    // This is a zero-length sentinel used for conditional compilation in OpenMP
+    if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
+    {
+        // Move on as if nothing happened
+        // This should look like as if this had never happened
+        last_eos = 1;
+        BEGIN(INITIAL);
+    }
+    else
+    {
+        // Handle this as a comment
+        BEGIN(COMMENT);
     }
 }
 
 <unknown_pragma>{
 [^\n\r]* {
-  
+
   /* This will also catch #pragma gcc */
   // Fortran does not work with pragmas so, if it's failed matching a prefix, the whole line will be considered a comment.
 	parse_token_text();
@@ -1277,6 +1289,11 @@ entry {
 where {
     parse_token_text();
     RETURN_TOKEN(TOK_WHERE);
+}
+
+endwhere {
+    parse_token_text();
+    RETURN_TOKEN(TOK_ENDWHERE);
 }
 
 procedure {
@@ -2214,7 +2231,7 @@ goto {
 }
 
 ".eq." {
-	parse_token_text();
+	parse_token_text_str("==");
 	RETURN_TOKEN(TOK_EQUAL);
 }
 
@@ -2234,12 +2251,12 @@ goto {
 }
 
 ".ne." {
-	parse_token_text();
+	parse_token_text_str("/=");
 	RETURN_TOKEN(TOK_NOT_EQUAL);
 }
 
 ".lt." {
-	parse_token_text();
+	parse_token_text_str("<");
 	RETURN_TOKEN(TOK_LOWER_THAN);
 }
 
@@ -2249,7 +2266,7 @@ goto {
 }
 
 ".le." {
-	parse_token_text();
+	parse_token_text_str("<=");
 	RETURN_TOKEN(TOK_LOWER_OR_EQUAL_THAN);
 }
 
@@ -2259,7 +2276,7 @@ goto {
 }
 
 ".gt." {
-	parse_token_text();
+	parse_token_text_str(">");
 	RETURN_TOKEN(TOK_GREATER_THAN);
 }
 
@@ -2269,6 +2286,11 @@ goto {
 }
 
 ".ge." {
+	parse_token_text_str(">=");
+	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
+}
+
+">=" {
 	parse_token_text();
 	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
 }
@@ -2297,13 +2319,6 @@ goto {
 	parse_token_text();
 	RETURN_TOKEN(TOK_FALSE);
 }
-
-
-">=" {
-	parse_token_text();
-	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
-}
-
 
 "," {
 	parse_token_text();
@@ -2390,6 +2405,7 @@ UNUSED_PARAMETER static void parse_token_text_str(const char* c)
 static void reintroduce_continued_line(char* continued_line, char double_continuation, const char* sentinel)
 {
     char* temporal = NULL;
+    int num_joined_lines = 1;
 
     if (sentinel == NULL)
     {
@@ -2428,6 +2444,10 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         *q = *p;
         q++; p++;
 
+        // Ignore comments and empty lines
+        const char* second_line = get_real_second_line(p, &num_joined_lines, /* ignore_comments */ true);
+        p = second_line;
+
         // Jump blanks again
         while (*p == ' ' || *p == '\t') p++;
 
@@ -2452,7 +2472,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     ERROR_CONDITION(newline == NULL, "There must be a new-line\n", 0);
 
     char* limit_first_line = NULL; 
-    char* limit_second_line = NULL;
+    const char* limit_second_line = NULL;
         
     // We will look for the rightmost & and the leftmost &
     // so we cut here
@@ -2467,54 +2487,8 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     
     // Second line
     // The (potential) second line starts here
-    char* second_line = newline + 1;
-
-    int num_joined_lines = 1;
-
     // Ignore comments and empty lines
-    char not_real_second_line = 1;
-    while (not_real_second_line)
-    {
-        // Let's assume for now it is the real second line we want
-        not_real_second_line = 0;
-        // Now advance blanks
-        while (*second_line == ' ' 
-                || *second_line == '\t')
-        {
-            second_line++;
-        }
-
-        // It is a comment, just ignore up to the newline
-        if (*second_line == '!')
-        {
-            while (*second_line != '\0')
-            {
-                if (*second_line == '\n'
-                        || (*second_line == '\r' // DOS CR-NL
-                        && *(second_line + 1) == '\n'))
-                {
-                    if (*second_line == '\r')
-                        second_line++;
-
-                    break;
-                }
-                second_line++;
-            }
-        }
-
-        if (*second_line == '\n')
-        {
-            // If we advanced the second line up to an newline it means 
-            // that it was empty. This is not the real second line we wanted
-            not_real_second_line = 1;
-
-            // Inore '\n'
-            second_line++;
-
-            // Account for another line
-            num_joined_lines++;
-        }
-    };
+    const char* second_line = get_real_second_line(newline + 1, &num_joined_lines , /* ignore_comments */ false);
 
     if (double_continuation)
     {
@@ -2533,7 +2507,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         // Let's reintroduce all the whole line
         *limit_first_line = '\0';
 
-        char* last_character = limit_second_line + strlen(limit_second_line);
+        const char* last_character = limit_second_line + strlen(limit_second_line);
 
         // We cannot do this in an empty string
         if (last_character != limit_second_line) 
@@ -2870,12 +2844,12 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
     // Get the first sentinel
     char sentinel1[33] = { 0 };
     char *q = sentinel1;
-    // Find the sentinel
+    // Find the sentinel of the first line (aka sentinel1)
     const char* p = line;
 
     while (*p == ' ' || *p == '\t')
         p++;
-    ERROR_CONDITION(*p != '!', "Invalid regex\n", 0);
+    ERROR_CONDITION(*p != '!', "Invalid regex (1)\n", 0);
 
     while (*p != ' ' && *p != '\t')
     {
@@ -2883,23 +2857,21 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++; q++;
     }
 
+    int dummy_num_joined_lines;
+    char* newline = strchr(yytext, '\n');
+    // Ignore comments and empty lines
+    const char* second_line = get_real_second_line(newline + 1, &dummy_num_joined_lines, /* ignore_comments */ true);
+
     // Get the second sentinel
     char sentinel2[33] = { 0 };
-    p = strchr(yytext, '\n');
-    if (p == NULL)
-    {
-        p = strchr(yytext, '\r');
-        if (p != NULL 
-                && *(p+1) == '\n') // CR-NL
-            p++;
-    }
-    ERROR_CONDITION(p == NULL, "Invalid regex\n", 0);
-    p++;
+    p = second_line;
+    ERROR_CONDITION(p == NULL, "Invalid regex (2)\n", 0);
+
     q = sentinel2;
 
     while (*p == ' ' || *p == '\t')
         p++;
-    ERROR_CONDITION(*p != '!', "Invalid regex\n", 0);
+    ERROR_CONDITION(*p != '!', "Invalid regex (3)\n", 0);
 
     while (*p != ' ' && *p != '\t')
     {
@@ -2907,6 +2879,7 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++; q++;
     }
 
+    *sentinel = uniquestr(sentinel1);
     if (strcmp(sentinel1, sentinel2) != 0)
     {
         DEBUG_CODE()
@@ -2916,8 +2889,20 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         return 0;
     }
 
-    *sentinel = uniquestr(sentinel1);
     return 1;
+}
+
+static char is_valid_pragma_custom_prefix(const char* sentinel)
+{
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int is_format_statement(char* token)
@@ -3167,6 +3152,56 @@ static const char* format_pragma_string(const char* c)
     free(tmp);
 
     return res;
+}
+static const char* get_real_second_line(const char* second_line, int* num_joined_lines, bool ignore_comments)
+{
+    char not_real_second_line = 1;
+    while (not_real_second_line)
+    {
+        // Let's assume for now it is the real second line we want
+        not_real_second_line = 0;
+        // Now advance blanks
+        while (*second_line == ' '
+                || *second_line == '\t')
+        {
+            second_line++;
+        }
+
+        // It is a comment, just ignore up to the newline
+        if (*second_line == '!'
+                // Note that a comment cannot be followed by a $ here
+                && (!ignore_comments
+                    || *(second_line + 1) != '$'))
+        {
+            while (*second_line != '\0')
+            {
+                if (*second_line == '\n'
+                        || (*second_line == '\r' // DOS CR-NL
+                            && *(second_line + 1) == '\n'))
+                {
+                    if (*second_line == '\r')
+                        second_line++;
+
+                    break;
+                }
+                second_line++;
+            }
+        }
+
+        if (*second_line == '\n')
+        {
+            // If we advanced the second line up to an newline it means
+            // that it was empty. This is not the real second line we wanted
+            not_real_second_line = 1;
+
+            // Inore '\n'
+            second_line++;
+
+            // Account for another line
+            num_joined_lines++;
+        }
+    }
+    return second_line;
 }
 
 // Shut up the compiler

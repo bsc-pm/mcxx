@@ -676,7 +676,21 @@ static void read_lines(prescanner_t* prescanner)
 		}
 
 		// Remove '\n'
-		if (!was_eof) line_buffer[length_read-1] = '\0';
+		if (!was_eof)
+		{
+			line_buffer[length_read-1] = '\0';
+			length_read--;
+		}
+
+		if (length_read > 0)
+		{
+			// We found \r\n, kill the '\r' as well
+			if (line_buffer[length_read-1] == '\r')
+			{
+				line_buffer[length_read-1] = '\0';
+				length_read--;
+			}
+		}
 
         if (is_blank_string(line_buffer))
         {

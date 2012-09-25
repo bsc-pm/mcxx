@@ -33,14 +33,18 @@
 %type<ast> pragma_custom_construct_member_declaration
 /*!endif*/
 /*!if FORTRAN2003*/
+%type<ast> pragma_custom_construct_external_procedure
+%type<ast> pragma_custom_construct_external_procedure_0
 %type<ast2> pragma_custom_construct_range
 %type<ast2> pragma_custom_noend_construct_range
 %type<ast> pragma_custom_noend_line_construct
+%type<ast> pragma_custom_line_or_noend_construct
 %type<ast> pragma_custom_end_construct
 %type<ast> pragma_custom_end_construct_noend
 %type<ast> pragma_custom_construct_internal_program_unit
 %type<ast> pragma_custom_construct_module_subprogram_unit
 %type<ast> pragma_custom_construct_interface_body
+%type<ast> explicit_external_procedure
 /*!endif*/
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
@@ -51,9 +55,9 @@
 
 %type<ast> pragma_clause_arg_list
 
-%type<text> pragma_clause_arg
-%type<text> pragma_clause_arg_item 
-%type<text> pragma_clause_arg_text
+%type<token_atrib> pragma_clause_arg
+%type<token_atrib> pragma_clause_arg_item 
+%type<token_atrib> pragma_clause_arg_text
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -88,7 +92,8 @@ unknown_pragma : UNKNOWN_PRAGMA eos
 	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-
+program_unit : unknown_pragma
+;
 non_top_level_program_unit_stmt: unknown_pragma
 ;
 internal_subprogram : unknown_pragma
@@ -142,6 +147,24 @@ non_top_level_program_unit_stmt: pragma_custom_construct_statement
     $$ = $1;
 }
 ;
+
+program_unit : pragma_custom_construct_external_procedure
+;
+
+pragma_custom_construct_external_procedure : PRAGMA_CUSTOM pragma_custom_line_construct pragma_custom_construct_external_procedure_0
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+pragma_custom_construct_external_procedure_0 : explicit_external_procedure
+| pragma_custom_construct_external_procedure
+;
+
+explicit_external_procedure : explicit_main_program
+| external_subprogram
+;
+
 /*!endif*/
 
 // Pragma custom
@@ -233,7 +256,11 @@ pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom
 module_subprogram : pragma_custom_construct_module_subprogram_unit
 ;
 
-pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_construct module_subprogram
+pragma_custom_line_or_noend_construct : pragma_custom_line_construct
+|  pragma_custom_noend_line_construct
+;
+
+pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct module_subprogram
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -242,7 +269,7 @@ pragma_custom_construct_module_subprogram_unit : PRAGMA_CUSTOM pragma_custom_lin
 internal_subprogram : pragma_custom_construct_internal_program_unit
 ;
 
-pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct internal_subprogram
+pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct internal_subprogram
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -251,7 +278,7 @@ pragma_custom_construct_internal_program_unit : PRAGMA_CUSTOM pragma_custom_line
 interface_body : pragma_custom_construct_interface_body
 ;
 
-pragma_custom_construct_interface_body : PRAGMA_CUSTOM pragma_custom_line_construct interface_body
+pragma_custom_construct_interface_body : PRAGMA_CUSTOM pragma_custom_line_or_noend_construct interface_body
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -323,7 +350,7 @@ pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' pragma_clause_arg_list ')'
 
 pragma_clause_arg_list : pragma_clause_arg
 {
-    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, NULL, 0, $1);
+    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, $1.token_file, $1.token_line, $1.token_text);
 
     $$ = ASTListLeaf(node);
 }
@@ -335,7 +362,7 @@ pragma_clause_arg : pragma_clause_arg_item
 }
 | pragma_clause_arg pragma_clause_arg_item
 {
-    $$ = strappend($1, $2);
+    $$.token_text = strappend($1.token_text, $2.token_text);
 }
 ;
 
@@ -347,7 +374,7 @@ pragma_clause_arg_item : pragma_clause_arg_text
 
 pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 {
-    $$ = $1.token_text;
+    $$ = $1;
 }
 ;
 

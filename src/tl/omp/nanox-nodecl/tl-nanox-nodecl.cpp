@@ -60,7 +60,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase n = dto["nodecl"];
 
-        LoweringVisitor lowering_visitor;
+        LoweringVisitor lowering_visitor(this);
         lowering_visitor.walk(n);
 
         finalize_phase(n);
@@ -93,7 +93,18 @@ namespace TL { namespace Nanox {
             // Parse in C
             Source::source_language = SourceLanguage::C;
         }
-        Nodecl::NodeclBase n = src.parse_global(global_node);
+        Nodecl::List n = src.parse_global(global_node).as<Nodecl::List>();
+
+        Nodecl::List& extra_c_code = this->get_extra_c_code();
+
+        // Figure a better way!
+        for (Nodecl::List::iterator it = n.begin();
+                it != n.end();
+                it++)
+        {
+            extra_c_code.push_back(*it);
+        }
+
         FORTRAN_LANGUAGE()
         {
             Source::source_language = SourceLanguage::Current;
@@ -107,9 +118,26 @@ namespace TL { namespace Nanox {
         {
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
 
-            std::string file_name = "aux_omp_file_" + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
-            FILE* new_file = fopen(file_name.c_str(), "w");
-            if (new_file == NULL)
+            compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+            ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+            // Make sure phases are loaded (this is needed for codegen)
+            load_compiler_phases(configuration);
+
+            Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+            phase->codegen_top_level(extra_c_code, this->get_ancillary_file());
+
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+        }
+    }
+
+    FILE* Lowering::get_ancillary_file()
+    {
+        if (_ancillary_file == NULL)
+        {
+            std::string file_name = "aux_nanox_omp_file_" + TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ false) + ".c";
+            _ancillary_file = fopen(file_name.c_str(), "w");
+            if (_ancillary_file == NULL)
             {
                 running_error("%s: error: cannot open file '%s'. %s\n", 
                         TL::CompilationProcess::get_current_file().get_filename().c_str(),
@@ -117,26 +145,25 @@ namespace TL { namespace Nanox {
                         strerror(errno));
             }
 
-            compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-            ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
-
-            // Make sure phases are loaded (this is needed for codegen)
-            load_compiler_phases(configuration);
-
             TL::CompilationProcess::add_file(file_name, "auxcc");
 
-            Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-            phase->codegen_top_level(n, new_file);
-
-            fclose(new_file);
-
             ::mark_file_for_cleanup(file_name.c_str());
-
-            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
         }
-
+        return _ancillary_file;
     }
 
+    void Lowering::phase_cleanup(DTO& data_flow)
+    {
+        if (_ancillary_file != NULL)
+            fclose(_ancillary_file);
+
+        _ancillary_file = NULL;
+    }
+
+    Nodecl::List& Lowering::get_extra_c_code()
+    {
+        return _extra_c_code;
+    }
 } }
 
 

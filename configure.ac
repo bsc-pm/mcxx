@@ -435,8 +435,15 @@ if test x$gpu_enabled = xyes ; then
     fi
 fi
 
+CUDA_RPATH=""
+if test -n "$CUDA_LIBS";
+then
+  CUDA_RPATH="-Xlinker -rpath -Xlinker $CUDA_LIBS"
+fi
+
 AC_SUBST([CUDA_INCLUDES])
 AC_SUBST([CUDA_LIBS])
+AC_SUBST([CUDA_RPATH])
 
 
 if test x$gpu_valid = xyes;
@@ -538,7 +545,7 @@ then
    AC_PATH_PROG([IFORT], [ifort], [])
    if test x$IFORT != x;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imfc imf95"
+      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
    fi
 
@@ -905,7 +912,7 @@ dnl We try to figure a sensible default environment based on the configure envir
             RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
             ;;
-       arm-*-linux-gnueabi)
+       arm*-*-linux-gnueabi)
             default_type_environ="linux-arm"
             ;;
        spu)
@@ -1092,6 +1099,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile
+           src/tl/omp/nanox-nodecl/devices/Makefile
+           src/tl/omp/nanox-nodecl/devices/smp/Makefile
            src/tl/omp/nanox/Makefile
            src/tl/omp/nanox/devices/Makefile
            src/tl/omp/nanox/devices/common/Makefile

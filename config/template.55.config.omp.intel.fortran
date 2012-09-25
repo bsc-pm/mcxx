@@ -1,5 +1,17 @@
+[plainimfc : plain-base]
+language = Fortran
+options = --do-not-wrap-modules
+fortran_preprocessor_name = @IFORT@
+fortran_preprocessor_options = -P
+compiler_name = @IFORT@
+linker_name = @IFORT@
+linker_options =
+
+[ifort-plainfc : plainimfc]
+
 [imfc : omp-base]
 language = Fortran
+options = --do-not-wrap-modules
 options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P
@@ -9,3 +21,4 @@ linker_name = @IFORT@
 linker_options =
 
 [imf95 : imfc]
+[ifort-mfc : imfc]

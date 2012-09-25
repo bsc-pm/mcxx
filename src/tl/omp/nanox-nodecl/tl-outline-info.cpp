@@ -47,7 +47,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        if (IS_CXX_LANGUAGE 
+        if (IS_CXX_LANGUAGE
                 && name == "this")
             name = "this_";
 
@@ -85,6 +85,22 @@ namespace TL { namespace Nanox {
             OutlineInfoSetupVisitor(OutlineInfo& outline_info, bool is_function_task)
                 : _outline_info(outline_info), _is_function_task(is_function_task)
             {
+            }
+
+            void add_shared_opaque(Symbol sym)
+            {
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+                outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+                Type t = sym.get_type();
+                if (t.is_any_reference())
+                {
+                    t = t.references_to();
+                }
+
+                outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
             void add_shared(Symbol sym)
@@ -163,19 +179,14 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
 
-                    FORTRAN_LANGUAGE()
+                    if (IS_FORTRAN_LANGUAGE)
                     {
-                        TL::Type type = sym.get_type();
-                        if (type.is_pointer()
-                                || (type.is_any_reference() 
-                                    && type.references_to().is_pointer()))
-                        {
-                            running_error("%s: sorry: shared POINTER variable '%s' is not supported in Fortran yet\n",
-                                    it->get_locus().c_str(),
-                                    sym.get_name().c_str());
-                        }
+                        add_shared_opaque(sym);
                     }
-                    add_shared(sym);
+                    else
+                    {
+                        add_shared(sym);
+                    }
                 }
             }
 
@@ -193,7 +204,14 @@ namespace TL { namespace Nanox {
                         {
                             // If we are in an inline task, dependences are
                             // truly shared...
-                            add_shared(sym);
+                            if (IS_FORTRAN_LANGUAGE)
+                            {
+                                add_shared_opaque(sym);
+                            }
+                            else
+                            {
+                                add_shared(sym);
+                            }
                         }
                         else
                         {
@@ -355,6 +373,12 @@ namespace TL { namespace Nanox {
                     outline_info.set_private_type(sym.get_type());
 
                     outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
+
+                    if (sym.is_allocatable())
+                    {
+                        error_printf("%s: error: ALLOCATABLE arrays are not supported\n",
+                                private_.get_locus().c_str());
+                    }
                 }
             }
 
@@ -370,7 +394,14 @@ namespace TL { namespace Nanox {
                     t = t.references_to();
                 }
 
-                outline_info.set_field_type(t.get_pointer_to());
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
+                }
+                else
+                {
+                    outline_info.set_field_type(t.get_pointer_to());
+                }
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
                 outline_info.set_private_type(t);
             }
@@ -383,6 +414,19 @@ namespace TL { namespace Nanox {
                 OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
 
                 add_reduction(symbol, udr_info);
+            }
+
+            void visit(const Nodecl::OpenMP::Target& target)
+            {
+                Nodecl::List devices = target.get_devices().as<Nodecl::List>();
+
+                for (Nodecl::List::iterator it = devices.begin();
+                        it != devices.end();
+                        it++)
+                {
+                    std::string current_device = it->as<Nodecl::Text>().get_text();
+                    _outline_info.add_device_name(current_device);
+                }
             }
     };
 
@@ -421,6 +465,16 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
+    }
+
+    void OutlineInfo::add_device_name(std::string device_name)
+    {
+        _device_names.append(device_name);
+    }
+
+    ObjectList<std::string> OutlineInfo::get_device_names()
+    {
+        return _device_names;
     }
 
 } }

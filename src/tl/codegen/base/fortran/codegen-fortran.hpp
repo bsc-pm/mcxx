@@ -39,6 +39,7 @@ namespace Codegen
         protected:
 
             virtual std::string codegen(const Nodecl::NodeclBase&);
+            virtual void codegen_cleanup();
 
         public:
 
@@ -191,6 +192,42 @@ namespace Codegen
                 }
             } state;
 
+            struct UseStmtItem
+            {
+                TL::Symbol symbol;
+            };
+
+            struct UseStmtInfo : std::map<TL::Symbol, TL::ObjectList<UseStmtItem> >
+            {
+                void add_item(TL::Symbol module, TL::Symbol sym)
+                {
+                    UseStmtInfo::iterator it = this->find(module);
+
+                    UseStmtItem item;
+                    item.symbol = sym;
+
+                    if (it == this->end())
+                    {
+                        TL::ObjectList<UseStmtItem> new_list;
+                        new_list.append(item);
+
+                        this->insert(std::make_pair(module, new_list));
+                    }
+                    else
+                    {
+                        it->second.append(item);
+                    }
+                }
+            };
+
+            struct DoDeclareSymFromModuleInfo
+            {
+                TL::Scope sc;
+                UseStmtInfo& use_stmt_info;
+                DoDeclareSymFromModuleInfo(TL::Scope _sc, UseStmtInfo& _use_stmt_info)
+                    : sc(_sc), use_stmt_info(_use_stmt_info) { }
+            };
+
             // Status of the declaration of a given symbol inside a program unit
             // in Fortran only CODEGEN_STATUS_DEFINED or CODEGEN_STATUS_NONE
             //
@@ -274,9 +311,9 @@ namespace Codegen
                     void *data);
 
             void do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase node, void *data);
-            void declare_use_statements(Nodecl::NodeclBase statement_seq);
-            void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc);
-            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc);
+            void declare_use_statements(Nodecl::NodeclBase statement_seq, UseStmtInfo&);
+            void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo&);
+            void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo&);
 
             void declare_global_entities(Nodecl::NodeclBase node);
             void do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
@@ -306,9 +343,10 @@ namespace Codegen
                     TL::Type source_type, 
                     Nodecl::NodeclBase nest);
 
-            void codegen_use_statement(TL::Symbol entry, const TL::Scope &sc);
+            void emit_collected_use_statements(UseStmtInfo& use_stmt_info);
+            void codegen_use_statement(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo& use_stmt_info);
 
-            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc);
+            void declare_symbols_from_modules_rec(Nodecl::NodeclBase node, const TL::Scope &sc, UseStmtInfo&);
 
             void declare_symbols_rec(Nodecl::NodeclBase node);
             void declare_symbols_rec(Nodecl::NodeclBase node, TL::Scope sc);
@@ -348,8 +386,9 @@ namespace Codegen
             bool module_can_be_reached(TL::Symbol current_module, TL::Symbol module_target);
             bool symbol_is_public_in_module(TL::Symbol current_module, TL::Symbol entry);
 
-
             static Nodecl::NodeclBase advance_parenthesized_expression(Nodecl::NodeclBase n);
+
+            void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
     };
 }
 

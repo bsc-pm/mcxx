@@ -29,6 +29,7 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-predicateutils.hpp"
+#include "tl-devices.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -78,36 +79,45 @@ namespace TL { namespace Nanox {
         reduction_initialization << reduction_initialization_code(outline_info, construct);
         reduction_code << perform_partial_reduction(outline_info);
 
-        Nodecl::NodeclBase outline_placeholder;
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
+        // Outline
 
-        if (IS_FORTRAN_LANGUAGE)
+        // List of device names
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+
+        DeviceHandler device_handler = DeviceHandler::get_device_handler();
+        for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+                it != device_names.end();
+                it++)
         {
-            Source::source_language = SourceLanguage::C;
+            std::string device_name = *it;
+            DeviceProvider* device = device_handler.get_device(device_name);
+
+            ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
+            Nodecl::NodeclBase outline_placeholder;
+            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+
+            // FIXME: Can it be done only once?
+            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+            device->create_outline(info, outline_placeholder, symbol_map);
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::C;
+            }
+
+            outline_placeholder.replace(outline_source.parse_statement(outline_placeholder));
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::Current;
+            }
+
+            Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, inner_placeholder, *symbol_map);
+            delete symbol_map;
+
+            inner_placeholder.replace(outline_statements_code);
         }
-
-        outline_placeholder.replace(
-                outline_source.parse_statement(outline_placeholder)
-                );
-        
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Copy FUNCTIONs and other local stuff
-            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                    function_symbol,
-                    outline_info.get_unpacked_function_symbol());
-        }
-
-        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, inner_placeholder, *symbol_map);
-        delete symbol_map;
-
-        inner_placeholder.replace(outline_statements_code);
 
         // This function replaces the current construct
         parallel_spawn(outline_info, construct, num_replicas, outline_name, structure_symbol);

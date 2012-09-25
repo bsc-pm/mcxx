@@ -2403,3 +2403,40 @@ static nodecl_t simplify_sqrt(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 }
 
 #endif
+
+
+static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t c = arguments[0];
+
+    nodecl_t kind_arg = arguments[1];
+
+    if (nodecl_is_null(c))
+        return nodecl_null();
+
+    // We cannot simplify anything if the nodecl is non-constant
+    if (!nodecl_is_constant(c))
+        return nodecl_null();
+
+    const_value_t* str = nodecl_get_constant(c);
+
+    int num_elements = 0;
+    int *values = NULL;
+
+    const_value_string_unpack(str, &values, &num_elements);
+
+    if (num_elements == 0)
+        return nodecl_null();
+
+    int val = values[0];
+    free(values);
+
+    int kind = fortran_get_default_integer_type_kind();
+    if (!nodecl_is_null(kind_arg))
+        kind = const_value_cast_to_signed_int(nodecl_get_constant(kind_arg));
+
+
+    return const_value_to_nodecl_with_basic_type(
+            const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),
+            fortran_choose_int_type_from_kind(kind));
+}

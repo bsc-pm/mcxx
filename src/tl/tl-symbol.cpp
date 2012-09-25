@@ -380,7 +380,30 @@ namespace TL
 
     bool Symbol::is_parameter() const
     {
-        return (_symbol->entity_specs.is_parameter);
+        if (_symbol->decl_context.current_scope->related_entry == NULL)
+            return false;
+
+        return (symbol_is_parameter_of_function(_symbol, _symbol->decl_context.current_scope->related_entry));
+    }
+
+    bool Symbol::is_parameter_of_a_function() const
+    {
+        return (_symbol->entity_specs.num_function_parameter_info != 0);
+    }
+
+    int Symbol::get_parameter_position() const
+    {
+        return (symbol_get_parameter_position_in_function(_symbol, _symbol->decl_context.current_scope->related_entry));
+    }
+
+    bool Symbol::is_parameter_of(Symbol function) const
+    {
+        return (symbol_is_parameter_of_function(_symbol, function._symbol));
+    }
+
+    int Symbol::get_parameter_position_in(Symbol function) const
+    {
+        return symbol_get_parameter_position_in_function(_symbol, function._symbol);
     }
 
     bool Symbol::is_static() const

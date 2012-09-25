@@ -2200,7 +2200,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     // If the set is a singleton, try first a simpler approach
     if (entry_list_size(overload_set) == 1)
     {
-        scope_entry_t* item = entry_list_head(overload_set);
+        scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
         standard_conversion_t sc;
         if (standard_conversion_between_types(&sc, item->type_information, target_type))
         {
@@ -2258,7 +2258,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* current_fun = entry_list_iterator_current(it);
+        scope_entry_t* current_fun = entry_advance_aliases(entry_list_iterator_current(it));
 
         if (current_fun->kind == SK_FUNCTION)
         {

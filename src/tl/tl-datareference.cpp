@@ -220,6 +220,11 @@ namespace TL
                 return rebuilt_type;
             }
 
+            virtual void visit(const Nodecl::Conversion& c)
+            {
+               walk(c.get_nest());
+            }
+
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());
@@ -332,6 +337,7 @@ namespace TL
         _error_log("")
     {
         if (expr.is_null()
+                || expr.is<Nodecl::ErrExpr>()
                 || expr.get_type().is_error_type())
         {
             _is_valid = false;

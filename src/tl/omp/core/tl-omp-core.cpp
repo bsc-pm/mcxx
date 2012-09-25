@@ -48,6 +48,7 @@ namespace TL
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
                     "It performs the common analysis part required by OpenMP");
+
             register_omp_constructs();
         }
 
@@ -91,7 +92,6 @@ namespace TL
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
             }
-
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
                 RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
@@ -113,7 +113,11 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // initialize_builtin_udr_reductions(global_scope);
+            // FIXME - Remove once ticket #1089 is fixed
+            if (_do_not_init_udr == "0")
+            {
+                initialize_builtin_udr_reductions(global_scope);
+            }
 
             PragmaCustomCompilerPhase::run(dto);
 
@@ -450,6 +454,63 @@ namespace TL
                 }
         };
 
+        // Fortran only
+        class SymbolsUsedInNestedFunctions : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                struct SymbolsOfScope : public Nodecl::ExhaustiveVisitor<void>
+                {
+                    scope_t* _sc;
+                    ObjectList<Nodecl::Symbol>& _result;
+
+                    SymbolsOfScope(scope_t* sc, ObjectList<Nodecl::Symbol>& result)
+                        : _sc(sc),
+                          _result(result)
+                    {
+                    }
+
+                    virtual void visit(const Nodecl::Symbol& node)
+                    {
+                        TL::Symbol sym = node.get_symbol();
+
+                        if (sym.is_variable()
+                                && sym.get_scope().get_decl_context().current_scope == _sc)
+                        {
+                            if (!_result.contains(node,
+                                       TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol)))
+                            {
+                                _result.append(node);
+                            }
+                        }
+                    }
+                };
+
+                scope_t* _scope;
+                SymbolsOfScope _symbols_of_scope_visitor;
+            public:
+                ObjectList<Nodecl::Symbol> symbols;
+
+                SymbolsUsedInNestedFunctions(Symbol current_function)
+                    : _scope(current_function.get_related_scope().get_decl_context().current_scope),
+                      _symbols_of_scope_visitor(_scope, symbols)
+                {
+                }
+
+                virtual void visit(const Nodecl::Symbol& node)
+                {
+                    TL::Symbol sym = node.get_symbol();
+
+                    if (sym.is_function()
+                            && sym.is_nested_function())
+                    {
+                        Nodecl::NodeclBase body = sym.get_function_code();
+
+                        _symbols_of_scope_visitor.walk(body);
+                    }
+                }
+
+        };
+
         void Core::get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                 DataSharingAttribute default_data_attr, 
                 DataSharingEnvironment& data_sharing)
@@ -483,6 +544,17 @@ namespace TL
             }
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
+
+            FORTRAN_LANGUAGE()
+            {
+                // Nested function calls
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                symbols_from_nested_calls.walk(statement);
+
+                nonlocal_symbols.insert(symbols_from_nested_calls.symbols,
+                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+            }
+
             ObjectList<Symbol> already_nagged;
 
             for (ObjectList<Nodecl::Symbol>::iterator it = nonlocal_symbols.begin();
@@ -866,6 +938,17 @@ namespace TL
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
+            FORTRAN_LANGUAGE()
+            {
+                // Nested function calls
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                symbols_from_nested_calls.walk(statement);
+
+                nonlocal_symbols.insert(symbols_from_nested_calls.symbols,
+                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+            }
+
+
             for (ObjectList<Nodecl::Symbol>::iterator it = nonlocal_symbols.begin();
                     it != nonlocal_symbols.end();
                     it++)
@@ -979,8 +1062,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_parallel_handler(construct, data_sharing);
         }
 
         void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
@@ -1013,8 +1096,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
@@ -1039,8 +1122,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
@@ -1065,8 +1148,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_parallel_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 

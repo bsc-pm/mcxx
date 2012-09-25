@@ -172,6 +172,8 @@ def insert_extra_attr_code(_type, name, suffix):
         elif type_name == "default_argument_info_t*" :
             _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
                     "insert_default_argument_info_ptr);");
+        elif type_name == "function_parameter_info_t":
+            _insert_code.append("insert_extra_function_parameter_info(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
         else:
             sys.stderr.write("%s: info: typeof '%s' is not handled\n" % (sys.argv[0], type_name))
     else:
@@ -223,18 +225,27 @@ def get_extra_load_code(_type, num_name, list_name):
             result.append("extra_gcc_attrs_t extra_gcc_attrs;");
             result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
             result.append("extra_gcc_attrs.handle = handle;");
+            result.append("extra_gcc_attrs.symbol = sym;");
             result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_gcc_attrs, get_extra_gcc_attrs);");
             result.append("}")
-            # No need to copy back to the symbol
-            pass
+        elif type_name == "function_parameter_info_t" :
+            result.append("{")
+            result.append("extra_gcc_attrs_t extra_gcc_attrs;");
+            result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
+            result.append("extra_gcc_attrs.handle = handle;");
+            result.append("extra_gcc_attrs.symbol = sym;");
+            result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_gcc_attrs, get_extra_function_parameter_info);");
+            result.append("}")
         elif type_name == "default_argument_info_t*" :
             result.append("{")
             result.append("extra_default_argument_info_t extra_default_argument_info;")
             result.append("memset(&extra_default_argument_info, 0, sizeof(extra_default_argument_info_t));")
             result.append("extra_default_argument_info.handle = handle;");
+            result.append("extra_default_argument_info.symbol = sym;");
             result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_default_argument_info, \
                     get_extra_default_argument_info);")
             result.append("}")
+        else:
             pass
     else:
         sys.stderr.write("%s: warning: unknown array type '%s'\n" % (sys.argv[0], _type))
@@ -505,6 +516,8 @@ def print_deep_copy_entity_specs(lines):
               type_name = get_up_to_matching_paren(type_name[len("typeof"):])
           print "{"
           print "int i, N = source->entity_specs.%s;" % (num_name)
+          print "dest->entity_specs.%s = NULL;" % (list_name)
+          print "dest->entity_specs.%s = 0;" % (num_name)
           print "for (i = 0; i < N; i++)"
           print "{"
           if type_name == "symbol":
@@ -529,6 +542,10 @@ def print_deep_copy_entity_specs(lines):
               print "copied.attribute_name = source_gcc_attr.attribute_name;"
               print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, symbol_map);"
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+          elif type_name == "function_parameter_info_t":
+              print "function_parameter_info_t param_info = source->entity_specs.%s[i];" % (list_name)
+              print "param_info.function = symbol_map->map(symbol_map, param_info.function);"
+              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, param_info);" % (list_name, num_name)
           else:
               sys.stderr.write("%s: warning: not handling type array of type '%s'\n" % (sys.argv[0], _type))
           print "}"

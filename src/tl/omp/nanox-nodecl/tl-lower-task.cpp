@@ -30,8 +30,7 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
-#include "tl-nanox-ptr.hpp"
-
+#include "tl-devices.hpp"
 #include "cxx-cexpr.h"
 
 using TL::Source;
@@ -63,6 +62,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 
 static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
+    // FIXME: Move this to the class! 
     static std::map<int, Symbol> _map;
     std::map<int, Symbol>::iterator it = _map.find(num_devices);
 
@@ -182,54 +182,44 @@ Source LoweringVisitor::fill_const_wd_info(
         const std::string& outline_name,
         bool is_untied,
         bool mandatory_creation,
+        const ObjectList<std::string>& device_names,
         Nodecl::NodeclBase construct)
 {
     // Static stuff
     //
-    // typedef struct { 
-    //     nanos_wd_props_t props; 
-    //     size_t data_alignment; 
-    //     size_t num_copies; 
-    //     size_t num_devices; 
-    // } nanos_const_wd_definition_t; 
+    // typedef struct {
+    //     nanos_wd_props_t props;
+    //     size_t data_alignment;
+    //     size_t num_copies;
+    //     size_t num_devices;
+    // } nanos_const_wd_definition_t;
 
-    // FIXME
-    int num_devices = 1;
+    int num_devices = device_names.size();
     TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
     Source alignment, props_init, num_copies;
 
-    Source device_descriptor, 
-           device_description, 
-           device_description_init, 
-           num_devices_src,
-           ancillary_device_description,
-           fortran_dynamic_init;
+    Source ancillary_device_descriptions,
+           device_descriptions,
+           opt_fortran_dynamic_init;
 
     Source result;
     result
-        << device_description
+        << ancillary_device_descriptions
         << "static " << const_wd_type.get_name() << " nanos_wd_const_data = {"
         << "{"
         << /* ".props = " << */ props_init << ", \n"
         << /* ".data_alignment = " << */ alignment << ", \n"
         << /* ".num_copies = " << */ num_copies << ",\n"
-        << /* ".num_devices = " << */ num_devices_src << ",\n"
+        << /* ".num_devices = " << */ num_devices << ",\n"
         << "}, "
-        << /* ".devices = " << */ "{" << device_description_init << "}"
+        << /* ".devices = " << */ "{" << device_descriptions << "}"
         << "};"
-
-        << fortran_dynamic_init
-
+        << opt_fortran_dynamic_init
         ;
 
     alignment << "__alignof__(" << struct_arg_type_name << ")";
     num_copies << "0";
-
-    device_descriptor << outline_name << "_devices";
-    device_description
-        << ancillary_device_description
-        ;
 
     Source tiedness,
            priority;
@@ -237,7 +227,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // We expand all the struct due to a limitation in the FE. See ticket
     // #963
     props_init
-        << "{ " 
+        << "{ "
         << /* ".mandatory_creation = " << */ (int)mandatory_creation << ",\n"
         << /* ".tied = " << */ tiedness << ",\n"
         << /* ".reserved0 =" << */ "0,\n"
@@ -251,41 +241,30 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
-    // FIXME - No devices yet, let's mimick the structure of one SMP
+    // Fill device information
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (ObjectList<std::string>::const_iterator it = device_names.begin();
+            it != device_names.end();
+            ++it)
     {
-        num_devices_src << num_devices;
+        Source ancillary_device_description, device_description, aux_fortran_init;
 
-        if (!IS_FORTRAN_LANGUAGE)
-        {
-            ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args = {" 
-                << ".outline = (void(*)(void*))&" << outline_name 
-                << "};"
-                ;
-            device_description_init
-                << "{"
-                << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
-                << "}"
-                ;
-        }
-        else
-        {
-            // We'll fill them later because of Fortran limitations
-            ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args;" 
-                ;
-            device_description_init
-                << "{"
-                // factory, arg
-                << "0, 0"
-                << "}"
-                ;
-            fortran_dynamic_init
-                << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
-                ;
-        }
+        if (it != device_names.begin())
+            ancillary_device_descriptions <<  ", ";
+
+        std::string device_name = *it;
+        DeviceProvider* device = device_handler.get_device(device_name);
+
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
+        // FIXME: Can it be done only once?
+        DeviceDescriptorInfo info(outline_name);
+        device->get_device_descriptor(info, ancillary_device_description, device_description, aux_fortran_init);
+
+        device_descriptions << device_description;
+        ancillary_device_descriptions << ancillary_device_description;
+        opt_fortran_dynamic_init << aux_fortran_init;
+
     }
 
     return result;
@@ -380,18 +359,22 @@ void LoweringVisitor::emit_async_common(
         fill_dependences_immediate_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
-    
+
     std::string outline_name = get_outline_name(function_symbol);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
     struct_arg_type_name << structure_symbol.get_name();
 
+    // List of device names
+    TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             outline_name,
             is_untied,
             /* mandatory_creation */ 0,
+            device_names,
             construct);
 
     if (priority_expr.is_null())
@@ -419,22 +402,28 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // Outline
-    Nodecl::NodeclBase outline_placeholder;
-    Nodecl::Utils::SymbolMap *symbol_map = NULL;
-    emit_outline(outline_info, statements, outline_name, structure_symbol, outline_placeholder, symbol_map);
-
-    if (IS_FORTRAN_LANGUAGE)
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+            it != device_names.end();
+            it++)
     {
-        // Copy FUNCTIONs and other local stuff
-        symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                function_symbol,
-                outline_info.get_unpacked_function_symbol());
+        std::string device_name = *it;
+        DeviceProvider* device = device_handler.get_device(device_name);
+
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
+        // FIXME: Can it be done only once?
+        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+
+        device->create_outline(info, outline_placeholder, symbol_map);
+
+        Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
+        delete symbol_map;
+
+        outline_placeholder.replace(outline_statements_code);
     }
-
-    Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
-    delete symbol_map;
-
-    outline_placeholder.replace(outline_statements_code);
 
     Source err_name;
     err_name << "err";
@@ -735,8 +724,6 @@ void LoweringVisitor::fill_arguments(
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        Type t = (*it)->get_shared_expression().get_type();
-
                         fill_outline_arguments 
                             << "ol_args->" << (*it)->get_field_name() << " = " << as_expression( (*it)->get_shared_expression()) << ";"
                             ;
@@ -774,12 +761,28 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
-                        fill_outline_arguments << 
-                            "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
-                            ;
-                        fill_immediate_arguments << 
-                            "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
-                            ;
+                        TL::Type t = sym.get_type();
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        if (t.is_pointer())
+                        {
+                            fill_outline_arguments <<
+                                "ol_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                        }
+                        else
+                        {
+                            fill_outline_arguments <<
+                                "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
+                                ;
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -803,69 +806,42 @@ void LoweringVisitor::fill_arguments(
                             }
                         }
 
-                        if ((*it)->get_symbol().is_target())
-                        {
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << (*it)->get_symbol().get_name() << extra_ref << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_symbol().get_type(),
-                                    ctr.retrieve_context());
+                        TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                ctr.retrieve_context());
 
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
-                                ;
-                        }
+                        fill_outline_arguments << 
+                            "ol_args %" << (*it)->get_field_name() << " => " 
+                            << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                            ;
+                        fill_immediate_arguments << 
+                            "imm_args % " << (*it)->get_field_name() << " => " 
+                            << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << extra_ref << ") \n"
+                            ;
 
                         break;
                     }
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        if ((*it)->get_symbol().is_target())
-                        {
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression()) << "\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << as_expression( (*it)->get_shared_expression()) << "\n"
-                                ;
-                        }
-                        else
-                        {
-                            TL::Symbol ptr_of_sym = Nanox::get_function_ptr_of((*it)->get_shared_expression().get_type(),
-                                    ctr.retrieve_context());
+                        TL::Symbol ptr_of_sym = get_function_ptr_of(
+                                (*it)->get_shared_expression().get_type(),
+                                ctr.retrieve_context());
 
-                            fill_outline_arguments << 
-                                "ol_args %" << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
-                                ;
-                            fill_immediate_arguments << 
-                                "imm_args % " << (*it)->get_field_name() << " => " 
-                                << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
-                                ;
-                        }
+                        fill_outline_arguments
+                            << "ol_args %" << (*it)->get_field_name() << " => "
+                            << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
+                            ;
+                        fill_immediate_arguments
+                            << "imm_args % " << (*it)->get_field_name() << " => "
+                            << ptr_of_sym.get_name() << "(" << as_expression( (*it)->get_shared_expression()) << ")\n"
+                            ;
 
                         // Best effort, this may fail sometimes
                         DataReference data_ref((*it)->get_shared_expression());
                         if (!data_ref.is_valid())
                         {
-                            std::cerr 
-                                << (*it)->get_shared_expression().get_locus() 
-                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail" 
+                            std::cerr
+                                << (*it)->get_shared_expression().get_locus()
+                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail"
                                 << std::endl;
                         }
                         break;
@@ -1343,7 +1319,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     result_src
                         << "dependences[" << current_dep_num << "].address = "
-                                   << "&(*" << arguments_accessor << (*it)->get_field_name() << ");"
+                                   << as_expression(dep_expr.get_base_address()) << ";"
                         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
                         << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
@@ -1415,7 +1391,7 @@ void LoweringVisitor::fill_dependences(
                 {
                     // We use plain assignments in Fortran
                     result_src
-                        << "dependences[" << current_dep_num << "].address = " << "(void**)&(" << arguments_accessor << (*it)->get_field_name() << ");"
+                        << "dependences[" << current_dep_num << "].address = " << as_expression(dep_expr.get_base_address()) << ";"
                         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
                         << "dependences[" << current_dep_num << "].size = " << dependency_size << ";"
                         << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
@@ -1583,7 +1559,7 @@ static void copy_outline_data_item(
     FORTRAN_LANGUAGE()
     {
         // We need an additional pointer due to pass by reference in Fortran
-        dest_info.set_field_type(dest_info.get_field_type().get_lvalue_reference_to());
+        dest_info.set_field_type(dest_info.get_field_type().get_pointer_to());
     }
 
     // Update dependences to reflect arguments as well
@@ -1619,6 +1595,15 @@ static void fill_map_parameters_to_arguments(
     }
 }
 
+static int outline_data_item_get_parameter_position(const OutlineDataItem& outline_data_item)
+{
+    TL::Symbol sym = outline_data_item.get_symbol();
+
+    ERROR_CONDITION(!sym.is_parameter(), "This symbol must be a parameter", 0);
+
+    return sym.get_parameter_position();
+}
+
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -1634,25 +1619,36 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
-    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
-    TL::ObjectList<OutlineDataItem*> data_items  = parameters_outline_info.get_data_items();
+    // Copy device information from parameters_outline_info to arguments_outline_info
+    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
+    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
+            it != _device_names.end();
+            it++)
+    {
+        arguments_outline_info.add_device_name(*it);
+    }
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
+    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
     TL::ObjectList<TL::Symbol> new_arguments;
     Scope sc = construct.retrieve_context();
+    TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
             it++)
     {
-        ObjectList<OutlineDataItem*> found = data_items.find(lift_pointer(functor(&OutlineDataItem::get_symbol)), it->first);
+        // We search by parameter position here
+        ObjectList<OutlineDataItem*> found = data_items.find(
+                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                it->first.get_parameter_position_in(called_sym));
 
         if (found.empty())
         {
-            running_error("%s: error: cannot find parameter '%s' in OutlineInfo, this may be caused by bug #922\n", 
+            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
                     arguments.get_locus().c_str(),
                     it->first.get_name().c_str());
         }
@@ -1678,7 +1674,19 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
+        }
+
         argument_outline_data_item.set_shared_expression(it->second);
+    }
+
+    TL::Symbol alternate_name;
+    if (!function_call.get_alternate_name().is_null())
+    {
+        alternate_name = function_call.get_alternate_name().get_symbol();
     }
 
     // Craft a new function call with the new mcc_arg_X symbols
@@ -1694,17 +1702,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         nodecl_arg.set_type( args_it->get_type() );
 
         // We must respect symbols in Fortran because of optional stuff
-        if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE
+                // If the alternate name lacks prototype, do not add keywords
+                // here
+                && !(alternate_name.is_valid()
+                    && alternate_name.get_type().lacks_prototype()))
         {
             Nodecl::Symbol nodecl_param = Nodecl::Symbol::make(
                     params_it->first,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
 
             nodecl_arg = Nodecl::FortranNamedPairSpec::make(
                     nodecl_param,
                     nodecl_arg,
-                    function_call.get_filename(), 
+                    function_call.get_filename(),
                     function_call.get_line());
         }
 
@@ -1745,23 +1757,25 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
     list_stmt.append(expr_statement);
 
-    Nodecl::NodeclBase statement = 
-        Nodecl::Context::make(
-                Nodecl::List::make(list_stmt),
-                function_call.retrieve_context(),
-                function_call.get_filename(),
-                function_call.get_line()
-                );
+    Nodecl::NodeclBase statements =
+        Nodecl::List::make(
+                Nodecl::Context::make(
+                    Nodecl::List::make(list_stmt),
+                    function_call.retrieve_context(),
+                    function_call.get_filename(),
+                    function_call.get_line()
+                    ));
+
+    construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
             construct,
-            function_symbol, 
-            statement,
+            function_symbol,
+            statements,
             /* priority */ Nodecl::NodeclBase::null(),
             /* is_untied */ false,
-
             arguments_outline_info);
 }
 
