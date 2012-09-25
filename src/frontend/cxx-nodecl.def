@@ -417,6 +417,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNTIED()
                  | NODECL_OPEN_M_P*CRITICAL_NAME() text
                  | NODECL_OPEN_M_P*BARRIER_AT_END()
+                 | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
+                 | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -445,8 +447,6 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # All levels of async
                 | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
-                | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
-                | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
 # Full barrier
                 | NODECL_OPEN_M_P*BARRIER_FULL([environment]exec-environment-seq-opt)
 # First half of a barrier (signaling phase)
