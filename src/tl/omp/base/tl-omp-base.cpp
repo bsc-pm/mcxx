@@ -356,6 +356,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(single)
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(atomic)
+        INVALID_DECLARATION_HANDLER(master)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
@@ -367,7 +368,6 @@ namespace TL { namespace OpenMP {
         void Base::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Base::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        INVALID_DECLARATION_HANDLER(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
@@ -377,9 +377,18 @@ namespace TL { namespace OpenMP {
     void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }
     void Base::atomic_handler_post(TL::PragmaCustomStatement directive)
     {
+        Nodecl::List execution_environment = Nodecl::List::make(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                        directive.get_filename(),
+                        directive.get_line()),
+                Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_filename(),
+                        directive.get_line())
+        );
+
         Nodecl::OpenMP::Atomic atomic =
             Nodecl::OpenMP::Atomic::make(
-                    Nodecl::NodeclBase::null(),
+                    execution_environment,
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line());
@@ -394,31 +403,61 @@ namespace TL { namespace OpenMP {
 
         TL::PragmaCustomParameter param = pragma_line.get_parameter();
 
-        Nodecl::NodeclBase exec_env = Nodecl::NodeclBase::null();
+        Nodecl::List execution_environment;
+
+        Nodecl::OpenMP::FlushAtEntry entry_flush =
+            Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line()
+            );
+
+        Nodecl::OpenMP::FlushAtExit exit_flush =
+            Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line()
+            );
 
         if (param.is_defined())
         {
             ObjectList<std::string> critical_name = param.get_tokenized_arguments();
 
-            exec_env = Nodecl::List::make(
+            execution_environment = Nodecl::List::make(
                     Nodecl::OpenMP::CriticalName::make(critical_name[0],
                         directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_line()),
+                    entry_flush, exit_flush);
+        }
+        else
+        {
+            execution_environment = Nodecl::List::make(entry_flush, exit_flush);
         }
 
         directive.replace(
                 Nodecl::OpenMP::Critical::make(
-                    exec_env,
-                    directive.get_statements().shallow_copy(),
-                    directive.get_filename(),
-                    directive.get_line()));
+                        execution_environment,
+                        directive.get_statements().shallow_copy(),
+                        directive.get_filename(),
+                        directive.get_line())
+                );
     }
 
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { }
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive)
     {
+        Nodecl::List execution_environment = Nodecl::List::make(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line()),
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+                );
+
         directive.replace(
-                Nodecl::OpenMP::BarrierFull::make(directive.get_filename(), directive.get_line())
+                Nodecl::OpenMP::BarrierFull::make(
+                    execution_environment,
+                    directive.get_filename(),
+                    directive.get_line())
                 );
     }
 
@@ -525,6 +564,19 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+
+
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
                         directive.get_statements().shallow_copy(),
@@ -556,6 +608,19 @@ namespace TL { namespace OpenMP {
             num_threads = args[0];
         }
 
+        // Since the parallel construct implies a barrier at its end,
+        // there is no need of adding a flush at end, because the barrier implies also a flush
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+
         Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
@@ -576,6 +641,20 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
+        if (!pragma_line.get_clause("nowait").is_defined())
+        {
+            execution_environment.push_back(
+                    Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_filename(),
+                        directive.get_line())
+            );
+
+            execution_environment.push_back(
+                    Nodecl::OpenMP::BarrierAtEnd::make(
+                        directive.get_filename(),
+                        directive.get_line()));
+        }
+
         Nodecl::List code;
         code.push_back(
                 Nodecl::OpenMP::Single::make(
@@ -583,14 +662,6 @@ namespace TL { namespace OpenMP {
                     directive.get_statements().shallow_copy(),
                     directive.get_filename(),
                     directive.get_line()));
-
-        if (!pragma_line.get_clause("nowait").is_defined())
-        {
-            execution_environment.push_back(
-                    Nodecl::OpenMP::BarrierAtEnd::make(
-                        directive.get_filename(),
-                        directive.get_line()));
-        }
 
         directive.replace(code);
     }
@@ -624,8 +695,14 @@ namespace TL { namespace OpenMP {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
+        // Set the implicit OpenMP flush / barrier nodes to the environment
         if (barrier_at_end)
         {
+            execution_environment.push_back(
+                    Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_filename(),
+                        directive.get_line())
+            );
             execution_environment.push_back(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
@@ -750,6 +827,12 @@ namespace TL { namespace OpenMP {
         if (barrier_at_end)
         {
             execution_environment.push_back(
+                    Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_filename(),
+                        directive.get_line())
+            );
+
+            execution_environment.push_back(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -823,6 +906,18 @@ namespace TL { namespace OpenMP {
 
             num_threads = args[0];
         }
+
+        // Set implicit flushes at the entry and exit of the combined worksharing
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
@@ -928,6 +1023,18 @@ namespace TL { namespace OpenMP {
             num_threads = args[0];
         }
 
+        // Set implicit flushes at the entry and exit of the combined worksharing
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
@@ -968,6 +1075,18 @@ namespace TL { namespace OpenMP {
 
             num_threads = args[0];
         }
+
+        // Set implicit flushes at the entry and exit of the combined worksharing
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtEntry::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
+        execution_environment.push_back(
+                Nodecl::OpenMP::FlushAtExit::make(
+                    directive.get_filename(),
+                    directive.get_line())
+        );
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 

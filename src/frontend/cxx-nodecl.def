@@ -6,7 +6,7 @@
 # Up to 4 children, [child_name] is mandatory and must be a valid C/C++/Fortran name
 #
 # options is a blank-separated sequence of the following. Each option-name declares extra
-# information that is mandatory to the tree (i.e. it cannot be NULL). 
+# information that is mandatory to the tree (i.e. it cannot be NULL).
 #
 #    option-name               frontend type
 #        symbol                    scope_entry_t*
@@ -30,7 +30,7 @@
 #
 
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
-top-level : function-code 
+top-level : function-code
           | object-init
           | pragma-directive
           | compatibility
@@ -70,9 +70,9 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
           | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
-          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq, [loop_name]name-opt) 
-          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq, [loop_name]name-opt) 
-          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) 
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq, [loop_name]name-opt)
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq, [loop_name]name-opt)
+          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt)
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
@@ -89,7 +89,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | compatibility
           | NODECL_ERR_STATEMENT()
 
-compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
+compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
 
 case-expression : expression
 
@@ -122,7 +122,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
     | structured-value
 
 string-literal: NODECL_STRING_LITERAL() type const-value
- 
+
 expression : literal
            | name
            | context
@@ -254,7 +254,7 @@ cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression)
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
-    | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
+    | NODECL_C99_INDEX_DESIGNATOR([expr]expression)
 
 # a->b
 cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const-value-opt text
@@ -390,7 +390,7 @@ master-construct : NODECL_OPEN_M_P*MASTER([statements]statement-seq-opt)
 critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # inline task
-task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt) 
+task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
@@ -445,8 +445,10 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # All levels of async
                 | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
+                | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
+                | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
 # Full barrier
-                | NODECL_OPEN_M_P*BARRIER_FULL()
+                | NODECL_OPEN_M_P*BARRIER_FULL([environment]exec-environment-seq-opt)
 # First half of a barrier (signaling phase)
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
