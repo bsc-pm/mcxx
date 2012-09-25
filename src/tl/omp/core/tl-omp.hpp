@@ -390,6 +390,8 @@ namespace TL
                 ObjectList<CopyItem> _copy_inout;
 
                 ObjectList<std::string> _device_list;
+                std::string _ndrange;
+                std::string _calls;
 
                 bool _copy_deps;
             public:
@@ -400,10 +402,14 @@ namespace TL
                 void set_copy_in(const ObjectList<CopyItem>& copy_items);
                 void set_copy_out(const ObjectList<CopyItem>& copy_items);
                 void set_copy_inout(const ObjectList<CopyItem>& copy_items);
+                void set_ndrange(const std::string ndrange);
+                void set_calls(const std::string calls);
 
                 ObjectList<CopyItem> get_copy_in() const;
                 ObjectList<CopyItem> get_copy_out() const;
                 ObjectList<CopyItem> get_copy_inout() const;
+                std::string get_ndrange() const;
+                std::string get_calls() const;
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;

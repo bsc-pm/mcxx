@@ -43,4 +43,5 @@ libtlnanox_cuda_la_LDFLAGS = $(tl_ldflags)
 libtlnanox_cuda_la_SOURCES = \
        nanox-cuda.hpp \
        nanox-cuda.cpp \
+       cuda-aux.hpp \
        $(END)

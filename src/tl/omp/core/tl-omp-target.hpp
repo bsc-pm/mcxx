@@ -36,6 +36,10 @@ namespace TL
 {
     namespace OpenMP
     {
+        // This struct controls we do not add the same device implementation
+        // twice, uses device_name + ctr.get_locus() as id
+        static ObjectList<std::string> added_devices_pos;
+
         struct TargetContext
         {
             ObjectList<std::string> device_list;
@@ -43,6 +47,8 @@ namespace TL
             ObjectList<std::string> copy_in;
             ObjectList<std::string> copy_out;
             ObjectList<std::string> copy_inout;
+            std::string ndrange;
+            std::string calls;
 
             bool has_implements;
             Symbol implements;
@@ -55,7 +61,9 @@ namespace TL
                 copy_out(), 
                 has_implements(), 
                 implements(), 
-                copy_deps()
+                copy_deps(),
+                ndrange(),
+                calls()
             {
             }
         };

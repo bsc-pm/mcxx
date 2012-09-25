@@ -2299,7 +2299,7 @@ void DeviceSMP::create_outline(
             << "events_before[1].type = NANOS_BURST_START;"
             ;
 
-        if (interface_is_at_least("master", 5017))
+        if (Nanos::Version::interface_is_at_least("master", 5017))
         {
             instrument_before
                 << "events_before[0].key = nanos_instr_uf_name_key;"
@@ -2328,7 +2328,7 @@ void DeviceSMP::create_outline(
             << "events_after[1].type = NANOS_BURST_END;"
             ;
 
-        if (interface_is_at_least("master", 5017))
+        if (Nanos::Version::interface_is_at_least("master", 5017))
         {
             instrument_after
                 << "events_after[0].key = nanos_instr_uf_name_key;"

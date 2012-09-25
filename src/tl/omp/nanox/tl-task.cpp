@@ -104,9 +104,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     outline_flags.task_symbol = task_symbol;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
-
+    //We remove a "neutral target" which does not generate code
+    ObjectList<std::string> current_targets_aux;
     ObjectList<std::string> current_targets;
-    data_sharing.get_all_devices(current_targets);
+    data_sharing.get_all_devices(current_targets_aux);
+    //If we only have one undefined device, and there is a definition
+    //probably a mistake, since definition will be ignored
+    if (current_targets_aux.size() == 1 && current_targets_aux.contains("undefined") && task_symbol.is_defined())
+    {
+        std::cerr << task_symbol.get_point_of_definition().get_locus() << ": warning: "
+                <<  "function '" << task_symbol.get_name() << "' was defined but task has no device (undefined), function definition will be ignored "
+                << std::endl;
+    }
+
+    current_targets=current_targets_aux.not_find("undefined");
+
     for (ObjectList<std::string>::iterator it = current_targets.begin();
             it != current_targets.end();
             it++)
@@ -173,6 +185,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             = function_task_info.get_devices_with_implementation();
 
         total_devices += implementation_list.size();
+        int impl_num = 0;
 
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
@@ -188,13 +201,50 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             Source replaced_call;
             ReplaceSrcIdExpression replace_call(ctr.get_scope_link());
-            replace_call.add_replacement(task_symbol, it->second.get_qualified_name());
+
+            // Count parameters of implements function and task declaration:
+            // if they have different number, implements function is probably a kernel (ocl or cuda)
+            // Doing this replacement is not needed for kernels, since we do not use the call-code
+            // generated here (we use a code generated in the device provider instead), but parsing
+            // the replaced code (calling a function with wrong parameters) can cause errors in
+            // Mercurium (specially in C++)
+            // If this causes problems with other devices, uncomment if/else so it only applies to cuda and ocl
+            // if (device_provider->get_name() == "cuda" || device_provider->get_name() == "opencl")
+            // {
+            Symbol function_sym = it->second;
+            Declaration implements_decl(function_sym.get_point_of_declaration(), ctr.get_scope_link());
+            Declaration task_decl(task_symbol.get_point_of_declaration(), ctr.get_scope_link());
+
+            //Get parameter lists of task and implements function
+            ObjectList<ParameterDeclaration> funct_decl_par = implements_decl.get_declared_entities().at(0).get_parameter_declarations();
+            ObjectList<ParameterDeclaration> task_decl_par = task_decl.get_declared_entities().at(0).get_parameter_declarations();
+
+            // If arguments are the same number and type, we can replace, otherwise, no need to
+            bool do_replace = (funct_decl_par.size() == task_decl_par.size());
+
+            unsigned int i;
+            for (i = 0; do_replace && i < funct_decl_par.size(); i++)
+            {
+                if (funct_decl_par.at(i).get_type() != task_decl_par.at(i).get_type())
+                {
+                    do_replace=false;
+                }
+            }
+
+            if (do_replace)
+            {
+                replace_call.add_replacement(task_symbol, it->second.get_qualified_name());
+            }
+            // } else {
+            //     replace_call.add_replacement(task_symbol, it->second.get_qualified_name());
+            // }
+
             replaced_call << replace_call.replace(ctr.get_statement());
 
             AST_t new_code = replaced_call.parse_statement(ctr.get_ast(), ctr.get_scope_link());
 
             std::stringstream ss;
-            ss << "_ol_" << it->second.get_name() << "_" << outline_num;
+            ss << "_ol_" << it->second.get_name() << "_" << outline_num << "_" << impl_num;
             std::string implemented_outline_name = fix_outline_name(ss.str());
 
             Source initial_setup, replaced_body;
@@ -223,9 +273,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     implemented_outline_flags,
                     ctr.get_statement().get_ast(),
                     ctr.get_scope_link(),
-                    ancillary_device_description, 
+                    ancillary_device_description,
                     device_description_line);
+            impl_num++;
         }
+    }
+
+    //Since undefined is not treated as a device, if we have no devices, this task is wrong
+    if (total_devices == 0)
+    {
+        running_error("%s: error: "
+                "task '%s' was declared with undefined"
+                "device and has no implementations", task_symbol.get_point_of_declaration().get_locus().c_str(), task_symbol.get_name().c_str());
     }
 
     num_devices << total_devices;

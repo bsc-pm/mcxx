@@ -438,7 +438,7 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 << "_events[0].type = NANOS_POINT;"
                 ;
 
-            if (interface_is_at_least("master", 5017))
+            if (Nanos::Version::interface_is_at_least("master", 5017))
             {
                 src
                     << "_events[0].keys = &nanos_instr_name_key;"
