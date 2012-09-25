@@ -106,24 +106,18 @@ namespace TL { namespace Nanox {
     class DeviceProvider : public TL::CompilerPhase
     {
          protected:
-    //         bool instrumentation_enabled();
+             bool instrumentation_enabled();
 
     //         bool do_not_create_translation_function();
 
     //         bool create_translation_function();
 
              const std::string _device_name;
-    //     private:
-    //         bool _enable_instrumentation;
-    //         std::string _enable_instrumentation_str;
-    //         void set_instrumentation(const std::string& str)
-    //         {
-    //             _enable_instrumentation = false;
-    //             parse_boolean_option(/* Parameter name */ "instrument", 
-    //                     /* Given value */ str, 
-    //                     /* Computed bool */ _enable_instrumentation, 
-    //                     /* Error message */  "Instrumentation disabled");
-    //         }
+         private:
+             bool _enable_instrumentation;
+             std::string _enable_instrumentation_str;
+
+             void set_instrumentation(const std::string& str);
 
     //         bool _do_not_create_translation_fun;
     //         std::string _do_not_create_translation_str;
@@ -134,7 +128,7 @@ namespace TL { namespace Nanox {
     //                     str, _do_not_create_translation_fun, "Assuming false.");
     //         }
 
-    //         void common_constructor_code();
+             void common_constructor_code();
 
          public:
              //! Constructor of a DeviceProvider
