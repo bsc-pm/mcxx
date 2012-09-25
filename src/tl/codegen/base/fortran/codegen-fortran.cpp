@@ -3687,7 +3687,9 @@ OPERATOR_TABLE
         indent();
         file << "IMPLICIT NONE\n";
 
-        // Now emit additional access-statements that might be needed for these
+        std::set<std::string> private_names;
+
+        // Now remember additional access-statements that might be needed for these
         // USEd symbols
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -3697,16 +3699,13 @@ OPERATOR_TABLE
             if (sym.is_from_module()
                     && sym.get_access_specifier() == AS_PRIVATE)
             {
-                // If sym has a private access specifier, state so
-                indent();
-                file << "PRIVATE :: ";
                 if (sym.is_generic_specifier())
                 {
-                    file << get_generic_specifier_str(sym.get_name()) << "\n";
+                    private_names.insert(get_generic_specifier_str(sym.get_name()));
                 }
                 else
                 {
-                    file << sym.get_name() << "\n";
+                    private_names.insert(sym.get_name());
                 }
             }
         }
@@ -3719,6 +3718,8 @@ OPERATOR_TABLE
 
         push_declaring_entity(entry);
 
+        // Now remember additional access-statements that might be needed for
+        // symbols in this module
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
@@ -3736,9 +3737,24 @@ OPERATOR_TABLE
             if (sym.get_access_specifier() == AS_PRIVATE)
             {
                 // If it has a private access specifier, state so
-                indent();
-                file << "PRIVATE :: " << sym.get_name() << "\n";
+                private_names.insert(sym.get_name());
             }
+        }
+
+        if (!private_names.empty())
+        {
+            indent();
+            file << "PRIVATE :: ";
+            for (std::set<std::string>::iterator it = private_names.begin();
+                    it != private_names.end();
+                    it++)
+            {
+                if (it != private_names.begin())
+                    file << ", ";
+
+                file << *it;
+            }
+            file << std::endl;
         }
 
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
