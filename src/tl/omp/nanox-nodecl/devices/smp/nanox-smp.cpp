@@ -822,17 +822,17 @@ namespace TL { namespace Nanox {
         const std::string& outline_name = info._outline_name;
         OutlineInfo& outline_info = info._outline_info;
         Nodecl::NodeclBase& original_statements = info._original_statements;
-        TL::Symbol& structure_symbol = info._structure_symbol;
+        TL::Symbol& arguments_struct = info._arguments_struct;
 
         TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                running_error("%s: error: nested functions are not supported\n", 
+                running_error("%s: error: nested functions are not supported\n",
                         original_statements.get_locus().c_str());
             if (IS_FORTRAN_LANGUAGE)
-                running_error("%s: error: internal subprograms are not supported\n", 
+                running_error("%s: error: internal subprograms are not supported\n",
                         original_statements.get_locus().c_str());
         }
 
@@ -999,7 +999,7 @@ namespace TL { namespace Nanox {
         structure_name.append("args");
         ObjectList<TL::Type> structure_type;
         structure_type.append(
-                TL::Type(get_user_defined_type( structure_symbol.get_internal_symbol())).get_lvalue_reference_to() 
+                TL::Type(get_user_defined_type( arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
                 );
 
         TL::Symbol outline_function = new_function_symbol(

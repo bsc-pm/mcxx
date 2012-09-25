@@ -89,15 +89,14 @@ namespace TL { namespace Nanox {
         const std::string& _outline_name;
         OutlineInfo& _outline_info;
         Nodecl::NodeclBase& _original_statements;
-        TL::Symbol& _structure_symbol;
+        TL::Symbol& _arguments_struct;
 
-        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& structure_symbol)
-            : _outline_name(outline_name), _outline_info(outline_info), _original_statements(statements), _structure_symbol(structure_symbol)
+        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct)
+            : _outline_name(outline_name),
+              _outline_info(outline_info),
+              _original_statements(statements),
+              _arguments_struct(args_struct)
         {
-            //_outline_name = outline_name;
-            //_outline_info = outline_info;
-            //_original_statements = statements;
-            //_structure_symbol = structure_symbol;
         }
     };
 
