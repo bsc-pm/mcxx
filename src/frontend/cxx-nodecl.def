@@ -434,7 +434,7 @@ for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [rang
 for-range : NODECL_OPEN_M_P*FOR_RANGE([lower]expression, [upper]expression, [step]expression) symbol
 
 # atomic
-atomic-construct : NODECL_OPEN_M_P*ATOMIC([name]name-opt, [statements]statement-seq)
+atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]exec-environment-seq-opt, [statements]statement-seq)
 
 # sections
 sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [sections]section-construct-seq)
