@@ -297,30 +297,63 @@ void DeviceSMP_NUMA::create_outline(
             << "}"
             << "nanos_event_t events_before[2];"
             << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-            << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
             << "events_before[1].type = NANOS_BURST_START;"
-            << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-            << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+            ;
+
+        if (interface_is_at_least("master", 5017))
+        {
+            instrument_before
+                << "events_before[0].key = nanos_instr_uf_name_key;"
+                << "events_before[0].value = nanos_instr_uf_name_value;"
+                << "events_before[1].key = nanos_instr_uf_location_key;"
+                << "events_before[1].value = nanos_instr_uf_location_value;"
+                ;
+        }
+        else
+        {
+            instrument_before
+                << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+                << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+                << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+                << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+                ;
+        }
+
+        instrument_before
             << "nanos_instrument_events(2, events_before);"
-            // << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
-            // << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
             ;
 
         instrument_after
             << "nanos_event_t events_after[2];"
             << "events_after[0].type = NANOS_BURST_END;"
-            << "events_after[0].info.burst.key = nanos_instr_uf_name_key;"
-            << "events_after[0].info.burst.value = nanos_instr_uf_name_value;"
             << "events_after[1].type = NANOS_BURST_END;"
-            << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
-            << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
-            << "nanos_instrument_events(2, events_after);"
-//            << "nanos_instrument_leave_burst(nanos_instr_uf_name_key);"
             ;
 
-         if (outline_flags.task_symbol != NULL)
-         {
+        if (interface_is_at_least("master", 5017))
+        {
+            instrument_after
+                << "events_after[0].key = nanos_instr_uf_name_key;"
+                << "events_after[0].value = nanos_instr_uf_name_value;"
+                << "events_after[1].key = nanos_instr_uf_location_key;"
+                << "events_after[1].value = nanos_instr_uf_location_value;"
+                ;
+        }
+        else
+        {
+            instrument_after
+                << "events_after[0].info.burst.key = nanos_instr_uf_name_key;"
+                << "events_after[0].info.burst.value = nanos_instr_uf_name_value;"
+                << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
+                << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
+                ;
+        }
+
+        instrument_after
+            << "nanos_instrument_events(2, events_after);"
+            ;
+
+        if (outline_flags.task_symbol != NULL)
+        {
             uf_name_id
                 << "\"" << outline_flags.task_symbol.get_name() << "\""
                 ;
@@ -335,9 +368,9 @@ void DeviceSMP_NUMA::create_outline(
                 << "\"'" << function_symbol.get_qualified_name() << "'"
                 << " invoked at '" << reference_tree.get_locus() << "'\""
                 ;
-         }
-         else
-         {
+        }
+        else
+        {
             uf_name_id
                 << uf_location_id
                 ;

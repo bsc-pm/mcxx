@@ -640,7 +640,7 @@ void DeviceGPU::create_outline(
             << "{"
             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
             <<               uf_name_id << "," << uf_name_descr << ", 0);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
 
@@ -653,14 +653,30 @@ void DeviceGPU::create_outline(
             << "}"
             << "nanos_event_t events_before[2];"
             << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-            << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
             << "events_before[1].type = NANOS_BURST_START;"
-            << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-            << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+            ;
+
+        if (interface_is_at_least("master", 5017))
+        {
+            instrument_before
+                << "events_before[0].key = nanos_instr_uf_name_key;"
+                << "events_before[0].value = nanos_instr_uf_name_value;"
+                << "events_before[1].key = nanos_instr_uf_location_key;"
+                << "events_before[1].value = nanos_instr_uf_location_value;"
+                ;
+        }
+        else
+        {
+            instrument_before
+                << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+                << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+                << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+                << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+                ;
+        }
+
+        instrument_before
             << "nanos_instrument_events(2, events_before);"
-            // << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
-            // << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
             ;
 
         instrument_after

@@ -436,9 +436,24 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 << "}"
                 << "nanos_event_t _events[1];"
                 << "_events[0].type = NANOS_POINT;"
-                << "_events[0].info.point.nkvs = 1;"
-                << "_events[0].info.point.keys = &nanos_instr_name_key;"
-                << "_events[0].info.point.values = &nanos_instr_name_value;"
+                ;
+
+            if (interface_is_at_least("master", 5017))
+            {
+                src
+                    << "_events[0].keys = &nanos_instr_name_key;"
+                    << "_events[0].values = &nanos_instr_name_value;"
+                    ;
+            }
+            else
+            {
+                src
+                    << "_events[0].info.point.nkvs = 1;"
+                    << "_events[0].info.point.keys = &nanos_instr_name_key;"
+                    << "_events[0].info.point.values = &nanos_instr_name_value;"
+                    ;
+            }
+            src
                 << "nanos_instrument_events(1, _events);"
                 << "}"
                 ;
