@@ -1065,7 +1065,6 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                     list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
                 }
 
-                // FIXME - Where to get the type???
                 type_t* t = v->value.m->struct_type;
 
                 nodecl_t result = nodecl_make_structured_value(
