@@ -270,7 +270,7 @@ namespace Analysis {
                                  Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null( ) );
 
         //! Builds a Flush node and connects it with the existent graph
-        void create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
+        Node* create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
 
         //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
         /*!

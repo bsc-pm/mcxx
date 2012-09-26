@@ -463,7 +463,7 @@ namespace Analysis {
         return flush_node_1;
     }
 
-    void ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )
+    Node* ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )
     {
         Node* flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
 
@@ -484,6 +484,8 @@ namespace Analysis {
 
         connect_nodes( _utils->_last_nodes, flush_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, flush_node );
+
+        return flush_node;
     }
 
     Node* ExtensibleGraph::create_unconnected_node( Nodecl::NodeclBase nodecl )
