@@ -701,7 +701,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     Source reduction_join_arr_decls;
     if (!reduction_symbols.empty())
         reduction_join_arr_decls 
-        << "int _nth_team = omp_get_num_threads();"
+        << "int _nth_team = nanos_omp_get_num_threads();"
         ;
 
 
@@ -1021,7 +1021,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         // Make the reduction in the master
         Source omp_reduction_join_master;
         omp_reduction_join_master
-            << "if (omp_get_thread_num() == 0)"
+            << "if (nanos_omp_get_thread_num() == 0)"
             << "{"
             << omp_reduction_join
             << "}"

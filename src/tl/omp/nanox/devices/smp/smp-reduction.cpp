@@ -123,7 +123,7 @@ Source DeviceSMP::get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduc
     }
     
     reduction_update 
-            <<    "int nanos_thread_id = omp_get_thread_num();"
+            <<    "int nanos_thread_id = nanos_omp_get_thread_num();"
             ;
     
     for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
@@ -196,7 +196,7 @@ Source DeviceSMP::get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reducti
     reduction_code
             << comment("Reduction code performed after the join")
             << "int rdv_i;"
-            << "for (rdv_i = 0; rdv_i < omp_get_num_threads(); rdv_i++)"
+            << "for (rdv_i = 0; rdv_i < nanos_omp_get_num_threads(); rdv_i++)"
             << "{"
             <<    reduction_gathering
             << "}"

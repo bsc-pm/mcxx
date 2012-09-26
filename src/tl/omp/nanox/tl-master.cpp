@@ -36,7 +36,7 @@ void OMPTransform::master_postorder(PragmaCustomConstruct master_construct)
     Source new_code;
 
     new_code
-        << "if (omp_get_thread_num() == 0)"
+        << "if (nanos_omp_get_thread_num() == 0)"
         << master_construct.get_statement()
         ;
 
