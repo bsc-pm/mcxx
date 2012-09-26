@@ -36,11 +36,27 @@ namespace Analysis {
     // ************************ Analysis Memento class ************************ //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _constants( false ), _canonical( false ), _use_def( false ), _liveness( ),
+        : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( ),
           _loops( false ), _reaching_defs( false ), _auto_scoping( false ), _auto_deps( false )
     {}
 
-    bool PCFGAnalysis_memento::is_constants_computed( )
+    ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
+    {
+        ExtensibleGraph* pcfg = NULL;
+        Name_to_pcfg_map::iterator pcfgs_it = _pcfgs.find( name );
+
+        if( pcfgs_it != _pcfgs.end( ) )
+            pcfg = _pcfgs[name];
+
+        return pcfg;
+    }
+
+    void PCFGAnalysis_memento::set_pcfg( std::string name, ExtensibleGraph* pcfg )
+    {
+        _pcfgs[name] = pcfg;
+    }
+
+    bool PCFGAnalysis_memento::is_constants_computed( ) const
     {
         return _constants;
     }
@@ -50,7 +66,7 @@ namespace Analysis {
         _constants = true;
     }
 
-    bool PCFGAnalysis_memento::is_canonical_computed( )
+    bool PCFGAnalysis_memento::is_canonical_computed( ) const
     {
         return _canonical;
     }
@@ -60,7 +76,7 @@ namespace Analysis {
         _canonical = true;
     }
 
-    bool PCFGAnalysis_memento::is_usage_computed( )
+    bool PCFGAnalysis_memento::is_usage_computed( ) const
     {
         return _use_def;
     }
@@ -70,7 +86,7 @@ namespace Analysis {
         _use_def = true;
     }
 
-    bool PCFGAnalysis_memento::is_liveness_computed( )
+    bool PCFGAnalysis_memento::is_liveness_computed( ) const
     {
         return _liveness;
     }
@@ -80,7 +96,7 @@ namespace Analysis {
         _liveness = true;
     }
 
-    bool PCFGAnalysis_memento::is_loops_computed( )
+    bool PCFGAnalysis_memento::is_loops_computed( ) const
     {
         return _loops;
     }
@@ -90,7 +106,7 @@ namespace Analysis {
         _loops = true;
     }
 
-    bool PCFGAnalysis_memento::is_reaching_defs_computed( )
+    bool PCFGAnalysis_memento::is_reaching_defs_computed( ) const
     {
         return _reaching_defs;
     }
@@ -100,7 +116,7 @@ namespace Analysis {
         _reaching_defs = true;
     }
 
-    bool PCFGAnalysis_memento::is_auto_scoping_computed( )
+    bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
     {
         return _auto_scoping;
     }
@@ -110,7 +126,7 @@ namespace Analysis {
         _auto_scoping = true;
     }
 
-    bool PCFGAnalysis_memento::is_auto_deps_computed( )
+    bool PCFGAnalysis_memento::is_auto_deps_computed( ) const
     {
         return _auto_deps;
     }
@@ -118,6 +134,36 @@ namespace Analysis {
     void PCFGAnalysis_memento::set_auto_deps_computed( )
     {
         _auto_deps = true;
+    }
+
+    // TODO
+    bool is_constant( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
+    {
+        bool result = false;
+
+        return result;
+    }
+
+    // TODO
+    ObjectList<Utils::ExtendedSymbol> get_induction_variables( Nodecl::NodeclBase loop )
+    {
+        return ObjectList<Utils::ExtendedSymbol>( );
+    }
+
+    // TODO
+    bool is_induction_variable( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
+    {
+        bool result = false;
+
+        return result;
+    }
+
+    // TODO
+    bool is_stride_one( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
+    {
+        bool result = false;
+
+        return result;
     }
 
     void PCFGAnalysis_memento::reset_state( )
@@ -142,7 +188,6 @@ namespace Analysis {
 
     // Private constructor
     AnalysisSingleton::AnalysisSingleton( )
-        : _pcfgs( ), _states( )
     {}
 
     // Single instance constructor
@@ -152,7 +197,8 @@ namespace Analysis {
         return analysis;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( Nodecl::NodeclBase ast, bool dress_up )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( PCFGAnalysis_memento& memento,
+                                                                                 Nodecl::NodeclBase ast, bool dress_up )
     {
         // Get all functions in \ast
         Utils::TopLevelVisitor tlv;
@@ -166,24 +212,34 @@ namespace Analysis {
             // Generate the hashed name corresponding to the AST of the function
             std::string pcfg_name = Utils::generate_hashed_name( *it );
 
-            if( VERBOSE )
-                std::cerr << "Generating PCFG '" << pcfg_name << "'" << std::endl;
-
             // Create the PCFG only if it has not been created previously
-            if( _pcfgs.find( pcfg_name ) == _pcfgs.end( ) )
+            if( memento.get_pcfg( pcfg_name ) == NULL )
             {
+                if( VERBOSE )
+                    std::cerr << "Generating PCFG '" << pcfg_name << "'" << std::endl;
+
                 // Create the PCFG
                 PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, dress_up );
 
                 // Store the pcfg in the singleton
-                _pcfgs[pcfg_name] = pcfg;
-                _states[pcfg_name] = new PCFGAnalysis_memento( );
+                memento.set_pcfg( pcfg_name, pcfg );
                 result.append( pcfg );
+            }
+            else
+            {
+                WARNING_MESSAGE( "PCFG '%s' already created.\n", pcfg_name.c_str( ) );
             }
         }
 
         return result;
+    }
+
+    void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
+                                                              ExtensibleGraph* pcfg, bool ipa )
+    {
+        //         ConditionalConstantAnalysis ca( ipa );
+        //         ca.conditional_constant_propagation( pcfg );
     }
 
     void AnalysisSingleton::conditional_constant_propagation( )
@@ -191,47 +247,32 @@ namespace Analysis {
 //         ConstantsAnalysisPhase::run( );
     }
 
-    void AnalysisSingleton::conditional_constant_propagation( ExtensibleGraph* pcfg, bool ipa )
-    {
-        ConditionalConstantAnalysis ca( ipa );
-        ca.conditional_constant_propagation( pcfg );
-    }
-
-    void AnalysisSingleton::expression_canonicalization( Nodecl::NodeclBase ast )
+    void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
 
     }
 
-    void AnalysisSingleton::use_def( Nodecl::NodeclBase ast )
+    void AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
 
     }
 
-    void AnalysisSingleton::liveness( Nodecl::NodeclBase ast )
+    void AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
 
     }
 
-    void AnalysisSingleton::induction_variables( Nodecl::NodeclBase ast )
+    void AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
 
     }
 
-    ObjectList<ExtensibleGraph*> get_ipa_pcfgs( )
+    void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
-
-    }
-
-    ObjectList<ExtensibleGraph*> get_non_ipa_pcfgs( )
-    {
-
-    }
-
-    void AnalysisSingleton::print_pcfg( ExtensibleGraph* graph )
-    {
-        PCFGAnalysis_memento* current_state = _states[graph->get_name( )];
-        graph->print_graph_to_dot( current_state->_use_def, current_state->_liveness, current_state->_reaching_defs,
-                                   current_state->_auto_scoping, current_state->_auto_deps );
+        ExtensibleGraph* pcfg = memento.get_pcfg( pcfg_name );
+        pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
+                                  memento.is_reaching_defs_computed( ),
+                                  memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
     }
 }
 }

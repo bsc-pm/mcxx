@@ -41,14 +41,15 @@ namespace Analysis {
         void TestAnalysisPhase::run( TL::DTO& dto )
         {
             AnalysisSingleton& analysis = AnalysisSingleton::get_analysis( );
+            PCFGAnalysis_memento memento;
 
-            RefPtr<Nodecl::NodeclBase> ref_ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( dto["nodecl"] );
-            Nodecl::NodeclBase ast = *ref_ast;
+            Nodecl::NodeclBase ast = dto["nodecl"];
 
             // Test PCFG creation
             if ( VERBOSE )
                 std::cerr << "Testing PCFG creation" << std::endl;
-            ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast, /* dress up PCFGs */ true );
+            ObjectList<ExtensibleGraph*> pcfgs =
+                    analysis.parallel_control_flow_graph( memento, ast, /* dress up PCFGs */ true );
 
             if ( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
@@ -56,7 +57,7 @@ namespace Analysis {
                     std::cerr << "Printing PCFG to dot file" << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
-                    analysis.print_pcfg( *it );
+                    analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
             }
 

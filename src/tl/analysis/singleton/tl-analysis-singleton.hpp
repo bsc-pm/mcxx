@@ -31,6 +31,7 @@
 
 #include "tl-constants-analysis-phase.hpp"
 #include "tl-compilerphase.hpp"
+#include "tl-extended-symbol.cpp"
 #include "tl-extensible-graph.hpp"
 
 // Set of classes implementing the Memento Pattern with Analysis purposes.
@@ -41,15 +42,20 @@
 //                          | set_state |        |  get_memento |
 //                          -------------        ----------------
 // - PCFGAnalysis_memento is the Memento class
-// - AnalysisSingleton is a Singleton class implementing the Originator
-// - Each client will be the Care Taker
+// - Each Client will be an Originator of a Memento class
+// - AnalysisSingleton is the Care Taker
 
 namespace TL {
 namespace Analysis {
 
+    typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
+
     //! Memento class capturing the internal state of the PCFG regarding the analysis
     class PCFGAnalysis_memento {
     private:
+
+        Name_to_pcfg_map _pcfgs;
+
         bool _constants;      //!<True when constant propagation and constant folding have been applied
         bool _canonical;      //!<True when expressions canonicalization has been applied
         bool _use_def;        //!<True when use-definition chains have been calculated
@@ -63,32 +69,51 @@ namespace Analysis {
         //! Class constructor
         PCFGAnalysis_memento( );
 
-        // Getters and Setters
-        bool is_constants_computed( );
+        // ******************************************************* //
+        // ***************** Getters and Setters ***************** //
+
+        ExtensibleGraph* get_pcfg( std::string name );
+        void set_pcfg( std::string name, ExtensibleGraph* pcfg );
+
+        bool is_constants_computed( ) const;
         void set_constants_computed( );
-        bool is_canonical_computed( );
+        bool is_canonical_computed( ) const;
         void set_canonical_computed( );
-        bool is_usage_computed( );
+        bool is_usage_computed( ) const;
         void set_usage_computed( );
-        bool is_liveness_computed( );
+        bool is_liveness_computed( ) const;
         void set_liveness_computed( );
-        bool is_loops_computed( );
+        bool is_loops_computed( ) const;
         void set_loops_computed( );
-        bool is_reaching_defs_computed( );
+        bool is_reaching_defs_computed( ) const;
         void set_reaching_defs_computed( );
-        bool is_auto_scoping_computed( );
+        bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
-        bool is_auto_deps_computed( );
+        bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
+
+        // *************** END Getters and Setters *************** //
+        // ******************************************************* //
+
+        // ******************************************************* //
+        // ***************** Loop analysis info ****************** //
+
+        bool is_constant( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
+
+        ObjectList<Utils::ExtendedSymbol> get_induction_variables( Nodecl::NodeclBase loop );
+
+        bool is_induction_variable( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
+
+        bool is_stride_one( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
+
+        // *************** END loop analysis info **************** //
+        // ******************************************************* //
 
         //! Resets the state of the memento
         void reset_state( );
 
     friend class AnalysisSingleton;
     };
-
-    typedef std::map<std::string, PCFGAnalysis_memento*> Name_to_state_map;
-    typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
 
     //! This class implements a Meyers Singleton that includes methods for any kind of analysis
     class LIBTL_CLASS AnalysisSingleton
@@ -99,9 +124,6 @@ namespace Analysis {
         // *************************** Private attributes *************************** //
 
         static AnalysisSingleton* _analysis;
-
-        Name_to_pcfg_map _pcfgs;
-        Name_to_state_map _states;
 
         // ************************* End private attributes ************************* //
         // ************************************************************************** //
@@ -142,11 +164,14 @@ namespace Analysis {
         // ************************************************************************** //
         // **************************** Analysis methods **************************** //
 
+        // ****************** FLOW ANALYSIS ****************** //
+
         /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
          * \param ast Tree containing the code to construct the PCFG(s)
          * \return A pointer to the created PCFG
          */
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( Nodecl::NodeclBase ast, bool dress_up );
+        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
+                                                                  Nodecl::NodeclBase ast, bool dress_up );
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -155,34 +180,30 @@ namespace Analysis {
          * @param ipa Boolan indicating whether this analysis is Inter-procedural or not
          *            It is 'false' by default. Value 'true' is allowed only in case the ast contains a C/C++ main function.
          */
-        void conditional_constant_propagation( ExtensibleGraph* pcfg, bool ipa = false );
+        void conditional_constant_propagation( PCFGAnalysis_memento& memento, ExtensibleGraph* pcfg, bool ipa = false );
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
         void conditional_constant_propagation( );
 
-        void expression_canonicalization( Nodecl::NodeclBase ast );
+        void expression_canonicalization( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-        void use_def( Nodecl::NodeclBase ast );
+        void use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-        void liveness( Nodecl::NodeclBase ast );
-
-        void induction_variables( Nodecl::NodeclBase ast );
-
-        void print_pcfg( ExtensibleGraph* graph );
-
-        // ************************** End analysis methods ************************** //
-        // ************************************************************************** //
+        void liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
 
 
-        // ************************************************************************** //
-        // *************************** Getters and setters ************************** //
+        // ****************** LOOP ANALYSIS ****************** //
 
-        ObjectList<ExtensibleGraph*> get_inlined_pcfgs( );
+        void induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-        ObjectList<ExtensibleGraph*> get_non_inlined_pcfgs( );
 
-        // ************************* End getters and setters ************************ //
+
+        // ********************** UTILS ********************** //
+
+        void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
+
+        // ************************** END analysis methods ************************** //
         // ************************************************************************** //
     };
 
