@@ -3601,6 +3601,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     type_t* class_type = NULL;
     /* --- */
 
+    C_LANGUAGE()
+    {
+        // In C flatten nested structures otherwise it becomes crazy (because
+        // of C irregularities in this point) to handle them
+        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        {
+            decl_context = decl_context.current_scope->related_entry->decl_context;
+        }
+    }
+
     enter_class_specifier();
 
     AST class_head = ASTSon0(a);
