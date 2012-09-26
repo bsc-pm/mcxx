@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-codegen.h"
 #include "tl-edge.hpp"
 #include "tl-node.hpp"
 
@@ -135,26 +136,25 @@ namespace Analysis {
                 break;
                 case FALSE_EDGE:    label = "FALSE";
                 break;
-                case ALWAYS:        label = "";
+                case ALWAYS:        // No label needed
                 break;
                 case CASE:          {
                                         ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >( _EDGE_LABEL );
-                                        if ( labels[0].is_null( ) )
-                                            label = "default";
-                                        else
+                                        int i = 0;
+                                        while( i < labels.size( ) )
                                         {
-                                            label = labels[0].get_symbol( ).get_name( );
-                                            int i = 1;
-                                            while( i < labels.size( ) )
+                                            if( labels[i].is_null( ) )
+                                                label += ", default";
+                                            else
                                             {
-                                                if( labels[i].is_null( ) )
-                                                    label += ", default";
-                                                else
-                                                    label += ", " + labels[i].get_symbol( ).get_name( );
-
-                                                ++i;
+                                                nodecl_t internal_n = labels[i].get_internal_nodecl( );
+                                                label += ", " + std::string( codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
                                             }
+
+
+                                            ++i;
                                         }
+                                        label = label.substr( 2, label.size() ); // Delete the two first characters: ' ' and ','
                                         break;
                                     }
                 case CATCH:         {
@@ -166,16 +166,55 @@ namespace Analysis {
                                         break;
                                     }
                 case GOTO_EDGE:     label = get_data<std::string>( _EDGE_LABEL );
-                break;
-                default: std::cerr << " ** Edge.cpp :: get_label() ** "
-                                   << "warning: Unexpected type '" << etype << "' while getting "
-                                   << "the Edge label" << std::endl;
+                                    break;
+                default:            std::cerr << " ** Edge.cpp :: get_label() ** "
+                                              << "warning: Unexpected type '" << etype << "' while getting "
+                                              << "the Edge label" << std::endl;
             };
         }
 
         return label;
     }
 
+    void Edge::set_label( std::string label )
+    {
+        set_data( _EDGE_LABEL, label );
+    }
+
+    void Edge::set_true_edge( )
+    {
+        set_data( _EDGE_TYPE, TRUE_EDGE );
+    }
+
+    bool Edge::is_always_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == ALWAYS );
+    }
+
+    bool Edge::is_case_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == CASE );
+    }
+
+    bool Edge::is_catch_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == CATCH );
+    }
+
+    bool Edge::is_false_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == FALSE_EDGE );
+    }
+
+    bool Edge::is_goto_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == GOTO_EDGE );
+    }
+
+    bool Edge::is_true_edge( )
+    {
+        return ( get_data<Edge_type>(_EDGE_TYPE) == TRUE_EDGE );
+    }
 
 
     // ****************************************************************************** //

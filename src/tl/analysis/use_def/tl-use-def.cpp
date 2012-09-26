@@ -209,7 +209,7 @@ namespace Analysis {
 //             {
 //                 outer_node->set_visited( true );
 //
-//                 Node* entry_node = get_data<Node*>(_ENTRY_NODE);
+//                 Node* entry_node = get_graph_entry_node( );
 //
 //                 ObjectList<Utils::ext_sym_set> use_def = get_use_def_over_nodes( entry_node );
 //                 outer_node->set_ue_var( use_def[0] );

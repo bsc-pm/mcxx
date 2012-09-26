@@ -92,7 +92,7 @@ namespace Analysis {
         * \param subscripted Pointer to the node containing the subscripted part
         * \param subscript Pointer to the node containing the actual subscript
         */
-        Node* merge_nodes(Node* subscripted, Node* subscript);
+//         Node* merge_nodes(Node* subscripted, Node* subscript);
 
 
 
@@ -321,6 +321,8 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
         Ret visit( const Nodecl::OpenMP::Firstprivate& n );
+        Ret visit( const Nodecl::OpenMP::FlushAtEntry& n );
+        Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::ForRange& n );

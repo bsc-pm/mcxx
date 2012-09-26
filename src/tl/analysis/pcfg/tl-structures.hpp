@@ -241,31 +241,37 @@ namespace Analysis {
     * Set of symbols with shared auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _SHARED         "shared"
+    #define _SC_SHARED                      "sc_shared"
 
     /*! \def _PRIVATE
     * Set of symbols with private auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _PRIVATE        "private"
+    #define _SC_PRIVATE                     "sc_private"
 
     /*! \def _FIRSTPRIVATE
     * Set of symbols with lastprivate auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _FIRSTPRIVATE    "firstprivate"
+    #define _SC_FIRSTPRIVATE                "sc_firstprivate"
+
+    /*! \def _SHARED_OR_FIRSTPRIVATE
+     * Set of symbols with lastprivate auto-scoping in a task
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+     */
+    #define _SC_SHARED_OR_FIRSTPRIVATE      "sc_shared_or_firstprivate"
 
     /*! \def _UNDEF_SC
     * Set of symbols with non-computable auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _UNDEF_SC       "undef_scope"
+    #define _SC_UNDEF                       "sc_undef_scope"
 
     /*! \def _RACE
     * Set of symbols in a race situation in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _RACE           "race"
+    #define _SC_RACE                        "sc_race"
 
     // **************************************** End auto-scoping *************************************** //
     // ************************************************************************************************* //
@@ -274,29 +280,47 @@ namespace Analysis {
     // ************************************************************************************************* //
     // *************************************** Auto-dependencies *************************************** //
 
+    /*! \def _DEPS_SHARED
+     * Set of symbols classified as PRIVATE during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_PRIVATE       "deps_private"
+
+    /*! \def _DEPS_FIRSTPRIVATE
+     * Set of symbols classified as FIRSTPRIVATE during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_FIRSTPRIVATE  "deps_firstprivate"
+
+    /*! \def _DEPS_SHARED
+     * Set of symbols classified as SHARED during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_SHARED        "deps_shared"
+
     /*! \def _IN_DEPS
     * Set of symbols with input dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _IN_DEPS        "input_deps"
+    #define _DEPS_IN            "deps_input"
 
     /*! \def _OUT_DEPS
     * Set of symbols with output dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _OUT_DEPS       "output_deps"
+    #define _DEPS_OUT           "deps_output"
 
     /*! \def _INOUT_DEPS
     * Set of symbols with inout dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _INOUT_DEPS     "inout_deps"
+    #define _DEPS_INOUT         "deps_inout"
 
     /*! \def _UNDEF_DEPS
         * Set of symbols with which we are unable to compute the proper dependencies in a task
-        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
         */
-    #define _UNDEF_DEPS     "undef_deps"
+    #define _DEPS_UNDEF         "deps_undef"
 
     // ************************************* End auto-dependencies ************************************* //
     // ************************************************************************************************* //
@@ -307,13 +331,13 @@ namespace Analysis {
     * Map containing the induction variables associated with a Loop Node
     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
     */
-    #define _INDUCTION_VARS "induction_vars"
+    #define _INDUCTION_VARS     "induction_vars"
 
     /*! \def _REACH_DEFS
     * Map containing the reaching definitions in a given point
     * Available in all nodes (Mandatory once the Liveness analysis is performed).
     */
-    #define _REACH_DEFS      "reaching_defs"
+    #define _REACH_DEFS         "reaching_defs"
 
     /*! \def _AUX_REACH_DEFS
     * Map containing the propagated reaching definitions in a given point
@@ -323,26 +347,26 @@ namespace Analysis {
     * an this is deleted
     * Available in all nodes (Mandatory once the Liveness analysis is performed).
     */
-    #define _AUX_REACH_DEFS      "aux_reaching_defs"
+    #define _AUX_REACH_DEFS     "aux_reaching_defs"
 
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat
     */
-    #define _CLAUSES        "clauses"
+    #define _CLAUSES            "clauses"
 
     /*! \def _ARGS
     * Empty clause associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task'.
     */
-    #define _ARGS           "args"
+    #define _ARGS               "args"
 
     //! Definitions of the different edge attributes
     /*! \def _EDGE_TYPE
     * Type of the edge. This will be a value of the enumeration Edge_type.
     * Mandatory in all edges.
     */
-    #define _EDGE_TYPE      "edge_type"
+    #define _EDGE_TYPE          "edge_type"
 
     /*! \def _EDGE_LABEL
     * String containing the label of an edge.

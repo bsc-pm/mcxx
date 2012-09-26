@@ -50,11 +50,14 @@ namespace Analysis {
                 std::cerr << "Testing PCFG creation" << std::endl;
             ObjectList<ExtensibleGraph*> pcfgs = analysis.parallel_control_flow_graph( ast, /* dress up PCFGs */ true );
 
-            if ( VERBOSE )
-                std::cerr << "Printing PCFG to dot file" << std::endl;
-            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
+            if ( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
-                analysis.print_pcfg( *it );
+                if ( VERBOSE )
+                    std::cerr << "Printing PCFG to dot file" << std::endl;
+                for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
+                {
+                    analysis.print_pcfg( *it );
+                }
             }
 
             // Test constant propagation and constant folding

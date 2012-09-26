@@ -50,27 +50,36 @@ namespace Analysis {
     //! Memento class capturing the internal state of the PCFG regarding the analysis
     class PCFGAnalysis_memento {
     private:
-        bool _constants;    //!True when constant propagation and constant folding have been applied
-        bool _canonical;    //!True when expressions canonicalization has been applied
-        bool _use_def;      //!True when use-definition chains have been calculated
-        bool _liveness;     //!True when liveness analysis has been applied
-        bool _loops;        //!True when loops analysis has been applied
+        bool _constants;      //!<True when constant propagation and constant folding have been applied
+        bool _canonical;      //!<True when expressions canonicalization has been applied
+        bool _use_def;        //!<True when use-definition chains have been calculated
+        bool _liveness;       //!<True when liveness analysis has been applied
+        bool _loops;          //!<True when loops analysis has been applied
+        bool _reaching_defs;  //!<True when reaching definitions has been calculated
+        bool _auto_scoping;   //!<True when tasks auto-scoping has been calculated
+        bool _auto_deps;      //!<True when tasks auto-dependencies has been calculated
 
     public:
         //! Class constructor
         PCFGAnalysis_memento( );
 
         // Getters and Setters
-        bool get_constants( );
-        void set_constants( );
-        bool get_canonical( );
-        void set_canonical( );
-        bool get_use_def( );
-        void set_use_def( );
-        bool get_liveness( );
-        void set_liveness( );
-        bool get_loops( );
-        void set_loops( );
+        bool is_constants_computed( );
+        void set_constants_computed( );
+        bool is_canonical_computed( );
+        void set_canonical_computed( );
+        bool is_usage_computed( );
+        void set_usage_computed( );
+        bool is_liveness_computed( );
+        void set_liveness_computed( );
+        bool is_loops_computed( );
+        void set_loops_computed( );
+        bool is_reaching_defs_computed( );
+        void set_reaching_defs_computed( );
+        bool is_auto_scoping_computed( );
+        void set_auto_scoping_computed( );
+        bool is_auto_deps_computed( );
+        void set_auto_deps_computed( );
 
         //! Resets the state of the memento
         void reset_state( );
@@ -78,8 +87,8 @@ namespace Analysis {
     friend class AnalysisSingleton;
     };
 
-    typedef std::map<std::string, PCFGAnalysis_memento*> Analysis_state_map;
-    typedef std::map<std::string, ExtensibleGraph*> Analysis_pcfg_map;
+    typedef std::map<std::string, PCFGAnalysis_memento*> Name_to_state_map;
+    typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
 
     //! This class implements a Meyers Singleton that includes methods for any kind of analysis
     class LIBTL_CLASS AnalysisSingleton
@@ -91,8 +100,8 @@ namespace Analysis {
 
         static AnalysisSingleton* _analysis;
 
-        Analysis_pcfg_map _pcfgs;
-        Analysis_state_map _states;
+        Name_to_pcfg_map _pcfgs;
+        Name_to_state_map _states;
 
         // ************************* End private attributes ************************* //
         // ************************************************************************** //
