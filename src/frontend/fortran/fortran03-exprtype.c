@@ -1896,7 +1896,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             items[i] = nodecl_get_constant(initialization_expressions[i]);
         }
 
-        const_value_t* value = const_value_make_struct(num_items, items);
+        const_value_t* value = const_value_make_struct(num_items, items, get_user_defined_type(entry));
         nodecl_set_constant(*nodecl_output, value);
     }
 

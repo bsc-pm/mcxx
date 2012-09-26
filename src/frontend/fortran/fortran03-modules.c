@@ -554,7 +554,7 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, raw_oid);";
+        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, raw_oid, struct_type);";
         run_query(handle, create_const_value);
     }
 
@@ -739,8 +739,8 @@ static void prepare_statements(sqlite3* handle)
 
     // Multi const values
     DO_PREPARE_STATEMENT(_insert_multi_const_value_stmt, 
-            "INSERT INTO const_value(oid, kind) "
-            "VALUES($OID, $KIND);");
+            "INSERT INTO const_value(oid, kind, struct_type) "
+            "VALUES($OID, $KIND, $STRUCTTYPE);");
     DO_PREPARE_STATEMENT(_insert_multi_const_value_part_stmt, 
             "INSERT INTO multi_const_value(oid_object, oid_part) "
             "VALUES ($OBJECT, $PART);");
@@ -774,7 +774,7 @@ static void prepare_statements(sqlite3* handle)
             "types, symbols FROM type WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_const_value_stmt,
-            "SELECT c.oid, c.kind, c.raw_oid FROM const_value c "
+            "SELECT c.oid, c.kind, c.raw_oid, c.struct_type FROM const_value c "
             "WHERE c.oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_raw_const_value_stmt,
@@ -2646,10 +2646,13 @@ static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* 
     return result;
 }
 
-static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind)
+static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind, type_t* struct_type)
 {
+    sqlite3_uint64 struct_type_id = insert_type(handle, struct_type);
+
     sqlite3_bind_int64(_insert_multi_const_value_stmt, 1, P2ULL(v));
     sqlite3_bind_int  (_insert_multi_const_value_stmt, 2, kind);
+    sqlite3_bind_int64(_insert_multi_const_value_stmt, 3, struct_type_id);
 
     sqlite3_uint64 result = run_insert_statement(handle, _insert_multi_const_value_stmt);
 
@@ -2689,27 +2692,28 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_complex(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_COMPLEX);
+        return insert_multiple_const_value(handle, value, CKT_COMPLEX, NULL);
     }
     else if (const_value_is_structured(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_STRUCT);
+        type_t* struct_type = const_value_get_struct_type(value);
+        return insert_multiple_const_value(handle, value, CKT_STRUCT, struct_type);
     }
     else if (const_value_is_array(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_ARRAY);
+        return insert_multiple_const_value(handle, value, CKT_ARRAY, NULL);
     }
     else if (const_value_is_vector(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_VECTOR);
+        return insert_multiple_const_value(handle, value, CKT_VECTOR, NULL);
     }
     else if (const_value_is_string(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_STRING);
+        return insert_multiple_const_value(handle, value, CKT_STRING, NULL);
     }
     else if (const_value_is_range(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_RANGE);
+        return insert_multiple_const_value(handle, value, CKT_RANGE, NULL);
     }
     else
     {
@@ -2734,6 +2738,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
     if (result_query == SQLITE_ROW)
     {
         int column_type = sqlite3_column_type(_select_const_value_stmt, 2);
+        // Single values have a raw_oid
         if (column_type == SQLITE_INTEGER)
         {
             // Single value
@@ -2753,10 +2758,12 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
                 internal_error("Unexpected query result", 0);
             }
         }
+        // Multi values do not have raw_oid
         else if (column_type == SQLITE_NULL)
         {
             // Multi value
             int multival_kind = sqlite3_column_int(_select_const_value_stmt, 1);
+            type_t* struct_type = load_type(handle, sqlite3_column_int64(_select_const_value_stmt, 3));
             sqlite3_reset(_select_const_value_stmt);
 
             // Get the number of items
@@ -2829,7 +2836,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
                     }
                 case CKT_STRUCT:
                     {
-                        result = const_value_make_struct(num_elems, list);
+                        result = const_value_make_struct(num_elems, list, struct_type);
                         break;
                     }
                 case CKT_COMPLEX:
