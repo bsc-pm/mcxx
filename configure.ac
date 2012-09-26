@@ -1122,6 +1122,9 @@ AC_CONFIG_FILES([Makefile
            support/iso_fortran/Makefile
            support/openmp/Makefile
            support/openmp/fortran/Makefile
+           support/mpi/Makefile
+           support/mpi/openmpi/Makefile
+           support/mpi/mpich/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
