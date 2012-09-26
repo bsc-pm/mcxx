@@ -225,15 +225,15 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events_before[2].type = NANOS_POINT;"
                         << "loop_events_before[3].type = NANOS_POINT;"
 
-                        << "loop_events_before[0].keys = nanos_instr_loop_lower_key;"
-                        << "loop_events_before[1].keys = nanos_instr_loop_upper_key;"
-                        << "loop_events_before[2].keys = nanos_instr_loop_step_key;"
-                        << "loop_events_before[3].keys = nanos_instr_chunk_size_key;"
+                        << "loop_events_before[0].key = nanos_instr_loop_lower_key;"
+                        << "loop_events_before[1].key = nanos_instr_loop_upper_key;"
+                        << "loop_events_before[2].key = nanos_instr_loop_step_key;"
+                        << "loop_events_before[3].key = nanos_instr_chunk_size_key;"
 
-                        << "loop_events_before[0].values = nanos_instr_loop_lower_value;"
-                        << "loop_events_before[1].values = nanos_instr_loop_upper_value;"
-                        << "loop_events_before[2].values = nanos_instr_loop_step_value;"
-                        << "loop_events_before[3].values = nanos_instr_chunk_size_value;"
+                        << "loop_events_before[0].value = nanos_instr_loop_lower_value;"
+                        << "loop_events_before[1].value = nanos_instr_loop_upper_value;"
+                        << "loop_events_before[2].value = nanos_instr_loop_step_value;"
+                        << "loop_events_before[3].value = nanos_instr_chunk_size_value;"
 
                         << "nanos_instrument_events(4, loop_events_before);"
                         ;
@@ -246,15 +246,15 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events_after[2].type = NANOS_POINT;"
                         << "loop_events_after[3].type = NANOS_POINT;"
 
-                        << "loop_events_after[0].keys = nanos_instr_loop_lower_key;"
-                        << "loop_events_after[1].keys = nanos_instr_loop_upper_key;"
-                        << "loop_events_after[2].keys = nanos_instr_loop_step_key;"
-                        << "loop_events_after[3].keys = nanos_instr_chunk_size_key;"
+                        << "loop_events_after[0].key = nanos_instr_loop_lower_key;"
+                        << "loop_events_after[1].key = nanos_instr_loop_upper_key;"
+                        << "loop_events_after[2].key = nanos_instr_loop_step_key;"
+                        << "loop_events_after[3].key = nanos_instr_chunk_size_key;"
 
-                        << "loop_events_after[0].values = nanos_instr_loop_lower_value;"
-                        << "loop_events_after[1].values = nanos_instr_loop_upper_value;"
-                        << "loop_events_after[2].values = nanos_instr_loop_step_value;"
-                        << "loop_events_after[3].values = nanos_instr_chunk_size_value;"
+                        << "loop_events_after[0].value = nanos_instr_loop_lower_value;"
+                        << "loop_events_after[1].value = nanos_instr_loop_upper_value;"
+                        << "loop_events_after[2].value = nanos_instr_loop_step_value;"
+                        << "loop_events_after[3].value = nanos_instr_chunk_size_value;"
 
                         << "nanos_instrument_events(4, loop_events_after);"
                         ;
