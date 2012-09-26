@@ -115,4 +115,4 @@ array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesi
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|all|asm_specification|__asm specification of GCC
-nodecl|all|function_code|Nodecl statement of a function
+nodecl|all|*function_code|Nodecl statement of a function

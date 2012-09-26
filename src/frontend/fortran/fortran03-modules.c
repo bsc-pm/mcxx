@@ -1867,7 +1867,33 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     run_query(handle, update_symbol_query);
     sqlite3_free(update_symbol_query);
 
-    insert_extended_attributes(handle, symbol);
+    // fprintf(stderr, "-> INSERTING SYMBOL -> %p %s%s%s\n",
+    //         symbol,
+    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol->symbol_name
+    //         );
+
+    if (symbol->kind == SK_MODULE
+            && symbol != module_being_emitted)
+    {
+        // We leave module symbols empty, to avoid dragging everything into the module file
+        // fprintf(stderr, "NOT INSERTING EXTRA DATA OF SYMBOL -> '%s'\n", symbol->symbol_name);
+    }
+    else
+    {
+        // fprintf(stderr, "INSERTING EXTRA DATA OF SYMBOL -> '%s%s%s'\n",
+        //     symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+        //     symbol->entity_specs.in_module != NULL ? "." : "",
+        //     symbol->symbol_name);
+        insert_extended_attributes(handle, symbol);
+    }
+
+    // fprintf(stderr, "<- END INSERTING SYMBOL -> %s%s%s\n",
+    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol->symbol_name
+    //         );
 
     return result;
 }
@@ -1925,24 +1951,42 @@ static int get_symbol(void *datum,
     int i;
     if (query_contains_field(ncols, names, "in_module", &i))
     {
-        // Load the module first
+        // Get the module
         scope_entry_t* in_module = load_symbol(handle, safe_atoull(values[i]));
+
+        scope_entry_t* from_module = NULL;
+        scope_entry_t* alias_to = NULL;
+        if (query_contains_field(ncols, names, "from_module", &i))
+        {
+            from_module = load_symbol(handle, safe_atoull(values[i]));
+            if (query_contains_field(ncols, names, "alias_to", &i))
+            {
+                alias_to = load_symbol(handle, safe_atoull(values[i]));
+            }
+        }
 
         if (in_module != NULL)
         {
-            // Now check if this name is aleady in the module
             for (i = 0; i < in_module->entity_specs.num_related_symbols; i++)
             {
-                // This symbol is already in this module
-                if (strcasecmp(in_module->entity_specs.related_symbols[i]->symbol_name, name) == 0)
+                scope_entry_t* member = in_module->entity_specs.related_symbols[i];
+
+                if (strcasecmp(member->symbol_name, name) == 0
+                        && member->kind == (enum cxx_symbol_kind)symbol_kind
+                        && member->entity_specs.from_module == from_module
+                        && member->entity_specs.alias_to == alias_to)
                 {
-                    // fprintf(stderr, "HIT FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
-                    // Use the existing symbol instead which will be already loaded
-                    *result = in_module->entity_specs.related_symbols[i];
+                    // fprintf(stderr, "SYMBOL %lld '%s.%s' WAS ALREADY LOADED IN ITS MODULE\n", 
+                    //         oid,
+                    //         in_module->symbol_name, member->symbol_name);
+                    (*result) = member;
+                    insert_map_ptr(handle, oid, (*result));
                     return 0;
                 }
             }
-            // fprintf(stderr, "MISS FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
+            // fprintf(stderr, "SYMBOL %lld '%s.%s' IS NOT ALREADY LOADED IN ITS MODULE\n", 
+            //         oid,
+            //         in_module->symbol_name, name);
         }
     }
 
@@ -1961,10 +2005,10 @@ static int get_symbol(void *datum,
     (*result)->extended_data = calloc(1, sizeof(*((*result)->extended_data)));
     extensible_struct_init(&(*result)->extended_data);
 
+    // static int level = 0;
     // {
-    //     static int level = 0;
     //     scope_entry_t* sym = *result;
-    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL '%s' (%s) with PTR %llu\n", 
     //             level++,
     //             oid,
     //             sym->symbol_name,
@@ -2018,10 +2062,30 @@ static int get_symbol(void *datum,
     {
         rb_tree_insert(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower((*result)->symbol_name), (*result));
     }
+    
+    // Is this symbol in a module?
+    if (query_contains_field(ncols, names, "in_module", &i))
+    {
+        // Get the module
+        scope_entry_t* in_module = load_symbol(handle, safe_atoull(values[i]));
+
+        // And add the current symbol (if not added yet)
+        if (in_module != NULL)
+        {
+            // fprintf(stderr, "SYMBOL '%s' IS '%s.%s'\n", (*result)->symbol_name,
+            //         in_module->symbol_name,
+            //         (*result)->symbol_name);
+
+            P_LIST_ADD_ONCE(
+                    in_module->entity_specs.related_symbols,
+                    in_module->entity_specs.num_related_symbols,
+                    (*result));
+        }
+    }
 
     // {
     //     scope_entry_t* sym = *result;
-    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL '%s' (%s) with PTR %llu\n", 
     //             --level,
     //             oid,
     //             sym->symbol_name,
