@@ -76,7 +76,6 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
     fortran_init_globals(decl_context);
 
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
-    translation_unit->module_symbol_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 }
 
 static void fortran_init_globals(decl_context_t decl_context)
@@ -1132,6 +1131,7 @@ static void build_scope_module_program_unit(AST program_unit,
     new_entry->related_decl_context = program_unit_context;
     new_entry->file = ASTFileName(module_stmt);
     new_entry->line = ASTLine(module_stmt);
+    new_entry->defined = 1;
     program_unit_context.current_scope->related_entry = new_entry;
 
     AST module_body = ASTSon1(program_unit);
@@ -7973,15 +7973,36 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     }
 
     rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name_str);
+
+    char must_load = 1;
     if (query != NULL)
     {
         module_symbol = (scope_entry_t*)rb_node_get_info(query);
-        DEBUG_CODE()
+        if (module_symbol->defined)
         {
-            fprintf(stderr, "BUILDSCOPE: Module '%s' was in the module cache of this file\n", module_name_str);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Module '%s' was in the module cache of this file and already loaded\n", module_name_str);
+            }
+            must_load = 0;
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Module '%s' was in the module cache of this file but not already loaded\n", module_name_str);
+            }
         }
     }
     else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Module '%s' was not in the module cache of this file\n", module_name_str);
+        }
+    }
+
+    if (must_load)
     {
         DEBUG_CODE()
         {

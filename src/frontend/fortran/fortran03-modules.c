@@ -280,6 +280,7 @@ static int safe_atoi(const char *c)
 #include "fortran03-modules-bits.h"
 
 static scope_entry_t* module_being_emitted = NULL;
+static sqlite3_uint64 module_oid_being_loaded = 0;
 
 static rb_red_blk_tree * _oid_map = NULL;
 
@@ -419,7 +420,9 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     get_module_info(handle, &minfo);
 
+    module_oid_being_loaded = minfo.module_oid;
     *module = load_symbol(handle, minfo.module_oid);
+    module_oid_being_loaded = 0;
 
     load_extra_data_from_module(handle, *module);
 
@@ -1931,7 +1934,7 @@ static int get_symbol(void *datum,
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
     {
-        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower(name));
+        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, strtolower(name));
         // Check if this symbol is in the cache and reuse it 
         if (query != NULL)
         {
@@ -1939,7 +1942,13 @@ static int get_symbol(void *datum,
             scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
             (*result) = module_symbol;
             insert_map_ptr(handle, oid, (*result));
-            return 0;
+
+            // If this is not the module being loaded, use the cached symbol
+            // otherwise, load it now
+            if (oid != module_oid_being_loaded)
+            {
+                return 0;
+            }
         }
         else
         {
@@ -2060,9 +2069,15 @@ static int get_symbol(void *datum,
     // This is a (top-level) module. Keep in the module symbol cache
     if ((*result)->kind == SK_MODULE)
     {
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower((*result)->symbol_name), (*result));
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower((*result)->symbol_name), (*result));
+
+        if (module_oid_being_loaded == oid)
+        {
+            // A module is defined once it is loaded
+            (*result)->defined = 1;
+        }
     }
-    
+
     // Is this symbol in a module?
     if (query_contains_field(ncols, names, "in_module", &i))
     {

@@ -109,10 +109,6 @@ typedef struct translation_unit_tag
     // This is a cache of module files actually opened and loaded
     rb_red_blk_tree *module_file_cache;
 
-    // This is a cache of module symbols that may have appeared during load of
-    // other caches (this is a superset of module_file_cache)
-    rb_red_blk_tree *module_symbol_cache;
-
     int num_modules_to_wrap;
     module_to_wrap_info_t** modules_to_wrap;
 
