@@ -1,4 +1,4 @@
-[plainimfc : plain-base]
+[plainimfc : plainfc]
 language = Fortran
 options = --do-not-wrap-modules
 fortran_preprocessor_name = @IFORT@
