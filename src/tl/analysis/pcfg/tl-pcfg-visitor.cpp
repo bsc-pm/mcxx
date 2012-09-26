@@ -473,7 +473,7 @@ namespace Analysis {
                     << codegen_to_str( n.get_internal_nodecl( ),
                                         nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
                     << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Add& n )
@@ -1180,7 +1180,7 @@ namespace Analysis {
 
         _utils->_nested_loop_nodes.push( current_loop_ctrl );
 
-        return ObjectList<Node*>( 1, NULL );   // No return required here. '_current_loop_ctrl' contains all information.
+        return ObjectList<Node*>();   // No return required here. '_current_loop_ctrl' contains all information.
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LowerOrEqualThan& n )
@@ -1237,7 +1237,7 @@ namespace Analysis {
     {
         if( _pcfg == NULL )
         {   // do nothing: A shared variable is declared
-            return ObjectList<Node*>( 1, NULL );
+            return ObjectList<Node*>();
         }
         else
         {
@@ -1250,7 +1250,7 @@ namespace Analysis {
 
             if( init_expr.empty( ) )
             {   // do nothing: The Object Init is not initialized
-                return ObjectList<Node*>( 1, NULL );
+                return ObjectList<Node*>();
             }
 
             Node* merged_node = merge_nodes( n, init_sym[0], init_expr[0] );
@@ -1300,7 +1300,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
@@ -1335,21 +1335,21 @@ namespace Analysis {
     {
         PCFGClause current_clause( COPY_IN, n.get_input_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
     {
         PCFGClause current_clause( COPY_INOUT, n.get_inout_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
     {
         PCFGClause current_clause( COPY_OUT, n.get_output_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Critical& n )
@@ -1387,35 +1387,35 @@ namespace Analysis {
     {
         PCFGClause current_clause( NAME, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
     {
         PCFGClause current_clause( DEP_IN, n.get_in_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
     {
         PCFGClause current_clause( DEP_INOUT, n.get_inout_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
     {
         PCFGClause current_clause( DEP_OUT, n.get_out_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
         PCFGClause current_clause( FIRSTPRIVATE, n.get_firstprivate_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtEntry& n )
@@ -1438,7 +1438,7 @@ namespace Analysis {
         // Restore current info
         _utils->_last_nodes = actual_last_nodes;
 
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtExit& n )
@@ -1459,7 +1459,7 @@ namespace Analysis {
         // Restore current info
         _utils->_last_nodes = actual_last_nodes;
 
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushMemory& n )
@@ -1513,7 +1513,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( IF, n.get_condition( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Master& n )
@@ -1570,14 +1570,14 @@ namespace Analysis {
     {
         PCFGClause current_clause( PRIORITY, n.get_priority( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
         PCFGClause current_clause( PRIVATE, n.get_private_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
@@ -1597,7 +1597,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( PRIVATE, n.get_chunk( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Section& n )
@@ -1662,7 +1662,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( SHARED, n.get_shared_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
@@ -1700,7 +1700,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( TARGET );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Task& n )
@@ -1758,14 +1758,14 @@ namespace Analysis {
     {
         PCFGClause current_clause( UNTIED );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
         PCFGClause current_clause( WAITON, n.get_environment( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
 
     }
 
@@ -1984,7 +1984,7 @@ namespace Analysis {
         else if( !ellipsis_l.empty( ) )
             return ellipsis_l;
 
-        return ObjectList<Node*>( 1, NULL );
+        return ObjectList<Node*>();
     }
 
     //TODO Test this kind of node
