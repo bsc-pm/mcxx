@@ -1,1 +1,1 @@
-SUBDIRS=iso_fortran openmp
+SUBDIRS=iso_fortran openmp mpi
