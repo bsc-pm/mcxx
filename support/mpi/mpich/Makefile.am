@@ -26,7 +26,7 @@
 
 
 mpi_modules = \
-			  mpi.mod \
+			  mpi.mf03 \
 			  $(END)
 
 EXTRA_DIST = \
@@ -38,9 +38,9 @@ EXTRA_DIST = \
     $(END)
 
 CLEANFILES =
-CLEANFILES += $(mpi_modules) mpi_base.mod mpi_constants.mod mpi_sizeofs.mod mpi.o mpi_constants.o mpi_base.o mpi_sizeofs.o
+CLEANFILES += $(mpi_modules) mpi_base.mf03 mpi_constants.mf03 mpi_sizeofs.mf03
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config
+PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config --do-not-wrap-modules
 
 configdir=$(pkgdatadir)/fortran/mpi/mpich
 config_DATA = \
@@ -53,14 +53,14 @@ PLAINFC_verbose_ = $(PLAINFC_verbose_$(AM_DEFAULT_VERBOSITY))
 PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
 endif
 
-mpi.mod : mpi_constants.mod mpi_sizeofs.mod mpi_base.mod
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/mpi.f90
+mpi.mf03 : mpi_constants.mf03 mpi_sizeofs.mf03 mpi_base.mf03
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.f90
 
-mpi_constants.mod : $(srcdir)/mpi_constants.f90 $(srcdir)/mpifnoext.h
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/mpi_constants.f90
+mpi_constants.mf03 : $(srcdir)/mpi_constants.f90 $(srcdir)/mpifnoext.h
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_constants.f90
 
-mpi_sizeofs.mod : $(srcdir)/mpi_sizeofs.f90
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/mpi_sizeofs.f90
+mpi_sizeofs.mf03 : $(srcdir)/mpi_sizeofs.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_sizeofs.f90
 
-mpi_base.mod : mpi_constants.mod $(srcdir)/mpi_base.f90
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/mpi_base.f90
+mpi_base.mf03 : mpi_constants.mf03 $(srcdir)/mpi_base.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_base.f90

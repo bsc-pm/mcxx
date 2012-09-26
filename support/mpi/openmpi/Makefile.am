@@ -26,7 +26,7 @@
 
 
 mpi_modules = \
-			  mpi.mod \
+			  mpi.mf03 \
 			  $(END)
 
 EXTRA_DIST = \
@@ -40,9 +40,9 @@ EXTRA_DIST = \
     $(END)
 
 CLEANFILES =
-CLEANFILES += $(mpi_modules) mpi.o
+CLEANFILES += $(mpi_modules)
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config
+PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config --do-not-wrap-modules
 
 configdir=$(pkgdatadir)/fortran/mpi/openmpi
 config_DATA = \
@@ -55,11 +55,11 @@ PLAINFC_verbose_ = $(PLAINFC_verbose_$(AM_DEFAULT_VERBOSITY))
 PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
 endif
 
-mpi.mod : $(srcdir)/attr_fn-f90-interfaces.h \
+mpi.mf03 : $(srcdir)/attr_fn-f90-interfaces.h \
 	      $(srcdir)/conversion_fn_null-f90-interface.h \
 		  $(srcdir)/mpi.f90 \
 		  $(srcdir)/mpi-f90-interfaces.h \
 		  $(srcdir)/mpif-common.h \
 		  $(srcdir)/mpif-config.h \
 		  $(srcdir)/mpif-mpi-io.h
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/mpi.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.f90
