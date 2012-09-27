@@ -1470,6 +1470,8 @@ namespace TL { namespace Nanox {
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
         fclose(ancillary_file);
+        // Do not forget the clear the code for next files
+        _extra_c_code.get_internal_nodecl() = nodecl_null();
     }
 
 } }
