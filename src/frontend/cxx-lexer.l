@@ -1387,6 +1387,7 @@ void close_scanned_file(void)
     if (scanning_now.file_descriptor != NULL)
     {
         fclose(scanning_now.file_descriptor);
+        scanning_now.file_descriptor = NULL;
     }
 }
 
