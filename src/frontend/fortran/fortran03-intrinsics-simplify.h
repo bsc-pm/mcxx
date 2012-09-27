@@ -1283,6 +1283,29 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     return nodecl_null();
 }
 
+static nodecl_t simplify_repeat(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    if (!nodecl_is_constant(arguments[0])
+            || !nodecl_is_constant(arguments[1]))
+        return nodecl_null();
+
+    const_value_t* string_cval = nodecl_get_constant(arguments[0]);
+    const_value_t* repeat_cval = nodecl_get_constant(arguments[1]);
+
+    if (const_value_is_negative(repeat_cval))
+        return nodecl_null();
+
+    const_value_t* result = const_value_make_string("", 0);
+    int repeat = const_value_cast_to_signed_int(repeat_cval);
+    int i;
+    for (i = 1; i <= repeat; i++)
+    {
+        result = const_value_string_concat(result, string_cval);
+    }
+
+    return const_value_to_nodecl(result);
+}
+
 typedef int index_info_t[MCXX_MAX_ARRAY_SPECIFIER];
 
 static const_value_t* reduce_for_a_given_dimension(
