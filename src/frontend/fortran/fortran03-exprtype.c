@@ -3350,11 +3350,11 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     real_string[real_length] = '\0';
 
     nodecl_t one = nodecl_make_integer_literal(
-            fortran_get_default_logical_type(), 
+            fortran_get_default_integer_type(), 
             const_value_get_signed_int(1), 
             ASTFileName(expr),
             ASTLine(expr));
-    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_logical_type(), 
+    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_integer_type(), 
             const_value_get_signed_int(real_length), 
             ASTFileName(expr),
             ASTLine(expr));
