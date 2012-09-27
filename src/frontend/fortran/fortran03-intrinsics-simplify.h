@@ -2427,7 +2427,6 @@ static nodecl_t simplify_sqrt(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 #endif
 
-
 static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t c = arguments[0];
@@ -2462,4 +2461,10 @@ static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     return const_value_to_nodecl_with_basic_type(
             const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),
             fortran_choose_int_type_from_kind(kind));
+}
+
+static nodecl_t simplify_ichar(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    // Mercurium only supports ASCII thus ichar is the same as iachar
+    return simplify_iachar(num_arguments, arguments);
 }
