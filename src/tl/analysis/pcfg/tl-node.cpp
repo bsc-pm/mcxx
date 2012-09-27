@@ -49,7 +49,7 @@ namespace Analysis {
         set_data( _NODE_TYPE, ntype );
         set_data( _OUTER_NODE, outer_node );
 
-        if ( ntype == GRAPH )
+        if( ntype == GRAPH )
         {
             set_data( _ENTRY_NODE, new Node( id, ENTRY, NULL ) );
             int a = -2; set_data( _EXIT_NODE, new Node( a, EXIT, NULL ) );
@@ -86,14 +86,14 @@ namespace Analysis {
         ObjectList<Edge*>::iterator it;
         for ( it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
         {
-            if ( ( *it )->get_source( ) == source )
+            if( ( *it )->get_source( ) == source )
             {
                 _entry_edges.erase( it );
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if ( it == _entry_edges.end( ) )
+        if( it == _entry_edges.end( ) )
         {
             std::cerr << " ** Node.cpp :: erase_entry_edge() ** "
                       << "Trying to delete an non-existent edge "
@@ -106,14 +106,14 @@ namespace Analysis {
         ObjectList<Edge*>::iterator it;
         for( it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if ( ( *it )->get_target( ) == target )
+            if( ( *it )->get_target( ) == target )
             {
                 _exit_edges.erase( it );
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if ( it == _exit_edges.end( ) )
+        if( it == _exit_edges.end( ) )
         {
             std::cerr << " ** Node.cpp :: exit_entry_edge() ** "
                       << "Trying to delete an non-existent edge "
@@ -253,7 +253,7 @@ namespace Analysis {
         int id = target->get_id( );
         for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if ( ( *it )->get_target( )->get_id( ) == id )
+            if( ( *it )->get_target( )->get_id( ) == id )
             {
                 result = *it;
                 break;
@@ -434,7 +434,7 @@ namespace Analysis {
     std::string Node::get_type_as_string( )
     {
         std::string type = "";
-        if ( has_key( _NODE_TYPE ) )
+        if( has_key( _NODE_TYPE ) )
         {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
             switch( ntype )
@@ -453,7 +453,7 @@ namespace Analysis {
                 case OMP_TASKYIELD:      type = "OMP_TASKYIELD";    break;
                 case GRAPH:              type = "GRAPH";            break;
                 case UNCLASSIFIED_NODE:  type = "UNCLASSIFIED";     break;
-                default: internal_error("Unexpected type of node '%s'", ntype);
+                default:                 WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else
@@ -467,7 +467,7 @@ namespace Analysis {
     std::string Node::get_graph_type_as_string( )
     {
         std::string graph_type = "";
-        if ( has_key( _GRAPH_TYPE ) )
+        if( has_key( _GRAPH_TYPE ) )
         {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
             switch( ntype )
@@ -475,6 +475,7 @@ namespace Analysis {
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
                 case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
                 case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
+                case IF_ELSE:           graph_type = "IF_ELSE";             break;
                 case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
                 case LOOP_FOR:          graph_type = "LOOP_FOR";            break;
                 case LOOP_WHILE:        graph_type = "LOOP_WHILE";          break;
@@ -487,7 +488,8 @@ namespace Analysis {
                 case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
                 case OMP_TASK:          graph_type = "OMP_TASK";            break;
                 case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
-                default: internal_error("Unexpected type of node '%s'", ntype);
+                case SWITCH:            graph_type = "SWITCH";              break;
+                default:                WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else
@@ -506,8 +508,8 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the entry node to node '%s'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
+            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
+                            get_type_as_string( ).c_str( ) );
         }
     }
 
@@ -537,8 +539,8 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the exit node to node '%s'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
+            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
+                             get_type_as_string( ).c_str( ) );
         }
     }
 
@@ -572,7 +574,7 @@ namespace Analysis {
 
     void Node::set_outer_node( Node* node )
     {
-        if ( node->is_graph_node( ) )
+        if( node->is_graph_node( ) )
         {
             set_data( _OUTER_NODE, node );
         }
@@ -643,10 +645,10 @@ namespace Analysis {
 
     Nodecl::NodeclBase Node::get_graph_label( Nodecl::NodeclBase n )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
-            if ( has_key( _NODE_LABEL ) )
+            if( has_key( _NODE_LABEL ) )
             {
                 res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, n );
             }
@@ -661,7 +663,7 @@ namespace Analysis {
 
     void Node::set_graph_label( Nodecl::NodeclBase n )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             set_data( _NODE_LABEL, n );
         }
@@ -674,7 +676,7 @@ namespace Analysis {
 
     Graph_type Node::get_graph_type( )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             return get_data<Graph_type>( _GRAPH_TYPE );
         }
@@ -687,7 +689,7 @@ namespace Analysis {
 
     void Node::set_graph_type( Graph_type graph_type )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             set_data( _GRAPH_TYPE, graph_type );
         }
@@ -707,11 +709,11 @@ namespace Analysis {
 
     PCFGPragmaInfo Node::get_omp_node_info( )
     {
-        if ( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
                  && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
               || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
         {
-                if ( has_key( _OMP_INFO ) )
+                if( has_key( _OMP_INFO ) )
                     return get_data<PCFGPragmaInfo>( _OMP_INFO );
                 else
                 {
@@ -728,7 +730,7 @@ namespace Analysis {
 
     void Node::set_omp_node_info( PCFGPragmaInfo pragma )
     {
-        if ( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
                  && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
               || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
         {
@@ -748,10 +750,10 @@ namespace Analysis {
 
     ObjectList<LatticeCellValue> Node::get_lattice_val( )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
         {
             ObjectList<LatticeCellValue> result;
-            if ( has_key( _LATTICE_VALS ) )
+            if( has_key( _LATTICE_VALS ) )
             {
                 result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
             }
@@ -766,10 +768,10 @@ namespace Analysis {
 
     void Node::set_lattice_val( LatticeCellValue lcv )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
         {
             ObjectList<LatticeCellValue> result;
-            if ( has_key( _LATTICE_VALS ) )
+            if( has_key( _LATTICE_VALS ) )
             {
                 result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
             }
@@ -788,70 +790,48 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
-    static bool node_is_loop( Graph_type type )
+    ObjectList<Utils::InductionVariableData> Node::get_induction_variables( )
     {
-        return ( type == LOOP_DOWHILE  || type == LOOP_FOR || type == LOOP_WHILE );
-    }
-
-    IV_map Node::get_induction_variables( )
-    {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( is_loop_node( ) )
         {
-            if ( node_is_loop( get_data<Graph_type>( _GRAPH_TYPE ) ) )
-            {
-                IV_map ivs;
-                if ( has_key( _INDUCTION_VARS ))
-                    ivs = get_data<IV_map>( _INDUCTION_VARS );
-                return ivs;
-            }
-            else
-            {
-                internal_error( "Unexpected node type '%s' while getting the induction variables of the node '%s'. LOOP expected.",
-                                get_type_as_string( ).c_str( ), _id );
-            }
+            ObjectList<Utils::InductionVariableData> ivs;
+            if( has_key( _INDUCTION_VARS ))
+                ivs = get_data<ObjectList<Utils::InductionVariableData> >( _INDUCTION_VARS );
+            return ivs;
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the induction variables of the node '%s'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
+            WARNING_MESSAGE( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+                                _id, get_type_as_string( ).c_str( ) );
         }
     }
 
-    void Node::set_induction_variable(Nodecl::NodeclBase iv, InductionVariableData iv_data)
+    void Node::set_induction_variable( Utils::InductionVariableData iv )
     {
-        if ( is_loop_node( ) )
+        if( is_loop_node( ) )
         {
-            IV_map ivs;
-            if ( has_key(_INDUCTION_VARS) )
+            ObjectList<Utils::InductionVariableData> ivs;
+            if( has_key( _INDUCTION_VARS ) )
             {
-                ivs = get_data<IV_map>( _INDUCTION_VARS );
-            }
-            if ( ivs.find( iv ) != ivs.end( ) )
-            {
-                nodecl_t iv_internal = iv.get_internal_nodecl( );
-                internal_error( "Trying to insert the Induction Variable '%s' in a loop that already contains this variable",
-                                codegen_to_str(iv_internal, nodecl_retrieve_context( iv_internal ) ) );
-            }
-            else
-            {
-                ivs.insert ( std::pair<Nodecl::NodeclBase, InductionVariableData>( iv, iv_data ) );
+                ivs = get_data<ObjectList<Utils::InductionVariableData> >( _INDUCTION_VARS );
             }
 
+            ivs.insert( iv );
             set_data( _INDUCTION_VARS, ivs );
         }
         else
         {
-            internal_error("Unexpected node type '%s' while setting a induction variable in the graph node '%s'. LOOP expected.",
-                           get_type_as_string().c_str(), _id);
+            internal_error( "Unexpected node type '%s' while setting a induction variable in the graph node '%s'. LOOP expected.",
+                            get_type_as_string( ).c_str( ), _id );
         }
     }
 
 
 
-    Symbol Node::get_label()
+    Symbol Node::get_label( )
     {
         Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if ( ntype == GOTO || ntype == LABELED )
+        if( ntype == GOTO || ntype == LABELED )
         {
             return get_data<Symbol>( _NODE_LABEL );
         }
@@ -865,7 +845,7 @@ namespace Analysis {
     void Node::set_label( Symbol s )
     {
         Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if ( ntype == GOTO || ntype == LABELED )
+        if( ntype == GOTO || ntype == LABELED )
         {
             set_data( _NODE_LABEL, s );
         }
@@ -878,7 +858,7 @@ namespace Analysis {
 
     Nodecl::NodeclBase Node::get_task_context( )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
             if( graph_type == OMP_TASK )
@@ -900,7 +880,7 @@ namespace Analysis {
 
     void Node::set_task_context( Nodecl::NodeclBase c )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
             if( graph_type == OMP_TASK )
@@ -925,7 +905,7 @@ namespace Analysis {
         if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if ( graph_type == OMP_TASK )
+            if( graph_type == OMP_TASK )
             {
                 return get_data<Symbol>( _TASK_FUNCTION );
             }
@@ -948,7 +928,7 @@ namespace Analysis {
         if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if ( graph_type == OMP_TASK )
+            if( graph_type == OMP_TASK )
             {
                 return set_data( _TASK_FUNCTION, func_sym );
             }
@@ -972,7 +952,7 @@ namespace Analysis {
         if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if ( graph_type == LOOP_FOR )
+            if( graph_type == LOOP_FOR )
             {
                 return get_data<Node*>( _STRIDE_NODE );
             }
@@ -995,7 +975,7 @@ namespace Analysis {
         if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if ( graph_type == LOOP_FOR )
+            if( graph_type == LOOP_FOR )
             {
                 set_data( _STRIDE_NODE, stride );
             }
@@ -1022,7 +1002,7 @@ namespace Analysis {
             outer_node = outer_node->get_outer_node( );
         }
 
-        if ( outer_node != NULL )
+        if( outer_node != NULL )
         {
             Node* stride = outer_node->get_stride_node( );
             res = ( stride->_id == _id );
@@ -1109,7 +1089,7 @@ namespace Analysis {
 
     void Node::set_graph_node_reaching_definitions( )
     {
-        if ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             set_data( _REACH_DEFS, get_data<Node*>( _EXIT_NODE )->get_data<nodecl_map>( _REACH_DEFS ) );
         }
@@ -1125,7 +1105,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set live_in_vars;
 
-        if (has_key(_LIVE_IN))
+        if(has_key(_LIVE_IN))
         {
             live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
         }
@@ -1137,7 +1117,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set live_in_vars;
 
-        if (has_key(_LIVE_IN))
+        if(has_key(_LIVE_IN))
         {
             live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
         }
@@ -1155,7 +1135,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set live_out_vars;
 
-        if (has_key(_LIVE_OUT))
+        if(has_key(_LIVE_OUT))
         {
             live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
         }
@@ -1167,7 +1147,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set live_out_vars;
 
-        if (has_key(_LIVE_OUT))
+        if(has_key(_LIVE_OUT))
         {
             live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
         }
@@ -1185,7 +1165,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set ue_vars;
 
-        if (has_key(_UPPER_EXPOSED))
+        if(has_key(_UPPER_EXPOSED))
         {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
@@ -1197,11 +1177,11 @@ namespace Analysis {
     {
         Utils::ext_sym_set ue_vars;
 
-        if (this->has_key(_UPPER_EXPOSED))
+        if(this->has_key(_UPPER_EXPOSED))
         {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
-        if (!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
+        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
         {
             ue_vars.insert(new_ue_var);
             set_data(_UPPER_EXPOSED, ue_vars);
@@ -1212,7 +1192,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set ue_vars;
 
-        if (this->has_key(_UPPER_EXPOSED))
+        if(this->has_key(_UPPER_EXPOSED))
         {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
         }
@@ -1221,12 +1201,12 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_ue_vars.begin();
         for (; it != new_ue_vars.end(); ++it)
         {
-            if (!Utils::ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
+            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
             {
                 purged_ue_vars.insert(*it);
             }
         }
-        if (it == new_ue_vars.end())
+        if(it == new_ue_vars.end())
         {
             ue_vars.insert(purged_ue_vars);
             set_data(_UPPER_EXPOSED, ue_vars);
@@ -1237,7 +1217,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set ue_vars;
 
-        if (has_key(_UPPER_EXPOSED))
+        if(has_key(_UPPER_EXPOSED))
         {
             ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
             ue_vars = ue_vars.not_find(old_ue_var);
@@ -1250,7 +1230,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set killed_vars;
 
-        if (has_key(_KILLED))
+        if(has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
@@ -1262,12 +1242,12 @@ namespace Analysis {
     {
         Utils::ext_sym_set killed_vars;
 
-        if (has_key(_KILLED))
+        if(has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
 
-        if (!Utils::ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
+        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
         {
             killed_vars.insert(new_killed_var);
             set_data(_KILLED, killed_vars);
@@ -1278,7 +1258,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set killed_vars;
 
-        if (has_key(_KILLED))
+        if(has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
@@ -1287,12 +1267,12 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_killed_vars.begin();
         for (; it != new_killed_vars.end(); ++it)
         {
-            if (!Utils::ext_sym_set_contains_englobing_nodecl(*it, killed_vars))
+            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, killed_vars))
             {
                 purged_killed_vars.insert(*it);
             }
         }
-        if (it == new_killed_vars.end())
+        if(it == new_killed_vars.end())
         {
             killed_vars.insert(purged_killed_vars);
             set_data(_KILLED, killed_vars);
@@ -1303,7 +1283,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set killed_vars;
 
-        if (has_key(_KILLED))
+        if(has_key(_KILLED))
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
             killed_vars = killed_vars.not_find(old_killed_var);
@@ -1316,7 +1296,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set undef_vars;
 
-        if (has_key(_UNDEF))
+        if(has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
@@ -1328,12 +1308,12 @@ namespace Analysis {
     {
         Utils::ext_sym_set undef_vars;
 
-        if (has_key(_UNDEF))
+        if(has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
 
-        if (!Utils::ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
+        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
         {
             undef_vars.insert(new_undef_var);
             set_data(_UNDEF, undef_vars);
@@ -1344,7 +1324,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set undef_vars;
 
-        if (has_key(_UNDEF))
+        if(has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
             undef_vars = undef_vars.not_find(old_undef_var);
@@ -1357,7 +1337,7 @@ namespace Analysis {
     {
         Utils::ext_sym_set undef_vars;
 
-        if (has_key(_UNDEF))
+        if(has_key(_UNDEF))
         {
             undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
         }
@@ -1367,12 +1347,12 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_undef_vars.begin();
         for (; it != new_undef_vars.end(); ++it)
         {
-            if (!Utils::ext_sym_set_contains_englobing_nodecl(*it, undef_vars))
+            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, undef_vars))
             {
                 purged_undef_vars.insert(*it);
             }
         }
-        if (it == new_undef_vars.end())
+        if(it == new_undef_vars.end())
         {
             undef_vars.insert(purged_undef_vars);
             set_data(_UNDEF, undef_vars);
@@ -1527,7 +1507,7 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_sc_private_vars( )
     {
         Utils::ext_sym_set sc_private_vars;
-        if (has_key(_SC_PRIVATE))
+        if(has_key(_SC_PRIVATE))
             sc_private_vars = get_data<Utils::ext_sym_set>( _SC_PRIVATE );
         return sc_private_vars;
     }
@@ -1655,7 +1635,7 @@ namespace Analysis {
     {
         nodecl_map reaching_defs;
 
-        if (has_key(_REACH_DEFS))
+        if(has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
@@ -1667,7 +1647,7 @@ namespace Analysis {
     void Node::set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
     {
         nodecl_map reaching_defs;
-        if (has_key(_REACH_DEFS))
+        if(has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
@@ -1678,7 +1658,7 @@ namespace Analysis {
     void Node::set_reaching_definition_list(nodecl_map reach_defs_l)
     {
         nodecl_map reaching_defs;
-        if (has_key(_REACH_DEFS))
+        if(has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
         }
@@ -1693,10 +1673,10 @@ namespace Analysis {
     void Node::rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var)
     {
         nodecl_map reaching_defs;
-        if (has_key(_REACH_DEFS))
+        if(has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-            if (reaching_defs.find(old_var) != reaching_defs.end())
+            if(reaching_defs.find(old_var) != reaching_defs.end())
             {
                 Nodecl::NodeclBase init = reaching_defs[old_var];
                 reaching_defs.erase(old_var);
@@ -1715,7 +1695,7 @@ namespace Analysis {
     {
         nodecl_map aux_reaching_defs;
 
-        if (has_key(_AUX_REACH_DEFS))
+        if(has_key(_AUX_REACH_DEFS))
         {
             aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
         }
@@ -1726,7 +1706,7 @@ namespace Analysis {
     void Node::set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
     {
         nodecl_map aux_reaching_defs;
-        if (has_key(_AUX_REACH_DEFS))
+        if(has_key(_AUX_REACH_DEFS))
         {
             aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
         }
@@ -1737,7 +1717,7 @@ namespace Analysis {
     void Node::unset_reaching_definition(Nodecl::NodeclBase var)
     {
         nodecl_map reaching_defs;
-        if (has_key(_REACH_DEFS))
+        if(has_key(_REACH_DEFS))
         {
             reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
             reaching_defs.erase(var);
@@ -1806,7 +1786,7 @@ namespace Analysis {
             for(Utils::ext_sym_set::iterator it = private_vars.begin(); it != private_vars.end(); ++it)
             {
                 std::cerr << it->get_nodecl().prettyprint();
-                if (it != private_vars.end()-1)
+                if(it != private_vars.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
@@ -1816,7 +1796,7 @@ namespace Analysis {
             for(Utils::ext_sym_set::iterator it = firstprivate_vars.begin(); it != firstprivate_vars.end(); ++it)
             {
                 std::cerr << it->get_nodecl().prettyprint();
-                if (it != firstprivate_vars.end()-1)
+                if(it != firstprivate_vars.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
@@ -1826,7 +1806,7 @@ namespace Analysis {
             for(Utils::ext_sym_set::iterator it = race_vars.begin(); it != race_vars.end(); ++it)
             {
                 std::cerr << it->get_nodecl().prettyprint();
-                if (it != race_vars.end()-1)
+                if(it != race_vars.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
@@ -1836,7 +1816,7 @@ namespace Analysis {
             for(Utils::ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
             {
                 std::cerr << it->get_nodecl().prettyprint();
-                if (it != shared_vars.end()-1)
+                if(it != shared_vars.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
@@ -1846,7 +1826,7 @@ namespace Analysis {
             for(Utils::ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
             {
                 std::cerr << it->get_nodecl().prettyprint();
-                if (it != undef_vars.end()-1)
+                if(it != undef_vars.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;
@@ -1892,7 +1872,7 @@ namespace Analysis {
             for( Utils::ext_sym_set::iterator it = in_deps.begin( ); it != in_deps.end( ); ++it )
             {
                 std::cerr << it->get_nodecl( ).prettyprint( );
-                if (it != in_deps.end()-1)
+                if(it != in_deps.end()-1)
                     std::cerr << ", ";
             }
             std::cerr << ")" << std::endl;

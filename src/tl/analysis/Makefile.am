@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg constants singleton test_phase
+SUBDIRS = common pcfg constants loops singleton test_phase
 
 END=
 

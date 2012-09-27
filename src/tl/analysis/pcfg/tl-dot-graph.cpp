@@ -285,7 +285,7 @@ namespace Analysis {
             case UNCLASSIFIED_NODE:
             {
 //                     dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " UNCLASSIFIED_NODE\"]\n";
-                dot_graph += indent + ss.str( ) + "[label=\"UNCLASSIFIED_NODE\"]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " UNCLASSIFIED_NODE\"]\n";
                 break;
             }
             case OMP_BARRIER:
@@ -305,12 +305,12 @@ namespace Analysis {
             }
             case BREAK:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"BREAK\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BREAK\", shape=diamond]\n";
                 break;
             }
             case CONTINUE:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"CONTINUE\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " CONTINUE\", shape=diamond]\n";
                 break;
             }
             case GOTO:

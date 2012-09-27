@@ -28,6 +28,7 @@
 #include "tl-analysis-utils.hpp"
 #include "tl-constants-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-iv-analysis.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -198,16 +199,26 @@ namespace Analysis {
     }
 
     ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                                 Nodecl::NodeclBase ast, bool dress_up )
+                                                                                 Nodecl::NodeclBase ast )
     {
-        // Get all functions in \ast
-        Utils::TopLevelVisitor tlv;
-        tlv.walk_functions( ast );
-        ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
-
-        // Create one PCFG per function
         ObjectList<ExtensibleGraph*> result;
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
+        ObjectList<Nodecl::NodeclBase> unique_asts;
+
+        // Get all unique ASTs embedded in 'ast'
+        if( !ast.is<Nodecl::TopLevel>( ) )
+        {
+            unique_asts.append( ast );
+        }
+        else
+        {
+            // Get all functions in \ast
+            Utils::TopLevelVisitor tlv;
+            tlv.walk_functions( ast );
+            unique_asts = tlv.get_functions( );
+        }
+
+        // Compute the PCFG corresponding to each AST
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = unique_asts.begin( ); it != unique_asts.end( ); ++it )
         {
             // Generate the hashed name corresponding to the AST of the function
             std::string pcfg_name = Utils::generate_hashed_name( *it );
@@ -219,16 +230,17 @@ namespace Analysis {
                     std::cerr << "Generating PCFG '" << pcfg_name << "'" << std::endl;
 
                 // Create the PCFG
-                PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
-                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, dress_up );
+                    PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
+                    ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
-                // Store the pcfg in the singleton
-                memento.set_pcfg( pcfg_name, pcfg );
-                result.append( pcfg );
+                    // Store the pcfg in the singleton
+                    memento.set_pcfg( pcfg_name, pcfg );
+                    result.append( pcfg );
             }
             else
             {
-                WARNING_MESSAGE( "PCFG '%s' already created.\n", pcfg_name.c_str( ) );
+                WARNING_MESSAGE( "PCFG '%s' previously created. No modification performed in this PCFG.\n", pcfg_name.c_str( ) );
+                result.append( memento.get_pcfg( pcfg_name ) );
             }
         }
 
@@ -247,14 +259,24 @@ namespace Analysis {
 //         ConstantsAnalysisPhase::run( );
     }
 
-    void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento,
+                                                         Nodecl::NodeclBase ast )
     {
 
     }
 
     void AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
+        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
 
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            if( !(*it)->is_usage_computed( ) )
+            {
+
+                memento->set_usage_computed( );
+            }
+        }
     }
 
     void AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
@@ -264,7 +286,14 @@ namespace Analysis {
 
     void AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
+        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
 
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            InductionVariableAnalysis iva( *it );
+            iva.compute_induction_variables( );
+            memento->set_i
+        }
     }
 
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )

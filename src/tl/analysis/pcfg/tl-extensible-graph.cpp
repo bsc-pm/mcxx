@@ -278,6 +278,10 @@ namespace Analysis {
         {
             if(!parent->has_child(child))
             {
+                if (parent->get_id() == 22 && child->get_id() == 24)
+                {
+                    std::cerr << "22 w 24" << std::endl;
+                }
                 Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
                 parent->set_exit_edge(new_edge);
                 child->set_entry_edge(new_edge);
@@ -880,7 +884,7 @@ namespace Analysis {
         }
     }
 
-    void clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
+    void ExtensibleGraph::clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited_aux( ) && ( current->get_outer_node( )->get_id( ) == outer_node->get_id( ) ) )
         {

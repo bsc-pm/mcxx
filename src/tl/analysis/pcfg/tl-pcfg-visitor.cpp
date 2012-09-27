@@ -55,7 +55,7 @@ namespace Analysis {
         _pcfg = graph;
     }
 
-    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n, bool dress_up )
+    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n )
     {
         // Visit the nodes in \n
         walk( n );
@@ -69,8 +69,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, pcfg_exit );
         _utils->_return_nodes.clear( );
 
-        if( dress_up )
-            _pcfg->dress_up_graph( );
+        _pcfg->dress_up_graph( );
 
         return _pcfg;
     }
@@ -187,7 +186,7 @@ namespace Analysis {
             bool found;
 
             // Build the new graph
-            result = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ), SPLIT_STMT);
+            result = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ), SPLIT_STMT );
             Node* entry = result->get_graph_entry_node( );
 
             // Get parents of the new graph node and delete the old connections
@@ -759,45 +758,37 @@ namespace Analysis {
 
         ObjectList<Node*> do_parents = _utils->_last_nodes;
 
-        Node* exit_node = new Node( );
-        Node* aux_condition_node = new Node( );
-        _utils->_continue_nodes.push( aux_condition_node );
-        _utils->_break_nodes.push( exit_node );
+        Node* do_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_DOWHILE );
+        _pcfg->connect_nodes( _utils->_last_nodes, do_graph_node );
+        Node* do_exit = do_graph_node->get_graph_exit_node( );
+
+        // Create the condition node
+        _utils->_last_nodes.clear();
+        Node* condition_node = walk( n.get_condition( ) )[0];
+
+        // Create the do statements nodes
+        _utils->_last_nodes = ObjectList<Node*>( 1, do_graph_node->get_graph_entry_node( ) );
+        _utils->_continue_nodes.push( condition_node );
+        _utils->_break_nodes.push( do_exit );
         ObjectList<Node*> stmts = walk( n.get_statement( ) );
         _utils->_continue_nodes.pop( );
         _utils->_break_nodes.pop( );
-        if( !stmts.empty( ) )
-        {   // There is something within the Do Statement
-            _utils->_last_nodes = ObjectList<Node*>( 1, stmts.back( ) );
-        }
 
-        Node* condition_node = walk( n.get_condition( ) )[0];
-        if( aux_condition_node->is_connected( ) )
-        {
-            int n_connects = aux_condition_node->get_parents( ).size( );
-            _pcfg->connect_nodes( aux_condition_node->get_parents( ), condition_node, ALWAYS, "" );
-            _pcfg->connect_nodes( condition_node, aux_condition_node->get_children( ),
-                                  ObjectList<Edge_type>( n_connects, ALWAYS ),
-                                  ObjectList<std::string>( n_connects, "" ) );
-        }
-
-        _pcfg->connect_nodes( stmts.back( ), condition_node );
+        // Connect the statements with the condition
+        _pcfg->connect_nodes( _utils->_last_nodes, condition_node );
         if( !stmts.empty( ) )
         {
             _pcfg->connect_nodes( condition_node, stmts[0], TRUE_EDGE );
         }
 
-        // Connect the False condition side to a provisional node
-        exit_node->set_id( ++( _utils->_nid ) );
-        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-        _pcfg->connect_nodes( condition_node, exit_node, FALSE_EDGE );
+        // Connect the condition false side to the condition node
+        do_exit->set_id( ++( _utils->_nid ) );
+        do_exit->set_outer_node( _utils->_outer_nodes.top( ) );
+        _pcfg->connect_nodes( condition_node, do_exit, FALSE_EDGE );
+        _utils->_outer_nodes.pop( );
 
-        _utils->_last_nodes = ObjectList<Node*>( 1, exit_node );
-
-        if( !stmts.empty( ) )
-            return ObjectList<Node*>( 1, stmts[0] );
-        else
-            return ObjectList<Node*>( 1, condition_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, do_graph_node );
+        return ObjectList<Node*>( 1, condition_node );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::EmptyStatement& n )
@@ -890,13 +881,11 @@ namespace Analysis {
             _pcfg->connect_nodes( _utils->_last_nodes, _utils->_nested_loop_nodes.top( )->_init,
                                   ObjectList<Edge_type>( n_connects, ALWAYS ),
                                   ObjectList<std::string>( n_connects, "" ) );
-            _utils->_last_nodes.clear( );
-            _utils->_last_nodes.append( _utils->_nested_loop_nodes.top( )->_init );
+            _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_init );
         }
 
         // Create the natural loop graph node
-        Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n.get_loop_header( ),
-                                                         LOOP_FOR, Nodecl::NodeclBase::null( ) );
+        Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_FOR );
         int n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
@@ -957,11 +946,10 @@ namespace Analysis {
                               ALWAYS, "", /* is back edge */ true );
 
         for_graph_node->set_stride_node( _utils->_nested_loop_nodes.top( )->_next );
+        _utils->_nested_loop_nodes.pop( );
 
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_graph_node );
-
-        _utils->_nested_loop_nodes.pop( );
 
         return ObjectList<Node*>( 1, for_graph_node );
     }
@@ -1014,19 +1002,21 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::IfElseStatement& n )
     {
-        Node* exit_node = new Node( );
+        Node* if_else_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ), IF_ELSE );
+        _pcfg->connect_nodes( _utils->_last_nodes, if_else_graph_node );
+        Node* if_else_exit = if_else_graph_node->get_graph_exit_node( );
 
         // Compose the condition node
-        ObjectList<Node*> cond_last_nodes = _utils->_last_nodes;
-        ObjectList<Node*> cond_node_l = walk( n.get_condition( ) );
-        _pcfg->connect_nodes( cond_last_nodes, cond_node_l[0] );
-        _utils->_last_nodes = ObjectList<Node*>( 1, cond_node_l[0] );
+        _utils->_last_nodes.clear();
+        Node* cond_node = walk( n.get_condition( ) )[0];
+        _pcfg->connect_nodes( if_else_graph_node->get_graph_entry_node( ), cond_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
 
         // Compose the then node
         ObjectList<Node*> then_node_l = walk( n.get_then( ) );
-        if( !cond_node_l[0]->get_exit_edges( ).empty( ) )
+        if( !cond_node->get_exit_edges( ).empty( ) )
         {
-            ObjectList<Edge*> exit_edges = cond_node_l[0]->get_exit_edges( );
+            ObjectList<Edge*> exit_edges = cond_node->get_exit_edges( );
             bool all_tasks_then = true;
             for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
             {   // More than one exit edge means that some tasks are created within 'then' statement
@@ -1034,54 +1024,53 @@ namespace Analysis {
                 if( !( *it )->is_task_edge( ) )
                     all_tasks_then = false;
             }
-            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+            _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit );
 
             // Compose the else node, if it exists
-            _utils->_last_nodes = ObjectList<Node*>( 1, cond_node_l[0] );
+            _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
             ObjectList<Node*> else_node_l = walk( n.get_else( ) );
 
             // Link the If condition with the FALSE statement (else or empty node)
             bool all_tasks_else = true;
             int false_edge_it = exit_edges.size( );
-            exit_edges = cond_node_l[0]->get_exit_edges( );
-            for( ; false_edge_it < cond_node_l[0]->get_exit_edges( ).size( ); ++false_edge_it )
+            exit_edges = cond_node->get_exit_edges( );
+            for( ; false_edge_it < cond_node->get_exit_edges( ).size( ); ++false_edge_it )
             {
                 exit_edges[false_edge_it]->set_data( _EDGE_TYPE, FALSE_EDGE );
                 if( !exit_edges[false_edge_it]->is_task_edge( ) )
                     all_tasks_else = false;
             }
-            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+            if( !else_node_l.empty( ) )
+                _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit );
+            else
+                _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit, FALSE_EDGE );
 
-            exit_node->set_id( ++( _utils->_nid ) );
-            exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-
-            // Connect the Exit node in case it has not been connected before
-            if( ( all_tasks_then && all_tasks_else ) || cond_node_l[0]->get_exit_edges().empty() )
+            // Connect the Exit node in that cases where it has not been connected before
+            if( ( all_tasks_then && all_tasks_else ) || cond_node->get_exit_edges().empty() )
             {
-                _pcfg->connect_nodes( cond_node_l[0], exit_node );
+                _pcfg->connect_nodes( cond_node, if_else_exit );
             }
             else if( all_tasks_then )
             {
-                _pcfg->connect_nodes( cond_node_l[0], exit_node, TRUE_EDGE );
+                _pcfg->connect_nodes( cond_node, if_else_exit, TRUE_EDGE );
             }
             else if( all_tasks_else )
             {
-                _pcfg->connect_nodes( cond_node_l[0], exit_node, FALSE_EDGE );
+                _pcfg->connect_nodes( cond_node, if_else_exit, FALSE_EDGE );
             }
-            _utils->_last_nodes = ObjectList<Node*>( 1, exit_node );
         }
         else
         {
             // Both for true and false evaluation for the if condition, we go to the exit node
-            exit_node->set_id( ++( _utils->_nid ) );
-            exit_node->set_outer_node( _utils->_outer_nodes.top() );
-            _pcfg->connect_nodes( cond_node_l[0], exit_node, TRUE_EDGE );
-            _pcfg->connect_nodes( cond_node_l[0], exit_node, FALSE_EDGE );
-
-            _utils->_last_nodes = ObjectList<Node*>( 1, exit_node );
+            _pcfg->connect_nodes( cond_node, if_else_exit );
         }
 
-        return cond_node_l;
+        if_else_exit->set_id( ++( _utils->_nid ) );
+        if_else_exit->set_outer_node( _utils->_outer_nodes.top() );
+        _utils->_outer_nodes.pop( );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, if_else_graph_node );
+        return ObjectList<Node*>( 1, if_else_graph_node );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
@@ -2005,39 +1994,35 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::WhileStatement& n )
     {
-        // Build condition node
-        ObjectList<Node*> cond_last_nodes = _utils->_last_nodes;
-        ObjectList<Node*> cond_node_l = walk( n.get_condition( ) );
-        Node* cond_node = cond_node_l[0];
-        _pcfg->connect_nodes( cond_last_nodes, cond_node );
-        _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
+        Node* while_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_WHILE );
+        _pcfg->connect_nodes( _utils->_last_nodes, while_graph_node );
+        Node* while_exit = while_graph_node->get_graph_exit_node( );
 
-        Node* exit_node = new Node( );
+        // Build condition node
+        Node* cond_node = walk( n.get_condition( ) )[0];
+        _pcfg->connect_nodes( while_graph_node->get_graph_entry_node( ), cond_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
 
         // Build the while body node/s
         _utils->_continue_nodes.push( cond_node );
-        _utils->_break_nodes.push( exit_node );
+        _utils->_break_nodes.push( while_exit );
         walk( n.get_statement( ) );    // This list of nodes returned here will never be used
         _utils->_continue_nodes.pop( );
         _utils->_break_nodes.pop( );
 
+        _pcfg->connect_nodes( _utils->_last_nodes, cond_node );
         ObjectList<Edge*> cond_exits = cond_node->get_exit_edges( );
         for( ObjectList<Edge*>::iterator it = cond_exits.begin( ); it != cond_exits.end( ); ++it )
             ( *it )->set_true_edge( );
-        _pcfg->connect_nodes( cond_node, exit_node, FALSE_EDGE );
+        _pcfg->connect_nodes( cond_node, while_exit, FALSE_EDGE );
 
         // Build the exit node
-        exit_node->set_id( ++( _utils->_nid ) );
-        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-        int n_connects = _utils->_last_nodes.size( );
+        while_exit->set_id( ++( _utils->_nid ) );
+        while_exit->set_outer_node( _utils->_outer_nodes.top( ) );
+        _utils->_outer_nodes.pop( );
 
-        _pcfg->connect_nodes( _utils->_last_nodes, cond_node,
-                              ObjectList<Edge_type>( n_connects, ALWAYS ),
-                              ObjectList<std::string>( n_connects, "" ) );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, exit_node );
-
-        return cond_node_l;
+        _utils->_last_nodes = ObjectList<Node*>( 1, while_graph_node );
+        return ObjectList<Node*>( 1, while_graph_node );
     }
 
     // ******************************** END visiting methods ******************************** //

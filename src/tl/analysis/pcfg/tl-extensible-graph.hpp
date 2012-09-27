@@ -347,26 +347,26 @@ namespace Analysis {
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
-        Symbol get_function_symbol() const;
+        Symbol get_function_symbol( ) const;
 
         //! Returns the node containing the graph
-        Node* get_graph() const;
+        Node* get_graph( ) const;
 
         //! Returns the list of nodes containing a task which are created within this graph
-        ObjectList<Node*> get_tasks_list() const;
+        ObjectList<Node*> get_tasks_list( ) const;
 
-        ObjectList<Symbol> get_function_parameters() const;
+        ObjectList<Symbol> get_function_parameters( ) const;
 
-        void add_func_call_symbol(Symbol s);
+        void add_func_call_symbol( Symbol s );
 
-        ObjectList<Symbol> get_function_calls() const;
+        ObjectList<Symbol> get_function_calls( ) const;
 
         // *** Consultants *** //
-        static Node* is_for_loop_increment(Node* node);
+        static Node* is_for_loop_increment( Node* node );
 
 
         // *** Printing methods *** //
-        void print_global_vars() const;
+        void print_global_vars( ) const;
 
 
     friend class PCFGVisitor;

@@ -33,6 +33,7 @@
 
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol.hpp"
+#include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-pcfg-utils.hpp"
@@ -44,13 +45,9 @@ namespace Analysis {
 
     class Edge;
     class LatticeCellValue;
-    class InductionVariableData;
 
     typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash,
                                     Nodecl::Utils::Nodecl_comp> nodecl_map;
-    // This type definition is redefined in tl-iv-analysis.hpp
-    typedef std::tr1::unordered_map<Nodecl::NodeclBase, InductionVariableData, Nodecl::Utils::Nodecl_hash,
-                                    Nodecl::Utils::Nodecl_comp> IV_map;
 
     //! Class representing a Node in the Extensible Graph
     class LIBTL_CLASS Node : public LinkData {
@@ -406,10 +403,10 @@ namespace Analysis {
             // *********** Getters and setters for induction variables analysis ************* //
 
             //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            IV_map get_induction_variables();
+            ObjectList<Utils::InductionVariableData> get_induction_variables();
 
             //! Set a new induction variable in a loop graph node
-            void set_induction_variable(Nodecl::NodeclBase iv, InductionVariableData iv_data);
+            void set_induction_variable( Utils::InductionVariableData iv );
 
             // ********* END getters and setters for induction variables analysis *********** //
             // ****************************************************************************** //

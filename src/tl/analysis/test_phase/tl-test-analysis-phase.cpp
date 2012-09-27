@@ -49,7 +49,7 @@ namespace Analysis {
             if ( VERBOSE )
                 std::cerr << "Testing PCFG creation" << std::endl;
             ObjectList<ExtensibleGraph*> pcfgs =
-                    analysis.parallel_control_flow_graph( memento, ast, /* dress up PCFGs */ true );
+                    analysis.parallel_control_flow_graph( memento, ast );
 
             if ( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {

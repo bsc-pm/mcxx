@@ -167,11 +167,14 @@ namespace Analysis {
         // ****************** FLOW ANALYSIS ****************** //
 
         /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
+         * If \ast contains no function, then the method creates a PCFG for the whole code in \ast
+         * The memento is modified containing the PCFGs and a flag is set indicating the PCFG analysis has been performed
+         * \param memento in/out object where the analysis is stored
          * \param ast Tree containing the code to construct the PCFG(s)
-         * \return A pointer to the created PCFG
+         * \return A list of pointer to the created PCFGs
          */
         ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                  Nodecl::NodeclBase ast, bool dress_up );
+                                                                  Nodecl::NodeclBase ast );
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -195,6 +198,11 @@ namespace Analysis {
 
         // ****************** LOOP ANALYSIS ****************** //
 
+        /*!This analysis computes the induction variables in \ast
+         * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
+         * The Induction Variables computed are attached to the corresponding LOOP nodes
+         *
+         */
         void induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
 

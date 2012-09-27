@@ -206,9 +206,8 @@ namespace Analysis {
 
         /*!Generates one PCFG per each function of an AST
          * \param n AST containing the code used to generate the PCFG
-         * \param dress_up boolean indicating whether the PCFG(s) must create maximum Basic Blocks or not
          */
-        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, bool dress_up = true );
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 

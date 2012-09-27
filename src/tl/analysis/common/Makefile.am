@@ -42,4 +42,6 @@ libanalysis_utils_la_SOURCES= \
                               tl-extended-symbol-utils.cpp \
                               tl-analysis-utils.hpp \
                               tl-analysis-utils.cpp \
+                              tl-induction-variables-data.hpp \
+                              tl-induction-variables-data.cpp \
                               $(END)
