@@ -5161,7 +5161,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         fortran_check_initialization(entry, initialization, decl_context, 
                                 /* is_pointer_init */ 0,
                                 &nodecl_init);
-
                     }
                     if (!nodecl_is_err_expr(nodecl_init))
                     {
@@ -6489,10 +6488,23 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
                     ASTText(name));
             continue;
         }
+        if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+        {
+            error_printf("%s: error: PARAMETER attribute is not valid for dummy arguments\n", 
+                    ast_location(a));
+            continue;
+        }
 
         if (is_const_qualified_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n", 
+            error_printf("%s: error: PARAMETER attribute already specified\n",
+                    ast_location(a));
+            continue;
+        }
+
+        if (is_pointer_type(no_ref(entry->type_information)))
+        {
+            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
                     ast_location(a));
             continue;
         }
@@ -6503,12 +6515,36 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
-        nodecl_t nodecl_constant = nodecl_null();
+        nodecl_t nodecl_init = nodecl_null();
         fortran_check_initialization(entry, constant_expr, decl_context, /* is_pointer_init */ 0,
-                &nodecl_constant);
+                &nodecl_init);
+
+        if (fortran_is_character_type(no_ref(entry->type_information))
+                && array_type_is_unknown_size(no_ref(entry->type_information))
+                && !nodecl_is_null(nodecl_init)
+                && !nodecl_is_err_expr(nodecl_init)
+                && nodecl_is_constant(nodecl_init)
+                && const_value_is_string(nodecl_get_constant(nodecl_init)))
+        {
+            // Update CHARACTER(LEN=*) to its real length
+            int num_elements = const_value_get_num_elements(nodecl_get_constant(nodecl_init));
+
+            entry->type_information = 
+                get_array_type_bounds(
+                        fortran_get_rank0_type(entry->type_information),
+                        nodecl_make_integer_literal(get_signed_int_type(), 
+                            const_value_get_one(fortran_get_default_integer_type_kind(), 1),
+                            ASTFileName(constant_expr),
+                            ASTLine(constant_expr)),
+                        nodecl_make_integer_literal(get_signed_int_type(), 
+                            const_value_get_integer(num_elements, fortran_get_default_integer_type_kind(), 1),
+                            ASTFileName(constant_expr),
+                            ASTLine(constant_expr)),
+                        decl_context);
+        }
 
         entry->type_information = get_const_qualified_type(entry->type_information);
-        entry->value = nodecl_constant;
+        entry->value = nodecl_init;
     }
 }
 
@@ -7700,6 +7736,29 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         /* is_pointer_init */ 0,
                         &nodecl_init);
 
+                if (fortran_is_character_type(entry->type_information)
+                        && array_type_is_unknown_size(entry->type_information)
+                        && !nodecl_is_null(nodecl_init)
+                        && !nodecl_is_err_expr(nodecl_init)
+                        && nodecl_is_constant(nodecl_init)
+                        && const_value_is_string(nodecl_get_constant(nodecl_init)))
+                {
+                    // Update CHARACTER(LEN=*) to its real length
+                    int num_elements = const_value_get_num_elements(nodecl_get_constant(nodecl_init));
+
+                    entry->type_information = 
+                        get_array_type_bounds(
+                                array_type_get_element_type(entry->type_information),
+                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                    const_value_get_one(fortran_get_default_integer_type_kind(), 1),
+                                    ASTFileName(initialization),
+                                    ASTLine(initialization)),
+                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                    const_value_get_integer(num_elements, fortran_get_default_integer_type_kind(), 1),
+                                    ASTFileName(initialization),
+                                    ASTLine(initialization)),
+                                decl_context);
+                }
             }
             if (!nodecl_is_err_expr(nodecl_init))
             {
