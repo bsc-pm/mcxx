@@ -1733,10 +1733,32 @@ Source ReplaceSrcSMP::replace(AST_t a) const
     return result;
 }
 
-
-static std::string smp_outline_name(const std::string &task_name)
+static std::string smp_outline_name(const std::string & name)
 {
-    return "_smp_" + task_name;
+    return "_smp_" + name;
+}
+
+std::string DeviceSMP::get_outline_name_for_instrumentation(const std::string & name,
+        bool is_template_specialized, const FunctionDefinition& enclosing_function) const
+{
+    std::string outline_function_name = smp_outline_name(name);
+    if (is_template_specialized && enclosing_function.is_templated())
+    {
+        Source template_params;
+        ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+        int num_last_template_header = template_header_list.size() - 1;
+
+        ObjectList<TemplateParameterConstruct> tpl_params = template_header_list[num_last_template_header].get_parameters();
+        for (ObjectList<TemplateParameterConstruct>::iterator it = tpl_params.begin();
+                it != tpl_params.end();
+                it++)
+        {
+            template_params.append_with_separator(it->get_name(), ",");
+        }
+        outline_function_name = outline_function_name + " < " + template_params.get_source() + " > ";
+    }
+
+    return outline_function_name;
 }
 
 static bool is_nonstatic_member_symbol(Symbol s)
@@ -2235,6 +2257,9 @@ void DeviceSMP::create_outline(
         }
     }
 
+    outline_name << smp_outline_name(task_name);
+    full_outline_name << outline_name;
+
     Source instrument_before, instrument_after;
 
     result
@@ -2256,15 +2281,15 @@ void DeviceSMP::create_outline(
 
     std::string generic_declaration_str;
 
-    while(!(generic_declaration_str 
+    while(!(generic_declaration_str
                 = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
     {
         generic_declarations_src
             << generic_declaration_str;
- 
+
         generic_functions_src
             << generic_functions.get_pending_specific_functions(function_replacement).get_source();
-    } 
+    }
 
 
     if (instrumentation_enabled())
@@ -2273,84 +2298,90 @@ void DeviceSMP::create_outline(
         Source uf_location_id, uf_location_descr;
         Symbol function_symbol = enclosing_function.get_function_symbol();
 
-        instrument_before
-            << "static int nanos_funct_id_init = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-            << "if (nanos_funct_id_init == 0)"
-            << "{"
-            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-            <<               uf_name_id << "," << uf_name_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-
-            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-            <<               uf_location_id << "," << uf_location_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "nanos_funct_id_init = 1;"
-            << "}"
-            << "nanos_event_t events_before[2];"
-            << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[1].type = NANOS_BURST_START;"
-            ;
-
         if (Nanos::Version::interface_is_at_least("master", 5017))
         {
+            // The outline name used by instrumentantion may contain template arguments
+            std::string outline_name_inst =
+                get_outline_name_for_instrumentation(task_name,
+                        function_symbol.get_type().is_template_specialized_type(), enclosing_function);
+
             instrument_before
+                << "static int nanos_funct_id_init = 0;"
+                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                << "if (nanos_funct_id_init == 0)"
+                << "{"
+                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << outline_name_inst << ","
+                <<               " \"user-funct-name\", " << uf_name_id << "," << uf_name_descr << ", 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << outline_name_inst << ","
+                <<               "\"user-funct-location\"," << uf_location_id << "," << uf_location_descr << ", 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "nanos_funct_id_init = 1;"
+                << "}"
+                << "nanos_event_t events_before[2];"
+                << "events_before[0].type = NANOS_BURST_START;"
+                << "events_before[1].type = NANOS_BURST_START;"
                 << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[0].value = nanos_instr_uf_name_value;"
                 << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "events_before[1].value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_before);"
+                ;
+            instrument_after
+                << "nanos_event_t events_after[2];"
+                << "events_after[0].type = NANOS_BURST_END;"
+                << "events_after[1].type = NANOS_BURST_END;"
+                << "events_after[0].key = nanos_instr_uf_name_key;"
+                << "events_after[1].key = nanos_instr_uf_location_key;"
+                << "nanos_instrument_events(2, events_after);"
                 ;
         }
         else
         {
             instrument_before
+                << "static int nanos_funct_id_init = 0;"
+                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+                << "if (nanos_funct_id_init == 0)"
+                << "{"
+                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
+                <<               uf_name_id << "," << uf_name_descr << ", 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+                <<               uf_location_id << "," << uf_location_descr << ", 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "nanos_funct_id_init = 1;"
+                << "}"
+                << "nanos_event_t events_before[2];"
+                << "events_before[0].type = NANOS_BURST_START;"
+                << "events_before[1].type = NANOS_BURST_START;"
                 << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
                 << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
                 << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
                 << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_before);"
                 ;
-        }
 
-        instrument_before
-            << "nanos_instrument_events(2, events_before);"
-            ;
-
-        instrument_after
-            << "nanos_event_t events_after[2];"
-            << "events_after[0].type = NANOS_BURST_END;"
-            << "events_after[1].type = NANOS_BURST_END;"
-            ;
-
-        if (Nanos::Version::interface_is_at_least("master", 5017))
-        {
             instrument_after
-                << "events_after[0].key = nanos_instr_uf_name_key;"
-                << "events_after[0].value = nanos_instr_uf_name_value;"
-                << "events_after[1].key = nanos_instr_uf_location_key;"
-                << "events_after[1].value = nanos_instr_uf_location_value;"
-                ;
-        }
-        else
-        {
-            instrument_after
+                << "nanos_event_t events_after[2];"
+                << "events_after[0].type = NANOS_BURST_END;"
+                << "events_after[1].type = NANOS_BURST_END;"
                 << "events_after[0].info.burst.key = nanos_instr_uf_name_key;"
                 << "events_after[0].info.burst.value = nanos_instr_uf_name_value;"
                 << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
                 << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_after);"
                 ;
         }
-
-        instrument_after
-            << "nanos_instrument_events(2, events_after);"
-            ;
-
 
         if (outline_flags.task_symbol != NULL)
         {
@@ -2391,14 +2422,6 @@ void DeviceSMP::create_outline(
 
     parameter_list
         << struct_typename << "* const __restrict__ _args"
-        ;
-
-    outline_name
-        << smp_outline_name(task_name)
-        ;
-
-    full_outline_name
-        << outline_name
         ;
 
     Source private_vars, final_code, init_code;

@@ -135,6 +135,8 @@ namespace TL
                         bool needs_extern_c);
 
                 void insert_instrumentation_code(Symbol function_symbol,
+                        const FunctionDefinition& enclosing_function,
+                        const std::string& task_name,
                         Source& outline_name,
                         const OutlineFlags& outline_flags,
                         AST_t& reference_tree,
@@ -161,13 +163,14 @@ namespace TL
                         Source& initial_setup,
                         Source& implements);
 
-                AST_t generate_task_code(Source& task_name, const std::string& struct_typename, Source& parameter_list,
-                        DataEnvironInfo& data_environ, const OutlineFlags& outline_flags, Source& initial_setup,
-                        Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
+                AST_t generate_task_code(Source& outline_name, const std::string& task_name,
+                        const std::string& struct_typename, Source& parameter_list, DataEnvironInfo& data_environ,
+                        const OutlineFlags& outline_flags, Source& initial_setup, Source& outline_body,
+                        AST_t& reference_tree, ScopeLink& sl);
 
-                void process_device_side_code(Source &outline_name, const std::string& struct_typename,
-                        Source& parameter_list, DataEnvironInfo& data_environ, const OutlineFlags& outline_flags,
-                        Source& initial_setup, Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
+                void process_device_side_code(Source &outline_name, const std::string& task_name,
+                        const std::string& struct_typename, Source& parameter_list, DataEnvironInfo& data_environ,
+                        const OutlineFlags& outline_flags, Source& initial_setup, Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
 
                 void insert_device_side_code(Source &forward_declaration);
 
@@ -214,6 +217,9 @@ namespace TL
                         ScopeLink sl,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
+
+                virtual std::string get_outline_name_for_instrumentation(const std::string & name,
+                        bool is_template_specialized, const FunctionDefinition& enclosing_function) const;
 
                 virtual void phase_cleanup(DTO& data_flow);
 

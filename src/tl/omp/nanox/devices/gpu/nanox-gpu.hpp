@@ -75,6 +75,9 @@ namespace TL
                         ScopeLink sl,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
+
+                virtual std::string get_outline_name_for_instrumentation(const std::string & name,
+                        bool is_template_specialized, const FunctionDefinition& enclosing_function) const;
         };
 
         class ReplaceSrcGPU : public ReplaceSrcIdExpression
