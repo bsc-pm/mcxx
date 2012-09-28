@@ -17,23 +17,27 @@
 ! $HEADER$
 !
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 module mpi
 
-  include "mpif-common.h"
+#include "mpif-common.h"
 
 ! The MPI attribute callback functions need to be explictly called out
 ! so that they don't end up in the MPI namespace.  See a longer
 ! explanation in attr_fn-f90-interfaces.h.
 
-  include "attr_fn-f90-interfaces.h"
+#include "attr_fn-f90-interfaces.h"
 
 ! Similarly, we need the MPI_CONVERSION_FN_NULL function
 
-  include "conversion_fn_null-f90-interface.h"
+#include "conversion_fn_null-f90-interface.h"
 
 ! This file is generated, and is *huge*.  Its size is directly related
 ! to the --with-f90-max-array-dim configure parameter.
 
-  include "mpi-f90-interfaces.h"
+#include "mpi-f90-interfaces.h"
 
 end module mpi

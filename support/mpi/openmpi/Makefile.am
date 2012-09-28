@@ -32,7 +32,7 @@ mpi_modules = \
 EXTRA_DIST = \
     attr_fn-f90-interfaces.h \
     conversion_fn_null-f90-interface.h \
-    mpi.f90 \
+    mpi.F90 \
     mpi-f90-interfaces.h \
     mpif-common.h \
     mpif-config.h \
@@ -57,9 +57,9 @@ endif
 
 mpi.mf03 : $(srcdir)/attr_fn-f90-interfaces.h \
 	      $(srcdir)/conversion_fn_null-f90-interface.h \
-		  $(srcdir)/mpi.f90 \
+		  $(srcdir)/mpi.F90 \
 		  $(srcdir)/mpi-f90-interfaces.h \
 		  $(srcdir)/mpif-common.h \
 		  $(srcdir)/mpif-config.h \
 		  $(srcdir)/mpif-mpi-io.h
-	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.F90
