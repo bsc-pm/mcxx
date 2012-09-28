@@ -41,7 +41,7 @@ namespace Utils {
 
     ExtendedSymbol::ExtendedSymbol( Nodecl::NodeclBase n )
     {
-        if ( !Nodecl::Utils::nodecl_is_modifiable_lvalue( n ) )
+        if ( !n.is<Nodecl::Symbol>( ) && !Nodecl::Utils::nodecl_is_modifiable_lvalue( n ) )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
             internal_error( "An ExtendedSymbol must contain an l-value, and nodecl '%s' isn't one\n",

@@ -29,6 +29,7 @@
 #include "tl-constants-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
 #include "tl-iv-analysis.hpp"
+#include "tl-use-def.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -227,7 +228,7 @@ namespace Analysis {
             if( memento.get_pcfg( pcfg_name ) == NULL )
             {
                 if( VERBOSE )
-                    std::cerr << "Generating PCFG '" << pcfg_name << "'" << std::endl;
+                    std::cerr << "- Generating PCFG '" << pcfg_name << "'" << std::endl;
 
                 // Create the PCFG
                     PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
@@ -239,7 +240,6 @@ namespace Analysis {
             }
             else
             {
-                WARNING_MESSAGE( "PCFG '%s' previously created. No modification performed in this PCFG.\n", pcfg_name.c_str( ) );
                 result.append( memento.get_pcfg( pcfg_name ) );
             }
         }
@@ -269,12 +269,16 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
 
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        if( !memento.is_usage_computed( ) )
         {
-            if( !(*it)->is_usage_computed( ) )
-            {
+            memento.set_usage_computed( );
 
-                memento->set_usage_computed( );
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Use-Definition of PCFG '" << (*it)->get_name( ) << "'" << std::endl;
+                UseDef ud( *it );
+                ud.compute_usage( );
             }
         }
     }
@@ -292,7 +296,7 @@ namespace Analysis {
         {
             InductionVariableAnalysis iva( *it );
             iva.compute_induction_variables( );
-            memento->set_i
+            // TODO
         }
     }
 

@@ -340,7 +340,7 @@ namespace Analysis {
                 }
                 basic_block = basic_block.substr( 0, basic_block.size( ) - 2 );   // Remove the last back space
 
-                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + basic_block + node_info + "}\", shape=record, "
+                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + " " + basic_block + " | " + node_info + "}\", shape=record, "
                             + basic_attrs + "];\n";
 
                 break;
@@ -422,7 +422,9 @@ namespace Analysis {
             std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ) );
             std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ) );
 
-            usage = "KILL: " + killed + "\\n" + "UE: " + ue + "\\n" + "UNDEEF: " + undef;
+            usage = ( killed.empty( )  ? "" : ( "KILL: "   + killed + "\\n" ) )
+                    + ( ue.empty( )    ? "" : ( "UE: "     + ue     + "\\n" ) )
+                    + ( undef.empty( ) ? "" : ( "UNDEEF: " + undef ) );
         }
         return usage;
     }
@@ -434,7 +436,8 @@ namespace Analysis {
         {
             std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ) );
             std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ) );
-            liveness = "LI: " + live_in + "\\n" + "LO: " + live_out;
+            liveness = ( live_in.empty( )    ? "" : "LI: " + live_in + "\\n" )
+                       + ( live_out.empty( ) ? "" : "LO: " + live_out );
         }
         return liveness;
     }
@@ -444,7 +447,8 @@ namespace Analysis {
         std::string reaching_defs = "";
         if( analysis_is_performed )
         {
-            reaching_defs = "REACH DEFS: " + prettyprint_reaching_definitions( current->get_reaching_definitions( ) );
+            std::string defs = prettyprint_reaching_definitions( current->get_reaching_definitions( ) );
+            reaching_defs = ( defs.empty( ) ? "" : "REACH DEFS: " + defs );
         }
         return reaching_defs;
     }
@@ -458,8 +462,10 @@ namespace Analysis {
             std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ) );
             std::string sc_shared = prettyprint_ext_sym_set( current->get_sc_shared_vars( ) );
             std::string sc_undefined = prettyprint_ext_sym_set( current->get_sc_undef_vars( ) );
-            auto_scope = "AUTO-SC_PRIVATE: " + sc_private + "\\n" + "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" +
-                         "AUTO-SC_SHARED: " + sc_shared + "\\n" + "AUTO-SC_UNDEFINED: " + sc_undefined + "\\n";
+            auto_scope = ( sc_private.empty( )     ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
+                         + ( sc_private.empty( )   ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
+                         + ( sc_shared.empty( )    ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
+                         + ( sc_undefined.empty( ) ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
         }
         return auto_scope;
     }
@@ -476,10 +482,13 @@ namespace Analysis {
             std::string deps_out = prettyprint_ext_sym_set( current->get_deps_out_exprs( ) );
             std::string deps_inout = prettyprint_ext_sym_set( current->get_deps_inout_exprs( ) );
             std::string deps_undefined = prettyprint_ext_sym_set( current->get_deps_undef_vars( ) );
-            auto_deps = "AUTO-DEPS_PRIVATE: " + deps_private + "\\n" + "AUTO-DEPS_FIRSTPRIVATE: " + deps_firstprivate + "\\n" +
-                        "AUTO-DEPS_SHARED: " + deps_shared + "\\n" + "AUTO-DEPS_IN: " + deps_in + "\\n" +
-                        "AUTO-DEPS_OUT: " + deps_out + "\\n" + "AUTO-DEPS_INOUT: " + deps_inout + "\\n" +
-                        "AUTO-DEPS_UNDEFINED: " + deps_undefined + "\\n";
+            auto_deps = ( deps_private.empty( )        ? "" : "AUTO-DEPS_PRIVATE: "      + deps_private      + "\\n" )
+                        + ( deps_firstprivate.empty( ) ? "" : "AUTO-DEPS_FIRSTPRIVATE: " + deps_firstprivate + "\\n" )
+                        + ( deps_shared.empty( )       ? "" : "AUTO-DEPS_SHARED: "       + deps_shared       + "\\n" )
+                        + ( deps_in.empty( )           ? "" : "AUTO-DEPS_IN: "           + deps_in           + "\\n" )
+                        + ( deps_out.empty( )          ? "" : "AUTO-DEPS_OUT: "          + deps_out          + "\\n" )
+                        + ( deps_inout.empty( )        ? "" : "AUTO-DEPS_INOUT: "        + deps_inout        + "\\n" )
+                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined    + "\\n" );
         }
         return auto_deps;
     }

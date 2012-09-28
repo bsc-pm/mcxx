@@ -46,14 +46,18 @@ namespace Analysis {
             Nodecl::NodeclBase ast = dto["nodecl"];
 
             // Test PCFG creation
-            if ( VERBOSE )
+            if( VERBOSE )
                 std::cerr << "Testing PCFG creation" << std::endl;
             ObjectList<ExtensibleGraph*> pcfgs =
                     analysis.parallel_control_flow_graph( memento, ast );
 
-            if ( CURRENT_CONFIGURATION->debug_options.print_pcfg )
+            if( VERBOSE )
+                std::cerr << "Testing Use-Definition analysis" << std::endl;
+            analysis.use_def( memento, ast );
+
+            if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
-                if ( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "Printing PCFG to dot file" << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
