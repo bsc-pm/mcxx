@@ -22,6 +22,7 @@ static std::string smp_ocl_outline_name(const std::string & name)
 }
 
 std::string DeviceSMP_OCL::get_outline_name_for_instrumentation(const std::string & name,
+        const std::string& struct_typename,
         const FunctionDefinition& enclosing_function) const
 {
     std::string outline_function_name = smp_ocl_outline_name(name);
@@ -40,7 +41,10 @@ std::string DeviceSMP_OCL::get_outline_name_for_instrumentation(const std::strin
         {
             template_params.append_with_separator(it->get_name(), ",");
         }
-        outline_function_name = outline_function_name + " < " + template_params.get_source() + " > ";
+        // Because of a bug in g++ (solved in 4.5) we need an additional casting
+        std::string additional_cast = "(void (*)(" + struct_typename + "))";
+
+        outline_function_name = "(" + additional_cast + outline_function_name + " < " + template_params.get_source() + " >)";
     }
 
     return outline_function_name;
@@ -799,7 +803,7 @@ void DeviceSMP_OCL::create_outline(
         {
             // The outline name used by instrumentantion may contain template arguments
             std::string outline_name_inst =
-                get_outline_name_for_instrumentation(task_name, enclosing_function);
+                get_outline_name_for_instrumentation(task_name, struct_typename, enclosing_function);
 
             instrument_before
                 << "static int nanos_funct_id_init = 0;"

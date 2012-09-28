@@ -247,6 +247,7 @@ namespace Nanox
              *  This function returns the name of the outline function with template arguments (if any)
              */
             virtual std::string get_outline_name_for_instrumentation(const std::string& name,
+                    const std::string& struct_typename,
                     const FunctionDefinition& enclosing_function) const = 0;
 
             virtual ~DeviceProvider() { }

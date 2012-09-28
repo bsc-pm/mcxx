@@ -1738,7 +1738,9 @@ static std::string smp_outline_name(const std::string & name)
     return "_smp_" + name;
 }
 
-std::string DeviceSMP::get_outline_name_for_instrumentation(const std::string & name, const FunctionDefinition& enclosing_function) const
+std::string DeviceSMP::get_outline_name_for_instrumentation(const std::string & name,
+        const std::string& struct_typename,
+        const FunctionDefinition& enclosing_function) const
 {
     std::string outline_function_name = smp_outline_name(name);
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -1756,7 +1758,10 @@ std::string DeviceSMP::get_outline_name_for_instrumentation(const std::string & 
         {
             template_params.append_with_separator(it->get_name(), ",");
         }
-        outline_function_name = outline_function_name + " < " + template_params.get_source() + " > ";
+        // Because of a bug in g++ (solved in 4.5) we need an additional casting
+        std::string additional_cast = "(void (*)(" + struct_typename + "))";
+
+        outline_function_name = "(" + additional_cast + outline_function_name + " < " + template_params.get_source() + " >)";
     }
 
     return outline_function_name;
@@ -2303,7 +2308,7 @@ void DeviceSMP::create_outline(
         {
             // The outline name used by instrumentantion may contain template arguments
             std::string outline_name_inst =
-                get_outline_name_for_instrumentation(task_name, enclosing_function);
+                get_outline_name_for_instrumentation(task_name, struct_typename, enclosing_function);
 
             instrument_before
                 << "static int nanos_funct_id_init = 0;"

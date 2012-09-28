@@ -137,6 +137,7 @@ namespace TL
                         Source &device_descriptor);
 
                 virtual std::string get_outline_name_for_instrumentation(const std::string & name,
+                        const std::string& struct_typename,
                         const FunctionDefinition& enclosing_function) const;
 
                 virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);

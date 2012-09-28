@@ -176,7 +176,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 if (Nanos::Version::interface_is_at_least("master", 5017))
                 {
                     std::string outline_name_inst =
-                        device_provider->get_outline_name_for_instrumentation(outline_name, funct_def);
+                        device_provider->get_outline_name_for_instrumentation(outline_name, struct_arg_type_name, funct_def);
 
                     instrument_before_opt
                         << "static int nanos_loop_init = 0;"

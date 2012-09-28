@@ -134,9 +134,10 @@ namespace TL
                         bool is_global_defined,
                         bool needs_extern_c);
 
-                void insert_instrumentation_code(Symbol function_symbol,
-                        const FunctionDefinition& enclosing_function,
+                void insert_instrumentation_code(
                         const std::string& task_name,
+                        const std::string& struct_typename,
+                        const FunctionDefinition& enclosing_function,
                         Source& outline_name,
                         const OutlineFlags& outline_flags,
                         AST_t& reference_tree,
@@ -219,6 +220,7 @@ namespace TL
                         Source &device_descriptor);
 
                 virtual std::string get_outline_name_for_instrumentation(const std::string & name,
+                        const std::string& struct_typename,
                         const FunctionDefinition& enclosing_function) const;
 
                 virtual void phase_cleanup(DTO& data_flow);

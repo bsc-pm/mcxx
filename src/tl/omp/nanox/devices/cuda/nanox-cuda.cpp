@@ -48,6 +48,7 @@ static std::string cuda_outline_name(const std::string & name)
 }
 
 std::string DeviceCUDA::get_outline_name_for_instrumentation(const std::string & name,
+        const std::string& struct_typename UNUSED_PARAMETER,
         const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
 {
 	return cuda_outline_name(name);
@@ -886,15 +887,16 @@ void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 }
 
 void DeviceCUDA::insert_instrumentation_code(
-        Symbol function_symbol,
-        const FunctionDefinition& enclosing_function,
         const std::string & task_name,
+		const std::string& struct_typename,
+        const FunctionDefinition& enclosing_function,
         Source& outline_name,
         const OutlineFlags& outline_flags,
         AST_t& reference_tree,
         Source& instrument_before,
         Source& instrument_after)
 {
+	Symbol function_symbol = enclosing_function.get_function_symbol();
     Source uf_name_id, uf_name_descr;
     Source uf_location_id, uf_location_descr;
 
@@ -902,7 +904,7 @@ void DeviceCUDA::insert_instrumentation_code(
     {
         // The outline name used by instrumentantion may contain template arguments
         std::string outline_name_inst =
-            get_outline_name_for_instrumentation(task_name, enclosing_function);
+            get_outline_name_for_instrumentation(task_name, struct_typename, enclosing_function);
 
         instrument_before
             << "static int nanos_funct_id_init = 0;"
@@ -1373,9 +1375,9 @@ AST_t DeviceCUDA::generate_task_code(
     if (instrumentation_enabled())
     {
         insert_instrumentation_code(
-                function_symbol,
-                enclosing_function,
                 task_name,
+                struct_typename,
+                enclosing_function,
                 outline_name,
                 outline_flags,
                 reference_tree,
