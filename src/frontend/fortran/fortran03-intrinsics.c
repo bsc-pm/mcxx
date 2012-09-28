@@ -5537,7 +5537,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
                     nodecl_arguments[j] = nodecl_null();
             }
 
-            *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+            *nodecl_simplified = (symbol->entity_specs.simplify_function)(symbol, num_actual_arguments, nodecl_arguments);
             if (!nodecl_is_null(*nodecl_simplified))
             {
                 nodecl_set_location(*nodecl_simplified, filename, line);

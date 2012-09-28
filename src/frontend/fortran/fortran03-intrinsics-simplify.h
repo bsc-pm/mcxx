@@ -49,7 +49,7 @@ static nodecl_t nodecl_make_one(void)
     return nodecl_make_int_literal(1);
 }
 
-static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_precision(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -103,7 +103,7 @@ static const_value_t* get_huge_value(type_t* t)
 }
 
 
-static nodecl_t simplify_huge(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_huge(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -156,7 +156,7 @@ static const_value_t* get_tiny_value(type_t* t)
     return NULL;
 }
 
-static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_tiny(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -174,7 +174,7 @@ static nodecl_t simplify_tiny(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-static nodecl_t simplify_range(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_range(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
     type_t* t = no_ref(nodecl_get_type(x));
@@ -201,13 +201,13 @@ static nodecl_t simplify_range(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     return nodecl_make_int_literal(value);
 }
 
-static nodecl_t simplify_radix(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+static nodecl_t simplify_radix(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
 {
     // Radix is always 2 in our compiler
     return nodecl_make_int_literal(2);
 }
 
-static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_selected_real_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t p = arguments[0];
     nodecl_t r = arguments[1];
@@ -240,9 +240,9 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
         // Reuse other simplification routines. We build a convenience node here
         nodecl_t nodecl_type = nodecl_make_type(real_type, NULL, 0);
 
-        nodecl_t precision = simplify_precision(1, &nodecl_type);
-        nodecl_t range = simplify_range(1, &nodecl_type);
-        nodecl_t current_radix = simplify_radix(1, &nodecl_type);
+        nodecl_t precision = simplify_precision(entry, 1, &nodecl_type);
+        nodecl_t range = simplify_range(entry, 1, &nodecl_type);
+        nodecl_t current_radix = simplify_radix(entry, 1, &nodecl_type);
 
         uint64_t precision_ = const_value_cast_to_8(nodecl_get_constant(precision));
         uint64_t range_ = const_value_cast_to_8(nodecl_get_constant(range));
@@ -261,7 +261,7 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
     return nodecl_make_int_literal(-1);
 }
 
-static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_selected_int_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t r = arguments[0];
 
@@ -291,7 +291,7 @@ static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, n
     return nodecl_make_int_literal(kind);
 }
 
-static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_selected_char_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t name = arguments[0];
 
@@ -317,14 +317,14 @@ static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, 
     return nodecl_null();
 }
 
-static nodecl_t simplify_bit_size(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_bit_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t i = arguments[0];
 
     return nodecl_make_int_literal(type_get_size(no_ref(nodecl_get_type(i))) * 8);
 }
 
-static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_len(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t str = arguments[0];
 
@@ -336,7 +336,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
     return nodecl_shallow_copy(array_type_get_array_size_expr(t));
 }
 
-static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
      
@@ -355,7 +355,7 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     return nodecl_make_int_literal(type_get_size(t));
 }
 
-static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_digits(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -376,7 +376,7 @@ static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     return nodecl_null();
 }
 
-static nodecl_t simplify_epsilon(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_epsilon(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -408,7 +408,7 @@ static nodecl_t simplify_epsilon(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     return nodecl_null();
 }
 
-static nodecl_t simplify_maxexponent(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_maxexponent(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -420,7 +420,7 @@ static nodecl_t simplify_maxexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     return nodecl_make_int_literal(model->emax);
 }
 
-static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_minexponent(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -432,7 +432,7 @@ static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     return nodecl_make_int_literal(model->emin);
 }
 
-static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments,
+static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments,
         nodecl_t (*bound_fun)(type_t*))
 {
     nodecl_t array = arguments[0];
@@ -528,17 +528,17 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     return nodecl_null();
 }
 
-static nodecl_t simplify_lbound(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_lbound(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_xbound(num_arguments, arguments, array_type_get_array_lower_bound);
+    return simplify_xbound(entry, num_arguments, arguments, array_type_get_array_lower_bound);
 }
 
-static nodecl_t simplify_ubound(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_ubound(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_xbound(num_arguments, arguments, array_type_get_array_upper_bound);
+    return simplify_xbound(entry, num_arguments, arguments, array_type_get_array_upper_bound);
 }
 
-static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t array = arguments[0];
     nodecl_t dim = arguments[1];
@@ -597,7 +597,7 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     return nodecl_null();
 }
 
-static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t array = arguments[0];
     nodecl_t kind = arguments[1];
@@ -678,7 +678,7 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     return result;
 }
 
-static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
+static nodecl_t simplify_max_min(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments,
         const_value_t* (combine)(const_value_t*, const_value_t*))
 {
     nodecl_t result = nodecl_null();
@@ -724,11 +724,12 @@ static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
     return result;
 }
 
-static nodecl_t simplify_max_min_plus_conv(int num_arguments, nodecl_t* arguments,
+static nodecl_t simplify_max_min_plus_conv(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments, nodecl_t* arguments,
         const_value_t* (combine)(const_value_t*, const_value_t*),
         const_value_t* (convert)(const_value_t*))
 {
-    nodecl_t result = simplify_max_min(num_arguments, arguments, combine);
+    nodecl_t result = simplify_max_min(entry, num_arguments, arguments, combine);
 
     if (!nodecl_is_null(result))
     {
@@ -738,67 +739,67 @@ static nodecl_t simplify_max_min_plus_conv(int num_arguments, nodecl_t* argument
     return result;
 }
 
-static nodecl_t simplify_max(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_max(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min(num_arguments, arguments, const_value_gt);
+    return simplify_max_min(entry, num_arguments, arguments, const_value_gt);
 }
 
-static nodecl_t simplify_min(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_min(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min(num_arguments, arguments, const_value_lt);
+    return simplify_max_min(entry, num_arguments, arguments, const_value_lt);
 }
 
-static nodecl_t simplify_max1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_max1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_round_to_zero);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_gt, const_value_round_to_zero);
 }
 
-static nodecl_t simplify_min1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_min1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_round_to_zero);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_lt, const_value_round_to_zero);
 }
 
-static nodecl_t simplify_amax0(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_amax0(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
 }
 
-static nodecl_t simplify_amin0(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_amin0(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
 }
 
-static nodecl_t simplify_amax1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_amax1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
 }
 
-static nodecl_t simplify_amin1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_amin1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
 }
 
-static nodecl_t simplify_dmax1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_dmax1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_double_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_gt, const_value_cast_to_double_value);
 }
 
-static nodecl_t simplify_dmin1(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_dmin1(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_double_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_lt, const_value_cast_to_double_value);
 }
 
-static nodecl_t simplify_max0(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_max0(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_signed_int_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_gt, const_value_cast_to_signed_int_value);
 }
 
-static nodecl_t simplify_min0(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_min0(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_signed_int_value);
+    return simplify_max_min_plus_conv(entry, num_arguments, arguments, const_value_lt, const_value_cast_to_signed_int_value);
 }
 
-static nodecl_t simplify_int(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_int(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t arg = arguments[0];
     nodecl_t arg_kind = arguments[1];
@@ -832,7 +833,7 @@ static nodecl_t simplify_int(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
     return nodecl_null();
 }
 
-static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_real(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t arg = arguments[0];
     nodecl_t arg_kind = arguments[1];
@@ -881,14 +882,14 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     return nodecl_null();
 }
 
-static nodecl_t simplify_float(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_float(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t argument_list[2] = { arguments[0], 
         const_value_to_nodecl(const_value_get_signed_int(fortran_get_default_real_type_kind())) }; 
-    return simplify_real(2, argument_list);
+    return simplify_real(entry, 2, argument_list);
 }
 
-static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_char(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     if (nodecl_is_constant(arguments[0]))
     {
@@ -899,9 +900,9 @@ static nodecl_t simplify_char(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     return nodecl_null();
 }
 
-static nodecl_t simplify_achar(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_achar(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
-    return simplify_char(num_arguments, arguments);
+    return simplify_char(entry, num_arguments, arguments);
 }
 
 
@@ -1242,7 +1243,7 @@ static const_value_t* reshape_array_from_flattened(
             );
 }
 
-static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_reshape(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     if (nodecl_is_constant(arguments[0])
             && nodecl_is_constant(arguments[1])
@@ -1283,7 +1284,7 @@ static nodecl_t simplify_reshape(int num_arguments UNUSED_PARAMETER, nodecl_t* a
     return nodecl_null();
 }
 
-static nodecl_t simplify_repeat(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_repeat(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     if (!nodecl_is_constant(arguments[0])
             || !nodecl_is_constant(arguments[1]))
@@ -1449,7 +1450,7 @@ static const_value_t* reduce_recursively(
     }
 }
 
-static const_value_t* simplify_maxminval_aux(
+static const_value_t* simplify_maxminval_aux(scope_entry_t* entry UNUSED_PARAMETER, 
         const_value_t* array_constant,
         const_value_t* dim_constant,
         const_value_t* mask_constant,
@@ -1511,7 +1512,7 @@ static const_value_t* simplify_maxminval_aux(
     }
 }
 
-static nodecl_t simplify_maxminval(int num_arguments, 
+static nodecl_t simplify_maxminval(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, 
         nodecl_t* arguments,
         int num_dimensions,
         const_value_t* (*combine)(const_value_t* a, const_value_t* b),
@@ -1543,6 +1544,7 @@ static nodecl_t simplify_maxminval(int num_arguments,
         return nodecl_null();
 
     const_value_t* v = simplify_maxminval_aux(
+            entry,
             nodecl_get_constant(array),
             nodecl_is_null(dim) ? NULL : nodecl_get_constant(dim),
             nodecl_is_null(mask) ? NULL : nodecl_get_constant(mask),
@@ -1606,7 +1608,7 @@ static const_value_t* get_max_neuter_for_type(type_t* t)
     }
 }
 
-static nodecl_t simplify_maxval(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_maxval(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     nodecl_t array = arguments[0];
 
@@ -1615,6 +1617,7 @@ static nodecl_t simplify_maxval(int num_arguments, nodecl_t* arguments)
     int num_dimensions = fortran_get_rank_of_type(array_type);
 
     return simplify_maxminval(
+            entry,
             num_arguments, arguments,
             num_dimensions,
             const_value_compute_max,
@@ -1672,7 +1675,7 @@ static const_value_t* get_min_neuter_for_type(type_t* t)
     }
 }
 
-static nodecl_t simplify_minval(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_minval(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     nodecl_t array = arguments[0];
 
@@ -1681,6 +1684,7 @@ static nodecl_t simplify_minval(int num_arguments, nodecl_t* arguments)
     int num_dimensions = fortran_get_rank_of_type(array_type);
 
     return simplify_maxminval(
+            entry,
             num_arguments, arguments,
             num_dimensions,
             const_value_compute_min,
@@ -1731,7 +1735,7 @@ static const_value_t* compute_abs(const_value_t* cval)
         return NULL;
 }
 
-static nodecl_t simplify_abs(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_abs(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -1903,7 +1907,7 @@ static char abs_value_is_lte_1(const_value_t* cval)
             );
 }
 
-static nodecl_t simplify_acos(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_acos(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -1935,7 +1939,7 @@ static nodecl_t simplify_acos(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 }
 
-static nodecl_t simplify_acosh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_acosh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -1966,7 +1970,7 @@ static nodecl_t simplify_acosh(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
             );
 }
 
-static nodecl_t simplify_aimag(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_aimag(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -1999,7 +2003,7 @@ static const_value_t* compute_aint(const_value_t* cval, type_t* floating_type)
     return const_value_cast_to_floating_type_value(const_value_round_to_zero( cval ), floating_type);
 }
 
-static nodecl_t simplify_aint(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_aint(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     nodecl_t arg = arguments[0];
     nodecl_t kind = nodecl_null();
@@ -2048,7 +2052,7 @@ static const_value_t* compute_anint(const_value_t* cval, type_t* floating_type)
             floating_type);
 }
 
-static nodecl_t simplify_anint(int num_arguments, nodecl_t* arguments)
+static nodecl_t simplify_anint(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     nodecl_t arg = arguments[0];
     nodecl_t kind = nodecl_null();
@@ -2075,7 +2079,7 @@ static nodecl_t simplify_anint(int num_arguments, nodecl_t* arguments)
             floating_type);
 }
 
-static nodecl_t simplify_asin(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_asin(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2107,7 +2111,7 @@ static nodecl_t simplify_asin(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 }
 
-static nodecl_t simplify_asinh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_asinh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2138,7 +2142,7 @@ static nodecl_t simplify_asinh(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
             );
 }
 
-static nodecl_t simplify_atan(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_atan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2169,7 +2173,7 @@ static nodecl_t simplify_atan(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
             );
 }
 
-static nodecl_t simplify_atanh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_atanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2200,7 +2204,7 @@ static nodecl_t simplify_atanh(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
             );
 }
 
-static nodecl_t simplify_cos(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_cos(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2231,7 +2235,7 @@ static nodecl_t simplify_cos(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
             );
 }
 
-static nodecl_t simplify_cosh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_cosh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2262,7 +2266,7 @@ static nodecl_t simplify_cosh(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
             );
 }
 
-static nodecl_t simplify_sin(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_sin(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2293,7 +2297,7 @@ static nodecl_t simplify_sin(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
             );
 }
 
-static nodecl_t simplify_sinh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_sinh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2324,7 +2328,7 @@ static nodecl_t simplify_sinh(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
             );
 }
 
-static nodecl_t simplify_tan(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_tan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2355,7 +2359,7 @@ static nodecl_t simplify_tan(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
             );
 }
 
-static nodecl_t simplify_tanh(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_tanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2394,7 +2398,7 @@ static char value_is_positive(const_value_t* cval)
     return !const_value_is_negative(cval);
 }
 
-static nodecl_t simplify_sqrt(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_sqrt(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t x = arguments[0];
 
@@ -2427,7 +2431,7 @@ static nodecl_t simplify_sqrt(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
 #endif
 
-static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t c = arguments[0];
 
@@ -2463,8 +2467,9 @@ static nodecl_t simplify_iachar(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
             fortran_choose_int_type_from_kind(kind));
 }
 
-static nodecl_t simplify_ichar(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     // Mercurium only supports ASCII thus ichar is the same as iachar
-    return simplify_iachar(num_arguments, arguments);
+    return simplify_iachar(entry, num_arguments, arguments);
+}
 }
