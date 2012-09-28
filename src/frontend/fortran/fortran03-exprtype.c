@@ -1810,9 +1810,12 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
 
             if (!nodecl_is_null(initialization_expressions[current_member_index]))
             {
-                error_printf("%s: error: component '%s' initialized more than once\n",
-                        ast_location(expr),
-                        member->symbol_name);
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: component '%s' initialized more than once\n",
+                            ast_location(expr),
+                            member->symbol_name);
+                }
                 *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
                 return;
             }
@@ -1852,9 +1855,12 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
         {
             if (nodecl_is_null(member->value))
             {
-                error_printf("%s: error: component '%s' lacks an initializer\n",
-                        ast_location(expr),
-                        member->symbol_name);
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: component '%s' lacks an initializer\n",
+                            ast_location(expr),
+                            member->symbol_name);
+                }
                 *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
                 return;
             }
