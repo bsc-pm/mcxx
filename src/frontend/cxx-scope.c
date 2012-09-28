@@ -5194,16 +5194,16 @@ void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* fu
 
     function = get_ultimate_symbol_from_module(function);
 
-    int index = -1;
+    int idx = -1;
 
     int i;
-    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (idx < 0); i++)
     {
         if (entry->entity_specs.function_parameter_info[i].function == function)
-            index = i;
+            idx = i;
     }
 
-    if (index < 0)
+    if (idx < 0)
     {
         function_parameter_info_t function_parameter_info;
         memset(&function_parameter_info, 0, sizeof(function_parameter_info));
@@ -5217,8 +5217,8 @@ void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* fu
     }
     else
     {
-        entry->entity_specs.function_parameter_info[index].function = function;
-        entry->entity_specs.function_parameter_info[index].position = position;
+        entry->entity_specs.function_parameter_info[idx].function = function;
+        entry->entity_specs.function_parameter_info[idx].position = position;
     }
 }
 
@@ -5229,15 +5229,15 @@ char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* functi
 
     function = get_ultimate_symbol_from_module(function);
 
-    int index = -1;
+    int idx = -1;
     int i;
-    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (index < 0); i++)
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info) && (idx < 0); i++)
     {
         if (entry->entity_specs.function_parameter_info[i].function == function)
-            index = i;
+            idx = i;
     }
 
-    return !(index < 0);
+    return !(idx < 0);
 }
 
 int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function)
