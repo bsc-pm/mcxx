@@ -417,46 +417,82 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             }
 
             Source src;
-            src
-                << "{"
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_name_value = 0;"
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "nanos_err_t err = nanos_instrument_get_key(\"" << arguments[0] << "\", &nanos_instr_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value (&nanos_instr_name_value, "
-                <<             "\"" << arguments[0] << "\", " 
-                <<             arguments[1] << ", "
-                <<             "\"" << ctr.get_ast().get_locus() << "\"," 
-                <<             "/* abort_if_registered */ 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t _events[1];"
-                << "_events[0].type = NANOS_POINT;"
-                ;
-
             if (Nanos::Version::interface_is_at_least("master", 5017))
             {
+
+                // We calculate the name (with template arguments if needed) of the current function
+                FunctionDefinition enclosing_function = ctr.get_enclosing_function();
+                Symbol function_symbol = enclosing_function.get_function_symbol();
+                std::string function_name = function_symbol.get_name();
+
+                if (enclosing_function.is_templated() &&
+                        function_symbol.get_type().is_template_specialized_type())
+                {
+                    Source template_params;
+                    ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+                    int num_last_template_header = template_header_list.size() - 1;
+
+                    ObjectList<TemplateParameterConstruct> tpl_params = template_header_list[num_last_template_header].get_parameters();
+                    for (ObjectList<TemplateParameterConstruct>::iterator it = tpl_params.begin();
+                            it != tpl_params.end();
+                            it++)
+                    {
+                        template_params.append_with_separator(it->get_name(), ",");
+                    }
+                    function_name = function_name + " < " + template_params.get_source() + " > ";
+                }
+
                 src
-                    << "_events[0].keys = &nanos_instr_name_key;"
-                    << "_events[0].values = &nanos_instr_name_value;"
+                    << "{"
+                    << "static int nanos_funct_id_init = 0;"
+                    << "static nanos_event_key_t nanos_instr_name_key = 0;"
+                    << "if (nanos_funct_id_init == 0)"
+                    << "{"
+                    <<    "nanos_err_t err = nanos_instrument_get_key(\"" << arguments[0] << "\", &nanos_instr_name_key);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << function_name << ", "
+                    <<             "\"" << arguments[0] << "\", "
+                    <<             arguments[1] << ", "
+                    <<             "\"" << ctr.get_ast().get_locus() << "\","
+                    <<             "/* abort_if_registered */ 0);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "nanos_funct_id_init = 1;"
+                    << "}"
+                    << "nanos_event_t _events[1];"
+                    << "_events[0].type = NANOS_POINT;"
+                    << "_events[0].key = nanos_instr_name_key;"
+                    << "nanos_instrument_events(1, _events);"
+                    << "}"
                     ;
             }
             else
             {
                 src
+                    << "{"
+                    << "static int nanos_funct_id_init = 0;"
+                    << "static nanos_event_key_t nanos_instr_name_key = 0;"
+                    << "static nanos_event_value_t nanos_instr_name_value = 0;"
+                    << "if (nanos_funct_id_init == 0)"
+                    << "{"
+                    <<    "nanos_err_t err = nanos_instrument_get_key(\"" << arguments[0] << "\", &nanos_instr_name_key);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "err = nanos_instrument_register_value (&nanos_instr_name_value, "
+                    <<             "\"" << arguments[0] << "\", "
+                    <<             arguments[1] << ", "
+                    <<             "\"" << ctr.get_ast().get_locus() << "\","
+                    <<             "/* abort_if_registered */ 0);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "nanos_funct_id_init = 1;"
+                    << "}"
+                    << "nanos_event_t _events[1];"
+                    << "_events[0].type = NANOS_POINT;"
                     << "_events[0].info.point.nkvs = 1;"
                     << "_events[0].info.point.keys = &nanos_instr_name_key;"
                     << "_events[0].info.point.values = &nanos_instr_name_value;"
+                    << "nanos_instrument_events(1, _events);"
+                    << "}"
                     ;
             }
-            src
-                << "nanos_instrument_events(1, _events);"
-                << "}"
-                ;
 
             AST_t tree = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
             ctr.get_ast().replace(tree);
