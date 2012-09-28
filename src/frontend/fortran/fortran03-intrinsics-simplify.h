@@ -2472,4 +2472,40 @@ static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     // Mercurium only supports ASCII thus ichar is the same as iachar
     return simplify_iachar(entry, num_arguments, arguments);
 }
+
+static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    const_value_t* zero = const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    nodecl_t called = nodecl_make_symbol(entry, NULL, 0);
+
+    nodecl_t result;
+    if (nodecl_is_null(arguments[0]))
+    {
+        type_t* pointer_type = get_pointer_type(get_void_type());
+
+        result = nodecl_make_function_call(called,
+                nodecl_null(),
+                nodecl_null(),
+                nodecl_null(),
+                pointer_type,
+                NULL, 0);
+        nodecl_set_constant(result, zero);
+    }
+    else
+    {
+        type_t* pointer_type = nodecl_get_type(arguments[0]);
+
+        result = nodecl_make_function_call(called,
+                nodecl_make_list_1(nodecl_shallow_copy(arguments[0])),
+                nodecl_null(),
+                nodecl_null(),
+                pointer_type,
+                NULL, 0);
+        nodecl_set_constant(result, zero);
+    }
+
+    return result;
 }

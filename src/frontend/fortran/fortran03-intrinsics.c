@@ -216,7 +216,7 @@ FORTRAN_GENERIC_INTRINSIC(new_line, "A", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(nint, "A,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(not, "I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(norm2, "X,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(null, "?MOLD", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(null, "?MOLD", T, simplify_null) \
 FORTRAN_GENERIC_INTRINSIC(num_images, "", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(pack, "ARRAY,MASK,?VECTOR", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(parity, "ARRAY,?MASK", T, NULL) \
@@ -4217,15 +4217,33 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    type_t* t0 = no_ref(argument_types[0]);
-    if (t0 == NULL)
+    if (nodecl_is_null(argument_expressions[0]))
     {
         type_t* p = get_pointer_type(get_void_type());
         return GET_INTRINSIC_TRANSFORMATIONAL("null", p, p);
     }
-    else if (is_pointer_type(t0))
+    else
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("null", t0, t0);
+        type_t* relevant_type = NULL;
+        if (nodecl_get_kind(argument_expressions[0]) == NODECL_DEREFERENCE)
+        {
+            relevant_type = no_ref(nodecl_get_type(nodecl_get_child(argument_expressions[0], 0)));
+        }
+        else if (nodecl_get_symbol(argument_expressions[0]) != NULL)
+        {
+            scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
+            if (!sym->entity_specs.is_allocatable)
+            {
+                return NULL;
+            }
+            relevant_type = no_ref(sym->type_information);
+        }
+        else
+        {
+            return NULL;
+        }
+
+        return GET_INTRINSIC_TRANSFORMATIONAL("null", relevant_type, get_lvalue_reference_type(relevant_type));
     }
 
     return NULL;
