@@ -219,7 +219,7 @@ namespace TL
                         Source &device_descriptor);
 
                 virtual std::string get_outline_name_for_instrumentation(const std::string & name,
-                        bool is_template_specialized, const FunctionDefinition& enclosing_function) const;
+                        const FunctionDefinition& enclosing_function) const;
 
                 virtual void phase_cleanup(DTO& data_flow);
 

@@ -39,10 +39,12 @@ static std::string smp_numa_outline_name(const std::string & name)
 }
 
 std::string DeviceSMP_NUMA::get_outline_name_for_instrumentation(const std::string & name,
-        bool is_template_specialized, const FunctionDefinition& enclosing_function) const
+        const FunctionDefinition& enclosing_function) const
 {
     std::string outline_function_name = smp_numa_outline_name(name);
-    if (is_template_specialized && enclosing_function.is_templated())
+    Symbol function_symbol = enclosing_function.get_function_symbol();
+    if (enclosing_function.is_templated()
+            && function_symbol.get_type().is_template_specialized_type())
     {
         Source template_params;
         ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
@@ -301,8 +303,7 @@ void DeviceSMP_NUMA::create_outline(
         {
             // The outline name used by instrumentantion may contain template arguments
             std::string outline_name_inst =
-                get_outline_name_for_instrumentation(task_name,
-                        function_symbol.get_type().is_template_specialized_type(), enclosing_function);
+                get_outline_name_for_instrumentation(task_name, enclosing_function);
 
             instrument_before
                 << "static int nanos_funct_id_init = 0;"
