@@ -3148,6 +3148,7 @@ OPERATOR_TABLE
                 declare_everything_needed(entry.get_value());
 
                 if (entry.is_static()
+                        || entry.is_member()
                         || (entry.get_type().is_const()
                             && entry.get_value().is_constant()))
                 {
