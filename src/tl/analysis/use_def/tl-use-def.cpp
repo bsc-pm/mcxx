@@ -99,7 +99,8 @@ namespace Analysis {
         if( !Utils::ext_sym_set_contains_englobing_nodecl( var, list ) )
         {
             // Create a new list with the elements of 'list' that are not englobed by 'var'
-            Utils::ext_sym_set aux_list(1, Utils::ExtendedSymbol( var ) );
+            Utils::ext_sym_set aux_list;
+            aux_list.insert( Utils::ExtendedSymbol( var ) );
             for( Utils::ext_sym_set::iterator it = list.begin( ); it != list.end( ); ++it )
             {
                 if( !Utils::ext_sym_set_contains_englobing_nodecl( it->get_nodecl( ), aux_list ) )
@@ -134,21 +135,22 @@ namespace Analysis {
             if( !Utils::ext_sym_set_contains_englobing_nodecl( var, killed ) )
             {   // No englobing variable in the avoiding list 1
                 // Look for variables in avoiding list 1 englobed by 'var'
-                Utils::ext_sym_set aux_set( 1, var );
+                Utils::ext_sym_set aux_set;
+                aux_set.insert( Utils::ExtendedSymbol( var ) );
                 Utils::ext_sym_set::iterator itk = killed.begin( );
                 for( ; itk != killed.end( ); ++itk )
                 {
-                    if(Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
+                    if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                     // TODO
                     std::cerr << "warning: Part of nodecl " << itk->get_nodecl( ).prettyprint( ) << " founded in the current var "
                               << var.prettyprint( ) << " must be avoided. A subpart is killed." << std::endl;
                     //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
-                    killed.erase(itk);
-                    if(compute_undef == '1')
-                        new_l = insert_var_in_list(var, new_l);
+                    killed.erase( itk );
+                    if( compute_undef == '1' )
+                        new_l = insert_var_in_list( var, new_l );
                     else
-                        undef.insert(var);
+                        undef.insert( var );
                     break;
                     }
                 }
@@ -204,9 +206,9 @@ namespace Analysis {
                 use_def_aux = get_use_def_over_nodes( *it );
                 if( !use_def_aux.empty( ) )
                 {
-                    ue_children.insert( use_def_aux[0] );
-                    killed_children.insert( use_def_aux[1] );
-                    undef_children.insert( use_def_aux[2] );
+                    ue_children = sets_union( ue_children, use_def_aux[0] );
+                    killed_children = sets_union( killed_children, use_def_aux[1] );
+                    undef_children = sets_union( undef_children, use_def_aux[2] );
                 }
             }
 
@@ -283,9 +285,9 @@ namespace Analysis {
         {
             if( ( *it )->get_id( ) != id_target_node )
             {
-                ue_vars.insert( ( *it )->get_ue_vars( ) );
-                killed_vars.insert( ( *it )->get_killed_vars( ) );
-                undef_vars.insert( ( *it )->get_undefined_behaviour_vars( ) );
+                ue_vars = sets_union( ue_vars, ( *it )->get_ue_vars( ) );
+                killed_vars = sets_union( killed_vars, ( *it )->get_killed_vars( ) );
+                undef_vars = sets_union( undef_vars, ( *it )->get_undefined_behaviour_vars( ) );
 
                 get_use_def_variables( *it, id_target_node, ue_vars, killed_vars, undef_vars );
             }

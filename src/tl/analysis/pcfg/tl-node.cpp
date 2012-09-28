@@ -1208,154 +1208,153 @@ namespace Analysis {
         }
         if(it == new_ue_vars.end())
         {
-            ue_vars.insert(purged_ue_vars);
+            ue_vars.insert( purged_ue_vars.begin( ), purged_ue_vars.end( ) );
             set_data(_UPPER_EXPOSED, ue_vars);
         }
     }
 
-    void Node::unset_ue_var(Utils::ExtendedSymbol old_ue_var)
+    void Node::unset_ue_var( Utils::ExtendedSymbol old_ue_var )
     {
         Utils::ext_sym_set ue_vars;
 
-        if(has_key(_UPPER_EXPOSED))
+        if( has_key( _UPPER_EXPOSED ) )
         {
-            ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
-            ue_vars = ue_vars.not_find(old_ue_var);
+            ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
+            ue_vars = sets_difference( ue_vars, old_ue_var );
         }
 
-        set_data(_UPPER_EXPOSED, ue_vars);
+        set_data( _UPPER_EXPOSED, ue_vars );
     }
 
-    Utils::ext_sym_set Node::get_killed_vars()
+    Utils::ext_sym_set Node::get_killed_vars( )
     {
         Utils::ext_sym_set killed_vars;
 
-        if(has_key(_KILLED))
+        if( has_key( _KILLED ) )
         {
-            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
         }
 
         return killed_vars;
     }
 
-    void Node::set_killed_var(Utils::ExtendedSymbol new_killed_var)
+    void Node::set_killed_var( Utils::ExtendedSymbol new_killed_var )
     {
         Utils::ext_sym_set killed_vars;
 
-        if(has_key(_KILLED))
+        if( has_key( _KILLED ) )
         {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
         }
 
-        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_killed_var, killed_vars))
+        if( !Utils::ext_sym_set_contains_englobing_nodecl( new_killed_var, killed_vars ) )
         {
-            killed_vars.insert(new_killed_var);
-            set_data(_KILLED, killed_vars);
+            killed_vars.insert( new_killed_var );
+            set_data( _KILLED, killed_vars );
         }
     }
 
-    void Node::set_killed_var(Utils::ext_sym_set new_killed_vars)
+    void Node::set_killed_var( Utils::ext_sym_set new_killed_vars )
     {
         Utils::ext_sym_set killed_vars;
 
-        if(has_key(_KILLED))
+        if( has_key( _KILLED ) )
         {
-            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
         }
 
         Utils::ext_sym_set purged_killed_vars;
-        Utils::ext_sym_set::iterator it = new_killed_vars.begin();
-        for (; it != new_killed_vars.end(); ++it)
+        Utils::ext_sym_set::iterator it = new_killed_vars.begin( );
+        for( ; it != new_killed_vars.end( ); ++it )
         {
-            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, killed_vars))
+            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, killed_vars ) )
             {
-                purged_killed_vars.insert(*it);
+                purged_killed_vars.insert( *it );
             }
         }
-        if(it == new_killed_vars.end())
+        if( it == new_killed_vars.end( ) )
         {
-            killed_vars.insert(purged_killed_vars);
-            set_data(_KILLED, killed_vars);
+            killed_vars.insert( purged_killed_vars.begin( ), purged_killed_vars.end( ) );
+            set_data( _KILLED, killed_vars );
         }
     }
 
-    void Node::unset_killed_var(Utils::ExtendedSymbol old_killed_var)
+    void Node::unset_killed_var( Utils::ExtendedSymbol old_killed_var )
     {
         Utils::ext_sym_set killed_vars;
 
-        if(has_key(_KILLED))
+        if( has_key( _KILLED ) )
         {
-            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-            killed_vars = killed_vars.not_find(old_killed_var);
+            killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
+            killed_vars = sets_difference( killed_vars, old_killed_var );
         }
 
         set_data(_KILLED, killed_vars);
     }
 
-    Utils::ext_sym_set Node::get_undefined_behaviour_vars()
+    Utils::ext_sym_set Node::get_undefined_behaviour_vars( )
     {
         Utils::ext_sym_set undef_vars;
 
-        if(has_key(_UNDEF))
+        if( has_key( _UNDEF ) )
         {
-            undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
         }
 
         return undef_vars;
     }
 
-    void Node::set_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var)
+    void Node::set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var )
     {
         Utils::ext_sym_set undef_vars;
 
-        if(has_key(_UNDEF))
+        if( has_key( _UNDEF ) )
         {
-            undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
         }
 
-        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_undef_var, undef_vars))
+        if( !Utils::ext_sym_set_contains_englobing_nodecl( new_undef_var, undef_vars ) )
         {
-            undef_vars.insert(new_undef_var);
-            set_data(_UNDEF, undef_vars);
+            undef_vars.insert( new_undef_var );
+            set_data( _UNDEF, undef_vars );
         }
     }
 
-    void Node::unset_undefined_behaviour_var(Utils::ExtendedSymbol old_undef_var)
+    void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
     {
         Utils::ext_sym_set undef_vars;
 
-        if(has_key(_UNDEF))
+        if( has_key( _UNDEF ) )
         {
-            undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
-            undef_vars = undef_vars.not_find(old_undef_var);
+            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
+            undef_vars = sets_difference( undef_vars, old_undef_var );
         }
 
-        set_data(_UNDEF, undef_vars);
+        set_data( _UNDEF, undef_vars );
     }
 
-    void Node::set_undefined_behaviour_var(Utils::ext_sym_set new_undef_vars)
+    void Node::set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars )
     {
         Utils::ext_sym_set undef_vars;
 
-        if(has_key(_UNDEF))
+        if( has_key( _UNDEF ) )
         {
-            undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
         }
-
 
         Utils::ext_sym_set purged_undef_vars;
         Utils::ext_sym_set::iterator it = new_undef_vars.begin();
-        for (; it != new_undef_vars.end(); ++it)
+        for( ; it != new_undef_vars.end( ); ++it )
         {
-            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, undef_vars))
+            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, undef_vars ) )
             {
-                purged_undef_vars.insert(*it);
+                purged_undef_vars.insert( *it );
             }
         }
-        if(it == new_undef_vars.end())
+        if( it == new_undef_vars.end( ) )
         {
-            undef_vars.insert(purged_undef_vars);
-            set_data(_UNDEF, undef_vars);
+            undef_vars.insert( purged_undef_vars.begin( ), purged_undef_vars.end( ) );
+            set_data( _UNDEF, undef_vars );
         }
     }
 
@@ -1375,7 +1374,7 @@ namespace Analysis {
     void Node::set_deps_private_vars( Utils::ext_sym_set new_deps_private_var )
     {
         Utils::ext_sym_set deps_private_vars = get_deps_private_vars( );
-        deps_private_vars.insert( new_deps_private_var );
+        deps_private_vars.insert( new_deps_private_var.begin( ), new_deps_private_var.end( ) );
         set_data( _DEPS_PRIVATE, deps_private_vars );
     }
 
@@ -1391,7 +1390,7 @@ namespace Analysis {
     void Node::set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var )
     {
         Utils::ext_sym_set deps_firstprivate_vars = get_deps_firstprivate_vars( );
-        deps_firstprivate_vars.insert( new_deps_firstprivate_var );
+        deps_firstprivate_vars.insert( new_deps_firstprivate_var.begin( ), new_deps_firstprivate_var.end( ) );
         set_data( _DEPS_FIRSTPRIVATE, deps_firstprivate_vars );
     }
 
@@ -1406,7 +1405,7 @@ namespace Analysis {
     void Node::set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var )
     {
         Utils::ext_sym_set deps_shared_vars = get_deps_shared_vars( );
-        deps_shared_vars.insert( new_deps_shared_var );
+        deps_shared_vars.insert( new_deps_shared_var.begin( ), new_deps_shared_var.end( ) );
         set_data( _DEPS_SHARED, deps_shared_vars );
     }
 
@@ -1421,7 +1420,7 @@ namespace Analysis {
     void Node::set_deps_in_exprs( Utils::ext_sym_set new_in_deps )
     {
         Utils::ext_sym_set in_deps = get_deps_in_exprs( );
-        in_deps.insert( new_in_deps );
+        in_deps.insert( new_in_deps.begin(), new_in_deps.end( ) );
         set_data( _DEPS_IN, in_deps );
     }
 
@@ -1436,7 +1435,7 @@ namespace Analysis {
     void Node::set_deps_out_exprs( Utils::ext_sym_set new_out_deps )
     {
         Utils::ext_sym_set out_deps = get_deps_out_exprs( );
-        out_deps.insert( new_out_deps );
+        out_deps.insert( new_out_deps.begin( ), new_out_deps.end( ) );
         set_data( _DEPS_OUT, out_deps );
     }
 
@@ -1451,7 +1450,7 @@ namespace Analysis {
     void Node::set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps )
     {
         Utils::ext_sym_set inout_deps = get_deps_inout_exprs( );
-        inout_deps.insert( new_inout_deps );
+        inout_deps.insert( new_inout_deps.begin( ), new_inout_deps.end( ) );
         set_data( _DEPS_INOUT, inout_deps );
     }
 
@@ -1466,7 +1465,7 @@ namespace Analysis {
     void Node::set_deps_undef_vars( Utils::ext_sym_set new_undef_deps )
     {
         Utils::ext_sym_set undef_deps = get_deps_undef_vars( );
-        undef_deps.insert( new_undef_deps );
+        undef_deps.insert( new_undef_deps.begin( ), new_undef_deps.end( ) );
         set_data( _DEPS_UNDEF, undef_deps );
     }
 
@@ -1486,22 +1485,21 @@ namespace Analysis {
         return sc_shared_vars;
     }
 
-    template <class T>
-    void Node::set_sc_shared_var_any( T t )
+    void Node::set_sc_shared_var( Utils::ExtendedSymbol es )
     {
         Utils::ext_sym_set sc_shared_vars;
         if( has_key( _SC_SHARED ) )
             sc_shared_vars = get_sc_shared_vars( );
-        sc_shared_vars.insert( t );
+        sc_shared_vars.insert( es );
         set_data( _SC_SHARED, sc_shared_vars );
-    }
-    void Node::set_sc_shared_var( Utils::ExtendedSymbol es )
-    {
-        set_sc_shared_var_any( es );
     }
     void Node::set_sc_shared_var( Utils::ext_sym_set es_list )
     {
-        set_sc_shared_var_any( es_list );
+        Utils::ext_sym_set sc_shared_vars;
+        if( has_key( _SC_SHARED ) )
+            sc_shared_vars = get_sc_shared_vars( );
+        sc_shared_vars.insert( es_list.begin( ), es_list.end( ) );
+        set_data( _SC_SHARED, sc_shared_vars );
     }
 
     Utils::ext_sym_set Node::get_sc_private_vars( )
@@ -1512,22 +1510,21 @@ namespace Analysis {
         return sc_private_vars;
     }
 
-    template <class T>
-    void Node::set_sc_private_var_any( T t )
+    void Node::set_sc_private_var( Utils::ExtendedSymbol es )
     {
         Utils::ext_sym_set sc_private_vars;
         if( has_key( _SC_PRIVATE ) )
             sc_private_vars = get_sc_private_vars( );
-        sc_private_vars.insert( t );
+        sc_private_vars.insert( es );
         set_data( _SC_PRIVATE, sc_private_vars );
-    }
-    void Node::set_sc_private_var( Utils::ExtendedSymbol es )
-    {
-        set_sc_private_var_any( es );
     }
     void Node::set_sc_private_var( Utils::ext_sym_set es_list )
     {
-        set_sc_private_var_any( es_list );
+        Utils::ext_sym_set sc_private_vars;
+        if( has_key( _SC_PRIVATE ) )
+            sc_private_vars = get_sc_private_vars( );
+        sc_private_vars.insert( es_list.begin( ), es_list.end( ) );
+        set_data( _SC_PRIVATE, sc_private_vars );
     }
 
     Utils::ext_sym_set Node::get_sc_firstprivate_vars()
@@ -1539,22 +1536,21 @@ namespace Analysis {
         return sc_firstprivate_vars;
     }
 
-    template <class T>
-    void Node::set_sc_firstprivate_var_any( T t )
+    void Node::set_sc_firstprivate_var( Utils::ExtendedSymbol es )
     {
         Utils::ext_sym_set sc_firstprivate_vars;
         if( has_key( _SC_FIRSTPRIVATE ) )
             sc_firstprivate_vars = get_sc_firstprivate_vars( );
-        sc_firstprivate_vars.insert( t );
+        sc_firstprivate_vars.insert( es );
         set_data( _SC_FIRSTPRIVATE, sc_firstprivate_vars );
-    }
-    void Node::set_sc_firstprivate_var( Utils::ExtendedSymbol es )
-    {
-        set_sc_firstprivate_var_any( es );
     }
     void Node::set_sc_firstprivate_var( Utils::ext_sym_set es_list )
     {
-        set_sc_firstprivate_var_any( es_list );
+        Utils::ext_sym_set sc_firstprivate_vars;
+        if( has_key( _SC_FIRSTPRIVATE ) )
+            sc_firstprivate_vars = get_sc_firstprivate_vars( );
+        sc_firstprivate_vars.insert( es_list.begin( ), es_list.end( ) );
+        set_data( _SC_FIRSTPRIVATE, sc_firstprivate_vars );
     }
 
     Utils::ext_sym_set Node::get_sc_shared_or_firstprivate_vars()
@@ -1565,22 +1561,21 @@ namespace Analysis {
         return sc_shared_or_firstprivate_vars;
     }
 
-    template <class T>
-    void Node::set_sc_shared_or_firstprivate_var_any( T t )
+    void Node::set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es )
     {
         Utils::ext_sym_set sc_shared_or_firstprivate_vars;
         if( has_key( _SC_SHARED_OR_FIRSTPRIVATE ) )
             sc_shared_or_firstprivate_vars = get_sc_shared_or_firstprivate_vars( );
-        sc_shared_or_firstprivate_vars.insert( t );
+        sc_shared_or_firstprivate_vars.insert( es );
         set_data( _SC_SHARED_OR_FIRSTPRIVATE, sc_shared_or_firstprivate_vars );
-    }
-    void Node::set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es )
-    {
-        set_sc_shared_or_firstprivate_var_any( es );
     }
     void Node::set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list )
     {
-        set_sc_shared_or_firstprivate_var_any( es_list );
+        Utils::ext_sym_set sc_shared_or_firstprivate_vars;
+        if( has_key( _SC_SHARED_OR_FIRSTPRIVATE ) )
+            sc_shared_or_firstprivate_vars = get_sc_shared_or_firstprivate_vars( );
+        sc_shared_or_firstprivate_vars.insert( es_list.begin( ), es_list.end( ) );
+        set_data( _SC_SHARED_OR_FIRSTPRIVATE, sc_shared_or_firstprivate_vars );
     }
 
     Utils::ext_sym_set Node::get_sc_undef_vars( )
@@ -1591,22 +1586,21 @@ namespace Analysis {
         return undef_sc_vars;
     }
 
-    template <class T>
-    void Node::set_sc_undef_var_any( T t )
+    void Node::set_sc_undef_var( Utils::ExtendedSymbol es )
     {
         Utils::ext_sym_set sc_undef_vars;
         if( has_key( _SC_UNDEF ) )
             sc_undef_vars = get_sc_undef_vars( );
-        sc_undef_vars.insert( t );
+        sc_undef_vars.insert( es );
         set_data( _SC_UNDEF, sc_undef_vars );
-    }
-    void Node::set_sc_undef_var( Utils::ExtendedSymbol es )
-    {
-        set_sc_undef_var_any( es );
     }
     void Node::set_sc_undef_var( Utils::ext_sym_set es_list )
     {
-        set_sc_undef_var_any( es_list );
+        Utils::ext_sym_set sc_undef_vars;
+        if( has_key( _SC_UNDEF ) )
+            sc_undef_vars = get_sc_undef_vars( );
+        sc_undef_vars.insert( es_list.begin( ), es_list.end( ) );
+        set_data( _SC_UNDEF, sc_undef_vars );
     }
 
     Utils::ext_sym_set Node::get_sc_race_vars( )
@@ -1777,59 +1771,32 @@ namespace Analysis {
         }
     }
 
+    static std::string print_set( Utils::ext_sym_set es_set )
+    {
+        std::string result;
+
+        for( Utils::ext_sym_set::iterator it = es_set.begin( ); it != es_set.end( ); ++it )
+        {
+            nodecl_t internal_n = it->get_nodecl( ).get_internal_nodecl( );
+            result += std::string( codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) ) + ", ";
+        }
+        result.erase( result.end( ) - 2, result.end( ) );
+
+        return result;
+    }
+
     void Node::print_auto_scoping()
     {
         if( VERBOSE )
         {
-            Utils::ext_sym_set private_vars = get_sc_private_vars();
-            std::cerr << std::endl << "     - Private(";
-            for(Utils::ext_sym_set::iterator it = private_vars.begin(); it != private_vars.end(); ++it)
-            {
-                std::cerr << it->get_nodecl().prettyprint();
-                if(it != private_vars.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
+            std::string private_s      = "     - Private: "      + print_set( get_sc_private_vars( ) );
+            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_sc_firstprivate_vars( ) );
+            std::string race_s         = "     - Race: "         + print_set( get_sc_race_vars( ) );
+            std::string shared_s       = "     - Shared: "       + print_set( get_sc_shared_vars( ) );
+            std::string undef_s        = "     - Undef: "        + print_set( get_sc_undef_vars( ) );
 
-            Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars();
-            std::cerr << "     - Firstprivate(";
-            for(Utils::ext_sym_set::iterator it = firstprivate_vars.begin(); it != firstprivate_vars.end(); ++it)
-            {
-                std::cerr << it->get_nodecl().prettyprint();
-                if(it != firstprivate_vars.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set race_vars = get_sc_race_vars();
-            std::cerr << "     - Race(";
-            for(Utils::ext_sym_set::iterator it = race_vars.begin(); it != race_vars.end(); ++it)
-            {
-                std::cerr << it->get_nodecl().prettyprint();
-                if(it != race_vars.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set shared_vars = get_sc_shared_vars();
-            std::cerr << "     - Shared(";
-            for(Utils::ext_sym_set::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
-            {
-                std::cerr << it->get_nodecl().prettyprint();
-                if(it != shared_vars.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set undef_vars = get_sc_undef_vars();
-            std::cerr << "     - Undef(";
-            for(Utils::ext_sym_set::iterator it = undef_vars.begin(); it != undef_vars.end(); ++it)
-            {
-                std::cerr << it->get_nodecl().prettyprint();
-                if(it != undef_vars.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
+            std::cerr << private_s << std::endl << firstprivate_s << std::endl << race_s << std::endl
+                      << shared_s << std::endl << undef_s << std::endl;
         }
     }
 
@@ -1837,75 +1804,16 @@ namespace Analysis {
     {
         if( VERBOSE )
         {
-            Utils::ext_sym_set private_deps = get_deps_private_vars( );
-            std::cerr << std::endl << "     - Private(";
-            for( Utils::ext_sym_set::iterator it = private_deps.begin( ); it != private_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != private_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
+            std::string private_s      = "     - Private: "      + print_set( get_deps_private_vars( ) );
+            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_deps_firstprivate_vars( ) );
+            std::string shared_s       = "     - Shared: "       + print_set( get_deps_shared_vars( ) );
+            std::string in_s           = "     - In deps: "      + print_set( get_deps_in_exprs( ) );
+            std::string out_s          = "     - Out deps: "     + print_set( get_deps_out_exprs( ) );
+            std::string inout_s        = "     - Inout deps: "   + print_set( get_deps_inout_exprs( ) );
+            std::string undef_s        = "     - Undef deps: "   + print_set( get_deps_undef_vars( ) );
 
-            Utils::ext_sym_set firstprivate_deps = get_deps_firstprivate_vars( );
-            std::cerr << "     - Firstprivate(";
-            for( Utils::ext_sym_set::iterator it = firstprivate_deps.begin( ); it != firstprivate_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != firstprivate_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set shared_deps = get_deps_shared_vars( );
-            std::cerr << "     - Shared(";
-            for( Utils::ext_sym_set::iterator it = shared_deps.begin( ); it != shared_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != shared_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set in_deps = get_deps_in_exprs( );
-            std::cerr << "     - In(";
-            for( Utils::ext_sym_set::iterator it = in_deps.begin( ); it != in_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if(it != in_deps.end()-1)
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set out_deps = get_deps_out_exprs( );
-            std::cerr << "     - Out(";
-            for( Utils::ext_sym_set::iterator it = out_deps.begin( ); it != out_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != out_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set inout_deps = get_deps_inout_exprs( );
-            std::cerr << "     - Inout(";
-            for( Utils::ext_sym_set::iterator it = inout_deps.begin( ); it != inout_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != inout_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
-
-            Utils::ext_sym_set undef_deps = get_deps_undef_vars( );
-            std::cerr << "     - Undef(";
-            for( Utils::ext_sym_set::iterator it = undef_deps.begin( ); it != undef_deps.end( ); ++it )
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( );
-                if( it != undef_deps.end( ) - 1 )
-                    std::cerr << ", ";
-            }
-            std::cerr << ")" << std::endl;
+            std::cerr << private_s << std::endl << firstprivate_s << std::endl << shared_s << std::endl
+                      << in_s << std::endl << out_s << std::endl << inout_s << std::endl << undef_s << std::endl;
         }
     }
 

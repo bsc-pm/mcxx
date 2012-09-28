@@ -326,9 +326,15 @@ namespace Utils {
             return false;
     }
 
-    bool ExtendedSymbol::operator==(const ExtendedSymbol& es) const
+    ExtendedSymbol& ExtendedSymbol::operator=( const ExtendedSymbol &es )
     {
-        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);
+        _n = es._n;
+        return *this;
+    }
+
+    bool ExtendedSymbol::operator==( const ExtendedSymbol& es ) const
+    {
+        bool equals = Nodecl::Utils::equal_nodecls( _n, es._n );
         return equals;
     }
 
@@ -336,16 +342,16 @@ namespace Utils {
      *      a < b -> ¬ (b > a)
      *      a == b <=> ¬(a < b) /\ ¬(b < a)
      */
-    bool ExtendedSymbol::operator<(const ExtendedSymbol& es) const
+    bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
-        if (Nodecl::Utils::equal_nodecls(_n, es._n))
+        if( Nodecl::Utils::equal_nodecls( _n, es._n ) )
         {
             return false;
         }
         else
         {
-            AST this_ast = nodecl_get_ast(_n.get_internal_nodecl());
-            AST es_ast = nodecl_get_ast(es._n.get_internal_nodecl());
+            AST this_ast = nodecl_get_ast( _n.get_internal_nodecl( ) );
+            AST es_ast = nodecl_get_ast( es._n.get_internal_nodecl( ) );
             bool less_than = this_ast < es_ast;
 
             return  less_than;

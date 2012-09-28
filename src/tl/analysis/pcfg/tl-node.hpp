@@ -93,32 +93,6 @@ namespace Analysis {
             Utils::ext_sym_set get_live_out_over_nodes();
 
 
-
-            // ****************************************************************************** //
-            // ********** Templated methods setting one or more extended symbols ************ //
-
-            template <class T>
-            void set_sc_shared_var_any( T t );
-
-            template <class T>
-            void set_sc_private_var_any( T t );
-
-            template <class T>
-            void set_sc_firstprivate_var_any( T t );
-
-            template <class T>
-            void set_sc_shared_or_firstprivate_var_any( T t );
-
-            template <class T>
-            void set_sc_undef_var_any( T t );
-
-            template <class T>
-            void set_sc_race_var_any( T t );
-
-            // ******** END templated methods setting one or more extended symbols ********** //
-            // ****************************************************************************** //
-
-
         public:
             // *** Constructors *** //
 
