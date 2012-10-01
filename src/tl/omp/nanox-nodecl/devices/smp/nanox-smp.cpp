@@ -97,6 +97,11 @@ namespace TL { namespace Nanox {
             }
     };
 
+    static std::string smp_outline_name(const std::string &task_name)
+    {
+        return "smp_" + task_name;
+    }
+
     static TL::Symbol new_function_symbol_forward(
             TL::Symbol current_function,
             const std::string& function_name,
@@ -826,7 +831,7 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::SymbolMap* &symbol_map)
     {
         //Unpack DTO
-        const std::string& outline_name = info._outline_name;
+        const std::string& outline_name = smp_outline_name(info._outline_name);
         OutlineInfo& outline_info = info._outline_info;
         Nodecl::NodeclBase& original_statements = info._original_statements;
         TL::Symbol& arguments_struct = info._arguments_struct;
@@ -1414,24 +1419,24 @@ namespace TL { namespace Nanox {
             Source &device_descriptor,
             Source &fortran_dynamic_init)
     {
-        std::string outline_name = info._outline_name;
+        std::string outline_name = smp_outline_name(info._outline_name);
         if (!IS_FORTRAN_LANGUAGE)
         {
             ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args = {"
+                << "static nanos_smp_args_t " << outline_name << "_args = {"
                 << ".outline = (void(*)(void*))&" << outline_name
                 << "};"
                 ;
             device_descriptor
                 << "{"
-                << /* factory */ "&nanos_smp_factory, &" << outline_name << "_smp_args"
+                << /* factory */ "&nanos_smp_factory, &" << outline_name << "_args"
                 << "}"
                 ;
         }
         else
         {
             ancillary_device_description
-                << "static nanos_smp_args_t " << outline_name << "_smp_args;"
+                << "static nanos_smp_args_t " << outline_name << "_args;"
                 ;
 
             device_descriptor
@@ -1442,9 +1447,9 @@ namespace TL { namespace Nanox {
                 ;
 
             fortran_dynamic_init
-                << outline_name << "_smp_args.outline = (void(*)(void*))&" << outline_name << ";"
+                << outline_name << "_args.outline = (void(*)(void*))&" << outline_name << ";"
                 << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_smp_args;"
+                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_args;"
                 ;
         }
     }

@@ -180,7 +180,8 @@ namespace TL { namespace Nanox {
         <<     immediate_decl
         <<     "imm_args.wsd = wsd;"
         <<     statement_placeholder(fill_immediate_arguments_tree)
-        <<     outline_name << "(imm_args);"
+        /*      FIXME: This call always be always to smp outline function? */
+        <<     "smp_" << outline_name << "(imm_args);"
         << "}"
         ;
 
