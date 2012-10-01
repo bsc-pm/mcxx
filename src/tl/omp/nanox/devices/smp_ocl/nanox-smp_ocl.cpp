@@ -42,7 +42,7 @@ std::string DeviceSMP_OCL::get_outline_name_for_instrumentation(const std::strin
             template_params.append_with_separator(it->get_name(), ",");
         }
         // Because of a bug in g++ (solved in 4.5) we need an additional casting
-        std::string additional_cast = "(void (*)(" + struct_typename + "))";
+        std::string additional_cast = "(void (*)(" + struct_typename + "*))";
 
         outline_function_name = "(" + additional_cast + outline_function_name + " < " + template_params.get_source() + " >)";
     }
