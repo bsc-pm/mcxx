@@ -4030,7 +4030,10 @@ static void check_symbol_name_as_a_variable(
         nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(nodecl_get_constant(entry->value));
         if (!nodecl_is_null(nodecl_const_val)
                 // Avoid a constant pointer be folded here
-                && !is_pointer_type(entry->type_information))
+                && !is_pointer_type(entry->type_information)
+                // Cruft from ISO_C_BINDING
+                && !(entry->entity_specs.from_module != NULL
+                    && strcasecmp(entry->entity_specs.from_module->symbol_name, "iso_c_binding") == 0))
         {
             nodecl_t nodecl_old = *nodecl_output;
 

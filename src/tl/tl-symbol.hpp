@@ -661,6 +661,15 @@ namespace TL
             Nodecl::NodeclBase get_default_argument_num(int i) const;
             Nodecl::NodeclBase get_function_code() const;
 
+            //! States whether this symbol is BIND(C)
+            bool is_bind_c() const;
+            
+            /*! Returns S in BIND(C, NAME=S). 
+             *
+             * May be a null node if no NAME was specified for this BIND(C)
+             */
+            Nodecl::NodeclBase get_bind_c_name() const;
+
         private:
             scope_entry_t* _symbol;
     };

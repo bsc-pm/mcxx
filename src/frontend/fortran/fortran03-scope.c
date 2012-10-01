@@ -509,3 +509,26 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
 
     return result_list;
 }
+
+scope_entry_list_t* fortran_query_module_for_name(scope_entry_t* module_symbol, const char* name)
+{
+    ERROR_CONDITION(module_symbol == NULL
+            || module_symbol->kind != SK_MODULE, "Invalid symbol", 0);
+    ERROR_CONDITION(name == NULL, "Invalid name", 0);
+
+    scope_entry_list_t* result = NULL;
+    int i;
+    for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
+
+        if (strcasecmp(sym->symbol_name, name) == 0
+                // Filter private symbols
+                && sym->entity_specs.access != AS_PRIVATE)
+        {
+            result = entry_list_add_once(result, sym);
+        }
+    }
+
+    return result;
+}

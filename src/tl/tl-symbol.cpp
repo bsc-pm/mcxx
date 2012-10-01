@@ -819,4 +819,14 @@ namespace TL
     {
         return _symbol->entity_specs.function_code;
     }
+
+    bool Symbol::is_bind_c() const
+    {
+        return _symbol->entity_specs.bind_c;
+    }
+
+    Nodecl::NodeclBase Symbol::get_bind_c_name() const
+    {
+        return _symbol->entity_specs.bind_c_name;
+    }
 }

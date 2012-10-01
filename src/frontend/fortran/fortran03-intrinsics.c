@@ -73,8 +73,8 @@ enum intrinsic_kind_tag
 /* 
  * Syntax
  *
- * FORTRAN_GENERIC_INTRINSIC(id, argument-keywords, kind-of-intrinsic, constant-evaluation)
- * FORTRAN_GENERIC_INTRINSIC_2(id, argument-keywords0, kind-of-intrinsic0, constant-evaluation0, 
+ * FORTRAN_GENERIC_INTRINSIC(module-name, id, argument-keywords, kind-of-intrinsic, constant-evaluation)
+ * FORTRAN_GENERIC_INTRINSIC_2(module-name, id, argument-keywords0, kind-of-intrinsic0, constant-evaluation0, 
  *                                 argument-keywords1, kind-of-intrinsic1, constant-evaluation1)
  *
  * argument-keywords: string literal of comma-separated (with no blanks!) of uppercase names optionally preceded by ? when they are optional. 
@@ -91,197 +91,212 @@ enum intrinsic_kind_tag
  */
 
 #define FORTRAN_INTRINSIC_GENERIC_LIST \
-FORTRAN_GENERIC_INTRINSIC(abs, "A", E, simplify_abs) \
-FORTRAN_GENERIC_INTRINSIC(achar, "I,?KIND", E, simplify_achar) \
-FORTRAN_GENERIC_INTRINSIC(acos, "X", E, simplify_acos) \
-FORTRAN_GENERIC_INTRINSIC(acosh, "X", E, simplify_acosh) \
-FORTRAN_GENERIC_INTRINSIC(adjustl, "STRING", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(adjustr, "STRING", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(aimag, "Z", E, simplify_aimag) \
-FORTRAN_GENERIC_INTRINSIC(aint, "A,?KIND", E, simplify_aint) \
-FORTRAN_GENERIC_INTRINSIC(all, "MASK,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(allocated, "ARRAY", I, NULL, "SCALAR", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(anint, "A,?KIND", E, simplify_anint) \
-FORTRAN_GENERIC_INTRINSIC(any, "MASK,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(asin, "X", E, simplify_asin) \
-FORTRAN_GENERIC_INTRINSIC(asinh, "X", E, simplify_asinh) \
-FORTRAN_GENERIC_INTRINSIC(associated, "POINTER,?TARGET", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(atan, "X", E, simplify_atan, "Y,X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(atan2, "Y,X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(atanh, "X", E, simplify_atanh) \
-FORTRAN_GENERIC_INTRINSIC(atomic_define, "ATOM,VALUE", A, NULL) \
-FORTRAN_GENERIC_INTRINSIC(atomic_ref, "VALUE,ATOM", A, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bessel_j0, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bessel_j1, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(bessel_jn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bessel_y0, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bessel_y1, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(bessel_yn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bge, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bgt, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ble, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(blt, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(bit_size, "I", I, simplify_bit_size) \
-FORTRAN_GENERIC_INTRINSIC(btest, "I,POS", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ceiling, "A,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(char, "I,?KIND", E, simplify_char) \
-FORTRAN_GENERIC_INTRINSIC(cmplx, "X,?Y,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dcmplx, "X,?Y", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(command_argument_count, "", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(conjg, "Z", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(cos, "X", E, simplify_cos) \
-FORTRAN_GENERIC_INTRINSIC(cosh, "X", E, simplify_cosh) \
-FORTRAN_GENERIC_INTRINSIC(count, "MASK,?DIM,?KIND", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(cpu_time, "TIME", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(cshift, "ARRAY,SHIFT,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(date_and_time, "?DATE,?TIME,?ZONE,?VALUES", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dble, "A", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(digits, "X", I, simplify_digits) \
-FORTRAN_GENERIC_INTRINSIC(dim, "X,Y", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dot_product, "VECTOR_A,VECTOR_B", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dprod, "X,Y", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dshiftl, "I,J,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dshiftr, "I,J,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(eoshift, "ARRAY,SHIFT,?BOUNDARY,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(epsilon, "X", I, simplify_epsilon) \
-FORTRAN_GENERIC_INTRINSIC(erf, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(erfc, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(erfc_scaled, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(execute_command_line, "COMMAND,?WAIT,?EXITSTAT,?CMDSTAT,?CMDMSG", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(exp, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(exponent, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(extends_type_of, "A,MOLD", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(findloc, "ARRAY,VALUE,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,VALUE,?MASK,?KIND,?BACK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(floor, "A,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(fraction, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(gamma, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(get_command, "?COMMAND,?LENGTH,?STATUS", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(get_command_argument, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(get_environment_variable, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(huge, "X", I, simplify_huge) \
-FORTRAN_GENERIC_INTRINSIC(hypot, "X,Y", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(iachar, "C,?KIND", E, simplify_iachar) \
-FORTRAN_GENERIC_INTRINSIC_2(iall, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(iand, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(iany, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ibclr, "I,POS", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ibits, "I,POS,LEN", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ibset, "I,POS", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ichar, "C,?KIND", E, simplify_ichar) \
-FORTRAN_GENERIC_INTRINSIC(ieor, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(image_index, "COARRAY,SUB", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(index, "STRING,SUBSTRING,?BACK,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(int, "A,?KIND", E, simplify_int) \
-FORTRAN_GENERIC_INTRINSIC(ior, "I,J", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(iparity, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ishft, "I,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ishftc, "I,SHIFT,?SIZE", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(is_contiguous, "ARRAY", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(is_iostat_end, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(is_iostat_eor, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(kind, "X", I, simplify_kind) \
-FORTRAN_GENERIC_INTRINSIC(lbound, "ARRAY,?DIM,?KIND", I, simplify_lbound) \
-FORTRAN_GENERIC_INTRINSIC(lcobound, "COARRAY,?DIM,?KIND", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(leadz, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(len, "STRING,?KIND", I, simplify_len) \
-FORTRAN_GENERIC_INTRINSIC(len_trim, "STRING,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(lge, "STRING_A,STRING_B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(lgt, "STRING_A,STRING_B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(lle, "STRING_A,STRING_B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(llt, "STRING_A,STRING_B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(log, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(log_gamma, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(log10, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(logical, "L,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(malloc, "SIZE", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(maskl, "I,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(maskr, "I,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(matmul, "MATRIX_A,MATRIX_B", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(max, NULL, E, simplify_max) \
-FORTRAN_GENERIC_INTRINSIC(maxexponent, "X", I, simplify_maxexponent) \
-FORTRAN_GENERIC_INTRINSIC_2(maxloc, "ARRAY,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(maxval, "ARRAY,DIM,?MASK", T, simplify_maxval, "ARRAY,?MASK", T, simplify_maxval) \
-FORTRAN_GENERIC_INTRINSIC(merge, "TSOURCE,FSOURCE,MASK", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(merge_bits, "I,J,MASK", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(min, NULL, E, simplify_min) \
-FORTRAN_GENERIC_INTRINSIC(minexponent, "X", I, simplify_minexponent) \
-FORTRAN_GENERIC_INTRINSIC_2(minloc, "ARRAY,DIM,?MASK,?KIND,?BACK", E, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(minval, "ARRAY,DIM,?MASK", T, simplify_minval, "ARRAY,?MASK", T, simplify_minval) \
-FORTRAN_GENERIC_INTRINSIC(mod, "A,P", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(modulo, "A,P", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(move_alloc, "FROM,TO", PS, NULL) \
-FORTRAN_GENERIC_INTRINSIC(mvbits, "FROM,FROMPOS,LEN,TO,TOPOS", ES, NULL) \
-FORTRAN_GENERIC_INTRINSIC(nearest, "X,S", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(new_line, "A", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(nint, "A,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(not, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(norm2, "X,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(null, "?MOLD", T, simplify_null) \
-FORTRAN_GENERIC_INTRINSIC(num_images, "", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(pack, "ARRAY,MASK,?VECTOR", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(parity, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(popcnt, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(poppar, "I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(precision, "X", I, simplify_precision) \
-FORTRAN_GENERIC_INTRINSIC(present, "A", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(product, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(radix, "X", I, simplify_radix) \
-FORTRAN_GENERIC_INTRINSIC(random_number, "HARVEST", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(random_seed, "?SIZE,?PUT,?GET", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(range, "X", I, simplify_range) \
-FORTRAN_GENERIC_INTRINSIC(real, "A,?KIND", E, simplify_real) \
-FORTRAN_GENERIC_INTRINSIC(float, "A", E, simplify_float) \
-FORTRAN_GENERIC_INTRINSIC(repeat, "STRING,NCOPIES", T, simplify_repeat) \
-FORTRAN_GENERIC_INTRINSIC(reshape, "SOURCE,SHAPE,?PAD,?ORDER", T, simplify_reshape) \
-FORTRAN_GENERIC_INTRINSIC(rrspacing, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(same_type_as, "A,B", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(scale, "X,I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(scan, "STRING,SET,?BACK,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(selected_char_kind, "NAME", T, simplify_selected_char_kind) \
-FORTRAN_GENERIC_INTRINSIC(selected_int_kind, "R", T, simplify_selected_int_kind) \
-FORTRAN_GENERIC_INTRINSIC(selected_real_kind, "?P,?R,?RADIX", T, simplify_selected_real_kind) \
-FORTRAN_GENERIC_INTRINSIC(set_exponent, "X,I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(shape, "SOURCE,?KIND", I, simplify_shape) \
-FORTRAN_GENERIC_INTRINSIC(shifta, "I,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(shiftl, "I,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(shiftr, "I,SHIFT", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sin, "X", E, simplify_sin) \
-FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, simplify_sinh) \
-FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
-FORTRAN_GENERIC_INTRINSIC(sizeof, NULL, I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, simplify_sqrt) \
-FORTRAN_GENERIC_INTRINSIC(storage_size, "A,?KIND", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC_2(sum, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(system_clock, "?COUNT,?COUNT_RATE,?COUNT_MAX", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(tan, "X", E, simplify_tan) \
-FORTRAN_GENERIC_INTRINSIC(tanh, "X", E, simplify_tanh) \
-FORTRAN_GENERIC_INTRINSIC_2(this_image, "", T, NULL, "COARRAY,?DIM", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(tiny, "X", I, simplify_tiny) \
-FORTRAN_GENERIC_INTRINSIC(trailz, "I", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(transfer, "SOURCE,MOLD,?SIZE", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(transpose, "MATRIX", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(trim, "STRING", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
-FORTRAN_GENERIC_INTRINSIC(ucobound, "COARRAY,?DIM,?KIND", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(unpack, "VECTOR,MASK,FIELD", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(verify, "STRING,SET,?BACK,?KIND", E, NULL)  \
-FORTRAN_GENERIC_INTRINSIC(max0, NULL, E, simplify_max0) \
-FORTRAN_GENERIC_INTRINSIC(max1, NULL, E, simplify_max1) \
-FORTRAN_GENERIC_INTRINSIC(min0, NULL, E, simplify_min0) \
-FORTRAN_GENERIC_INTRINSIC(min1, NULL, E, simplify_min1) \
-FORTRAN_GENERIC_INTRINSIC(amax0, NULL, E, simplify_amax0) \
-FORTRAN_GENERIC_INTRINSIC(amax1, NULL, E, simplify_amax1) \
-FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
-FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
-FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
-FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
-FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL)  \
-FORTRAN_GENERIC_INTRINSIC(etime, NULL, M, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dfloat, "A", E, simplify_float) \
-FORTRAN_GENERIC_INTRINSIC(getarg, NULL, S, NULL)
+FORTRAN_GENERIC_INTRINSIC(NULL, abs, "A", E, simplify_abs) \
+FORTRAN_GENERIC_INTRINSIC(NULL, achar, "I,?KIND", E, simplify_achar) \
+FORTRAN_GENERIC_INTRINSIC(NULL, acos, "X", E, simplify_acos) \
+FORTRAN_GENERIC_INTRINSIC(NULL, acosh, "X", E, simplify_acosh) \
+FORTRAN_GENERIC_INTRINSIC(NULL, adjustl, "STRING", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, adjustr, "STRING", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, aimag, "Z", E, simplify_aimag) \
+FORTRAN_GENERIC_INTRINSIC(NULL, aint, "A,?KIND", E, simplify_aint) \
+FORTRAN_GENERIC_INTRINSIC(NULL, all, "MASK,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, allocated, "ARRAY", I, NULL, "SCALAR", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, anint, "A,?KIND", E, simplify_anint) \
+FORTRAN_GENERIC_INTRINSIC(NULL, any, "MASK,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, asin, "X", E, simplify_asin) \
+FORTRAN_GENERIC_INTRINSIC(NULL, asinh, "X", E, simplify_asinh) \
+FORTRAN_GENERIC_INTRINSIC(NULL, associated, "POINTER,?TARGET", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, atan, "X", E, simplify_atan, "Y,X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atan2, "Y,X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atanh, "X", E, simplify_atanh) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atomic_define, "ATOM,VALUE", A, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atomic_ref, "VALUE,ATOM", A, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bessel_j0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bessel_j1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, bessel_jn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bessel_y0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bessel_y1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, bessel_yn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bge, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bgt, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ble, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, blt, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, bit_size, "I", I, simplify_bit_size) \
+FORTRAN_GENERIC_INTRINSIC(NULL, btest, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ceiling, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, char, "I,?KIND", E, simplify_char) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cmplx, "X,?Y,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dcmplx, "X,?Y", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, command_argument_count, "", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, conjg, "Z", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cos, "X", E, simplify_cos) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cosh, "X", E, simplify_cosh) \
+FORTRAN_GENERIC_INTRINSIC(NULL, count, "MASK,?DIM,?KIND", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cpu_time, "TIME", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cshift, "ARRAY,SHIFT,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, date_and_time, "?DATE,?TIME,?ZONE,?VALUES", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dble, "A", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, digits, "X", I, simplify_digits) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dim, "X,Y", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dot_product, "VECTOR_A,VECTOR_B", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dprod, "X,Y", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dshiftl, "I,J,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dshiftr, "I,J,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, eoshift, "ARRAY,SHIFT,?BOUNDARY,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, epsilon, "X", I, simplify_epsilon) \
+FORTRAN_GENERIC_INTRINSIC(NULL, erf, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, erfc, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, erfc_scaled, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, execute_command_line, "COMMAND,?WAIT,?EXITSTAT,?CMDSTAT,?CMDMSG", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, exp, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, exponent, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, extends_type_of, "A,MOLD", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, findloc, "ARRAY,VALUE,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,VALUE,?MASK,?KIND,?BACK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, floor, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, fraction, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, gamma, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, get_command, "?COMMAND,?LENGTH,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, get_command_argument, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, get_environment_variable, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, huge, "X", I, simplify_huge) \
+FORTRAN_GENERIC_INTRINSIC(NULL, hypot, "X,Y", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, iachar, "C,?KIND", E, simplify_iachar) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, iall, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, iand, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, iany, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ibclr, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ibits, "I,POS,LEN", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ibset, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ichar, "C,?KIND", E, simplify_ichar) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ieor, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, image_index, "COARRAY,SUB", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, index, "STRING,SUBSTRING,?BACK,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, int, "A,?KIND", E, simplify_int) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ior, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, iparity, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ishft, "I,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ishftc, "I,SHIFT,?SIZE", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, is_contiguous, "ARRAY", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, is_iostat_end, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, is_iostat_eor, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, kind, "X", I, simplify_kind) \
+FORTRAN_GENERIC_INTRINSIC(NULL, lbound, "ARRAY,?DIM,?KIND", I, simplify_lbound) \
+FORTRAN_GENERIC_INTRINSIC(NULL, lcobound, "COARRAY,?DIM,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, leadz, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, len, "STRING,?KIND", I, simplify_len) \
+FORTRAN_GENERIC_INTRINSIC(NULL, len_trim, "STRING,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, lge, "STRING_A,STRING_B", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, lgt, "STRING_A,STRING_B", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, lle, "STRING_A,STRING_B", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, llt, "STRING_A,STRING_B", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, log, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, log_gamma, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, log10, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, logical, "L,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, malloc, "SIZE", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, maskl, "I,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, maskr, "I,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, matmul, "MATRIX_A,MATRIX_B", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, max, NULL, E, simplify_max) \
+FORTRAN_GENERIC_INTRINSIC(NULL, maxexponent, "X", I, simplify_maxexponent) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, maxloc, "ARRAY,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, maxval, "ARRAY,DIM,?MASK", T, simplify_maxval, "ARRAY,?MASK", T, simplify_maxval) \
+FORTRAN_GENERIC_INTRINSIC(NULL, merge, "TSOURCE,FSOURCE,MASK", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, merge_bits, "I,J,MASK", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, min, NULL, E, simplify_min) \
+FORTRAN_GENERIC_INTRINSIC(NULL, minexponent, "X", I, simplify_minexponent) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, minloc, "ARRAY,DIM,?MASK,?KIND,?BACK", E, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, minval, "ARRAY,DIM,?MASK", T, simplify_minval, "ARRAY,?MASK", T, simplify_minval) \
+FORTRAN_GENERIC_INTRINSIC(NULL, mod, "A,P", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, modulo, "A,P", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, move_alloc, "FROM,TO", PS, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, mvbits, "FROM,FROMPOS,LEN,TO,TOPOS", ES, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, nearest, "X,S", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, new_line, "A", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, nint, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, not, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, norm2, "X,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, null, "?MOLD", T, simplify_null) \
+FORTRAN_GENERIC_INTRINSIC(NULL, num_images, "", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, pack, "ARRAY,MASK,?VECTOR", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, parity, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, popcnt, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, poppar, "I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, precision, "X", I, simplify_precision) \
+FORTRAN_GENERIC_INTRINSIC(NULL, present, "A", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, product, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, radix, "X", I, simplify_radix) \
+FORTRAN_GENERIC_INTRINSIC(NULL, random_number, "HARVEST", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, random_seed, "?SIZE,?PUT,?GET", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, range, "X", I, simplify_range) \
+FORTRAN_GENERIC_INTRINSIC(NULL, real, "A,?KIND", E, simplify_real) \
+FORTRAN_GENERIC_INTRINSIC(NULL, float, "A", E, simplify_float) \
+FORTRAN_GENERIC_INTRINSIC(NULL, repeat, "STRING,NCOPIES", T, simplify_repeat) \
+FORTRAN_GENERIC_INTRINSIC(NULL, reshape, "SOURCE,SHAPE,?PAD,?ORDER", T, simplify_reshape) \
+FORTRAN_GENERIC_INTRINSIC(NULL, rrspacing, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, same_type_as, "A,B", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, scale, "X,I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, scan, "STRING,SET,?BACK,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, selected_char_kind, "NAME", T, simplify_selected_char_kind) \
+FORTRAN_GENERIC_INTRINSIC(NULL, selected_int_kind, "R", T, simplify_selected_int_kind) \
+FORTRAN_GENERIC_INTRINSIC(NULL, selected_real_kind, "?P,?R,?RADIX", T, simplify_selected_real_kind) \
+FORTRAN_GENERIC_INTRINSIC(NULL, set_exponent, "X,I", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, shape, "SOURCE,?KIND", I, simplify_shape) \
+FORTRAN_GENERIC_INTRINSIC(NULL, shifta, "I,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, shiftl, "I,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, shiftr, "I,SHIFT", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, sign, "A,B", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, sin, "X", E, simplify_sin) \
+FORTRAN_GENERIC_INTRINSIC(NULL, sinh, "X", E, simplify_sinh) \
+FORTRAN_GENERIC_INTRINSIC(NULL, size, "ARRAY,?DIM,?KIND", I, simplify_size) \
+FORTRAN_GENERIC_INTRINSIC(NULL, sizeof, NULL, I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, spacing, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, spread, "SOURCE,DIM,NCOPIES", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, sqrt, "X", E, simplify_sqrt) \
+FORTRAN_GENERIC_INTRINSIC(NULL, storage_size, "A,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, sum, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, system_clock, "?COUNT,?COUNT_RATE,?COUNT_MAX", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tan, "X", E, simplify_tan) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tanh, "X", E, simplify_tanh) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, this_image, "", T, NULL, "COARRAY,?DIM", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tiny, "X", I, simplify_tiny) \
+FORTRAN_GENERIC_INTRINSIC(NULL, trailz, "I", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, transfer, "SOURCE,MOLD,?SIZE", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, transpose, "MATRIX", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, trim, "STRING", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ucobound, "COARRAY,?DIM,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, unpack, "VECTOR,MASK,FIELD", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, verify, "STRING,SET,?BACK,?KIND", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, max0, NULL, E, simplify_max0) \
+FORTRAN_GENERIC_INTRINSIC(NULL, max1, NULL, E, simplify_max1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, min0, NULL, E, simplify_min0) \
+FORTRAN_GENERIC_INTRINSIC(NULL, min1, NULL, E, simplify_min1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, amax0, NULL, E, simplify_amax0) \
+FORTRAN_GENERIC_INTRINSIC(NULL, amax1, NULL, E, simplify_amax1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, amin0, NULL, E, simplify_amin0) \
+FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
+FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
+FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
+ISO_C_BINDING_INTRINSICS
+
+#define ISO_C_BINDING_INTRINSICS \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_associated, "C_PTR_1,?C_PTR_2", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_f_pointer, "CPTR,FPTR,?SHAPE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_funloc, NULL, S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_loc, NULL, S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_sizeof, "X", S, NULL)
+
+
+// Well, for some reason C_LOC and C_FUNLOC do not have a known interface in gfortran
+#if 0
+FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_funloc, "X", S, NULL)
+FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_loc, "X", S, NULL)
+#endif
 
 
 #define MAX_KEYWORDS_INTRINSICS 10
@@ -293,14 +308,14 @@ typedef struct intrinsic_variant_info_tag
     char is_optional[MAX_KEYWORDS_INTRINSICS];
 } intrinsic_variant_info_t;
 
-#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0, compute_code) \
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, kind0, compute_code) \
     static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
             type_t** argument_types, \
             nodecl_t *argument_expressions, \
             int num_arguments, \
             const_value_t** const_value);
 
-#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
     static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
             type_t** argument_types, \
             nodecl_t *argument_expressions, \
@@ -310,23 +325,23 @@ static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
         type_t** argument_types, \
         nodecl_t *argument_expressions, \
         int num_arguments, \
-        const_value_t** const_value); 
+        const_value_t** const_value);
 
 FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
 #undef FORTRAN_GENERIC_INTRINSIC_2
 
-#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, _0, _1) \
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, _0, _1) \
     static const char* keywords_for_##name##_[] = { keywords0, NULL };
-#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, _0, _1, keywords1, _2, _3) \
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, _0, _1, keywords1, _2, _3) \
     static const char* keywords_for_##name##_[] = { keywords0, keywords1 };
 FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
 #undef FORTRAN_GENERIC_INTRINSIC_2
 
-#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, _a, _b) \
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, _a, _b) \
 { #name, 1, keywords_for_##name##_, { compute_intrinsic_##name,     NULL } },
-#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, _a, _b, keywords1, _c, _d) \
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, _a, _b, keywords1, _c, _d) \
 { #name, 2, keywords_for_##name##_, { compute_intrinsic_##name##_0, compute_intrinsic_##name##_1 } },
 
 typedef
@@ -996,17 +1011,30 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
     return NULL;
 }
 
+static void fortran_init_intrinsic_modules(decl_context_t decl_context);
+
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
+    fortran_init_intrinsic_modules(decl_context);
+
     if (fake_computed_function_type == NULL)
         fake_computed_function_type = get_computed_function_type(fake_computed_function);
-#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0, compute_code) \
+#define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
-        scope_entry_t* new_intrinsic = new_symbol(decl_context, decl_context.current_scope, #name); \
+        decl_context_t relevant_decl_context = decl_context; \
+        scope_entry_t* module_sym = NULL; \
+        if (module_name != NULL) \
+        { \
+            rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name); \
+            ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name); \
+            module_sym = (scope_entry_t*)rb_node_get_info(query); \
+            relevant_decl_context = module_sym->related_decl_context; \
+        } \
+        scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, #name); \
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = fake_computed_function_type; \
-        new_intrinsic->entity_specs.is_global_hidden = 1; \
+        new_intrinsic->entity_specs.is_global_hidden = (module_sym == NULL); \
         new_intrinsic->entity_specs.is_builtin = 1; \
         new_intrinsic->entity_specs.is_intrinsic_function = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
@@ -1020,15 +1048,32 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
         } \
         new_intrinsic->entity_specs.simplify_function = compute_code; \
+        if (module_sym != NULL) \
+        { \
+            new_intrinsic->entity_specs.in_module = module_sym; \
+            new_intrinsic->entity_specs.is_module_procedure = 1; \
+            P_LIST_ADD(module_sym->entity_specs.related_symbols, \
+                    module_sym->entity_specs.num_related_symbols, \
+                    new_intrinsic); \
+        } \
     }
 
-#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
+#define FORTRAN_GENERIC_INTRINSIC_2(module_name, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
     { \
-        scope_entry_t* new_intrinsic = new_symbol(decl_context, decl_context.current_scope, #name); \
+        decl_context_t relevant_decl_context = decl_context; \
+        scope_entry_t* module_sym = NULL; \
+        if (module_name != NULL) \
+        { \
+            rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name); \
+            ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name); \
+            module_sym = (scope_entry_t*)rb_node_get_info(query); \
+            relevant_decl_context = module_sym->related_decl_context; \
+        } \
+        scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, #name); \
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = fake_computed_function_type; \
-        new_intrinsic->entity_specs.is_global_hidden = 1; \
+        new_intrinsic->entity_specs.is_global_hidden = (module_sym == NULL); \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         { \
@@ -1041,13 +1086,21 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
         } \
         new_intrinsic->entity_specs.simplify_function = compute_code0; \
+        if (module_sym != NULL) \
+        { \
+            new_intrinsic->entity_specs.in_module = module_sym; \
+            new_intrinsic->entity_specs.is_module_procedure = 1; \
+            P_LIST_ADD(module_sym->entity_specs.related_symbols, \
+                    module_sym->entity_specs.num_related_symbols, \
+                    new_intrinsic); \
+        } \
     }
 
     FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
 #undef FORTRAN_GENERIC_INTRINSIC_2
 
-        intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
+    intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
 
     // Sign in specific names for intrinsics
     fortran_init_specific_names(decl_context);
@@ -1367,7 +1420,7 @@ static char opt_valid_kind_expr(nodecl_t expr, int *val)
     return 1;
 }
 
-scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
+static scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
@@ -3610,7 +3663,9 @@ scope_entry_t* compute_intrinsic_max(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("max", /* output_type */ NULL, /* input_type */ NULL, 
+    return compute_intrinsic_max_min_aux("max",
+            /* output_type */ NULL,
+            /* input_type */ NULL,
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3621,7 +3676,9 @@ scope_entry_t* compute_intrinsic_max0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("max0", /* output_type */ fortran_get_default_integer_type(), /* input_type */ fortran_get_default_integer_type(), 
+    return compute_intrinsic_max_min_aux("max0",
+            /* output_type */ fortran_get_default_integer_type(),
+            /* input_type */ fortran_get_default_integer_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3632,7 +3689,9 @@ scope_entry_t* compute_intrinsic_max1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("max1", /* output_type */ fortran_get_default_integer_type(), /* input_type */ fortran_get_default_real_type(), 
+    return compute_intrinsic_max_min_aux("max1",
+            /* output_type */ fortran_get_default_integer_type(),
+            /* input_type */ fortran_get_default_real_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3643,7 +3702,9 @@ scope_entry_t* compute_intrinsic_amax0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amax0", /* output_type */ fortran_get_default_real_type(), /* input_type */ fortran_get_default_integer_type(), 
+    return compute_intrinsic_max_min_aux("amax0",
+            /* output_type */ fortran_get_default_real_type(),
+            /* input_type */ fortran_get_default_integer_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3654,7 +3715,9 @@ scope_entry_t* compute_intrinsic_amax1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amax1", /* output_type */ fortran_get_default_real_type(), /* input_type */ fortran_get_default_real_type(), 
+    return compute_intrinsic_max_min_aux("amax1",
+            /* output_type */ fortran_get_default_real_type(),
+            /* input_type */ fortran_get_default_real_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3665,7 +3728,9 @@ scope_entry_t* compute_intrinsic_dmax1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("dmax1", /* output_type */ fortran_get_doubleprecision_type(), /* input_type */ fortran_get_doubleprecision_type(), 
+    return compute_intrinsic_max_min_aux("dmax1",
+            /* output_type */ fortran_get_doubleprecision_type(),
+            /* input_type */ fortran_get_doubleprecision_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3876,9 +3941,9 @@ scope_entry_t* compute_intrinsic_amin0(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amin0", 
-            /* output_type */ fortran_get_default_real_type(), 
-            /* input_type */ fortran_get_default_integer_type(), 
+    return compute_intrinsic_max_min_aux("amin0",
+            /* output_type */ fortran_get_default_real_type(),
+            /* input_type */ fortran_get_default_integer_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3889,9 +3954,9 @@ scope_entry_t* compute_intrinsic_amin1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("amin1", 
-            /* output_type */ fortran_get_default_real_type(), 
-            /* input_type */ fortran_get_default_real_type(), 
+    return compute_intrinsic_max_min_aux("amin1",
+            /* output_type */ fortran_get_default_real_type(),
+            /* input_type */ fortran_get_default_real_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -3902,9 +3967,9 @@ scope_entry_t* compute_intrinsic_dmin1(
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_max_min_aux("dmin1", 
-            /* output_type */ fortran_get_doubleprecision_type(), 
-            /* input_type */ fortran_get_doubleprecision_type(), 
+    return compute_intrinsic_max_min_aux("dmin1",
+            /* output_type */ fortran_get_doubleprecision_type(),
+            /* input_type */ fortran_get_doubleprecision_type(),
             symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
@@ -5424,6 +5489,157 @@ scope_entry_t* compute_intrinsic_getarg(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+static scope_entry_t* get_c_ptr(scope_entry_t* module)
+{
+    scope_entry_list_t* res = fortran_query_module_for_name(module, "c_ptr");
+    scope_entry_t* c_ptr = (res != NULL) ? entry_list_head(res) : NULL;
+    entry_list_free(res);
+
+    return c_ptr;
+}
+
+static scope_entry_t* get_c_funptr(scope_entry_t* module)
+{
+    scope_entry_list_t* res = fortran_query_module_for_name(module, "c_funptr");
+    scope_entry_t* c_funptr = (res != NULL) ? entry_list_head(res) : NULL;
+    entry_list_free(res);
+
+    return c_funptr;
+}
+
+scope_entry_t* compute_intrinsic_c_associated(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = argument_types[1] != NULL ? no_ref(argument_types[1]) : t0;
+
+    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol->entity_specs.from_module;
+
+    scope_entry_t* c_ptr = get_c_ptr(module);
+    scope_entry_t* c_funptr = get_c_funptr(module);
+
+    ERROR_CONDITION(c_ptr == NULL || c_funptr == NULL, "c_ptr, c_funptr not found!\n", 0);
+
+    if (equivalent_types(t1, t0)
+            && (equivalent_types(t0, get_user_defined_type(c_ptr))
+                || equivalent_types(t0, get_user_defined_type(c_funptr))))
+    {
+        return GET_INTRINSIC_INQUIRY("c_associated", 
+                fortran_get_default_logical_type(),
+                t0,
+                t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_c_f_pointer(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 2
+            && num_arguments != 3)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    nodecl_t argument_ptr = argument_expressions[1];
+    if (nodecl_get_kind(argument_ptr) != NODECL_DEREFERENCE)
+        return NULL;
+    argument_ptr = nodecl_get_child(argument_ptr, 0);
+    type_t* t1 = no_ref(nodecl_get_type(argument_ptr));
+    type_t* t2 = (argument_types[2] != NULL) ? no_ref(argument_types[2]) : NULL;
+
+    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol->entity_specs.from_module;
+
+    scope_entry_t* c_ptr = get_c_ptr(module);
+
+    ERROR_CONDITION(c_ptr == NULL, "c_ptr not found!\n", 0);
+
+    if (equivalent_types(t0, get_user_defined_type(c_ptr))
+            && is_pointer_type(t1)
+            && (fortran_is_pointer_to_array_type(t1) == (t2 != NULL))
+            && (t2 == NULL ||
+                (fortran_is_array_type(t2)
+                 && fortran_get_rank_of_type(t2) == 1
+                 && is_integer_type(fortran_get_rank0_type(t2)))))
+    {
+        return GET_INTRINSIC_IMPURE("c_f_pointer",
+                /* subroutine */ get_void_type(),
+                t0,
+                get_lvalue_reference_type(t1),
+                (t2 != NULL) ? t2 :
+                fortran_get_n_ranked_type(fortran_get_default_integer_type(), 1, CURRENT_COMPILED_FILE->global_decl_context));
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol->entity_specs.from_module;
+
+    scope_entry_t* c_funptr = get_c_funptr(module);
+    ERROR_CONDITION(c_funptr == NULL, "c_funptr not found!\n", 0);
+
+    type_t* t0 = no_ref(argument_types[0]);
+    scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
+
+    if (sym->kind == SK_FUNCTION
+            && sym->entity_specs.bind_c)
+    {
+        return GET_INTRINSIC_INQUIRY("c_funloc", get_user_defined_type(c_funptr), t0);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_c_loc(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol->entity_specs.from_module;
+
+    scope_entry_t* c_ptr = get_c_ptr(module);
+    ERROR_CONDITION(c_ptr == NULL, "c_ptr not found!\n", 0);
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    return GET_INTRINSIC_INQUIRY("c_loc", get_user_defined_type(c_ptr), t0);
+}
+
+scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    return GET_INTRINSIC_INQUIRY("c_sizeof", get_size_t_type(), t0);
+}
+
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
@@ -5509,7 +5725,8 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
                     reordered_exprs))
         {
             const_value_t* const_value = NULL;
-            scope_entry_t* entry = (functions[i])(symbol, reordered_types, reordered_exprs, num_actual_arguments, &const_value);
+            scope_entry_t* entry = (functions[i])(symbol, reordered_types, reordered_exprs,
+                    num_actual_arguments, &const_value);
 
             if (entry != NULL)
             {
@@ -5517,6 +5734,12 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
                 update_keywords_of_intrinsic(entry, current_keyword_set[i], num_actual_arguments);
                 // Set the simplify function
                 entry->entity_specs.simplify_function = symbol->entity_specs.simplify_function;
+
+                // Note that we do not add it as a proper component of the module
+                // but at least we know where do we belong
+                entry->entity_specs.is_module_procedure = symbol->entity_specs.is_module_procedure;
+                entry->entity_specs.in_module = symbol->entity_specs.in_module;
+                entry->entity_specs.from_module = symbol->entity_specs.from_module;
 
                 return entry;
             }
@@ -5561,5 +5784,131 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
                 nodecl_set_location(*nodecl_simplified, filename, line);
             }
         }
+    }
+}
+
+static void fortran_init_intrinsic_modules(decl_context_t decl_context)
+{
+    // Initialize ISO_C_BINDING
+    decl_context_t module_context = new_program_unit_context(decl_context);
+
+    scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context.current_scope, "iso_c_binding");
+    iso_c_binding->kind = SK_MODULE;
+    iso_c_binding->entity_specs.is_builtin = 1;
+    iso_c_binding->related_decl_context = module_context;
+    iso_c_binding->defined = 1;
+
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "iso_c_binding", iso_c_binding);
+
+    type_t* int_type = fortran_get_default_integer_type();
+    type_t* character_type = fortran_get_default_character_type();
+
+    module_context.current_scope->related_entry = iso_c_binding;
+
+    struct named_constants_t {
+        const char* name;
+        type_t* const_type;
+        int value;
+    } named_constants[] =
+    {
+        // Kind names
+        // We are missing 128 items
+        { "c_signed_char", int_type, 1 },
+        { "c_short", int_type, 2 },
+        { "c_int", int_type, 4 },
+        { "c_long", int_type, type_get_size(get_signed_long_int_type()) },
+        { "c_long_long", int_type, 8 },
+        { "c_size_t", int_type, type_get_size(get_size_t_type()) },
+        { "c_intptr_t", int_type, type_get_size(get_pointer_type(get_void_type())) },
+        { "c_intmax_t", int_type, type_get_size(get_signed_long_long_int_type()) },
+        { "c_int8_t", int_type, 1 },
+        { "c_int16_t", int_type, 2 }, 
+        { "c_int32_t", int_type, 4 },
+        { "c_int64_t", int_type, 8 },
+        { "c_int_least8_t", int_type, 1 },
+        { "c_int_least16_t", int_type, 2 },
+        { "c_int_least32_t", int_type, 4 },
+        { "c_int_least64_t", int_type, 8 },
+        { "c_int_fast8_t", int_type, 1 },
+        { "c_int_fast16_t", int_type, 4 },
+        { "c_int_fast32_t", int_type, 4 },
+        { "c_int_fast64_t", int_type, 8 },
+        { "c_float", int_type, 4 },
+        { "c_double", int_type, 8 },
+        { "c_long_double", int_type, type_get_size(get_long_double_type()) },
+        { "c_float_complex", int_type, type_get_size(get_complex_type(get_float_type())) },
+        { "c_double_complex", int_type, type_get_size(get_complex_type(get_double_type())) },
+        { "c_long_double_complex", int_type, type_get_size(get_complex_type(get_long_double_type())) },
+        { "c_bool", int_type, 1 },
+        { "c_char", int_type, 1 },
+
+        // Character names
+        { "c_null_char", character_type, '\0' },
+        { "c_alert", character_type, '\a' },
+        { "c_backspace", character_type, '\b' },
+        { "c_form_feed", character_type, '\f' },
+        { "c_new_line", character_type, '\n' },
+        { "c_carriage_return", character_type, '\r' },
+        { "c_horizontal_tab", character_type, '\t' },
+        { "c_vertical_tab", character_type, '\v' },
+
+        // Sentinel
+        { NULL, NULL, 0 }
+    };
+
+    int i;
+    for (i = 0; named_constants[i].name != NULL; i++)
+    {
+        scope_entry_t* symbol = new_symbol(module_context, module_context.current_scope, named_constants[i].name);
+        symbol->kind = SK_VARIABLE;
+        symbol->type_information = get_const_qualified_type(named_constants[i].const_type);
+        symbol->entity_specs.in_module = iso_c_binding;
+        symbol->entity_specs.access = AS_PUBLIC;
+        P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
+                iso_c_binding->entity_specs.num_related_symbols,
+                symbol);
+
+        symbol->value = const_value_to_nodecl(const_value_get_signed_int(named_constants[i].value));
+    }
+
+    {
+    scope_entry_t* c_ptr = new_symbol(module_context, module_context.current_scope, "c_ptr");
+    c_ptr->kind = SK_CLASS;
+    c_ptr->type_information = get_new_class_type(module_context, TT_STRUCT);
+    c_ptr->entity_specs.in_module = iso_c_binding;
+    c_ptr->entity_specs.access = AS_PUBLIC;
+    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
+            iso_c_binding->entity_specs.num_related_symbols,
+            c_ptr);
+
+    scope_entry_t* c_null_ptr = new_symbol(module_context, module_context.current_scope, "c_null_ptr");
+    c_null_ptr->kind = SK_VARIABLE;
+    c_null_ptr->type_information = get_user_defined_type(c_ptr);
+    c_null_ptr->entity_specs.in_module = iso_c_binding;
+    c_null_ptr->entity_specs.access = AS_PUBLIC;
+    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
+            iso_c_binding->entity_specs.num_related_symbols,
+            c_null_ptr);
+    }
+
+    {
+    scope_entry_t* c_funptr = new_symbol(module_context, module_context.current_scope, "c_funptr");
+    c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
+    c_funptr->kind = SK_CLASS;
+    c_funptr->entity_specs.in_module = iso_c_binding;
+    c_funptr->entity_specs.access = AS_PUBLIC;
+    c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
+    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
+            iso_c_binding->entity_specs.num_related_symbols,
+            c_funptr);
+
+    scope_entry_t* c_null_funptr = new_symbol(module_context, module_context.current_scope, "c_null_funptr");
+    c_null_funptr->kind = SK_VARIABLE;
+    c_null_funptr->type_information = get_user_defined_type(c_funptr);
+    c_null_funptr->entity_specs.in_module = iso_c_binding;
+    c_null_funptr->entity_specs.access = AS_PUBLIC;
+    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
+            iso_c_binding->entity_specs.num_related_symbols,
+            c_null_funptr);
     }
 }

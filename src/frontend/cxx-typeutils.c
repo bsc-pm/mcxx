@@ -392,6 +392,7 @@ struct common_type_info_tag
 
     unsigned char is_dependent:1;
     unsigned char is_incomplete:1;
+    unsigned char is_interoperable:1;
 
     // The sizeof and alignment of the type
     // They are only valid once 'valid_size' is true
@@ -553,7 +554,9 @@ unsigned int get_vector_type_counter(void)
 {
     return _vector_type_counter;
 
-}unsigned int get_enum_type_counter(void)
+}
+
+unsigned int get_enum_type_counter(void)
 {
     return _enum_type_counter;
 }
@@ -11120,6 +11123,48 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     result = get_cv_qualified_type(result, cv_qualif);
 
     return result;
+}
+
+static rb_red_blk_tree *_interoperable_hash = NULL;
+
+// This function constructs an interoperable variant
+// This is used only in Fortran
+type_t* get_interoperable_variant_type(type_t* t)
+{
+    if (t == NULL)
+        return NULL;
+
+    if (t->info->is_interoperable)
+        return t;
+
+    if (_interoperable_hash == NULL)
+    {
+        _interoperable_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    }
+
+    type_t* result = rb_tree_query_type(_interoperable_hash, t);
+
+    if (result == NULL)
+    {
+        result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        *result = *t;
+
+        result->info = counted_calloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+        result->info = t->info;
+
+        result->info->is_interoperable = 1;
+
+        rb_tree_insert(_interoperable_hash, t, result);
+    }
+
+    return result;
+}
+
+char is_interoperable_variant_type(type_t* t)
+{
+    return (t != NULL
+            && t->info != NULL
+            && t->info->is_interoperable);
 }
 
 static char _initialized_generics = 0;
