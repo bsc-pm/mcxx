@@ -742,6 +742,7 @@ int main(int argc, char **argv)
 		if (cabs((A[i] - reference[i]) / A[i]) > 0.0001) {
 			printf("FAILED\n");
 			printf("Element %li: %f\n", i, cabs((A[i] - reference[i]) / A[i]));
+            remove("fftw.wisdom");
 			return 1;
 		}
 	}
