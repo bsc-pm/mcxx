@@ -439,7 +439,14 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                     {
                         template_params.append_with_separator(it->get_name(), ",");
                     }
-                    function_name = function_name + " < " + template_params.get_source() + " > ";
+
+                    // Because of a bug in g++ (solved in 4.5) we need an additional casting
+                    ScopeLink sl = ctr.get_scope_link();
+                    AST_t reference_tree = ctr.get_ast();
+                    Type t = function_symbol.get_type().get_pointer_to();
+                    std::string additional_casting  = "(" + t.get_declaration(sl.get_scope(reference_tree), "")  + ")";
+
+                    function_name = "(" + additional_casting + function_name + " < " + template_params.get_source() + " >)";
                 }
 
                 src
