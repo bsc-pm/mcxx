@@ -119,6 +119,13 @@ namespace TL { namespace Nanox {
 
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
+        // Pointer to the real unpack function
+        scope_entry_t* ptr_to_outline = ::new_symbol(function_context, function_context.current_scope,
+                "outline_ptr");
+        ptr_to_outline->kind = SK_VARIABLE;
+        ptr_to_outline->type_information = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
+        parameter_symbols.append(ptr_to_outline);
+
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -1159,11 +1166,20 @@ namespace TL { namespace Nanox {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
+            Source outline_function_addr;
+
             outline_src
                 << instrument_before << "\n"
-                << "CALL " << outline_name << "_forward(" << unpacked_arguments << ")\n"
+                << "CALL " << outline_name << "_forward(" << outline_function_addr << unpacked_arguments << ")\n"
                 << instrument_after << "\n"
                 ;
+
+            outline_function_addr << "LOC(" << unpacked_function.get_name() << ")";
+
+            if (!unpacked_arguments.empty())
+            {
+                outline_function_addr << ", ";
+            }
 
             TL::ReferenceScope ref_scope(outline_function_body);
             decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
@@ -1288,35 +1304,33 @@ namespace TL { namespace Nanox {
         }
         else
         {
+            ancillary_source << "void (*outline_fun)(";
+            if (num_data_items == 0)
+            {
+                ancillary_source << "void";
+            }
+            else
+            {
+                for (int i = 0; i < num_data_items; i++)
+                {
+                    if (i > 0)
+                    {
+                        ancillary_source << ", ";
+                    }
+                    ancillary_source << "void *p" << i;
+                }
+            }
+            ancillary_source << ")";
+
             for (int i = 0; i < num_data_items; i++)
             {
-                if (i > 0)
-                {
-                    ancillary_source << ", ";
-                }
-                ancillary_source << "void *p" << i;
+                ancillary_source << ", void *p" << i;
             }
         }
         ancillary_source << ")\n{\n"
             << "    extern int nanos_free(void*);\n"
-            << "    extern int nanos_handle_error(int);\n"
-            << "    extern void " << outline_name << "_unpack_(";
-        if (num_data_items == 0)
-        {
-            ancillary_source << "void";
-        }
-        else
-        {
-            for (int i = 0; i < num_data_items; i++)
-            {
-                if (i > 0)
-                {
-                    ancillary_source << ", ";
-                }
-                ancillary_source << "void*";
-            }
-        }
-        ancillary_source << ");\n\n    " << outline_name << "_unpack_(";
+            << "    extern int nanos_handle_error(int);\n\n"
+            << "    outline_fun(";
         for (int i = 0; i < num_data_items; i++)
         {
             if (i > 0)
