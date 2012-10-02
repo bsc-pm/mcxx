@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,6 +24,24 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-#SUBDIRS= smp smp_numa cuda smp_ocl gpu common
-SUBDIRS= smp cuda
 
+include ../../../../Makefile.phases
+
+END=
+
+phases_LTLIBRARIES=libtlnanox-cuda.la
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../nanos-common \
+			 -I$(srcdir)/../../../core
+
+libtlnanox_cuda_la_CFLAGS = $(device_flags)
+libtlnanox_cuda_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_cuda_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_cuda_la_SOURCES = \
+       nanox-cuda.hpp \
+       nanox-cuda.cpp \
+       cuda-aux.hpp \
+       $(END)
