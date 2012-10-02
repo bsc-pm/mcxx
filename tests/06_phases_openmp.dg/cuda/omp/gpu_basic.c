@@ -39,9 +39,7 @@ compile_versions=cuda_omp
 #pragma omp task inout (*a)
 void addOne (int *a)
 {
-#pragma mcc verbatim start
 	addOne_gpu <<<1, 1>>> (a);
-#pragma mcc verbatim end
 }
 
 
