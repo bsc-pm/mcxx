@@ -196,7 +196,7 @@ namespace Utils {
     }
 
     TopLevelVisitor::TopLevelVisitor( )
-        : _main ( Nodecl::NodeclBase::null( ) ), _functions( )
+            : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _filename( "" )
     {}
 
     Nodecl::NodeclBase TopLevelVisitor::get_main( ) const
@@ -211,15 +211,16 @@ namespace Utils {
 
     void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
     {
+        _filename = n.get_filename( );
         walk( n );
     }
 
     TopLevelVisitor::Ret TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while CFG construction '"
-        << codegen_to_str( n.get_internal_nodecl( ),
-                           nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-        << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        nodecl_t intern_n = n.get_internal_nodecl( );
+        WARNING_MESSAGE( "Unhandled node '%s' while PCFG construction of type '%s''",
+                         codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
+                         ast_print_node_type( n.get_kind( ) ) );
         return Ret( );
     }
 
@@ -245,14 +246,17 @@ namespace Utils {
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
     {
-        Symbol sym = n.get_symbol( );
-        ASSERT_MESSAGE( sym.is_valid( ), "TopLevelVisitor::FunctionCode node has an invalid symbol", 0 );
+        if( _filename == n.get_filename( ) )
+        {
+            Symbol sym = n.get_symbol( );
+            ASSERT_MESSAGE( sym.is_valid( ), "TopLevelVisitor::FunctionCode node has an invalid symbol", 0 );
 
-        std::string name = sym.get_name( );
-        if ( name == "main" )
-            _main = n;
+            std::string name = sym.get_name( );
+            if ( name == "main" )
+                _main = n;
 
-        _functions.append( n );
+            _functions.append( n );
+        }
     }
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}

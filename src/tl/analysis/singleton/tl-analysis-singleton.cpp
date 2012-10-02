@@ -30,6 +30,7 @@
 #include "tl-pcfg-visitor.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-use-def.hpp"
+#include "tl-liveness.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -247,25 +248,22 @@ namespace Analysis {
         return result;
     }
 
+    // TODO
     void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
-                                                              ExtensibleGraph* pcfg, bool ipa )
+                                                              Nodecl::NodeclBase ast )
     {
         //         ConditionalConstantAnalysis ca( ipa );
         //         ca.conditional_constant_propagation( pcfg );
     }
 
-    void AnalysisSingleton::conditional_constant_propagation( )
-    {
-//         ConstantsAnalysisPhase::run( );
-    }
-
+    // TODO
     void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento,
                                                          Nodecl::NodeclBase ast )
     {
 
     }
 
-    void AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
 
@@ -276,16 +274,33 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Use-Definition of PCFG '" << (*it)->get_name( ) << "'" << std::endl;
+                    std::cerr << "- Use-Definition of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
                 UseDef ud( *it );
-                ud.compute_usage( );
+                ud.compute_usage( /* ipa */ false );
             }
         }
+
+        return pcfgs;
     }
 
-    void AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
+        ObjectList<ExtensibleGraph*> pcfgs = use_def( memento, ast );
 
+        if( !memento.is_liveness_computed( ) )
+        {
+            memento.set_liveness_computed( );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Liveness of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
+                Liveness l( *it );
+                l.compute_liveness( );
+            }
+        }
+
+        return pcfgs;
     }
 
     void AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )

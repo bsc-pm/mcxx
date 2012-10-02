@@ -307,6 +307,11 @@ namespace Analysis {
         return ( get_type( ) == GOTO );
     }
 
+    bool Node::is_split_statement( )
+    {
+        return ( is_graph_node( ) && get_graph_type( ) ==  SPLIT_STMT );
+    }
+
     bool Node::is_unclassified_node( )
     {
         return ( get_type( ) == UNCLASSIFIED_NODE );
@@ -1143,31 +1148,31 @@ namespace Analysis {
         return live_out_vars;
     }
 
-    void Node::set_live_out(Utils::ExtendedSymbol new_live_out_var)
+    void Node::set_live_out( Utils::ExtendedSymbol new_live_out_var )
     {
         Utils::ext_sym_set live_out_vars;
 
-        if(has_key(_LIVE_OUT))
+        if( has_key( _LIVE_OUT ) )
         {
-            live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
+            live_out_vars = get_data<Utils::ext_sym_set>( _LIVE_OUT);
         }
-        live_out_vars.insert(new_live_out_var);
+        live_out_vars.insert( new_live_out_var );
 
-        set_data(_LIVE_OUT, live_out_vars);
+        set_data( _LIVE_OUT, live_out_vars );
     }
 
-    void Node::set_live_out(Utils::ext_sym_set new_live_out_set)
+    void Node::set_live_out( Utils::ext_sym_set new_live_out_set )
     {
-        set_data(_LIVE_OUT, new_live_out_set);
+        set_data( _LIVE_OUT, new_live_out_set );
     }
 
-    Utils::ext_sym_set Node::get_ue_vars()
+    Utils::ext_sym_set Node::get_ue_vars( )
     {
         Utils::ext_sym_set ue_vars;
 
-        if(has_key(_UPPER_EXPOSED))
+        if( has_key( _UPPER_EXPOSED ) )
         {
-            ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
         }
 
         return ue_vars;

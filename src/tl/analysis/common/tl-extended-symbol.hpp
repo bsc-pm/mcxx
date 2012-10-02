@@ -105,8 +105,6 @@ namespace Utils {
             bool operator<( const ExtendedSymbol &es ) const;
     };
 
-
-
     struct ExtSym_hash {
         size_t operator( )( const ExtendedSymbol& n ) const
         {
@@ -119,8 +117,21 @@ namespace Utils {
             return Nodecl::Utils::equal_nodecls( es1.get_nodecl( ), es2.get_nodecl( ) );
         }
     };
-    // This should be an unordered set but Mercurium does not compile with -std=c++0x nor with -std=gnu++0x
     typedef std::tr1::unordered_set<ExtendedSymbol, ExtSym_hash, ExtSym_comp> ext_sym_set;
+
+    struct Nodecl_hash {
+        size_t operator( )( const Nodecl::NodeclBase& n ) const
+        {
+            return nodecl_hash_table( n.get_internal_nodecl( ) );
+        }
+    };
+    struct Nodecl_com {
+        bool operator( )( const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2 ) const
+        {
+            return Nodecl::Utils::equal_nodecls( n1, n2 );
+        }
+    };
+    typedef std::tr1::unordered_set<Nodecl::NodeclBase, Nodecl_hash, Nodecl_com> nodecl_set;
 }
 }
 }

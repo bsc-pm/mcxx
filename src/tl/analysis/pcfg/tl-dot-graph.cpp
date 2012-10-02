@@ -110,12 +110,6 @@ namespace Analysis {
                 // Calculate the name of the new dot subgraph
                 std::stringstream node_id; node_id << current->get_id( );
                 std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( );
-//                 Nodecl::NodeclBase actual_label( current->get_graph_label( ) );
-//                 if( !actual_label.is_null( ) )
-//                 {
-//                     subgraph_label += codegen_to_str(actual_label.get_internal_nodecl( ),
-//                                                      nodecl_retrieve_context(actual_label.get_internal_nodecl( ) ) );
-//                 }
 
                 std::string node_info = "";
                 node_info += print_node_usage( current, use_def );
@@ -135,7 +129,8 @@ namespace Analysis {
                 std::vector<Node*> new_outer_nodes;
                 get_dot_subgraph( current, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id,
                                   use_def, liveness, reaching_defs, auto_scoping, auto_deps );
-                dot_graph += indent + "\t-" + node_id.str( ) + "[label=\"" + node_info + " \", shape=box]\n";
+                if( !node_info.empty( ) )
+                    dot_graph += indent + "\t-" + node_id.str( ) + "[label=\"" + node_info + " \", shape=box]\n";
                 dot_graph += indent + "}\n";
 
                 for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
@@ -340,7 +335,9 @@ namespace Analysis {
                 }
                 basic_block = basic_block.substr( 0, basic_block.size( ) - 2 );   // Remove the last back space
 
-                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + " " + basic_block + " | " + node_info + "}\", shape=record, "
+                if( !node_info.empty( ) )
+                    node_info = " | " + node_info;
+                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + " " + basic_block + node_info + "}\", shape=record, "
                             + basic_attrs + "];\n";
 
                 break;
@@ -426,6 +423,9 @@ namespace Analysis {
                     + ( ue.empty( )    ? "" : ( "UE: "     + ue     + "\\n" ) )
                     + ( undef.empty( ) ? "" : ( "UNDEEF: " + undef ) );
         }
+        int u_size = usage.size( );
+        if( ( u_size > 3 ) && ( usage.substr( u_size - 2, u_size - 1 ) == "\\n" ) )
+            usage = usage.substr( 0, u_size - 2 );
         return usage;
     }
 
@@ -439,6 +439,9 @@ namespace Analysis {
             liveness = ( live_in.empty( )    ? "" : "LI: " + live_in + "\\n" )
                        + ( live_out.empty( ) ? "" : "LO: " + live_out );
         }
+        int l_size = liveness.size( );
+        if( ( l_size > 3 ) && ( liveness.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+            liveness = liveness.substr( 0, l_size - 2 );
         return liveness;
     }
 

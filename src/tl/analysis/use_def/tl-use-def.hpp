@@ -24,8 +24,6 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-
-
 #ifndef TL_USE_DEF_HPP
 #define TL_USE_DEF_HPP
 
@@ -43,26 +41,18 @@ namespace Analysis {
     class LIBTL_CLASS UseDef
     {
     private:
+        //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
 
-        void compute_usage_rec( Node* current );
+        //!List of functions visited when IPA analysis occurs
+        ObjectList<Symbol> _visited_functions;
 
-    public:
-        //! Constructor
-        UseDef( ExtensibleGraph* graph );
-
-        //! Sets the variable represented by a symbol as a killed or an upper exposed variable
-        //! depending on @defined attribute
-        /*!
-            * A variable is killed when it is defined or redefined
-            * A variable is upper exposed when it is used before of being killed
-            * \param defined Action performed over the symbol: 1 if defined, 0 if not
-            * \param n Nodecl containing the whole expression about the use/definition
-            */
-        void fill_use_def_sets( Nodecl::NodeclBase n, bool defined );
-
-        //! Wrapper method for #fill_use_def_sets when there is more than one symbol to be analyzed
-        void fill_use_def_sets( Nodecl::List n_l, bool defined );
+        /*!Method that computes recursively the Use-Definition information from a node
+         * \param current Node from which the method begins the computation
+         * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
+         * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
+         */
+        void compute_usage_rec( Node* current, bool ipa, Utils::nodecl_set ipa_arguments );
 
         //! Returns a list with two elements. The firs is the list of upper exposed variables of the graph node;
         //! The second is the list of killed variables of the graph node (Used in composite nodes)
@@ -71,9 +61,17 @@ namespace Analysis {
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
 
-        // *** Analysis methods *** //
+    public:
+        //! Constructor
+        UseDef( ExtensibleGraph* graph );
 
-        void compute_usage( );
+        /*! Method computing the Use-Definition information on the member #graph
+         * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
+         * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
+         *                      Only necessary when \ipa is true
+         */
+        void compute_usage( bool ipa, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ),
+                            ObjectList<TL::Symbol> visited_functions = ObjectList<TL::Symbol>() );
     };
 
     // ************************** End class implementing use-definition analysis ************************** //
@@ -88,10 +86,16 @@ namespace Analysis {
     //! and attaches this information to the Node in a PCFG which the statements belongs to
     class LIBTL_CLASS UsageVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-    protected:
+    private:
+
+        // *********************** Private members *********************** //
+
         //! Pointer to the Node in a PCFG where the Nodecl is contained
         //! The results of the analysis performed during the visit will be attached to the node
         Node* _node;
+
+        //! Statement we are traversing in this visit
+        Nodecl::NodeclBase _st;
 
         //! State of the traversal
         /*!
@@ -109,7 +113,23 @@ namespace Analysis {
          */
         Nodecl::NodeclBase _actual_nodecl;
 
-    private:
+        ObjectList<TL::Symbol> _visited_functions;
+
+        // *** Members for the IPA analysis *** //
+
+        /*!Boolean indicating whether the Use-Def analysis must be IPA or not
+         * IPA means that we only care about global variables and referenced parameters
+         */
+        bool _ipa;
+
+        //! Scope used while IPA to know whether a variable is global or local
+        Scope _sc;
+
+        //! List of arguments passed by reference or with pointer type
+        Utils::nodecl_set _ipa_arguments;
+
+
+        // *********************** Private methods *********************** //
 
         //! This method implements the visitor for any Binary operation
         Ret binary_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
@@ -120,78 +140,48 @@ namespace Analysis {
         //! This method implements the visitor for any Unary operation
         Ret unary_visit( Nodecl::NodeclBase rhs );
 
-        void function_visit( Nodecl::NodeclBase called_func );
+        void function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments );
 
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
 
     public:
         // *** Constructors *** //
-        UsageVisitor( Node* n );
+        UsageVisitor( Node* n, Nodecl::NodeclBase st,
+                      bool ipa, Scope sc, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
+
+        bool variable_is_in_context( Nodecl::NodeclBase var );
+
+        void compute_statement_usage( ObjectList<TL::Symbol> visited_functions );
 
         // *** Visitors *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
 
-        Ret visit( const Nodecl::Add& n );
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShr& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit_pre( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAnd& n );
         Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOr& n );
         Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShl& n );
         Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShr& n );
         Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXor& n );
         Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::BooleanLiteral& n );
-        Ret visit( const Nodecl::Cast& n );
+        Ret visit_pre( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Comma& n );
-        Ret visit( const Nodecl::ComplexLiteral& n );
-        Ret visit( const Nodecl::Concat& n );
-        Ret visit( const Nodecl::Dereference& n );
-        Ret visit( const Nodecl::Different& n );
-        Ret visit( const Nodecl::Div& n );
+        Ret visit_pre( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::EmptyStatement& n );
-        Ret visit( const Nodecl::Equal& n );
-        Ret visit( const Nodecl::FloatingLiteral& n );
         Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::GreaterOrEqualThan& n );
-        Ret visit( const Nodecl::GreaterThan& n );
-        Ret visit( const Nodecl::IntegerLiteral& n );
-        Ret visit( const Nodecl::LogicalAnd& n );
-        Ret visit( const Nodecl::LogicalNot& n );
-        Ret visit( const Nodecl::LogicalOr& n );
-        Ret visit( const Nodecl::LowerOrEqualThan& n );
-        Ret visit( const Nodecl::LowerThan& n );
-        Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::Mod& n );
         Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::Neg& n );
         Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::Offset& n );
-        Ret visit( const Nodecl::Offsetof& n );
-        Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
-        Ret visit( const Nodecl::Power& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
-        Ret visit( const Nodecl::Reference& n );
-        Ret visit( const Nodecl::ReturnStatement& n );
-        Ret visit( const Nodecl::Sizeof& n );
-        Ret visit( const Nodecl::StringLiteral& n );
+        Ret visit_pre( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };

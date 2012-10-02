@@ -112,6 +112,7 @@ namespace Utils {
         // ******* Class attributes ******* //
         Nodecl::NodeclBase _main;
         ObjectList<Nodecl::NodeclBase> _functions;
+        std::string _filename;
 
     public:
         // ********* Constructors ********* //

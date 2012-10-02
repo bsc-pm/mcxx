@@ -179,20 +179,17 @@ namespace Analysis {
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
          * that takes conditional branches into account applying Unreachable Code Elimination.
-         * @param pcfg PCFG where applying Constant Propagation Optimization
-         * @param ipa Boolan indicating whether this analysis is Inter-procedural or not
-         *            It is 'false' by default. Value 'true' is allowed only in case the ast contains a C/C++ main function.
          */
-        void conditional_constant_propagation( PCFGAnalysis_memento& memento, ExtensibleGraph* pcfg, bool ipa = false );
+        void conditional_constant_propagation( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
         void conditional_constant_propagation( );
 
         void expression_canonicalization( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-        void use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-        void liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
 
 

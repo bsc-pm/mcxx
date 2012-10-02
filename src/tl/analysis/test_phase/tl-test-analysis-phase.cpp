@@ -47,51 +47,27 @@ namespace Analysis {
 
             // Test PCFG creation
             if( VERBOSE )
-                std::cerr << "Testing PCFG creation" << std::endl;
+                std::cerr << "=========  Testing PCFG creation  ========= " << std::endl;
             ObjectList<ExtensibleGraph*> pcfgs =
                     analysis.parallel_control_flow_graph( memento, ast );
 
             if( VERBOSE )
-                std::cerr << "Testing Use-Definition analysis" << std::endl;
+                std::cerr << "=========  Testing Use-Definition analysis  ========= " << std::endl;
             analysis.use_def( memento, ast );
+
+//             if( VERBOSE )
+//                 std::cerr << "Testing Liveness analysis" << std::endl;
+//             analysis.liveness( memento, ast );
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
                 if( VERBOSE )
-                    std::cerr << "Printing PCFG to dot file" << std::endl;
+                    std::cerr << "=========  Printing PCFG to dot file  ========= " << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
             }
-
-            // Test constant propagation and constant folding
-//             analysis->conditional_constant_propagation( );
-
-
-
-//             RefPtr<Nodecl::NodeclBase> ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( dto["nodecl"] );
-//             // *** Build graphs for every method in the translation unit *** //
-//             // *** Tags global variables used within each graph *** //
-//             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-//                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-//                 std::cerr << std::endl << "=== CFG Construction ===" << std::endl;
-//             analysis->parallel_control_flow_graph( *ast );
-
-//             if (CURRENT_CONFIGURATION->debug_options.analysis_verbose ||
-//                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-//             {
-//                 std::cerr << std::endl << "=== GLOBAL VARIABLES USED WITHIN GRAPHS ===" << std::endl;
-//                 for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
-//                 {
-//                     std::cerr << "  ==> Graph '" << it->get_name() << "'" << std::endl;
-//                     ObjectList<ExtendedSymbolUsage> glob_vars = (*it)->get_global_variables();
-//                     for(ObjectList<ExtendedSymbolUsage>::iterator it_es = glob_vars.begin(); it_es != glob_vars.end(); ++it)
-//                     {
-//                         std::cerr << "       - " << it_es->get_nodecl().prettyprint() << std::endl;
-//                     }
-//                 }
-//             }
         }
 }
 }

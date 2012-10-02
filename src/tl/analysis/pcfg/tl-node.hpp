@@ -236,6 +236,9 @@ namespace Analysis {
             //! Returns true when the node is a GOTO node
             bool is_goto_node( );
 
+            //! Returns true when the node is a composed node because the statement it contains has been split
+            bool is_split_statement( );
+
             //! Returns true when the node is a UNCLASSIFIED node
             bool is_unclassified_node( );
 
@@ -300,7 +303,7 @@ namespace Analysis {
             void set_graph_entry_node(Node* node);
 
             //! Returns the exit node of a Graph node. Only valid for graph nodes
-            Node* get_graph_exit_node();
+            Node* get_graph_exit_node( );
 
             //! Set the exit node of a graph node. Only valid for graph nodes
             void set_graph_exit_node(Node* node);
