@@ -277,11 +277,12 @@ namespace Analysis {
         }
     }
 
-    static Utils::nodecl_set get_arguments_list( std::map<TL::Symbol, Nodecl::NodeclBase> ref_params_to_args )
+    static Utils::nodecl_set get_arguments_list( sym_to_nodecl_map ref_params_to_args )
     {
         Utils::nodecl_set result;
 
-        for( std::map<TL::Symbol, Nodecl::NodeclBase>::iterator it = ref_params_to_args.begin( ); it != ref_params_to_args.end( ); ++it )
+        for( sym_to_nodecl_map::iterator it = ref_params_to_args.begin( );
+             it != ref_params_to_args.end( ); ++it )
         {
             result.insert( it->second );
         }
@@ -289,10 +290,10 @@ namespace Analysis {
         return result;
     }
 
-    static std::map<TL::Symbol, Nodecl::NodeclBase> map_reference_params_to_args( ObjectList<TL::Symbol> parameters,
-                                                                                  Nodecl::List arguments )
+    static sym_to_nodecl_map map_reference_params_to_args( ObjectList<TL::Symbol> parameters,
+                                                           Nodecl::List arguments )
     {
-        std::map<TL::Symbol, Nodecl::NodeclBase> ref_params_to_args;
+        sym_to_nodecl_map ref_params_to_args;
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
@@ -403,8 +404,8 @@ namespace Analysis {
             Nodecl::FunctionCode copied_func = called_func.shallow_copy( ).as<Nodecl::FunctionCode>( );
 
             // Create renaming map
-            std::map<TL::Symbol, Nodecl::NodeclBase> renaming_map = map_reference_params_to_args( func_sym.get_function_parameters( ),
-                                                                                              arguments.as<Nodecl::List>( ) );
+            sym_to_nodecl_map renaming_map = map_reference_params_to_args( func_sym.get_function_parameters( ),
+                                                                           arguments.as<Nodecl::List>( ) );
 
             // Rename the parameters with the arguments
             Nodecl::NodeclBase stmts = copied_func.get_statements( );
