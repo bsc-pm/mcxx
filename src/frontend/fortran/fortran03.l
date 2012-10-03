@@ -2575,6 +2575,8 @@ static void open_included_file(char* include_name)
 
 	// Switch the buffer of flex
 	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+    yy_set_bol(1);
+    ERROR_CONDITION(!YY_AT_BOL(), "Invalid bol state!\n", 0);
     last_eos = 1;
 }
 
@@ -2633,8 +2635,9 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 
 	fortran_scanning_now->scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
-	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+    yy_set_bol(1);
+    ERROR_CONDITION(!YY_AT_BOL(), "Invalid bol state!\n", 0);
     last_eos = 1;
 
 	return 0;
@@ -2657,6 +2660,7 @@ int mf03_prepare_string_for_scanning(const char* str)
 	include_stack_size = 0;
 	fortran_scanning_now = &include_stack[include_stack_size];
 	fortran_scanning_now->line_number = 1;
+	fortran_scanning_now->new_line = 0;
 	fortran_scanning_now->joined_lines = 0;
 	
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
@@ -2671,14 +2675,6 @@ int mf03_prepare_string_for_scanning(const char* str)
 		string_scanning_configuration = (compilation_configuration_t*)malloc(sizeof(compilation_configuration_t));
 		*string_scanning_configuration = *(compilation_process.current_compilation_configuration);
 	}
-	// Now we can do what we want on the CURRENT_CONFIGURATION
-	// CURRENT_CONFIGURATION->expand_includes = 0;
-	
-	// CURRENT_COMPILED_FILE->length_include_table = 1;
-	// CURRENT_COMPILED_FILE->index_include_table = 0;
-	// CURRENT_COMPILED_FILE->include_table = (char**) calloc(1, sizeof(*CURRENT_COMPILED_FILE->include_table));
-	// CURRENT_COMPILED_FILE->include_table[0] = strdup(fortran_scanning_now->filename);
-	// CURRENT_COMPILED_FILE->in_include = 0;
 	
 	num_string++;
 	fortran_scanning_now->scanning_buffer = yy_scan_string(str);
