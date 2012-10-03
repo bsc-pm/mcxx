@@ -49,7 +49,7 @@ static std::string gpu_outline_name(const std::string & name)
     return "_gpu_" + name;
 }
 
-std::string DeviceGPU::get_outline_name_for_instrumentation(const std::string & name,
+std::string DeviceGPU::get_function_name_for_instrumentation(const std::string & name,
         const std::string& struct_typename UNUSED_PARAMETER,
         const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
 {
@@ -639,9 +639,9 @@ void DeviceGPU::create_outline(
 
         if (Nanos::Version::interface_is_at_least("master", 5017))
         {
-            // The outline name used by instrumentantion may contain template arguments
-            std::string outline_name_inst =
-                get_outline_name_for_instrumentation(task_name, struct_typename, enclosing_function);
+            // The function name used by instrumentantion may contain template arguments
+            std::string function_name_instr =
+                get_function_name_for_instrumentation(task_name, struct_typename, enclosing_function);
 
             instrument_before
                 << "static int nanos_funct_id_init = 0;"
@@ -651,12 +651,12 @@ void DeviceGPU::create_outline(
                 << "{"
                 <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << outline_name_inst << ","
+                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
                 <<               " \"user-funct-name\", " << uf_name_id << "," << uf_name_descr << ", 0);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << outline_name_inst << ","
+                <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << function_name_instr << ","
                 << " \"user-funct-location\"," << uf_location_id << "," << uf_location_descr << ", 0);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
