@@ -256,7 +256,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %%
  /* preprocess */
 
-"#" { 
+^[ \t]*# { 
     BEGIN(preprocess); 
 }
 
