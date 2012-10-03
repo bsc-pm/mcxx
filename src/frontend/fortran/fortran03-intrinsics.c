@@ -4684,8 +4684,8 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         // Shall be of the same type of SOURCE
         if (!equivalent_types(
-                    fortran_get_rank0_type(t0), 
-                    fortran_get_rank0_type(t1)))
+                    get_unqualified_type(fortran_get_rank0_type(t0)), 
+                    get_unqualified_type(fortran_get_rank0_type(t2))))
             return NULL;
 
         if (fortran_get_rank_of_type(t2) == 0)
