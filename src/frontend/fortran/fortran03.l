@@ -37,6 +37,7 @@
 #include <ctype.h>
 #include "cxx-ast.h"
 #include "cxx-driver-utils.h"
+#include "cxx-diagnostic.h"
 #include "cxx-utils.h"
 #include "filename.h"
 #include "fortran03-utils.h"
@@ -78,10 +79,25 @@ static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
 static char check_continued_sentinel_line(const char* line, const char** sentinel);
 static char is_valid_pragma_custom_prefix(const char* sentinel);
-static const char* get_real_second_line(const char* second_line, int* num_joined_lines, bool ignore_comments);
+static const char* get_real_second_line(const char* second_line, 
+        const char** filename, 
+        int* new_line, 
+        int* num_joined_lines, 
+        bool ignore_comments);
 static void reintroduce_continued_line(char* split_line, char double_continuation, const char *sentinel);
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
+
+typedef
+struct line_marker_flags_tag
+{
+    _Bool start_of_new_file:1;
+    _Bool return_of_a_file:1;
+    _Bool system_header_file:1;
+    _Bool extern_c_block:1;
+} line_marker_flags_t;
+
+static void parse_line_marker(const char* str, const char** filename, int *line, line_marker_flags_t *flags);
 
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
@@ -90,8 +106,17 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
 
 static void increment_line_number(struct scan_file_descriptor* current_file)
 {
-    current_file->line_number += 1 + current_file->joined_lines;
-    current_file->joined_lines = 0;
+    if (current_file->new_line > 0)
+    {
+        current_file->line_number = current_file->new_line + current_file->joined_lines;
+        current_file->new_line = 0;
+        current_file->joined_lines = 0;
+    }
+    else
+    {
+        current_file->line_number += 1 + current_file->joined_lines;
+        current_file->joined_lines = 0;
+    }
 }
 
 static int is_format_statement(char* token);
@@ -146,6 +171,16 @@ c_hexdigit        [a-fA-F0-9]
 c_escape_seq      ((\\["'?eabfnrtv\\])|(\\{c_octaldigit}{1,3})|((\\x)+{c_hexdigit}+))
 schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
+ /* Continuations */
+tail_of_continued ([[:blank:]]*(![^\n\r]*)?)
+tail_of_continued_string ([[:blank:]]*)
+blank_of_continuation ([[:blank:]]*([#!][^\n\r]*)?)
+next_line_single_continued ([[:blank:]]*[^&][^\n\r]*)
+pad_continuation {tail_of_continued}{newline}({blank_of_continuation}{newline})*
+pad_continuation_str {tail_of_continued_string}{newline}({blank_of_continuation}{newline})*
+ /* The second line SHOULD have something NON-BLANK after the & */
+next_line_double_continued ([[:blank:]]*&[^\n\r]+)
+
 %x preprocess
 %x COMMENT
 %x SEEN_FORMAT
@@ -160,188 +195,45 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
 %%
 
-"#" { 
+^[ \t]*# { 
     BEGIN(preprocess); 
 }
 
-<preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n\r]* {
- const char *p = yytext;
+<preprocess>([ ]*line)?[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n\r]* {
+    const char *directive = yytext;
 
- // Jump initial blanks (if any)
- while (*p == ' ')
-    p++;
+    int line = 0;
+    const char* filename = NULL;
+    line_marker_flags_t flags;
 
- // Jump "line" string
- p += strlen("line");
+    parse_line_marker(directive, &filename, &line, &flags);
 
- // Jump blanks
- while (*p == ' ')
-   p++;
+    // Update the line number, note that it is line_num - 1 
+    // because {end-of-line} is not handled here, but in another rule
+    fortran_scanning_now->line_number = line - 1;
 
- // Compute line
- int line_num = 0;
- while (*p != ' ' 
-         && *p != '\0' // The filename location is optional
-         )
- {
-     if (isdigit(*p))
-     {
-         line_num = line_num*10 + ((*p) - '0');
-     }
-     else
-     {
-         internal_error("Digit expected here but '%c' (%x) found", *p, *p);
-     }
-     p++;
- }
-
-   // Update the line number, note that it is line_num - 1 
-   // because {end-of-line} is not handled here, but in another rule
- fortran_scanning_now->line_number = (line_num - 1);
-
- // Jump blanks (if any)
- while (*p == ' ')
-   p++;
-
- // If there is a filename, parse it
- if (*p == '"')
- {
-     // Now we are on the quote "
-     p++;
- 
-     char filename[256];
-     memset(filename, 0, 256);
- 
-     char *f = filename;
- 
-     while (*p != '"')
-     {
-         if (f < &(filename[255]))
-         {
-             (*f) = *p;
-             f++;
-         }
-         p++;
-     }
-
-     // Update the file 
-	fortran_scanning_now->current_filename = uniquestr(filename);
- }
+    if (filename != NULL)
+    {
+        fortran_scanning_now->current_filename = filename;
+    }
 }
 
 <preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n\r]* {
 	char* directive = yytext;
 
-	// Jump the blank
-	directive++;
+    int line = 0;
+    const char* filename = NULL;
+    line_marker_flags_t flags;
 
-	int line_num = 0;
-	while (*directive != ' ')
-	{
-		if (isdigit(*directive))
-		{
-			line_num = line_num*10 + ((*directive) - '0');
-		}
-		else
-		{
-			internal_error("Digit expected here but '%c' found", *directive);
-		}
-		directive++;
-	}
+    parse_line_marker(directive, &filename, &line, &flags);
 
-	// Now directive is over the blank after the digits. Jump the blank
-	directive++;
-
-	// Now we are over the doublequote. Jump it
-	directive++;
-
-	char filename[256];
-	memset(filename, 0, 256);
-
-	char* p = filename;
-
-	while (*directive != '"')
-	{
-        if (p < &(filename[255]))
-        {
-            *p = *directive;
-            p++;
-        }
-		directive++;
-	}
-
-	// Now we have the new number line and the new file name
-
-    // Check include flags from GNU cpp and other preprocessors.
-    // We are on the the doublequote, jump it.
-    directive++;
-
-    // Advance the directive till the next nonblank
-    while (*directive == ' ')
+    if (flags.system_header_file)
     {
-        directive++;
+        filename = give_basename(filename);
     }
 
-    // Get the flags
-    char start_of_new_file = 0;
-    char return_of_a_file = 0;
-    char system_header_file = 0;
-    // char extern_c_block = 0;
-    while (*directive == ' '
-            || isdigit(*directive))
-    {
-        int current_flag = 0;
-        while (isdigit(*directive))
-        {
-            current_flag = current_flag * 10 +  (*directive - '0');
-            directive++;
-        }
-
-        switch (current_flag)
-        {
-            case 1:
-                {
-                    start_of_new_file = 1;
-                    break;
-                }
-            case 2:
-                {
-                    return_of_a_file = 1;
-                    break;
-                }
-            case 3:
-                {
-                    system_header_file = 1;
-                    break;
-                }
-            case 4:
-                {
-                    // extern_c_block = 1;
-                    break;
-                }
-            default:
-                // Ignore it
-                break;
-        }
-
-        // Advance the directive till the next nonblank
-        while (*directive == ' ')
-        {
-            directive++;
-        }
-    }
-
-    if (system_header_file)
-    {
-        char path[256];
-        strncpy(path, filename, 255);
-
-        const char *name_without_path = give_basename(path);
-        strncpy(filename, name_without_path, 255);
-    }
-
-    if (start_of_new_file 
-            || system_header_file)
+    if (flags.start_of_new_file 
+            || flags.system_header_file)
     {
         if (include_counter == 0)
         {
@@ -349,7 +241,7 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 
             new_top_level_include->included_file = uniquestr(filename);
 
-            if (system_header_file)
+            if (flags.system_header_file)
             {
                 new_top_level_include->system_include = 1;
             }
@@ -360,19 +252,19 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
         }
     }
 
-    if (start_of_new_file)
+    if (flags.start_of_new_file)
     {
         include_counter++;
     }
 
-    if (return_of_a_file)
+    if (flags.return_of_a_file)
     {
         include_counter = (include_counter > 0) ? (include_counter - 1) : 0;
     }
 
-    // Update the line number, note that it is line_num - 1 
+    // Update the line number, note that it is line - 1 
     // because {newline} is not handled here, but in another rule
-	fortran_scanning_now->line_number = (line_num - 1);
+	fortran_scanning_now->line_number = (line - 1);
     // Update file
 	fortran_scanning_now->current_filename = uniquestr(filename);
 }
@@ -444,8 +336,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*&[^\n\r]+{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*&[^\n\r]+{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&{pad_continuation}{next_line_double_continued}{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&{pad_continuation_str}{next_line_double_continued}{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes double continued lines
@@ -482,8 +374,8 @@ schar       ([^\\"\n\r]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&([[:blank:]]*(![^\n\r]*)?{newline})+[[:blank:]]*[^&][^\n\r]*{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&([[:blank:]]*{newline})+[[:blank:]]*[^&][^\n\r]*{newline} {
+^(([^\n\r!'"])|{FORTRAN_STRING})+&{pad_continuation}{next_line_single_continued}{newline} |
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&{pad_continuation_str}{next_line_single_continued}{newline} {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes continued lines with continuation mark at the end
@@ -2367,14 +2259,14 @@ goto {
 . {
 	if (isprint(yytext[0]))
 	{
-		running_error("%s:%d: error: unexpected character: `%c' (0x%X)\n", 
+		error_printf("%s:%d: error: unexpected character: `%c' (0x%X)\n", 
                 fortran_scanning_now->current_filename,
                 fortran_scanning_now->line_number, 
                 yytext[0], yytext[0]);
 	}
 	else
 	{
-		running_error("%s:%d: error: unexpected character: 0x%X\n\n", 
+		error_printf("%s:%d: error: unexpected character: 0x%X\n\n", 
                 fortran_scanning_now->current_filename,
                 fortran_scanning_now->line_number, 
                 yytext[0]);
@@ -2405,7 +2297,9 @@ UNUSED_PARAMETER static void parse_token_text_str(const char* c)
 static void reintroduce_continued_line(char* continued_line, char double_continuation, const char* sentinel)
 {
     char* temporal = NULL;
+    int new_line_number = 0;
     int num_joined_lines = 1;
+    const char* filename = NULL;
 
     if (sentinel == NULL)
     {
@@ -2445,7 +2339,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
         q++; p++;
 
         // Ignore comments and empty lines
-        const char* second_line = get_real_second_line(p, &num_joined_lines, /* ignore_comments */ true);
+        const char* second_line = get_real_second_line(p, &filename, &new_line_number, &num_joined_lines, /* ignore_comments */ true);
         p = second_line;
 
         // Jump blanks again
@@ -2488,7 +2382,8 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     // Second line
     // The (potential) second line starts here
     // Ignore comments and empty lines
-    const char* second_line = get_real_second_line(newline + 1, &num_joined_lines , /* ignore_comments */ false);
+    const char* second_line = get_real_second_line(newline + 1, 
+            &filename, &new_line_number, &num_joined_lines , /* ignore_comments */ false);
 
     if (double_continuation)
     {
@@ -2546,6 +2441,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     }
 
     // This line was joined, we do not update line_number but the number of joined_lines (at least 1, but may be more)
+    fortran_scanning_now->new_line = new_line_number;
     fortran_scanning_now->joined_lines += num_joined_lines;
     DEBUG_CODE() DEBUG_MESSAGE("Incrementing joined_lines (%d)\n", fortran_scanning_now->joined_lines);
     // Free
@@ -2857,10 +2753,13 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++; q++;
     }
 
-    int dummy_num_joined_lines;
+    int dummy_num_joined_lines = 0;
+    int dummy_new_line_number = 0;
+    const char* dummy_filename = 0;
     char* newline = strchr(yytext, '\n');
     // Ignore comments and empty lines
-    const char* second_line = get_real_second_line(newline + 1, &dummy_num_joined_lines, /* ignore_comments */ true);
+    const char* second_line = get_real_second_line(newline + 1, 
+            &dummy_filename, &dummy_new_line_number, &dummy_num_joined_lines, /* ignore_comments */ true);
 
     // Get the second sentinel
     char sentinel2[33] = { 0 };
@@ -3153,7 +3052,12 @@ static const char* format_pragma_string(const char* c)
 
     return res;
 }
-static const char* get_real_second_line(const char* second_line, int* num_joined_lines, bool ignore_comments)
+
+static const char* get_real_second_line(const char* second_line, 
+        const char** filename, 
+        int* new_line, 
+        int* num_joined_lines, 
+        bool ignore_comments)
 {
     char not_real_second_line = 1;
     while (not_real_second_line)
@@ -3187,6 +3091,19 @@ static const char* get_real_second_line(const char* second_line, int* num_joined
                 second_line++;
             }
         }
+        else if (*second_line == '#')
+        {
+            line_marker_flags_t flags;
+            parse_line_marker(second_line, filename, new_line, &flags);
+            
+            *num_joined_lines = 0;
+
+            while (*second_line != '\0'
+                    && *second_line != '\n')
+            {
+                second_line++;
+            }
+        }
 
         if (*second_line == '\n')
         {
@@ -3196,12 +3113,141 @@ static const char* get_real_second_line(const char* second_line, int* num_joined
 
             // Inore '\n'
             second_line++;
-
-            // Account for another line
-            num_joined_lines++;
+            
+            // Account skipped lines
+            *num_joined_lines += 1;
         }
     }
     return second_line;
+}
+
+static void parse_line_marker(const char* str, const char** filename, int *line, line_marker_flags_t *flags)
+{
+    ERROR_CONDITION(flags == NULL, "Invalid parameter", 0);
+    memset(flags, 0, sizeof(*flags));
+
+// We allow the following syntax
+// ^([ ]*#)?([ ]*line)?[ ]+[0-9]+[ ]*("[^"]*"[ ]+([1234][ ]+)*$
+    const char* p = str;
+
+    // Skip blanks
+    while (*p == ' ' || *p == '\t') p++;
+
+    // Skip *p
+    if (*p == '#')
+        p++;
+
+    // Skip blanks
+    while (*p == ' ' || *p == '\t') p++;
+
+    // Skip line
+    if (*p == 'l')
+    {
+        p += strlen("line");
+    }
+
+    // Skip blanks
+    while (*p == ' ' || *p == '\t') p++;
+
+    // Parse line
+    *line = 0;
+
+    if (!('0' <= *p
+                && *p <= '9'))
+        internal_error("Invalid line marker '%s'. Expecting a digit but got '%c'", str, *p);
+
+    while ('0' <= *p
+                && *p <= '9')
+    {
+        *line = *line*10 + (*p - '0');
+
+        p++;
+    }
+
+    // Skip blanks
+    while (*p == ' ' || *p == '\t') p++;
+
+    if (*p == '"')
+    {
+        char c[256];
+        memset(c, 0, sizeof(c));
+
+        char *q = c;
+
+        // Skip "
+        p++;
+
+        while (*p != '"'
+                && *p != '\0'
+                && q < &(c[255]))
+        {
+            *q = *p;
+            q++;
+            p++;
+        }
+        if (*p != '"')
+        {
+            internal_error("Invalid line marker '%s'. Expecting a \"", str);
+        }
+        p++;
+
+        *filename = uniquestr(c);
+
+        // Skip blanks
+        while (*p == ' ' || *p == '\t') p++;
+
+        if (*p != '\0' 
+                && *p != '\n')
+        {
+            if (!('1' <= *p
+                        && *p <= '4'))
+            {
+                internal_error("Invalid line marker '%s'. Expecting a flag", str);
+            }
+
+            switch (*p)
+            {
+                case '1':
+                    {
+                        flags->start_of_new_file = 1;
+                        break;
+                    }
+                case '2':
+                    {
+                        flags->return_of_a_file = 2;
+                        break;
+                    }
+                case '3':
+                    {
+                        flags->system_header_file = 1;
+                        break;
+                    }
+                case '4':
+                    {
+                        flags->extern_c_block = 1;
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+            }
+
+            p++;
+            if ( *p != ' ' && *p != '\t')
+            {
+                internal_error("Invalid line marker '%s'. Expecting a blank", str);
+            }
+
+            // Skip blanks
+            while (*p == ' ' || *p == '\t') p++;
+        }
+    }
+    else if (*p != '\0' 
+            && *p != '\n')
+    {
+        internal_error("Junk at the end of a line marker '%s'. Junk -> '%s'", str, p);
+    }
 }
 
 // Shut up the compiler
