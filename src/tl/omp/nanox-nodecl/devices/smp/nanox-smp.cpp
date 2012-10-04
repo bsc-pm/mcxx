@@ -1059,7 +1059,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase internal_functions = function_code.get_internal_functions();
 
             unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(
-                    Nodecl::Utils::deep_copy(internal_functions, current_function.get_related_scope(), *symbol_map));
+                    Nodecl::Utils::deep_copy(internal_functions, unpacked_function.get_related_scope(), *symbol_map));
         }
 
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
