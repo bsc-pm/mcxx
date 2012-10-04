@@ -559,17 +559,29 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     }
 
     // Check for const-ness
-    int i, n;
+    int i, n, num_elements_flattened = 0;
     char all_constants = 1;
     nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
 
-    const_value_t* constants[n];
+    const_value_t* constants[n + 1];
     memset(constants, 0, sizeof(constants));
 
     for (i = 0; i < n && all_constants; i++)
     {
         constants[i] = nodecl_get_constant(list[i]);
         all_constants = all_constants && (constants[i] != NULL);
+
+        if (constants[i] != NULL)
+        {
+            if (const_value_is_array(constants[i]))
+            {
+                num_elements_flattened += const_value_get_num_elements(constants[i]);
+            }
+            else
+            {
+                num_elements_flattened += 1;
+            }
+        }
     }
     free(list);
 
@@ -596,7 +608,29 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
     if (all_constants)
     {
-        const_value_t* array_val = const_value_make_array(n, constants);
+        const_value_t* value_flattened[num_elements_flattened+1];
+        memset(value_flattened, 0, sizeof(value_flattened));
+
+        int j = 0;
+        for (i = 0; i < n; i++)
+        {
+            if (const_value_is_array(constants[i]))
+            {
+                int k, N = const_value_get_num_elements(constants[i]);
+                for (k = 0; k < N; k++)
+                {
+                    value_flattened[j] = const_value_get_element_num(constants[i], k);
+                    j++;
+                }
+            }
+            else
+            {
+                value_flattened[j] = constants[i];
+                j++;
+            }
+        }
+
+        const_value_t* array_val = const_value_make_array(num_elements_flattened, value_flattened);
         nodecl_set_constant(*nodecl_output, array_val);
     }
 }
