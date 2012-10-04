@@ -40,6 +40,7 @@ struct command_line_parameter_t invalid_parameter = {
     .argument = (void*)0
 };
 
+static
 char starts_short_option(const char* str)
 {
     return (str[0] == '-'
@@ -47,6 +48,7 @@ char starts_short_option(const char* str)
             && str[1] != '\0');
 }
 
+static
 char starts_long_option(const char* str)
 {
     return (str[0] == '-'
@@ -54,6 +56,7 @@ char starts_long_option(const char* str)
             && str[2] != '\n');
 }
 
+static
 char starts_option(const char *str)
 {
     return starts_short_option(str)
