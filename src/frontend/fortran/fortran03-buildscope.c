@@ -6827,7 +6827,10 @@ static void build_scope_print_stmt(AST a, decl_context_t decl_context, nodecl_t*
     AST input_output_item_list = ASTSon1(a);
 
     nodecl_t nodecl_io_items = nodecl_null();
+    if (input_output_item_list != NULL)
+    {
     build_scope_input_output_item_list(input_output_item_list, decl_context, &nodecl_io_items);
+    }
 
     nodecl_t nodecl_format = nodecl_null();
     opt_fmt_value(format, decl_context, &nodecl_format);
