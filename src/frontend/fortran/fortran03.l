@@ -3229,7 +3229,10 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
             }
 
             p++;
-            if ( *p != ' ' && *p != '\t')
+            if ( *p != ' '
+                    && *p != '\t'
+                    && *p != '\n'
+                    && *p != '\0')
             {
                 internal_error("Invalid line marker '%s'. Expecting a blank", str);
             }
