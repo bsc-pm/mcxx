@@ -150,7 +150,7 @@ namespace TL { namespace Nanox {
         <<                 "nanos_handle_error(err);"
         <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
         <<             const_wd_info
-        <<             "nanos_wd_t wd = (nanos_wd_t) 0;"
+        <<             "nanos_wd_t nanos_wd_ = (nanos_wd_t) 0;"
         <<             "nanos_wd_dyn_props_t dyn_props;"
         <<             "dyn_props.tie_to = (nanos_thread_t)0;"
         <<             "dyn_props.priority = 0;"
@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
         <<                 "replicate = nanos_find_slicer(\"replicate\");"
         <<             "if (replicate == (nanos_slicer_t)0)"
         <<                 "nanos_handle_error(NANOS_UNIMPLEMENTED);"
-        <<             "err = nanos_create_sliced_wd(&wd, "
+        <<             "err = nanos_create_sliced_wd(&nanos_wd_, "
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, nanos_current_wd(), replicate,"
@@ -169,7 +169,7 @@ namespace TL { namespace Nanox {
         <<                 "nanos_handle_error(err);"
         <<             "ol_args->wsd = wsd;"
         <<             statement_placeholder(fill_outline_arguments_tree)
-        <<             "err = nanos_submit(wd, 0, ( " << dependence_type << ") 0, (nanos_team_t) 0);"
+        <<             "err = nanos_submit(nanos_wd_, 0, ( " << dependence_type << ") 0, (nanos_team_t) 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             "err = nanos_free(wsd->threads);"

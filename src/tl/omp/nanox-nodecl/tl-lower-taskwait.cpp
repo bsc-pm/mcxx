@@ -409,9 +409,9 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     if (!has_dependences)
     {
         src << "{"
-            <<     "nanos_wd_t wd = nanos_current_wd();"
+            <<     "nanos_wd_t nanos_wd_ = nanos_current_wd();"
             <<     "nanos_err_t err;"
-            <<     "err = nanos_wg_wait_completion(wd, 0);"
+            <<     "err = nanos_wg_wait_completion(nanos_wd_, 0);"
             <<     "if (err != NANOS_OK) nanos_handle_error(err);"
             << "}"
             ;

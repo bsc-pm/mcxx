@@ -71,7 +71,7 @@ namespace TL { namespace Nanox {
         
         nanos_create_wd
             << "nanos_create_wd_compact("
-            <<       "&wd, "
+            <<       "&nanos_wd_, "
             <<       "&nanos_wd_const_data.base, "
             <<       "&dyn_props, "
             <<       struct_size << ", "
@@ -142,10 +142,10 @@ namespace TL { namespace Nanox {
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
-            //   We have to create a wd tied to a thread
+            //   We have to create a nanos_wd_ tied to a thread
             <<      "dyn_props.tie_to = nanos_team_threads[nth_i];"
             <<      struct_arg_type_name << " *ol_args = 0;"
-            <<      "nanos_wd_t wd = (nanos_wd_t)0;"
+            <<      "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
             <<      copy_ol_decl
             <<      "err = " << nanos_create_wd
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -153,7 +153,7 @@ namespace TL { namespace Nanox {
             <<      statement_placeholder(fill_outline_arguments_tree)
             <<      fill_dependences_outline
             <<      copy_ol_setup
-            <<      "err = nanos_submit(wd, 0, (" <<  dependence_type << ") 0, (nanos_team_t)0);"
+            <<      "err = nanos_submit(nanos_wd_, 0, (" <<  dependence_type << ") 0, (nanos_team_t)0);"
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             <<   "}"
             <<   "dyn_props.tie_to = nanos_team_threads[0];"
