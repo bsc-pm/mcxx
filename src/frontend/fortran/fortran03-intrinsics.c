@@ -2225,10 +2225,11 @@ scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_array_type(t0)
             && is_integer_type(fortran_get_rank0_type(t1))
-            && (fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1) 
+            && (fortran_get_rank_of_type(t1) == 0 ||
+                ((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1)))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("cshift", t0, t0, t1, 
+        return GET_INTRINSIC_TRANSFORMATIONAL("cshift", t0, t0, t1,
                 t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
