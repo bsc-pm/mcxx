@@ -153,6 +153,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, exponent, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, extends_type_of, "A,MOLD", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(NULL, findloc, "ARRAY,VALUE,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,VALUE,?MASK,?KIND,?BACK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, floor, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, flush, "?UNIT", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fraction, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, gamma, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, get_command, "?COMMAND,?LENGTH,?STATUS", S, NULL) \
@@ -2642,6 +2643,24 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_ELEMENTAL("floor", 
                 choose_int_type_from_kind(kind, dr),
                 t0, fortran_get_default_integer_type());
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_flush(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 =
+        (argument_types[0] != NULL) ?
+            fortran_get_rank0_type(argument_types[0]) : fortran_get_default_integer_type();
+
+    if (is_integer_type(t0))
+    {
+        return GET_INTRINSIC_IMPURE("flush", get_void_type(), t0);
     }
 
     return NULL;
