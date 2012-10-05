@@ -1191,10 +1191,7 @@ static void build_scope_module_program_unit(AST program_unit,
 
 
     // Keep the module in the file's module cache
-    if (!CURRENT_CONFIGURATION->debug_options.disable_module_cache)
-    {
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower(new_entry->symbol_name), new_entry);
-    }
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower(new_entry->symbol_name), new_entry);
 
     // Store the module in a file
     if (diagnostics_get_error_count() == 0)

@@ -49,7 +49,6 @@ struct debug_flags_list_t;
 "debug_sizeof", DEBUG_OPTION_REF(debug_sizeof), "Enables special debug messages for sizeof"
 "do_not_run_gdb", DEBUG_OPTION_REF(do_not_run_gdb), "Disables the output of a backtrace using 'gdb' debugger when a signal handler is called"
 "binary_check", DEBUG_OPTION_REF(binary_check), "Performs a binary check between the binary output"
-"disable_module_cache", DEBUG_OPTION_REF(disable_module_cache), "Disables Fortran module cache, to force a load of the module in a single file"
 "analysis_verbose", DEBUG_OPTION_REF(analysis_verbose), "Prints the results of the static analysis"
 "print_pcfg", DEBUG_OPTION_REF(print_pcfg), "Prints PCFG in graphviz format"
 %%
