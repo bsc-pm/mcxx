@@ -279,10 +279,14 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin0, NULL, E, simplify_amin0) \
 FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
-FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
-FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
+\
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
+FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 ISO_C_BINDING_INTRINSICS
 
 #define ISO_C_BINDING_INTRINSICS \
@@ -2682,6 +2686,27 @@ scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_free(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments == 1)
+    {
+        type_t* t0 = no_ref(argument_types[0]);
+
+        if(is_integer_type(t0))
+        {
+            return GET_INTRINSIC_IMPURE("free",
+                    /* subroutine */ get_void_type(),
+                    t0);
+        }
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -2693,6 +2718,27 @@ scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("gamma", t0, t0);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_getlog(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments == 1)
+    {
+        type_t* t0 = no_ref(argument_types[0]);
+
+        if(fortran_is_character_type(t0))
+        {
+            return GET_INTRINSIC_IMPURE("getlog",
+                    /* subroutine */ get_void_type(),
+                    t0);
+        }
     }
 
     return NULL;
@@ -5454,6 +5500,29 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
     return GET_INTRINSIC_INQUIRY("loc",
             choose_int_type_from_kind(argument_expressions[0], CURRENT_CONFIGURATION->type_environment->sizeof_pointer),
             t0);
+}
+
+scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (num_arguments == 1
+            && fortran_is_character_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("fdate",
+                /* subroutine */get_void_type(),
+                t0);
+    }
+    else if (num_arguments == 0)
+    {
+        return GET_INTRINSIC_INQUIRY("fdate",
+                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context));
+    }
+    return NULL;
 }
 
 scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
