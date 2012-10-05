@@ -442,6 +442,7 @@ namespace TL { namespace Nanox {
 
                                     if (sym.is_valid())
                                     {
+                                        private_sym->entity_specs.is_optional = sym.is_optional();
                                         private_sym->entity_specs.is_allocatable =
                                             !sym.is_member() && sym.is_allocatable();
                                         if (!already_mapped)
