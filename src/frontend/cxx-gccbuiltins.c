@@ -202,6 +202,12 @@ DEF_POINTER_TYPE (BT_PTR_CONST_STRING, BT_CONST_STRING)
 DEF_POINTER_TYPE (BT_PTR_LONG, BT_LONG)
 DEF_POINTER_TYPE (BT_PTR_ULONGLONG, BT_ULONGLONG)
 DEF_POINTER_TYPE (BT_PTR_PTR, BT_PTR)
+DEF_POINTER_TYPE (BT_PTR_INT, BT_INT)
+DEF_POINTER_TYPE (BT_PTR_I1, BT_I1)
+DEF_POINTER_TYPE (BT_PTR_I2, BT_I2)
+DEF_POINTER_TYPE (BT_PTR_I4, BT_I4)
+DEF_POINTER_TYPE (BT_PTR_I8, BT_I8)
+DEF_POINTER_TYPE (BT_PTR_I16, BT_I16)
 
 DEF_PRIMITIVE_TYPE(BT_UINT16, get_unsigned_short_int_type())
 DEF_PRIMITIVE_TYPE(BT_UINT32, get_unsigned_int_type())
@@ -211,6 +217,7 @@ DEF_PRIMITIVE_TYPE(BT_UINT64, get_unsigned_long_long_int_type())
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_I1)
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_I2)
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_I4)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_INT, BT_INT)
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_I8)
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I16, BT_I16)
 
@@ -970,6 +977,72 @@ DEF_FUNCTION_TYPE_VAR_5 (BT_FN_INT_INT_INT_INT_INT_INT_VAR,
 DEF_POINTER_TYPE (BT_PTR_FN_VOID_VAR, BT_FN_VOID_VAR)
 DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
 		     BT_PTR, BT_PTR_FN_VOID_VAR, BT_PTR, BT_SIZE)
+
+DEF_FUNCTION_TYPE_1(BT_FN_BOOL_VPTR_INT, BT_BOOL, BT_VPTR_INT)
+DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_INT, BT_VOID, BT_VPTR_INT)
+
+
+DEF_PRIMITIVE_TYPE(BT_GENERIC_0, get_generic_type(0))
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_GENERIC_0, BT_GENERIC_0)
+DEF_POINTER_TYPE(BT_PTR_GENERIC_0, BT_GENERIC_0)
+
+DEF_FUNCTION_TYPE_2(BT_FUN_ATOMIC_LOAD_N, BT_GENERIC_0, BT_VPTR_GENERIC_0, BT_INT)
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_LOAD,   BT_VOID, BT_VPTR_GENERIC_0, BT_PTR_GENERIC_0, BT_INT)
+
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_STORE_N, BT_VOID, BT_VPTR_GENERIC_0, BT_GENERIC_0, BT_INT)
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_STORE,   BT_VOID, BT_VPTR_GENERIC_0, BT_PTR_GENERIC_0, BT_INT)
+
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_EXCHANGE_N, BT_GENERIC_0, BT_VPTR_GENERIC_0, BT_GENERIC_0, BT_INT)
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_EXCHANGE,   BT_VOID, BT_VPTR_GENERIC_0, BT_PTR_GENERIC_0, BT_INT)
+
+DEF_FUNCTION_TYPE_6(BT_FUN_ATOMIC_COMPARE_EXCHANGE_N, BT_BOOL, BT_VPTR_GENERIC_0, BT_PTR_GENERIC_0, BT_GENERIC_0, BT_BOOL, BT_INT, BT_INT)
+DEF_FUNCTION_TYPE_6(BT_FUN_ATOMIC_COMPARE_EXCHANGE,   BT_BOOL, BT_VPTR_GENERIC_0, BT_PTR_GENERIC_0, BT_PTR_GENERIC_0, BT_BOOL, BT_INT, BT_INT)
+
+DEF_FUNCTION_TYPE_3(BT_FUN_ATOMIC_BIN_OP, BT_GENERIC_0, BT_VPTR_GENERIC_0, BT_GENERIC_0, BT_INT)
+
+static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(scope_entry_t* overloaded_function,
+        type_t** types,
+        AST* arguments,
+        int num_arguments,
+        const_value_t** const_value,
+        type_t* function_type);
+
+#define ATOMIC_OVERLOAD_FUN(X) \
+static scope_entry_t* solve_gcc_atomic_builtins_overload_name##X(scope_entry_t* overloaded_function,  \
+        type_t** types,  \
+        AST *arguments UNUSED_PARAMETER, \
+        int num_arguments, \
+        const_value_t** const_value UNUSED_PARAMETER) \
+{ \
+    return solve_gcc_atomic_builtins_overload_name_generic(overloaded_function, types, arguments, num_arguments, const_value, \
+            (__mcxx_builtin_type__##X)()); \
+}
+
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_EXCHANGE)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_EXCHANGE_N)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_LOAD)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_LOAD_N)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_COMPARE_EXCHANGE)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_COMPARE_EXCHANGE_N)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_STORE)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_STORE_N)
+ATOMIC_OVERLOAD_FUN(BT_FUN_ATOMIC_BIN_OP)
+
+#define DEF_ATOMIC_FUNCTION_TYPE(NAME, X) DEF_PRIMITIVE_TYPE(NAME, get_computed_function_type(solve_gcc_atomic_builtins_overload_name##X))
+
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_EXCHANGE, BT_FUN_ATOMIC_EXCHANGE)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_EXCHANGE_N, BT_FUN_ATOMIC_EXCHANGE_N)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_ATOMIC_LOAD, BT_FUN_ATOMIC_LOAD)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_ATOMIC_LOAD_N, BT_FUN_ATOMIC_LOAD_N)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_COMPARE_EXCHANGE, BT_FUN_ATOMIC_COMPARE_EXCHANGE)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_COMPARE_EXCHANGE_N, BT_FUN_ATOMIC_COMPARE_EXCHANGE_N)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_ATOMIC_STORE, BT_FUN_ATOMIC_STORE)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_ATOMIC_STORE_N, BT_FUN_ATOMIC_STORE_N)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_OP_FETCH, BT_FUN_ATOMIC_BIN_OP)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_FETCH_OP, BT_FUN_ATOMIC_BIN_OP)
+
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR, BT_VOID)
+DEF_FUNCTION_TYPE_2(BT_FN_BOOL_SIZE_CONST_VPTR, BT_BOOL, BT_SIZE, BT_VPTR)
 
 /*
  * Bultins
@@ -2176,6 +2249,96 @@ DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_START, "GOMP_single_copy_start",
 DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_END, "GOMP_single_copy_end",
 		  BT_FN_VOID_PTR, ATTR_NOTHROW_LEAF_LIST)
 
+/* __sync* builtins for the C++ memory model.  */
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_TEST_AND_SET, "__atomic_test_and_set",
+		  BT_FN_BOOL_VPTR_INT, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_CLEAR, "__atomic_clear", BT_FN_VOID_VPTR_INT,
+		  ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_EXCHANGE,
+		  "__atomic_exchange",
+		  BT_FN_ATOMIC_OVERLOAD_EXCHANGE, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_EXCHANGE_N,
+		  "__atomic_exchange_n",
+		  BT_FN_ATOMIC_OVERLOAD_EXCHANGE_N, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_LOAD,
+		  "__atomic_load",
+          BT_FN_ATOMIC_OVERLOAD_ATOMIC_LOAD, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_LOAD_N,
+		  "__atomic_load_n",
+		  BT_FN_ATOMIC_OVERLOAD_ATOMIC_LOAD_N, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_COMPARE_EXCHANGE,
+		  "__atomic_compare_exchange",
+		  BT_FN_ATOMIC_OVERLOAD_COMPARE_EXCHANGE,
+		  ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N,
+		  "__atomic_compare_exchange_n",
+		  BT_FN_ATOMIC_OVERLOAD_COMPARE_EXCHANGE_N, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_STORE,
+		  "__atomic_store",
+		  BT_FN_ATOMIC_OVERLOAD_ATOMIC_STORE, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_STORE_N,
+		  "__atomic_store_n",
+		  BT_FN_ATOMIC_OVERLOAD_ATOMIC_STORE_N, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_ADD_FETCH_N,
+		  "__atomic_add_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SUB_FETCH_N,
+		  "__atomic_sub_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_AND_FETCH_N,
+		  "__atomic_and_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_NAND_FETCH_N,
+		  "__atomic_nand_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_XOR_FETCH_N,
+		  "__atomic_xor_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_OR_FETCH_N,
+		  "__atomic_or_fetch",
+		  BT_FN_ATOMIC_OVERLOAD_OP_FETCH, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_ADD_N,
+		  "__atomic_fetch_add",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_SUB_N,
+		  "__atomic_fetch_sub",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_AND_N,
+		  "__atomic_fetch_and",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_NAND_N,
+		  "__atomic_fetch_nand",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_XOR_N,
+		  "__atomic_fetch_xor",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_FETCH_OR_N,
+		  "__atomic_fetch_or",
+		  BT_FN_ATOMIC_OVERLOAD_FETCH_OP, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_ALWAYS_LOCK_FREE,
+		  "__atomic_always_lock_free",
+		  BT_FN_BOOL_SIZE_CONST_VPTR, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_IS_LOCK_FREE,
+		  "__atomic_is_lock_free",
+		  BT_FN_BOOL_SIZE_CONST_VPTR, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_THREAD_FENCE,
+		  "__atomic_thread_fence",
+		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST)
+
+DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
+		  "__atomic_signal_fence",
+		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST)
+
+// Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
 sign_in_sse_builtins(global_context);
 }
 
@@ -2302,6 +2465,163 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
     }
 
     return result;
+}
+
+static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
+{
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+    type_t* updated_type = t;
+
+    if (is_generic_type(t))
+    {
+        ERROR_CONDITION(generic_type_get_num(t) != 0, "Unexpected generic type found\n", 0);
+        updated_type = replacement;
+    }
+    else if (is_pointer_type(t))
+    {
+        updated_type = get_pointer_type(
+                replace_generic_0_with_type(
+                    pointer_type_get_pointee_type(t),
+                    replacement));
+    }
+    else if (is_function_type(t))
+    {
+        type_t* result = function_type_get_return_type(t);
+        result = replace_generic_0_with_type(result, replacement);
+
+        int i, N = function_type_get_num_parameters(t);
+
+        parameter_info_t param_info[N];
+        memset(param_info, 0, sizeof(param_info));
+
+        for (i = 0; i < N; i++)
+        {
+            param_info[i].type_info = 
+                replace_generic_0_with_type(
+                        function_type_get_parameter_type_num(t, i),
+                        replacement);
+        }
+
+        updated_type = get_new_function_type(result, param_info, N);
+    }
+    else
+    {
+        // Do not replace anything
+    }
+
+    updated_type =  get_cv_qualified_type(updated_type, cv_qualif);
+
+    return updated_type;
+}
+
+static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
+        scope_entry_t* overloaded_function,
+        type_t** types,
+        AST *arguments UNUSED_PARAMETER,
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER,
+        type_t* function_type)
+{
+    type_t* integer_types[] =
+    {
+        get_signed_char_type(),
+        get_unsigned_char_type(),
+        get_signed_short_int_type(),
+        get_unsigned_short_int_type(),
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL
+    };
+
+    int i;
+    for (i = 0; integer_types[i] != NULL; i++)
+    {
+        type_t* current_function_type = replace_generic_0_with_type(function_type, integer_types[i]);
+
+        if (num_arguments != function_type_get_num_parameters(current_function_type))
+        {
+            // Ignore this case
+            continue;
+        }
+
+        int j;
+        char all_arguments_matched = 1;
+        for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
+        {
+            type_t* argument_type = types[j];
+            type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
+
+            if (is_pointer_type(argument_type)
+                    && is_pointer_type(parameter_type))
+            {
+                // Use sizes instead of types
+                argument_type = pointer_type_get_pointee_type(argument_type);
+                parameter_type = pointer_type_get_pointee_type(parameter_type);
+
+                all_arguments_matched = is_integral_type(argument_type)
+                    && is_integral_type(parameter_type)
+                    && (type_get_size(argument_type) == type_get_size(parameter_type));
+            }
+            else
+            {
+                // Allow conversions here
+                standard_conversion_t scs;
+                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
+            }
+        }
+
+        if (all_arguments_matched)
+        {
+            // Check if already created
+            // Note that we do not use the name of the builtin because we do not want
+            // plain lookups to find them
+            const char* builtin_name = strappend(".", overloaded_function->symbol_name);
+            scope_entry_list_t* entry_list = query_unqualified_name_str(overloaded_function->decl_context,
+                    builtin_name);
+
+            scope_entry_t* matching_entry = NULL;
+            scope_entry_list_iterator_t* it;
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* existing_entry = entry_list_iterator_current(it);
+
+                if (equivalent_types(existing_entry->type_information, current_function_type))
+                {
+                    matching_entry = existing_entry;
+                    break;
+                }
+            }
+
+            entry_list_iterator_free(it);
+            entry_list_free(entry_list);
+
+            if (matching_entry != NULL)
+                return matching_entry;
+
+            // Craft a symbol here
+            scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
+                    overloaded_function->decl_context.current_scope,
+                    builtin_name);
+
+            // Fix the name
+            return_symbol->symbol_name = overloaded_function->symbol_name;
+            return_symbol->kind = SK_FUNCTION;
+            return_symbol->type_information = current_function_type;
+
+            return_symbol->do_not_print = 1;
+            return_symbol->entity_specs.is_builtin = 1;
+
+            return return_symbol;
+        }
+    }
+
+    return NULL;
 }
 
 static void sign_in_sse_builtins(decl_context_t decl_context)
