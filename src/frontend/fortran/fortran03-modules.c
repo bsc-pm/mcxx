@@ -1879,8 +1879,6 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     if (oid_already_inserted_symbol(handle, symbol))
         return (sqlite3_uint64)(uintptr_t)symbol;
 
-    fprintf(stderr, "INSERTING -> %s\n", full_name_of_symbol(symbol));
-
     sqlite3_bind_int64(_pre_insert_symbol_stmt, 1, P2ULL(symbol));
     sqlite3_uint64 result = run_insert_statement(handle, _pre_insert_symbol_stmt);
 

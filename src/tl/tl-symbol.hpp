@@ -249,6 +249,15 @@ namespace TL
              */
             Symbol aliased_from_module() const;
 
+            //! Returns the name of the symbol USEd
+            /*!
+             * In USE X, ONLY : Y it returns 'Y'
+             * In USE X, ONLY: X => Z it returns 'Z'
+             *
+             * \note This is useful only for codegen when emitting USE statements
+             */
+            std::string get_from_module_name() const;
+
             //! Symbol that contains the used modules information
             Symbol get_used_modules() const;
 

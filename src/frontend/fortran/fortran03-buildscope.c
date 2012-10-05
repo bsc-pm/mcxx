@@ -7932,25 +7932,22 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
 static char come_from_the_same_module(scope_entry_t* new_symbol_used,
         scope_entry_t* existing_symbol)
 {
-    if (new_symbol_used->entity_specs.from_module)
-        new_symbol_used = new_symbol_used->entity_specs.alias_to;
-
-    if (existing_symbol->entity_specs.from_module)
-        existing_symbol = existing_symbol->entity_specs.alias_to;
+    new_symbol_used = fortran_get_ultimate_symbol(new_symbol_used);
+    existing_symbol = fortran_get_ultimate_symbol(existing_symbol);
 
     return new_symbol_used == existing_symbol;
 }
 
 static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
-        const char* aliased_name, 
+        const char* local_name, 
         scope_entry_t* module_symbol,
         const char* filename,
         int line)
 {
-    ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
+    ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
     
-    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, aliased_name);
+    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, local_name);
 
     if (check_repeated_name != NULL)
     {
@@ -7985,7 +7982,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     // The reason is that we need to know this symbol comes from a module
     // and its precise USE name, not the original symbol name
     scope_entry_t* current_symbol = NULL;
-    current_symbol = new_fortran_symbol(decl_context, aliased_name);
+    current_symbol = new_fortran_symbol(decl_context, local_name);
 
     // Copy everything and restore the name
     *current_symbol = *entry;
@@ -7994,7 +7991,7 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         remove_unknown_kind_symbol(decl_context, current_symbol);
     }
 
-    current_symbol->symbol_name = aliased_name;
+    current_symbol->symbol_name = local_name;
     current_symbol->file = filename;
     current_symbol->line = line;
 
@@ -8013,10 +8010,11 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     // Also set the access to be the default
     current_symbol->entity_specs.access = AS_UNKNOWN;
 
-    if (strcmp(aliased_name, named_entry_from_module->symbol_name) != 0)
+    if (strcmp(local_name, named_entry_from_module->symbol_name) != 0)
     {
         current_symbol->entity_specs.is_renamed = 1;
     }
+    current_symbol->entity_specs.from_module_name = named_entry_from_module->symbol_name;
 
     // Make it a member of this module
     if (decl_context.current_scope->related_entry != NULL

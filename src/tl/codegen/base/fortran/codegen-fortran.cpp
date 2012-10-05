@@ -2470,7 +2470,7 @@ OPERATOR_TABLE
         ERROR_CONDITION(!sym.is_valid(), "Invalid symbol", 0);
         if (sym.is_from_module()
                 && sym.aliased_from_module().is_valid()
-                && sym.aliased_from_module().get_name() == sym.get_name())
+                && sym.get_from_module_name() == sym.get_name())
         {
             sym = sym.aliased_from_module();
         }
@@ -2481,7 +2481,7 @@ OPERATOR_TABLE
     {
         if (sym.is_from_module()
                 && sym.aliased_from_module().is_valid()
-                && sym.aliased_from_module().get_name() == sym.get_name())
+                && sym.get_from_module_name() == sym.get_name())
         {
             sym = sym.aliased_from_module();
         }
@@ -4405,7 +4405,7 @@ OPERATOR_TABLE
                     file
                         << entry.get_name() 
                         << " => "
-                        << get_generic_specifier_str(entry.aliased_from_module().get_name())
+                        << get_generic_specifier_str(entry.get_from_module_name())
                         ;
 
                 }
