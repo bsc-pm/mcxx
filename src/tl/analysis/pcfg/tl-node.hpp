@@ -334,12 +334,9 @@ namespace Analysis {
             //! Set the node that contains the actual node. It must be a graph node
             void set_outer_node(Node* node);
 
-            //! Returns the scope of a graph node containing a block of code.
-            //! If no block is contained in the grah node, then returns an empty scope
-            Scope get_scope();
-
-            //! Set the scope of a graph node containing a block code
-            void set_scope(Scope sc);
+            //! Returns the scope of a node containing a block of code.
+            //! If no block is contained, then returns an empty scope
+            Scope get_node_scope();
 
             //! Returns the list of statements contained in the node
             //! If the node does not contain statements, an empty list is returned

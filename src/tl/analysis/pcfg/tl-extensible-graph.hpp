@@ -120,7 +120,7 @@ namespace Analysis {
                                  std::vector<std::string>& outer_edges,
                                  std::vector<Node*>& outer_nodes,
                                  std::string indent, int& subgraph_id,
-                                 bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                                 bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints both nodes and edges within a pcfg subgraph
                     //! Prints nodes and relations between them in a string in a recursive way.
@@ -136,11 +136,11 @@ namespace Analysis {
                                std::vector<std::string>& outer_edges,
                                std::vector<Node*>& outer_nodes,
                                std::string indent, int& subgraph_id,
-                               bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                               bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
         void get_node_dot_data( Node* node, std::string& graph_data, std::string indent,
-                                bool use_def, bool liveness, bool reaching_defs );
+                                bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
          * If both the source and the target do not have an outer node, then true is returned.
@@ -331,7 +331,7 @@ namespace Analysis {
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot( bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
 
 

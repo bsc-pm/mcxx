@@ -55,9 +55,9 @@ namespace Analysis {
                 std::cerr << "=========  Testing Use-Definition analysis  ========= " << std::endl;
             analysis.use_def( memento, ast );
 
-//             if( VERBOSE )
-//                 std::cerr << "Testing Liveness analysis" << std::endl;
-//             analysis.liveness( memento, ast );
+            if( VERBOSE )
+                std::cerr << "Testing Liveness analysis" << std::endl;
+            analysis.liveness( memento, ast );
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {

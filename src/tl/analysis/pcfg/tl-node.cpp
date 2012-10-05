@@ -522,7 +522,7 @@ namespace Analysis {
     {
         if( !node->is_entry_node( ) )
         {
-            internal_error( "Unexpected node type '%s' while setting the entry node to node '%s'. ENTRY expected.",
+            internal_error( "Unexpected node type '%s' while setting the entry node to node '%d'. ENTRY expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
         else if( is_graph_node( ) )
@@ -531,7 +531,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the entry node to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the entry node to node '%d'. GRAPH expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -553,7 +553,7 @@ namespace Analysis {
     {
         if( !node->is_exit_node( ) )
         {
-            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. EXIT expected.",
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. EXIT expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
         else if( is_graph_node( ) )
@@ -562,7 +562,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -585,41 +585,33 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the exit node to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
                             node->get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Scope Node::get_scope()
+    Scope Node::get_node_scope()
     {
+        Nodecl::NodeclBase n = Nodecl::NodeclBase::null( );
         if( is_graph_node( ) )
         {
-            if( has_key( _SCOPE ) )
-            {
-                return get_data<Scope>( _SCOPE );
-            }
-            else
-            {
-                return Scope( );
-            }
+            n = get_graph_label( );
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
+            ObjectList<Nodecl::NodeclBase> stmts = get_statements( );
+            if( !stmts.empty( ) )
+            {
+                n = stmts[0];
+            }
         }
-    }
-
-    void Node::set_scope( Scope sc )
-    {
-        if( is_graph_node( ) )
+        if( !n.is_null( ) )
         {
-            set_data( _SCOPE, sc );
+            return nodecl_retrieve_context( n.get_internal_nodecl( ) );
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the scope of the graph node '%s'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
+            return Scope( );
         }
     }
 
@@ -635,15 +627,15 @@ namespace Analysis {
 
     void Node::set_statements( ObjectList<Nodecl::NodeclBase> stmts )
     {
-        Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if( is_normal_node( ) || is_function_call_node( ) || is_labeled_node( )
-            || is_break_node( ) || is_continue_node( ) || is_labeled_node( ) )
+        if( is_normal_node( ) || is_function_call_node( )
+            || is_labeled_node( ) || is_goto_node( )
+            || is_break_node( ) || is_continue_node( ) )
         {
             set_data( _NODE_STMTS, stmts );
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the statements to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the statements to node '%d'",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -661,7 +653,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the label to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while getting the label to node '%d'",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -674,7 +666,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the label to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -687,7 +679,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error("Unexpected node type '%s' while getting graph type to node '%s'. GRAPH expected.",
+            internal_error("Unexpected node type '%s' while getting graph type to node '%d'. GRAPH expected.",
                         get_type_as_string().c_str(), _id);
         }
     }
@@ -700,7 +692,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting graph type to node '%s'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting graph type to node '%d'. GRAPH expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -826,7 +818,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting a induction variable in the graph node '%s'. LOOP expected.",
+            internal_error( "Unexpected node type '%s' while setting a induction variable in the graph node '%d'. LOOP expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -842,7 +834,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the label to node '%s'. GOTO or LABELED NODES expected.",
+            internal_error( "Unexpected node type '%s' while getting the label to node '%d'. GOTO or LABELED NODES expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -856,7 +848,7 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the label to node '%s'. GOTO or LABELED NODES expected.",
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }

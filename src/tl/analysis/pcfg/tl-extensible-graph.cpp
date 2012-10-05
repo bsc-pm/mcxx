@@ -606,7 +606,6 @@ namespace Analysis {
             {
                 delete_node( *it );
             }
-            std::cerr << std::endl;
 
             // Connect the node
             connect_nodes( front_parents, new_node, front_entry_edge_types, front_entry_edge_labels );

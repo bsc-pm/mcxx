@@ -39,7 +39,7 @@ namespace Analysis {
     // ************************ Analysis Memento class ************************ //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( ),
+        : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_defs( false ), _auto_scoping( false ), _auto_deps( false )
     {}
 

@@ -47,7 +47,7 @@ namespace Analysis {
     static std::string print_node_data_sharing( Node* current, bool analysis_is_performed );
     static std::string print_node_deps( Node* current, bool analysis_is_performed );
 
-    void ExtensibleGraph::print_graph_to_dot( bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+    void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_cfg;
 
@@ -78,7 +78,7 @@ namespace Analysis {
                 std::vector<std::string> outer_edges;
                 std::vector<Node*> outer_nodes;
                 get_nodes_dot_data( _graph, graph_data, outer_edges, outer_nodes, "\t", subgraph_id,
-                                    use_def, liveness, reaching_defs, auto_scoping, auto_deps );
+                                    usage, liveness, reaching_defs, auto_scoping, auto_deps );
                 dot_cfg << graph_data;
             dot_cfg << "}\n";
 
@@ -100,7 +100,7 @@ namespace Analysis {
     void ExtensibleGraph::get_nodes_dot_data( Node* current, std::string& dot_graph,
                                               std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
                                               std::string indent, int& subgraph_id,
-                                              bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+                                              bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         if( !current->is_visited( ) )
         {
@@ -111,10 +111,13 @@ namespace Analysis {
                 std::stringstream node_id; node_id << current->get_id( );
                 std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( );
 
-                std::string node_info = "";
-                node_info += print_node_usage( current, use_def );
-                node_info += print_node_liveness( current, liveness );
-                node_info += print_node_reaching_defs( current, reaching_defs );
+                std::string usage_str = print_node_usage( current, usage );
+                std::string liveness_str = print_node_liveness( current, liveness );
+                std::string reach_defs_str = print_node_reaching_defs( current, reaching_defs );
+                std::string node_info = usage_str
+                                        + ( usage_str.empty( ) ? "" : ( liveness_str.empty( ) ? "" : "\\n" ) ) + liveness_str
+                                        + ( liveness_str.empty( ) ? "" : ( reach_defs_str.empty( ) ? "" : "\\n" ) ) + reach_defs_str;
+
 
                 if( current->is_task_node( ) )
                     node_info = "\\n" + print_node_data_sharing( current, auto_scoping ) + "\\n" + print_node_deps( current, auto_deps );
@@ -128,7 +131,7 @@ namespace Analysis {
                 std::vector<std::string> new_outer_edges;
                 std::vector<Node*> new_outer_nodes;
                 get_dot_subgraph( current, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id,
-                                  use_def, liveness, reaching_defs, auto_scoping, auto_deps );
+                                  usage, liveness, reaching_defs, auto_scoping, auto_deps );
                 if( !node_info.empty( ) )
                     dot_graph += indent + "\t-" + node_id.str( ) + "[label=\"" + node_info + " \", shape=box]\n";
                 dot_graph += indent + "}\n";
@@ -138,7 +141,7 @@ namespace Analysis {
                     std::vector<std::string> new_outer_edges_2;
                     std::vector<Node*> new_outer_nodes_2;
                     get_nodes_dot_data( *it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id,
-                                        use_def, liveness, reaching_defs, auto_scoping, auto_deps);
+                                        usage, liveness, reaching_defs, auto_scoping, auto_deps);
                 }
                 for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
                 {
@@ -148,7 +151,7 @@ namespace Analysis {
 
             if( current->is_exit_node( ) )
             {   // Ending the graph traversal, either the master graph or any subgraph
-                get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
+                get_node_dot_data( current, dot_graph, indent, usage, liveness, reaching_defs );
             }
             else
             {
@@ -162,7 +165,7 @@ namespace Analysis {
                             current->is_entry_node( ) ) ) )
                     {
                         sss << current->get_id( );
-                        get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
+                        get_node_dot_data( current, dot_graph, indent, usage, liveness, reaching_defs );
                     }
                     else
                     {
@@ -214,13 +217,13 @@ namespace Analysis {
                             dot_graph += indent + sss.str( ) + " -> " + sst.str( ) +
                                          " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             get_nodes_dot_data( ( *it )->get_target( ), dot_graph, outer_edges, outer_nodes, indent, subgraph_id,
-                                                use_def, liveness, reaching_defs, auto_scoping, auto_deps);
+                                                usage, liveness, reaching_defs, auto_scoping, auto_deps);
                         }
                         else
                         {
                             if( !current->is_graph_node( ) )
                             {
-                                get_node_dot_data( current, dot_graph, indent, use_def, liveness, reaching_defs );
+                                get_node_dot_data( current, dot_graph, indent, usage, liveness, reaching_defs );
                             }
                             std::string mes = sss.str( ) + " -> " + sst.str( ) +
                                               " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
@@ -236,15 +239,15 @@ namespace Analysis {
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph,
                                             std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
                                             std::string indent, int& subgraph_id,
-                                            bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+                                            bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
         Node* entry_node = current->get_graph_entry_node( );
         get_nodes_dot_data( entry_node, dot_graph, outer_edges, outer_nodes, indent+"\t", subgraph_id,
-                            use_def, liveness, reaching_defs, auto_scoping, auto_deps );
+                            usage, liveness, reaching_defs, auto_scoping, auto_deps );
     }
 
     void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string indent,
-                                             bool use_def, bool liveness, bool reaching_defs )
+                                             bool usage, bool liveness, bool reaching_defs )
     {
         std::string basic_block = "";
         std::stringstream ss; ss << current->get_id( );
@@ -255,10 +258,14 @@ namespace Analysis {
 
         std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
 
-        std::string node_info = "";
-        node_info += print_node_usage( current, use_def );
-        node_info += print_node_liveness( current, liveness );
-        node_info += print_node_reaching_defs( current, reaching_defs );
+
+        std::string usage_str = print_node_usage( current, usage );
+        std::string liveness_str = print_node_liveness( current, liveness );
+        std::string reach_defs_str = print_node_reaching_defs( current, reaching_defs );
+        std::string node_info = usage_str
+                                + ( usage_str.empty( ) ? "" : ( liveness_str.empty( ) ? "" : "\\n" ) ) + liveness_str
+                                + ( liveness_str.empty( ) ? "" : ( reach_defs_str.empty( ) ? "" : "\\n" ) ) + reach_defs_str;
+
 
         switch( current->get_type( ) )
         {

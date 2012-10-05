@@ -156,11 +156,14 @@ namespace Utils {
     bool sets_equals( ext_sym_set set1, ext_sym_set set2 )
     {
         bool result = false;
-        ext_sym_set intersection;
-        std::set_intersection( set1.begin( ), set1.end( ), set2.begin( ), set2.end( ),
-                               std::inserter( intersection, intersection.begin() ) );
-        if( intersection.size( ) == set1.size() )
-            result = true;
+        if( set1.size( ) == set2.size( ) )
+        {
+            ext_sym_set intersection;
+            std::set_intersection( set1.begin( ), set1.end( ), set2.begin( ), set2.end( ),
+                                   std::inserter( intersection, intersection.begin() ) );
+            if( intersection.size( ) == set1.size( ) )
+                result = true;
+        }
         return result;
     }
 

@@ -103,12 +103,6 @@ namespace Analysis {
     */
     #define _OUTER_NODE    "outer_node"
 
-    /*! \def _SCOPE
-        * Scope where the block code contained in the node is created
-        * Only graph nodes that contain a block of code (all but SPLIT_STMT)
-        */
-    #define _SCOPE         "scope"
-
     /*! \def _NODE_LABEL
     * String containing the label of a node.
     * It may have different meanings depending on the node type:
