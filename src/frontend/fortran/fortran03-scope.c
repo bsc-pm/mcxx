@@ -313,6 +313,57 @@ scope_entry_t* query_name_in_class(decl_context_t class_context, const char* nam
     return entry;
 }
 
+scope_entry_t* fortran_get_ultimate_symbol(scope_entry_t* entry)
+{
+    while (entry != NULL
+            && entry->entity_specs.from_module != NULL)
+    {
+        scope_entry_t* aliased = entry->entity_specs.alias_to;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ADVANCING '%s.%s' TO '%s.%s'\n",
+                    entry->entity_specs.from_module->symbol_name,
+                    entry->symbol_name,
+                    (aliased->entity_specs.from_module != NULL
+                     ? aliased->entity_specs.from_module->symbol_name
+                     : (aliased->entity_specs.in_module != NULL
+                         ?  aliased->entity_specs.in_module->symbol_name 
+                         : "<<UNKNOWN-MODULE>>")),
+                    aliased->symbol_name
+                   );
+        }
+        entry = aliased;
+    }
+
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    return entry;
+}
+
+static char mean_the_same_entity(scope_entry_list_t* entry_list)
+{
+    scope_entry_t* entry = NULL;
+    scope_entry_list_iterator_t* it = NULL;
+    char result = 1;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+        if (entry == NULL)
+        {
+            entry = current;
+        }
+        else
+        {
+            result = (fortran_get_ultimate_symbol(entry) == fortran_get_ultimate_symbol(current));
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
 scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
         const char* filename, 
@@ -329,7 +380,8 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
         scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
         if (result_list != NULL)
         {
-            if (entry_list_size(result_list) != 1)
+            if (entry_list_size(result_list) > 1
+                    && !mean_the_same_entity(result_list))
             {
                 if (!checking_ambiguity())
                 {
@@ -466,12 +518,15 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                 }
                 else
                 {
-                    if (!checking_ambiguity())
+                    if (!mean_the_same_entity(entry_list))
                     {
-                        error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                        }
                     }
 
-                    // Give up returning the first result_list found
+                    // Use the first entry found
                     result_list = entry_list_new(entry_list_head(entry_list));
                     entry_list_free(entry_list);
                     return result_list;

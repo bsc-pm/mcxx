@@ -82,6 +82,9 @@ LIBMF03_EXTERN type_t* get_implicit_type_for_symbol(decl_context_t decl_context,
 
 LIBMF03_EXTERN scope_entry_list_t* fortran_query_module_for_name(scope_entry_t* module_symbol, const char* name);
 
+// Gets the ultimate symbol of a symbol coming from a module
+LIBMF03_EXTERN scope_entry_t* fortran_get_ultimate_symbol(scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_SCOPE_H

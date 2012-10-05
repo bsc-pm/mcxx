@@ -70,6 +70,47 @@ static void prepare_statements(sqlite3*);
 static void start_transaction(sqlite3*);
 static void end_transaction(sqlite3*);
 
+static const char* full_name_of_symbol(scope_entry_t* entry)
+{
+    if (entry == NULL)
+    {
+        return uniquestr("<<NULL>>");
+    }
+
+    const char* result = NULL;
+    if (entry->entity_specs.in_module)
+    {
+        if (entry->entity_specs.from_module != NULL)
+        {
+            uniquestr_sprintf(&result, "%s.%s -> %s", 
+                    entry->entity_specs.in_module->symbol_name,
+                    entry->symbol_name,
+                    full_name_of_symbol(entry->entity_specs.alias_to));
+        }
+        else
+        {
+            uniquestr_sprintf(&result, "%s.%s", 
+                    entry->entity_specs.in_module->symbol_name,
+                    entry->symbol_name);
+        }
+    }
+    else
+    {
+        if (entry->entity_specs.from_module != NULL)
+        {
+            uniquestr_sprintf(&result, "%s -> %s", 
+                    entry->symbol_name,
+                    full_name_of_symbol(entry->entity_specs.alias_to));
+        }
+        else
+        {
+            uniquestr_sprintf(&result, "%s", entry->symbol_name);
+        }
+    }
+
+    return result;
+}
+
 static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol);
 static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t);
 
@@ -1837,6 +1878,8 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
     if (oid_already_inserted_symbol(handle, symbol))
         return (sqlite3_uint64)(uintptr_t)symbol;
+
+    fprintf(stderr, "INSERTING -> %s\n", full_name_of_symbol(symbol));
 
     sqlite3_bind_int64(_pre_insert_symbol_stmt, 1, P2ULL(symbol));
     sqlite3_uint64 result = run_insert_statement(handle, _pre_insert_symbol_stmt);
