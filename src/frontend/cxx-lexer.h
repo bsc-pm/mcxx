@@ -53,7 +53,13 @@ struct scan_file_descriptor
     // Current filename due to include lines
     const char* current_filename;
     int line_number;
+    
+    // Fortran: After a joined line we have to move to this line if new_line > 0 
+    int new_line; 
+
+    // Fortran: Number of joined lines so far
     int joined_lines;
+
     FILE* file_descriptor;
     struct yy_buffer_state* scanning_buffer;
 };

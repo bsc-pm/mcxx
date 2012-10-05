@@ -439,20 +439,20 @@ void LoweringVisitor::emit_async_common(
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     immediate_decl
-        <<     "nanos_wd_t wd = (nanos_wd_t)0;"
+        <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     err_name << " = nanos_create_wd_compact(&wd, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
+        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
-        <<     "if (wd != (nanos_wd_t)0)"
+        <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
         <<        fill_dependences_outline
         <<        copy_ol_setup
-        <<        err_name << " = nanos_submit(wd, " << num_dependences << ", dependences, (nanos_team_t)0);"
+        <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"

@@ -40,6 +40,7 @@ struct command_line_parameter_t invalid_parameter = {
     .argument = (void*)0
 };
 
+static
 char starts_short_option(const char* str)
 {
     return (str[0] == '-'
@@ -47,6 +48,7 @@ char starts_short_option(const char* str)
             && str[1] != '\0');
 }
 
+static
 char starts_long_option(const char* str)
 {
     return (str[0] == '-'
@@ -54,6 +56,7 @@ char starts_long_option(const char* str)
             && str[2] != '\n');
 }
 
+static
 char starts_option(const char *str)
 {
     return starts_short_option(str)
@@ -137,7 +140,7 @@ static struct command_line_parameter_t parse_short_option(int *current_index,
             {
                 if (result.flag == CLP_REQUIRED_ARGUMENT)
                 {
-                    fprintf(stderr, "Option '%s' requires an argument\n", 
+                    fprintf(stderr, "warning: option '%s' requires an argument\n",
                             current_arg);
                 }
             }
@@ -233,7 +236,7 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
                         strncpy(c, current_arg, length_option_name);
                         c[length_option_name] = '\0';
 
-                        fprintf(stderr, "Option '%s' requires an argument\n", c);
+                        fprintf(stderr, "warning: option '%s' requires an argument\n", c);
                     }
                     else
                     {

@@ -25,7 +25,6 @@ void symbol_deep_copy(scope_entry_t* dest,
 
     dest->type_information = type_deep_copy(source->type_information, new_decl_context, symbol_map);
 
-    // Should not contain any useful information
     dest->related_decl_context = source->related_decl_context;
 
     dest->value = nodecl_deep_copy(source->value, new_decl_context, symbol_map);
