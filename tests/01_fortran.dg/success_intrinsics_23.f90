@@ -30,6 +30,6 @@
 ! </testinfo>
 PROGRAM P
 IMPLICIT NONE
-character CDATE*24,
+character CDATE*24
 cdate=fdate()
 END PROGRAM P
