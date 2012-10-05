@@ -1,16 +1,21 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_all="-DWRITE_MOD -DUSE_MOD"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 MODULE M
     CONTAINS
         SUBROUTINE S2(X)
             INTEGER :: X
         END SUBROUTINE S2
 END MODULE M
+#endif
 
+#ifdef USE_MOD
 SUBROUTINE P1
     USE M
     IMPLICIT NONE
@@ -44,3 +49,4 @@ SUBROUTINE P3
             CALL S2(3)
         END SUBROUTINE S
 END 
+#endif

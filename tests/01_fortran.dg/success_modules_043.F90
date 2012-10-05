@@ -1,9 +1,14 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 mod3 use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_mod3="-DWRITE_MOD3"
+! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3 -DUSE_MOD"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 MODULE M1
     IMPLICIT NONE
 
@@ -13,7 +18,9 @@ MODULE M1
     END TYPE MY_TYPE
 
 END MODULE M1
+#endif
 
+#ifdef WRITE_MOD2
 MODULE M2
     USE M1
     IMPLICIT NONE
@@ -26,7 +33,9 @@ MODULE M2
         END SUBROUTINE FOO_1
     END INTERFACE FOO
 END MODULE M2
+#endif
 
+#ifdef WRITE_MOD3
 MODULE M3
     USE M2
     IMPLICIT NONE
@@ -40,10 +49,13 @@ MODULE M3
 
     TYPE(WRAPPED_POINTER) :: WP(10, 20)
 END MODULE M3
+#endif
 
+#ifdef USE_MOD
 SUBROUTINE MY_SUBROUTINE
     USE M3, ONLY : WP
     USE M2
 
     CALL FOO(WP(1,2) % handle)
 END SUBROUTINE MY_SUBROUTINE
+#endif

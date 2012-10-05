@@ -1,9 +1,15 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 mod3 mod4 mod5 all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_mod3="-DWRITE_MOD3"
+! test_FFLAGS_mod4="-DWRITE_MOD4"
+! test_FFLAGS_mod5="-DWRITE_MOD5"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3 -DWRITE_MOD4 -DWRITE_MOD5"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 module fragel
     type fragel3
         integer :: a
@@ -48,7 +54,9 @@ module fragel
             intent(in) :: s
         end subroutine
 end module fragel
+#endif
 
+#ifdef WRITE_MOD2
 module lilliput
     type lilliput3
         integer :: a
@@ -94,6 +102,9 @@ module lilliput
         end subroutine
 
 end module lilliput
+#endif
+
+#ifdef WRITE_MOD3
 module smurfs
     use lilliput
     use fragel
@@ -118,6 +129,9 @@ module smurfs
             f4 = f4
        end subroutine
 end module smurfs
+#endif
+
+#ifdef WRITE_MOD4
 module kino
     use smurfs
 
@@ -140,6 +154,9 @@ module kino
             f4 = f4
        end subroutine
 end module kino
+#endif
+
+#ifdef WRITE_MOD5
 module blah
     use kino
     implicit none
@@ -163,3 +180,4 @@ module blah
             f4 = f4
        end subroutine
 end module blah
+#endif

@@ -26,12 +26,14 @@
 
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2"
 ! </testinfo>
 
 
+#ifdef WRITE_MOD
 MODULE F
 IMPLICIT NONE
 TYPE, PUBLIC :: S                                                                            
@@ -39,9 +41,12 @@ TYPE, PUBLIC :: S
 END TYPE S
 TYPE(S), PARAMETER  :: CONST = S(1) 
 END MODULE F
+#endif
 
+#ifdef WRITE_MOD2
 MODULE H
 USE F
 IMPLICIT NONE
 TYPE(S), PRIVATE :: VAR = CONST
 END MODULE H
+#endif

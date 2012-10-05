@@ -1,9 +1,12 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_all="-DWRITE_MOD -DUSE_MOD"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 MODULE M
 
     TYPE T
@@ -24,7 +27,9 @@ MODULE M
       END FUNCTION SUMA_T
 
 END MODULE M
+#endif
 
+#ifdef USE_MOD
 PROGRAM P
     USE M, ONLY : SUMA_T, T, OPERATOR(+)
 
@@ -34,3 +39,4 @@ PROGRAM P
 
     C = SUMA_T(A, B)
 END PROGRAM P
+#endif

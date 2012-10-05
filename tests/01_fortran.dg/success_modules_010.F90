@@ -26,25 +26,32 @@
 
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_mod3="-DWRITE_MOD3"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3"
 ! </testinfo>
 
+#ifdef WRITE_MOD
 MODULE M1
     IMPLICIT NONE
     TYPE T
         INTEGER :: X
     END TYPE T
 END MODULE M1
+#endif
 
+#ifdef WRITE_MOD2
 MODULE M2
     IMPLICIT NONE
     USE M1
     TYPE(T) :: S
     INTEGER, PARAMETER :: P = 4
 END MODULE M2
+#endif
 
+#ifdef WRITE_MOD2
 MODULE M
     IMPLICIT NONE
     USE M2
@@ -53,3 +60,4 @@ CONTAINS
         PRINT *, S % X
     END SUBROUTINE FOO
 END MODULE M
+#endif

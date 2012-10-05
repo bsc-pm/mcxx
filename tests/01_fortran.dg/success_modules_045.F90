@@ -1,15 +1,20 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 MODULE L
     TYPE LA
         INTEGER :: X
     END TYPE LA
 END MODULE L
+#endif
 
+#ifdef WRITE_MOD2
 MODULE L1
     IMPLICIT NONE
 
@@ -30,3 +35,4 @@ MODULE L1
         END SUBROUTINE FOO
 
 END MODULE L1
+#endif

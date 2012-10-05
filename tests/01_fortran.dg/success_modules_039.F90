@@ -1,9 +1,14 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 mod3 mod4 all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_mod3="-DWRITE_MOD3"
+! test_FFLAGS_mod4="-DWRITE_MOD4"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3 -DWRITE_MOD4"
 ! </testinfo>
+
+#ifdef WRITE_MOD
 module data_kind
 
 
@@ -19,6 +24,9 @@ module data_kind
   integer, parameter, public :: integer_typ = integer_8
   integer, parameter, public :: real_typ = real_8
 end module data_kind
+#endif
+
+#ifdef WRITE_MOD2
       module data_type
 
         use data_kind
@@ -44,7 +52,9 @@ end module data_kind
         end type solute
 
 end module data_type
+#endif
  
+#ifdef WRITE_MOD3
 module variables_module
 
         use data_kind
@@ -53,6 +63,9 @@ module variables_module
         public
         type (solute), dimension(:), allocatable, save :: slt
 end  module variables_module
+#endif
+
+#ifdef WRITE_MOD4
 MODULE resize_module
 
 USE variables_module
@@ -75,3 +88,4 @@ contains
 
     END SUBROUTINE resize_slt
 end module resize_module
+#endif

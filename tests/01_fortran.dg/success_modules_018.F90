@@ -27,18 +27,21 @@
 
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_all="-DWRITE_MOD -DUSE_MOD"
 ! </testinfo>
 
 
-
+#ifdef WRITE_MOD
 MODULE GLOBALS
 IMPLICIT NONE
 INTEGER :: A,B
 END MODULE GLOBALS
+#endif
 
+#ifdef USE_MOD
 PROGRAM P
 IMPLICIT NONE
 USE GLOBALS, ONLY: A
@@ -47,3 +50,4 @@ NAMELIST /list_name/ A
 B = 2
 READ (UNIT = 23, NML = list_name)
 END PROGRAM P
+#endif

@@ -1,9 +1,12 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="cache nocache"
-! test_FFLAGS_cache=""
-! test_FFLAGS_nocache="--debug-flags=disable_module_cache"
+! compile_versions="mod mod2 mod3 all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_mod2="-DWRITE_MOD2"
+! test_FFLAGS_mod3="-DWRITE_MOD3"
+! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3"
 ! </testinfo>
+#ifdef WRITE_MOD
 MODULE A
 
     ! This will be A.MY_TYPE
@@ -12,6 +15,9 @@ MODULE A
     END TYPE 
 
 END MODULE A
+#endif
+
+#ifdef WRITE_MOD2
 MODULE B
     USE A
 
@@ -23,6 +29,9 @@ MODULE B
          TYPE(MY_TYPE) :: M
      END SUBROUTINE S
 END MODULE B
+#endif
+
+#ifdef WRITE_MOD3
 MODULE C
     USE A
     USE B
@@ -41,3 +50,4 @@ MODULE C
             CALL S(M1)
         END SUBROUTINE S1
 END MODULE C
+#endif
