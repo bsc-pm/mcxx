@@ -2469,7 +2469,8 @@ OPERATOR_TABLE
     {
         ERROR_CONDITION(!sym.is_valid(), "Invalid symbol", 0);
         if (sym.is_from_module()
-                && sym.aliased_from_module().is_valid())
+                && sym.aliased_from_module().is_valid()
+                && sym.aliased_from_module().get_name() == sym.get_name())
         {
             sym = sym.aliased_from_module();
         }
@@ -2478,7 +2479,9 @@ OPERATOR_TABLE
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
-        if (sym.is_from_module())
+        if (sym.is_from_module()
+                && sym.aliased_from_module().is_valid()
+                && sym.aliased_from_module().get_name() == sym.get_name())
         {
             sym = sym.aliased_from_module();
         }
