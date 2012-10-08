@@ -149,7 +149,6 @@ typedef struct debug_options_tag
     char debug_sizeof;
     char do_not_run_gdb;
     char binary_check;
-    char disable_module_cache;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;

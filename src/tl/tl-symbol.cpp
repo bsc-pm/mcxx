@@ -829,4 +829,9 @@ namespace TL
     {
         return _symbol->entity_specs.bind_c_name;
     }
+
+    std::string Symbol::get_from_module_name() const
+    {
+        return _symbol->entity_specs.from_module_name;
+    }
 }

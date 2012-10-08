@@ -45,6 +45,8 @@
 #include "cxx-codegen.h"
 #include "cxx-nodecl-deep-copy.h"
 
+#include "fortran03-scope.h"
+
 #include "red_black_tree.h"
 
 /*
@@ -4539,7 +4541,7 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
             // MODULE M3
             //   USE M1             ! Introduces M3.T as an alias to M1.T
             //   USE M2             ! Introduces M3.S as an alias to M2.S
-            //                      ! (M2.T is not introduces as it would be repeat an existing alias to M1.T)
+            //                      ! (M2.T is not introduced as it would be repeat an existing alias to M1.T)
             // CONTAINS
             //   SUBROUTINE S2
             //     TYPE(T) :: X1     ! X1 is of type M3.T (not M2.T or M1.T)
@@ -4547,16 +4549,8 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
             //     CALL S(X1)        !<-- We need to realize that M3.T and M2.T are both aliases of M1.T
             //   END
             // END
-            if (s1->entity_specs.from_module)
-            {
-                ERROR_CONDITION(s1->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s1->symbol_name);
-                s1 = s1->entity_specs.alias_to;
-            }
-            if (s2->entity_specs.from_module)
-            {
-                ERROR_CONDITION(s2->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s2->symbol_name);
-                s2 = s2->entity_specs.alias_to;
-            }
+            s1 = fortran_get_ultimate_symbol(s1);
+            s2 = fortran_get_ultimate_symbol(s2);
         }
         return equivalent_types_in_context(s1->type_information, s2->type_information, decl_context);
     }
