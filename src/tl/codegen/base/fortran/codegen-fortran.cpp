@@ -1379,7 +1379,16 @@ OPERATOR_TABLE
                                 && !is_fortran_representable_pointer(arg_type))
                             || !is_ref)
                     {
-                        walk(arg);
+                        if (parameter_type.points_to().get_unqualified_type().is_char())
+                        {
+                            file << "(";
+                            walk(arg);
+                            file << ") // ACHAR(0)";
+                        }
+                        else
+                        {
+                            walk(arg);
+                        }
                     }
                     else
                     {
