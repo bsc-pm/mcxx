@@ -1306,7 +1306,7 @@ namespace TL { namespace Nanox {
         int num_data_items = data_items.size();
         if (num_data_items == 0)
         {
-            ancillary_source << "void";
+            ancillary_source << "void (*outline_fun)(void)";
         }
         else
         {
