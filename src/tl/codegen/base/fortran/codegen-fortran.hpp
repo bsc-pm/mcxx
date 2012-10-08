@@ -200,6 +200,14 @@ namespace Codegen
             struct UseStmtItem
             {
                 TL::Symbol symbol;
+                bool operator==(const UseStmtItem& info) const
+                {
+                    return this->symbol == info.symbol;
+                }
+                bool operator!=(const UseStmtItem& info) const
+                {
+                    return !this->operator==(info);
+                }
             };
 
             struct UseStmtInfo : std::map<TL::Symbol, TL::ObjectList<UseStmtItem> >
@@ -225,7 +233,7 @@ namespace Codegen
                     }
                     else
                     {
-                        it->second.append(item);
+                        it->second.insert(item);
                     }
                 }
             };
