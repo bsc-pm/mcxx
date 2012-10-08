@@ -1,6 +1,6 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
-! compile_versions="mod mod2 all"
+! compile_versions="mod mod2 use all"
 ! test_FFLAGS_mod="-DWRITE_MOD"
 ! test_FFLAGS_mod2="-DWRITE_MOD2"
 ! test_FFLAGS_use="-DUSE_MOD"
