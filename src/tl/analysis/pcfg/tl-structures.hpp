@@ -231,6 +231,42 @@ namespace Analysis {
 
 
     // ************************************************************************************************* //
+    // ********************************* Reaching Definitions analysis ********************************* //
+
+    /*! \def _GEN
+     * Map containing the statements that generate a definition of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _GEN                 "gen_stmts"
+
+    /*! \def _REACH_DEFS_IN
+     * Map containing the reaching definitions at the entry of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _REACH_DEFS_IN       "reaching_defs_in"
+
+    /*! \def _REACH_DEFS_OUT
+     * Map containing the reaching definitions at the exit of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _REACH_DEFS_OUT      "reaching_defs_out"
+
+    /*! \def _AUX_REACH_DEFS
+     * Map containing the propagated reaching definitions in a given point
+     * This variable is used while propagating the reaching definitions among the nodes to differentiate
+     * those definitions performed within the node and those that has been propagated
+     * At the end of the propagation, the reaching definitions stored in this value are copied in the _REACH_DEFS variable
+     * an this is deleted
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */
+    #define _AUX_REACH_DEFS      "aux_reaching_defs"
+
+    // ********************************* Reaching Definitions analysis ********************************* //
+    // ************************************************************************************************* //
+
+
+
+    // ************************************************************************************************* //
     // ****************************************** Auto-scoping ***************************************** //
 
     /*! \def _SHARED
@@ -324,26 +360,10 @@ namespace Analysis {
 
 
     /*! \def _INDUCTION_VARS
-    * Map containing the induction variables associated with a Loop Node
-    * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
-    */
+     * Map containing the induction variables associated with a Loop Node
+     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+     */
     #define _INDUCTION_VARS     "induction_vars"
-
-    /*! \def _REACH_DEFS
-    * Map containing the reaching definitions in a given point
-    * Available in all nodes (Mandatory once the Liveness analysis is performed).
-    */
-    #define _REACH_DEFS         "reaching_defs"
-
-    /*! \def _AUX_REACH_DEFS
-    * Map containing the propagated reaching definitions in a given point
-    * This varaible is used while propagating the reaching definitions among the nodes to differentiate
-    * those definitions performed within the node and those that has been propagated
-    * At the end of the propagation, the reaching definitions stored in this value are copied in the _REACH_DEFS varaible
-    * an this is deleted
-    * Available in all nodes (Mandatory once the Liveness analysis is performed).
-    */
-    #define _AUX_REACH_DEFS     "aux_reaching_defs"
 
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma

@@ -47,22 +47,26 @@ namespace Analysis {
 
             // Test PCFG creation
             if( VERBOSE )
-                std::cerr << "=========  Testing PCFG creation  ========= " << std::endl;
+                std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
             ObjectList<ExtensibleGraph*> pcfgs =
                     analysis.parallel_control_flow_graph( memento, ast );
 
             if( VERBOSE )
-                std::cerr << "=========  Testing Use-Definition analysis  ========= " << std::endl;
+                std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
             analysis.use_def( memento, ast );
 
             if( VERBOSE )
-                std::cerr << "Testing Liveness analysis" << std::endl;
+                std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
             analysis.liveness( memento, ast );
+
+            if( VERBOSE )
+                std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
+            analysis.reaching_definitions( memento, ast );
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
                 if( VERBOSE )
-                    std::cerr << "=========  Printing PCFG to dot file  ========= " << std::endl;
+                    std::cerr << "=========  Printing PCFG to dot file  =========" << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );

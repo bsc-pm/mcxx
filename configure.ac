@@ -1082,8 +1082,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/pcfg/Makefile
            src/tl/analysis/use_def/Makefile
            src/tl/analysis/liveness/Makefile
+           src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
-           src/tl/analysis/constants/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/hlt/Makefile

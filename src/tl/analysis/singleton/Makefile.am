@@ -32,12 +32,12 @@ END=
 
 libanalysis_singleton_la_CFLAGS= $(tl_cflags)
 libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../.. -I $(srcdir)/../common -I $(srcdir)/../pcfg \
-                                                -I $(srcdir)/../use_def -I $(srcdir)/../liveness -I $(srcdir)/../loops \
-                                                -I $(srcdir)/../constants
+                                                -I $(srcdir)/../use_def -I $(srcdir)/../liveness -I $(srcdir)/../reach_defs \
+                                                -I $(srcdir)/../loops -I $(srcdir)/../constants
 libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
 libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
-					        ../use_def/libuse_def.la ../liveness/libliveness.la ../loops/libloops_analysis.la \
-					        ../constants/libconstants_analysis.la
+					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la
+					        ../loops/libloops_analysis.la ../constants/libconstants_analysis.la
 
 libanalysis_singleton_la_SOURCES= tl-analysis-singleton.hpp \
                                   tl-analysis-singleton.cpp \

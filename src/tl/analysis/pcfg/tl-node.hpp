@@ -46,9 +46,6 @@ namespace Analysis {
     class Edge;
     class LatticeCellValue;
 
-    typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash,
-                                    Nodecl::Utils::Nodecl_comp> nodecl_map;
-
     //! Class representing a Node in the Extensible Graph
     class LIBTL_CLASS Node : public LinkData {
 
@@ -465,22 +462,24 @@ namespace Analysis {
             // ****************************************************************************** //
             // ************ Getters and setters for reaching definitions analysis *********** //
 
-            //! Return the map containing, for each symbol defined until this moment, its correspondent expression
-            nodecl_map get_reaching_definitions();
+            //! Return the map containing all statements containing a generated value
+            Utils::ext_sym_map get_generated_stmts( );
 
-            //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
-            void set_graph_node_reaching_definitions();
+            //! Include a new map of generated values
+            //! If a definition of the same variable already existed, the is substituted by the new value
+            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+
+            //! Return the map containing all symbols reached at the entry of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_in( );
+
+            //! Return the map containing all symbols reached at the exit of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_out( );
 
             //! Set to one variable a new expression value and append this relationship to the node
-            void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
-            void set_reaching_definition_list(nodecl_map reach_defs_l);
-            void rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var);
-
-            nodecl_map get_auxiliar_reaching_definitions();
-            void set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
-
-            //!Deletes an old reaching definition from the node
-            void unset_reaching_definition(Nodecl::NodeclBase var);
+            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
 
             // ********** END getters and setters for reaching definitions analysis ********* //
             // ****************************************************************************** //

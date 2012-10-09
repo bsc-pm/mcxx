@@ -29,13 +29,13 @@
 namespace TL {
 namespace Analysis {
 
-    ExtensibleGraph::ExtensibleGraph( std::string name, Scope sc, PCFGVisitUtils* utils )
-        : _name( name ), _graph( NULL ), _utils( utils ), _sc( sc ),
+    ExtensibleGraph::ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils )
+        : _name( name ), _graph( NULL ), _utils( utils ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
           _task_nodes_l( ), _func_calls( )
     {
 
-        _graph = create_graph_node( NULL, Nodecl::NodeclBase::null( ), EXTENSIBLE_GRAPH );
+        _graph = create_graph_node( NULL, nodecl, EXTENSIBLE_GRAPH );
         _utils->_last_nodes = ObjectList<Node*>( 1, _graph->get_graph_entry_node( ) );
     }
 

@@ -39,8 +39,8 @@ namespace TL {
 namespace Analysis {
 
     static void makeup_dot_block( std::string& str );
-    static std::string prettyprint_reaching_definitions( nodecl_map syms_def );
     static std::string prettyprint_ext_sym_set(  Utils::ext_sym_set s );
+    static std::string prettyprint_ext_sym_map( Utils::ext_sym_map s );
     static std::string print_node_usage( Node* current, bool analysis_is_performed );
     static std::string print_node_liveness( Node* current, bool analysis_is_performed );
     static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed );
@@ -70,7 +70,7 @@ namespace Analysis {
         if( dot_cfg.good( ) )
         {   // Create the dot graphs
             if( VERBOSE )
-                std::cerr << "   ==> File '" << dot_file_name << "'" << std::endl;
+                std::cerr << "- File '" << dot_file_name << "'" << std::endl;
 
             int subgraph_id = 0;
             dot_cfg << "digraph CFG {\n";
@@ -457,9 +457,16 @@ namespace Analysis {
         std::string reaching_defs = "";
         if( analysis_is_performed )
         {
-            std::string defs = prettyprint_reaching_definitions( current->get_reaching_definitions( ) );
-            reaching_defs = ( defs.empty( ) ? "" : "REACH DEFS: " + defs );
+            std::string gen = prettyprint_ext_sym_map( current->get_generated_stmts( ) );
+            std::string defs_in = prettyprint_ext_sym_map( current->get_reaching_definitions_in( ) );
+            std::string defs_out = prettyprint_ext_sym_map( current->get_reaching_definitions_out( ) );
+            reaching_defs = ( gen.empty( )        ? "" : "GEN: " +gen + "\\n" )
+                            + ( defs_in.empty( )  ? "" : "RDI: " + defs_in + "\\n" )
+                            + ( defs_out.empty( ) ? "" : "RDO: " + defs_out );
         }
+        int l_size = reaching_defs.size( );
+        if( ( l_size > 3 ) && ( reaching_defs.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+            reaching_defs = reaching_defs.substr( 0, l_size - 2 );
         return reaching_defs;
     }
 
@@ -503,36 +510,6 @@ namespace Analysis {
         return auto_deps;
     }
 
-    static std::string prettyprint_reaching_definitions( nodecl_map reach_defs )
-    {
-        std::string result;
-
-        for( nodecl_map::iterator it = reach_defs.begin( ); it != reach_defs.end( ); ++it )
-        {
-            Nodecl::NodeclBase first = it->first, second = it->second;
-            if( it->second.is_null( ) )
-            {
-                result += std::string( first.prettyprint( ) ) + " = UNKNOWN VALUE;@";
-            }
-            else
-            {
-                result += std::string( first.prettyprint( ) ) + " = "
-                        + std::string( second.prettyprint( ) ) + ";@";
-            }
-        }
-
-        makeup_dot_block(result);
-
-        // We separate here in lines each reaching definition
-        int pos = 0;
-        while( ( pos=result.find( "@", pos ) ) != -1 ) {
-            result.replace ( pos, 1, "\\n" );
-            pos += 1;
-        }
-
-        return result;
-    }
-
     static std::string prettyprint_ext_sym_set( Utils::ext_sym_set s)
     {
         std::string result;
@@ -545,15 +522,46 @@ namespace Analysis {
             }
             else
             {
-                std::string nodecl_string( codegen_to_str( it->get_nodecl( ).get_internal_nodecl( ),
-                                                           nodecl_retrieve_context( it->get_nodecl( ).get_internal_nodecl( ) ) ) );
-                result += nodecl_string + ", ";
+                nodecl_t n = it->get_nodecl( ).get_internal_nodecl( );
+                result += std::string( codegen_to_str( n, nodecl_retrieve_context( n ) ) ) + ", ";
             }
         }
 
-        result = result.substr( 0, result.size( ) - 2 );
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            makeup_dot_block(result);
+        }
 
-        makeup_dot_block( result );
+        return result;
+    }
+
+    static std::string prettyprint_ext_sym_map( Utils::ext_sym_map s )
+    {
+        std::string result;
+
+        for( Utils::ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            nodecl_t first = it->first.get_nodecl( ).get_internal_nodecl( );
+            nodecl_t second = it->second.get_internal_nodecl( );
+
+            if( it->second.is_null( ) )
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) )
+                        + "=UNKNOWN VALUE; ";
+            }
+            else
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) ) + "="
+                        + std::string( codegen_to_str( second, nodecl_retrieve_context( second ) ) ) + "; ";
+            }
+        }
+
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            makeup_dot_block(result);
+        }
 
         return result;
     }

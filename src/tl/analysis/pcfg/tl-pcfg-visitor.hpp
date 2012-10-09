@@ -169,7 +169,7 @@ namespace Analysis {
         // ************************************ Constructors ************************************ //
 
         //! Constructor building an empty PCFG
-        PCFGVisitor( std::string name, Scope context );
+        PCFGVisitor( std::string name, Nodecl::NodeclBase nodecl );
 
         // ********************************** END constructors ********************************** //
         // ************************************************************************************** //

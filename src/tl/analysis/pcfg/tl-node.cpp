@@ -26,6 +26,8 @@
 
 #include "cxx-codegen.h"
 #include "cxx-process.h"
+
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-constants-analysis.hpp"
 #include "tl-edge.hpp"
 #include "tl-extended-symbol-utils.hpp"
@@ -592,6 +594,7 @@ namespace Analysis {
 
     Scope Node::get_node_scope()
     {
+        // Get a nodecl included in the current node
         Nodecl::NodeclBase n = Nodecl::NodeclBase::null( );
         if( is_graph_node( ) )
         {
@@ -605,12 +608,15 @@ namespace Analysis {
                 n = stmts[0];
             }
         }
+
+        // Retrieve the context related to the nodecl
         if( !n.is_null( ) )
         {
-            return nodecl_retrieve_context( n.get_internal_nodecl( ) );
+            return n.retrieve_context( );
         }
         else
         {
+            WARNING_MESSAGE( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
             return Scope( );
         }
     }
@@ -1084,20 +1090,6 @@ namespace Analysis {
         return result;
     }
 
-    void Node::set_graph_node_reaching_definitions( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            set_data( _REACH_DEFS, get_data<Node*>( _EXIT_NODE )->get_data<nodecl_map>( _REACH_DEFS ) );
-        }
-        else
-        {
-            internal_error( "Propagating reaching definitions in node '%d' with type '%s' while "
-                            "here it is mandatory a Graph node.\n",
-                            _id, get_type_as_string( ).c_str( ) );
-        }
-    }
-
     Utils::ext_sym_set Node::get_live_in_vars()
     {
         Utils::ext_sym_set live_in_vars;
@@ -1217,7 +1209,7 @@ namespace Analysis {
         if( has_key( _UPPER_EXPOSED ) )
         {
             ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
-            ue_vars = sets_difference( ue_vars, old_ue_var );
+            ue_vars.erase( old_ue_var );
         }
 
         set_data( _UPPER_EXPOSED, ue_vars );
@@ -1283,7 +1275,7 @@ namespace Analysis {
         if( has_key( _KILLED ) )
         {
             killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
-            killed_vars = sets_difference( killed_vars, old_killed_var );
+            killed_vars.erase( old_killed_var );
         }
 
         set_data(_KILLED, killed_vars);
@@ -1324,7 +1316,7 @@ namespace Analysis {
         if( has_key( _UNDEF ) )
         {
             undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
-            undef_vars = sets_difference( undef_vars, old_undef_var );
+            undef_vars.erase( old_undef_var );
         }
 
         set_data( _UNDEF, undef_vars );
@@ -1622,99 +1614,132 @@ namespace Analysis {
 
 
 
-    nodecl_map Node::get_reaching_definitions()
+    // ****************************************************************************** //
+    // ************ Getters and setters for reaching definitions analysis *********** //
+
+    Utils::ext_sym_map Node::get_generated_stmts( )
     {
-        nodecl_map reaching_defs;
-
-        if(has_key(_REACH_DEFS))
-        {
-            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-        }
-
-        return reaching_defs;
+        Utils::ext_sym_map gen_stmts;
+        if( has_key( _GEN ) )
+            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
+        return gen_stmts;
     }
 
-
-    void Node::set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
+    Utils::ext_sym_map Node::set_generated_stmts( Utils::ext_sym_map gen )
     {
-        nodecl_map reaching_defs;
-        if(has_key(_REACH_DEFS))
+        Utils::ext_sym_map gen_stmts;
+        if( has_key( _GEN ) )
         {
-            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-        }
-        reaching_defs[var] = init;
-        set_data(_REACH_DEFS, reaching_defs);
-    }
-
-    void Node::set_reaching_definition_list(nodecl_map reach_defs_l)
-    {
-        nodecl_map reaching_defs;
-        if(has_key(_REACH_DEFS))
-        {
-            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-        }
-        for(nodecl_map::iterator it = reach_defs_l.begin(); it != reach_defs_l.end(); ++it)
-        {
-            reaching_defs[it->first] = it->second;
-        }
-
-        set_data(_REACH_DEFS, reaching_defs);
-    }
-
-    void Node::rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var)
-    {
-        nodecl_map reaching_defs;
-        if(has_key(_REACH_DEFS))
-        {
-            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-            if(reaching_defs.find(old_var) != reaching_defs.end())
+            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
+            for( Utils::ext_sym_map::iterator it = gen.begin( ); it != gen.end( ); ++it )
             {
-                Nodecl::NodeclBase init = reaching_defs[old_var];
-                reaching_defs.erase(old_var);
-                reaching_defs[new_var] = init;
-            }
-            else
-            {
-                std::cerr << "warning: Trying to rename reaching definition '" << old_var.prettyprint()
-                        << "', which not exists in reaching definition list of node '" << _id << "'" << std::endl;
+                if( gen_stmts.find( it->first ) != gen_stmts.end( ) )
+                {
+                    gen_stmts.erase( it->first );
+
+                }
             }
         }
-        set_data(_REACH_DEFS, reaching_defs);
+        gen_stmts.insert( gen.begin( ), gen.end( ) );
+        set_data( _GEN, gen_stmts );
+        return gen_stmts;
     }
 
-    nodecl_map Node::get_auxiliar_reaching_definitions()
+    Utils::ext_sym_map Node::get_reaching_definitions_in( )
     {
-        nodecl_map aux_reaching_defs;
-
-        if(has_key(_AUX_REACH_DEFS))
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
         {
-            aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
         }
-
-        return aux_reaching_defs;
+        return reaching_defs_in;
     }
 
-    void Node::set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init)
+    Utils::ext_sym_map Node::get_reaching_definitions_out( )
     {
-        nodecl_map aux_reaching_defs;
-        if(has_key(_AUX_REACH_DEFS))
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
         {
-            aux_reaching_defs = get_data<nodecl_map>(_AUX_REACH_DEFS);
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
         }
-        aux_reaching_defs[var] = init;
-        set_data(_AUX_REACH_DEFS, aux_reaching_defs);
+        return reaching_defs_out;
     }
 
-    void Node::unset_reaching_definition(Nodecl::NodeclBase var)
+    void Node::set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
     {
-        nodecl_map reaching_defs;
-        if(has_key(_REACH_DEFS))
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
         {
-            reaching_defs = get_data<nodecl_map>(_REACH_DEFS);
-            reaching_defs.erase(var);
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
+            if( reaching_defs_in.find( var ) != reaching_defs_in.end( ) )
+            {
+                reaching_defs_in.erase( var );
+            }
         }
-        set_data(_REACH_DEFS, reaching_defs);
+        reaching_defs_in[var] = init;
+        set_data( _REACH_DEFS_IN, reaching_defs_in );
     }
+
+    void Node::set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in )
+    {
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
+        {
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
+            for( Utils::ext_sym_map::iterator it = reach_defs_in.begin( ); it != reach_defs_in.end( ); ++it )
+            {
+                if( reaching_defs_in.find( it->first  ) != reaching_defs_in.end( ) )
+                {
+                    reaching_defs_in.erase( it->first );
+                    break;
+                }
+            }
+        }
+        reaching_defs_in.insert( reach_defs_in.begin( ), reach_defs_in.end( ) );
+        set_data( _REACH_DEFS_IN, reaching_defs_in );
+    }
+
+    void Node::set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
+    {
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
+        {
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
+            if( reaching_defs_out.find( var ) != reaching_defs_out.end( ) )
+            {
+                reaching_defs_out.erase( var );
+            }
+        }
+        reaching_defs_out[var] = init;
+        set_data( _REACH_DEFS_OUT, reaching_defs_out );
+    }
+
+    void Node::set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out )
+    {
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
+        {
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
+            for( Utils::ext_sym_map::iterator it = reach_defs_out.begin( ); it != reach_defs_out.end( ); ++it )
+            {
+                if( reaching_defs_out.find( it->first ) != reaching_defs_out.end( ) )
+                {
+                    reaching_defs_out.erase( it->first );
+                    break;
+                }
+            }
+        }
+        reaching_defs_out.insert( reach_defs_out.begin( ), reach_defs_out.end( ) );
+        set_data( _REACH_DEFS_OUT, reaching_defs_out );
+    }
+
+    // ********** END getters and setters for reaching definitions analysis ********* //
+    // ****************************************************************************** //
+
+
+
+    // ****************************************************************************** //
+    // ************************* Utils for node info printing *********************** //
 
     void Node::print_use_def_chains()
     {
@@ -1813,6 +1838,9 @@ namespace Analysis {
                       << in_s << std::endl << out_s << std::endl << inout_s << std::endl << undef_s << std::endl;
         }
     }
+
+    // *********************** END utils for node info printing ********************* //
+    // ****************************************************************************** //
 
 }
 }

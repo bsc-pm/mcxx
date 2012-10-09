@@ -29,6 +29,10 @@
 
 #include "tl-extended-symbol.hpp"
 
+#include <iostream>
+#include <typeinfo>
+using namespace std;
+
 namespace TL {
 namespace Analysis {
 namespace Utils {
@@ -83,7 +87,52 @@ namespace Utils {
     // **************************************************************************************** //
     // *************** Methods for dealing with containers of Extended Symbols **************** //
 
-    // Extended Symbol list
+    // ********** Containers algorithms ********* //
+
+    ext_sym_map ext_sym_map_union( ext_sym_map c1, ext_sym_map c2 );
+
+    ext_sym_set ext_sym_set_union( ext_sym_set c1, ext_sym_set c2 );
+
+    template <typename T>
+    T containers_difference( T c1, T c2 )
+    {
+        T result;
+        std::set_difference( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
+                             std::inserter( result, result.begin() ) );
+        return result;
+    }
+
+    template <typename T, typename U>
+    T containers_difference( T c1, U c2 )
+    {
+        T result;
+        for( typename T::iterator it = c1.begin(); it != c1.end(); ++it)
+        {
+            if( c2.find( it->first ) == c2.end( ) )
+            {
+                result[it->first] = it->second;
+            }
+        }
+        return result;
+    }
+
+    template <typename T>
+    bool containers_equivalence( T c1, T c2 )
+    {
+        bool result = false;
+        if( c1.size( ) == c2.size( ) )
+        {
+            T intersection;
+            std::set_intersection( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
+                                   std::inserter( intersection, intersection.begin() ) );
+            if( intersection.size( ) == c1.size( ) )
+                result = true;
+        }
+        return result;
+    }
+
+
+    // ********** Extended Symbol list ********** //
 
     bool ext_sym_set_contains_sym(ExtendedSymbol s, ext_sym_set sym_set);
     bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
@@ -94,12 +143,8 @@ namespace Utils {
     void delete_englobing_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
     void delete_englobed_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
 
-    ext_sym_set sets_union( ext_sym_set set1, ext_sym_set set2 );
-    ext_sym_set sets_difference( ext_sym_set set1, ext_sym_set set2 );
-    ext_sym_set sets_difference( ext_sym_set set1, ExtendedSymbol es );
-    bool sets_equals( ext_sym_set set1, ext_sym_set set2 );
 
-    // Extended Symbol Usage list
+    // ******* Extended Symbol Usage list ******* //
 
     bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
     bool usage_list_contains_sym( Symbol n, ObjectList<ExtendedSymbolUsage> list );

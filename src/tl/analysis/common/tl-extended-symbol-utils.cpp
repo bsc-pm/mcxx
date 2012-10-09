@@ -37,6 +37,28 @@ namespace Utils {
     // **************************************************************************************** //
     // *************** Methods for dealing with containers of Extended Symbols **************** //
 
+    ext_sym_set ext_sym_set_union( ext_sym_set c1, ext_sym_set c2 )
+    {
+        ext_sym_set result;
+        std::set_union( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
+                        std::inserter( result, result.begin() ) );
+        return result;
+    }
+
+    ext_sym_map ext_sym_map_union( ext_sym_map c1, ext_sym_map c2 )
+    {
+        ext_sym_map result = c1;
+
+        for( ext_sym_map::iterator it = c2.begin(); it != c2.end(); ++it)
+        {
+            if( c1.find( it->first ) == c1.end( ) )
+            {
+                result[it->first] = it->second;
+            }
+        }
+        return result;
+    }
+
     bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
@@ -128,43 +150,6 @@ namespace Utils {
                 return;
             }
         }
-    }
-
-    ext_sym_set sets_union( ext_sym_set set1, ext_sym_set set2 )
-    {
-        ext_sym_set result;
-        std::set_union( set1.begin( ), set1.end( ), set2.begin( ), set2.end( ),
-                        std::inserter( result, result.begin() ) );
-        return result;
-    }
-
-    ext_sym_set sets_difference( ext_sym_set set1, ext_sym_set set2 )
-    {
-        ext_sym_set result;
-        std::set_difference( set1.begin( ), set1.end( ), set2.begin( ), set2.end( ),
-                             std::inserter( result, result.begin() ) );
-        return result;
-    }
-
-    ext_sym_set sets_difference( ext_sym_set set1, ExtendedSymbol es )
-    {
-        ext_sym_set result, set2;
-        set2.insert( es );
-        return sets_difference( set1, set2 );
-    }
-
-    bool sets_equals( ext_sym_set set1, ext_sym_set set2 )
-    {
-        bool result = false;
-        if( set1.size( ) == set2.size( ) )
-        {
-            ext_sym_set intersection;
-            std::set_intersection( set1.begin( ), set1.end( ), set2.begin( ), set2.end( ),
-                                   std::inserter( intersection, intersection.begin() ) );
-            if( intersection.size( ) == set1.size( ) )
-                result = true;
-        }
-        return result;
     }
 
     bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )

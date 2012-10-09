@@ -26,21 +26,15 @@
 
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libanalysis_utils.la
+lib_LTLIBRARIES = libreaching_definitions.la
 
-libanalysis_utils_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../../
-libanalysis_utils_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
-libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
-libanalysis_utils_la_LIBADD = $(tl_libadd) ../../libtl.la
+libreaching_definitions_la_CFLAGS = $(tl_cflags)
+libreaching_definitions_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libreaching_definitions_la_LDFLAGS = $(tl_ldflags)
+libreaching_definitions_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-libanalysis_utils_la_SOURCES= tl-extended-symbol.hpp \
-                              tl-extended-symbol.cpp \
-                              tl-extended-symbol-utils.hpp \
-                              tl-extended-symbol-utils.cpp \
-                              tl-analysis-utils.hpp \
-                              tl-analysis-utils.cpp \
-                              tl-induction-variables-data.hpp \
-                              tl-induction-variables-data.cpp \
-                              $(END)
+libreaching_definitions_la_SOURCES = tl-reaching-definitions.hpp \
+				      tl-reaching-definitions.cpp \
+                                     $(END)

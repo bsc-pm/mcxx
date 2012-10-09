@@ -35,10 +35,10 @@ namespace Analysis {
     // ************************************************************************************** //
     // ************************************ Constructors ************************************ //
 
-    PCFGVisitor::PCFGVisitor( std::string name, Scope context )
+    PCFGVisitor::PCFGVisitor( std::string name, Nodecl::NodeclBase nodecl )
     {
         _utils = new PCFGVisitUtils( );
-        _pcfg = new ExtensibleGraph( name, context, _utils );
+        _pcfg = new ExtensibleGraph( name, nodecl, _utils );
         _visited_functions;
     }
 
@@ -186,7 +186,7 @@ namespace Analysis {
             bool found;
 
             // Build the new graph
-            result = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ), SPLIT_STMT );
+            result = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SPLIT_STMT );
             Node* entry = result->get_graph_entry_node( );
 
             // Get parents of the new graph node and delete the old connections
@@ -432,8 +432,7 @@ namespace Analysis {
         _pcfg->add_func_call_symbol( n.get_called( ).get_symbol( ) );
 
         // Create the new Function Call node and built it
-        Node* func_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ),
-                                                          Nodecl::NodeclBase::null( ), FUNC_CALL );
+        Node* func_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, FUNC_CALL );
         if( !_utils->_last_nodes.empty( ) )
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes( _utils->_last_nodes, func_graph_node );
@@ -681,8 +680,7 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ConditionalExpression& n )
     {
-        Node* cond_expr_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ),
-                                                         Nodecl::NodeclBase::null( ), COND_EXPR );
+        Node* cond_expr_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, COND_EXPR );
         Node* entry_node = cond_expr_node->get_graph_entry_node( );
 
         // Build condition node
@@ -1035,7 +1033,7 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::IfElseStatement& n )
     {
-        Node* if_else_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ), IF_ELSE );
+        Node* if_else_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, IF_ELSE );
         _pcfg->connect_nodes( _utils->_last_nodes, if_else_graph_node );
         Node* if_else_exit = if_else_graph_node->get_graph_exit_node( );
 

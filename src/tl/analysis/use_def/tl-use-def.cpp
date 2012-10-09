@@ -206,9 +206,9 @@ namespace Analysis {
                 use_def_aux = get_use_def_over_nodes( *it );
                 if( !use_def_aux.empty( ) )
                 {
-                    ue_children = sets_union( ue_children, use_def_aux[0] );
-                    killed_children = sets_union( killed_children, use_def_aux[1] );
-                    undef_children = sets_union( undef_children, use_def_aux[2] );
+                    ue_children = ext_sym_set_union( ue_children, use_def_aux[0] );
+                    killed_children = ext_sym_set_union( killed_children, use_def_aux[1] );
+                    undef_children = ext_sym_set_union( undef_children, use_def_aux[2] );
                 }
             }
 
@@ -260,17 +260,17 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ***************************** Class implementing use-definition visitor **************************** //
 
-    static void get_use_def_variables(Node* actual, int id_target_node,
-                                      Utils::ext_sym_set &ue_vars, Utils::ext_sym_set &killed_vars, Utils::ext_sym_set &undef_vars)
+    static void get_use_def_variables( Node* actual, int id_target_node,
+                                       Utils::ext_sym_set &ue_vars, Utils::ext_sym_set &killed_vars, Utils::ext_sym_set &undef_vars )
     {
         ObjectList<Node*> children = actual->get_children( );
         for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
         {
             if( ( *it )->get_id( ) != id_target_node )
             {
-                ue_vars = sets_union( ue_vars, ( *it )->get_ue_vars( ) );
-                killed_vars = sets_union( killed_vars, ( *it )->get_killed_vars( ) );
-                undef_vars = sets_union( undef_vars, ( *it )->get_undefined_behaviour_vars( ) );
+                ue_vars = ext_sym_set_union( ue_vars, ( *it )->get_ue_vars( ) );
+                killed_vars = ext_sym_set_union( killed_vars, ( *it )->get_killed_vars( ) );
+                undef_vars = ext_sym_set_union( undef_vars, ( *it )->get_undefined_behaviour_vars( ) );
 
                 get_use_def_variables( *it, id_target_node, ue_vars, killed_vars, undef_vars );
             }
@@ -355,17 +355,17 @@ namespace Analysis {
             Utils::ext_sym_set inner_killed = inner_graph->get_killed_vars( );
             Utils::ext_sym_set inner_undef = inner_graph->get_undefined_behaviour_vars( );
 
-            _node->set_ue_var( sets_difference( sets_difference( sets_union( _node->get_ue_vars( ),
-                                                                             inner_ue ),
-                                                                 inner_killed ),
-                                                inner_undef ) );
+            _node->set_ue_var( Utils::containers_difference( Utils::containers_difference( Utils::ext_sym_set_union( _node->get_ue_vars( ),
+                                                                                                                    inner_ue ),
+                                                                                           inner_killed ),
+                                                             inner_undef ) );
 
-            _node->set_killed_var( sets_difference( sets_union( _node->get_killed_vars( ),
-                                                                inner_killed ),
-                                                    inner_undef ) );
+            _node->set_killed_var( Utils::containers_difference( Utils::ext_sym_set_union( _node->get_killed_vars( ),
+                                                                                          inner_killed ),
+                                                                 inner_undef ) );
 
-            _node->set_undefined_behaviour_var( sets_union( _node->get_undefined_behaviour_vars( ),
-                                                            inner_undef ) );
+            _node->set_undefined_behaviour_var( Utils::ext_sym_set_union( _node->get_undefined_behaviour_vars( ),
+                                                                  inner_undef ) );
         }
     }
 
@@ -413,7 +413,7 @@ namespace Analysis {
             rv.rename_expressions( stmts );
 
             // Create the PCFG for the renamed code
-            PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), func_sym.get_scope( ) );
+            PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), called_func );
             ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
 
             // Compute Use-Def of the code

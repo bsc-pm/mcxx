@@ -344,18 +344,19 @@ namespace Utils {
      */
     bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
+        bool result;
         if( Nodecl::Utils::equal_nodecls( _n, es._n ) )
         {
-            return false;
+            result = false;
         }
         else
         {
             AST this_ast = nodecl_get_ast( _n.get_internal_nodecl( ) );
             AST es_ast = nodecl_get_ast( es._n.get_internal_nodecl( ) );
-            bool less_than = this_ast < es_ast;
-
-            return  less_than;
+            result = this_ast < es_ast;
         }
+
+        return result;
     }
 
 }

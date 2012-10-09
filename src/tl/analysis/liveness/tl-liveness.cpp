@@ -24,7 +24,7 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "tl-analysis-utils.hpp"
 #include "tl-extended-symbol.hpp"
 #include "tl-liveness.hpp"
 #include "tl-node.hpp"
@@ -76,7 +76,7 @@ namespace Analysis {
                 }
 
                 ObjectList<Edge*> exit_edges = current->get_exit_edges( );
-                for (ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it)
+                for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
                 {
                     gather_live_initial_information( ( *it )->get_target( ) );
                 }
@@ -119,9 +119,19 @@ namespace Analysis {
                     // Computing Live out
                     for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                     {
-                        if( ( *it )->is_exit_node( ) )
+                        bool child_is_exit = ( *it )->is_exit_node( );
+                        if( child_is_exit )
                         {
-                            ObjectList<Node*> outer_children = ( *it )->get_outer_node( )->get_children( );
+                            // Iterate over outer children while we found an EXIT node
+                            Node* exit_outer_node = ( *it )->get_outer_node( );
+                            ObjectList<Node*> outer_children;
+                            while( child_is_exit )
+                            {
+                                outer_children = exit_outer_node->get_children( );
+                                child_is_exit = ( outer_children.size( ) == 1 ) && outer_children[0]->is_exit_node( );
+                                exit_outer_node = ( child_is_exit ? outer_children[0]->get_outer_node( ) : NULL );
+                            }
+                            // Get the Live in of the current successors
                             for( ObjectList<Node*>::iterator itoc = outer_children.begin( ); itoc != outer_children.end( ); ++itoc )
                             {
                                 Utils::ext_sym_set outer_live_in = ( *itoc )->get_live_in_vars( );
@@ -132,14 +142,14 @@ namespace Analysis {
                         {
                             succ_live_in = ( *it )->get_live_in_vars( );
                         }
-                        live_out = Utils::sets_union( live_out, succ_live_in );
+                        live_out = Utils::ext_sym_set_union( live_out, succ_live_in );
                     }
 
                     // Computing Live In
-                    live_in = Utils::sets_union( current->get_ue_vars( ),
-                                                 Utils::sets_difference( live_out, current->get_killed_vars( ) ) );
+                    live_in = Utils::ext_sym_set_union( current->get_ue_vars( ),
+                                                       Utils::containers_difference( live_out, current->get_killed_vars( ) ) );
 
-                    if( !Utils::sets_equals( old_live_in, live_in ) || !Utils::sets_equals( old_live_out, live_out ) )
+                    if( !Utils::containers_equivalence( old_live_in, live_in ) || !Utils::containers_equivalence( old_live_out, live_out ) )
                     {
                         current->set_live_in( live_in );
                         current->set_live_out( live_out );
@@ -223,9 +233,9 @@ namespace Analysis {
             ObjectList<Node*> entries = current->get_graph_entry_node( )->get_children( );
             for( ObjectList<Node*>::iterator it = entries.begin( ); it != entries.end( ); ++it )
             {
-                live_in = Utils::sets_union( live_in, ( *it )->get_live_in_vars( ) );
+                live_in = Utils::ext_sym_set_union( live_in, ( *it )->get_live_in_vars( ) );
             }
-            // Delete those variables who are local to the graph
+            // Delete those variables which are local to the graph
             Scope sc( current->get_node_scope( ) );
             if( sc.is_valid( ) )
             {
@@ -234,7 +244,7 @@ namespace Analysis {
                     ObjectList<Symbol> syms = it->get_symbols( );
                     for( ObjectList<Symbol>::iterator its = syms.begin( ); its != syms.end( ); ++its )
                     {   // If one of the symbols in the expression is not local, then the whole symbol is not local
-                        if( !its->get_scope( ).scope_is_enclosed_by( sc ) /*&& its->get_scope() != sc*/ )
+                        if( !its->get_scope( ).scope_is_enclosed_by( sc ) )
                             graph_li.insert( *it );
                     }
                 }
@@ -246,7 +256,7 @@ namespace Analysis {
             ObjectList<Node*> exits = current->get_graph_exit_node( )->get_parents( );
             for( ObjectList<Node*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
             {
-                graph_lo = Utils::sets_union( graph_lo, ( *it )->get_live_out_vars( ) );
+                graph_lo = Utils::ext_sym_set_union( graph_lo, ( *it )->get_live_out_vars( ) );
             }
             current->set_live_out( graph_lo );
         }

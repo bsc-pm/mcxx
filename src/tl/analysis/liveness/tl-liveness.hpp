@@ -24,8 +24,6 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-
-
 #ifndef TL_LIVENESS_HPP
 #define TL_LIVENESS_HPP
 
@@ -44,12 +42,13 @@ namespace Analysis {
         ExtensibleGraph* _graph;
 
         //!Computes the liveness information of each node regarding only its inner statements
+        //!Live In (X) = Upper exposed (X)
         void gather_live_initial_information( Node* current );
 
-        //!Computes an iteration of the method #solve_live_equations.
+        //!Computes liveness equations for a given node and calls recursively to its children
         /*!
-         * Live out (X) = Union of all Live in (Y), for all Y successors of X.
-         * Live in (X) = Upper exposed (X) + ( Live out (X) - Killed (X) )
+         * Live Out (X) = Union of all Live In (Y), for all Y successors of X
+         * Live In (X) = Upper Exposed (X) + ( Live Out (X) - Killed (X) )
          */
         void solve_live_equations( Node* current );
         void solve_live_equations_rec( Node* current, bool& changed );
@@ -58,6 +57,7 @@ namespace Analysis {
 
         bool task_is_in_loop( Node* current );
 
+        //! Propagates liveness information from inner to outer nodes
         bool set_graph_node_liveness( Node* current );
 
     public:

@@ -29,8 +29,6 @@
 
 #include <map>
 
-#include "tl-constants-analysis-phase.hpp"
-#include "tl-compilerphase.hpp"
 #include "tl-extended-symbol.cpp"
 #include "tl-extensible-graph.hpp"
 
@@ -61,7 +59,7 @@ namespace Analysis {
         bool _use_def;        //!<True when use-definition chains have been calculated
         bool _liveness;       //!<True when liveness analysis has been applied
         bool _loops;          //!<True when loops analysis has been applied
-        bool _reaching_defs;  //!<True when reaching definitions has been calculated
+        bool _reaching_definitions;  //!<True when reaching definitions has been calculated
         bool _auto_scoping;   //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;      //!<True when tasks auto-dependencies has been calculated
 
@@ -85,8 +83,8 @@ namespace Analysis {
         void set_liveness_computed( );
         bool is_loops_computed( ) const;
         void set_loops_computed( );
-        bool is_reaching_defs_computed( ) const;
-        void set_reaching_defs_computed( );
+        bool is_reaching_definitions_computed( ) const;
+        void set_reaching_definitions_computed( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
@@ -191,6 +189,8 @@ namespace Analysis {
 
         ObjectList<ExtensibleGraph*> liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> reaching_definitions( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+
 
 
         // ****************** LOOP ANALYSIS ****************** //
@@ -200,7 +200,7 @@ namespace Analysis {
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          *
          */
-        void induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
 
 

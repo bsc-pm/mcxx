@@ -35,6 +35,9 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
+    // ******************************************************************************************* //
+    // ************************** Common methods with analysis purposes ************************** //
+
     std::string generate_hashed_name(Nodecl::NodeclBase ast)
     {
         std::string result = ast.get_filename();
@@ -49,151 +52,20 @@ namespace Utils {
         return result;
     }
 
-    // *********************************************************************** //
-    // ****************** Assigned Extended Symbols Visitor ****************** //
-
-    AssignedExtSymVisitor::AssignedExtSymVisitor( )
-        : _assigned_ext_syms( ), _is_lhs( false )
-    {}
-
-    ObjectList<ExtendedSymbol> AssignedExtSymVisitor::get_assigned_ext_syms()
-    {
-        return _assigned_ext_syms;
-    }
-
-    void AssignedExtSymVisitor::visit_assignment( Nodecl::NodeclBase ass_lhs, Nodecl::NodeclBase ass_rhs )
-    {
-        //! Keep record of the value of \_lhs for nested assignments
-        bool is_lhs = _is_lhs;
-
-        // Traverse lhs
-        _is_lhs = true;
-        walk( ass_lhs );
-        // Traverse rhs
-        _is_lhs = is_lhs;
-        walk( ass_rhs );
-    }
-
-    void AssignedExtSymVisitor::visit_xx_crements( Nodecl::NodeclBase n )
-    {
-        bool is_lhs = _is_lhs;
-        _is_lhs = true;
-        walk( n );
-        _is_lhs = is_lhs;
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::AddAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArraySubscript& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Assignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::DivAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MinusAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ModAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MulAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postdecrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postincrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Predecrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Preincrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Symbol& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    // **************** End assigned Extended Symbols Visitor **************** //
-    // *********************************************************************** //
-
-
-
-    // *********************************************************************** //
-    // ************************ Top Level Visitor ************************ //
-
     Nodecl::NodeclBase find_main_function( Nodecl::NodeclBase ast )
     {
         TopLevelVisitor tlv;
         tlv.walk( ast );
         return tlv.get_main( );
     }
+
+    // ************************ END common methods with analysis purposes ************************ //
+    // ******************************************************************************************* //
+
+
+
+    // ******************************************************************************************* //
+    // ****************************** Visitor for Top Level nodes ******************************** //
 
     TopLevelVisitor::TopLevelVisitor( )
             : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _filename( "" )
@@ -279,8 +151,8 @@ namespace Utils {
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
-    // ************************ END top level Visitor ************************ //
-    // *********************************************************************** //
+    // **************************** END visitor for Top Level nodes ****************************** //
+    // ******************************************************************************************* //
 }
 }
 }

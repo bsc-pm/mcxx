@@ -26,11 +26,11 @@
 
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
-#include "tl-constants-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
-#include "tl-iv-analysis.hpp"
 #include "tl-use-def.hpp"
 #include "tl-liveness.hpp"
+#include "tl-reaching-definitions.hpp"
+#include "tl-iv-analysis.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -40,7 +40,7 @@ namespace Analysis {
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
         : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( false ),
-          _loops( false ), _reaching_defs( false ), _auto_scoping( false ), _auto_deps( false )
+          _loops( false ), _reaching_definitions( false ), _auto_scoping( false ), _auto_deps( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -109,14 +109,14 @@ namespace Analysis {
         _loops = true;
     }
 
-    bool PCFGAnalysis_memento::is_reaching_defs_computed( ) const
+    bool PCFGAnalysis_memento::is_reaching_definitions_computed( ) const
     {
-        return _reaching_defs;
+        return _reaching_definitions;
     }
 
-    void PCFGAnalysis_memento::set_reaching_defs_computed( )
+    void PCFGAnalysis_memento::set_reaching_definitions_computed( )
     {
-        _reaching_defs = true;
+        _reaching_definitions = true;
     }
 
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
@@ -176,7 +176,7 @@ namespace Analysis {
         _use_def = false;
         _liveness = false;
         _loops = false;
-        _reaching_defs = false;
+        _reaching_definitions = false;
         _auto_scoping = false;
         _auto_deps = false;
     }
@@ -232,7 +232,7 @@ namespace Analysis {
                     std::cerr << "- Generating PCFG '" << pcfg_name << "'" << std::endl;
 
                 // Create the PCFG
-                    PCFGVisitor v( pcfg_name, it->retrieve_context( ) );
+                    PCFGVisitor v( pcfg_name, *it );
                     ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
                     // Store the pcfg in the singleton
@@ -303,23 +303,45 @@ namespace Analysis {
         return pcfgs;
     }
 
-    void AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
+        ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
+
+        if( !memento.is_reaching_definitions_computed( ) )
+        {
+            memento.set_reaching_definitions_computed( );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Reaching Definitions of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+                ReachingDefinitions rd( *it );
+                rd.compute_reaching_definitions( );
+            }
+        }
+
+        return pcfgs;
+    }
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions( memento, ast );
 
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
-            InductionVariableAnalysis iva( *it );
-            iva.compute_induction_variables( );
+//             InductionVariableAnalysis iva( *it );
+//             iva.compute_induction_variables( );
             // TODO
         }
+
+        return pcfgs;
     }
 
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
         ExtensibleGraph* pcfg = memento.get_pcfg( pcfg_name );
         pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
-                                  memento.is_reaching_defs_computed( ),
+                                  memento.is_reaching_definitions_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
     }
 }
