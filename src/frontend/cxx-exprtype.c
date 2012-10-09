@@ -490,6 +490,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_FLOATING_LITERAL :
+        case AST_HEXADECIMAL_FLOAT :
             {
 
                 floating_literal_type(expression, nodecl_output);
