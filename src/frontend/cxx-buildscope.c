@@ -1494,8 +1494,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     {
         C_LANGUAGE()
         {
-            warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
-                    ast_location(a));
+            if (!checking_ambiguity())
+            {
+                warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
+                        ast_location(a));
+            }
 
             simple_type_info = get_signed_int_type();
         }
@@ -2038,8 +2041,11 @@ void build_scope_decl_specifier_seq(AST a,
     {
         C_LANGUAGE()
         {
-            warn_printf("%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
-                    ast_location(a));
+            if (!checking_ambiguity())
+            {
+                warn_printf("%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
+                        ast_location(a));
+            }
 
             // Manually add the int tree to make things easier
             ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));

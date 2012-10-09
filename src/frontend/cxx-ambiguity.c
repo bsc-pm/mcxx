@@ -147,7 +147,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     if (valid_option < 0)
     {
         // There are not a valid option. We choose one of them and we check its
-        // tree again (this check will fail)
+        // tree again (this check should fail)
         valid_option = 0;
 
         DEBUG_CODE()
@@ -1690,6 +1690,8 @@ static char solve_ambiguous_parameter_declaration_check_interpretation(AST param
 {
     char current_valid = 1;
 
+    enter_test_expression();
+
     AST decl_specifier_seq = ASTSon0(parameter_decl);
 
     AST type_specifier = ASTSon1(decl_specifier_seq);
@@ -1721,6 +1723,8 @@ static char solve_ambiguous_parameter_declaration_check_interpretation(AST param
         current_valid = current_valid && check_declarator(declarator, decl_context);
     }
 
+    leave_test_expression();
+
     return current_valid;
 }
 
@@ -1730,6 +1734,20 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
 {
     AST previous_parameter_decl = previous_interpretation;
     AST current_parameter_decl = current_interpretation;
+
+    AST previous_decl_speq_seq = ASTSon0(previous_parameter_decl);
+    AST current_decl_speq_seq = ASTSon0(current_parameter_decl);
+
+    AST previous_type_spec = NULL;
+    AST current_type_spec = NULL;
+    if (previous_decl_speq_seq != NULL)
+    {
+        previous_type_spec = ASTSon1(previous_decl_speq_seq);
+    }
+    if (current_decl_speq_seq != NULL)
+    {
+        current_type_spec = ASTSon1(current_decl_speq_seq);
+    }
 
     AST previous_declarator = ASTSon1(previous_parameter_decl);
     AST current_declarator = ASTSon1(current_parameter_decl);
@@ -1745,6 +1763,18 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
         }
         else if (is_non_abstract_declarator(previous_declarator, decl_context)
                 && is_abstract_declarator(current_declarator, decl_context))
+        {
+            return -1;
+        }
+    }
+    // If one interpretation has type and the other does not, then it must have type
+    else if (previous_type_spec != current_type_spec)
+    {
+        if (previous_type_spec != NULL)
+        {
+            return 1;
+        }
+        else
         {
             return -1;
         }
