@@ -1111,6 +1111,7 @@ void LoweringVisitor::fill_dependences(
             ;
 
         int current_dep_num = 0;
+        int num_handled_dependences = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -1306,6 +1307,11 @@ void LoweringVisitor::fill_dependences(
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
                 {
+                    if (num_handled_dependences > 0)
+                    {
+                        dependency_init << ", ";
+                    }
+
                     dependency_init
                         << "{"
                         << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
@@ -1330,6 +1336,7 @@ void LoweringVisitor::fill_dependences(
                         << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
                 }
+                num_handled_dependences++;
             }
         }
     }
