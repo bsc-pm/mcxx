@@ -6061,7 +6061,11 @@ static scope_entry_list_t* build_scope_single_interface_specification(
         nodecl_t* nodecl_pragma)
 {
     scope_entry_list_t* result_entry_list = NULL;
-    if (ASTType(interface_specification) == AST_PROCEDURE)
+    if (ASTType(interface_specification) == AST_UNKNOWN_PRAGMA)
+    {
+        // Ignore these
+    }
+    else if (ASTType(interface_specification) == AST_PROCEDURE)
     {
         unsupported_statement(interface_specification, "PROCEDURE");
     }
