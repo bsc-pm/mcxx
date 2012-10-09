@@ -2828,8 +2828,6 @@ OPERATOR_TABLE
                         // has not been emitted yet
                         (!class_type.is_from_module()
                             || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
-                        // The symbol should not be in the current module
-                        && !class_type.is_in_module()
                         // And its related entry should not be ours
                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
