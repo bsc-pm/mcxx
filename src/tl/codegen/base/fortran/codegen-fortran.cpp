@@ -1329,6 +1329,7 @@ OPERATOR_TABLE
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
         int pos = 0;
+        bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
             if (pos > 0)
@@ -1347,10 +1348,16 @@ OPERATOR_TABLE
             if (!keyword.is_null()
                     && !called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword.get_symbol().get_type();
-                if (!keyword.get_symbol().not_to_be_printed())
+                TL::Symbol keyword_symbol = keyword.get_symbol();
+                parameter_type = keyword_symbol.get_type();
+                if (!keywords_are_mandatory)
                 {
-                    file << keyword.get_symbol().get_name() << " = ";
+                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
+                }
+                if (keywords_are_mandatory
+                        && !keyword_symbol.not_to_be_printed())
+                {
+                    file << keyword_symbol.get_name() << " = ";
                 }
             }
             else if (pos < parameter_types.size())
