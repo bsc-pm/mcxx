@@ -9,6 +9,9 @@
 ! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DWRITE_MOD3 -DWRITE_MOD4 -DWRITE_MOD5"
 ! </testinfo>
 
+#ifdef __GNUC__
+#if defined(__GNUC_MINOR__) && (__GNUC_MINOR__ >= 7)
+
 #ifdef WRITE_MOD
 module fragel
     type fragel3
@@ -180,4 +183,7 @@ module blah
             f4 = f4
        end subroutine
 end module blah
+#endif
+
+#endif
 #endif
