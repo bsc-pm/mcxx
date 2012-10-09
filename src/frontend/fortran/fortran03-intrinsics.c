@@ -280,6 +280,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
@@ -287,6 +288,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 ISO_C_BINDING_INTRINSICS
 
 #define ISO_C_BINDING_INTRINSICS \
@@ -4676,6 +4679,28 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("and", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5500,6 +5525,50 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
     return GET_INTRINSIC_INQUIRY("loc",
             choose_int_type_from_kind(argument_expressions[0], CURRENT_CONFIGURATION->type_environment->sizeof_pointer),
             t0);
+}
+
+scope_entry_t* compute_intrinsic_or(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("or", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("xor", t0, t0, t1);
+    }
+
+    return NULL;
 }
 
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
