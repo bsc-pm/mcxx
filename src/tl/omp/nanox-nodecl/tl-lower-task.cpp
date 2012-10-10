@@ -1684,7 +1684,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
         if (IS_FORTRAN_LANGUAGE)
         {
+            // This will act like an opaque shared
             argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
+            argument_outline_data_item.set_in_outline_type(new_symbol.get_type().get_lvalue_reference_to());
         }
 
         argument_outline_data_item.set_shared_expression(it->second);
