@@ -233,7 +233,20 @@ namespace Codegen
                     }
                     else
                     {
-                        it->second.insert(item);
+                        // Check if the current symbol is already in the set
+                        bool found = false;
+                        TL::ObjectList<UseStmtItem>::iterator it_items;
+                        for (it_items = it->second.begin(); it_items != it->second.end(); ++it_items)
+                        {
+                            // Have the two items the same cannonical symbol?
+                            if (it_items->symbol.get_alias_to() == sym.get_alias_to())
+                                found = true;
+                        }
+
+                        if (!found)
+                        {
+                            it->second.insert(item);
+                        }
                     }
                 }
             };
