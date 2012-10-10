@@ -1766,14 +1766,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
     list_stmt.append(expr_statement);
 
-    Nodecl::NodeclBase statements =
-        Nodecl::List::make(
-                Nodecl::Context::make(
-                    Nodecl::List::make(list_stmt),
-                    function_call.retrieve_context(),
-                    function_call.get_filename(),
-                    function_call.get_line()
-                    ));
+    Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
+    //     Nodecl::List::make(
+    //             Nodecl::Context::make(
+    //                 Nodecl::List::make(list_stmt),
+    //                 function_call.retrieve_context(),
+    //                 function_call.get_filename(),
+    //                 function_call.get_line()
+    //                 ));
 
     construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
 
