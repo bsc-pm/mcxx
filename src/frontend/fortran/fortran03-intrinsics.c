@@ -3252,7 +3252,7 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
