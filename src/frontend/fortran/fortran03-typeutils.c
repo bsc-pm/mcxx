@@ -350,7 +350,13 @@ type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_typ
     if (is_error_type(basic_type))
         return basic_type;
 
-    if (is_pointer_type(type_info))
+    // Many functions drop the reference type, so chek it the first
+    if (is_lvalue_reference_type(type_info))
+    {
+        return get_lvalue_reference_type(
+                fortran_update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
+    }
+    else if (is_pointer_type(type_info))
     {
         return get_pointer_type(
                 fortran_update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
@@ -368,11 +374,6 @@ type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_typ
     else if (is_function_type(type_info))
     {
         return fortran_replace_return_type_of_function_type(type_info, basic_type);
-    }
-    else if (is_lvalue_reference_type(type_info))
-    {
-        return get_lvalue_reference_type(
-                fortran_update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
     }
     else
     {
