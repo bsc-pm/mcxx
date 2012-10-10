@@ -24,8 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #ifndef TL_PCFG_VISITOR_HPP
 #define TL_PCFG_VISITOR_HPP
 

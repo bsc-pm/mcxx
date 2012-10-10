@@ -24,6 +24,8 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include "cxx-process.h"
+
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
@@ -40,7 +42,8 @@ namespace Analysis {
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
         : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( false ),
-          _loops( false ), _reaching_definitions( false ), _auto_scoping( false ), _auto_deps( false )
+          _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
+          _auto_scoping( false ), _auto_deps( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -119,6 +122,16 @@ namespace Analysis {
         _reaching_definitions = true;
     }
 
+    bool PCFGAnalysis_memento::is_induction_variables_computed( ) const
+    {
+        return _induction_variables;
+    }
+
+    void PCFGAnalysis_memento::set_induction_variables_computed( )
+    {
+        _induction_variables = true;
+    }
+
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
     {
         return _auto_scoping;
@@ -139,8 +152,123 @@ namespace Analysis {
         _auto_deps = true;
     }
 
+    Node* PCFGAnalysis_memento::nodecl_is_enclosed_by( Node* current, Nodecl::NodeclBase n )
+    {
+        Node* result = NULL;
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            if( current->is_exit_node( ) )
+            {
+                return false;
+            }
+            else if( current->is_graph_node( ) )
+            {
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) )
+                {
+                    result = current;
+                }
+                else
+                {
+                    result = nodecl_is_enclosed_by( current->get_graph_entry_node( ), n );
+                }
+            }
+            else if( !current->is_entry_node( ) )
+            {
+                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+                {
+                    if( Nodecl::Utils::equal_nodecls( *it, n ) )
+                    {
+                        result = current;
+                        break;
+                    }
+                }
+            }
+
+            if( result == NULL )
+            {
+                ObjectList<Node*> children = current->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                {
+                    result = nodecl_is_enclosed_by( current->get_graph_entry_node( ), n );
+                    if( result != NULL )
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    Node* PCFGAnalysis_memento::nodecl_enclosing_pcfg( Nodecl::NodeclBase n )
+    {
+        Node* result;
+        for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            Node* current = it->second->get_graph( );
+            Node* enclosing = nodecl_is_enclosed_by( current, n );
+            ExtensibleGraph::clear_visits( current );
+
+            if( enclosing != NULL )
+            {
+                break;
+            }
+        }
+
+        if( result == NULL )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. You probably misstepped during the analysis.",
+                             codegen_to_str( n.get_internal_nodecl( ),
+                                             nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
+        }
+
+        return result;
+    }
+
+    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
+    {
+        bool result = false;
+        if( _induction_variables )
+        {
+            Node* enclosing = nodecl_enclosing_pcfg( loop );
+            if( enclosing != NULL )
+            {
+                ObjectList<Utils::InductionVariableData> ivs = enclosing->get_induction_variables( );
+                for( ObjectList<Utils::InductionVariableData>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+                {
+                    if( Nodecl::Utils::equal_nodecls( it->get_variable( ).get_nodecl( ), n ) );
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    ObjectList<Nodecl::NodeclBase> PCFGAnalysis_memento::get_induction_variables( Nodecl::NodeclBase loop )
+    {
+        ObjectList<Nodecl::NodeclBase> result;
+        if( _induction_variables )
+        {
+            Node* enclosing = nodecl_enclosing_pcfg( loop );
+            if( enclosing != NULL )
+            {
+                ObjectList<Utils::InductionVariableData> ivs = enclosing->get_induction_variables( );
+                for( ObjectList<Utils::InductionVariableData>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+                {
+                    result.append( it->get_variable( ).get_nodecl( ) );
+                }
+            }
+        }
+        return result;
+    }
+
     // TODO
-    bool is_constant( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
+    bool PCFGAnalysis_memento::is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
     {
         bool result = false;
 
@@ -148,21 +276,7 @@ namespace Analysis {
     }
 
     // TODO
-    ObjectList<Utils::ExtendedSymbol> get_induction_variables( Nodecl::NodeclBase loop )
-    {
-        return ObjectList<Utils::ExtendedSymbol>( );
-    }
-
-    // TODO
-    bool is_induction_variable( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
-    {
-        bool result = false;
-
-        return result;
-    }
-
-    // TODO
-    bool is_stride_one( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s )
+    bool PCFGAnalysis_memento::is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
     {
         bool result = false;
 
@@ -177,6 +291,7 @@ namespace Analysis {
         _liveness = false;
         _loops = false;
         _reaching_definitions = false;
+        _induction_variables = false;
         _auto_scoping = false;
         _auto_deps = false;
     }
@@ -327,11 +442,20 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions( memento, ast );
 
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        if( !memento.is_induction_variables_computed( ) )
         {
-//             InductionVariableAnalysis iva( *it );
-//             iva.compute_induction_variables( );
-            // TODO
+            memento.set_induction_variables_computed( );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Induction Variables of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+
+                InductionVariableAnalysis iva( *it );
+                iva.compute_induction_variables( );
+                print_node_induction_vars( iva.get_all_induction_vars( ) );
+                // TODO
+            }
         }
 
         return pcfgs;

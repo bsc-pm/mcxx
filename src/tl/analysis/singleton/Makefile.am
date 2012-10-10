@@ -36,7 +36,7 @@ libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../.. -I $(srcdir)/
                                                 -I $(srcdir)/../loops -I $(srcdir)/../constants
 libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
 libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
-					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la
+					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la \
 					        ../loops/libloops_analysis.la ../constants/libconstants_analysis.la
 
 libanalysis_singleton_la_SOURCES= tl-analysis-singleton.hpp \

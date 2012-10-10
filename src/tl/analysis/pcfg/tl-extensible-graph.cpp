@@ -839,7 +839,7 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits_in_level( Node* current, Node* outer_node )
     {
-        if( current->is_visited( ) && ( current->get_outer_node( )->get_id( ) == outer_node->get_id( ) ) )
+        if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
         {
 //             std::cerr << "           clear visits in level --> " << current->get_id() << std::endl;
             current->set_visited( false );
@@ -847,6 +847,10 @@ namespace Analysis {
             if( current->is_exit_node( ) )
             {
                 return;
+            }
+            else if( current->is_graph_node( ) )
+            {
+                clear_visits_in_level( current->get_graph_entry_node( ), outer_node );
             }
 
             ObjectList<Node*> children = current->get_children( );

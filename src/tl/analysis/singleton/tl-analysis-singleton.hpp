@@ -46,6 +46,9 @@
 namespace TL {
 namespace Analysis {
 
+    // ************************************************************************************ //
+    // *************** Class containing all analysis related to a given AST *************** //
+
     typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
 
     //! Memento class capturing the internal state of the PCFG regarding the analysis
@@ -54,21 +57,27 @@ namespace Analysis {
 
         Name_to_pcfg_map _pcfgs;
 
-        bool _constants;      //!<True when constant propagation and constant folding have been applied
-        bool _canonical;      //!<True when expressions canonicalization has been applied
-        bool _use_def;        //!<True when use-definition chains have been calculated
-        bool _liveness;       //!<True when liveness analysis has been applied
-        bool _loops;          //!<True when loops analysis has been applied
-        bool _reaching_definitions;  //!<True when reaching definitions has been calculated
-        bool _auto_scoping;   //!<True when tasks auto-scoping has been calculated
-        bool _auto_deps;      //!<True when tasks auto-dependencies has been calculated
+        bool _constants;            //!<True when constant propagation and constant folding have been applied
+        bool _canonical;            //!<True when expressions canonicalization has been applied
+        bool _use_def;              //!<True when use-definition chains have been calculated
+        bool _liveness;             //!<True when liveness analysis has been applied
+        bool _loops;                //!<True when loops analysis has been applied
+        bool _reaching_definitions; //!<True when reaching definitions has been calculated
+        bool _induction_variables;  //!<True when induction variable analysis has been applied
+        bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
+        bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
+
+        Node* nodecl_is_enclosed_by( Node* current, Nodecl::NodeclBase n );
+        Node* nodecl_enclosing_pcfg( Nodecl::NodeclBase n );
 
     public:
         //! Class constructor
         PCFGAnalysis_memento( );
 
-        // ******************************************************* //
-        // ***************** Getters and Setters ***************** //
+        //! Resets the state of the memento
+        void reset_state( );
+
+        // ************* Getters and Setters ************* //
 
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
@@ -85,51 +94,45 @@ namespace Analysis {
         void set_loops_computed( );
         bool is_reaching_definitions_computed( ) const;
         void set_reaching_definitions_computed( );
+        bool is_induction_variables_computed( ) const;
+        void set_induction_variables_computed( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
 
-        // *************** END Getters and Setters *************** //
-        // ******************************************************* //
 
-        // ******************************************************* //
-        // ***************** Loop analysis info ****************** //
+        // ************* Loop analysis info ************** //
 
-        bool is_constant( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
+        bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
-        ObjectList<Utils::ExtendedSymbol> get_induction_variables( Nodecl::NodeclBase loop );
+        ObjectList<Nodecl::NodeclBase> get_induction_variables( Nodecl::NodeclBase loop );
 
-        bool is_induction_variable( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
+        bool is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
-        bool is_stride_one( Nodecl::NodeclBase loop, Utils::ExtendedSymbol s );
-
-        // *************** END loop analysis info **************** //
-        // ******************************************************* //
-
-        //! Resets the state of the memento
-        void reset_state( );
+        bool is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
     friend class AnalysisSingleton;
     };
 
+    // ************* END class containing all analysis related to a given AST ************* //
+    // ************************************************************************************ //
+
+
+
+    // ************************************************************************************ //
+    // ********* Class representing a Singleton object used for analysis purposes ********* //
     //! This class implements a Meyers Singleton that includes methods for any kind of analysis
     class LIBTL_CLASS AnalysisSingleton
     {
     private:
 
-        // ************************************************************************** //
-        // *************************** Private attributes *************************** //
+        // ************** Private attributes ************** //
 
         static AnalysisSingleton* _analysis;
 
-        // ************************* End private attributes ************************* //
-        // ************************************************************************** //
 
-
-
-        // ************************************************************************** //
-        // **************************** Private methods ***************************** //
+        // *************** Private methods **************** //
 
         //!Private constructor. Prevents calling construction.
         AnalysisSingleton( );
@@ -143,26 +146,16 @@ namespace Analysis {
         //!Prevents destruction
         ~AnalysisSingleton( ){};
 
-        // ************************** End private methods *************************** //
-        // ************************************************************************** //
 
     public:
 
-        // ************************************************************************** //
-        // *************************** Singleton methods **************************** //
+        // ************** Singleton methods *************** //
 
         //!Single instance constructor
         static AnalysisSingleton& get_analysis( );
 
-        // ************************* End singleton methods ************************** //
-        // ************************************************************************** //
 
-
-
-        // ************************************************************************** //
-        // **************************** Analysis methods **************************** //
-
-        // ****************** FLOW ANALYSIS ****************** //
+        // *************** Analysis methods *************** //
 
         /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
          * If \ast contains no function, then the method creates a PCFG for the whole code in \ast
@@ -191,26 +184,20 @@ namespace Analysis {
 
         ObjectList<ExtensibleGraph*> reaching_definitions( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
-
-
-        // ****************** LOOP ANALYSIS ****************** //
-
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
-         *
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
 
-
-        // ********************** UTILS ********************** //
+        // ********************* Utils ******************** //
 
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
-
-        // ************************** END analysis methods ************************** //
-        // ************************************************************************** //
     };
+
+    // ******* END class representing a Singleton object used for analysis purposes ******* //
+    // ************************************************************************************ //
 
 }
 }

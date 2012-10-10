@@ -39,14 +39,14 @@ namespace Analysis {
 
     Node::Node( )
         : _id( -1 ), _entry_edges( ), _exit_edges( ),
-          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+          _visited( false ), _visited_aux( false )
     {
         set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
     }
 
     Node::Node( int& id, Node_type ntype, Node* outer_node )
         : _id( ++id ), _entry_edges( ), _exit_edges( ),
-          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+          _visited( false ), _visited_aux( false )
     {
         set_data( _NODE_TYPE, ntype );
         set_data( _OUTER_NODE, outer_node );
@@ -60,7 +60,7 @@ namespace Analysis {
 
     Node::Node( int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls )
         : _id( ++id ), _entry_edges( ), _exit_edges( ),
-          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+          _visited( false ), _visited_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -70,7 +70,7 @@ namespace Analysis {
 
     Node::Node( int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl )
         : _id( ++id ), _entry_edges( ), _exit_edges( ),
-          _visited( false ), _visited_aux( false ), _has_deps_computed( false )
+          _visited( false ), _visited_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -152,16 +152,6 @@ namespace Analysis {
     void Node::set_visited_aux( bool visited )
     {
         _visited_aux = visited;
-    }
-
-    bool Node::has_deps_computed( )
-    {
-        return _has_deps_computed;
-    }
-
-    void Node::set_deps_computed( )
-    {
-        _has_deps_computed = true;
     }
 
     bool Node::is_empty_node( )
@@ -272,6 +262,24 @@ namespace Analysis {
             result.append( ( *it )->get_target( ) );
         }
         return result;
+    }
+
+    bool Node::node_is_enclosed_by( Node* potential_encloser )
+    {
+        Node* outer_node = get_outer_node( );
+        while( ( get_outer_node( ) != NULL )
+               && ( outer_node->get_id( ) != potential_encloser->get_id( ) ) )
+        {
+            outer_node = outer_node->get_outer_node( );
+        }
+        if( outer_node == NULL )
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
 
     bool Node::is_basic_node( )
@@ -646,14 +654,14 @@ namespace Analysis {
         }
     }
 
-    Nodecl::NodeclBase Node::get_graph_label( Nodecl::NodeclBase n )
+    Nodecl::NodeclBase Node::get_graph_label( )
     {
         if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
         {
             Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
             if( has_key( _NODE_LABEL ) )
             {
-                res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, n );
+                res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, Nodecl::NodeclBase::null( ) );
             }
             return res;
         }

@@ -70,8 +70,6 @@ namespace Utils {
         bool operator==( const InductionVariableData& rhs ) const;
     };
 
-    typedef std::multimap<int, InductionVariableData> InductionVarsPerNode;
-
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 
@@ -79,6 +77,10 @@ namespace Utils {
 
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
+
+    typedef std::multimap<int, InductionVariableData> InductionVarsPerNode;
+
+    void print_node_induction_vars( InductionVarsPerNode ivs );
 
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData> iv_list,
                                                     Nodecl::NodeclBase var );

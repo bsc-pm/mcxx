@@ -37,17 +37,19 @@
 namespace TL {
 namespace Analysis {
 
-    class Node;
-
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
     class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<bool> {
     private:
 
+        // Variables for Induction Variables analysis
         Utils::InductionVarsPerNode _induction_vars;
-
         ExtensibleGraph* _graph;
+
+        // Variables for modified Nodecl visitor
+        Nodecl::NodeclBase _constant;           /*!< Nodecl to be checked of being constant */
+        bool _defining;                         /*!< Boolean used during the visit indicating whether we are in a defining context */
 
         //! Recursive method that actually computes the induction variables of \_graph
         void compute_induction_variables_rec( Node* current );
@@ -67,8 +69,7 @@ namespace Analysis {
         bool only_definition_is_in_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
         bool only_definition_is_in_loop( Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop );
 
-        /*!
-         * Deletes those induction variables included in the list during a previous traverse through the loop control
+        /*!Deletes those induction variables included in the list during a previous traverse through the loop control
          * that are redefined within the loop
          * \param node Node in the graph we are analysing
          * \param loop_node Outer loop node where is contained the node we are checking
@@ -77,22 +78,29 @@ namespace Analysis {
 
         bool is_loop_invariant_rec( Node* node, int id_end );
 
-
-        // Private members used in modified symbol visitor //
-
-        Nodecl::NodeclBase _constant;           /*!< Nodecl to be checked of being constant */
-        bool _defining;                         /*!< Boolean used during the visit indicating whether we are in a defining context */
-
-        // * Private methods for modified symbols visitor //
-
-        //! Visiting method for any kind of assignment
-        bool visit_assignment(Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
-        //! Visiting method for any kind of function call
-        bool visit_function(Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments);
-
-        //! Specialization of join_list Visitor method for lists of booleans
-        virtual bool join_list(TL::ObjectList<bool>& list);
-
+        // ********** Modified Symbol Visitor ********** //
+        //!The Visitor returns true in case the symbol is modified, and false otherwise
+        bool visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
+        bool visit_function( Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments );
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::ClassMemberAccess& n );
+        Ret visit( const Nodecl::Dereference& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::FunctionCall& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::Symbol& n );
+        Ret visit( const Nodecl::VirtualFunctionCall& n );
+        bool join_list( TL::ObjectList<bool>& list );
 
     public:
 
@@ -115,36 +123,12 @@ namespace Analysis {
 
         std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping( Node* loop_node ) const;
 
+        Utils::InductionVarsPerNode get_all_induction_vars( ) const;
+
 
         // ******************* Utils ******************* //
 
         void print_induction_variables( Node* node );
-
-
-        // ********** Modified Symbol Visitor ********** //
-
-        /*!This part of the LoopAnalysis class implements a Visitor that checks whether a symbol is modified in a given Nodecl
-         * This is used during the induction variable analysis
-         * The Visitor returns true in case the symbol is modified, and false otherwise
-         */
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Dereference& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::VirtualFunctionCall& n );
     };
 
     // ************************ END class for induction variables analysis ************************* //
@@ -161,14 +145,12 @@ namespace Analysis {
     private:
         Nodecl::NodeclBase _node_to_find;
 
-        //! Specialization of join_list Visitor method for lists of booleans
-        virtual bool join_list( TL::ObjectList<bool>& list );
-
     public:
         MatchingVisitor( Nodecl::NodeclBase nodecl );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
+        bool join_list( TL::ObjectList<bool>& list );
     };
 
     // ************** END visitor matching nodecls for induction variables analysis **************** //

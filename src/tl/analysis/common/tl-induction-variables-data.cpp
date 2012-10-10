@@ -121,6 +121,15 @@ namespace Utils {
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
 
+    void print_node_induction_vars( InductionVarsPerNode ivs )
+    {
+        for( InductionVarsPerNode::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+        {
+            InductionVariableData iv = it->second;
+            std::cerr << "     * " << it->first << "  -->  " << iv.get_variable().get_nodecl().prettyprint() << std::endl;
+        }
+    }
+
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData> iv_list,
                                                     Nodecl::NodeclBase var )
     {
