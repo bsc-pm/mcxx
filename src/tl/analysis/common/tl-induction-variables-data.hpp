@@ -1,0 +1,94 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+
+  This file is part of Mercurium C/C++ source-to-source compiler.
+
+  See AUTHORS file in the top level directory for information
+  regarding developers and contributors.
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+#ifndef TL_INDUCTION_VARIABLES_DATA_HPP
+#define TL_INDUCTION_VARIABLES_DATA_HPP
+
+#include "tl-extended-symbol.hpp"
+#include "tl-nodecl.hpp"
+
+namespace TL {
+namespace Analysis {
+namespace Utils {
+
+    // ********************************************************************************************* //
+    // ************************* Class representing and induction variable ************************* //
+
+    enum InductionVarType {
+        BASIC_IV,
+        DERIVED_IV
+    };
+
+    class LIBTL_CLASS InductionVariableData {
+    private:
+        ExtendedSymbol _var;
+        Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop >*/
+        Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) >*/
+        Nodecl::NodeclBase _stride;     /*!< Stride within a loop >*/
+        InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived >*/
+        Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself >*/
+
+    public:
+        InductionVariableData( ExtendedSymbol var, InductionVarType type, Nodecl::NodeclBase family );
+
+        ExtendedSymbol get_variable() const;
+        void set_variable( Nodecl::NodeclBase s );
+        Nodecl::NodeclBase get_lb( ) const;
+        void set_lb( Nodecl::NodeclBase lb );
+        Nodecl::NodeclBase get_ub( ) const;
+        void set_ub( Nodecl::NodeclBase ub );
+        Nodecl::NodeclBase get_stride( ) const;
+        void set_stride( Nodecl::NodeclBase stride );
+        std::string get_type_as_string( ) const;
+        Nodecl::NodeclBase get_family( ) const;
+
+        bool is_basic( );
+
+        bool operator==( const InductionVariableData& rhs ) const;
+    };
+
+    // *********************** END class representing and induction variable *********************** //
+    // ********************************************************************************************* //
+
+
+
+    // ********************************************************************************************* //
+    // ********************************* Induction Variables utils ********************************* //
+
+    typedef std::multimap<int, InductionVariableData> InductionVarsPerNode;
+
+    void print_node_induction_vars( InductionVarsPerNode ivs );
+
+    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData> iv_list,
+                                                    Nodecl::NodeclBase var );
+
+    // ******************************* END Induction Variables utils ******************************* //
+    // ********************************************************************************************* //
+}
+}
+}
+
+#endif      // TL_INDUCTION_VARIABLES_DATA_HPP

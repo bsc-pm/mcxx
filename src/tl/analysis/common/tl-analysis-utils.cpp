@@ -35,6 +35,9 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
+    // ******************************************************************************************* //
+    // ************************** Common methods with analysis purposes ************************** //
+
     std::string generate_hashed_name(Nodecl::NodeclBase ast)
     {
         std::string result = ast.get_filename();
@@ -49,145 +52,6 @@ namespace Utils {
         return result;
     }
 
-    // *********************************************************************** //
-    // ****************** Assigned Extended Symbols Visitor ****************** //
-
-    AssignedExtSymVisitor::AssignedExtSymVisitor( )
-        : _assigned_ext_syms( ), _is_lhs( false )
-    {}
-
-    ObjectList<ExtendedSymbol> AssignedExtSymVisitor::get_assigned_ext_syms()
-    {
-        return _assigned_ext_syms;
-    }
-
-    void AssignedExtSymVisitor::visit_assignment( Nodecl::NodeclBase ass_lhs, Nodecl::NodeclBase ass_rhs )
-    {
-        //! Keep record of the value of \_lhs for nested assignments
-        bool is_lhs = _is_lhs;
-
-        // Traverse lhs
-        _is_lhs = true;
-        walk( ass_lhs );
-        // Traverse rhs
-        _is_lhs = is_lhs;
-        walk( ass_rhs );
-    }
-
-    void AssignedExtSymVisitor::visit_xx_crements( Nodecl::NodeclBase n )
-    {
-        bool is_lhs = _is_lhs;
-        _is_lhs = true;
-        walk( n );
-        _is_lhs = is_lhs;
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::AddAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArraySubscript& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Assignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::DivAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MinusAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ModAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MulAssignment& n )
-    {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postdecrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postincrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Predecrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Preincrement& n )
-    {
-        visit_xx_crements( n.get_rhs( ) );
-    }
-
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Symbol& n )
-    {
-        if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
-    }
-
-    // **************** End assigned Extended Symbols Visitor **************** //
-    // *********************************************************************** //
-
-
-
-    // *********************************************************************** //
-    // ************************ Top Level Visitor ************************ //
-
     Nodecl::NodeclBase find_main_function( Nodecl::NodeclBase ast )
     {
         TopLevelVisitor tlv;
@@ -195,8 +59,16 @@ namespace Utils {
         return tlv.get_main( );
     }
 
+    // ************************ END common methods with analysis purposes ************************ //
+    // ******************************************************************************************* //
+
+
+
+    // ******************************************************************************************* //
+    // ****************************** Visitor for Top Level nodes ******************************** //
+
     TopLevelVisitor::TopLevelVisitor( )
-        : _main ( Nodecl::NodeclBase::null( ) ), _functions( )
+            : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _filename( "" )
     {}
 
     Nodecl::NodeclBase TopLevelVisitor::get_main( ) const
@@ -211,15 +83,16 @@ namespace Utils {
 
     void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
     {
+        _filename = n.get_filename( );
         walk( n );
     }
 
     TopLevelVisitor::Ret TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while CFG construction '"
-        << codegen_to_str( n.get_internal_nodecl( ),
-                           nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-        << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        nodecl_t intern_n = n.get_internal_nodecl( );
+        WARNING_MESSAGE( "Unhandled node '%s' while PCFG construction of type '%s''",
+                         codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
+                         ast_print_node_type( n.get_kind( ) ) );
         return Ret( );
     }
 
@@ -245,14 +118,17 @@ namespace Utils {
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
     {
-        Symbol sym = n.get_symbol( );
-        ASSERT_MESSAGE( sym.is_valid( ), "TopLevelVisitor::FunctionCode node has an invalid symbol", 0 );
+        if( _filename == n.get_filename( ) )
+        {
+            Symbol sym = n.get_symbol( );
+            ASSERT_MESSAGE( sym.is_valid( ), "TopLevelVisitor::FunctionCode node has an invalid symbol", 0 );
 
-        std::string name = sym.get_name( );
-        if ( name == "main" )
-            _main = n;
+            std::string name = sym.get_name( );
+            if ( name == "main" )
+                _main = n;
 
-        _functions.append( n );
+            _functions.append( n );
+        }
     }
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
@@ -275,8 +151,8 @@ namespace Utils {
 
     TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
-    // ************************ END top level Visitor ************************ //
-    // *********************************************************************** //
+    // **************************** END visitor for Top Level nodes ****************************** //
+    // ******************************************************************************************* //
 }
 }
 }

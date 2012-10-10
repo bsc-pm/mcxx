@@ -220,6 +220,11 @@ namespace Analysis {
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
 
+        //! Container to store TASK nodes to be used when synchronizations are reached
+        std::stack<ObjectList<Node*> > _tasks_to_sync;
+        //! Integer indicating the level of nested tasks we are traversing
+        int _task_level;
+
         //! Counter used to create a unique key for each new node
         int _nid;
 

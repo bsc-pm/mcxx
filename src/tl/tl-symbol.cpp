@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -133,7 +133,7 @@ namespace TL
 
             int max_level = 0;
             char is_dependent = 0;
-            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context,
                     &is_dependent, &max_level);
 
             return std::string(qualified_name);
@@ -151,7 +151,7 @@ namespace TL
 
         return result;
     }
-    
+
     Scope Symbol::get_related_scope() const
     {
         Scope result(_symbol->related_decl_context);
@@ -215,7 +215,7 @@ namespace TL
     {
         return (this->_symbol->kind == SK_FUNCTION);
     }
-    
+
     bool Symbol::is_dependent_friend_function() const
     {
         return (this->_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION);
@@ -302,7 +302,7 @@ namespace TL
     {
         return this->_symbol->entity_specs.alias_to;
     }
-    
+
     bool Symbol::has_alias_to() const
     {
         return (this->_symbol->entity_specs.alias_to != NULL);
@@ -551,7 +551,7 @@ namespace TL
     {
         _symbol->value = n.get_internal_nodecl();
     }
-    
+
     bool Symbol::has_namespace_scope() const
     {
         return _symbol->decl_context.current_scope != NULL
@@ -611,7 +611,7 @@ namespace TL
     {
         return _symbol->entity_specs.asm_specification;
     }
-    
+
     bool Symbol::is_defined() const
     {
         return _symbol->defined;
@@ -640,7 +640,7 @@ namespace TL
     {
         if (_symbol->file != NULL)
             return _symbol->file;
-        else 
+        else
             return "(unknown file)";
     }
 
@@ -742,6 +742,19 @@ namespace TL
         return result;
     }
 
+    ObjectList<TL::Symbol> Symbol::get_function_parameters() const
+    {
+        ObjectList<Symbol> result;
+        if ( is_function( ) )
+        {
+            for (int i = 0; i < _symbol->entity_specs.num_related_symbols; i++)
+            {
+                result.append(_symbol->entity_specs.related_symbols[i]);
+            }
+        }
+        return result;
+    }
+
     bool Symbol::has_gcc_attributes() const
     {
         return (_symbol->entity_specs.num_gcc_attributes > 0);
@@ -776,7 +789,7 @@ namespace TL
     {
         return _symbol->entity_specs.intent_kind;
     }
-    
+
     bool Symbol::is_cray_pointee() const
     {
         return _symbol->entity_specs.is_cray_pointee;

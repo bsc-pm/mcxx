@@ -29,13 +29,13 @@
 namespace TL {
 namespace Analysis {
 
-    ExtensibleGraph::ExtensibleGraph( std::string name, Scope sc, PCFGVisitUtils* utils )
-        : _name( name ), _graph( NULL ), _utils( utils ), _sc( sc ),
+    ExtensibleGraph::ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils )
+        : _name( name ), _graph( NULL ), _utils( utils ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
           _task_nodes_l( ), _func_calls( )
     {
 
-        _graph = create_graph_node( NULL, Nodecl::NodeclBase::null( ), EXTENSIBLE_GRAPH );
+        _graph = create_graph_node( NULL, nodecl, EXTENSIBLE_GRAPH );
         _utils->_last_nodes = ObjectList<Node*>( 1, _graph->get_graph_entry_node( ) );
     }
 
@@ -278,6 +278,10 @@ namespace Analysis {
         {
             if(!parent->has_child(child))
             {
+                if (parent->get_id() == 22 && child->get_id() == 24)
+                {
+                    std::cerr << "22 w 24" << std::endl;
+                }
                 Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
                 parent->set_exit_edge(new_edge);
                 child->set_entry_edge(new_edge);
@@ -602,7 +606,6 @@ namespace Analysis {
             {
                 delete_node( *it );
             }
-            std::cerr << std::endl;
 
             // Connect the node
             connect_nodes( front_parents, new_node, front_entry_edge_types, front_entry_edge_labels );
@@ -836,7 +839,7 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits_in_level( Node* current, Node* outer_node )
     {
-        if( current->is_visited( ) && ( current->get_outer_node( )->get_id( ) == outer_node->get_id( ) ) )
+        if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
         {
 //             std::cerr << "           clear visits in level --> " << current->get_id() << std::endl;
             current->set_visited( false );
@@ -844,6 +847,10 @@ namespace Analysis {
             if( current->is_exit_node( ) )
             {
                 return;
+            }
+            else if( current->is_graph_node( ) )
+            {
+                clear_visits_in_level( current->get_graph_entry_node( ), outer_node );
             }
 
             ObjectList<Node*> children = current->get_children( );
@@ -880,7 +887,7 @@ namespace Analysis {
         }
     }
 
-    void clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
+    void ExtensibleGraph::clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited_aux( ) && ( current->get_outer_node( )->get_id( ) == outer_node->get_id( ) ) )
         {
