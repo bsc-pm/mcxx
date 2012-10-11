@@ -78,11 +78,11 @@ namespace Utils {
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
 
-    typedef std::multimap<int, InductionVariableData> InductionVarsPerNode;
+    typedef std::multimap<int, InductionVariableData*> InductionVarsPerNode;
 
-    void print_node_induction_vars( InductionVarsPerNode ivs );
+    void print_induction_vars( InductionVarsPerNode ivs );
 
-    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData> iv_list,
+    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var );
 
     // ******************************* END Induction Variables utils ******************************* //

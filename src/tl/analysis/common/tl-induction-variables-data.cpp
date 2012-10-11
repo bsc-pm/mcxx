@@ -24,6 +24,8 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include "cxx-codegen.h"
+
 #include "tl-nodecl-utils.hpp"
 #include "tl-induction-variables-data.hpp"
 
@@ -121,22 +123,35 @@ namespace Utils {
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
 
-    void print_node_induction_vars( InductionVarsPerNode ivs )
+    void print_induction_vars( InductionVarsPerNode ivs )
     {
         for( InductionVarsPerNode::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
         {
-            InductionVariableData iv = it->second;
-            std::cerr << "     * " << it->first << "  -->  " << iv.get_variable().get_nodecl().prettyprint() << std::endl;
+            InductionVariableData* iv = it->second;
+            nodecl_t var = iv->get_variable( ).get_nodecl( ).get_internal_nodecl( );
+            nodecl_t lb = iv->get_lb( ).get_internal_nodecl( );
+            nodecl_t ub = iv->get_ub( ).get_internal_nodecl( );
+            nodecl_t stride = iv->get_stride( ).get_internal_nodecl( );
+            std::string type = iv->get_type_as_string( );
+            nodecl_t family = iv->get_family( ).get_internal_nodecl( );
+
+            std::cerr << "     * " << it->first
+                      << "  -->  " << codegen_to_str( var, nodecl_retrieve_context( var ) )
+                      << " [ "     << ( nodecl_is_null( lb ) ? "NULL" : codegen_to_str( lb, nodecl_retrieve_context( lb ) ) )
+                      << " : "     << ( nodecl_is_null( ub ) ? "NULL" : codegen_to_str( ub, nodecl_retrieve_context( ub ) ) )
+                      << " : "     << ( nodecl_is_null( stride ) ? "NULL" : codegen_to_str( stride, nodecl_retrieve_context( stride ) ) )
+                      << " ], ["   << type
+                      << ( nodecl_is_null( family ) ? "" : (": " + std::string( codegen_to_str( family, nodecl_retrieve_context( family ) ) ) ) )
+                      << " ]"      << std::endl;
         }
     }
 
-    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData> iv_list,
+    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var )
     {
-        for( ObjectList<InductionVariableData>::iterator it = iv_list.begin( );
-             it != iv_list.end( ); ++it )
+        for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); it != iv_list.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( it->get_variable().get_nodecl(), var ) )
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var ) )
                 return true;
         }
 

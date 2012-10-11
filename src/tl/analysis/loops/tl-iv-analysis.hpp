@@ -121,14 +121,8 @@ namespace Analysis {
 
         bool induction_vars_l_contains_symbol( Node*, Symbol s ) const;
 
-        std::map<Symbol, Nodecl::NodeclBase> get_induction_vars_mapping( Node* loop_node ) const;
-
         Utils::InductionVarsPerNode get_all_induction_vars( ) const;
 
-
-        // ******************* Utils ******************* //
-
-        void print_induction_variables( Node* node );
     };
 
     // ************************ END class for induction variables analysis ************************* //

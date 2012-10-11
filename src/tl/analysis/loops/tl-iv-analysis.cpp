@@ -99,10 +99,10 @@ namespace Analysis {
                 Nodecl::NodeclBase n = is_basic_induction_variable( *it, loop );
                 if( !n.is_null( ) )
                 {
-                    Utils::InductionVariableData iv = Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
-                                                                                    Utils::BASIC_IV, n );
+                    Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
+                                                                                         Utils::BASIC_IV, n );
                     loop->set_induction_variable( iv );
-                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData>( loop->get_id( ), iv ) );
+                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), iv ) );
                 }
             }
 
@@ -230,10 +230,10 @@ namespace Analysis {
                 Nodecl::NodeclBase iv_family;
                 Nodecl::NodeclBase n = is_derived_induction_variable( *it, current, loop, iv_family );
                 if( !n.is_null( ) ){
-                    Utils::InductionVariableData iv = Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
-                                                                                    Utils::DERIVED_IV, n );
+                    Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
+                                                                                         Utils::DERIVED_IV, n );
                     loop->set_induction_variable( iv );
-                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData>( loop->get_id( ), iv ) );
+                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), iv ) );
                 }
 
             }
@@ -271,7 +271,7 @@ namespace Analysis {
                 rhs_rhs = rhs_.get_rhs( );
             }
 
-            ObjectList<Utils::InductionVariableData> loop_ivs = loop->get_induction_variables( );
+            ObjectList<Utils::InductionVariableData*> loop_ivs = loop->get_induction_variables( );
             _constant = Nodecl::NodeclBase::null( );
             if( Utils::induction_variable_list_contains_variable( loop_ivs, lhs_rhs ) )
             {
@@ -336,7 +336,7 @@ namespace Analysis {
                                  it_ind != _induction_vars.end( ); ++it_ind )
                             {
                                 if( ( it_ind->first == loop->get_id( ) )
-                                    && Nodecl::Utils::equal_nodecls( it_ind->second.get_variable( ).get_nodecl( ),
+                                    && Nodecl::Utils::equal_nodecls( it_ind->second->get_variable( ).get_nodecl( ),
                                                                      it->get_nodecl( ) ) )
                                 {
                                     _induction_vars.erase( it_ind );
@@ -354,7 +354,7 @@ namespace Analysis {
                                 it_ind != _induction_vars.end( ); ++it_ind )
                             {
                                 if( it_ind->first == loop->get_id( )
-                                    && Nodecl::Utils::equal_nodecls( it_ind->second.get_variable( ).get_nodecl( ),
+                                    && Nodecl::Utils::equal_nodecls( it_ind->second->get_variable( ).get_nodecl( ),
                                                                      it->get_nodecl( ) ) )
                                 {
                                     _induction_vars.erase( it_ind );
@@ -491,7 +491,7 @@ namespace Analysis {
 
         for( Utils::InductionVarsPerNode::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it )
         {
-            if ( it->second.get_variable( ).get_symbol( ) == s )
+            if ( it->second->get_variable( ).get_symbol( ) == s )
             {
                 return true;
             }
@@ -581,82 +581,6 @@ namespace Analysis {
         }
 
         return res;
-    }
-
-    std::map<Symbol, Nodecl::NodeclBase> InductionVariableAnalysis::get_induction_vars_mapping(Node* loop_node) const
-    {
-        std::map<Symbol, Nodecl::NodeclBase> result;
-//         std::pair<Induction_::const_iterator, induc_vars_map::const_iterator> actual_ind_vars =
-//                 _induction_vars.equal_range(loop_node->get_id());
-//         for(induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
-//         {
-//             InductionVarInfo* ivar = it->second;
-//             //             std::cerr << "Induction variable: " << ivar->get_symbol().get_name()
-//             //                       << "[" << ivar->get_lb().prettyprint() << ":" << ivar->get_ub().prettyprint() << ":"
-//             //                       << ivar->get_stride().prettyprint() << "]" << std::endl;
-//             Symbol s(ivar->get_symbol());
-//             if (ivar->get_lb().is_null() || ivar->get_ub().is_null() || ivar->get_stride().is_null())
-//             {
-//                 std::cerr << "warning: induction variable '" << s.get_name() << "' has incomplete information (either bounds or stride)."
-//                 << " Check this result manually, it can be wrong" << std::endl;
-//             }
-//             else
-//             {
-//                 result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(),
-//                                                 s.get_filename(), s.get_line());
-//             }
-//         }
-
-        return result;
-    }
-
-
-
-    void InductionVariableAnalysis::print_induction_variables( Node* node )
-    {
-        if( node->is_visited( ) )
-        {
-            node->set_visited( true );
-
-            if( node->is_graph_node( ) )
-            {
-                //! Look for IVs in the inner nodes
-                print_induction_variables( node->get_graph_entry_node( ) );
-
-                //! Check for IVs in the current loop
-                Graph_type type = node->get_graph_type( );
-                if( ( type == LOOP_DOWHILE ) || ( type == LOOP_FOR ) || ( type == LOOP_WHILE )  )
-                {
-                    ObjectList<Utils::InductionVariableData> current_ivs = node->get_induction_variables( );
-                    if( !current_ivs.empty( ) )
-                    {
-                        std::cerr << "INDUCTION VARIABLES for NODE " << node->get_id( );
-                    }
-                    for( ObjectList<Utils::InductionVariableData>::iterator it = current_ivs.begin( );
-                         it != current_ivs.end( ); ++it )
-                    {
-                        nodecl_t var_internal_nodecl = it->get_variable( ).get_nodecl( ).get_internal_nodecl( );
-                        nodecl_t lb_internal_nodecl = it->get_lb( ).get_internal_nodecl( );
-                        nodecl_t ub_internal_nodecl = it->get_ub( ).get_internal_nodecl( );
-                        nodecl_t stride_internal_nodecl = it->get_stride( ).get_internal_nodecl( );
-                        nodecl_t family_internal_nodecl = it->get_family( ).get_internal_nodecl( );
-                        std::cerr << "  - " << codegen_to_str( var_internal_nodecl, nodecl_retrieve_context( var_internal_nodecl ) )
-                                  << "[ " << codegen_to_str( lb_internal_nodecl, nodecl_retrieve_context( lb_internal_nodecl ) ) << " : "
-                                  << codegen_to_str( ub_internal_nodecl, nodecl_retrieve_context( ub_internal_nodecl ) ) << " : "
-                                  << codegen_to_str( stride_internal_nodecl, nodecl_retrieve_context( stride_internal_nodecl ) ) << " ]"
-                                  << ", type: " << it->get_type_as_string( )
-                                  << ", " << codegen_to_str( family_internal_nodecl, nodecl_retrieve_context( family_internal_nodecl ) )
-                                  << std::endl;
-                    }
-                }
-            }
-
-            ObjectList<Node*> children = node->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                print_induction_variables( *it );
-            }
-        }
     }
 
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
@@ -839,7 +763,7 @@ namespace Analysis {
     // **************** Visitor matching nodecls for induction variables analysis ****************** //
 
     MatchingVisitor::MatchingVisitor(Nodecl::NodeclBase nodecl)
-    : _node_to_find(nodecl)
+            : _node_to_find(nodecl)
     {}
 
     bool MatchingVisitor::join_list(TL::ObjectList<bool>& list)

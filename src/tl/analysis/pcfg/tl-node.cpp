@@ -801,13 +801,13 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
-    ObjectList<Utils::InductionVariableData> Node::get_induction_variables( )
+    ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         if( is_loop_node( ) )
         {
-            ObjectList<Utils::InductionVariableData> ivs;
+            ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ))
-                ivs = get_data<ObjectList<Utils::InductionVariableData> >( _INDUCTION_VARS );
+                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
             return ivs;
         }
         else
@@ -817,14 +817,14 @@ namespace Analysis {
         }
     }
 
-    void Node::set_induction_variable( Utils::InductionVariableData iv )
+    void Node::set_induction_variable( Utils::InductionVariableData* iv )
     {
         if( is_loop_node( ) )
         {
-            ObjectList<Utils::InductionVariableData> ivs;
+            ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )
             {
-                ivs = get_data<ObjectList<Utils::InductionVariableData> >( _INDUCTION_VARS );
+                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
             }
 
             ivs.insert( iv );
