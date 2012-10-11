@@ -212,8 +212,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         static Nodecl::NodeclBase get_size_for_dimension(
                 TL::Type array_type,
-                int current_dimension,
-                int num_dimensions,
+                int fortran_dimension,
                 DataReference data_reference);
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);

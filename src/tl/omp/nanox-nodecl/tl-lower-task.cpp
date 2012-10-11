@@ -1168,7 +1168,7 @@ void LoweringVisitor::fill_dependences(
                 Nodecl::NodeclBase dimension_sizes[num_dimensions];
                 for (int dim = 0; dim < num_dimensions; dim++)
                 {
-                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, dim, num_dimensions, dep_expr);
+                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_expr);
 
                     dependency_base_type = dependency_base_type.array_element();
                 }
@@ -1263,7 +1263,7 @@ void LoweringVisitor::fill_dependences(
                         // Lower bound here should be zero since we want all the array
                         lb = const_value_to_nodecl(const_value_get_signed_int(0));
 
-                        size = get_size_for_dimension(contiguous_array_type, 0, num_dimensions, dep_expr);
+                        size = get_size_for_dimension(contiguous_array_type, 1, dep_expr);
                     }
 
                     dependency_offset
@@ -1465,8 +1465,7 @@ void LoweringVisitor::fill_dependences(
 
 Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
         TL::Type array_type,
-        int current_dimension,
-        int num_dimensions,
+        int fortran_dimension,
         DataReference data_reference)
 {
     Nodecl::NodeclBase n = array_type.array_get_size();
@@ -1475,8 +1474,6 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
     if (n.is_null()
             && IS_FORTRAN_LANGUAGE)
     {
-        int fortran_dim = num_dimensions - current_dimension;
-
         // Craft a SIZE
         Source src;
 
@@ -1486,7 +1483,7 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
             expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
         }
 
-        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dim << ")";
+        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
 
         n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
     }
@@ -1540,12 +1537,12 @@ void LoweringVisitor::fill_dimensions(
         {
             dep_type.array_get_bounds(lb, ub);
 
-            if (lb.is_null())
+            if (lb.is_null() && IS_FORTRAN_LANGUAGE)
             {
-                lb = get_lower_bound(dep_expr, n_dims - current_dim);
+                lb = get_lower_bound(dep_expr, current_dim);
             }
 
-            size = dep_type.array_get_size();
+            size = get_size_for_dimension(dep_type, current_dim, dep_expr);
         }
 
         dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
