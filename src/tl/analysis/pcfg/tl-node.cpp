@@ -27,8 +27,8 @@
 #include "cxx-codegen.h"
 #include "cxx-process.h"
 
+#include "tl-analysis-utils.hpp"
 #include "tl-extended-symbol-utils.hpp"
-#include "tl-constants-analysis.hpp"
 #include "tl-edge.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-iv-analysis.hpp"
@@ -759,43 +759,43 @@ namespace Analysis {
     // ****************************************************************************** //
     // **************** Getters and setters for constants analysis ****************** //
 
-    ObjectList<LatticeCellValue> Node::get_lattice_val( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
-        {
-            ObjectList<LatticeCellValue> result;
-            if( has_key( _LATTICE_VALS ) )
-            {
-                result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
-            }
-            return result;
-        }
-        else
-        {
-            internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    void Node::set_lattice_val( LatticeCellValue lcv )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
-        {
-            ObjectList<LatticeCellValue> result;
-            if( has_key( _LATTICE_VALS ) )
-            {
-                result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
-            }
-
-            result.append( lcv );
-            set_data( _LATTICE_VALS, result );
-        }
-        else
-        {
-            internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
+//     ObjectList<LatticeCellValue> Node::get_lattice_val( )
+//     {
+//         if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
+//         {
+//             ObjectList<LatticeCellValue> result;
+//             if( has_key( _LATTICE_VALS ) )
+//             {
+//                 result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
+//             }
+//             return result;
+//         }
+//         else
+//         {
+//             internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
+//                             get_type_as_string( ).c_str( ), _id );
+//         }
+//     }
+//
+//     void Node::set_lattice_val( LatticeCellValue lcv )
+//     {
+//         if( get_data<Node_type>( _NODE_TYPE ) != GRAPH )
+//         {
+//             ObjectList<LatticeCellValue> result;
+//             if( has_key( _LATTICE_VALS ) )
+//             {
+//                 result = get_data<ObjectList<LatticeCellValue> >( _LATTICE_VALS );
+//             }
+//
+//             result.append( lcv );
+//             set_data( _LATTICE_VALS, result );
+//         }
+//         else
+//         {
+//             internal_error( "Requesting Lattice Cell Values list in a GRAPH. Simple node expected.",
+//                             get_type_as_string( ).c_str( ), _id );
+//         }
+//     }
 
     // ************** END getters and setters for constants analysis **************** //
     // ****************************************************************************** //

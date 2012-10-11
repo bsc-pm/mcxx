@@ -357,10 +357,10 @@ namespace Analysis {
             // **************** Getters and setters for constants analysis ****************** //
 
             //! Gets the Lattice Cell values list associated with the node
-            ObjectList<LatticeCellValue> get_lattice_val( );
+//             ObjectList<LatticeCellValue> get_lattice_val( );
 
             //! Sets a new Lattice Cell value to the list of Lattice Cell values
-            void set_lattice_val( LatticeCellValue lcv );
+//             void set_lattice_val( LatticeCellValue lcv );
 
             // ************** END getters and setters for constants analysis **************** //
             // ****************************************************************************** //
