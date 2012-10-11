@@ -479,14 +479,14 @@ namespace Codegen
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
         {
-            file << "(_mm_sub_epi32( _mm_set1_epi32(0),";
+            file << "(_mm_sub_epi32( _mm_setzero_si128(0),";
             walk(node.get_rhs());
             file << "))";
         }
         else if (type.is_signed_short_int() ||
                 type.is_unsigned_short_int())
         {
-            file << "(_mm_sub_epi16( _mm_set1_epi32(0),";
+            file << "(_mm_sub_epi16( _mm_setzero_si128(0),";
             walk(node.get_rhs());
             file << "))";
         }
@@ -494,7 +494,7 @@ namespace Codegen
                 type.is_signed_char() ||
                 type.is_unsigned_char())
         {
-            file << "(_mm_sub_epi8( _mm_set1_epi32(0),";
+            file << "(_mm_sub_epi8( _mm_setzero_si128(0),";
             walk(node.get_rhs());
             file << "))";
         }
@@ -516,11 +516,94 @@ namespace Codegen
             walk(node.get_nest());
             return;
         }
+        else if (src_type.is_signed_int() &&
+                dst_type.is_float()) 
+        { 
+            file << "_mm_cvtepi32_ps("; 
+            walk(node.get_nest());
+            file << ")"; 
 
-        // Intrinsic name
-        file << "_mm_cvt";
- 
-
+        } 
+        else if (src_type.is_float() &&
+                dst_type.is_signed_int()) 
+        { 
+            // C/C++ requires truncated conversion
+            file << "_mm_cvttps_epi32("; 
+            walk(node.get_nest());
+            file << ")"; 
+        } 
+        else if (src_type.is_float() &&
+                (dst_type.is_signed_char() ||
+                 dst_type.is_char())) 
+        {
+            // Saturated conversion
+            file << "_mm_packs_epi16("; 
+            file << "_mm_packs_epi32("; 
+            file << "_mm_cvttps_epi32("; 
+            walk(node.get_nest());
+            file << "),"; 
+            file << "_mm_castps_si128(";
+            walk(node.get_nest());
+            file << ")";
+            //file << "_mm_undefined_si128()"; 
+            file << "),"; 
+            file << "_mm_castps_si128(";
+            walk(node.get_nest());
+            file << ")";
+            //file << "_mm_undefined_si128()"; 
+            file << ")"; 
+        } 
+        else if (src_type.is_float() &&
+                dst_type.is_unsigned_char()) 
+        {
+            // Saturated conversion
+            file << "_mm_packus_epi16("; 
+            file << "_mm_packus_epi32("; 
+            file << "_mm_cvttps_epi32("; 
+            walk(node.get_nest());
+            file << "),"; 
+            file << "_mm_castps_si128(";
+            walk(node.get_nest());
+            file << ")";
+            //file << "_mm_undefined_si128()"; 
+            file << "),"; 
+            file << "_mm_castps_si128(";
+            walk(node.get_nest());
+            //file << "_mm_undefined_si128()"; 
+            file << "))"; 
+        } 
+        else if (src_type.is_signed_int() &&
+                (dst_type.is_signed_char() ||
+                 dst_type.is_char())) 
+        {
+            // Saturated conversion
+            file << "_mm_packs_epi16("; 
+            file << "_mm_packs_epi32("; 
+            walk(node.get_nest());
+            file << ","; 
+            walk(node.get_nest());
+            //file << "_mm_undefined_si128()"; 
+            file << "),"; 
+            walk(node.get_nest());
+            //file << "_mm_undefined_si128()"; 
+            file << ")"; 
+        } 
+        else if (src_type.is_signed_int() &&
+                dst_type.is_unsigned_char()) 
+        {
+            // Saturated conversion
+            file << "_mm_packus_epi16("; 
+            file << "_mm_packus_epi32("; 
+            walk(node.get_nest());
+            file << ","; 
+            walk(node.get_nest());
+            //file << "_mm_undefined_si128()"; 
+            file << ")"; 
+            file << ",";
+            walk(node.get_nest());
+            //file << "_mm_undefined_si128()"; 
+            file << ")"; 
+        }
         /*
         else if (src_type.is_float() &&
                 dst_type.is_double()) 
@@ -533,26 +616,12 @@ namespace Codegen
             file << "pd_ps"; 
         } 
         */
-        // Postfix
-        if (src_type.is_signed_int() &&
-                dst_type.is_float()) 
-        { 
-            file << "epi32_ps"; 
-        } 
-        else if (src_type.is_float() &&
-                dst_type.is_signed_int()) 
-        { 
-            file << "ps_epi32"; 
-        } 
+ 
         else
         {
             fprintf(stderr, "SSE Codegen: Conversion at '%s' is not supported yet.\n", 
                     node.get_locus().c_str());
         }      
-
-        file << "("; 
-        walk(node.get_nest());
-        file << ")"; 
     }
 
     void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
@@ -582,8 +651,8 @@ namespace Codegen
             file << "_epi16"; 
         } 
         else if (type.is_char() || 
-            type.is_signed_char() ||
-            type.is_unsigned_char()) 
+                type.is_signed_char() ||
+                type.is_unsigned_char()) 
         { 
             file << "_epi8"; 
         } 
@@ -611,7 +680,7 @@ namespace Codegen
         TL::Type false_type = false_node.get_type().basic_type();
         TL::Type condiition_type = condition_node.get_type();
 
-        std::stringstream casting;
+        std::string casting;
 
         // Intrinsic name
         file << "_mm_blend";
@@ -628,12 +697,14 @@ namespace Codegen
         {
             // TODO _ps
             file << "v_ps";
+            casting = "(__m128)";
         }
         else if (true_type.is_double()
                 && false_type.is_double())
         {
             // TODO _pd
             file << "v_pd";
+            casting = "(__m128d)";
         }
         else
         {
@@ -642,48 +713,30 @@ namespace Codegen
                     node.get_locus().c_str());
         }
 
-    file << "("; 
-    walk(true_node);
-    file << ", ";
-    walk(false_node);
-    file << ", ";
-
-    if (true_type.is_float()
-            && false_type.is_float())
-    {
-        file << "_mm_castsi128_ps(";
+        file << "("; 
+        walk(true_node);
+        file << ", ";
+        walk(false_node);
+        file << ", "
+            << casting;
         walk(condition_node);
-        file << ")";
-    }
-    else if (true_type.is_double()
-            && false_type.is_double())
-    {
-        file << "_mm_castsi128_pd(";
-        walk(condition_node);
-        file << ")";
-    }
-    else
-    {
-        walk(condition_node);
-    }
+        file << ")"; 
+    }        
 
-    file << ")"; 
-}        
+    void SSEModuleVisitor::visit(const Nodecl::VectorAssignment& node) 
+    { 
+        walk(node.get_lhs());
+        file << " = ";
+        walk(node.get_rhs());
+    }                                                 
 
-void SSEModuleVisitor::visit(const Nodecl::VectorAssignment& node) 
-{ 
-    walk(node.get_lhs());
-    file << " = ";
-    walk(node.get_rhs());
-}                                                 
-
-void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node) 
-{ 
-    TL::Type type = node.get_type().basic_type();
+    void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
 
         // Intrinsic name
         file << "_mm_load";
-        
+
         // Postfix
         if (type.is_float()) 
         { 
@@ -703,7 +756,7 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
-       
+
         file << "("; 
 
         if (type.is_integral_type())
@@ -722,7 +775,7 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
 
         // Intrinsic name
         file << "_mm_store";
-        
+
         // Postfix
         if (type.is_float()) 
         { 
@@ -742,7 +795,7 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
-       
+
         walk(node.get_lhs());
         file << ", ";
         walk(node.get_rhs());
@@ -808,11 +861,11 @@ void SSEModuleVisitor::visit(const Nodecl::VectorLoad& node)
         fprintf(stderr, "SSE Codegen: Unknown node %s at %s.\n",
                 ast_print_node_type(n.get_kind()),
                 n.get_locus().c_str()); 
-/*
-        running_error("SSE Codegen: Unknown node %s at %s.",
-                ast_print_node_type(n.get_kind()),
-                n.get_locus().c_str()); 
-*/
+        /*
+           running_error("SSE Codegen: Unknown node %s at %s.",
+           ast_print_node_type(n.get_kind()),
+           n.get_locus().c_str()); 
+         */
         return Ret(); 
     }
 }
