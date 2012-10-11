@@ -43,8 +43,11 @@ namespace TL
         Nodecl::NodeclBase VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
             Nodecl::ForStatement epilog;
+            AnalysisStaticInfo for_analysis_info(for_statement);
 
+            // TODO: ???
             analyze_loop(for_statement);
+
 
             if (_remain_iterations)
             {

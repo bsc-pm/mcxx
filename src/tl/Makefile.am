@@ -28,10 +28,9 @@ END=
 
 include vectorizer/Sources.am
 
-SUBDIRS = . codegen omp analysis
-
-DIST_SUBDIRS=analysis \
-             vectorizer \
+SUBDIRS = . codegen omp #analysis
+              #analysis \
+DIST_SUBDIRS= vectorizer \
 			 omp \
              instr \
              examples \
@@ -73,6 +72,13 @@ COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/src/mcxx_tl \
     -I $(top_builddir)/lib \
+    -I $(top_builddir)/src/tl/analysis/common \
+    -I $(top_builddir)/src/tl/analysis/pcfg \
+    -I $(top_builddir)/src/tl/analysis/use_def \
+    -I $(top_builddir)/src/tl/analysis/liveness \
+    -I $(top_builddir)/src/tl/analysis/reach_defs \
+    -I $(top_builddir)/src/tl/analysis/loops \
+    -I $(top_builddir)/src/tl/analysis/singleton \
     $(END)
 
 # Silent rules
