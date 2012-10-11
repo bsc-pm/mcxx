@@ -112,6 +112,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void emit_wait_async(Nodecl::NodeclBase construct, OutlineInfo& outline_info);
 
         static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+                Nodecl::NodeclBase dep_expr,
                 Nodecl::NodeclBase * dim_sizes, 
                 Type dep_type, 
                 Source& dims_description, 
@@ -208,6 +209,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+
+        static Nodecl::NodeclBase get_size_for_dimension(
+                TL::Type array_type,
+                int current_dimension,
+                int num_dimensions,
+                DataReference data_reference);
+
+        static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
 };
 
 } }

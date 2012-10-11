@@ -713,6 +713,7 @@ namespace TL
 
     std::string as_expression(const Nodecl::NodeclBase& n)
     {
+        ERROR_CONDITION (n.is_null(), "Cannot create a literal expression from a null node", 0);
         return nodecl_expr_to_source(n.get_internal_nodecl());
     }
 
