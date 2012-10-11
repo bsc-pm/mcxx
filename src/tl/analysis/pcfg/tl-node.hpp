@@ -371,10 +371,10 @@ namespace Analysis {
             // *********** Getters and setters for induction variables analysis ************* //
 
             //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            ObjectList<Utils::InductionVariableData> get_induction_variables();
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( );
 
             //! Set a new induction variable in a loop graph node
-            void set_induction_variable( Utils::InductionVariableData iv );
+            void set_induction_variable( Utils::InductionVariableData* iv );
 
             // ********* END getters and setters for induction variables analysis *********** //
             // ****************************************************************************** //

@@ -33,6 +33,7 @@
 #include "tl-liveness.hpp"
 #include "tl-reaching-definitions.hpp"
 #include "tl-iv-analysis.hpp"
+#include "tl-loop-analysis.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -235,10 +236,10 @@ namespace Analysis {
             Node* enclosing = nodecl_enclosing_pcfg( loop );
             if( enclosing != NULL )
             {
-                ObjectList<Utils::InductionVariableData> ivs = enclosing->get_induction_variables( );
-                for( ObjectList<Utils::InductionVariableData>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+                ObjectList<Utils::InductionVariableData*> ivs = enclosing->get_induction_variables( );
+                for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
                 {
-                    if( Nodecl::Utils::equal_nodecls( it->get_variable( ).get_nodecl( ), n ) );
+                    if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) );
                     {
                         result = true;
                         break;
@@ -257,10 +258,10 @@ namespace Analysis {
             Node* enclosing = nodecl_enclosing_pcfg( loop );
             if( enclosing != NULL )
             {
-                ObjectList<Utils::InductionVariableData> ivs = enclosing->get_induction_variables( );
-                for( ObjectList<Utils::InductionVariableData>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+                ObjectList<Utils::InductionVariableData*> ivs = enclosing->get_induction_variables( );
+                for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
                 {
-                    result.append( it->get_variable( ).get_nodecl( ) );
+                    result.append( ( *it )->get_variable( ).get_nodecl( ) );
                 }
             }
         }
@@ -451,10 +452,15 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "- Induction Variables of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
 
+                // Compute the induction variables of all loops of each PCFG
                 InductionVariableAnalysis iva( *it );
                 iva.compute_induction_variables( );
-                print_node_induction_vars( iva.get_all_induction_vars( ) );
-                // TODO
+
+                // Compute the limits of the induction variables
+                Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars( );
+                LoopAnalysis la( *it, ivs );
+                la.compute_loop_ranges( );
+                print_induction_vars( ivs );
             }
         }
 
