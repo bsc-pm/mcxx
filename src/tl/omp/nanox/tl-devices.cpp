@@ -96,3 +96,218 @@ void DeviceProvider::common_constructor_code()
             _do_not_create_translation_str,
             "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
 }
+
+// shared between all devices!
+void DeviceProvider::get_instrumentation_code(
+        const std::string& task_name,
+        const std::string& struct_typename,
+        const std::string& full_outline_name,
+        const OutlineFlags& outline_flags,
+        AST_t reference_tree,
+        ScopeLink sl,
+        Source& instrument_before,
+        Source& instrument_after)
+{
+    ERROR_CONDITION(!_enable_instrumentation, "Instrumentation is not enabled\n", 0);
+
+    AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
+    FunctionDefinition enclosing_function(function_def_tree, sl);
+    Symbol function_symbol = enclosing_function.get_function_symbol();
+
+    std::string outline_name = get_outline_name(task_name);
+
+    Source uf_name_id, uf_name_descr;
+    Source uf_location_id, uf_location_descr;
+
+    if (Nanos::Version::interface_is_at_least("master", 5019))
+    {
+        // The function name used by instrumentantion may contain template arguments
+        std::string function_name_instr =
+            get_function_name_for_instrumentation(task_name, struct_typename, enclosing_function);
+
+        // The description should contains:
+        //  - FUNC_DECL: The declaration of the function. The function name shall be qualified
+        //  - FILE: The filename
+        //  - LINE: The line number
+        //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
+        //
+        Source extended_descr;
+        if (outline_flags.task_symbol != NULL)
+        {
+            extended_descr << outline_flags.task_symbol.get_type().get_declaration(
+                    outline_flags.task_symbol.get_scope(), outline_flags.task_symbol.get_qualified_name());
+        }
+        else
+        {
+            extended_descr << "void " << "::" << full_outline_name << "("<< struct_typename << ")";
+        }
+
+        extended_descr
+            << "@" << reference_tree.get_file()
+            << "@" << reference_tree.get_line()
+            ;
+
+        instrument_before
+            << "static int nanos_funct_id_init = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+            << "if (nanos_funct_id_init == 0)"
+            << "{"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
+            <<               " \"user-funct-name\", " << outline_name << "," << extended_descr << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
+            << "}"
+            << "nanos_event_t event;"
+            << "event.type = NANOS_BURST_START;"
+            << "event.key = nanos_instr_uf_name_key;"
+            << "nanos_instrument_events(1, &event);"
+            ;
+
+        if (!is_accelerator_device())
+        {
+            instrument_after
+                << "nanos_event_t event;"
+                << "event.type = NANOS_BURST_END;"
+                << "event.key = nanos_instr_uf_name_key;"
+                << "nanos_instrument_events(1, &event);"
+                ;
+        }
+    }
+    else if (Nanos::Version::interface_is_at_least("master", 5017))
+    {
+        instrument_before
+            << "static int nanos_funct_id_init = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+            << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+            << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+            << "if (nanos_funct_id_init == 0)"
+            << "{"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
+            <<               uf_name_id << "," << uf_name_descr << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+            <<               uf_location_id << "," << uf_location_descr << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
+            << "}"
+            << "nanos_event_t events_before[2];"
+            << "events_before[0].type = NANOS_BURST_START;"
+            << "events_before[1].type = NANOS_BURST_START;"
+            << "events_before[0].key = nanos_instr_uf_name_key;"
+            << "events_before[0].value = nanos_instr_uf_name_value;"
+            << "events_before[1].key = nanos_instr_uf_location_key;"
+            << "events_before[1].value = nanos_instr_uf_location_value;"
+            << "nanos_instrument_events(2, events_before);"
+            ;
+        if (!is_accelerator_device())
+        {
+            instrument_after
+                << "nanos_event_t events_after[2];"
+                << "events_after[0].type = NANOS_BURST_END;"
+                << "events_after[1].type = NANOS_BURST_END;"
+                << "events_after[0].key = nanos_instr_uf_name_key;"
+                << "events_after[0].value = nanos_instr_uf_name_value;"
+                << "events_after[1].key = nanos_instr_uf_location_key;"
+                << "events_after[1].value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_after);"
+                ;
+        }
+    }
+    else
+    {
+        instrument_before
+            << "static int nanos_funct_id_init = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+            << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+            << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+            << "if (nanos_funct_id_init == 0)"
+            << "{"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
+            <<               uf_name_id << "," << uf_name_descr << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+            <<               uf_location_id << "," << uf_location_descr << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
+            << "}"
+            << "nanos_event_t events_before[2];"
+            << "events_before[0].type = NANOS_BURST_START;"
+            << "events_before[1].type = NANOS_BURST_START;"
+            << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+            << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+            << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+            << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+            << "nanos_instrument_events(2, events_before);"
+            ;
+
+        if (!is_accelerator_device())
+        {
+            instrument_after
+                << "nanos_event_t events_after[2];"
+                << "events_after[0].type = NANOS_BURST_END;"
+                << "events_after[1].type = NANOS_BURST_END;"
+                << "events_after[0].info.burst.key = nanos_instr_uf_name_key;"
+                << "events_after[0].info.burst.value = nanos_instr_uf_name_value;"
+                << "events_after[1].info.burst.key = nanos_instr_uf_location_key;"
+                << "events_after[1].info.burst.value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_after);"
+                ;
+        }
+    }
+
+    if (is_accelerator_device())
+    {
+        instrument_after << "nanos_instrument_close_user_fun_event();";
+    }
+
+
+    if (outline_flags.task_symbol != NULL)
+    {
+        uf_name_id
+            << "\"" << outline_flags.task_symbol.get_name() << "\""
+            ;
+        uf_location_id
+            << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+            ;
+
+        uf_name_descr
+            << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
+            ;
+        uf_location_descr
+            << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+            << " in construct at '" << reference_tree.get_locus() << "'\""
+            ;
+    }
+    else
+    {
+        uf_name_id
+            << uf_location_id
+            ;
+        uf_location_id
+            << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+            ;
+
+        uf_name_descr
+            << uf_location_descr
+            ;
+        uf_location_descr
+            << "\"Outline from '"
+            << reference_tree.get_locus()
+            << "' in '" << function_symbol.get_qualified_name() << "'\""
+            ;
+    }
+}
+

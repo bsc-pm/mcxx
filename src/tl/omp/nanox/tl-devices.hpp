@@ -119,6 +119,8 @@ namespace Nanox
              */
             DeviceProvider(const std::string& device_name);
 
+            virtual ~DeviceProvider() { }
+
             //! States if this device needs copies
             /*!
               Obsolete function. It always returns true
@@ -247,7 +249,34 @@ namespace Nanox
                     const std::string& struct_typename,
                     const FunctionDefinition& enclosing_function) const = 0;
 
-            virtual ~DeviceProvider() { }
+            /*!
+              This function returns true if the current device is an accelerator. Otherwise It returns false.
+              The accelerator devices must redefine this function
+             */
+            virtual bool is_accelerator_device() const
+            {
+                return false;
+            }
+
+            /*!
+              This function returns the name of the outline function. This name
+              depends of the current device
+             */
+            virtual std::string get_outline_name(const std::string & name) const = 0;
+
+            /*!
+              This function calculates the instrumention code of a task using
+              information of the current device
+             */
+            virtual void get_instrumentation_code(
+                    const std::string& task_name,
+                    const std::string& struct_typename,
+                    const std::string& full_outline_name,
+                    const OutlineFlags& outline_flags,
+                    AST_t reference_tree,
+                    ScopeLink sl,
+                    Source& instrument_before,
+                    Source& instrument_after);
     };
 
     class DeviceHandler
@@ -256,8 +285,8 @@ namespace Nanox
             static DeviceHandler& get_device_handler();
 
             void register_device(DeviceProvider* nanox_device_provider);
-            
-            void register_device(const std::string& str, 
+
+            void register_device(const std::string& str,
                     DeviceProvider* nanox_device_provider);
 
             DeviceProvider* get_device(const std::string& str);
