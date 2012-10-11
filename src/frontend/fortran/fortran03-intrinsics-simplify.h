@@ -506,7 +506,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
 
             int rank = fortran_get_rank_of_type(t);
 
-            if ((rank - dim_) < 0)
+            if ((rank - dim_) <= 0)
                 return nodecl_null();
 
             int i;
