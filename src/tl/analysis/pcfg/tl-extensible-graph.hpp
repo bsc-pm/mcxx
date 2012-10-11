@@ -86,9 +86,6 @@ namespace Analysis {
         //! List of nodes containing task's code
         ObjectList<Node*> _task_nodes_l;
 
-        //! Boolean indicating whether the use-def chains are already computed for the graph
-        char _use_def_computed;
-
         //! List of functions called by the function stored in the graph
         ObjectList<Symbol> _func_calls;
 
@@ -101,14 +98,14 @@ namespace Analysis {
         //! as auxiliary nodes when the graph was created.
         //! It also joins those nodes that are always consecutively executed and non of them
         //! are the target of a jump.
-        void clear_unnecessary_nodes();
+        void clear_unnecessary_nodes( );
 
         //! This method concatenates all those nodes that form a Basic Block in one only node.
         //! It creates a new node containing all the statements and deleted the previous nodes.
-        void concat_sequential_nodes();
+        void concat_sequential_nodes( );
 
 
-        void concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes);
+        void concat_sequential_nodes_recursive( Node* actual_node, ObjectList<Node*>& last_seq_nodes );
 
         //! Prints nodes and relations between them in a string in a recursive way.
         /*!
@@ -119,12 +116,13 @@ namespace Analysis {
         \param indent Indentation for the actual node when it is printed.
         \param subgraph_id Identifier for the actual cluster.
         */
-        void get_nodes_dot_data(Node* actual_node, std::string& dot_graph,
-                                std::vector<std::string>& outer_edges,
-                                std::vector<Node*>& outer_nodes,
-                                std::string indent, int& subgraph_id);
+        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph,
+                                 std::vector<std::string>& outer_edges,
+                                 std::vector<Node*>& outer_nodes,
+                                 std::string indent, int& subgraph_id,
+                                 bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
-        //! Prints both nodes and edges within a cfg subgraph
+        //! Prints both nodes and edges within a pcfg subgraph
                     //! Prints nodes and relations between them in a string in a recursive way.
         /*!
         \param actual_node Source node from which the printing is started.
@@ -134,13 +132,15 @@ namespace Analysis {
         \param indent Indentation for the actual node when it is printed.
         \param subgraph_id Identifier for the actual cluster.
         */
-        void get_dot_subgraph(Node* actual_node, std::string& graph_data,
-                                std::vector<std::string>& outer_edges,
-                                std::vector<Node*>& outer_nodes,
-                                std::string indent, int& subgraph_id);
+        void get_dot_subgraph( Node* actual_node, std::string& graph_data,
+                               std::vector<std::string>& outer_edges,
+                               std::vector<Node*>& outer_nodes,
+                               std::string indent, int& subgraph_id,
+                               bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
-        void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string indent,
+                                bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
          * If both the source and the target do not have an outer node, then true is returned.
@@ -158,16 +158,11 @@ namespace Analysis {
 
         void connect_copied_nodes(Node* old_node);
 
-        //! Set of methods that removes those nodes that can never be reached.
-        void clear_orphaned_nodes(Node* actual_node);
-        void clear_orphaned_nodes_in_subgraph(Node* actual_node);
-        void clear_orphaned_cascade(Node* actual_node);
-
         //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
         //! children nodes properly.
-        void erase_unclassified_nodes(Node* actual);
+        void erase_unclassified_nodes( Node* current );
 
-        void erase_break_nodes(Node* node);
+        void erase_jump_nodes( Node* current );
 
     public:
         // *** Constructors *** //
@@ -176,10 +171,10 @@ namespace Analysis {
         /*!
         \param name Name which will identify the graph.
         */
-        ExtensibleGraph( std::string name, Scope sc, PCFGVisitUtils* utils );
+        ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils );
 
         //! Creates a new graph with the same characteristics of the actual graph
-        ExtensibleGraph* copy( );
+//         ExtensibleGraph* copy( );
 
 
         // *** Modifiers *** //
@@ -275,7 +270,7 @@ namespace Analysis {
                                  Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null( ) );
 
         //! Builds a Flush node and connects it with the existent graph
-        void create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
+        Node* create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
 
         //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
         /*!
@@ -285,7 +280,7 @@ namespace Analysis {
         * \param outer_node Node to which the new nodes will belong to.
         *                   It must be a Graph node.
         */
-        void create_barrier_node( Node* outer_node );
+        Node* create_barrier_node( Node* outer_node );
 
         //! Builds a basic normal node (BASIC_NORMAL_NODE)
         /*!
@@ -336,7 +331,7 @@ namespace Analysis {
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot( );
+        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
 
 
@@ -352,32 +347,26 @@ namespace Analysis {
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
-        Symbol get_function_symbol() const;
+        Symbol get_function_symbol( ) const;
 
         //! Returns the node containing the graph
-        Node* get_graph() const;
+        Node* get_graph( ) const;
 
         //! Returns the list of nodes containing a task which are created within this graph
-        ObjectList<Node*> get_tasks_list() const;
+        ObjectList<Node*> get_tasks_list( ) const;
 
-        //! Returns 1 when the graph has use-def info already computed; otherwise returns 0
-        char has_use_def_computed() const;
+        ObjectList<Symbol> get_function_parameters( ) const;
 
-        //! Sets to 1 the variable containing whether the graph has the use-def info computed
-        void set_use_def_computed(char state);
+        void add_func_call_symbol( Symbol s );
 
-        ObjectList<Symbol> get_function_parameters() const;
-
-        void add_func_call_symbol(Symbol s);
-
-        ObjectList<Symbol> get_function_calls() const;
+        ObjectList<Symbol> get_function_calls( ) const;
 
         // *** Consultants *** //
-        static Node* is_for_loop_increment(Node* node);
+        static Node* is_for_loop_increment( Node* node );
 
 
         // *** Printing methods *** //
-        void print_global_vars() const;
+        void print_global_vars( ) const;
 
 
     friend class PCFGVisitor;

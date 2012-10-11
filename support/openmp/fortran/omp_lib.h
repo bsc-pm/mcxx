@@ -1,6 +1,6 @@
       integer omp_lock_kind, omp_nest_lock_kind, openmp_version
-      parameter (omp_lock_kind = MERCURIUM_INTPTR_T)
-      parameter (omp_nest_lock_kind = MERCURIUM_INTPTR_T)
+      parameter (omp_lock_kind = MERCURIUM_C_INTPTR_T)
+      parameter (omp_nest_lock_kind = MERCURIUM_C_INTPTR_T)
       integer omp_sched_kind
       parameter (omp_sched_kind = 4)
       integer (omp_sched_kind) omp_sched_static, omp_sched_dynamic

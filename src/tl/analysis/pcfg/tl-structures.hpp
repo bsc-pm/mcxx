@@ -59,6 +59,7 @@ namespace Analysis {
         COND_EXPR,                      //! Conditional expression
         EXTENSIBLE_GRAPH,               //! Special graph: this is the most outer graph node in an Extensible Graph
         FUNC_CALL,                      //! Function Call
+        IF_ELSE,                        //! IfElse statement
         LOOP_DOWHILE,                   //! Set of nodes of a for loopm (but the initialization)
         LOOP_FOR,
         LOOP_WHILE,
@@ -72,6 +73,7 @@ namespace Analysis {
         OMP_SINGLE,
         OMP_TASK,
         SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
+        SWITCH                          //! Switch statement
     };
 
     //! Enumeration of the different edge types
@@ -100,12 +102,6 @@ namespace Analysis {
     * Mandatory in all nodes.
     */
     #define _OUTER_NODE    "outer_node"
-
-    /*! \def _SCOPE
-        * Scope where the block code contained in the node is created
-        * Only graph nodes that contain a block of code (all but SPLIT_STMT)
-        */
-    #define _SCOPE         "scope"
 
     /*! \def _NODE_LABEL
     * String containing the label of a node.
@@ -235,37 +231,79 @@ namespace Analysis {
 
 
     // ************************************************************************************************* //
+    // ********************************* Reaching Definitions analysis ********************************* //
+
+    /*! \def _GEN
+     * Map containing the statements that generate a definition of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _GEN                 "gen_stmts"
+
+    /*! \def _REACH_DEFS_IN
+     * Map containing the reaching definitions at the entry of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _REACH_DEFS_IN       "reaching_defs_in"
+
+    /*! \def _REACH_DEFS_OUT
+     * Map containing the reaching definitions at the exit of a given node
+     * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
+     */
+    #define _REACH_DEFS_OUT      "reaching_defs_out"
+
+    /*! \def _AUX_REACH_DEFS
+     * Map containing the propagated reaching definitions in a given point
+     * This variable is used while propagating the reaching definitions among the nodes to differentiate
+     * those definitions performed within the node and those that has been propagated
+     * At the end of the propagation, the reaching definitions stored in this value are copied in the _REACH_DEFS variable
+     * an this is deleted
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */
+    #define _AUX_REACH_DEFS      "aux_reaching_defs"
+
+    // ********************************* Reaching Definitions analysis ********************************* //
+    // ************************************************************************************************* //
+
+
+
+    // ************************************************************************************************* //
     // ****************************************** Auto-scoping ***************************************** //
 
     /*! \def _SHARED
     * Set of symbols with shared auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _SHARED         "shared"
+    #define _SC_SHARED                      "sc_shared"
 
     /*! \def _PRIVATE
     * Set of symbols with private auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _PRIVATE        "private"
+    #define _SC_PRIVATE                     "sc_private"
 
     /*! \def _FIRSTPRIVATE
     * Set of symbols with lastprivate auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _FIRSTPRIVATE    "firstprivate"
+    #define _SC_FIRSTPRIVATE                "sc_firstprivate"
+
+    /*! \def _SHARED_OR_FIRSTPRIVATE
+     * Set of symbols with lastprivate auto-scoping in a task
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
+     */
+    #define _SC_SHARED_OR_FIRSTPRIVATE      "sc_shared_or_firstprivate"
 
     /*! \def _UNDEF_SC
     * Set of symbols with non-computable auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _UNDEF_SC       "undef_scope"
+    #define _SC_UNDEF                       "sc_undef_scope"
 
     /*! \def _RACE
     * Set of symbols in a race situation in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
     */
-    #define _RACE           "race"
+    #define _SC_RACE                        "sc_race"
 
     // **************************************** End auto-scoping *************************************** //
     // ************************************************************************************************* //
@@ -274,29 +312,47 @@ namespace Analysis {
     // ************************************************************************************************* //
     // *************************************** Auto-dependencies *************************************** //
 
+    /*! \def _DEPS_SHARED
+     * Set of symbols classified as PRIVATE during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_PRIVATE       "deps_private"
+
+    /*! \def _DEPS_FIRSTPRIVATE
+     * Set of symbols classified as FIRSTPRIVATE during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_FIRSTPRIVATE  "deps_firstprivate"
+
+    /*! \def _DEPS_SHARED
+     * Set of symbols classified as SHARED during the auto-deps routine
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
+     */
+    #define _DEPS_SHARED        "deps_shared"
+
     /*! \def _IN_DEPS
     * Set of symbols with input dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _IN_DEPS        "input_deps"
+    #define _DEPS_IN            "deps_input"
 
     /*! \def _OUT_DEPS
     * Set of symbols with output dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _OUT_DEPS       "output_deps"
+    #define _DEPS_OUT           "deps_output"
 
     /*! \def _INOUT_DEPS
     * Set of symbols with inout dependence in a task
-    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+    * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
     */
-    #define _INOUT_DEPS     "inout_deps"
+    #define _DEPS_INOUT         "deps_inout"
 
     /*! \def _UNDEF_DEPS
         * Set of symbols with which we are unable to compute the proper dependencies in a task
-        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+        * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
         */
-    #define _UNDEF_DEPS     "undef_deps"
+    #define _DEPS_UNDEF         "deps_undef"
 
     // ************************************* End auto-dependencies ************************************* //
     // ************************************************************************************************* //
@@ -304,45 +360,29 @@ namespace Analysis {
 
 
     /*! \def _INDUCTION_VARS
-    * Map containing the induction variables associated with a Loop Node
-    * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
-    */
-    #define _INDUCTION_VARS "induction_vars"
-
-    /*! \def _REACH_DEFS
-    * Map containing the reaching definitions in a given point
-    * Available in all nodes (Mandatory once the Liveness analysis is performed).
-    */
-    #define _REACH_DEFS      "reaching_defs"
-
-    /*! \def _AUX_REACH_DEFS
-    * Map containing the propagated reaching definitions in a given point
-    * This varaible is used while propagating the reaching definitions among the nodes to differentiate
-    * those definitions performed within the node and those that has been propagated
-    * At the end of the propagation, the reaching definitions stored in this value are copied in the _REACH_DEFS varaible
-    * an this is deleted
-    * Available in all nodes (Mandatory once the Liveness analysis is performed).
-    */
-    #define _AUX_REACH_DEFS      "aux_reaching_defs"
+     * Map containing the induction variables associated with a Loop Node
+     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+     */
+    #define _INDUCTION_VARS     "induction_vars"
 
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat
     */
-    #define _CLAUSES        "clauses"
+    #define _CLAUSES            "clauses"
 
     /*! \def _ARGS
     * Empty clause associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task'.
     */
-    #define _ARGS           "args"
+    #define _ARGS               "args"
 
     //! Definitions of the different edge attributes
     /*! \def _EDGE_TYPE
     * Type of the edge. This will be a value of the enumeration Edge_type.
     * Mandatory in all edges.
     */
-    #define _EDGE_TYPE      "edge_type"
+    #define _EDGE_TYPE          "edge_type"
 
     /*! \def _EDGE_LABEL
     * String containing the label of an edge.

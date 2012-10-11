@@ -490,6 +490,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_FLOATING_LITERAL :
+        case AST_HEXADECIMAL_FLOAT :
             {
 
                 floating_literal_type(expression, nodecl_output);
@@ -10581,8 +10582,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         return;
     }
 
-    int line = line;
-    const char* filename = filename;
+    const char* filename = nodecl_get_filename(braced_initializer);
+    int line = nodecl_get_line(braced_initializer);
 
     char braced_initializer_is_dependent = nodecl_expr_is_type_dependent(braced_initializer);
 
@@ -10690,10 +10691,30 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 // subaggregate is a member.
                 //
                 // C++ Standard 2003
-                if (is_aggregate_type(type_in_context)
-                        && nodecl_get_kind(nodecl_initializer_clause) != NODECL_CXX_BRACED_INITIALIZER
-                        && nodecl_get_kind(nodecl_initializer_clause) != NODECL_C99_DESIGNATED_INITIALIZER)
+
+                if (!is_aggregate_type(type_in_context)
+                        || nodecl_get_kind(nodecl_initializer_clause) == NODECL_CXX_BRACED_INITIALIZER
+                        || nodecl_get_kind(nodecl_initializer_clause) == NODECL_C99_DESIGNATED_INITIALIZER
+                        // A array of chars can be initialized only by one string literal
+                        || (is_array_type(type_in_context)
+                            && is_char_type(array_type_get_element_type(type_in_context))
+                            && nodecl_get_kind(nodecl_get_child(nodecl_initializer_clause, 0)) == NODECL_STRING_LITERAL))
                 {
+                    // In this case, we only handle one element of the list
+                    nodecl_t nodecl_init_output = nodecl_null();
+                    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_in_context, &nodecl_init_output);
+                    if (nodecl_is_err_expr(nodecl_init_output))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(filename, line);
+                        return;
+                    }
+
+                    init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                    i++;
+                }
+                else
+                {
+                    // In this case, we may handle more than one element of the list
                     if (is_array_type(type_in_context))
                     {
                         int j;
@@ -10745,7 +10766,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
                             i++;
                         }
-
                         entry_list_iterator_free(it);
                         entry_list_free(inner_nonstatic_data_members);
                     }
@@ -10753,19 +10773,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     {
                         internal_error("Unexpected type '%s'", print_decl_type_str(type_in_context, decl_context, ""));
                     }
-                }
-                else
-                {
-                    nodecl_t nodecl_init_output = nodecl_null();
-                    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_in_context, &nodecl_init_output);
-                    if (nodecl_is_err_expr(nodecl_init_output))
-                    {
-                        *nodecl_output = nodecl_make_err_expr(filename, line);
-                        return;
-                    }
-
-                    init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
-                    i++;
                 }
             }
 
@@ -11100,19 +11107,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     {
         if (!nodecl_is_null(initializer_clause_list))
         {
-            int num_items = nodecl_list_length(initializer_clause_list);
-
-            if (num_items != 1)
+            // C++ does not accept things like this: int x = {1, 2}
+            CXX_LANGUAGE()
             {
-                if (!checking_ambiguity())
+                int num_items = nodecl_list_length(initializer_clause_list);
+                if (num_items != 1)
                 {
-                    error_printf("%s: error: brace initialization with more than one element is not valid here\n",
-                            nodecl_get_locus(braced_initializer));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: brace initialization with more than one element is not valid here\n",
+                                nodecl_get_locus(braced_initializer));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(
+                            filename, 
+                            line);
+                    return;
                 }
-                *nodecl_output = nodecl_make_err_expr(
-                        filename, 
-                        line);
-                return;
             }
 
             nodecl_t initializer_clause = nodecl_list_head(initializer_clause_list);

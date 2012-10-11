@@ -699,6 +699,9 @@ LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         decl_context_t new_decl_context,
         symbol_map_t* symbol_map);
 
+LIBMCXX_EXTERN type_t* get_interoperable_variant_type(type_t* t);
+LIBMCXX_EXTERN char is_interoperable_variant_type(type_t* t);
+
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);

@@ -642,6 +642,9 @@ namespace TL
             //! States whether the type is a lvalue reference to a class type
             bool is_any_reference_to_class() const;
 
+            //! States that this is an interoperable type. Only meaningful in Fortran
+            bool is_interoperable() const;
+
             //! Returns the referenced type
             Type references_to() const;
 

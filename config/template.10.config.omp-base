@@ -33,3 +33,4 @@ linker_options = -Xlinker --add-needed
 {openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -pthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libcodegen-vector.so
+{openmp} compiler_phase = libtlnanox-smp.so

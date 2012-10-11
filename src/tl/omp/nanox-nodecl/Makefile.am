@@ -24,10 +24,11 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+SUBDIRS=. devices
+
 include ../../Makefile.phases
 
 phases_LTLIBRARIES = libtlnanox-lowering.la
-
 
 libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
 libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
@@ -48,7 +49,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-arguments.cpp \
 								 tl-lower-task.cpp \
 								 tl-lower-taskwait.cpp \
-								 tl-emit-outline.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
 								 tl-lower-single.cpp \
@@ -64,5 +64,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-loop-spawn.cpp \
 								 tl-reduction-common.cpp \
 								 tl-nanox-ptr.cpp \
-								 tl-nanox-ptr.hpp \
+								 tl-devices.cpp \
+								 tl-devices.hpp \
 								 $(END)

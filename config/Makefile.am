@@ -39,6 +39,7 @@ CONFIG_FILES =  \
        50.config.gpu \
        50.config.ocl \
        10.config.omp-base \
+       10.config.analysis-base \
        50.config.omp.mercurium \
        50.config.omp.profiling \
        50.config.omp.fortran \
@@ -66,7 +67,7 @@ include ./Makefile.replace
 BUILT_SOURCES=$(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : template.%
+$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : template.% Makefile
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/template.$@" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install

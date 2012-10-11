@@ -1108,6 +1108,11 @@ namespace TL
         return ::is_any_reference_to_class_type(_type_info);
     }
 
+    bool TL::Type::is_interoperable() const
+    {
+        return ::is_interoperable_variant_type(_type_info);
+    }
+
     bool Type::is_base_class(Type t) const
     {
         return ::class_type_is_base(_type_info, t._type_info);

@@ -96,7 +96,6 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     enum Clause {
-        ATOMIC_CLAUSE,
         AUTO,
         DEP_IN,
         DEP_OUT,
@@ -213,6 +212,18 @@ namespace Analysis {
 
         //! Container to store information about the current context
         std::stack<Nodecl::NodeclBase> _context_nodecl;
+
+        //! Container to store all SECTION nodes within a SECTIONS
+        std::stack<ObjectList<Node*> > _section_nodes;
+
+        //! Container to store the ENTRY and EXIT nodes to be used when the ENVIRONMENT
+        //! creates new nodes
+        std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
+
+        //! Container to store TASK nodes to be used when synchronizations are reached
+        std::stack<ObjectList<Node*> > _tasks_to_sync;
+        //! Integer indicating the level of nested tasks we are traversing
+        int _task_level;
 
         //! Counter used to create a unique key for each new node
         int _nid;

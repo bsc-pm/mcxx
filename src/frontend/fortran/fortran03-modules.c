@@ -70,6 +70,47 @@ static void prepare_statements(sqlite3*);
 static void start_transaction(sqlite3*);
 static void end_transaction(sqlite3*);
 
+static const char* full_name_of_symbol(scope_entry_t* entry)
+{
+    if (entry == NULL)
+    {
+        return uniquestr("<<NULL>>");
+    }
+
+    const char* result = NULL;
+    if (entry->entity_specs.in_module)
+    {
+        if (entry->entity_specs.from_module != NULL)
+        {
+            uniquestr_sprintf(&result, "%s.%s -> %s", 
+                    entry->entity_specs.in_module->symbol_name,
+                    entry->symbol_name,
+                    full_name_of_symbol(entry->entity_specs.alias_to));
+        }
+        else
+        {
+            uniquestr_sprintf(&result, "%s.%s", 
+                    entry->entity_specs.in_module->symbol_name,
+                    entry->symbol_name);
+        }
+    }
+    else
+    {
+        if (entry->entity_specs.from_module != NULL)
+        {
+            uniquestr_sprintf(&result, "%s -> %s", 
+                    entry->symbol_name,
+                    full_name_of_symbol(entry->entity_specs.alias_to));
+        }
+        else
+        {
+            uniquestr_sprintf(&result, "%s", entry->symbol_name);
+        }
+    }
+
+    return result;
+}
+
 static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol);
 static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t);
 
@@ -280,6 +321,7 @@ static int safe_atoi(const char *c)
 #include "fortran03-modules-bits.h"
 
 static scope_entry_t* module_being_emitted = NULL;
+static sqlite3_uint64 module_oid_being_loaded = 0;
 
 static rb_red_blk_tree * _oid_map = NULL;
 
@@ -419,7 +461,9 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     get_module_info(handle, &minfo);
 
+    module_oid_being_loaded = minfo.module_oid;
     *module = load_symbol(handle, minfo.module_oid);
+    module_oid_being_loaded = 0;
 
     load_extra_data_from_module(handle, *module);
 
@@ -554,7 +598,7 @@ static void define_schema(sqlite3* handle)
     }
 
     {
-        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, raw_oid);";
+        const char* create_const_value = "CREATE TABLE const_value(INTEGER oid PRIMARY KEY, kind, raw_oid, struct_type);";
         run_query(handle, create_const_value);
     }
 
@@ -739,8 +783,8 @@ static void prepare_statements(sqlite3* handle)
 
     // Multi const values
     DO_PREPARE_STATEMENT(_insert_multi_const_value_stmt, 
-            "INSERT INTO const_value(oid, kind) "
-            "VALUES($OID, $KIND);");
+            "INSERT INTO const_value(oid, kind, struct_type) "
+            "VALUES($OID, $KIND, $STRUCTTYPE);");
     DO_PREPARE_STATEMENT(_insert_multi_const_value_part_stmt, 
             "INSERT INTO multi_const_value(oid_object, oid_part) "
             "VALUES ($OBJECT, $PART);");
@@ -774,7 +818,7 @@ static void prepare_statements(sqlite3* handle)
             "types, symbols FROM type WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_const_value_stmt,
-            "SELECT c.oid, c.kind, c.raw_oid FROM const_value c "
+            "SELECT c.oid, c.kind, c.raw_oid, c.struct_type FROM const_value c "
             "WHERE c.oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_raw_const_value_stmt,
@@ -1867,7 +1911,33 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     run_query(handle, update_symbol_query);
     sqlite3_free(update_symbol_query);
 
-    insert_extended_attributes(handle, symbol);
+    // fprintf(stderr, "-> INSERTING SYMBOL -> %p %s%s%s\n",
+    //         symbol,
+    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol->symbol_name
+    //         );
+
+    if (symbol->kind == SK_MODULE
+            && symbol != module_being_emitted)
+    {
+        // We leave module symbols empty, to avoid dragging everything into the module file
+        // fprintf(stderr, "NOT INSERTING EXTRA DATA OF SYMBOL -> '%s'\n", symbol->symbol_name);
+    }
+    else
+    {
+        // fprintf(stderr, "INSERTING EXTRA DATA OF SYMBOL -> '%s%s%s'\n",
+        //     symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+        //     symbol->entity_specs.in_module != NULL ? "." : "",
+        //     symbol->symbol_name);
+        insert_extended_attributes(handle, symbol);
+    }
+
+    // fprintf(stderr, "<- END INSERTING SYMBOL -> %s%s%s\n",
+    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
+    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol->symbol_name
+    //         );
 
     return result;
 }
@@ -1905,7 +1975,7 @@ static int get_symbol(void *datum,
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
     {
-        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower(name));
+        rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, strtolower(name));
         // Check if this symbol is in the cache and reuse it 
         if (query != NULL)
         {
@@ -1913,7 +1983,13 @@ static int get_symbol(void *datum,
             scope_entry_t* module_symbol = (scope_entry_t*)rb_node_get_info(query);
             (*result) = module_symbol;
             insert_map_ptr(handle, oid, (*result));
-            return 0;
+
+            // If this is not the module being loaded, use the cached symbol
+            // otherwise, load it now
+            if (oid != module_oid_being_loaded)
+            {
+                return 0;
+            }
         }
         else
         {
@@ -1925,24 +2001,42 @@ static int get_symbol(void *datum,
     int i;
     if (query_contains_field(ncols, names, "in_module", &i))
     {
-        // Load the module first
+        // Get the module
         scope_entry_t* in_module = load_symbol(handle, safe_atoull(values[i]));
+
+        scope_entry_t* from_module = NULL;
+        scope_entry_t* alias_to = NULL;
+        if (query_contains_field(ncols, names, "from_module", &i))
+        {
+            from_module = load_symbol(handle, safe_atoull(values[i]));
+            if (query_contains_field(ncols, names, "alias_to", &i))
+            {
+                alias_to = load_symbol(handle, safe_atoull(values[i]));
+            }
+        }
 
         if (in_module != NULL)
         {
-            // Now check if this name is aleady in the module
             for (i = 0; i < in_module->entity_specs.num_related_symbols; i++)
             {
-                // This symbol is already in this module
-                if (strcasecmp(in_module->entity_specs.related_symbols[i]->symbol_name, name) == 0)
+                scope_entry_t* member = in_module->entity_specs.related_symbols[i];
+
+                if (strcasecmp(member->symbol_name, name) == 0
+                        && member->kind == (enum cxx_symbol_kind)symbol_kind
+                        && member->entity_specs.from_module == from_module
+                        && member->entity_specs.alias_to == alias_to)
                 {
-                    // fprintf(stderr, "HIT FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
-                    // Use the existing symbol instead which will be already loaded
-                    *result = in_module->entity_specs.related_symbols[i];
+                    // fprintf(stderr, "SYMBOL %lld '%s.%s' WAS ALREADY LOADED IN ITS MODULE\n", 
+                    //         oid,
+                    //         in_module->symbol_name, member->symbol_name);
+                    (*result) = member;
+                    insert_map_ptr(handle, oid, (*result));
                     return 0;
                 }
             }
-            // fprintf(stderr, "MISS FOR '%s.%s' (OID=%llu)\n", in_module->symbol_name, name, oid);
+            // fprintf(stderr, "SYMBOL %lld '%s.%s' IS NOT ALREADY LOADED IN ITS MODULE\n", 
+            //         oid,
+            //         in_module->symbol_name, name);
         }
     }
 
@@ -1961,10 +2055,10 @@ static int get_symbol(void *datum,
     (*result)->extended_data = calloc(1, sizeof(*((*result)->extended_data)));
     extensible_struct_init(&(*result)->extended_data);
 
+    // static int level = 0;
     // {
-    //     static int level = 0;
     //     scope_entry_t* sym = *result;
-    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //     fprintf(stderr, "%d -> (OID=%llu) LOADING SYMBOL '%s' (%s) with PTR %llu\n", 
     //             level++,
     //             oid,
     //             sym->symbol_name,
@@ -2016,12 +2110,38 @@ static int get_symbol(void *datum,
     // This is a (top-level) module. Keep in the module symbol cache
     if ((*result)->kind == SK_MODULE)
     {
-        rb_tree_insert(CURRENT_COMPILED_FILE->module_symbol_cache, strtolower((*result)->symbol_name), (*result));
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, strtolower((*result)->symbol_name), (*result));
+
+        if (module_oid_being_loaded == oid)
+        {
+            // A module is defined once it is loaded
+            (*result)->defined = 1;
+        }
+    }
+
+    // Is this symbol in a module?
+    if (query_contains_field(ncols, names, "in_module", &i))
+    {
+        // Get the module
+        scope_entry_t* in_module = load_symbol(handle, safe_atoull(values[i]));
+
+        // And add the current symbol (if not added yet)
+        if (in_module != NULL)
+        {
+            // fprintf(stderr, "SYMBOL '%s' IS '%s.%s'\n", (*result)->symbol_name,
+            //         in_module->symbol_name,
+            //         (*result)->symbol_name);
+
+            P_LIST_ADD_ONCE(
+                    in_module->entity_specs.related_symbols,
+                    in_module->entity_specs.num_related_symbols,
+                    (*result));
+        }
     }
 
     // {
     //     scope_entry_t* sym = *result;
-    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL %s (%s) with PTR %llu\n", 
+    //     fprintf(stderr, "%d <- (OID=%llu) FINISHED LOADING SYMBOL '%s' (%s) with PTR %llu\n", 
     //             --level,
     //             oid,
     //             sym->symbol_name,
@@ -2582,10 +2702,13 @@ static sqlite3_uint64 insert_single_const_value(sqlite3* handle, const_value_t* 
     return result;
 }
 
-static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind)
+static sqlite3_uint64 insert_multiple_const_value(sqlite3* handle, const_value_t* v, const_kind_table_t kind, type_t* struct_type)
 {
+    sqlite3_uint64 struct_type_id = insert_type(handle, struct_type);
+
     sqlite3_bind_int64(_insert_multi_const_value_stmt, 1, P2ULL(v));
     sqlite3_bind_int  (_insert_multi_const_value_stmt, 2, kind);
+    sqlite3_bind_int64(_insert_multi_const_value_stmt, 3, struct_type_id);
 
     sqlite3_uint64 result = run_insert_statement(handle, _insert_multi_const_value_stmt);
 
@@ -2625,27 +2748,28 @@ static sqlite3_uint64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_complex(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_COMPLEX);
+        return insert_multiple_const_value(handle, value, CKT_COMPLEX, NULL);
     }
     else if (const_value_is_structured(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_STRUCT);
+        type_t* struct_type = const_value_get_struct_type(value);
+        return insert_multiple_const_value(handle, value, CKT_STRUCT, struct_type);
     }
     else if (const_value_is_array(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_ARRAY);
+        return insert_multiple_const_value(handle, value, CKT_ARRAY, NULL);
     }
     else if (const_value_is_vector(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_VECTOR);
+        return insert_multiple_const_value(handle, value, CKT_VECTOR, NULL);
     }
     else if (const_value_is_string(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_STRING);
+        return insert_multiple_const_value(handle, value, CKT_STRING, NULL);
     }
     else if (const_value_is_range(value))
     {
-        return insert_multiple_const_value(handle, value, CKT_RANGE);
+        return insert_multiple_const_value(handle, value, CKT_RANGE, NULL);
     }
     else
     {
@@ -2670,6 +2794,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
     if (result_query == SQLITE_ROW)
     {
         int column_type = sqlite3_column_type(_select_const_value_stmt, 2);
+        // Single values have a raw_oid
         if (column_type == SQLITE_INTEGER)
         {
             // Single value
@@ -2689,10 +2814,12 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
                 internal_error("Unexpected query result", 0);
             }
         }
+        // Multi values do not have raw_oid
         else if (column_type == SQLITE_NULL)
         {
             // Multi value
             int multival_kind = sqlite3_column_int(_select_const_value_stmt, 1);
+            type_t* struct_type = load_type(handle, sqlite3_column_int64(_select_const_value_stmt, 3));
             sqlite3_reset(_select_const_value_stmt);
 
             // Get the number of items
@@ -2765,7 +2892,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid)
                     }
                 case CKT_STRUCT:
                     {
-                        result = const_value_make_struct(num_elems, list);
+                        result = const_value_make_struct(num_elems, list, struct_type);
                         break;
                     }
                 case CKT_COMPLEX:

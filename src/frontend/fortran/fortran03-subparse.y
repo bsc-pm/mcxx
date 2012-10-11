@@ -15,21 +15,21 @@ program : subparsing
 }
 ;
 
-subparsing : SUBPARSE_STATEMENT block
+subparsing : SUBPARSE_STATEMENT EOS block
 {
-    $$ = $2;
+    $$ = $3;
 }
-| SUBPARSE_EXPRESSION expr EOS
+| SUBPARSE_EXPRESSION EOS expr EOS
 {
-    $$ = $2;
+    $$ = $3;
 }
-| SUBPARSE_EXPRESSION common_name EOS
+| SUBPARSE_EXPRESSION EOS common_name EOS
 {
-    $$ = $2;
+    $$ = $3;
 }
-| SUBPARSE_PROGRAM_UNIT program_unit_seq
+| SUBPARSE_PROGRAM_UNIT EOS program_unit_seq
 {
-    $$ = $2;
+    $$ = $3;
 }
 ;
 

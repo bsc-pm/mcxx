@@ -89,6 +89,14 @@ void CxxBase::pop_scope()
     _scope_stack.pop_back();
 }
 
+void CxxBase::codegen_cleanup()
+{
+    // In some cases, we use the same codegen object to compile one or more
+    // sources (for example, it happens in ompss transformation). For this
+    // reason, we need to restore the codegen status of every symbol.
+    _codegen_status.clear();
+}
+
 void CxxBase::handle_parameter(int n, void* data)
 {
      switch (n)
@@ -4722,7 +4730,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
     }
-
     move_to_namespace_of_symbol(symbol);
     indent();
     file << decl_specifiers << gcc_attributes << declarator << bit_field;
@@ -5462,127 +5469,82 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     if (node.is_null())
         return;
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-           it != children.end();
-           it++)
+    if (node.is<Nodecl::List>())
     {
-        define_generic_entities(
-                *it,
-                decl_sym_fun,
-                def_sym_fun,
-                define_entities_fun,
-                define_entry_fun
-                );
+        Nodecl::List l =  node.as<Nodecl::List>();
+        for (Nodecl::List::iterator it = l.begin();
+                it != l.end();
+                it++)
+        {
+            define_generic_entities(
+                    *it,
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun,
+                    define_entry_fun
+                    );
+        }
     }
-
-    TL::Symbol entry = node.get_symbol();
-    if (entry.is_valid()
-            && entry.get_type().is_valid()
-            && state.walked_symbols.find(entry) == state.walked_symbols.end())
+    else
     {
-        state.walked_symbols.insert(entry);
+        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            define_generic_entities(
+                    *it,
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun,
+                    define_entry_fun
+                    );
+        }
+
+
+        TL::Symbol entry = node.get_symbol();
+        if (entry.is_valid()
+                && entry.get_type().is_valid()
+                && state.walked_symbols.find(entry) == state.walked_symbols.end())
+        {
+            state.walked_symbols.insert(entry);
+
+            C_LANGUAGE()
+            {
+                walk_type_for_symbols(entry.get_type(),
+                        decl_sym_fun,
+                        def_sym_fun,
+                        define_entities_fun
+                        );
+
+                (this->*define_entry_fun)(node, entry, def_sym_fun);
+            }
+
+
+            define_generic_entities(entry.get_value(),
+                    decl_sym_fun,
+                    def_sym_fun,
+                    define_entities_fun,
+                    define_entry_fun
+                    );
+
+            state.walked_symbols.erase(entry);
+        }
 
         C_LANGUAGE()
         {
-            walk_type_for_symbols(entry.get_type(),
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun
-                    );
-
-            (this->*define_entry_fun)(node, entry, def_sym_fun);
+            TL::Type type = node.get_type();
+            if (type.is_valid())
+            {
+                walk_type_for_symbols(
+                        type,
+                        decl_sym_fun,
+                        def_sym_fun,
+                        define_entities_fun);
+            }
         }
 
-
-        define_generic_entities(entry.get_value(),
-                decl_sym_fun,
-                def_sym_fun,
-                define_entities_fun,
-                define_entry_fun
-                );
-
-        state.walked_symbols.erase(entry);
     }
-
-    C_LANGUAGE()
-    {
-        TL::Type type = node.get_type();
-        if (type.is_valid())
-        {
-            walk_type_for_symbols(
-                    type,
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun);
-        }
-    }
-
-#if 0
-    if (node.is<Nodecl::Conversion>())
-    {
-        // Special cases for conversion nodes
-        //
-        // When a pointer or reference to class type (or pointer to member) is
-        // converted from a derived class to a base class, it requires both
-        // classes be defined but since they are pointers, generic
-        // walk_type_for_symbols does not realize this fact. NODECL_CONVERSION
-        // nodes appear where a standard conversion has been applied by the
-        // frontend during typechecking
-        TL::Type dest_type = node.get_type();
-        TL::Type source_type = node.as<Nodecl::Conversion>().get_nest().get_type();
-
-        if ((dest_type.is_any_reference_to_class()
-                    && source_type.is_any_reference_to_class()
-                    && dest_type.no_ref().is_base_class(source_type.no_ref()))
-                || (dest_type.no_ref().is_pointer_to_class()
-                    && source_type.no_ref().is_pointer_to_class()
-                    && dest_type.no_ref().points_to().is_base_class(
-                        source_type.no_ref().points_to()))
-                || (dest_type.no_ref().is_pointer_to_member()
-                    && source_type.no_ref().is_pointer_to_member()
-                    // This is OK, for pointers to members conversion is Base to Derived (not Derived to Base)
-                    && source_type.no_ref().pointed_class().is_base_class(
-                        dest_type.no_ref().pointed_class())))
-        {
-            TL::Type base_class(NULL);
-            TL::Type derived_class(NULL);
-
-            if (dest_type.is_any_reference_to_class()
-                        && source_type.is_any_reference_to_class())
-            {
-                base_class = dest_type.no_ref();
-                derived_class = source_type.no_ref();
-            }
-            else if (dest_type.no_ref().is_pointer_to_class()
-                    && source_type.no_ref().is_pointer_to_class())
-            {
-                base_class = dest_type.no_ref().points_to();
-                derived_class = source_type.no_ref().points_to();
-            }
-            else if (dest_type.no_ref().is_pointer_to_member()
-                    && source_type.no_ref().is_pointer_to_member())
-            {
-                base_class = source_type.no_ref().pointed_class();
-                derived_class = dest_type.no_ref().pointed_class();
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-
-            walk_type_for_symbols(base_class,
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun);
-            walk_type_for_symbols(derived_class,
-                    decl_sym_fun,
-                    def_sym_fun,
-                    define_entities_fun);
-        }
-    }
-#endif
 }
 
 void CxxBase::entry_just_define(
@@ -5994,11 +5956,11 @@ void CxxBase::set_indent_level(int n)
 
 void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 {
-    Nodecl::List::const_iterator it = list.begin();
+    Nodecl::List::const_iterator it = list.begin(), begin = it;
 
     while (it != list.end())
     {
-        if (it != list.begin())
+        if (it != begin)
         {
             file << separator;
         }

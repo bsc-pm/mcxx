@@ -45,6 +45,8 @@ namespace Codegen
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
+            void codegen_cleanup();
+
             void handle_parameter(int n, void* data);
 
             Ret visit(const Nodecl::Add &);

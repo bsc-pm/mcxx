@@ -256,7 +256,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %%
  /* preprocess */
 
-"#" { 
+^[ \t]*# { 
     BEGIN(preprocess); 
 }
 
@@ -1347,8 +1347,8 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 
 	scanning_now.scanning_buffer = yy_scan_string(str);
 
-	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
+    yy_set_bol(1);
 
 	return 0;
 }
@@ -1374,8 +1374,8 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 
 	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
-	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
+    yy_set_bol(1);
 
 	return 0;
 }
@@ -1387,6 +1387,7 @@ void close_scanned_file(void)
     if (scanning_now.file_descriptor != NULL)
     {
         fclose(scanning_now.file_descriptor);
+        scanning_now.file_descriptor = NULL;
     }
 }
 

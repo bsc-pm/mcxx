@@ -470,7 +470,7 @@ namespace TL
         source_language_t kept_language;
         switch_language(kept_language);
 
-        std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
+        std::string mangled_text = subparsing_prefix + "\n" + this->get_source(true);
 
         prepare_lexer(mangled_text.c_str());
 

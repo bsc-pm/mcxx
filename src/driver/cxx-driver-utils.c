@@ -222,6 +222,7 @@ static temporal_file_t new_temporal_file_unix(void)
     {
         return NULL;
     }
+    close(file_descriptor);
 
     #if defined(__CYGWIN__)
         // In Windows files without extension look suspicious

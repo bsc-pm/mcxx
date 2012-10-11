@@ -277,7 +277,7 @@ enum intent_kind_tag
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
 
-typedef nodecl_t (*simplify_function_t)(int num_arguments, nodecl_t *arguments);
+typedef nodecl_t (*simplify_function_t)(scope_entry_t* entry, int num_arguments, nodecl_t *arguments);
 
 typedef void (*emission_handler_t)(scope_entry_t*, const char* filename, int line);
 

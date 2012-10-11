@@ -25,8 +25,8 @@
 ##########################################################################
 
 omp_modules = \
-    omp_lib_kinds.mod \
-    omp_lib.mod \
+    omp_lib_kinds.mf03 \
+    omp_lib.mf03 \
     $(END)
 
 EXTRA_DIST=\
@@ -35,9 +35,9 @@ EXTRA_DIST=\
 		   $(END)
 
 CLEANFILES =
-CLEANFILES += $(omp_modules) omp_modules.o
+CLEANFILES += $(omp_modules)
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config
+PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=plainfc --do-not-warn-config --do-not-wrap-modules
 
 configdir=$(pkgdatadir)/fortran/openmp
 config_DATA = \
@@ -52,7 +52,7 @@ PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
 endif
 
 # This is a noop to avoid breaking parallel builds
-omp_lib_kinds.mod : omp_lib.mod
+omp_lib_kinds.mf03 : omp_lib.mf03
 
-omp_lib.mod : $(srcdir)/omp_modules.f90
-	$(PLAINFC_verbose)$(PLAINFC) -c $(srcdir)/omp_modules.f90
+omp_lib.mf03 : $(srcdir)/omp_modules.f90
+	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/omp_modules.f90

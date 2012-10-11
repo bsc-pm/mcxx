@@ -39,6 +39,7 @@ namespace Codegen
         protected:
 
             virtual std::string codegen(const Nodecl::NodeclBase&);
+            virtual void codegen_cleanup();
 
         public:
 
@@ -180,13 +181,18 @@ namespace Codegen
 
                 bool emit_types_as_literals;
 
+                // Instead of using a KIND integer value, emit the appropiate
+                // kind-name from ISO_C_BINDING
+                bool emit_interoperable_types;
+
                 State()
                     : _indent_level(0),
                     in_forall(false),
                     in_interface(false),
                     in_data_value(false),
                     flatten_array_construct(false),
-                    emit_types_as_literals(false)
+                    emit_types_as_literals(false),
+                    emit_interoperable_types(false)
                 {
                 }
             } state;
@@ -194,10 +200,23 @@ namespace Codegen
             struct UseStmtItem
             {
                 TL::Symbol symbol;
+                bool operator==(const UseStmtItem& info) const
+                {
+                    return (this->symbol.get_alias_to() == info.symbol.get_alias_to());
+                }
+                bool operator!=(const UseStmtItem& info) const
+                {
+                    return !this->operator==(info);
+                }
             };
 
             struct UseStmtInfo : std::map<TL::Symbol, TL::ObjectList<UseStmtItem> >
             {
+                bool emit_iso_c_binding;
+
+                UseStmtInfo()
+                    : emit_iso_c_binding(false) { }
+
                 void add_item(TL::Symbol module, TL::Symbol sym)
                 {
                     UseStmtInfo::iterator it = this->find(module);
@@ -214,7 +233,7 @@ namespace Codegen
                     }
                     else
                     {
-                        it->second.append(item);
+                        it->second.insert(item);
                     }
                 }
             };

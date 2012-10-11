@@ -40,23 +40,28 @@ namespace Analysis {
     //! Class implementing Loop Analysis
     class LIBTL_CLASS LoopAnalysis
     {
-    /*!
-     * This part of the LoopAnalysis class implements any analysis performed over a loop
-     */
     private:
-        ObjectList<ExtensibleGraph*> _cfgs;         /*!< List of cfgs available in case of IPA analysis */
+        //! Graph which loop analysis we are performing of
+        ExtensibleGraph* _graph;
+
+        //! Set of induction variables found for the current graph
+        Utils::InductionVarsPerNode _induction_vars;
+
+        //! Recursive method that actually computes the loop ranges of \_graph
+        void compute_loop_ranges_rec( Node* current );
+
+
 
         // *** Private methods *** //
-        void compute_loop_induction_vars( Node* loop_node );
-        void traverse_loop_init( Node* loop_node, Nodecl::NodeclBase init );
-        void traverse_loop_cond( Node* loop_node, Nodecl::NodeclBase cond );
-        void traverse_loop_stride( Node* loop_node, Nodecl::NodeclBase stride );
+//         void traverse_loop_init( Node* loop_node, Nodecl::NodeclBase init );
+//         void traverse_loop_cond( Node* loop_node, Nodecl::NodeclBase cond );
+//         void traverse_loop_stride( Node* loop_node, Nodecl::NodeclBase stride );
 
-        void compute_ranges_for_variables_in_loop( Node* node, Node* loop_node );
+//         void compute_ranges_for_variables_in_loop( Node* node, Node* loop_node );
 
-        Nodecl::NodeclBase set_access_range( Node* node, Node* loop_node, const char use_type, Nodecl::NodeclBase nodecl,
-                                             std::map<Symbol, Nodecl::NodeclBase> ind_var_map,
-                                             Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null( ) );
+//         Nodecl::NodeclBase set_access_range( Node* node, Node* loop_node, const char use_type, Nodecl::NodeclBase nodecl,
+//                                              std::map<Symbol, Nodecl::NodeclBase> ind_var_map,
+//                                              Nodecl::NodeclBase reach_def_var = Nodecl::NodeclBase::null( ) );
 
         /*!
         * Looks for any induction variable contained in a list of nodecls and
@@ -66,43 +71,33 @@ namespace Analysis {
         * \param use_type kind of the list we are analysing; it can be a UpperExposed list, a Killed list, a Undefined_behaviour list
         *                 or a ReachingDefintions list
         */
-        void set_access_range_in_ext_sym_set(Node* node, Node* loop_node, Utils::ext_sym_set nodecl_l, const char use_type);
+//         void set_access_range_in_ext_sym_set( Node* node, Node* loop_node, Utils::ext_sym_set nodecl_l, const char use_type );
         /*!
         * Wrapping method for #set_access_range_in_ext_sym_list in the case we traverse a nodecl map container
         */
-        void set_access_range_in_nodecl_map(Node* node, Node* loop_node, nodecl_map nodecl_m);
+//         void set_access_range_in_nodecl_map( Node* node, Node* loop_node, nodecl_map nodecl_m );
 
 
     public:
 
-        // *** Constructors *** //
         //! Constructor
-        LoopAnalysis( ObjectList<ExtensibleGraph*> cfgs );
+        LoopAnalysis( ExtensibleGraph* graph, Utils::InductionVarsPerNode ivs );
 
+        void compute_loop_ranges( );
 
         // *** Modifiers *** //
         /*!
         * Calculates the induction variables from a loop control
         * \param loop_node node of the graph containing a ForStatement graph node
         */
-        void compute_induction_variables_info( Node* loop_node );
+//         void compute_induction_variables_info( Node* loop_node );
 
         /*!
         * Looks for loops in the graph hanging up from a node and
         * computes the ranges for induction variables of each loop
         * \param node Node form the graph used to start the up-bottom analysis
         */
-        void compute_ranges_for_variables( Node* node );
-
-        /*!
-        * The method recomputes use-def and reaching definitions in a graph taking into account loop information
-        * \param node Node containing the graph to be analysed
-        */
-        void analyse_loops( Node* node );
-
-
-        // *** Utils *** //
-        void print_induction_vars_info( );
+//         void compute_ranges_for_variables( Node* node );
 
         friend class StaticAnalysis;
     };

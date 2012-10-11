@@ -24,18 +24,21 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-nanox-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-utils.hpp"
 
 #include <set>
+#include <stdio.h>
 
 namespace TL { namespace Nanox {
 
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
-        LoweringVisitor();
+        LoweringVisitor(Lowering*);
+        ~LoweringVisitor();
         virtual void visit(const Nodecl::OpenMP::Task& construct);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
@@ -51,6 +54,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
 
     private:
+
+        Lowering* _lowering;
+
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
 
@@ -62,14 +68,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
 
                 OutlineInfo& outline_info);
-
-        void emit_outline(OutlineInfo& outline_info,
-                Nodecl::NodeclBase construct,
-                const std::string& outline_name,
-                TL::Symbol structure_symbol,
-                // out
-                Nodecl::NodeclBase& outline_placeholder,
-                Nodecl::Utils::SymbolMap* &symbol_map);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -129,6 +127,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 bool is_untied,
                 bool mandatory_creation,
+                const ObjectList<std::string>& device_names,
                 Nodecl::NodeclBase construct);
 
         void allocate_immediate_structure(
@@ -205,6 +204,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 int &lower_bound_index, int &upper_bound_index);
 
         Source update_lastprivates(OutlineInfo& outline_info);
+
+        Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
+        Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
+        Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
 };
 
 } }

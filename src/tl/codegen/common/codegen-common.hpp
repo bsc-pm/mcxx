@@ -51,6 +51,8 @@ namespace Codegen
         protected:
             std::stringstream file;
             virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
+            virtual void codegen_cleanup() = 0;
+
         public:
             CodegenVisitor();
 

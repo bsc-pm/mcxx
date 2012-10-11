@@ -78,6 +78,7 @@ typedef enum const_value_kind_tag
 
 typedef struct const_multi_value_tag
 {
+    type_t* struct_type;
     int num_elements;
     const_value_t* elements[];
 } const_multi_value_t;
@@ -1055,6 +1056,25 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 return result;
                 break;
             }
+        case CVK_STRUCT:
+            {
+                nodecl_t list = nodecl_null();
+                int i;
+                for (i = 0; i < v->value.m->num_elements; i++)
+                {
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
+                }
+
+                type_t* t = v->value.m->struct_type;
+
+                nodecl_t result = nodecl_make_structured_value(
+                        list, t,
+                        NULL, 0);
+
+                nodecl_set_constant(result, v);
+                return result;
+                break;
+            }
         default:
             {
                 // The caller should check this case
@@ -1493,11 +1513,19 @@ const_value_t* const_value_make_vector(int num_elements, const_value_t **element
     return result;
 }
 
-const_value_t* const_value_make_struct(int num_elements, const_value_t **elements)
+const_value_t* const_value_make_struct(int num_elements, const_value_t **elements, type_t* struct_type)
 {
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_STRUCT;
+    result->value.m->struct_type = struct_type;
     return result;
+}
+
+type_t* const_value_get_struct_type(const_value_t* v)
+{
+    ERROR_CONDITION(!const_value_is_structured(v), "Invalid constant value", 0);
+
+    return v->value.m->struct_type;
 }
 
 const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements)

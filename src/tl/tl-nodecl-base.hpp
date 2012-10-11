@@ -70,7 +70,8 @@ namespace Nodecl {
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
             int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << ":" << this->get_line(); return ss.str(); }
-            nodecl_t get_internal_nodecl() const { return _n; }
+            const nodecl_t& get_internal_nodecl() const { return _n; }
+            nodecl_t& get_internal_nodecl() { return _n; }
             TL::ObjectList<NodeclBase> children() const { 
                 TL::ObjectList<NodeclBase> result;
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)

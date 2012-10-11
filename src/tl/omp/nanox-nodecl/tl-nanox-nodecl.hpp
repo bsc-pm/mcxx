@@ -36,9 +36,19 @@ namespace TL { namespace Nanox {
     {
         public:
             Lowering();
+
+            virtual void phase_cleanup(DTO& data_flow);
+
             virtual void run(DTO& dto);
             virtual void pre_run(DTO& dto);
+
+            Nodecl::List& get_extra_c_code();
         private:
+            FILE* _ancillary_file;
+            FILE* get_ancillary_file();
+
+            Nodecl::List _extra_c_code;
+
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);
 

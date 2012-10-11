@@ -74,6 +74,14 @@ namespace Codegen
         return result;
     }
 
+    void FortranBase::codegen_cleanup()
+    {
+        // In some cases, we use the same codegen object to compile one or more
+        // sources (for example, it happens in ompss transformation). For this
+        // reason, we need to restore the codegen status of every symbol.
+        _codegen_status.clear();
+    }
+
     namespace
     {
         std::string to_binary(unsigned int t)
@@ -289,6 +297,7 @@ namespace Codegen
         inc_indent();
 
         UseStmtInfo use_stmt_info;
+        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
 
         declare_use_statements(statement_seq, use_stmt_info);
         // Declare USEs that may affect internal subprograms but appear at the
@@ -316,11 +325,20 @@ namespace Codegen
             {
                 std::string type_specifier;
                 std::string array_specifier;
+
+                bool keep_emit_interop = state.emit_interoperable_types;
+                state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+
                 codegen_type(entry.get_type().returns(), type_specifier, array_specifier);
+
+                state.emit_interoperable_types = keep_emit_interop;
 
                 indent();
                 file << type_specifier << " :: " << entry.get_name() << "\n";
             }
+
+            bool keep_emit_interop = state.emit_interoperable_types;
+            state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                     it != related_symbols.end();
@@ -328,6 +346,8 @@ namespace Codegen
             {
                 declare_symbol(*it, it->get_scope());
             }
+
+            state.emit_interoperable_types = keep_emit_interop;
         }
 
         declare_everything_needed(statement_seq);
@@ -1309,6 +1329,7 @@ OPERATOR_TABLE
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
         int pos = 0;
+        bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
             if (pos > 0)
@@ -1327,10 +1348,16 @@ OPERATOR_TABLE
             if (!keyword.is_null()
                     && !called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword.get_symbol().get_type();
-                if (!keyword.get_symbol().not_to_be_printed())
+                TL::Symbol keyword_symbol = keyword.get_symbol();
+                parameter_type = keyword_symbol.get_type();
+                if (!keywords_are_mandatory)
                 {
-                    file << keyword.get_symbol().get_name() << " = ";
+                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
+                }
+                if (keywords_are_mandatory
+                        && !keyword_symbol.not_to_be_printed())
+                {
+                    file << keyword_symbol.get_name() << " = ";
                 }
             }
             else if (pos < parameter_types.size())
@@ -1359,7 +1386,16 @@ OPERATOR_TABLE
                                 && !is_fortran_representable_pointer(arg_type))
                             || !is_ref)
                     {
-                        walk(arg);
+                        if (parameter_type.points_to().get_unqualified_type().is_char())
+                        {
+                            file << "(";
+                            walk(arg);
+                            file << ") // ACHAR(0)";
+                        }
+                        else
+                        {
+                            walk(arg);
+                        }
                     }
                     else
                     {
@@ -2447,20 +2483,12 @@ OPERATOR_TABLE
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
-        if (sym.is_from_module())
-        {
-            sym = sym.aliased_from_module();
-        }
+        ERROR_CONDITION(!sym.is_valid(), "Invalid symbol", 0);
         _codegen_status[sym] = status;
     }
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
-        if (sym.is_from_module())
-        {
-            sym = sym.aliased_from_module();
-        }
-
         std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
         if (it == _codegen_status.end())
@@ -2764,6 +2792,8 @@ OPERATOR_TABLE
             emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
         }
 
+        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
+
         emit_collected_use_statements(use_stmt_info);
 
         // Import statements
@@ -2798,8 +2828,6 @@ OPERATOR_TABLE
                         // has not been emitted yet
                         (!class_type.is_from_module()
                             || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
-                        // The symbol should not be in the current module
-                        && !class_type.is_in_module()
                         // And its related entry should not be ours
                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
@@ -2834,12 +2862,18 @@ OPERATOR_TABLE
             file << type_specifier << " :: " << entry.get_name() << "\n";
         }
 
+        bool keep_emit_interop = state.emit_interoperable_types;
+        state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
         {
             declare_symbol(*it, it->get_scope());
         }
+
+        state.emit_interoperable_types = keep_emit_interop;
+
         dec_indent();
 
         pop_declaring_entity();
@@ -3133,6 +3167,19 @@ OPERATOR_TABLE
                 }
             }
 
+            if (entry.is_bind_c())
+            {
+                Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
+                if (bind_name.is_null())
+                {
+                    attribute_list += ", BIND(C)";
+                }
+                else
+                {
+                    attribute_list += ", BIND(C, NAME=" + codegen_to_str(bind_name, entry.get_scope()) + ")";
+                }
+            }
+
             declare_everything_needed_by_the_type(entry.get_type(), entry.get_scope());
 
             if (!entry.get_value().is_null())
@@ -3140,6 +3187,7 @@ OPERATOR_TABLE
                 declare_everything_needed(entry.get_value());
 
                 if (entry.is_static()
+                        || entry.is_member()
                         || (entry.get_type().is_const()
                             && entry.get_value().is_constant()))
                 {
@@ -3160,8 +3208,13 @@ OPERATOR_TABLE
 
             if (!is_function_pointer)
             {
+                bool keep_emit_interop = state.emit_interoperable_types;
+                state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+
                 codegen_type_extended(declared_type, type_spec, array_specifier,
                         /* force_deferred_shape */ entry.is_allocatable());
+
+                state.emit_interoperable_types = keep_emit_interop;
             }
             else
             {
@@ -3316,19 +3369,25 @@ OPERATOR_TABLE
                 }
                 return;
             }
-            if (entry.is_intrinsic())
+            if (entry.is_intrinsic()
+                    && !entry.is_from_module())
             {
                 // Improve this
-                TL::Symbol generic_entry = ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                TL::Symbol generic_entry = 
+                    ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
                 if (TL::Symbol(generic_entry) == entry)
                 {
                     indent();
                     file << "INTRINSIC :: " << entry.get_name() << "\n";
                 }
-                else
+                else if (generic_entry.is_valid())
                 {
                     declare_symbol(generic_entry, generic_entry.get_scope());
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
             else if (entry.is_generic_specifier())
@@ -3384,8 +3443,15 @@ OPERATOR_TABLE
                 {
                     std::string type_spec;
                     std::string array_specifier;
+
+                    bool keep_emit_interop = state.emit_interoperable_types;
+                    state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+
                     codegen_type(function_type.returns(), 
                             type_spec, array_specifier);
+
+                    state.emit_interoperable_types = keep_emit_interop;
+
                     file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
                 }
                 else
@@ -3510,7 +3576,24 @@ OPERATOR_TABLE
             clear_renames();
 
             indent();
-            file << "TYPE :: " << real_name << "\n";
+            file << "TYPE :: " << real_name;
+
+            if (entry.is_bind_c())
+            {
+                Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
+                if (bind_name.is_null())
+                {
+                    file << ", BIND(C)";
+                }
+                else
+                {
+                    file << ", BIND(C, NAME=";
+                    walk(bind_name);
+                    file << ")";
+                }
+            }
+
+            file << "\n";
 
             bool previous_was_bitfield = false;
             int first_bitfield_offset = 0;
@@ -3679,7 +3762,9 @@ OPERATOR_TABLE
         indent();
         file << "IMPLICIT NONE\n";
 
-        // Now emit additional access-statements that might be needed for these
+        std::set<std::string> private_names;
+
+        // Now remember additional access-statements that might be needed for these
         // USEd symbols
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -3689,16 +3774,13 @@ OPERATOR_TABLE
             if (sym.is_from_module()
                     && sym.get_access_specifier() == AS_PRIVATE)
             {
-                // If sym has a private access specifier, state so
-                indent();
-                file << "PRIVATE :: ";
                 if (sym.is_generic_specifier())
                 {
-                    file << get_generic_specifier_str(sym.get_name()) << "\n";
+                    private_names.insert(get_generic_specifier_str(sym.get_name()));
                 }
                 else
                 {
-                    file << sym.get_name() << "\n";
+                    private_names.insert(sym.get_name());
                 }
             }
         }
@@ -3711,6 +3793,8 @@ OPERATOR_TABLE
 
         push_declaring_entity(entry);
 
+        // Now remember additional access-statements that might be needed for
+        // symbols in this module
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
@@ -3728,9 +3812,24 @@ OPERATOR_TABLE
             if (sym.get_access_specifier() == AS_PRIVATE)
             {
                 // If it has a private access specifier, state so
-                indent();
-                file << "PRIVATE :: " << sym.get_name() << "\n";
+                private_names.insert(sym.get_name());
             }
+        }
+
+        if (!private_names.empty())
+        {
+            indent();
+            file << "PRIVATE :: ";
+            for (std::set<std::string>::iterator it = private_names.begin();
+                    it != private_names.end();
+                    it++)
+            {
+                if (it != private_names.begin())
+                    file << ", ";
+
+                file << *it;
+            }
+            file << std::endl;
         }
 
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
@@ -4088,6 +4187,8 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
+        use_stmt_info.emit_iso_c_binding = use_stmt_info.emit_iso_c_binding || entry.is_bind_c();
+
         if (entry.is_from_module())
         {
             codegen_use_statement(entry, sc, use_stmt_info);
@@ -4156,6 +4257,8 @@ OPERATOR_TABLE
                     TL::Symbol class_entry = entry_type.get_symbol();
                     emit_use_statement_if_symbol_comes_from_module(class_entry, sc, use_stmt_info);
                 }
+
+                use_stmt_info.emit_iso_c_binding = use_stmt_info.emit_iso_c_binding || entry_type.is_interoperable();
             }
             else if (entry.is_fortran_namelist())
             {
@@ -4233,12 +4336,23 @@ OPERATOR_TABLE
 
     void FortranBase::emit_collected_use_statements(UseStmtInfo& use_stmt_info)
     {
+        if (use_stmt_info.emit_iso_c_binding)
+        {
+            indent();
+            file << "USE, INTRINSIC :: iso_c_binding\n";
+        }
+
         for (UseStmtInfo::iterator it = use_stmt_info.begin();
                 it != use_stmt_info.end();
                 it++)
         {
             TL::Symbol module = it->first;
             TL::ObjectList<UseStmtItem> &item_list(it->second);
+
+            if (module.is_intrinsic()
+                    && module.get_name() == "iso_c_binding"
+                    && use_stmt_info.emit_iso_c_binding)
+                continue;
 
             std::string module_nature = " ";
             if (module.is_intrinsic())
@@ -4292,7 +4406,7 @@ OPERATOR_TABLE
                     file
                         << entry.get_name() 
                         << " => "
-                        << get_generic_specifier_str(entry.aliased_from_module().get_name())
+                        << get_generic_specifier_str(entry.get_from_module_name())
                         ;
 
                 }
@@ -4505,22 +4619,102 @@ OPERATOR_TABLE
                 internal_error("unreachable code", 0);
             }
 
-            size_t size = t.get_size();
-            if (t.is_floating_type())
+            bool solved_type = false;
+            if (state.emit_interoperable_types
+                    || t.is_interoperable())
             {
-                // KIND of floats is their size in byes (using the bits as in IEEE754) 
-                size = (floating_type_get_info(t.get_internal_type())->bits) / 8;
-            }
-            else if (t.is_complex())
-            {
-                // KIND of a complex is the KIND of its component type
-                type_t* f = complex_type_get_base_type(t.get_internal_type());
-                size = (floating_type_get_info(f)->bits) / 8;
-            }
+                solved_type = true;
 
-            std::stringstream ss;
-            ss << type_name << "(" << size << ")";
-            type_specifier = ss.str();
+                std::string interoperable_name;
+                if (t.is_signed_char())
+                {
+                    interoperable_name = "C_SIGNED_CHAR";
+                }
+                else if (t.is_signed_short_int())
+                {
+                    interoperable_name = "C_SHORT";
+                }
+                else if (t.is_signed_int())
+                {
+                    interoperable_name = "C_INT";
+                }
+                else if (t.is_signed_long_int())
+                {
+                    interoperable_name = "C_LONG";
+                }
+                else if (t.is_signed_long_long_int())
+                {
+                    interoperable_name = "C_LONG_LONG";
+                }
+                else if (t.is_float())
+                {
+                    interoperable_name = "C_FLOAT";
+                }
+                else if (t.is_double())
+                {
+                    interoperable_name = "C_DOUBLE";
+                }
+                else if (t.is_long_double())
+                {
+                    interoperable_name = "C_LONG_DOUBLE";
+                }
+                else if (t.is_complex())
+                {
+                    TL::Type base = complex_type_get_base_type(t.get_internal_type());
+
+                    if (base.is_float())
+                    {
+                        interoperable_name = "C_FLOAT_COMPLEX";
+                    }
+                    else if (base.is_double())
+                    {
+                        interoperable_name = "C_DOUBLE_COMPLEX";
+                    }
+                    else if (base.is_double())
+                    {
+                        interoperable_name = "C_LONG_DOUBLE_COMPLEX";
+                    }
+                    else
+                    {
+                        solved_type = false;
+                    }
+                }
+                else if (t.is_bool() && t.get_size() == 1)
+                {
+                    interoperable_name = "C_BOOL";
+                }
+                else
+                {
+                    solved_type = false;
+                }
+
+                if (solved_type)
+                {
+                    std::stringstream ss;
+                    ss << type_name << "(" << interoperable_name << ")";
+                    type_specifier = ss.str();
+                }
+            }
+            
+            if (!solved_type)
+            {
+                size_t size = t.get_size();
+                if (t.is_floating_type())
+                {
+                    // KIND of floats is their size in byes (using the bits as in IEEE754) 
+                    size = (floating_type_get_info(t.get_internal_type())->bits) / 8;
+                }
+                else if (t.is_complex())
+                {
+                    // KIND of a complex is the KIND of its component type
+                    type_t* f = complex_type_get_base_type(t.get_internal_type());
+                    size = (floating_type_get_info(f)->bits) / 8;
+                }
+
+                std::stringstream ss;
+                ss << type_name << "(" << size << ")";
+                type_specifier = ss.str();
+            }
         }
         else if (t.is_class())
         {
@@ -4548,14 +4742,31 @@ OPERATOR_TABLE
                     declare_everything_needed(upper_bound);
                 }
 
-                ss << "CHARACTER(LEN=" 
-                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                            this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
-                    << ")";
+                if (state.emit_interoperable_types)
+                {
+                    ss << "CHARACTER(KIND=C_CHAR,LEN=" 
+                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                        << ")";
+                }
+                else
+                {
+                    ss << "CHARACTER(LEN=" 
+                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                        << ")";
+                }
             }
             else
             {
-                ss << "CHARACTER(LEN=*)";
+                if (state.emit_interoperable_types)
+                {
+                    ss << "CHARACTER(KIND=C_CHAR,LEN=*)";
+                }
+                else
+                {
+                    ss << "CHARACTER(LEN=*)";
+                }
             }
 
             type_specifier = ss.str();
@@ -4681,7 +4892,7 @@ OPERATOR_TABLE
             << "(";
 
         TL::Symbol result_var;
-
+        
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -4709,6 +4920,21 @@ OPERATOR_TABLE
             }
         }
         file << ")";
+
+        if (entry.is_bind_c())
+        {
+            Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
+            if (bind_name.is_null())
+            {
+                file << " BIND(C)";
+            }
+            else
+            {
+                file << " BIND(C, NAME=";
+                walk(bind_name);
+                file << ")";
+            }
+        }
 
         if (is_function)
         {

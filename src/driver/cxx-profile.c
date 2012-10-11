@@ -120,6 +120,7 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
     // Copy those fields requiring special copies
     dst->prescanner_options = copy_null_ended_const_char_array(base->prescanner_options);
     dst->preprocessor_options = copy_null_ended_const_char_array(base->preprocessor_options);
+    dst->fortran_preprocessor_options = copy_null_ended_const_char_array(base->fortran_preprocessor_options);
     dst->native_compiler_options = copy_null_ended_const_char_array(base->native_compiler_options);
     dst->linker_options = copy_null_ended_const_char_array(base->linker_options);
 

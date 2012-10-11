@@ -313,6 +313,57 @@ scope_entry_t* query_name_in_class(decl_context_t class_context, const char* nam
     return entry;
 }
 
+scope_entry_t* fortran_get_ultimate_symbol(scope_entry_t* entry)
+{
+    while (entry != NULL
+            && entry->entity_specs.from_module != NULL)
+    {
+        scope_entry_t* aliased = entry->entity_specs.alias_to;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ADVANCING '%s.%s' TO '%s.%s'\n",
+                    entry->entity_specs.from_module->symbol_name,
+                    entry->symbol_name,
+                    (aliased->entity_specs.from_module != NULL
+                     ? aliased->entity_specs.from_module->symbol_name
+                     : (aliased->entity_specs.in_module != NULL
+                         ?  aliased->entity_specs.in_module->symbol_name 
+                         : "<<UNKNOWN-MODULE>>")),
+                    aliased->symbol_name
+                   );
+        }
+        entry = aliased;
+    }
+
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    return entry;
+}
+
+static char mean_the_same_entity(scope_entry_list_t* entry_list)
+{
+    scope_entry_t* entry = NULL;
+    scope_entry_list_iterator_t* it = NULL;
+    char result = 1;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+        if (entry == NULL)
+        {
+            entry = current;
+        }
+        else
+        {
+            result = (fortran_get_ultimate_symbol(entry) == fortran_get_ultimate_symbol(current));
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
 scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
         const char* filename, 
@@ -329,7 +380,8 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
         scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
         if (result_list != NULL)
         {
-            if (entry_list_size(result_list) != 1)
+            if (entry_list_size(result_list) > 1
+                    && !mean_the_same_entity(result_list))
             {
                 if (!checking_ambiguity())
                 {
@@ -376,6 +428,7 @@ scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, con
     return result;
 }
 
+#if 0
 static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
 {
     if (entry_list == 0)
@@ -394,6 +447,37 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
     entry_list_iterator_free(it);
 
     return result;
+}
+#endif
+
+static char one_name_is_generic_specifier(scope_entry_list_t* entry_list)
+{
+    if (entry_list == 0)
+        return 0;
+
+    char result = 1;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry->entity_specs.is_generic_spec)
+        {
+            entry_list_iterator_free(it);
+            return 1;
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return 0;
+}
+
+static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return sym != NULL 
+        && sym->entity_specs.is_generic_spec;
 }
 
 // This routine performs a usual Fortran lookup unless it finds a generic
@@ -422,23 +506,36 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
         {
             // If we find more than one name but not all are generic specifiers
             // this is an ambiguity case
-            if ((entry_list_size(entry_list) > 1)
-                    && !all_names_are_generic_specifiers(entry_list))
+            if (entry_list_size(entry_list) > 1)
             {
-                if (!checking_ambiguity())
+                if (one_name_is_generic_specifier(entry_list))
                 {
-                    error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                    // Get all the generic specifiers only
+                    scope_entry_list_t* generic_specifiers = filter_symbol_using_predicate(entry_list, 
+                            symbol_is_generic_specifier, NULL);
+                    entry_list_free(entry_list);
+                    entry_list = generic_specifiers;
                 }
+                else
+                {
+                    if (!mean_the_same_entity(entry_list))
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                        }
+                    }
 
-                // Give up returning the first result_list found
-                result_list = entry_list_new(entry_list_head(entry_list));
-                entry_list_free(entry_list);
-                return result_list;
+                    // Use the first entry found
+                    result_list = entry_list_new(entry_list_head(entry_list));
+                    entry_list_free(entry_list);
+                    return result_list;
+                }
             }
 
-            // If any name is not a generic specifier do not continue
+            // If no name is not a generic specifier do not continue
             // the lookup
-            if (!all_names_are_generic_specifiers(entry_list))
+            if (!one_name_is_generic_specifier(entry_list))
             {
                 keep_trying = 0;
             }
@@ -466,4 +563,27 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
     }
 
     return result_list;
+}
+
+scope_entry_list_t* fortran_query_module_for_name(scope_entry_t* module_symbol, const char* name)
+{
+    ERROR_CONDITION(module_symbol == NULL
+            || module_symbol->kind != SK_MODULE, "Invalid symbol", 0);
+    ERROR_CONDITION(name == NULL, "Invalid name", 0);
+
+    scope_entry_list_t* result = NULL;
+    int i;
+    for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
+
+        if (strcasecmp(sym->symbol_name, name) == 0
+                // Filter private symbols
+                && sym->entity_specs.access != AS_PRIVATE)
+        {
+            result = entry_list_add_once(result, sym);
+        }
+    }
+
+    return result;
 }

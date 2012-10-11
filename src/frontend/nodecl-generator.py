@@ -536,7 +536,8 @@ def generate_visitor_class_header(rule_map):
     print "class NodeclVisitor<Nodecl::NodeclBase> : public UnhandledNodeclVisitor<Nodecl::NodeclBase>"
     print "{"
     print "   public:"
-    print "     typedef typename UnhandledNodeclVisitor<Nodecl::NodeclBase>::Ret Ret;"
+    print "     // Only GCC 4.6 can compile this typedef"
+    print "     // typedef typename UnhandledNodeclVisitor<Nodecl::NodeclBase>::Ret Ret;"
     print "     virtual Nodecl::NodeclBase join_list(TL::ObjectList<Nodecl::NodeclBase> &list)"
     print "     {"
     print "         return Nodecl::List::make(list);"
@@ -1432,12 +1433,12 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
 
         if copying_function:
-            print "symbol->entity_specs.function_code = result;"
-            print "symbol->related_decl_context = nodecl_get_decl_context(nodecl_get_child(result, 0));"
             print "if (new_function_)"
             print "{"
             print "    symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, (*synth_symbol_map));"
             print "}"
+            print "symbol->entity_specs.function_code = result;"
+            print "symbol->related_decl_context = nodecl_get_decl_context(nodecl_get_child(result, 0));"
 
         if may_have_attr("symbol"):
             print "nodecl_set_symbol(result, symbol);"

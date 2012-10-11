@@ -109,10 +109,6 @@ typedef struct translation_unit_tag
     // This is a cache of module files actually opened and loaded
     rb_red_blk_tree *module_file_cache;
 
-    // This is a cache of module symbols that may have appeared during load of
-    // other caches (this is a superset of module_file_cache)
-    rb_red_blk_tree *module_symbol_cache;
-
     int num_modules_to_wrap;
     module_to_wrap_info_t** modules_to_wrap;
 
@@ -153,7 +149,6 @@ typedef struct debug_options_tag
     char debug_sizeof;
     char do_not_run_gdb;
     char binary_check;
-    char disable_module_cache;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;

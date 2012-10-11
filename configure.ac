@@ -110,9 +110,9 @@ dnl --------------------- end check of old gcc ---
 
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
-INSTALL_CONFIG_FILES="00.config.plain"
+INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95"
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -572,7 +572,7 @@ then
    AC_PATH_PROG([IFORT], [ifort], [])
    if test x$IFORT != x;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95"
+      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
    fi
 
@@ -1000,14 +1000,14 @@ have_int128=no
 
 AC_CHECK_TYPE([__int128], [have_int128=yes])
 
-if test x$have_int128 = xyes; 
+if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
 fi
 
 dnl The idea is that we may have a software implementation of kind=16 not
 dnl relying on __int128
-if test x$have_int128 = xyes; 
+if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi
@@ -1107,10 +1107,11 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/Makefile
            src/tl/analysis/common/Makefile
            src/tl/analysis/pcfg/Makefile
-           src/tl/analysis/constants/Makefile
+           src/tl/analysis/use_def/Makefile
+           src/tl/analysis/liveness/Makefile
+           src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
            src/tl/analysis/singleton/Makefile
-           src/tl/analysis/use_def/Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
@@ -1128,6 +1129,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile
+           src/tl/omp/nanox-nodecl/devices/Makefile
+           src/tl/omp/nanox-nodecl/devices/smp/Makefile
            src/tl/omp/nanox/Makefile
            src/tl/omp/nanox/devices/Makefile
            src/tl/omp/nanox/devices/common/Makefile
@@ -1149,6 +1152,9 @@ AC_CONFIG_FILES([Makefile
            support/iso_fortran/Makefile
            support/openmp/Makefile
            support/openmp/fortran/Makefile
+           support/mpi/Makefile
+           support/mpi/openmpi/Makefile
+           support/mpi/mpich/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile

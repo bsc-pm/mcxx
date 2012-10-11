@@ -33,6 +33,7 @@
 
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol.hpp"
+#include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-pcfg-utils.hpp"
@@ -44,13 +45,6 @@ namespace Analysis {
 
     class Edge;
     class LatticeCellValue;
-    class InductionVariableData;
-
-    typedef std::tr1::unordered_map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_hash,
-                                    Nodecl::Utils::Nodecl_comp> nodecl_map;
-    // This type definition is redefined in tl-iv-analysis.hpp
-    typedef std::tr1::unordered_map<Nodecl::NodeclBase, InductionVariableData, Nodecl::Utils::Nodecl_hash,
-                                    Nodecl::Utils::Nodecl_comp> IV_map;
 
     //! Class representing a Node in the Extensible Graph
     class LIBTL_CLASS Node : public LinkData {
@@ -94,6 +88,7 @@ namespace Analysis {
 
             //! Returns the list of live out variables in the node (Used in composite nodes)
             Utils::ext_sym_set get_live_out_over_nodes();
+
 
         public:
             // *** Constructors *** //
@@ -171,12 +166,6 @@ namespace Analysis {
             void set_visited(bool visited);
             void set_visited_aux(bool visited);
 
-            //! Returns true when the node is a task node and its dependencies have already been calculated
-            bool has_deps_computed();
-
-            //! Sets node dependencies computation to true
-            void set_deps_computed();
-
             //! Returns a boolean indicating whether the node is empty or not
             /*!
             * A empty node is created in the cases when we need a node to be returned but
@@ -217,17 +206,35 @@ namespace Analysis {
             //! Returns the list children nodes of the node.
             ObjectList<Node*> get_children();
 
+            //! States if the current node is strictly enclosed into a potential encloser node
+            bool node_is_enclosed_by( Node* potential_encloser );
+
             //! Returns true when the node is not a composite node (does not contain nodes inside)
             bool is_basic_node();
 
             //! Returns true when the node is a composite node (contains nodes inside)
             bool is_graph_node();
 
-            //! Returns true when the node is an entry node
+            //! Returns true when the node is an ENTRY node
             bool is_entry_node();
 
-            //! Returns true when the node is an exit node
+            //! Returns true when the node is an EXIT node
             bool is_exit_node();
+
+            //! Returns true when the node is a BREAK node
+            bool is_break_node( );
+
+            //! Returns true when the node is a CONTINUE node
+            bool is_continue_node( );
+
+            //! Returns true when the node is a GOTO node
+            bool is_goto_node( );
+
+            //! Returns true when the node is a composed node because the statement it contains has been split
+            bool is_split_statement( );
+
+            //! Returns true when the node is a UNCLASSIFIED node
+            bool is_unclassified_node( );
 
             //! Returns true when the node is the exit node of composite node \graph
             bool is_graph_entry_node( Node* graph );
@@ -235,68 +242,72 @@ namespace Analysis {
             //! Returns true when the node is the exit node of composite node \graph
             bool is_graph_exit_node( Node* graph );
 
-            //! Returns true when the node is a composite node of Loop type
+            //! Returns true when the node is a composite node of LOOP type
             bool is_loop_node( );
 
             bool is_loop_stride( Node* loop );
 
+            //! Returns true when the node is a NORMAL node
             bool is_normal_node( );
 
+            //! Returns true when the node is a LABELED node
             bool is_labeled_node( );
 
+            //! Returns true when the node is a FUNCTION_CALL node
             bool is_function_call_node( );
 
+            //! Returns true when the node is a TASK node
             bool is_task_node( );
 
             //! Returns true when the node is connected to any parent and/or any child
-            bool is_connected();
+            bool is_connected( );
 
             //! Returns true when the node is in its children list
-            bool has_child(Node* n);
+            bool has_child( Node* n );
 
             //! Returns true when the node is in its parents list
-            bool has_parent(Node* n);
+            bool has_parent( Node* n );
 
             //! Returns the symbol of the function call contained in the node
             //! This method only works for composite nodes of type "function_call"
-            Symbol get_function_node_symbol();
+            Symbol get_function_node_symbol( );
 
 
             //! Returns true if the node has the same identifier and the same entries and exits
-            bool operator==(const Node* &n) const;
+            bool operator==( const Node* &n ) const;
 
 
             // ****************************************************************************** //
             // ********** Getters and setters for PCFG structural nodes and types *********** //
 
             //! Returns the node type.
-            Node_type get_type();
+            Node_type get_type( );
 
             //! Returns a string with the node type of the node.
-            std::string get_type_as_string();
+            std::string get_type_as_string( );
 
             //! Returns a string with the graph type of the node.
             //! Node must be a GRAPH_NODE
-            std::string get_graph_type_as_string();
+            std::string get_graph_type_as_string( );
 
             //! Returns the entry node of a Graph node. Only valid for graph nodes
-            Node* get_graph_entry_node();
+            Node* get_graph_entry_node( );
 
             //! Set the entry node of a graph node. Only valid for graph nodes
-            void set_graph_entry_node(Node* node);
+            void set_graph_entry_node( Node* node );
 
             //! Returns the exit node of a Graph node. Only valid for graph nodes
-            Node* get_graph_exit_node();
+            Node* get_graph_exit_node( );
 
             //! Set the exit node of a graph node. Only valid for graph nodes
-            void set_graph_exit_node(Node* node);
+            void set_graph_exit_node( Node* node );
 
             //! Returns the nodecl containing the label of the graph node (Only valid for graph nodes)
             //! If the graph doesn't have a label, a null Nodecl is returned
-            Nodecl::NodeclBase get_graph_label(Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            Nodecl::NodeclBase get_graph_label( );
 
             //! Set the label of the graph node (Only valid for graph nodes)
-            void set_graph_label(Nodecl::NodeclBase n);
+            void set_graph_label( Nodecl::NodeclBase n );
 
             //! Returns type of the graph (Only valid for graph nodes)
             Graph_type get_graph_type( );
@@ -312,33 +323,30 @@ namespace Analysis {
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned
-            Node* get_outer_node();
+            Node* get_outer_node( );
 
             //! Set the node that contains the actual node. It must be a graph node
-            void set_outer_node(Node* node);
+            void set_outer_node( Node* node );
 
-            //! Returns the scope of a graph node containing a block of code.
-            //! If no block is contained in the grah node, then returns an empty scope
-            Scope get_scope();
-
-            //! Set the scope of a graph node containing a block code
-            void set_scope(Scope sc);
+            //! Returns the scope of a node containing a block of code.
+            //! If no block is contained, then returns an empty scope
+            Scope get_node_scope( );
 
             //! Returns the list of statements contained in the node
             //! If the node does not contain statements, an empty list is returned
-            ObjectList<Nodecl::NodeclBase> get_statements();
+            ObjectList<Nodecl::NodeclBase> get_statements( );
 
             //! Set the node that contains the actual node. It must be a graph node
             //! It is only valid for Normal nodes, Labeled nodes or Function Call nodes
-            void set_statements(ObjectList<Nodecl::NodeclBase> stmts);
+            void set_statements( ObjectList<Nodecl::NodeclBase> stmts );
 
             //! Returns the Symbol of the statement label contained in the node
             //! If is only valid for Goto or Labeled nodes
-            Symbol get_label();
+            Symbol get_label( );
 
             //! Returns the symbol of the statement label contained in the node
             //! If is only valid for Goto or Labeled nodes
-            void set_label(Symbol s);
+            void set_label( Symbol s );
 
             // ******** END Getters and setters for PCFG structural nodes and types ********* //
             // ****************************************************************************** //
@@ -349,10 +357,10 @@ namespace Analysis {
             // **************** Getters and setters for constants analysis ****************** //
 
             //! Gets the Lattice Cell values list associated with the node
-            ObjectList<LatticeCellValue> get_lattice_val( );
+//             ObjectList<LatticeCellValue> get_lattice_val( );
 
             //! Sets a new Lattice Cell value to the list of Lattice Cell values
-            void set_lattice_val( LatticeCellValue lcv );
+//             void set_lattice_val( LatticeCellValue lcv );
 
             // ************** END getters and setters for constants analysis **************** //
             // ****************************************************************************** //
@@ -363,10 +371,10 @@ namespace Analysis {
             // *********** Getters and setters for induction variables analysis ************* //
 
             //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            IV_map get_induction_variables();
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( );
 
             //! Set a new induction variable in a loop graph node
-            void set_induction_variable(Nodecl::NodeclBase iv, InductionVariableData iv_data);
+            void set_induction_variable( Utils::InductionVariableData* iv );
 
             // ********* END getters and setters for induction variables analysis *********** //
             // ****************************************************************************** //
@@ -451,22 +459,24 @@ namespace Analysis {
             // ****************************************************************************** //
             // ************ Getters and setters for reaching definitions analysis *********** //
 
-            //! Return the map containing, for each symbol defined until this moment, its correspondent expression
-            nodecl_map get_reaching_definitions();
+            //! Return the map containing all statements containing a generated value
+            Utils::ext_sym_map get_generated_stmts( );
 
-            //! This method computes the reaching definitions of a graph node from the reaching definitions in the nodes within it
-            void set_graph_node_reaching_definitions();
+            //! Include a new map of generated values
+            //! If a definition of the same variable already existed, the is substituted by the new value
+            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+
+            //! Return the map containing all symbols reached at the entry of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_in( );
+
+            //! Return the map containing all symbols reached at the exit of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_out( );
 
             //! Set to one variable a new expression value and append this relationship to the node
-            void set_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
-            void set_reaching_definition_list(nodecl_map reach_defs_l);
-            void rename_reaching_defintion_var(Nodecl::NodeclBase old_var, Nodecl::NodeclBase new_var);
-
-            nodecl_map get_auxiliar_reaching_definitions();
-            void set_auxiliar_reaching_definition(Nodecl::NodeclBase var, Nodecl::NodeclBase init);
-
-            //!Deletes an old reaching definition from the node
-            void unset_reaching_definition(Nodecl::NodeclBase var);
+            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
 
             // ********** END getters and setters for reaching definitions analysis ********* //
             // ****************************************************************************** //
@@ -508,29 +518,38 @@ namespace Analysis {
             // ****************************************************************************** //
             // ************** Getters and setters for task dependence analysis ************** //
 
+            Utils::ext_sym_set get_deps_private_vars( );
+            void set_deps_private_vars( Utils::ext_sym_set new_deps_private_var );
+
+            Utils::ext_sym_set get_deps_firstprivate_vars( );
+            void set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var );
+
+            Utils::ext_sym_set get_deps_shared_vars( );
+            void set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var );
+
             //! Returns the list of input dependences of a task node
-            Utils::ext_sym_set get_input_deps();
+            Utils::ext_sym_set get_deps_in_exprs( );
 
             //! Insert a list of input dependencies to the node
-            void set_input_deps(Utils::ext_sym_set new_input_deps);
+            void set_deps_in_exprs( Utils::ext_sym_set new_in_deps );
 
             //! Returns the list of output dependences of a task node
-            Utils::ext_sym_set get_output_deps();
+            Utils::ext_sym_set get_deps_out_exprs( );
 
             //! Insert a list of output dependencies to the node
-            void set_output_deps(Utils::ext_sym_set new_output_deps);
+            void set_deps_out_exprs( Utils::ext_sym_set new_out_deps );
 
             //! Returns the list of inout dependences of a task node
-            Utils::ext_sym_set get_inout_deps();
+            Utils::ext_sym_set get_deps_inout_exprs( );
 
             //! Insert a list of inout dependencies to the node
-            void set_inout_deps(Utils::ext_sym_set new_inout_deps);
+            void set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps );
 
             //! Returns the list of undefined dependences of a task node
-            Utils::ext_sym_set get_undef_deps();
+            Utils::ext_sym_set get_deps_undef_vars( );
 
             //! Insert a list of undefined dependencies to the node
-            void set_undef_deps(Utils::ext_sym_set new_undef_deps);
+            void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
             // ****************************************************************************** //
@@ -540,33 +559,35 @@ namespace Analysis {
             // ****************************************************************************** //
             // *************** Getters and setters for auto-scoping analysis **************** //
 
-            Utils::ext_sym_set get_shared_vars();
+            // Shared variables
+            Utils::ext_sym_set get_sc_shared_vars( );
+            void set_sc_shared_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_var( Utils::ext_sym_set es_list );
 
-            void set_shared_var(Utils::ExtendedSymbol ei);
+            // Private variables
+            Utils::ext_sym_set get_sc_private_vars( );
+            void set_sc_private_var( Utils::ExtendedSymbol es );
+            void set_sc_private_var( Utils::ext_sym_set es_list );
 
-            void set_shared_var(Utils::ext_sym_set new_shared_vars);
+            // Firstprivate variables
+            Utils::ext_sym_set get_sc_firstprivate_vars( );
+            void set_sc_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_firstprivate_var( Utils::ext_sym_set es_list );
 
-            Utils::ext_sym_set get_private_vars();
+            // Shared or Firstprivate variables
+            Utils::ext_sym_set get_sc_shared_or_firstprivate_vars( );
+            void set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list );
 
-            void set_private_var(Utils::ExtendedSymbol ei);
+            // Undefined variables
+            Utils::ext_sym_set get_sc_undef_vars( );
+            void set_sc_undef_var( Utils::ExtendedSymbol es );
+            void set_sc_undef_var( Utils::ext_sym_set es_list );
 
-            void set_private_var(Utils::ext_sym_set new_private_vars);
-
-            Utils::ext_sym_set get_firstprivate_vars();
-
-            void set_firstprivate_var(Utils::ExtendedSymbol ei);
-
-            void set_firstprivate_var(Utils::ext_sym_set new_firstprivate_vars);
-
-            Utils::ext_sym_set get_undef_sc_vars();
-
-            void set_undef_sc_var(Utils::ExtendedSymbol ei);
-
-            void set_undef_sc_var(Utils::ext_sym_set new_undef_sc_vars);
-
-            Utils::ext_sym_set get_race_vars();
-
-            void set_race_var(Utils::ExtendedSymbol ei);
+            // Race condition variables
+            Utils::ext_sym_set get_sc_race_vars();
+            void set_sc_race_var( Utils::ExtendedSymbol es );
+            void set_sc_race_var( Utils::ext_sym_set es_list );
 
             // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //
@@ -576,15 +597,13 @@ namespace Analysis {
             // ****************************************************************************** //
             // *********************************** Utils ************************************ //
 
-            void print_use_def_chains();
-            void print_liveness();
-            void print_auto_scoping();
-            void print_task_dependencies();
+            void print_use_def_chains( );
+            void print_liveness( );
+            void print_auto_scoping( );
+            void print_task_dependencies( );
 
             // ********************************* END utils ********************************** //
             // ****************************************************************************** //
-
-        friend class CfgAnalysisVisitor;
     };
 }
 }

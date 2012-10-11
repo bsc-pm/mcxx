@@ -175,7 +175,7 @@ LIBMCXX_EXTERN const_value_t* const_value_get_complex_float128(__complex128 ld);
 
 LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_value_t **elements);
-LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
+LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements, type_t* struct_type);
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
 LIBMCXX_EXTERN const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride);
 
@@ -205,6 +205,8 @@ LIBMCXX_EXTERN const_value_t* const_value_round_to_nearest(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_round_to_nearest_bytes(const_value_t* val, int num_bytes);
 
 LIBMCXX_EXTERN const_value_t* const_value_round(const_value_t* val, int num_bytes, int rounding_mode);
+
+LIBMCXX_EXTERN type_t* const_value_get_struct_type(const_value_t* v);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

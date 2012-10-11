@@ -45,6 +45,8 @@
 #include "cxx-codegen.h"
 #include "cxx-nodecl-deep-copy.h"
 
+#include "fortran03-scope.h"
+
 #include "red_black_tree.h"
 
 /*
@@ -392,6 +394,7 @@ struct common_type_info_tag
 
     unsigned char is_dependent:1;
     unsigned char is_incomplete:1;
+    unsigned char is_interoperable:1;
 
     // The sizeof and alignment of the type
     // They are only valid once 'valid_size' is true
@@ -553,7 +556,9 @@ unsigned int get_vector_type_counter(void)
 {
     return _vector_type_counter;
 
-}unsigned int get_enum_type_counter(void)
+}
+
+unsigned int get_enum_type_counter(void)
 {
     return _enum_type_counter;
 }
@@ -4536,7 +4541,7 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
             // MODULE M3
             //   USE M1             ! Introduces M3.T as an alias to M1.T
             //   USE M2             ! Introduces M3.S as an alias to M2.S
-            //                      ! (M2.T is not introduces as it would be repeat an existing alias to M1.T)
+            //                      ! (M2.T is not introduced as it would be repeat an existing alias to M1.T)
             // CONTAINS
             //   SUBROUTINE S2
             //     TYPE(T) :: X1     ! X1 is of type M3.T (not M2.T or M1.T)
@@ -4544,16 +4549,8 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
             //     CALL S(X1)        !<-- We need to realize that M3.T and M2.T are both aliases of M1.T
             //   END
             // END
-            if (s1->entity_specs.from_module)
-            {
-                ERROR_CONDITION(s1->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s1->symbol_name);
-                s1 = s1->entity_specs.alias_to;
-            }
-            if (s2->entity_specs.from_module)
-            {
-                ERROR_CONDITION(s2->entity_specs.alias_to == NULL, "No alias in from-module symbol '%s'!\n", s2->symbol_name);
-                s2 = s2->entity_specs.alias_to;
-            }
+            s1 = fortran_get_ultimate_symbol(s1);
+            s2 = fortran_get_ultimate_symbol(s2);
         }
         return equivalent_types_in_context(s1->type_information, s2->type_information, decl_context);
     }
@@ -11117,6 +11114,48 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     result = get_cv_qualified_type(result, cv_qualif);
 
     return result;
+}
+
+static rb_red_blk_tree *_interoperable_hash = NULL;
+
+// This function constructs an interoperable variant
+// This is used only in Fortran
+type_t* get_interoperable_variant_type(type_t* t)
+{
+    if (t == NULL)
+        return NULL;
+
+    if (t->info->is_interoperable)
+        return t;
+
+    if (_interoperable_hash == NULL)
+    {
+        _interoperable_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    }
+
+    type_t* result = rb_tree_query_type(_interoperable_hash, t);
+
+    if (result == NULL)
+    {
+        result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        *result = *t;
+
+        result->info = counted_calloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+        result->info = t->info;
+
+        result->info->is_interoperable = 1;
+
+        rb_tree_insert(_interoperable_hash, t, result);
+    }
+
+    return result;
+}
+
+char is_interoperable_variant_type(type_t* t)
+{
+    return (t != NULL
+            && t->info != NULL
+            && t->info->is_interoperable);
 }
 
 static char _initialized_generics = 0;

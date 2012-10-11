@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 #include "tl-predicateutils.hpp"
+#include "tl-devices.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -190,57 +191,72 @@ namespace TL { namespace Nanox {
         TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
         nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            nanos_ws_desc_type = nanos_ws_desc_type.get_lvalue_reference_to();
-        }
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field("wsd", nanos_ws_desc_type);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            wsd_data_item.set_in_outline_type(nanos_ws_desc_type.get_lvalue_reference_to());
+        }
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         // Build the structure
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        Nodecl::NodeclBase outline_placeholder;
+        // List of device names
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names();
 
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        emit_outline(outline_info, statements,
-                outline_name, structure_symbol, 
-                outline_placeholder,
-                symbol_map);
-
-        Source extended_outline_distribute_loop_source;
-        extended_outline_distribute_loop_source
-            << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << outline_distribute_loop_source
-            ;
-
-        if (IS_FORTRAN_LANGUAGE)
+        // Outline
+        DeviceHandler device_handler = DeviceHandler::get_device_handler();
+        for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+                it != device_names.end();
+                it++)
         {
-            Source::source_language = SourceLanguage::C;
+            std::string device_name = *it;
+            DeviceProvider* device = device_handler.get_device(device_name);
+
+            ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+
+            // FIXME: Can it be done only once?
+            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+            Nodecl::NodeclBase outline_placeholder;
+            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+
+            device->create_outline(info, outline_placeholder, symbol_map);
+
+            Source extended_outline_distribute_loop_source;
+            extended_outline_distribute_loop_source
+                << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << outline_distribute_loop_source
+                ;
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::C;
+            }
+
+            Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::Current;
+            }
+
+            // Duplicate labels
+            Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, statements, outline_placeholder);
+            outline_placeholder1.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder1, label_symbol_map1));
+
+            if (!outline_placeholder2.is_null())
+            {
+                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, statements, outline_placeholder);
+                outline_placeholder2.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder2, label_symbol_map2));
+            }
+
+            outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
+
+            delete symbol_map;
+            symbol_map = NULL;
         }
-
-        Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-
-        // Duplicate labels
-        Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, statements, outline_placeholder);
-        outline_placeholder1.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder1, label_symbol_map1));
-
-        if (!outline_placeholder2.is_null())
-        {
-            Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, statements, outline_placeholder);
-            outline_placeholder2.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder2, label_symbol_map2));
-        }
-
-        outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
-
-        delete symbol_map; symbol_map = NULL;
 
         loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
     }

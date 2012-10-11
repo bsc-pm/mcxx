@@ -1062,8 +1062,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_parallel_handler(construct, data_sharing);
         }
 
         void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
@@ -1096,8 +1096,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
@@ -1122,8 +1122,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
@@ -1148,8 +1148,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
             common_for_handler(stmt, data_sharing);
+            common_parallel_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
 
