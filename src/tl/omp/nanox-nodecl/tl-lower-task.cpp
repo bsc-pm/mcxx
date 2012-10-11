@@ -1262,7 +1262,8 @@ void LoweringVisitor::fill_dependences(
                     {
                         // Lower bound here should be zero since we want all the array
                         lb = const_value_to_nodecl(const_value_get_signed_int(0));
-                        size = contiguous_array_type.array_get_size();
+
+                        size = get_size_for_dimension(contiguous_array_type, 0, num_dimensions, dep_expr);
                     }
 
                     dependency_offset
