@@ -24,12 +24,11 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common constants pcfg use_def liveness reach_defs loops singleton test_phase
+SUBDIRS = common pcfg use_def liveness reach_defs loops singleton test_phase
 
 END=
 
 DIST_SUBDIRS= common \
-	      constants \
               pcfg \
               use_def \
               liveness \

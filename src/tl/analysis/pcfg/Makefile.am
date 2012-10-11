@@ -28,7 +28,7 @@ include ../../Makefile.phases
 
 lib_LTLIBRARIES = libpcfg.la
 
-COMMON_FLAGS= $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../constants -I $(srcdir)/../loops
+COMMON_FLAGS= $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../loops
 
 libpcfg_la_CFLAGS = $(COMMON_FLAGS)
 libpcfg_la_CXXFLAGS = $(COMMON_FLAGS)
@@ -37,8 +37,7 @@ libpcfg_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la
 
 END=
 
-libpcfg_la_SOURCES= \
-                    tl-pcfg-utils.hpp \
+libpcfg_la_SOURCES= tl-pcfg-utils.hpp \
                     tl-pcfg-utils.cpp \
                     tl-edge.hpp \
                     tl-edge.cpp \
