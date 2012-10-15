@@ -39,7 +39,7 @@ VECTORIZER_SOURCES = \
                      vectorizer/tl-function-versioning.cpp \
                      vectorizer/tl-analysis-static-info.hpp \
                      vectorizer/tl-analysis-static-info.cpp \
-                     analysis/singleton/tl-analysis-singleton.hpp \
+/*                     analysis/singleton/tl-analysis-singleton.hpp \
                      analysis/singleton/tl-analysis-singleton.cpp \
                      analysis/use_def/tl-use-def.hpp \
                      analysis/use_def/tl-use-def.cpp \
@@ -72,7 +72,7 @@ VECTORIZER_SOURCES = \
                      analysis/common/tl-extended-symbol.hpp \
                      analysis/common/tl-extended-symbol.cpp \
                      analysis/common/tl-induction-variables-data.hpp \
-                     analysis/common/tl-induction-variables-data.cpp \
+                     analysis/common/tl-induction-variables-data.cpp \ */
                      $(END)
 
 

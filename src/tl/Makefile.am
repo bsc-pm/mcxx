@@ -28,17 +28,18 @@ END=
 
 include vectorizer/Sources.am
 
-SUBDIRS = . codegen omp #analysis
-              #analysis \
-DIST_SUBDIRS= vectorizer \
-			 omp \
-             instr \
-             examples \
-             testing \
-             hlt \
-             manip \
-             codegen \
-             $(END)
+SUBDIRS = . codegen omp analysis
+
+DIST_SUBDIRS= analysis \
+              vectorizer \
+              omp \
+              instr \
+              examples \
+              testing \
+              hlt \
+              manip \
+              codegen \
+              $(END)
 
 lib_LTLIBRARIES = libtl.la
 
@@ -223,6 +224,7 @@ libtl_la_LIBADD = \
 	$(top_builddir)/lib/libmcxx-utils.la \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
+	$(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
 	$(END)
 
 libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
