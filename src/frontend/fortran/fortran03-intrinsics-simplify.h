@@ -483,7 +483,8 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
             for (i = 0; i < rank; i++)
             {
                 nodecl_t bound = nodecl_shallow_copy(bound_fun(t)); 
-                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
+                if (!nodecl_is_constant(bound))
+                    return nodecl_null();
 
                 const_vals[rank - i - 1] = const_value_cast_to_bytes(nodecl_get_constant(bound), kind_, /* signed */ 1);
 
@@ -505,7 +506,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
 
             int rank = fortran_get_rank_of_type(t);
 
-            if ((rank - dim_) < 0)
+            if ((rank - dim_) <= 0)
                 return nodecl_null();
 
             int i;
@@ -517,7 +518,8 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
             if (!array_type_is_unknown_size(t))
             {
                 nodecl_t bound = bound_fun(t);
-                ERROR_CONDITION(!nodecl_is_constant(bound), "This should be constant!", 0);
+                if (!nodecl_is_constant(bound))
+                    return nodecl_null();
 
                 return const_value_to_nodecl_with_basic_type(nodecl_get_constant(bound), 
                         choose_int_type_from_kind(kind, kind_));

@@ -1168,7 +1168,8 @@ void LoweringVisitor::fill_dependences(
                 Nodecl::NodeclBase dimension_sizes[num_dimensions];
                 for (int dim = 0; dim < num_dimensions; dim++)
                 {
-                    dimension_sizes[dim] = dependency_base_type.array_get_size();
+                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_expr);
+
                     dependency_base_type = dependency_base_type.array_element();
                 }
 
@@ -1242,6 +1243,13 @@ void LoweringVisitor::fill_dependences(
                         contiguous_array_type.array_get_bounds(array_lb, array_ub);
                         contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
 
+                        if (array_lb.is_null()
+                                && IS_FORTRAN_LANGUAGE)
+                        {
+                            // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
+                            array_lb = get_lower_bound(dep_expr, /* dimension */ 1);
+                        }
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -1254,7 +1262,8 @@ void LoweringVisitor::fill_dependences(
                     {
                         // Lower bound here should be zero since we want all the array
                         lb = const_value_to_nodecl(const_value_get_signed_int(0));
-                        size = contiguous_array_type.array_get_size();
+
+                        size = get_size_for_dimension(contiguous_array_type, 1, dep_expr);
                     }
 
                     dependency_offset
@@ -1292,6 +1301,7 @@ void LoweringVisitor::fill_dependences(
                                 num_dimensions,
                                 /* current_dim */ num_dimensions,
                                 current_dep_num,
+                                dep_expr,
                                 dimension_sizes,
                                 dependency_type,
                                 dims_description,
@@ -1453,20 +1463,67 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
+Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
+        TL::Type array_type,
+        int fortran_dimension,
+        DataReference data_reference)
+{
+    Nodecl::NodeclBase n = array_type.array_get_size();
+
+    // Let's try to get the size using SIZE
+    if (n.is_null()
+            && IS_FORTRAN_LANGUAGE)
+    {
+        // Craft a SIZE
+        Source src;
+
+        Nodecl::NodeclBase expr = data_reference;
+        if (expr.is<Nodecl::ArraySubscript>())
+        {
+            expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+        }
+
+        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+
+        n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+    }
+
+    return n;
+}
+
+
+Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    // The contiguous dimension in Fortran is always the number 1
+    src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
 void LoweringVisitor::fill_dimensions(
-        int n_dims, 
-        int current_dim, 
+        int n_dims,
+        int current_dim,
         int current_dep_num,
-        Nodecl::NodeclBase * dim_sizes, 
-        Type dep_type, 
-        Source& dims_description, 
-        Source& dependency_regions_code, 
+        Nodecl::NodeclBase dep_expr,
+        Nodecl::NodeclBase * dim_sizes,
+        Type dep_type,
+        Source& dims_description,
+        Source& dependency_regions_code,
         Scope sc)
 {
     // We do not handle the contiguous dimension here
     if (current_dim > 1)
     {
-        fill_dimensions(n_dims, current_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+        fill_dimensions(n_dims, current_dim - 1, current_dep_num,
+                dep_expr, dim_sizes,
+                dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase lb, ub, size;
@@ -1479,7 +1536,13 @@ void LoweringVisitor::fill_dimensions(
         else
         {
             dep_type.array_get_bounds(lb, ub);
-            size = dep_type.array_get_size();
+
+            if (lb.is_null() && IS_FORTRAN_LANGUAGE)
+            {
+                lb = get_lower_bound(dep_expr, current_dim);
+            }
+
+            size = get_size_for_dimension(dep_type, current_dim, dep_expr);
         }
 
         dimension_size << as_expression(dim_sizes[n_dims - current_dim]);

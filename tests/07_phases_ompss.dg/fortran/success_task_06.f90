@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-ompss
+! </testinfo>
 PROGRAM MAIN
     IMPLICIT NONE
     INTERFACE
