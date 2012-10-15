@@ -3849,6 +3849,13 @@ OPERATOR_TABLE
             declare_global_entities(node);
         }
 
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        if (equivalence_symbol.is_valid())
+        {
+            walk(equivalence_symbol.get_value());
+        }
+
         pop_declaring_entity();
         dec_indent();
 
