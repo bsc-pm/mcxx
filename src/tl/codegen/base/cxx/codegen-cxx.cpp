@@ -3382,8 +3382,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccAsmDefinition& node)
     walk_list(op0.as<Nodecl::List>(), ", ");
     file << " : ";
     walk_list(op1.as<Nodecl::List>(), ", ");
-    file << " : ";
-    walk_list(op2.as<Nodecl::List>(), ", ");
+    if (!op2.is_null())
+    {
+        file << " : ";
+        walk_list(op2.as<Nodecl::List>(), ", ");
+    }
     file << ");\n";
 }
 
