@@ -296,18 +296,45 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
-                _data_ref._base_address = 
-                    Nodecl::Reference::make(
-                            Nodecl::ClassMemberAccess::make(
-                                _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                member.get_member().shallow_copy(),
-                                t,
+
+                if (member.get_member().get_kind() == NODECL_CLASS_MEMBER_ACCESS)
+                {
+                    _data_ref._base_address =
+                        Nodecl::Reference::make(
+                                Nodecl::ClassMemberAccess::make(
+                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
+                                    member.get_member().shallow_copy(),
+                                    t,
+                                    member.get_filename(),
+                                    member.get_line()
+                                    ),
+                                t.get_pointer_to(),
                                 member.get_filename(),
-                                member.get_line()
-                                ),
-                            t.get_pointer_to(),
-                            member.get_filename(),
-                            member.get_line());
+                                member.get_line());
+                }
+                else if (IS_CXX_LANGUAGE
+                        && member.get_member().get_kind() == NODECL_SYMBOL
+                        && _data_ref._base_address.get_kind() == NODECL_SYMBOL
+                        && _data_ref._base_address.get_symbol().get_name() == "this")
+                {
+                    _data_ref._base_address =
+                        Nodecl::Reference::make(
+                                Nodecl::ClassMemberAccess::make(
+                                    _data_ref._base_address,
+                                    member.get_member().shallow_copy(),
+                                    t,
+                                    member.get_filename(),
+                                    member.get_line()
+                                    ),
+                                t.get_pointer_to(),
+                                member.get_filename(),
+                                member.get_line());
+                }
+                else
+                {
+                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(member.get_member().get_kind()));
+                }
+
                 _data_ref._sizeof = make_sizeof(member);
             }
 
