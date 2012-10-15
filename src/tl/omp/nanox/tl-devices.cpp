@@ -149,20 +149,19 @@ void DeviceProvider::get_instrumentation_code(
 
         instrument_before
             << "static int nanos_funct_id_init = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
             << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
             << "if (nanos_funct_id_init == 0)"
             << "{"
-            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
-            <<               " \"user-funct-name\", " << outline_name << "," << extended_descr << ", 0);"
+            <<               " \"user-funct-location\", " << outline_name << ", \"" << extended_descr << "\", 0);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "nanos_funct_id_init = 1;"
             << "}"
             << "nanos_event_t event;"
             << "event.type = NANOS_BURST_START;"
-            << "event.key = nanos_instr_uf_name_key;"
+            << "event.key = nanos_instr_uf_location_key;"
             << "nanos_instrument_events(1, &event);"
             ;
 
@@ -171,7 +170,7 @@ void DeviceProvider::get_instrumentation_code(
             instrument_after
                 << "nanos_event_t event;"
                 << "event.type = NANOS_BURST_END;"
-                << "event.key = nanos_instr_uf_name_key;"
+                << "event.key = nanos_instr_uf_location_key;"
                 << "nanos_instrument_events(1, &event);"
                 ;
         }
