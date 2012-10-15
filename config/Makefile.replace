@@ -31,4 +31,6 @@ config_edit = \
      -e 's|@XLF[@]|$(XLF)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
+     -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
+     -e 's|@SIMD_INCLUDES[@]|$(SIMD_INCLUDES)|g' \
     $(END)

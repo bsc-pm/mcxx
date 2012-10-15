@@ -26,19 +26,29 @@
 
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtlomp-base.la
-
-libtlomp_base_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
-libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
+SUBDIRS = sse .
 
 
-libtlomp_base_la_LDFLAGS = $(tl_ldflags)
-libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../../vectorizer/libtlvectorizer.la
+lib_LTLIBRARIES = libcodegen-vector.la
 
 END=
 
-libtlomp_base_la_SOURCES = \
-   tl-omp-base.hpp \
-   tl-omp-base.cpp \
-   $(END)
+libcodegen_vector_la_CFLAGS=$(tl_cflags) \
+    -I $(top_srcdir)/src/tl/codegen/vector/sse \
+    -I $(top_srcdir)/src/tl/vectorizer \
+	$(END)
+
+libcodegen_vector_la_CXXFLAGS=$(tl_cflags) \
+    -I $(top_srcdir)/src/tl/codegen/vector/sse \
+    -I $(top_srcdir)/src/tl/vectorizer \
+	$(END)
+
+libcodegen_vector_la_LDFLAGS = $(tl_ldflags)
+libcodegen_vector_la_SOURCES = \
+    codegen-vector-phase.cpp \
+    codegen-vector-phase.hpp \
+	$(END)
+
+libcodegen_vector_la_LIBADD = sse/libcodegen-sse-module.la \
+					       $(END)
 

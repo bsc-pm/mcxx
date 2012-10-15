@@ -97,11 +97,17 @@ namespace TL
             //! Gets the type related to this symbol
             Type get_type() const;
 
+            //! Sets the type related to this symbol
+            void set_type(const Type& t);
+
             //! Gets the user defined type related to this symbol
             Type get_user_defined_type();
 
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
+
+            //! Sets the unqualified name of the symbol
+            void set_name(std::string name);
 
             //! Returns a fully qualified name
             /*!
@@ -336,7 +342,6 @@ namespace TL
             DEPRECATED bool has_initialization() const;
 
             //! Returns the initialization tree
-            //! States whether this symbol has been initialized
             /*
              * \deprecated Use get_value instead
              */

@@ -29,7 +29,7 @@
 
 #include <map>
 
-#include "tl-extended-symbol.cpp"
+#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 
 // Set of classes implementing the Memento Pattern with Analysis purposes.

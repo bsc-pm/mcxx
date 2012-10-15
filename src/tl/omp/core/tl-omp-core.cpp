@@ -1284,6 +1284,16 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::simd_handler_pre(TL::PragmaCustomStatement construct) { }
+        void Core::simd_handler_post(TL::PragmaCustomStatement construct) { }
+        void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
+
+        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct) { }
+        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct) { }
+        void Core::simd_for_handler_pre(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_for_handler_post(TL::PragmaCustomDeclaration construct) { }
+
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);

@@ -4715,7 +4715,7 @@ static void list_fortran_array_descriptors(void)
 
 static void list_vector_flavors(void)
 {
-    fprintf(stdout, "List of supported vector flavours:\n\n");
+    fprintf(stdout, "List of supported vector flavors:\n\n");
 
     const char** vector_flavors_ptr = vector_flavors;
 

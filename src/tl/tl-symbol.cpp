@@ -66,6 +66,11 @@ namespace TL
         return result;
     }
 
+    void Symbol::set_type(const Type& t) 
+    {
+        _symbol->type_information = t.get_internal_type();
+    }
+
     Type Symbol::get_user_defined_type()
     {
         return ::get_user_defined_type(_symbol);
@@ -76,6 +81,11 @@ namespace TL
         return (_symbol->symbol_name != NULL) ?
             std::string(_symbol->symbol_name) :
             std::string("");
+    }
+
+    void Symbol::set_name(std::string name)
+    {
+        _symbol->symbol_name = uniquestr(name.c_str());
     }
 
     std::string Symbol::get_qualified_name(bool without_template_id) const

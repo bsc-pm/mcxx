@@ -24,21 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtlomp-base.la
+include ../../../Makefile.phases
 
-libtlomp_base_la_CFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
-libtlomp_base_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../../vectorizer
-
-
-libtlomp_base_la_LDFLAGS = $(tl_ldflags)
-libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../../vectorizer/libtlvectorizer.la
+phases_LTLIBRARIES = libcodegen-sse-module.la
 
 END=
 
-libtlomp_base_la_SOURCES = \
-   tl-omp-base.hpp \
-   tl-omp-base.cpp \
-   $(END)
+libcodegen_sse_module_la_CFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
 
+libcodegen_sse_module_la_CXXFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_sse_module_la_LDFLAGS = $(tl_ldflags)
+libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
+					       $(END)
+
+
+libcodegen_sse_module_la_SOURCES = \
+	 codegen-sse-module.hpp \
+	 codegen-sse-module.cpp \
+  	 $(END)

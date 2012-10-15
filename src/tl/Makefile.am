@@ -24,19 +24,20 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . codegen omp analysis
-
 END=
 
-DIST_SUBDIRS=analysis \
-             omp \
-             instr \
-             examples \
-             testing \
-             hlt \
-             manip \
-             codegen \
-             $(END)
+SUBDIRS = . codegen omp analysis vectorizer
+
+DIST_SUBDIRS= analysis \
+              vectorizer \
+              omp \
+              instr \
+              examples \
+              testing \
+              hlt \
+              manip \
+              codegen \
+              $(END)
 
 lib_LTLIBRARIES = libtl.la
 
