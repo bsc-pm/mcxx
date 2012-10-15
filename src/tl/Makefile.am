@@ -26,9 +26,7 @@
 
 END=
 
-include vectorizer/Sources.am
-
-SUBDIRS = . codegen omp analysis
+SUBDIRS = . codegen omp analysis vectorizer
 
 DIST_SUBDIRS= analysis \
               vectorizer \
@@ -73,13 +71,6 @@ COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/src/mcxx_tl \
     -I $(top_builddir)/lib \
-    -I $(top_builddir)/src/tl/analysis/common \
-    -I $(top_builddir)/src/tl/analysis/pcfg \
-    -I $(top_builddir)/src/tl/analysis/use_def \
-    -I $(top_builddir)/src/tl/analysis/liveness \
-    -I $(top_builddir)/src/tl/analysis/reach_defs \
-    -I $(top_builddir)/src/tl/analysis/loops \
-    -I $(top_builddir)/src/tl/analysis/singleton \
     $(END)
 
 # Silent rules
@@ -166,7 +157,6 @@ libtl_la_SOURCES = \
     tl-modules-fwd.hpp \
     tl-modules.hpp \
     tl-modules.cpp \
-    $(VECTORIZER_SOURCES)
     $(END)
 
 if WINDOWS_BUILD
@@ -224,7 +214,6 @@ libtl_la_LIBADD = \
 	$(top_builddir)/lib/libmcxx-utils.la \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
-	$(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
 	$(END)
 
 libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
