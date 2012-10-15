@@ -649,9 +649,8 @@ namespace TL
 
             FORTRAN_LANGUAGE()
             {
-                TL::Scope sc = construct.retrieve_context();
-                decl_context_t decl_context = sc.get_decl_context();
                 static bool already_nagged = false;
+                decl_context_t decl_context = function_sym.get_scope().get_decl_context();
 
                 if (decl_context.current_scope == decl_context.global_scope)
                 {
