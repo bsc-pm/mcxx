@@ -1,4 +1,5 @@
 /*--------------------------------------------------------------------
+
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
@@ -28,6 +29,7 @@
 #define TL_VECTORIZER_VISITOR_FOR_HPP
 
 #include "tl-nodecl-visitor.hpp"
+#include "tl-memento-static-info.hpp"
 
 namespace TL 
 { 
@@ -59,19 +61,28 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
+                const MementoStaticInfo& _for_analysis_info;
  
             public:
-                VectorizerVisitorLoopHeader(const unsigned int vector_length);
+                VectorizerVisitorLoopHeader(const unsigned int vector_length,
+                        const MementoStaticInfo& for_analysis_info);
 
-                void visit(const Nodecl::NodeclBase& loop_header);
+                void visit(const Nodecl::LoopControl& loop_header);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };
 
         class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
         {
+            private:
+                const MementoStaticInfo& _for_analysis_info;
+
             public:
-                VectorizerVisitorLoopInit();
+                VectorizerVisitorLoopInit(const MementoStaticInfo& for_analysis_info);
+
+                void visit(const Nodecl::ObjectInit& node);
+                void visit(const Nodecl::Assignment& node);
+                void visit(const Nodecl::Comma& node);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };
@@ -80,9 +91,18 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
+                const MementoStaticInfo& _for_analysis_info;
  
             public:
-                VectorizerVisitorLoopCond(const unsigned int vector_length);
+                VectorizerVisitorLoopCond(const unsigned int vector_length,
+                        const MementoStaticInfo& for_analysis_info);
+
+                void visit(const Nodecl::Equal& node);
+                void visit(const Nodecl::LowerThan& node);
+                void visit(const Nodecl::LowerOrEqualThan& node);
+                void visit(const Nodecl::GreaterThan& node);
+                void visit(const Nodecl::GreaterOrEqualThan& node);
+                void visit_condition(const Nodecl::NodeclBase& condition);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };
@@ -91,9 +111,16 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
- 
+                const MementoStaticInfo& _for_analysis_info;
+
             public:
-                VectorizerVisitorLoopNext(const unsigned int vector_length);
+                VectorizerVisitorLoopNext(const unsigned int vector_length,
+                        const MementoStaticInfo& for_analysis_info);
+
+                void visit(const Nodecl::Comma& node);
+                void visit(const Nodecl::Preincrement& node);
+                void visit(const Nodecl::Postincrement& node);
+                void visit(const Nodecl::AddAssignment& node);
 
                 NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };

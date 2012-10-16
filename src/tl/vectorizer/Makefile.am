@@ -31,13 +31,13 @@ phases_LTLIBRARIES = libtlvectorizer.la
 END=
 
 
-libtlvectorizer_la_CFLAGS = $(tl_cflags) \
+libtlvectorizer_la_CFLAGS = $(tl_cflags) -Wall \
                             -I $(top_srcdir)/src/tl/analysis/singleton/ \
                             -I $(top_srcdir)/src/tl/analysis/common/ \
                             -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                             $(END)
 
-libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
+libtlvectorizer_la_CXXFLAGS = $(tl_cflags) -Wall \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
