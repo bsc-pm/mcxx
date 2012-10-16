@@ -1506,6 +1506,8 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
+        // IBM XL Compiler Optimization Flags
+        case 'q':
             {
                 add_parameter_all_toolchain(argument, dry_run);
                 if (!dry_run)
