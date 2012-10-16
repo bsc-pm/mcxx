@@ -1314,7 +1314,10 @@ int parse_arguments(int argc, const char* argv[],
                         // Do not process anything
     {
         fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
-        output_file = uniquestr("-");
+        if (!CURRENT_CONFIGURATION->preprocessor_uses_stdout)
+        {
+            output_file = uniquestr("-");
+        }
     }
 
     // When -c and -o are given only one file is valid
@@ -3205,7 +3208,10 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         if (translation_unit->output_filename == NULL)
         {
             // Send it to stdout
-            preprocessed_filename = uniquestr("-");
+            if (!uses_stdout)
+            {
+                preprocessed_filename = uniquestr("-");
+            }
         }
         else
         {
