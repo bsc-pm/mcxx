@@ -1648,6 +1648,8 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
+        // IBM XL Compiler Optimization Flags
+        case 'q':
             {
                 char hide_parameter = 0;
                 if (!dry_run)
