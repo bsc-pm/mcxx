@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-analysis-static-info.hpp"
+#include "tl-memento-static-info.hpp"
 
 namespace TL 
 {
@@ -49,7 +49,7 @@ namespace TL
         }
 
 
-        AnalysisStaticInfo::AnalysisStaticInfo(const Nodecl::NodeclBase n)
+        MementoStaticInfo::MementoStaticInfo(const Nodecl::NodeclBase n)
         {
             TL::Analysis::AnalysisSingleton& analysis = 
                 TL::Analysis::AnalysisSingleton::get_analysis();
@@ -76,7 +76,7 @@ namespace TL
             //Visit
         }
 
-        bool AnalysisStaticInfo::is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        bool MementoStaticInfo::is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
         {
             static_info_map_t::const_iterator scope_static_info = 
                 _static_info_map.find(scope);
@@ -89,7 +89,7 @@ namespace TL
             return scope_static_info->second.is_constant(n);
         }
 
-        bool AnalysisStaticInfo::is_induction_variable(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        bool MementoStaticInfo::is_induction_variable(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
         {
             static_info_map_t::const_iterator scope_static_info = 
                 _static_info_map.find(scope);

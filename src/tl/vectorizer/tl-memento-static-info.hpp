@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_ANALYSIS_STATIC_INFO_HPP
-#define TL_ANALYSIS_STATIC_INFO_HPP
+#ifndef TL_MEMENTO_STATIC_INFO_HPP
+#define TL_MEMENTO_STATIC_INFO_HPP
 
 #include "tl-analysis-singleton.hpp"
 #include "tl-objectlist.hpp"
@@ -49,7 +49,7 @@ namespace TL
  
         };
 
-        class AnalysisStaticInfo
+        class MementoStaticInfo
         {
             private:
                 typedef std::map<Nodecl::NodeclBase, NodeclStaticInfo> static_info_map_t;
@@ -57,7 +57,7 @@ namespace TL
                 static_info_map_t _static_info_map;
 
             public:
-                AnalysisStaticInfo(const Nodecl::NodeclBase);
+                MementoStaticInfo(const Nodecl::NodeclBase);
 
                 bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const;
                 bool is_induction_variable(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const;
@@ -65,4 +65,4 @@ namespace TL
     }
 }
 
-#endif // TL_ANALYSIS_STATIC_INFO_HPP
+#endif // TL_MEMENTO_STATIC_INFO_HPP

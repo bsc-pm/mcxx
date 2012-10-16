@@ -27,6 +27,7 @@
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-memento-static-info.hpp"
 
 namespace TL 
 {
@@ -43,7 +44,7 @@ namespace TL
         Nodecl::NodeclBase VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
             Nodecl::ForStatement epilog;
-            AnalysisStaticInfo for_analysis_info(for_statement);
+            MementoStaticInfo for_analysis_info(for_statement);
 
             // TODO: ???
             analyze_loop(for_statement);

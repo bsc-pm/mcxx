@@ -28,7 +28,6 @@
 #define TL_VECTORIZER_VISITOR_FOR_HPP
 
 #include "tl-nodecl-visitor.hpp"
-#include "tl-analysis-static-info.hpp"
 
 namespace TL 
 { 
