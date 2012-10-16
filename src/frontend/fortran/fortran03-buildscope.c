@@ -6434,7 +6434,20 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         new_namelist->kind = SK_NAMELIST;
         new_namelist->file = ASTFileName(a);
         new_namelist->line = ASTLine(a);
-        
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            // Make the new namelist a member of this module
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                    module->entity_specs.num_related_symbols,
+                    new_namelist);
+
+            new_namelist->entity_specs.in_module = module;
+        }
+
         remove_unknown_kind_symbol(decl_context, new_namelist);
 
         AST it2;
