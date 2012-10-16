@@ -168,7 +168,6 @@ void DeviceProvider::get_instrumentation_code(
         if (!is_accelerator_device())
         {
             instrument_after
-                << "nanos_event_t event;"
                 << "event.type = NANOS_BURST_END;"
                 << "event.key = nanos_instr_uf_location_key;"
                 << "nanos_instrument_events(1, &event);"
