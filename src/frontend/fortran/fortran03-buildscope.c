@@ -7990,6 +7990,10 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     // Copy everything and restore the name
     *current_symbol = *entry;
+
+    // Restore original context
+    current_symbol->decl_context = decl_context;
+
     if (current_symbol->kind != SK_UNDEFINED)
     {
         remove_unknown_kind_symbol(decl_context, current_symbol);
