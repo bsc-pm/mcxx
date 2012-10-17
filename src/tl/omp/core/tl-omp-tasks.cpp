@@ -525,7 +525,6 @@ namespace TL
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
             TL::Scope scope = construct.retrieve_context();
-            decl_context_t decl_context = scope.get_decl_context();
 
             Symbol function_sym = construct.get_symbol();
 

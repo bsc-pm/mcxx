@@ -70,6 +70,7 @@ static void prepare_statements(sqlite3*);
 static void start_transaction(sqlite3*);
 static void end_transaction(sqlite3*);
 
+UNUSED_PARAMETER
 static const char* full_name_of_symbol(scope_entry_t* entry)
 {
     if (entry == NULL)

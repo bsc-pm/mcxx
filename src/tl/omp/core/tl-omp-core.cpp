@@ -129,23 +129,6 @@ namespace TL
             return _openmp_info;
         }
 
-        static void register_directive(const std::string& str)
-        {
-            register_new_directive("omp", str.c_str(), 0, 0);
-        }
-
-        static void register_construct(const std::string& str, bool bound_to_statement = false)
-        {
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                register_new_directive("omp", str.c_str(), 1, bound_to_statement);
-            }
-            else
-            {
-                register_new_directive("omp", str.c_str(), 1, 0);
-            }
-        }
-
         void Core::register_omp_constructs()
         {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

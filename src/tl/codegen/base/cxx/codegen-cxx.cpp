@@ -1118,7 +1118,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
                 && step.is_constant())
         {
             std::string rel_op = " <= ";
-            bool is_positive = 0;
             const_value_t* v = step.get_constant();
             if (const_value_is_negative(v))
             {
@@ -1716,9 +1715,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     //  - The symbol is not defined inside a class and, currently, we are defining one or more
     if (IS_CXX_LANGUAGE &&
             (symbol.is_defined_inside_class() &&
-             (state.classes_being_defined.empty() ||
-              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
-             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+             (state.classes_being_defined.empty()
+              || state.classes_being_defined.back() != symbol.get_class_type().get_symbol())
+             || (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
         return;
 
     TL::Type symbol_type = symbol.get_type();
@@ -3639,19 +3638,6 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
     return result;
 }
 
-static bool is_member_type(TL::Symbol s)
-{
-    return s.is_enum()
-        || s.is_class()
-        || s.is_typedef();
-}
-
-static bool is_member_nontype(TL::Symbol t)
-{
-    return !is_member_type(t);
-}
-
-
 void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level,
@@ -3701,7 +3687,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << "{\n";
     }
 
-    char is_dependent_class = 0;
     TL::Type symbol_type = symbol.get_type();
 
     ERROR_CONDITION(::is_incomplete_type(symbol_type.get_internal_type()), "An incomplete class cannot be defined", 0);
@@ -3726,12 +3711,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (primary_symbol == symbol)
             {
                 is_primary_template = 1;
-            }
-
-            if (!symbol_type.class_type_is_complete_independent()
-                    && !symbol_type.class_type_is_incomplete_independent())
-            {
-                is_dependent_class = 1;
             }
         }
 
@@ -4191,8 +4170,7 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 {
     ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
 
-    bool is_template_friend_declaration = false,
-         is_primary_template = false;
+    bool is_template_friend_declaration = false;
 
     if (friend_symbol.is_template())
     {
@@ -4235,7 +4213,6 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 
         if (friend_type.is_dependent())
         {
-            is_primary_template = (friend_symbol == primary_symbol);
             TL::TemplateParameters template_parameters =
                 friend_symbol.get_scope().get_template_parameters();
 
@@ -4741,12 +4718,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     if (emit_initializer)
     {
         push_scope(symbol.get_scope());
-
-        char equal_is_needed = 0;
-        C_LANGUAGE()
-        {
-            equal_is_needed = 1;
-        }
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that

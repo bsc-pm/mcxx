@@ -172,7 +172,7 @@ namespace TL { namespace Nanox {
             TL::Type t = data_item.get_symbol().get_type();
 
             bool is_lvalue_ref = false;
-            if (is_lvalue_ref = t.is_lvalue_reference())
+            if ((is_lvalue_ref = t.is_lvalue_reference()))
                 t = t.references_to();
 
             if (t.is_array())

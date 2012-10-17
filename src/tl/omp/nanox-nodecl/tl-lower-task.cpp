@@ -285,7 +285,6 @@ void LoweringVisitor::allocate_immediate_structure(
 
     // We overallocate with an alignment of 8
     const int overallocation_alignment = 8;
-    const int overallocation_mask = overallocation_alignment - 1;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     if (IS_C_LANGUAGE
@@ -308,7 +307,7 @@ void LoweringVisitor::allocate_immediate_structure(
     {
         immediate_is_alloca = true;
     }
-    
+
     // Fill argument structure
     if (!immediate_is_alloca)
     {
@@ -964,16 +963,6 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
 
     return num_copies;
 }
-
-static void fill_dimensions(
-        int n_dims, 
-        int actual_dim, 
-        int current_dep_num,
-        Nodecl::NodeclBase * dim_sizes, 
-        Type dep_type, 
-        Source& dims_description, 
-        Source& dependency_regions_code, 
-        Scope sc);
 
 void LoweringVisitor::fill_copies(
         Nodecl::NodeclBase ctr,
@@ -1668,7 +1657,7 @@ static void fill_map_parameters_to_arguments(
         else
         {
             // Get the i-th parameter of the function
-            ERROR_CONDITION((function.get_related_symbols().size() <= i), "Too many parameters", 0);
+            ERROR_CONDITION(((signed int)function.get_related_symbols().size() <= i), "Too many parameters", 0);
             TL::Symbol parameter = function.get_related_symbols()[i];
             param_to_arg_expr[parameter] = *it;
         }

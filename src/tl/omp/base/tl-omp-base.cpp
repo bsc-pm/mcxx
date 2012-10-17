@@ -197,7 +197,7 @@ namespace TL { namespace OpenMP {
                         it != parameters.end();
                         it++, i++)
                 {
-                    ERROR_CONDITION(i >= has_dep.size(), "Mismatch between parameters and related symbols", 0);
+                    ERROR_CONDITION(i >= (signed int)has_dep.size(), "Mismatch between parameters and related symbols", 0);
                     if (!has_dep[i])
                     {
                         Nodecl::Symbol symbol_ref =
@@ -1165,7 +1165,6 @@ namespace TL { namespace OpenMP {
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
