@@ -1638,13 +1638,23 @@ static void copy_outline_data_item(
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,
-        Nodecl::List arguments, 
+        Nodecl::List arguments,
         sym_to_argument_expr_t& param_to_arg_expr)
 {
     int i = 0;
-    for (Nodecl::List::iterator it = arguments.begin();
-            it != arguments.end();
-            it++, i++)
+    Nodecl::List::iterator it = arguments.begin();
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class. Skip it!
+    if (IS_CXX_LANGUAGE
+            && !function.is_static()
+            && function.is_member())
+    {
+        it++;
+    }
+
+    for (; it != arguments.end(); it++, i++)
     {
         Nodecl::NodeclBase expression;
         TL::Symbol parameter_sym;
@@ -1668,10 +1678,7 @@ static void fill_map_parameters_to_arguments(
 static int outline_data_item_get_parameter_position(const OutlineDataItem& outline_data_item)
 {
     TL::Symbol sym = outline_data_item.get_symbol();
-
-    ERROR_CONDITION(!sym.is_parameter(), "This symbol must be a parameter", 0);
-
-    return sym.get_parameter_position();
+    return (sym.is_parameter() ? sym.get_parameter_position(): -1);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
@@ -1704,8 +1711,43 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
-    TL::ObjectList<TL::Symbol> new_arguments;
     Scope sc = construct.retrieve_context();
+    TL::ObjectList<TL::Symbol> new_arguments;
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class
+    if (IS_CXX_LANGUAGE
+            && !called_sym.is_static()
+            && called_sym.is_member())
+    {
+        Nodecl::NodeclBase class_object = *(arguments.begin());
+        TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
+        ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+        std::stringstream ss;
+        ss << "mcc_arg_" << (int)arg_counter;
+        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        arg_counter++;
+
+        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
+
+        new_arguments.append(new_symbol);
+
+        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+        // This is a special kind of shared
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        argument_outline_data_item.set_shared_expression(
+                Nodecl::Reference::make(
+                    class_object,
+                    new_symbol.get_type(),
+                    function_call.get_filename(),
+                    function_call.get_line()));
+    }
+
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
@@ -1764,14 +1806,35 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     // Craft a new function call with the new mcc_arg_X symbols
     TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
     TL::ObjectList<Nodecl::NodeclBase> arg_list;
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class
+    if (IS_CXX_LANGUAGE
+            && !called_sym.is_static()
+            && called_sym.is_member())
+    {
+        // The symbol which represents the object 'this' must be dereferenced!
+        Nodecl::NodeclBase nodecl_arg = Nodecl::Dereference::make(
+                Nodecl::Symbol::make(*args_it,
+                    function_call.get_filename(),
+                    function_call.get_line()),
+                args_it->get_type().points_to(),
+                function_call.get_filename(),
+                function_call.get_line());
+
+        arg_list.append(nodecl_arg);
+        args_it++;
+    }
+
     for (sym_to_argument_expr_t::iterator params_it = param_to_arg_expr.begin();
             params_it != param_to_arg_expr.end();
             params_it++, args_it++)
     {
-        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it, 
-                function_call.get_filename(), 
+        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it,
+                function_call.get_filename(),
                 function_call.get_line());
-        nodecl_arg.set_type( args_it->get_type() );
+        nodecl_arg.set_type(args_it->get_type());
 
         // We must respect symbols in Fortran because of optional stuff
         if (IS_FORTRAN_LANGUAGE
@@ -1796,7 +1859,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     }
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
-    
+
     Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
     Nodecl::NodeclBase function_form = nodecl_null();
     Symbol called_symbol = called.get_symbol();
@@ -1807,26 +1870,26 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             Nodecl::CxxFunctionFormTemplateId::make(
                     function_call.get_filename(),
                     function_call.get_line());
-        
+
         TemplateParameters template_args =
             called.get_template_parameters();
         function_form.set_template_parameters(template_args);
     }
-    
-    Nodecl::NodeclBase expr_statement = 
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        called,
-                        nodecl_arg_list,
-                        function_call.get_alternate_name().shallow_copy(),
-                        function_form,
-                        Type::get_void_type(),
-                        function_call.get_filename(),
-                        function_call.get_line()),
-                    function_call.get_filename(),
-                    function_call.get_line());
 
-    TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
+    Nodecl::NodeclBase expr_statement =
+        Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    called,
+                    nodecl_arg_list,
+                    function_call.get_alternate_name().shallow_copy(),
+                    function_form,
+                    Type::get_void_type(),
+                    function_call.get_filename(),
+                    function_call.get_line()),
+                function_call.get_filename(),
+                function_call.get_line());
+
+    TL::ObjectList<Nodecl::NodeclBase> list_stmt;
     list_stmt.append(expr_statement);
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
