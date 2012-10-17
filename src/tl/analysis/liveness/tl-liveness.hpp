@@ -58,7 +58,7 @@ namespace Analysis {
         bool task_is_in_loop( Node* current );
 
         //! Propagates liveness information from inner to outer nodes
-        bool set_graph_node_liveness( Node* current );
+        void set_graph_node_liveness( Node* current );
 
     public:
         //! Constructor

@@ -39,7 +39,6 @@ namespace Analysis {
     {
         _utils = new PCFGVisitUtils( );
         _pcfg = new ExtensibleGraph( name, nodecl, _utils );
-        _visited_functions;
     }
 
     // ********************************** END constructors ********************************** //
@@ -699,9 +698,9 @@ namespace Analysis {
         exit_parents.append( false_node );
 
         // Set exit graph node info
-        Node* graph_exit = cond_expr_node->get_graph_exit_node( );
-        graph_exit->set_id( ++( _utils->_nid ) );
-        _pcfg->connect_nodes( exit_parents, graph_exit );
+        Node* exit_node = cond_expr_node->get_graph_exit_node( );
+        exit_node->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( exit_parents, exit_node );
         _utils->_outer_nodes.pop( );
 
         return ObjectList<Node*>( 1, cond_expr_node );
@@ -786,8 +785,6 @@ namespace Analysis {
         //             }
         //             i += 1;
         //             }while(i < n);
-
-        ObjectList<Node*> do_parents = _utils->_last_nodes;
 
         Node* do_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_DOWHILE );
         _pcfg->connect_nodes( _utils->_last_nodes, do_graph_node );
@@ -1063,7 +1060,7 @@ namespace Analysis {
 
             // Link the If condition with the FALSE statement (else or empty node)
             bool all_tasks_else = true;
-            int false_edge_it = exit_edges.size( );
+            unsigned int false_edge_it = exit_edges.size( );
             exit_edges = cond_node->get_exit_edges( );
             for( ; false_edge_it < cond_node->get_exit_edges( ).size( ); ++false_edge_it )
             {
@@ -1471,7 +1468,6 @@ namespace Analysis {
 
         // Create the flush node
         Node* exit_flush = _pcfg->create_flush_node( environ_exit->get_outer_node( ) );
-        int n_connects = exit_parents.size( );
         _pcfg->connect_nodes( exit_flush, environ_exit );
 
         // Restore current info
@@ -1888,36 +1884,39 @@ namespace Analysis {
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::SwitchStatement& n )
     {
+        Node* switch_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SWITCH );
+        _pcfg->connect_nodes( _utils->_last_nodes, switch_node );
+        Node* entry_node = switch_node->get_graph_entry_node( );
+        Node* exit_node = switch_node->get_graph_exit_node( );
+
         // Build condition node
         ObjectList<Node*> cond_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> cond_node_l = walk( n.get_switch( ) );
-        _pcfg->connect_nodes( cond_last_nodes, cond_node_l[0] );
+        _pcfg->connect_nodes( entry_node, cond_node_l[0] );
 
         // Compose the statements nodes
         _utils->_last_nodes.clear( );
-        Node* switch_exit = new Node( );
         _utils->_switch_condition_nodes.push( cond_node_l[0] );
-        _utils->_break_nodes.push( switch_exit );
+        _utils->_break_nodes.push( exit_node );
         ObjectList<Node*> case_stmts = walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
 
         // Link properly the exit node
-        switch_exit->set_id( ++( _utils->_nid ) );
-        switch_exit->set_outer_node( _utils->_outer_nodes.top( ) );
+        exit_node->set_id( ++( _utils->_nid ) );
+        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
 
         // Finish computation of switch exit nodes
         if( cond_node_l[0]->get_exit_edges( ).empty( ) )
         {   // There is no node node inside the statement
-            _pcfg->connect_nodes( cond_node_l[0], switch_exit );
+            _pcfg->connect_nodes( cond_node_l[0], exit_node );
         }
         else
         {   // If there is some node in '_last_nodes' we connect it to the exit (Last Case stmt have not a Break stmt)
-            _pcfg->connect_nodes( _utils->_last_nodes, switch_exit );
+            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
         }
 
-        _utils->_last_nodes = ObjectList<Node*>( 1, switch_exit );
-
-        return cond_node_l;
+        _utils->_last_nodes = ObjectList<Node*>( 1, switch_node );
+        return ObjectList<Node*>( 1, switch_node );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Symbol& n )

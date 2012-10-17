@@ -96,8 +96,8 @@ namespace Analysis {
 //                     }
 //
 //                     // Set the label and the graph type
-//                     Nodecl::NodeclBase label = old_node->get_graph_label();
-//                     Graph_type graph_type = old_node->get_graph_type();
+//                     Nodecl::NodeclBase label = old_node->get_graph_label( );
+//                     Graph_type graph_type = old_node->get_graph_type( );
 //                     new_node->set_graph_label(label);
 //                     new_node->set_graph_type(graph_type);
 //
@@ -111,8 +111,8 @@ namespace Analysis {
 //                 }
 //                 default:
 //                 {
-//                     int id = old_node->get_id() - 1;
-//                     new_node = new Node(id, ntype, nodes_m[old_node->get_outer_node()]);
+//                     int id = old_node->get_id( ) - 1;
+//                     new_node = new Node(id, ntype, nodes_m[old_node->get_outer_node( )]);
 //                     break;
 //                 }
 //             }
@@ -124,32 +124,32 @@ namespace Analysis {
 //             }
 //             else if(ntype == ENTRY )
 //             {
-//                 Node* new_outer = nodes_m[old_node->get_outer_node()];
+//                 Node* new_outer = nodes_m[old_node->get_outer_node( )];
 //                 new_outer->set_graph_entry_node(new_node);
 //             }
 //             else if(ntype == EXIT)
 //             {
-//                 Node* new_outer = nodes_m[old_node->get_outer_node()];
+//                 Node* new_outer = nodes_m[old_node->get_outer_node( )];
 //                 new_outer->set_graph_exit_node(new_node);
 //             }
 //             else if(ntype == LABELED || ntype == NORMAL)
 //             {
-//                 new_node->set_statements(old_node->get_statements());
+//                 new_node->set_statements(old_node->get_statements( ) );
 //             }
 //
 //             // Set some other properties of the node
-//             if(old_node->has_key(_LIVE_IN))
+//             if(old_node->has_key(_LIVE_IN) )
 //             {   // Liveness analysis has been performed, so we copy this information too
-//                 new_node->set_data(_LIVE_IN, old_node->get_data<Utils::ext_sym_set>(_LIVE_IN));
-//                 new_node->set_data(_LIVE_OUT, old_node->get_data<Utils::ext_sym_set>(_LIVE_OUT));
-//                 new_node->set_data(_UPPER_EXPOSED, old_node->get_data<Utils::ext_sym_set>(_UPPER_EXPOSED));
-//                 new_node->set_data(_KILLED, old_node->get_data<Utils::ext_sym_set>(_KILLED));
+//                 new_node->set_data(_LIVE_IN, old_node->get_data<Utils::ext_sym_set>(_LIVE_IN) );
+//                 new_node->set_data(_LIVE_OUT, old_node->get_data<Utils::ext_sym_set>(_LIVE_OUT) );
+//                 new_node->set_data(_UPPER_EXPOSED, old_node->get_data<Utils::ext_sym_set>(_UPPER_EXPOSED) );
+//                 new_node->set_data(_KILLED, old_node->get_data<Utils::ext_sym_set>(_KILLED) );
 //             }
-//             if(old_node->has_key(_DEPS_IN))
+//             if(old_node->has_key(_DEPS_IN) )
 //             {   // Auto-deps analysis has been performed
-//                 new_node->set_data(_DEPS_IN, old_node->get_data<Utils::ext_sym_set>(_DEPS_IN));
-//                 new_node->set_data(_DEPS_OUT, old_node->get_data<Utils::ext_sym_set>(_DEPS_OUT));
-//                 new_node->set_data(_DEPS_INOUT, old_node->get_data<Utils::ext_sym_set>(_DEPS_INOUT));
+//                 new_node->set_data(_DEPS_IN, old_node->get_data<Utils::ext_sym_set>(_DEPS_IN) );
+//                 new_node->set_data(_DEPS_OUT, old_node->get_data<Utils::ext_sym_set>(_DEPS_OUT) );
+//                 new_node->set_data(_DEPS_INOUT, old_node->get_data<Utils::ext_sym_set>(_DEPS_INOUT) );
 //             }
 //
 //             // Append the new node to the mapping structure
@@ -161,12 +161,12 @@ namespace Analysis {
 //             }
 //             else if(ntype == GRAPH)
 //             {   // Copy the inner nodes of the graph node
-//                 copy_and_map_nodes(old_node->get_graph_entry_node());
+//                 copy_and_map_nodes(old_node->get_graph_entry_node( ) );
 //             }
 //
 //             // Copy the children of the actual node
-//             ObjectList<Node*> children = old_node->get_children();
-//             for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+//             ObjectList<Node*> children = old_node->get_children( );
+//             for(ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it)
 //             {
 //                 copy_and_map_nodes(*it);
 //             }
@@ -175,46 +175,46 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_copied_nodes(Node* old_node)
     {
-        if(!old_node->is_visited())
+        if(!old_node->is_visited( ) )
         {
             old_node->set_visited(true);
 
-            switch(old_node->get_type())
+            switch(old_node->get_type( ) )
             {
                 case EXIT: return;
-                case GRAPH: connect_copied_nodes(old_node->get_graph_entry_node());
+                case GRAPH: connect_copied_nodes(old_node->get_graph_entry_node( ) );
                 default:
                 {
                     // Connect the node with its parents
-                    ObjectList<Edge*> old_entry_edges = old_node->get_entry_edges();
+                    ObjectList<Edge*> old_entry_edges = old_node->get_entry_edges( );
                     ObjectList<Node*> new_parents;
                     ObjectList<Edge*> new_entry_edges;
-                    for(ObjectList<Edge*>::iterator it = old_entry_edges.begin(); it != old_entry_edges.end(); ++it)
+                    for(ObjectList<Edge*>::iterator it = old_entry_edges.begin( ); it != old_entry_edges.end( ); ++it)
                     {
                         Node* new_source = nodes_m[( *it )->get_source( )];
                         Node* new_target = nodes_m[old_node];
                         new_parents.append(new_source);
-                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->is_task_edge(),
-                                                        (*it)->get_type(), (*it)->get_label()));
+                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_task_edge( ),
+                                                        (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(new_parents, nodes_m[old_node], new_entry_edges);
 
                     // Connect the node with its children
-                    ObjectList<Edge*> old_exit_edges = old_node->get_exit_edges();
+                    ObjectList<Edge*> old_exit_edges = old_node->get_exit_edges( );
                     ObjectList<Node*> new_children;
                     ObjectList<Edge*> new_exit_edges;
-                    for(ObjectList<Edge*>::iterator it = old_exit_edges.begin(); it != old_exit_edges.end(); ++it)
+                    for(ObjectList<Edge*>::iterator it = old_exit_edges.begin( ); it != old_exit_edges.end( ); ++it)
                     {
                         Node* new_source = nodes_m[old_node];
-                        Node* new_target = nodes_m[(*it)->get_target()];
+                        Node* new_target = nodes_m[(*it)->get_target( )];
                         new_children.append(new_target);
-                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge(), (*it)->is_back_edge(),
-                                                        (*it)->get_type(), (*it)->get_label()));
+                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_back_edge( ),
+                                                        (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(nodes_m[old_node], new_children, new_exit_edges);
 
-                    ObjectList<Node*> old_children = old_node->get_children();
-                    for(ObjectList<Node*>::iterator it = old_children.begin(); it != old_children.end(); ++it)
+                    ObjectList<Node*> old_children = old_node->get_children( );
+                    for(ObjectList<Node*>::iterator it = old_children.begin( ); it != old_children.end( ); ++it)
                     {
                         connect_copied_nodes(*it);
                     }
@@ -266,144 +266,128 @@ namespace Analysis {
         return append_new_node_to_parent(ObjectList<Node*>(1, parent), nodecl, ntype, etype);
     }
 
-    Node* ExtensibleGraph::append_new_node_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
-                                                    Node_type ntype, Edge_type etype)
+    Node* ExtensibleGraph::append_new_node_to_parent( ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
+                                                      Node_type ntype, Edge_type etype )
     {
-        return append_new_node_to_parent(parents, ObjectList<Nodecl::NodeclBase>(1, nodecl), ntype, etype);
+        return append_new_node_to_parent( parents, ObjectList<Nodecl::NodeclBase>( 1, nodecl ), ntype, etype );
     }
 
-    Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label, bool is_back_edge, bool is_task_edge)
+    Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
+                                          bool is_back_edge, bool is_task_edge )
     {
-        if(parent != NULL && child != NULL)
+        Edge* new_edge;
+        if( parent != NULL && child != NULL )
         {
-            if(!parent->has_child(child))
+            if( !parent->has_child( child ) )
             {
-                if (parent->get_id() == 22 && child->get_id() == 24)
-                {
-                    std::cerr << "22 w 24" << std::endl;
-                }
-                Edge* new_edge = new Edge(parent, child, is_back_edge, is_task_edge, etype, label);
-                parent->set_exit_edge(new_edge);
-                child->set_entry_edge(new_edge);
-                return new_edge;
+                new_edge = new Edge( parent, child, is_back_edge, is_task_edge, etype, label );
+                parent->set_exit_edge( new_edge );
+                child->set_entry_edge( new_edge );
             }
         }
         else
         {
-            internal_error("Using a NULL node when connecting two nodes. Parent is NULL? '%s', Child is NULL? '%s'",
-                        (parent == NULL)?"true":"false", (child == NULL)?"true":"false");
+            internal_error( "Using a NULL node when connecting two nodes. Parent is NULL? '%s', Child is NULL? '%s'",
+                            ( parent == NULL ) ? "true" : "false", ( child == NULL ) ? "true" : "false" );
         }
+        return new_edge;
     }
 
-    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children,
-                                        ObjectList<Edge_type> etypes, ObjectList<std::string> elabels)
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
+                                         ObjectList<Edge_type> etypes, ObjectList<std::string> elabels )
     {
-        if((etypes.size() != elabels.size()) || (parents.size() * children.size() != etypes.size()))
+        if( ( etypes.size( ) != elabels.size( ) ) || (parents.size( ) * children.size( ) != etypes.size( ) ) )
         {
-            internal_error("Wrong list size while connecting a list of nodes as children of "
-                        "other node (parents '%d', children '%d', edge types '%d', edge labels '%d')\n",
-                        parents.size(), children.size(), etypes.size(), elabels.size());
+            internal_error( "Wrong list size while connecting a list of nodes as children of "
+                            "other node (parents '%d', children '%d', edge types '%d', edge labels '%d')\n",
+                            parents.size( ), children.size( ), etypes.size( ), elabels.size( ) );
         }
 
-        int children_size = children.size();
-        ObjectList<Edge_type>::iterator itt = etypes.begin();
-        ObjectList<std::string>::iterator itl = elabels.begin();
-        for( ObjectList<Node*>::iterator it = parents.begin();
-             it != parents.end();
+        int children_size = children.size( );
+        ObjectList<Edge_type>::iterator itt = etypes.begin( );
+        ObjectList<std::string>::iterator itl = elabels.begin( );
+        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( );
              ++it, itt+=children_size, itl+=children_size)
         {
-            ObjectList<Edge_type> actual_etypes(itt, itt + children_size);
-            ObjectList<std::string> actual_elabels(itl, itl + children_size);
-            connect_nodes(*it, children, actual_etypes, actual_elabels);
+            ObjectList<Edge_type> actual_etypes( itt, itt + children_size );
+            ObjectList<std::string> actual_elabels( itl, itl + children_size );
+            connect_nodes( *it, children, actual_etypes, actual_elabels );
         }
     }
 
     void ExtensibleGraph::connect_nodes(Node* parent, ObjectList<Node*> children,
                                         ObjectList<Edge_type> etypes, ObjectList<std::string> labels)
     {
-        ObjectList<Edge_type>::iterator itt = etypes.begin();
-        ObjectList<std::string>::iterator itl = labels.begin();
-        ObjectList<Node*>::iterator it = children.begin();
+        ObjectList<Edge_type>::iterator itt = etypes.begin( );
+        ObjectList<std::string>::iterator itl = labels.begin( );
+        ObjectList<Node*>::iterator it = children.begin( );
         for(;
-            it != children.end(), itt != etypes.end(), itl != labels.end();
+            it != children.end( ), itt != etypes.end( ), itl != labels.end( );
             ++it, ++itt, ++itl)
         {
             connect_nodes(parent, *it, *itt, *itl);
         }
 
-        if(it != children.end() || itt != etypes.end() || itl != labels.end())
+        if(it != children.end( ) || itt != etypes.end( ) || itl != labels.end( ) )
         {
-            internal_error("Wrong list size while connecting a list of nodes as children of "
-                        "other node (children '%d', edge types '%d', edge labels '%d')\n",
-                        children.size(), etypes.size(), labels.size());
+            internal_error( "Wrong list size while connecting a list of nodes as children of "
+                            "other node (children '%d', edge types '%d', edge labels '%d')\n",
+                            children.size( ), etypes.size( ), labels.size( ) );
         }
     }
 
-    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child,
-                            ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge)
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child,
+                                         ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge )
     {
-        ObjectList<Edge_type>::iterator itt = etypes.begin();
-        ObjectList<std::string>::iterator itl = labels.begin();
-        ObjectList<Node*>::iterator it = parents.begin();
-        for(;
-            it != parents.end(), itt != etypes.end(), itl != labels.end();
-            ++it, ++itt, ++itl)
+        ObjectList<Edge_type>::iterator itt = etypes.begin( );
+        ObjectList<std::string>::iterator itl = labels.begin( );
+        ObjectList<Node*>::iterator it = parents.begin( );
+        for( ; it != parents.end( ), itt != etypes.end( ), itl != labels.end( );
+             ++it, ++itt, ++itl )
         {
-            connect_nodes(*it, child, *itt, *itl, /*is_back_edge*/ false, is_task_edge);
+            connect_nodes( *it, child, *itt, *itl, /*is_back_edge*/ false, is_task_edge );
         }
 
-        if(it != parents.end() || itt != etypes.end() || itl != labels.end())
+        if( it != parents.end( ) || itt != etypes.end( ) || itl != labels.end( ) )
         {
-            internal_error("Wrong list size while connecting a list of nodes as parent of "
-                        "other node (parents '%d', edge types '%d', edge labels '%d')\n",
-                        parents.size(), etypes.size(), labels.size());
-        }
-    }
-
-    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label, bool is_back_edge)
-    {
-        for(ObjectList<Node*>::iterator it = parents.begin();
-            it != parents.end();
-            ++it)
-        {
-            connect_nodes(*it, child, etype, label, is_back_edge);
+            internal_error( "Wrong list size while connecting a list of nodes as parent of "
+                            "other node (parents '%d', edge types '%d', edge labels '%d')\n",
+                            parents.size( ), etypes.size( ), labels.size( ) );
         }
     }
 
-    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges)
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label, bool is_back_edge )
     {
-        ObjectList<Node*>::iterator itn = parents.begin();
-        ObjectList<Edge*>::iterator ite = edges.begin();
-        for(; itn!=parents.end(), ite!=edges.end(); ++itn, ++ite)
+        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            if(!child->has_parent(*itn))
+            connect_nodes( *it, child, etype, label, is_back_edge );
+        }
+    }
+
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges )
+    {
+        ObjectList<Node*>::iterator itn = parents.begin( );
+        ObjectList<Edge*>::iterator ite = edges.begin( );
+        for( ; itn!=parents.end( ), ite!=edges.end( ); ++itn, ++ite )
+        {
+            if( !child->has_parent( *itn ) )
             {
-                (*itn)->set_exit_edge(*ite);
-                child->set_entry_edge(*ite);
-            }
-            else
-            {
-//                 edges.erase(ite);
-//                 --ite;
+                ( *itn )->set_exit_edge( *ite );
+                child->set_entry_edge( *ite );
             }
         }
     }
 
-    void ExtensibleGraph::connect_nodes(Node* parent, ObjectList<Node*> children, ObjectList<Edge*> edges)
+    void ExtensibleGraph::connect_nodes( Node* parent, ObjectList<Node*> children, ObjectList<Edge*> edges )
     {
-        ObjectList<Node*>::iterator itn = children.begin();
-        ObjectList<Edge*>::iterator ite = edges.begin();
-        for(; itn!=children.end(), ite!=edges.end(); ++itn, ++ite)
+        ObjectList<Node*>::iterator itn = children.begin( );
+        ObjectList<Edge*>::iterator ite = edges.begin( );
+        for( ; itn!=children.end( ), ite!=edges.end( ); ++itn, ++ite )
         {
-            if(!parent->has_child(*itn))
+            if( !parent->has_child(*itn) )
             {
                 (*itn)->set_entry_edge(*ite);
                 parent->set_exit_edge(*ite);
-            }
-            else
-            {
-//                 edges.erase(ite);
-//                 --ite;
             }
         }
     }
@@ -502,8 +486,8 @@ namespace Analysis {
     void ExtensibleGraph::delete_node(Node* n)
     {
         // Delete the node from its parents
-        ObjectList<Node*> entry_nodes = n->get_parents();
-        for( ObjectList<Node*>::iterator it = entry_nodes.begin(); it != entry_nodes.end(); ++it )
+        ObjectList<Node*> entry_nodes = n->get_parents( );
+        for( ObjectList<Node*>::iterator it = entry_nodes.begin( ); it != entry_nodes.end( ); ++it )
         {
             ( *it )->erase_exit_edge( n );
         }
@@ -540,8 +524,6 @@ namespace Analysis {
         if( !actual_node->is_visited( ) )
         {
             actual_node->set_visited( true );
-
-            Node_type ntype = actual_node->get_type( );
 
             if( !actual_node->is_entry_node( ) )
             {
@@ -626,7 +608,7 @@ namespace Analysis {
 
     void ExtensibleGraph::erase_unclassified_nodes(Node* current)
     {
-        if(!current->is_visited())
+        if(!current->is_visited( ) )
         {
             current->set_visited(true);
 
@@ -636,7 +618,7 @@ namespace Analysis {
             }
             else
             {
-                ObjectList<Node*> children = current->get_children();
+                ObjectList<Node*> children = current->get_children( );
 
                 if( current->is_unclassified_node( ) )
                 {
@@ -645,7 +627,7 @@ namespace Analysis {
                     // Check correctness
                     ObjectList<Edge*> entries = current->get_entry_edges( );
                     ObjectList<Edge*> exits = current->get_exit_edges( );
-                    for( ObjectList<Edge*>::iterator it = entries.begin( ); it != entries.end(); ++it )
+                    for( ObjectList<Edge*>::iterator it = entries.begin( ); it != entries.end( ); ++it )
                     {
                         if( !( *it )->is_always_edge( ) )
                         {
@@ -674,7 +656,7 @@ namespace Analysis {
                     {
                         int n_children = children.size( );
                         ObjectList<Edge_type> entry_types = current->get_entry_edge_types( );
-                        ObjectList<std::string> entry_labels = current->get_entry_edge_labels();
+                        ObjectList<std::string> entry_labels = current->get_entry_edge_labels( );
                         while ( n_children > 0 )
                         {
                             etypes.append( entry_types );
@@ -789,9 +771,9 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits(Node* current)
     {
-        if(current->is_visited())
+        if(current->is_visited( ) )
         {
-//                 std::cerr << "           clear visits --> " << current->get_id() << std::endl;
+//                 std::cerr << "           clear visits --> " << current->get_id( ) << std::endl;
             current->set_visited(false);
 
             if( current->is_exit_node( ) )
@@ -841,7 +823,7 @@ namespace Analysis {
     {
         if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
         {
-//             std::cerr << "           clear visits in level --> " << current->get_id() << std::endl;
+//             std::cerr << "           clear visits in level --> " << current->get_id( ) << std::endl;
             current->set_visited( false );
 
             if( current->is_exit_node( ) )
@@ -910,7 +892,6 @@ namespace Analysis {
     {
         if( current->get_id( ) != avoid_node->get_id( ) && current->is_visited( ) )
         {
-            //                 std::cerr << "           clear visits avoiding branch  --> " << current->get_id() << std::endl;
             current->set_visited( false );
 
             if( current->is_exit_node( ) )
@@ -960,13 +941,13 @@ namespace Analysis {
         return _task_nodes_l;
     }
 
-    ObjectList<Symbol> ExtensibleGraph::get_function_parameters() const
+    ObjectList<Symbol> ExtensibleGraph::get_function_parameters( ) const
     {
-        if(_function_sym.is_valid())
+        if( _function_sym.is_valid( ) )
         {
             ObjectList<Symbol> params;
 
-            scope_entry_t* function_header = _function_sym.get_internal_symbol();
+            scope_entry_t* function_header = _function_sym.get_internal_symbol( );
             int num_params = function_header->entity_specs.num_related_symbols;
             scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
             for(int i=0; i<num_params; ++i)
@@ -988,7 +969,7 @@ namespace Analysis {
         _func_calls.insert(s);
     }
 
-    ObjectList<Symbol> ExtensibleGraph::get_function_calls() const
+    ObjectList<Symbol> ExtensibleGraph::get_function_calls( ) const
     {
         return _func_calls;
     }
@@ -1017,11 +998,11 @@ namespace Analysis {
     {
         // Get outer node of the actual node which is the potential increment of a loop (jump over func_calls, split_exprs, ...)
         Node* potential_loop_increment = advance_over_outer_nodes_until_loop(node);
-        Node* loop_node = potential_loop_increment->get_outer_node();
-        Node* loop_entry = loop_node->get_graph_entry_node();
+        Node* loop_node = potential_loop_increment->get_outer_node( );
+        Node* loop_entry = loop_node->get_graph_entry_node( );
 
-        ObjectList<Node*> children = potential_loop_increment->get_children();
-        if( (children.size() == 1) && (*children[0] == *loop_entry->get_children()[0]) )
+        ObjectList<Node*> children = potential_loop_increment->get_children( );
+        if( (children.size( ) == 1) && (*children[0] == *loop_entry->get_children( )[0]) )
         {
             return potential_loop_increment;
         }

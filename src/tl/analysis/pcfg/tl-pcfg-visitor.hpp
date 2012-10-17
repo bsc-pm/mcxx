@@ -46,8 +46,6 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        ObjectList<Symbol> _visited_functions;
-
 
         //! This method creates a list with the nodes in an specific subgraph
         /*!

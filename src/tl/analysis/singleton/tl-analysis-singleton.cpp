@@ -209,10 +209,10 @@ namespace Analysis {
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
             Node* current = it->second->get_graph( );
-            Node* enclosing = nodecl_is_enclosed_by( current, n );
+            result = nodecl_is_enclosed_by( current, n );
             ExtensibleGraph::clear_visits( current );
 
-            if( enclosing != NULL )
+            if( result != NULL )
             {
                 break;
             }
