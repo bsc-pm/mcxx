@@ -155,7 +155,7 @@ void DeviceProvider::get_instrumentation_code(
             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
-            <<               " \"user-funct-location\", " << outline_name << ", \"" << extended_descr << "\", 0);"
+            <<               " \"user-funct-location\", \"" << outline_name << "\", \"" << extended_descr << "\", 0);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "nanos_funct_id_init = 1;"
             << "}"
