@@ -40,7 +40,7 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
-    class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<bool> {
+    class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<void> {
     private:
 
         // Variables for Induction Variables analysis
@@ -50,6 +50,7 @@ namespace Analysis {
         // Variables for modified Nodecl visitor
         Nodecl::NodeclBase _constant;           /*!< Nodecl to be checked of being constant */
         bool _defining;                         /*!< Boolean used during the visit indicating whether we are in a defining context */
+        bool _is_induction_var;                 /*!< Boolean used during the visit indicating whether a nodecl is an induction variable */
 
         //! Recursive method that actually computes the induction variables of \_graph
         void compute_induction_variables_rec( Node* current );
@@ -80,8 +81,8 @@ namespace Analysis {
 
         // ********** Modified Symbol Visitor ********** //
         //!The Visitor returns true in case the symbol is modified, and false otherwise
-        bool visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
-        bool visit_function( Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments );
+        void visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
+        void visit_function( Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments );
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );
@@ -100,7 +101,7 @@ namespace Analysis {
         Ret visit( const Nodecl::MulAssignment& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
-        bool join_list( TL::ObjectList<bool>& list );
+        Ret join_list( TL::ObjectList<bool>& list );
 
     public:
 
@@ -134,17 +135,24 @@ namespace Analysis {
     // **************** Visitor matching nodecls for induction variables analysis ****************** //
     //! Returns true when the Nodecl being visited contains or is equal to \_node_to_find
 
-    class LIBTL_CLASS MatchingVisitor : public Nodecl::ExhaustiveVisitor<bool>
+    class LIBTL_CLASS MatchingVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
         Nodecl::NodeclBase _node_to_find;
+        bool _found;
 
     public:
+        //! Constructor
         MatchingVisitor( Nodecl::NodeclBase nodecl );
+
+        // ******* Getters and setters ******* //
+        bool node_found( );
+
+        // ********* Visiting methods ********* //
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
-        bool join_list( TL::ObjectList<bool>& list );
+        Ret join_list( TL::ObjectList<bool>& list );
     };
 
     // ************** END visitor matching nodecls for induction variables analysis **************** //

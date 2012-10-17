@@ -55,7 +55,7 @@ namespace Analysis {
         void solve_reaching_definition_equations_rec( Node* current, bool& changed );
 
         //! Propagates reaching definitions information from inner to outer nodes
-        bool set_graph_node_reaching_definitions( Node* current );
+        void set_graph_node_reaching_definitions( Node* current );
 
     public:
         //! Constructor

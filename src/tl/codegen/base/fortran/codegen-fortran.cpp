@@ -3849,6 +3849,13 @@ OPERATOR_TABLE
             declare_global_entities(node);
         }
 
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        if (equivalence_symbol.is_valid())
+        {
+            walk(equivalence_symbol.get_value());
+        }
+
         pop_declaring_entity();
         dec_indent();
 
@@ -4421,9 +4428,13 @@ OPERATOR_TABLE
         ERROR_CONDITION(!entry.is_from_module(),
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
+        // Has the symbol 'entry' been declared as USEd in the current context?
+        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+            return;
+
         TL::Symbol module = entry.from_module();
 
-        // // Is this a module actually used in this program unit?
+        // Is this a module actually used in this program unit?
         TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
         if (!used_modules.is_valid())
             return;

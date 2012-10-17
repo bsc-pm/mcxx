@@ -743,7 +743,7 @@ namespace TL
             * true, but this function might return true even if 'operator==' returned false.
             * So do not use 'operator==' to check type system equality.
             */
-            bool is_same_type(Type t);
+            bool is_same_type(Type t) const;
 
             /* We should consider to remove this one day */
             friend class Symbol;
@@ -751,14 +751,14 @@ namespace TL
             friend class Scope;
 
             /* Do not use it unless directed to do so */
-            type_t* get_internal_type()
+            type_t* get_internal_type() const
             {
                 return _type_info;
             }
 
             //! Returns what sizeof would yield for this type
             /*! Note that the result of this function depends on the current type environment */
-            unsigned int get_size();
+            unsigned int get_size() const;
 
             //! Returns all the arithmetic types
             /*!  These types include all the integer types and floating types */

@@ -224,7 +224,7 @@ namespace Analysis {
         return res;
     }
 
-    bool Liveness::set_graph_node_liveness( Node* current )
+    void Liveness::set_graph_node_liveness( Node* current )
     {
         if( current->is_graph_node( ) )
         {

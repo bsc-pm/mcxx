@@ -914,7 +914,7 @@ namespace TL
         return template_type_get_related_symbol(_type_info);
     }
 
-    bool Type::is_same_type(Type t)
+    bool Type::is_same_type(Type t) const
     {
         return equivalent_types(this->_type_info, t._type_info);
     }
@@ -1012,7 +1012,7 @@ namespace TL
         return ::class_type_is_packed(_type_info);
     }
 
-    unsigned int Type::get_size() 
+    unsigned int Type::get_size() const
     {
         unsigned int result;
 

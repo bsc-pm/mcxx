@@ -202,7 +202,7 @@ namespace Codegen
                 TL::Symbol symbol;
                 bool operator==(const UseStmtItem& info) const
                 {
-                    return (this->symbol.get_alias_to() == info.symbol.get_alias_to());
+                    return (this->symbol == info.symbol);
                 }
                 bool operator!=(const UseStmtItem& info) const
                 {

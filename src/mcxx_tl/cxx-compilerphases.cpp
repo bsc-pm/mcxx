@@ -360,7 +360,6 @@ namespace TL
                     {
                         TL::CompilerPhase* phase = (*it);
                         std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
-
                         for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
                                 it != parameters.end();
                                 it++)

@@ -230,6 +230,7 @@ void LoweringVisitor::fill_dependences_wait(
                         fill_dimensions(num_dimensions, 
                                 /* current_dim */ num_dimensions,
                                 current_dep_num,
+                                dep_expr,
                                 dimension_sizes, 
                                 dependency_type, 
                                 dims_description,

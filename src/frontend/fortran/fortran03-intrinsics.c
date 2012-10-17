@@ -3252,7 +3252,7 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -6005,7 +6005,12 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
     rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "iso_c_binding", iso_c_binding);
 
     type_t* int_type = fortran_get_default_integer_type();
-    type_t* character_type = fortran_get_default_character_type();
+
+    nodecl_t one = const_value_to_nodecl(const_value_get_signed_int(1));
+    type_t* character_type = 
+                    get_array_type_bounds(
+                            fortran_choose_character_type_from_kind(1), 
+                            one, one, decl_context);
 
     module_context.current_scope->related_entry = iso_c_binding;
 
@@ -6072,7 +6077,15 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
                 iso_c_binding->entity_specs.num_related_symbols,
                 symbol);
 
-        symbol->value = const_value_to_nodecl(const_value_get_signed_int(named_constants[i].value));
+        if (fortran_is_character_type(symbol->type_information))
+        {
+            char c = named_constants[i].value;
+            symbol->value = const_value_to_nodecl(const_value_make_string(&c, 1));
+        }
+        else
+        {
+            symbol->value = const_value_to_nodecl(const_value_get_signed_int(named_constants[i].value));
+        }
     }
 
     {
