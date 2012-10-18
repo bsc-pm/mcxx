@@ -1713,11 +1713,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     // Two return cases for C++:
     //  - The symbol is defined inside a certain class and we are not defining this class yet
     //  - The symbol is not defined inside a class and, currently, we are defining one or more
-    if (IS_CXX_LANGUAGE &&
-            (symbol.is_defined_inside_class() &&
-             (state.classes_being_defined.empty()
-              || state.classes_being_defined.back() != symbol.get_class_type().get_symbol())
-             || (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+    if (IS_CXX_LANGUAGE
+            && ((symbol.is_defined_inside_class()
+                    && (state.classes_being_defined.empty()
+                        || state.classes_being_defined.back() != symbol.get_class_type().get_symbol()))
+                || (!symbol.is_defined_inside_class()
+                    && !state.classes_being_defined.empty())))
         return;
 
     TL::Type symbol_type = symbol.get_type();
@@ -1942,11 +1943,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     // Two return cases for C++:
     //  - The symbol is defined inside a certain class and we are not defining this class yet
     //  - The symbol is not defined inside a class and, currently, we are defining one or more
-    if (IS_CXX_LANGUAGE &&
-            (symbol.is_defined_inside_class() &&
-             (state.classes_being_defined.empty() ||
-              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
-             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+    if (IS_CXX_LANGUAGE
+            && ((symbol.is_defined_inside_class()
+                    && (state.classes_being_defined.empty()
+                        || state.classes_being_defined.back() != symbol.get_class_type().get_symbol()))
+                || (!symbol.is_defined_inside_class()
+                    && !state.classes_being_defined.empty())))
         return;
 
     TL::Type symbol_type = symbol.get_type();
@@ -2832,9 +2834,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     else if (IS_CXX03_LANGUAGE)
     {
         if ((items.empty()
-                    || (items.size() == 1)
+                    || ((items.size() == 1)
                 && (type.is_named()
-                    || type.no_ref().is_builtin()))
+                    || type.no_ref().is_builtin())))
                 && !(type.is_class()
                     && type.is_aggregate()))
         {
@@ -4683,11 +4685,11 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || (symbol.is_static()
-                    && (!state.in_member_declaration
-                        || (symbol.get_type().is_integral_type()
-                            || symbol.get_type().is_enum())
-                        && symbol.get_type().is_const())
+                || ((symbol.is_static()
+                        && (!state.in_member_declaration
+                            || ((symbol.get_type().is_integral_type()
+                                    || symbol.get_type().is_enum())
+                                && symbol.get_type().is_const())))
                     || symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;

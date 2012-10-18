@@ -1402,7 +1402,7 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        int line = line;
+        int line = pragma_line.get_line();
         std::string filename = pragma_line.get_filename();
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;

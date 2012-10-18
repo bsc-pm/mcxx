@@ -514,6 +514,11 @@ namespace TL
                 if(event == #x) return RealTimeInfo::x;
                 ENUM_OMP_ERROR_EVENT_LIST
             #undef ENUM_OMP_ERROR_EVENT
+
+            // This should never happen because we only call to this function
+            // if the 'event' string is a valid omp_error_event_t
+            internal_error("'%s' is not a valid event", event.c_str());
+            return RealTimeInfo::OMP_ANY_EVENT;
         }
 
         static RealTimeInfo::omp_error_action_t get_omp_error_action(std::string action)
@@ -522,7 +527,12 @@ namespace TL
                 if(action == #x) return RealTimeInfo::y;
                 ENUM_OMP_ERROR_ACTION_LIST
             #undef ENUM_OMP_ERROR_ACTION
-        }
+
+            // This should never happen because we only call to this function
+            // if the 'action' string is a valid omp_error_action_t
+            internal_error("'%s' is not a valid action", action.c_str());
+            return RealTimeInfo::OMP_NO_ACTION;
+       }
 
         static std::string get_omp_error_action_str(RealTimeInfo::omp_error_action_t action)
         {
