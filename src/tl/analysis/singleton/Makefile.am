@@ -39,6 +39,8 @@ libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalys
 					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la \
 					        ../loops/libloops_analysis.la
 
-libanalysis_singleton_la_SOURCES= tl-analysis-singleton.hpp \
+libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
+                                  tl-analysis-static-info.hpp \
+				   tl-analysis-singleton.hpp \
                                   tl-analysis-singleton.cpp \
                                   $(END)

@@ -94,7 +94,9 @@ namespace Utils {
         switch ( _type )
         {
             case BASIC_IV:      t = "BASIC_IV";
+                                break;
             case DERIVED_IV:    t = "DERIVED_IV";
+                                break;
             default: ;
         }
 

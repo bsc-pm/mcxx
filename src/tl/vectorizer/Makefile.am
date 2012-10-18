@@ -49,8 +49,6 @@ libtlvectorizer_la_LIBADD = $(tl_libadd) \
                           $(END)
 
 libtlvectorizer_la_SOURCES = \
-                           tl-analysis-static-info.cpp \
-                           tl-analysis-static-info.hpp \
                            tl-function-versioning.cpp \
                            tl-function-versioning.hpp \
                            tl-vectorizer.cpp \
