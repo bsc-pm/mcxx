@@ -950,7 +950,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             if (Nanos::Version::interface_is_at_least("omp", 5))
             {
                 worksharing_inits
-                    << "void nanos_omp_initialize_worksharings(void *_dummy)"
+                    << "static void nanos_omp_initialize_worksharings(void *_dummy)"
                     << "{"
                     <<      "ws_policy[0] = nanos_omp_find_worksharing(omp_sched_static);"
                     <<      "ws_policy[1] = nanos_omp_find_worksharing(omp_sched_dynamic);"
@@ -962,7 +962,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             else
             {
                 worksharing_inits
-                    << "void nanos_omp_initialize_worksharings(void *_dummy)"
+                    << "static void nanos_omp_initialize_worksharings(void *_dummy)"
                     << "{"
                     <<      "ws_policy[0] = nanos_find_worksharing(\"static_for\");"
                     <<      "ws_policy[1] = nanos_find_worksharing(\"dynamic_for\");"
