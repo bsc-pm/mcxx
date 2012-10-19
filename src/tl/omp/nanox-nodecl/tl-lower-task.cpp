@@ -60,13 +60,10 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
+TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
-    // FIXME: Move this to the class! 
-    static std::map<int, Symbol> _map;
-    std::map<int, Symbol>::iterator it = _map.find(num_devices);
-
-    if (it == _map.end())
+    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
+    if (it == _declared_const_wd_type_map.end())
     {
         std::stringstream ss;
         if (IS_C_LANGUAGE)
@@ -88,7 +85,7 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        _map[num_devices] = new_class_symbol;
+        _declared_const_wd_type_map[num_devices] = new_class_symbol;
 
         TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
         ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
