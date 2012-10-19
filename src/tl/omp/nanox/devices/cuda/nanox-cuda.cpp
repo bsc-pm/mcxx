@@ -1100,11 +1100,21 @@ void DeviceCUDA::process_local_symbols(
 		// If this symbol comes from the guts of CUDA, ignore it
 		if (CheckIfInCudacompiler::check(s.get_filename()))
 			continue;
-
 		// Let's check its type as well
 		TL::Type t = s.get_type();
 		if (CheckIfInCudacompiler::check_type(t))
 			continue;
+
+		std::cout << "Checking symbol belongs to Nanox: " << s.get_name() << std::endl;
+
+		// Check if the symbol comes from Nanox
+		if (CheckIfInNanox::check(s.get_filename()))
+			continue;
+		// Let's check its type as well
+		if (CheckIfInNanox::check_type(t))
+			continue;
+
+		std::cout << "    sym " << s.get_name() << " doesn't" << std::endl;
 
 		// Check we have not already added the symbol
 		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
@@ -1166,10 +1176,11 @@ void DeviceCUDA::process_extern_symbols(
 	for (std::set<Symbol>::iterator it = extern_symbols.begin();
 			it != extern_symbols.end(); it++)
 	{
+
 		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
 		// Check the symbol does not come from CUDA (see #753 and #959)
 		AST_t a = it->get_point_of_declaration();
-		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
+		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()) && !CheckIfInNanox::check(it->get_filename()))
 		{
 			forward_declaration << a.prettyprint_external() << "\n";
 		}

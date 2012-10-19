@@ -252,13 +252,16 @@ AC_ARG_ENABLE([tl-openmp-nanox],
 
 nanox_include=""
 nanox_lib=""
+nanox_dir=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
+NANOX_DIR=""
 
 if test x$is_enabled_openmpt = xyes;
 then
     nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
+    nanox_dir="${prefix}"
 fi
 
 if test x$is_enabled_tl_omp_nanox = xyes;
@@ -268,6 +271,7 @@ then
            [
             nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
+            nanox_dir="${withval}"
            ]
    )
 
@@ -275,6 +279,7 @@ then
            AS_HELP_STRING([--with-nanox-include=dir], [Directory of Nanos++ headers]),
            [
             nanox_include="${withval}"
+            nanox_dir="${withval}"
            ]
    )
 
@@ -292,6 +297,8 @@ then
 
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
+   NANOX_DIR="${nanox_dir}"
+   AC_DEFINE_UNQUOTED([NANOX_INST_DIR], ["$NANOX_DIR"], [NANOX installation path])
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
@@ -323,6 +330,7 @@ fi
 
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_DIR])
 AC_SUBST([NANOX_INSTRUMENTATION])
 
 
