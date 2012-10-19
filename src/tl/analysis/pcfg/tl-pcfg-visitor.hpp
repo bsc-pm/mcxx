@@ -24,8 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #ifndef TL_PCFG_VISITOR_HPP
 #define TL_PCFG_VISITOR_HPP
 
@@ -47,8 +45,6 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
-
-        ObjectList<Symbol> _visited_functions;
 
 
         //! This method creates a list with the nodes in an specific subgraph
@@ -99,6 +95,9 @@ namespace Analysis {
         // ************************************************************************************** //
         // ********************************** Visiting methods ********************************** //
 
+        //! This method implements teh visitor for any kind of barrier: BarrierAtEnd, BarrierFull
+        Ret visit_barrier( );
+
         //! This method implements the visitor for binary nodecls
         /*!
          * The nodes wrapped in this visitor method are:
@@ -123,6 +122,14 @@ namespace Analysis {
          */
         Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::NodeclBase& case_val );
 
+        //! This method implements the visitor for a VirtualFunctionCall and a FunctionCall
+        /*!
+         * \param n Nodecl containinf the VirtualFunctionCall or the FunctionCall
+         * \return The graph node created while the function call has been parsed
+         */
+        template <typename T>
+        Ret visit_function_call( const T& n );
+
         //! This method implements the visitor for nodecls generating a unique node containing itself
         /*!
          * The nodes wrapped in this visitor method are:
@@ -145,45 +152,9 @@ namespace Analysis {
          */
         Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
 
-        //! This method build the graph node containing the CFG of a task
-        /*!
-        * The method stores the graph node into the list #_task_graphs_l
-        * We can place the task any where in the graph taking into account that the position must
-        * respect the initial dependences
-        */
-        template <typename T>
-        Ret create_task_graph( const T& n );
-
-        //! This method implements the visitor for a VirtualFunctionCall and a FunctionCall
-        /*!
-         * \param n Nodecl containinf the VirtualFunctionCall or the FunctionCall
-         * \return The graph node created while the function call has been parsed
-         */
-        template <typename T>
-        Ret visit_function_call( const T& n );
-
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
 
-
-
-        // ************************* IPA ************************* //
-
-        //! Computes the liveness information of each node regarding only its inner statements
-        /*!
-            A variable is Killed (X) when it is defined before than used in X.
-            A variable is Upper Exposed (X) when it is used before than defined in X.
-            */
-        void gather_live_initial_information(Node* actual);
-
-        //! Sets the initial liveness information of the node.
-        /*!
-        * The method computes the used and defined variables of a node taking into account only
-        * the inner statements.
-        */
-        void set_live_initial_information(Node* node);
-
-        bool propagate_use_rec(Node* actual);
 
         bool func_has_cyclic_calls_rec(Symbol reach_func, Symbol stop_func, ExtensibleGraph * graph);
 
@@ -194,7 +165,7 @@ namespace Analysis {
         // ************************************ Constructors ************************************ //
 
         //! Constructor building an empty PCFG
-        PCFGVisitor( std::string name, Scope context );
+        PCFGVisitor( std::string name, Nodecl::NodeclBase nodecl );
 
         // ********************************** END constructors ********************************** //
         // ************************************************************************************** //
@@ -206,9 +177,8 @@ namespace Analysis {
 
         /*!Generates one PCFG per each function of an AST
          * \param n AST containing the code used to generate the PCFG
-         * \param dress_up boolean indicating whether the PCFG(s) must create maximum Basic Blocks or not
          */
-        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, bool dress_up = true );
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -267,6 +237,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Context& n );
         Ret visit( const Nodecl::ContinueStatement& n );
         Ret visit( const Nodecl::Conversion& n );
+        Ret visit( const Nodecl::CxxDef& n );
         Ret visit( const Nodecl::DefaultStatement& n );
         Ret visit( const Nodecl::Delete& n );
         Ret visit( const Nodecl::DeleteArray& n );

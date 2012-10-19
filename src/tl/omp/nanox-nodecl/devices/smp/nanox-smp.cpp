@@ -153,8 +153,6 @@ namespace TL { namespace Nanox {
                 name = (*it)->get_field_name();
             }
 
-            bool already_mapped = false;
-
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -1306,7 +1304,7 @@ namespace TL { namespace Nanox {
         int num_data_items = data_items.size();
         if (num_data_items == 0)
         {
-            ancillary_source << "void";
+            ancillary_source << "void (*outline_fun)(void)";
         }
         else
         {

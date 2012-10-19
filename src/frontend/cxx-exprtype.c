@@ -490,6 +490,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_FLOATING_LITERAL :
+        case AST_HEXADECIMAL_FLOAT :
             {
 
                 floating_literal_type(expression, nodecl_output);
@@ -5693,9 +5694,17 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
 
+                nodecl_t nodecl_this_symbol =
+                    nodecl_make_symbol(
+                        this_symbol,
+                        nodecl_get_filename(nodecl_name),
+                        nodecl_get_line(nodecl_name));
+
+                nodecl_set_type(nodecl_this_symbol, this_type);
+
                 nodecl_t nodecl_this_derref =
                     nodecl_make_dereference(
-                            nodecl_make_symbol(this_symbol, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name)),
+                            nodecl_this_symbol,
                             get_lvalue_reference_type(this_type),
                             nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
 

@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <utility>
+
 #include "tl-iv-analysis.hpp"
 #include "tl-node.hpp"
 
@@ -31,134 +33,21 @@ namespace TL {
 namespace Analysis {
 
     // ********************************************************************************************* //
-    // ********************************** Induction variable info  ********************************* //
-
-    InductionVarInfo::InductionVarInfo(Symbol s, Nodecl::NodeclBase lb)
-        : _s(s), _lb(lb), _ub(Nodecl::NodeclBase::null()), _stride(Nodecl::NodeclBase::null()), _stride_is_positive(2)
-    {}
-
-    Symbol InductionVarInfo::get_symbol() const
-    {
-        return _s;
-    }
-
-    Type InductionVarInfo::get_type() const
-    {
-        return _s.get_type();
-    }
-
-    Nodecl::NodeclBase InductionVarInfo::get_lb() const
-    {
-        return _lb;
-    }
-
-    void InductionVarInfo::set_lb(Nodecl::NodeclBase lb)
-    {
-        _lb = lb;
-    }
-
-    Nodecl::NodeclBase InductionVarInfo::get_ub() const
-    {
-        return _ub;
-    }
-
-    void InductionVarInfo::set_ub(Nodecl::NodeclBase ub)
-    {
-        _ub = ub;
-    }
-
-    Nodecl::NodeclBase InductionVarInfo::get_stride() const
-    {
-        return _stride;
-    }
-
-    void InductionVarInfo::set_stride(Nodecl::NodeclBase stride)
-    {
-        _stride = stride;
-    }
-
-    int InductionVarInfo::stride_is_positive() const
-    {
-        return _stride_is_positive;
-    }
-
-    void InductionVarInfo::set_stride_is_positive(int stride_is_positive)
-    {
-        _stride_is_positive = stride_is_positive;
-    }
-
-    bool InductionVarInfo::operator==(const InductionVarInfo &v) const
-    {
-        return ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_stride == v._stride) );
-    }
-
-    bool InductionVarInfo::operator<(const InductionVarInfo &v) const
-    {
-        if ( (_s < v._s)
-            || ( (_s == v._s) && (_lb < v._lb) )
-            || ( (_s == v._s) && (_lb ==  v._lb) && (_ub < v._ub) )
-            || ( (_s == v._s) && (_lb ==  v._lb) && (_ub == v._ub) && (_stride < v._stride) ) )
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-
-    // *** Node hash and comparator *** //
-
-    size_t Node_hash::operator() (const int& n) const
-    {
-        return n;
-    }
-
-    bool Node_comp::operator() (const int& n1, const int& n2) const
-    {
-        return (n1 == n2);
-    }
-
-    // ******************************** END induction variable info  ******************************* //
-    // ********************************************************************************************* //
-
-
-
-    // ********************************************************************************************* //
-    // ********************************* Static methods declaration ******************************** //
-
-    static bool definition_is_within_the_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
-
-    // ******************************* END static methods declaration ****************************** //
-    // ********************************************************************************************* //
-
-
-
-    // ********************************************************************************************* //
-    // ************************* Class representing and induction variable ************************* //
-
-    InductionVariableData::InductionVariableData( InductionVarType type, Nodecl::NodeclBase family )
-        : _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ), _stride( Nodecl::NodeclBase::null( ) ),
-          _type( type ), _family( family )
-    {}
-
-    bool InductionVariableData::is_basic( )
-    {
-        return ( _type == basic_iv );
-    }
-
-    // *********************** END class representing and induction variable *********************** //
-    // ********************************************************************************************* //
-
-
-
-    // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
-    InductionVariableAnalysis::InductionVariableAnalysis( )
-        : _induction_vars(), _constant( Nodecl::NodeclBase::null( ) ), _defining( false )
+    InductionVariableAnalysis::InductionVariableAnalysis( ExtensibleGraph* graph )
+            : _induction_vars( ), _graph( graph ),
+              _constant( Nodecl::NodeclBase::null( ) ), _defining( false ), _is_induction_var( false )
     {}
 
-    void InductionVariableAnalysis::induction_variable_detection( Node* current )
+    void InductionVariableAnalysis::compute_induction_variables( )
+    {
+        Node* graph = _graph->get_graph( );
+        compute_induction_variables_rec( graph );
+        ExtensibleGraph::clear_visits( graph );
+    }
+
+    void InductionVariableAnalysis::compute_induction_variables_rec( Node* current )
     {
         if( !current->is_visited( ) )
         {
@@ -168,24 +57,21 @@ namespace Analysis {
             {
                 // IV is computed from inner to outer loops
                 Node* entry = current->get_graph_entry_node( );
-                induction_variable_detection( entry );
+                compute_induction_variables_rec( entry );
 
                 if( current->is_loop_node( ) )
                 {   // Treat current loop
                     ExtensibleGraph::clear_visits_in_level( entry, current );
                     detect_basic_induction_variables( entry, current );
-                    ExtensibleGraph::clear_visits_in_level( entry, current );
-                    detect_derived_induction_variables( entry, current );
-
-                    // Propagate current iv's to inner loops
-                    // TODO Think about it. Do we really need to propagate it??
+//                     ExtensibleGraph::clear_visits_in_level( entry, current );
+//                     detect_derived_induction_variables( entry, current );
                 }
             }
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
-                induction_variable_detection( *it );
+                compute_induction_variables_rec( *it );
             }
         }
     }
@@ -200,12 +86,17 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
             for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
             {
-                Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop );
-                if( !iv.is_null( ) )
-                    loop->set_induction_variable( iv, InductionVariableData( basic_iv, iv ) );
+                Nodecl::NodeclBase n = is_basic_induction_variable( *it, loop );
+                if( !n.is_null( ) )
+                {
+                    Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
+                                                                                         Utils::BASIC_IV, n );
+                    loop->set_induction_variable( iv );
+                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), iv ) );
+                }
             }
 
-            // Traverse the children
+            // Look for IVs in current's children
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
@@ -214,7 +105,7 @@ namespace Analysis {
         }
     }
 
-    // FIXME This method does not cover any possible induction variable.
+    // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
     Nodecl::NodeclBase InductionVariableAnalysis::is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop )
     {
@@ -304,14 +195,13 @@ namespace Analysis {
             res = _st.get_rhs( );
         }
 
-        if(!res.is_null( ))
+        if( !res.is_null( ) )
         {   /*! \st has the form of an induction variable, but still 'iv' can be modified
-                *  within the loop in some way it makes iv not to be an IV. */
+             *  within the loop in some way it makes iv not to be an IV. */
             if( is_false_induction_variable( res, st, loop_entry, id_end ) )
             {
                 res = Nodecl::NodeclBase::null( );
             }
-
         }
 
         return res;
@@ -328,22 +218,20 @@ namespace Analysis {
             for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
             {
                 Nodecl::NodeclBase iv_family;
-                Nodecl::NodeclBase iv = is_derived_induction_variable( *it, current, loop, iv_family );
-                if( !iv.is_null( ) )
-                    loop->set_induction_variable(iv, InductionVariableData( derived_iv, iv ));
-            }
+                Nodecl::NodeclBase n = is_derived_induction_variable( *it, current, loop, iv_family );
+                if( !n.is_null( ) ){
+                    Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
+                                                                                         Utils::DERIVED_IV, n );
+                    loop->set_induction_variable( iv );
+                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), iv ) );
+                }
 
-            // Traverse the children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                detect_derived_induction_variables( *it, loop );
             }
         }
     }
 
-    Nodecl::NodeclBase InductionVariableAnalysis::is_derived_induction_variable(Nodecl::NodeclBase st, Node* current,
-                                                                                Node* loop, Nodecl::NodeclBase& family)
+    Nodecl::NodeclBase InductionVariableAnalysis::is_derived_induction_variable( Nodecl::NodeclBase st, Node* current,
+                                                                                 Node* loop, Nodecl::NodeclBase& family )
     {
         Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
 
@@ -373,14 +261,14 @@ namespace Analysis {
                 rhs_rhs = rhs_.get_rhs( );
             }
 
-            IV_map loop_ivs = loop->get_induction_variables( );
+            ObjectList<Utils::InductionVariableData*> loop_ivs = loop->get_induction_variables( );
             _constant = Nodecl::NodeclBase::null( );
-            if( loop_ivs.find( lhs_rhs ) != loop_ivs.end( ) )
+            if( Utils::induction_variable_list_contains_variable( loop_ivs, lhs_rhs ) )
             {
                 _constant = rhs_rhs;
                 family = lhs_rhs;
             }
-            else if( loop_ivs.find(rhs_rhs) != loop_ivs.end( ) )
+            else if( Utils::induction_variable_list_contains_variable( loop_ivs, rhs_rhs ) )
             {
                 _constant= lhs_rhs;
                 family = rhs_rhs;
@@ -396,7 +284,7 @@ namespace Analysis {
                         if(only_definition_is_in_loop(st, current, loop))
                         // The family of \family must not be defined between the definition of \family and \lhs
                         // TODO
-                        if(true)
+                        if( true )
                         {
                             res = lhs;
                         }
@@ -432,12 +320,14 @@ namespace Analysis {
                     Utils::ext_sym_set killed_vars = current->get_killed_vars( );
                     for( Utils::ext_sym_set::iterator it = killed_vars.begin( ); it != killed_vars.end( ); ++it )
                     {
-                        if( induction_vars_l_contains_symbol( loop, it->get_symbol( ) ) != NULL )
+                        if( induction_vars_l_contains_symbol( loop, it->get_symbol( ) ) )
                         {   // Delete the Ind var
-                            for( induc_vars_map::iterator it_ind = _induction_vars.begin( ); it_ind != _induction_vars.end( ); ++it_ind )
+                            for( Utils::InductionVarsPerNode::iterator it_ind = _induction_vars.begin( );
+                                 it_ind != _induction_vars.end( ); ++it_ind )
                             {
-                                if( it_ind->first == loop->get_id( )
-                                    && it_ind->second->get_symbol( ) == it->get_symbol( ) )
+                                if( ( it_ind->first == loop->get_id( ) )
+                                    && Nodecl::Utils::equal_nodecls( it_ind->second->get_variable( ).get_nodecl( ),
+                                                                     it->get_nodecl( ) ) )
                                 {
                                     _induction_vars.erase( it_ind );
                                 }
@@ -448,12 +338,14 @@ namespace Analysis {
                     Utils::ext_sym_set undef_behaviour_vars = current->get_undefined_behaviour_vars( );
                     for( Utils::ext_sym_set::iterator it = undef_behaviour_vars.begin( ); it != undef_behaviour_vars.end( ); ++it )
                     {
-                        if( induction_vars_l_contains_symbol( loop, it->get_symbol( ) ) != NULL )
+                        if( induction_vars_l_contains_symbol( loop, it->get_symbol( ) ) )
                         {   // Delete the Ind var
-                            for( induc_vars_map::iterator it_ind = _induction_vars.begin( ); it_ind != _induction_vars.end( ); ++it_ind )
+                            for( Utils::InductionVarsPerNode::iterator it_ind = _induction_vars.begin( );
+                                it_ind != _induction_vars.end( ); ++it_ind )
                             {
                                 if( it_ind->first == loop->get_id( )
-                                    && it_ind->second->get_symbol( ) == it->get_symbol( ) )
+                                    && Nodecl::Utils::equal_nodecls( it_ind->second->get_variable( ).get_nodecl( ),
+                                                                     it->get_nodecl( ) ) )
                                 {
                                     _induction_vars.erase( it_ind );
                                 }
@@ -491,10 +383,14 @@ namespace Analysis {
         //! Look for definitions of \family in \iv_node, before \iv_st
         ObjectList<Nodecl::NodeclBase> current_stmts = iv_node->get_statements( );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin( );
-                it != current_stmts.end( ) && !Nodecl::Utils::equal_nodecls( *it, iv_st ); ++it )
+             it != current_stmts.end( ) && !Nodecl::Utils::equal_nodecls( *it, iv_st ); ++it )
         {
-            if( walk( *it ) )    // This visit returns true if the statement \*it contains a definition of the nodecl \_constant
+            walk(*it );
+            if( _is_induction_var )
+            {
+                _is_induction_var = false;
                 defined = true;
+            }
         }
 
         //! Look for definitions of \family in \loop
@@ -503,10 +399,12 @@ namespace Analysis {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it!= parents.end( ); ++it )
         {
             if( is_there_definition_in_loop_( iv_st, iv_node, *it, loop ) )
+            {
                 if( defined )
                     return false;
                 else
                     defined = true;
+            }
         }
 
         ExtensibleGraph::clear_visits_aux_backwards_in_level( iv_node, loop );
@@ -515,21 +413,28 @@ namespace Analysis {
 
     }
 
-    bool InductionVariableAnalysis::is_there_definition_in_loop_(Nodecl::NodeclBase iv_st, Node* iv_node, Node* current, Node* loop )
+    bool InductionVariableAnalysis::is_there_definition_in_loop_( Nodecl::NodeclBase iv_st, Node* iv_node, Node* current, Node* loop )
     {
         bool defined = false;
 
-        if(iv_node->get_id( ) == current->get_id( ))
+        if( iv_node->get_id( ) == current->get_id( ) )
         {   //! Look for definitions of \family in \iv_node, after \iv_st
             ObjectList<Nodecl::NodeclBase> current_stmts = iv_node->get_statements( );
             ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin( );
-            while ( !Nodecl::Utils::equal_nodecls(*it, iv_st) )
-                ++it;
-            ++it;   // Get the following statement
-            for(; it != current_stmts.end( ); ++it )
+            while( !Nodecl::Utils::equal_nodecls( *it, iv_st ) )
             {
-                if( walk(*it ) )    // This visit returns true if the statement \*it contains a definition of the nodecl \_constant
+                ++it;
+            }
+
+            ++it;   // Get the following statement
+            for( ; it != current_stmts.end( ); ++it )
+            {
+                walk(*it );
+                if( _is_induction_var )
+                {
+                    _is_induction_var = false;
                     defined = true;
+                }
             }
         }
         else if( !iv_node->is_visited_aux( ) &&
@@ -541,11 +446,16 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> current_stmts = current->get_statements( );
             for( ObjectList<Nodecl::NodeclBase>::iterator it = current_stmts.begin( ); it != current_stmts.end( ); ++it )
             {
-                if( walk( *it ) )    // This visit returns true if the statement \*it contains a definition of the nodecl \_constant
+                walk( *it );
+                if( _is_induction_var )
+                {
+                    _is_induction_var = false;
                     if( defined )
                         return false;
                     else
                         defined = true;
+                }
+
             }
 
             //! Look for definitions of \family in \node parents
@@ -566,39 +476,51 @@ namespace Analysis {
         return defined;
     }
 
-    // TODO
-    static bool definition_is_within_the_loop( Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop )
-    {
-
-    }
-
     bool InductionVariableAnalysis::is_loop_invariant( Node* node, int id_end )
     {
-        bool res = is_loop_invariant_(node, id_end);
-        ExtensibleGraph::clear_visits_aux(node);
+        bool res = is_loop_invariant_rec( node, id_end );
+        ExtensibleGraph::clear_visits_aux( node );
         return res;
     }
 
-    bool InductionVariableAnalysis::is_loop_invariant_(Node* current, int id_end)
+    bool InductionVariableAnalysis::induction_vars_l_contains_symbol(Node* node, Symbol s) const
+    {
+        std::pair<Utils::InductionVarsPerNode::const_iterator, Utils::InductionVarsPerNode::const_iterator> actual_ind_vars =
+                _induction_vars.equal_range( node->get_id( ) );
+
+        for( Utils::InductionVarsPerNode::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it )
+        {
+            if ( it->second->get_variable( ).get_symbol( ) == s )
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool InductionVariableAnalysis::is_loop_invariant_rec(Node* current, int id_end)
     {
         bool res = true;
 
         if( !current->is_visited_aux( ) )
         {
-            current->set_visited_aux(true);
+            current->set_visited_aux( true );
 
             if( current->is_graph_node( ) )
             {
-                res = is_loop_invariant_( current->get_graph_entry_node( ), id_end );
+                res = is_loop_invariant_rec( current->get_graph_entry_node( ), id_end );
             }
             else
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
-                    if( walk( *it ) )
+                    walk( *it );
+                    if( _is_induction_var )
                     {
                         res = false;    // The statement '*it' modifies some symbol contained in 'constant'
+                        _is_induction_var = false;
                         break;
                     }
                 }
@@ -609,7 +531,7 @@ namespace Analysis {
                 ObjectList<Node*> children = current->get_children( );
                 for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    is_loop_invariant_( *it, id_end );
+                    is_loop_invariant_rec( *it, id_end );
                 }
             }
         }
@@ -637,12 +559,16 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
             for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
             {
-                if( !Nodecl::Utils::equal_nodecls(stmt, *it ) )
-                    if( walk( *it ) )
+                if( !Nodecl::Utils::equal_nodecls( stmt, *it ) )
+                {
+                    walk( *it );
+                    if( _is_induction_var )
                     {
                         res = true;
+                        _is_induction_var = false;
                         break;
                     }
+                }
             }
 
             if( !res && node->get_id( ) == id_end )
@@ -662,75 +588,174 @@ namespace Analysis {
         return res;
     }
 
-    std::map<Symbol, int> InductionVariableAnalysis::get_induction_vars_direction(Node* loop_node) const
+    Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
     {
-        std::map<Symbol, int> result;
-        std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars =
-        _induction_vars.equal_range(loop_node->get_id());
-        for(induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
-        {
-            InductionVarInfo* ivar = it->second;
-            Symbol s(ivar->get_symbol());
-            result[s] = ivar->stride_is_positive();
-        }
-
-        return result;
+        return _induction_vars;
     }
 
-    std::map<Symbol, Nodecl::NodeclBase> InductionVariableAnalysis::get_induction_vars_mapping(Node* loop_node) const
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::join_list( TL::ObjectList<bool>& list )
     {
-        std::map<Symbol, Nodecl::NodeclBase> result;
-        std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars =
-        _induction_vars.equal_range(loop_node->get_id());
-        for(induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
+        for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
-            InductionVarInfo* ivar = it->second;
-            //             std::cerr << "Induction variable: " << ivar->get_symbol().get_name()
-            //                       << "[" << ivar->get_lb().prettyprint() << ":" << ivar->get_ub().prettyprint() << ":"
-            //                       << ivar->get_stride().prettyprint() << "]" << std::endl;
-            Symbol s(ivar->get_symbol());
-            if (ivar->get_lb().is_null() || ivar->get_ub().is_null() || ivar->get_stride().is_null())
-            {
-                std::cerr << "warning: induction variable '" << s.get_name() << "' has incomplete information (either bounds or stride)."
-                << " Check this result manually, it can be wrong" << std::endl;
-            }
-            else
-            {
-                result[s] = Nodecl::Range::make(ivar->get_lb(), ivar->get_ub(), ivar->get_stride(), ivar->get_type(),
-                                                s.get_filename(), s.get_line());
-            }
+            _is_induction_var |= *it;
         }
-
-        return result;
     }
 
-
-
-    void InductionVariableAnalysis::print_induction_variables(Node* node)
+    void InductionVariableAnalysis::visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
     {
-        if( node->is_visited( ) )
+        _defining = true;
+        walk( lhs );
+        if( !_is_induction_var )
         {
-            node->set_visited( true );
+            _defining = false;
+            walk( rhs );
+        }
+    }
 
-            if( node->is_graph_node( ) )
-            {
-                //! Look for IVs in the inner nodes
-                print_induction_variables( node->get_graph_entry_node( ) );
-
-                //! Check for IVs in the current loop
-                Graph_type type = node->get_graph_type( );
-                if( ( type == LOOP_DOWHILE ) || ( type == LOOP_FOR ) || ( type == LOOP_WHILE )  )
-                {
-                    IV_map current_ivs = node->get_induction_variables( );
-                }
-            }
-
-            ObjectList<Node*> children = node->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                print_induction_variables( *it );
+    // FIXME This function contains the set of PCFG, but this member is currently from LoopAnalysis
+    void InductionVariableAnalysis::visit_function( Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments )
+    {
+        ObjectList<Type>::iterator itp = param_types.begin( );
+        Nodecl::List::iterator ita = arguments.begin( );
+        // if #args < #params => default parameters do not require symbol matching in any arguments
+        // if #args > #params => ellipsed arguments can only be passed by value
+        for(; itp != param_types.end( ) && ita != arguments.end( ); ++itp, ++ita)
+        {
+            if( Nodecl::Utils::equal_nodecls(_constant, *ita) && itp->is_any_reference( ))
+            {   // The symbol is an argument passed by reference
+            //                 for( ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin( ); it != _cfgs.end( ); ++it )
+            //                 {
+                //                     if( (*it )->get_function_symbol( ) == func_sym)
+                //                     {
+                    //                         if( is_loop_invariant((*it )->get_graph( )->get_graph_entry_node( ),
+                    //                                                 (*it )->get_graph( )->get_graph_exit_node( )->get_id( )) )
+                    //                             return true;
+                    //                         return false;
+                    //                     }
+                    //                 }
             }
         }
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::AddAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::ArithmeticShrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::ArraySubscript& n )
+    {
+        if( _defining )
+        {
+            // Return true when 'n' contains '_constant' or they are equal
+            MatchingVisitor visitor( n );
+            visitor.walk( _constant );
+            _is_induction_var = visitor.node_found( );
+            _defining = false;
+        }
+        else
+        {
+            walk( n.get_subscripts( ) );
+        }
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::Assignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::BitwiseAndAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::BitwiseShrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::ClassMemberAccess& n )
+    {
+        if( _defining )
+        {
+            // Return true when 'n' contains '_constant' or they are equal
+            MatchingVisitor visitor( n );
+            visitor.walk( _constant );
+            _is_induction_var = visitor.node_found( );
+        }
+        else
+        {
+            _is_induction_var = false;
+        }
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::Dereference& n )
+    {
+        // In case we where defining (left side of an assignment or a pre- post- incr- decrement)
+        // a dereference causes that the symbol itself will not be changed, but the referenced object
+        _defining = false;
+        walk( n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::DivAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::FunctionCall& n )
+    {
+        Symbol func_sym = n.get_called( ).get_symbol( );
+        ObjectList<TL::Type> param_types = func_sym.get_type( ).parameters( );
+        Nodecl::List args = n.get_arguments( ).as<Nodecl::List>( );
+        visit_function( func_sym, param_types, args );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::MinusAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::ModAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::MulAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::Symbol& n )
+    {
+        _is_induction_var = _defining && ( Nodecl::Utils::equal_nodecls( n, _constant ) );
+        _defining = false;
+    }
+
+    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit( const Nodecl::VirtualFunctionCall& n )
+    {
+        Symbol func_sym = n.get_called( ).get_symbol( );
+        ObjectList<TL::Type> param_types = func_sym.get_type( ).parameters( );
+        Nodecl::List args = n.get_arguments( ).as<Nodecl::List>( );
+        visit_function( func_sym, param_types, args );
     }
 
     // ************************ END class for induction variables analysis ************************* //
@@ -741,53 +766,61 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************** Visitor matching nodecls for induction variables analysis ****************** //
 
-    MatchingVisitor::MatchingVisitor(Nodecl::NodeclBase nodecl)
-    : _node_to_find(nodecl)
+    MatchingVisitor::MatchingVisitor( Nodecl::NodeclBase nodecl )
+            : _node_to_find( nodecl ), _found( )
     {}
 
-    bool MatchingVisitor::join_list(TL::ObjectList<bool>& list)
+    bool MatchingVisitor::node_found( )
     {
-        bool res = false;
+        return _found;
+    }
+
+    void MatchingVisitor::join_list( TL::ObjectList<bool>& list )
+    {
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
-            res |= *it;
+            _found |= *it;
         }
-        return res;
     }
 
-    MatchingVisitor::Ret MatchingVisitor::visit(const Nodecl::Symbol& n)
+    MatchingVisitor::Ret MatchingVisitor::visit( const Nodecl::Symbol& n )
     {
-        return Nodecl::Utils::equal_nodecls(_node_to_find, n);
+        _found = Nodecl::Utils::equal_nodecls( _node_to_find, n );
     }
 
-    MatchingVisitor::Ret MatchingVisitor::visit(const Nodecl::ArraySubscript& n)
+    MatchingVisitor::Ret MatchingVisitor::visit( const Nodecl::ArraySubscript& n )
     {
-        if( Nodecl::Utils::equal_nodecls(_node_to_find, n) )
+        if( Nodecl::Utils::equal_nodecls( _node_to_find, n ) )
         {
-            return true;
+            _found = true;
         }
         else if( _node_to_find.is<Nodecl::ArraySubscript>( ) )
         {
             Nodecl::ArraySubscript array_to_find = _node_to_find.as<Nodecl::ArraySubscript>( );
-            if( Nodecl::Utils::equal_nodecls(array_to_find.get_subscripted( ), n.get_subscripted( )) )
+            if( Nodecl::Utils::equal_nodecls( array_to_find.get_subscripted( ), n.get_subscripted( ) ) )
             {
                 Nodecl::NodeclBase subscripts_to_find = array_to_find.get_subscripts( );
                 Nodecl::NodeclBase subscripts_base = n.get_subscripts( );
 
-                if( Nodecl::Utils::equal_nodecls(subscripts_to_find, subscripts_base) )
-                    return true;
+                if( Nodecl::Utils::equal_nodecls( subscripts_to_find, subscripts_base ) )
+                {
+                    _found = true;
+                }
                 else
                 {
                     if( subscripts_to_find.is_constant( ) && subscripts_base.is_constant( ) )
-                        return false;
+                        _found = false;
                     else if( subscripts_base.is<Nodecl::Range>( ) )
                     {
                         Nodecl::Range subscripts_range = subscripts_base.as<Nodecl::Range>( );
                         Nodecl::NodeclBase lb = subscripts_range.get_lower( );
                         Nodecl::NodeclBase ub = subscripts_range.get_lower( );
 
-                        if( Nodecl::Utils::equal_nodecls(lb, subscripts_to_find) || Nodecl::Utils::equal_nodecls(ub, subscripts_to_find) )
-                            return true;
+                        if( Nodecl::Utils::equal_nodecls(lb, subscripts_to_find)
+                            || Nodecl::Utils::equal_nodecls(ub, subscripts_to_find) )
+                        {
+                            _found = true;
+                        }
                         else
                         {
                             if( subscripts_to_find.is_constant( ) && lb.is_constant( ) && ub.is_constant( ) )
@@ -795,7 +828,7 @@ namespace Analysis {
                                 const_value_t* subs_const = subscripts_to_find.get_constant( );
                                 if( lb.get_constant( ) <= subs_const && subs_const <= ub.get_constant( ) )
                                 {
-                                    return true;
+                                    _found = true;
                                 }
                             }
                         }
@@ -804,197 +837,21 @@ namespace Analysis {
             }
         }
 
-        return walk(n.get_subscripted( ));
+        walk( n.get_subscripted( ) );
     }
 
-    MatchingVisitor::Ret MatchingVisitor::visit(const Nodecl::ClassMemberAccess& n)
+    MatchingVisitor::Ret MatchingVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
-        if( Nodecl::Utils::equal_nodecls(_node_to_find, n) )
+        if( Nodecl::Utils::equal_nodecls( _node_to_find, n )
+            || Nodecl::Utils::equal_nodecls(_node_to_find, n.get_lhs( ) ) )
         {
-            return true;
-        }
-        else if( Nodecl::Utils::equal_nodecls(_node_to_find, n.get_lhs( )) )
-        {
-            return true;
+            _found = true;
         }
 
-        return walk(n.get_lhs( ));
+        walk( n.get_lhs( ) );
     }
 
     // ************** END visitor matching nodecls for induction variables analysis **************** //
     // ********************************************************************************************* //
-
-
-
-    //////////////////////////////////////////////////////////////////////////
-    /// Visitor for nodecl modification checking
-    //////////////////////////////////////////////////////////////////////////
-
-    bool InductionVariableAnalysis::join_list(TL::ObjectList<bool>& list)
-    {
-        bool res = false;
-        for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            res |= *it;
-        }
-        return res;
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::Symbol& n)
-    {
-        bool res = _defining && (Nodecl::Utils::equal_nodecls(n, _constant));
-        _defining = false;
-        return res;
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::Dereference& n)
-    {
-        // In case we where defining (left side of an assignment or a pre- post- incr- decrement)
-        // a dereference causes that the symbol itself will not be changed, but the referenced object
-        _defining = false;
-        return walk(n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::ArraySubscript& n)
-    {
-        if(_defining)
-        {
-            // Return true when 'n' contains '_constant' or they are equal
-            MatchingVisitor visitor(n);
-            return visitor.walk(_constant);
-        }
-
-        _defining = false;
-        return walk(n.get_subscripts( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::ClassMemberAccess& n)
-    {
-        if(_defining)
-        {
-            // Return true when 'n' contains '_constant' or they are equal
-            MatchingVisitor visitor(n);
-            return visitor.walk(_constant);
-        }
-
-        return false;
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::Assignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::AddAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::ArithmeticShrAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::MinusAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::MulAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::DivAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::ModAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::BitwiseShlAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::BitwiseShrAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::BitwiseAndAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::BitwiseOrAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::BitwiseXorAssignment& n)
-    {
-        return visit_assignment(n.get_lhs( ), n.get_rhs( ));
-    }
-
-    bool InductionVariableAnalysis::visit_assignment(Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs)
-    {
-        _defining = true;
-        bool res = walk(lhs);
-        if(!res)
-        {
-            _defining = false;
-            res = walk(rhs);
-        }
-
-        return res;
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::FunctionCall& n)
-    {
-        Symbol func_sym = n.get_called( ).get_symbol( );
-        ObjectList<TL::Type> param_types = func_sym.get_type( ).parameters( );
-        Nodecl::List args = n.get_arguments( ).as<Nodecl::List>( );
-        return visit_function(func_sym, param_types, args);
-    }
-
-    InductionVariableAnalysis::Ret InductionVariableAnalysis::visit(const Nodecl::VirtualFunctionCall& n)
-    {
-        Symbol func_sym = n.get_called( ).get_symbol( );
-        ObjectList<TL::Type> param_types = func_sym.get_type( ).parameters( );
-        Nodecl::List args = n.get_arguments( ).as<Nodecl::List>( );
-        return visit_function(func_sym, param_types, args);
-    }
-
-    // FIXME This function contains the set of PCFG, but this member is currently from LoopAnalysis
-    bool InductionVariableAnalysis::visit_function(Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments)
-    {
-        ObjectList<Type>::iterator itp = param_types.begin( );
-        Nodecl::List::iterator ita = arguments.begin( );
-        // if #args < #params => default parameters do not require symbol matching in any arguments
-        // if #args > #params => ellipsed arguments can only be passed by value
-        for(; itp != param_types.end( ) && ita != arguments.end( ); ++itp, ++ita)
-        {
-            if( Nodecl::Utils::equal_nodecls(_constant, *ita) && itp->is_any_reference( ))
-            {   // The symbol is an argument passed by reference
-//                 for( ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin( ); it != _cfgs.end( ); ++it )
-//                 {
-//                     if( (*it )->get_function_symbol( ) == func_sym)
-//                     {
-//                         if( is_loop_invariant((*it )->get_graph( )->get_graph_entry_node( ),
-//                                                 (*it )->get_graph( )->get_graph_exit_node( )->get_id( )) )
-//                             return true;
-//                         return false;
-//                     }
-//                 }
-            }
-        }
-
-        return false;
-    }
-
 }
 }

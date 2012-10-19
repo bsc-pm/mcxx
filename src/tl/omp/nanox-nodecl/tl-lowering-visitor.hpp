@@ -57,6 +57,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Lowering* _lowering;
 
+        // this map is used to avoid repeat the definitions of the structure
+        // 'nanos_const_wd_definition_t'
+        std::map<int, Symbol> _declared_const_wd_type_map;
+
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
 
@@ -112,6 +116,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void emit_wait_async(Nodecl::NodeclBase construct, OutlineInfo& outline_info);
 
         static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+                Nodecl::NodeclBase dep_expr,
                 Nodecl::NodeclBase * dim_sizes, 
                 Type dep_type, 
                 Source& dims_description, 
@@ -128,6 +133,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
                 bool mandatory_creation,
                 const ObjectList<std::string>& device_names,
+                Nodecl::NodeclBase construct);
+
+        TL::Symbol declare_const_wd_type(
+                int num_devices,
                 Nodecl::NodeclBase construct);
 
         void allocate_immediate_structure(
@@ -208,6 +217,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+
+        static Nodecl::NodeclBase get_size_for_dimension(
+                TL::Type array_type,
+                int fortran_dimension,
+                DataReference data_reference);
+
+        static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
 };
 
 } }

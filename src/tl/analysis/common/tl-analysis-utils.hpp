@@ -37,8 +37,8 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
-    // *************************************************************** //
-    // ************ Common methods with analysis purposes ************ //
+    // ******************************************************************************************* //
+    // ************************** Common methods with analysis purposes ************************** //
 
     //! Returns a hashed string depending on \ast
     std::string generate_hashed_name( Nodecl::NodeclBase ast );
@@ -47,62 +47,13 @@ namespace Utils {
     //! Returns a null Nodecl otherwise
     Nodecl::NodeclBase find_main_function( Nodecl::NodeclBase ast );
 
-    // ********** End common methods with analysis purposes ********** //
-    // *************************************************************** //
+    // ************************ END common methods with analysis purposes ************************ //
+    // ******************************************************************************************* //
 
 
 
-    // *************************************************************** //
-    // ************************** Visitors *************************** //
-
-    //!Visitor to get the l-values contained in a given nodecl that are modified
-    class LIBTL_CLASS AssignedExtSymVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-    private:
-
-        // ******* Class attributes ******* //
-
-        //! List of extended symbols found during the traversal
-        ObjectList<ExtendedSymbol> _assigned_ext_syms;
-
-        //! Temporary value used to know whether we are traversing the left-hand side of an assignment
-        bool _is_lhs;
-
-
-        // ******* Private methods ******** //
-
-        void visit_assignment(Nodecl::NodeclBase ass_lhs, Nodecl::NodeclBase ass_rhs);
-
-        void visit_xx_crements(Nodecl::NodeclBase n);
-
-    public:
-        //! Constructor
-        AssignedExtSymVisitor( );
-
-        //! Getters and setters
-        ObjectList<ExtendedSymbol> get_assigned_ext_syms( );
-
-        //! Visiting methods
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::Postdecrement& n );
-        Ret visit( const Nodecl::Postincrement& n );
-        Ret visit( const Nodecl::Predecrement& n );
-        Ret visit( const Nodecl::Preincrement& n );
-        Ret visit( const Nodecl::Symbol& n );
-    };
+    // ******************************************************************************************* //
+    // ****************************** Visitor for Top Level nodes ******************************** //
 
     //! Visitor to visit Top Level nodes
     //! It also recognizes the main function in C/C++ codes if it exists
@@ -112,6 +63,7 @@ namespace Utils {
         // ******* Class attributes ******* //
         Nodecl::NodeclBase _main;
         ObjectList<Nodecl::NodeclBase> _functions;
+        std::string _filename;
 
     public:
         // ********* Constructors ********* //
@@ -163,8 +115,8 @@ namespace Utils {
         Ret visit( const Nodecl::Verbatim& n );
     };
 
-    // ************************* End visitors ************************ //
-    // *************************************************************** //
+    // **************************** END visitor for Top Level nodes ****************************** //
+    // ******************************************************************************************* //
 }
 }
 }

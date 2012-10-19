@@ -60,13 +60,10 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
+TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
-    // FIXME: Move this to the class! 
-    static std::map<int, Symbol> _map;
-    std::map<int, Symbol>::iterator it = _map.find(num_devices);
-
-    if (it == _map.end())
+    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
+    if (it == _declared_const_wd_type_map.end())
     {
         std::stringstream ss;
         if (IS_C_LANGUAGE)
@@ -88,7 +85,7 @@ static TL::Symbol declare_const_wd_type(int num_devices, Nodecl::NodeclBase cons
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        _map[num_devices] = new_class_symbol;
+        _declared_const_wd_type_map[num_devices] = new_class_symbol;
 
         TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
         ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
@@ -285,7 +282,6 @@ void LoweringVisitor::allocate_immediate_structure(
 
     // We overallocate with an alignment of 8
     const int overallocation_alignment = 8;
-    const int overallocation_mask = overallocation_alignment - 1;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     if (IS_C_LANGUAGE
@@ -308,7 +304,7 @@ void LoweringVisitor::allocate_immediate_structure(
     {
         immediate_is_alloca = true;
     }
-    
+
     // Fill argument structure
     if (!immediate_is_alloca)
     {
@@ -965,16 +961,6 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
     return num_copies;
 }
 
-static void fill_dimensions(
-        int n_dims, 
-        int actual_dim, 
-        int current_dep_num,
-        Nodecl::NodeclBase * dim_sizes, 
-        Type dep_type, 
-        Source& dims_description, 
-        Source& dependency_regions_code, 
-        Scope sc);
-
 void LoweringVisitor::fill_copies(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info, 
@@ -1111,6 +1097,7 @@ void LoweringVisitor::fill_dependences(
             ;
 
         int current_dep_num = 0;
+        int num_handled_dependences = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -1167,7 +1154,8 @@ void LoweringVisitor::fill_dependences(
                 Nodecl::NodeclBase dimension_sizes[num_dimensions];
                 for (int dim = 0; dim < num_dimensions; dim++)
                 {
-                    dimension_sizes[dim] = dependency_base_type.array_get_size();
+                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_expr);
+
                     dependency_base_type = dependency_base_type.array_element();
                 }
 
@@ -1241,6 +1229,13 @@ void LoweringVisitor::fill_dependences(
                         contiguous_array_type.array_get_bounds(array_lb, array_ub);
                         contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
 
+                        if (array_lb.is_null()
+                                && IS_FORTRAN_LANGUAGE)
+                        {
+                            // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
+                            array_lb = get_lower_bound(dep_expr, /* dimension */ 1);
+                        }
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -1253,7 +1248,8 @@ void LoweringVisitor::fill_dependences(
                     {
                         // Lower bound here should be zero since we want all the array
                         lb = const_value_to_nodecl(const_value_get_signed_int(0));
-                        size = contiguous_array_type.array_get_size();
+
+                        size = get_size_for_dimension(contiguous_array_type, 1, dep_expr);
                     }
 
                     dependency_offset
@@ -1291,6 +1287,7 @@ void LoweringVisitor::fill_dependences(
                                 num_dimensions,
                                 /* current_dim */ num_dimensions,
                                 current_dep_num,
+                                dep_expr,
                                 dimension_sizes,
                                 dependency_type,
                                 dims_description,
@@ -1306,6 +1303,11 @@ void LoweringVisitor::fill_dependences(
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
                 {
+                    if (num_handled_dependences > 0)
+                    {
+                        dependency_init << ", ";
+                    }
+
                     dependency_init
                         << "{"
                         << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
@@ -1330,6 +1332,7 @@ void LoweringVisitor::fill_dependences(
                         << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
                         ;
                 }
+                num_handled_dependences++;
             }
         }
     }
@@ -1446,20 +1449,67 @@ void LoweringVisitor::fill_dependences(
     }
 }
 
+Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
+        TL::Type array_type,
+        int fortran_dimension,
+        DataReference data_reference)
+{
+    Nodecl::NodeclBase n = array_type.array_get_size();
+
+    // Let's try to get the size using SIZE
+    if (n.is_null()
+            && IS_FORTRAN_LANGUAGE)
+    {
+        // Craft a SIZE
+        Source src;
+
+        Nodecl::NodeclBase expr = data_reference;
+        if (expr.is<Nodecl::ArraySubscript>())
+        {
+            expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+        }
+
+        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+
+        n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+    }
+
+    return n;
+}
+
+
+Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    // The contiguous dimension in Fortran is always the number 1
+    src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
 void LoweringVisitor::fill_dimensions(
-        int n_dims, 
-        int current_dim, 
+        int n_dims,
+        int current_dim,
         int current_dep_num,
-        Nodecl::NodeclBase * dim_sizes, 
-        Type dep_type, 
-        Source& dims_description, 
-        Source& dependency_regions_code, 
+        Nodecl::NodeclBase dep_expr,
+        Nodecl::NodeclBase * dim_sizes,
+        Type dep_type,
+        Source& dims_description,
+        Source& dependency_regions_code,
         Scope sc)
 {
     // We do not handle the contiguous dimension here
     if (current_dim > 1)
     {
-        fill_dimensions(n_dims, current_dim - 1, current_dep_num, dim_sizes, dep_type.array_element(), dims_description, dependency_regions_code, sc);
+        fill_dimensions(n_dims, current_dim - 1, current_dep_num,
+                dep_expr, dim_sizes,
+                dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase lb, ub, size;
@@ -1472,7 +1522,13 @@ void LoweringVisitor::fill_dimensions(
         else
         {
             dep_type.array_get_bounds(lb, ub);
-            size = dep_type.array_get_size();
+
+            if (lb.is_null() && IS_FORTRAN_LANGUAGE)
+            {
+                lb = get_lower_bound(dep_expr, current_dim);
+            }
+
+            size = get_size_for_dimension(dep_type, current_dim, dep_expr);
         }
 
         dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
@@ -1568,13 +1624,23 @@ static void copy_outline_data_item(
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,
-        Nodecl::List arguments, 
+        Nodecl::List arguments,
         sym_to_argument_expr_t& param_to_arg_expr)
 {
     int i = 0;
-    for (Nodecl::List::iterator it = arguments.begin();
-            it != arguments.end();
-            it++, i++)
+    Nodecl::List::iterator it = arguments.begin();
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class. Skip it!
+    if (IS_CXX_LANGUAGE
+            && !function.is_static()
+            && function.is_member())
+    {
+        it++;
+    }
+
+    for (; it != arguments.end(); it++, i++)
     {
         Nodecl::NodeclBase expression;
         TL::Symbol parameter_sym;
@@ -1588,7 +1654,7 @@ static void fill_map_parameters_to_arguments(
         else
         {
             // Get the i-th parameter of the function
-            ERROR_CONDITION((function.get_related_symbols().size() <= i), "Too many parameters", 0);
+            ERROR_CONDITION(((signed int)function.get_related_symbols().size() <= i), "Too many parameters", 0);
             TL::Symbol parameter = function.get_related_symbols()[i];
             param_to_arg_expr[parameter] = *it;
         }
@@ -1598,10 +1664,7 @@ static void fill_map_parameters_to_arguments(
 static int outline_data_item_get_parameter_position(const OutlineDataItem& outline_data_item)
 {
     TL::Symbol sym = outline_data_item.get_symbol();
-
-    ERROR_CONDITION(!sym.is_parameter(), "This symbol must be a parameter", 0);
-
-    return sym.get_parameter_position();
+    return (sym.is_parameter() ? sym.get_parameter_position(): -1);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
@@ -1634,8 +1697,43 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
-    TL::ObjectList<TL::Symbol> new_arguments;
     Scope sc = construct.retrieve_context();
+    TL::ObjectList<TL::Symbol> new_arguments;
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class
+    if (IS_CXX_LANGUAGE
+            && !called_sym.is_static()
+            && called_sym.is_member())
+    {
+        Nodecl::NodeclBase class_object = *(arguments.begin());
+        TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
+        ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+        std::stringstream ss;
+        ss << "mcc_arg_" << (int)arg_counter;
+        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        arg_counter++;
+
+        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
+
+        new_arguments.append(new_symbol);
+
+        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+        // This is a special kind of shared
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        argument_outline_data_item.set_shared_expression(
+                Nodecl::Reference::make(
+                    class_object,
+                    new_symbol.get_type(),
+                    function_call.get_filename(),
+                    function_call.get_line()));
+    }
+
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
@@ -1677,7 +1775,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
         if (IS_FORTRAN_LANGUAGE)
         {
+            // This will act like an opaque shared
             argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
+            argument_outline_data_item.set_in_outline_type(new_symbol.get_type().get_lvalue_reference_to());
         }
 
         argument_outline_data_item.set_shared_expression(it->second);
@@ -1692,14 +1792,35 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     // Craft a new function call with the new mcc_arg_X symbols
     TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
     TL::ObjectList<Nodecl::NodeclBase> arg_list;
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class
+    if (IS_CXX_LANGUAGE
+            && !called_sym.is_static()
+            && called_sym.is_member())
+    {
+        // The symbol which represents the object 'this' must be dereferenced!
+        Nodecl::NodeclBase nodecl_arg = Nodecl::Dereference::make(
+                Nodecl::Symbol::make(*args_it,
+                    function_call.get_filename(),
+                    function_call.get_line()),
+                args_it->get_type().points_to(),
+                function_call.get_filename(),
+                function_call.get_line());
+
+        arg_list.append(nodecl_arg);
+        args_it++;
+    }
+
     for (sym_to_argument_expr_t::iterator params_it = param_to_arg_expr.begin();
             params_it != param_to_arg_expr.end();
             params_it++, args_it++)
     {
-        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it, 
-                function_call.get_filename(), 
+        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it,
+                function_call.get_filename(),
                 function_call.get_line());
-        nodecl_arg.set_type( args_it->get_type() );
+        nodecl_arg.set_type(args_it->get_type());
 
         // We must respect symbols in Fortran because of optional stuff
         if (IS_FORTRAN_LANGUAGE
@@ -1724,7 +1845,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     }
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
-    
+
     Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
     Nodecl::NodeclBase function_form = nodecl_null();
     Symbol called_symbol = called.get_symbol();
@@ -1735,36 +1856,36 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             Nodecl::CxxFunctionFormTemplateId::make(
                     function_call.get_filename(),
                     function_call.get_line());
-        
+
         TemplateParameters template_args =
             called.get_template_parameters();
         function_form.set_template_parameters(template_args);
     }
-    
-    Nodecl::NodeclBase expr_statement = 
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        called,
-                        nodecl_arg_list,
-                        function_call.get_alternate_name().shallow_copy(),
-                        function_form,
-                        Type::get_void_type(),
-                        function_call.get_filename(),
-                        function_call.get_line()),
-                    function_call.get_filename(),
-                    function_call.get_line());
 
-    TL::ObjectList<Nodecl::NodeclBase> list_stmt; 
+    Nodecl::NodeclBase expr_statement =
+        Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    called,
+                    nodecl_arg_list,
+                    function_call.get_alternate_name().shallow_copy(),
+                    function_form,
+                    Type::get_void_type(),
+                    function_call.get_filename(),
+                    function_call.get_line()),
+                function_call.get_filename(),
+                function_call.get_line());
+
+    TL::ObjectList<Nodecl::NodeclBase> list_stmt;
     list_stmt.append(expr_statement);
 
-    Nodecl::NodeclBase statements =
-        Nodecl::List::make(
-                Nodecl::Context::make(
-                    Nodecl::List::make(list_stmt),
-                    function_call.retrieve_context(),
-                    function_call.get_filename(),
-                    function_call.get_line()
-                    ));
+    Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
+    //     Nodecl::List::make(
+    //             Nodecl::Context::make(
+    //                 Nodecl::List::make(list_stmt),
+    //                 function_call.retrieve_context(),
+    //                 function_call.get_filename(),
+    //                 function_call.get_line()
+    //                 ));
 
     construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
 

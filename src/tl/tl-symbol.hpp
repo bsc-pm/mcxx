@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -45,9 +45,9 @@
 
 namespace TL
 {
-    //! \addtogroup Wrap 
+    //! \addtogroup Wrap
     //! @{
-    
+
     //! This class wraps a symbolic entity in the compiler
     class LIBTL_CLASS Symbol : public Object
     {
@@ -97,11 +97,17 @@ namespace TL
             //! Gets the type related to this symbol
             Type get_type() const;
 
+            //! Sets the type related to this symbol
+            void set_type(const Type& t);
+
             //! Gets the user defined type related to this symbol
             Type get_user_defined_type();
 
             //! Gets the unqualified name of the symbol
             std::string get_name() const;
+
+            //! Sets the unqualified name of the symbol
+            void set_name(std::string name);
 
             //! Returns a fully qualified name
             /*!
@@ -225,7 +231,7 @@ namespace TL
             //! States that this symbol is a MODULE program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_module() const;
-            
+
             //! States that this symbol is a component of a MODULE program unit
             /*! \note This only applies to Fortran */
             bool is_in_module() const;
@@ -237,7 +243,7 @@ namespace TL
             //! States that this symbol is available in this program unit because of a USE statement
             /*! \note This only applies to Fortran */
             bool is_from_module() const;
-            
+
             //! States that this symbol is available in this program unit because of a USE statement
             /*! \note This only makes sense if is_from_module returned true */
             Symbol from_module() const;
@@ -334,9 +340,8 @@ namespace TL
              * \deprecated Check the return of get_value
              */
             DEPRECATED bool has_initialization() const;
-            
+
             //! Returns the initialization tree
-            //! States whether this symbol has been initialized
             /*
              * \deprecated Use get_value instead
              */
@@ -347,18 +352,18 @@ namespace TL
 
             //! Modifies the value of this symbol
             void set_value(Nodecl::NodeclBase n);
-            
+
             //! States whether this symbol is static
             bool is_static() const;
             //! States whether this symbol is register
             bool is_register() const;
-            
+
             //! States whether this symbol is __thread
             bool is_thread() const;
 
             //! States if this member is a bitfield
             bool is_bitfield() const;
-            
+
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;
 
@@ -470,7 +475,7 @@ namespace TL
             //! States whether the symbol has been defined in block scope
             bool has_block_scope() const;
             //! This is an alias for has_block_scope
-            bool has_local_scope() const; 
+            bool has_local_scope() const;
             //! States whether the symbol has been defined in class scope
             /*!
              * This is roughly equivalent to a member symbol
@@ -505,7 +510,7 @@ namespace TL
             bool is_intrinsic() const;
 
             //! Returns the definition tree
-            /*! 
+            /*!
               This is only valid for functions and class symbols.  It will be
               an invalid tree if the function has not been defined or if it is
               an incomplete class type symbol name
@@ -515,13 +520,13 @@ namespace TL
              */
             Nodecl::NodeclBase get_definition_tree() const;
 
-            // States whether the symbol is defined 
+            // States whether the symbol is defined
             /*! This function might not make sense for all kind of symbols
              */
             bool is_defined() const;
 
             // States whether the symbol is defined inside a class specifier
-            bool is_defined_inside_class() const; 
+            bool is_defined_inside_class() const;
 
             //! Do not use unless told to do so
             scope_entry_t* get_internal_symbol() const
@@ -533,22 +538,22 @@ namespace TL
             bool not_to_be_printed() const;
 
             //! Is a COMMON name
-            /*! 
-              States whether this symbol is the symbol of a Fortran COMMON name. 
+            /*!
+              States whether this symbol is the symbol of a Fortran COMMON name.
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_fortran_common() const;
 
             //! This symbol is ALLOCATABLE
-            /*! 
+            /*!
               States whether this symbol has the ALLOCATABLE attribute set
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_allocatable() const;
 
             //! This symbol is in a common
-            /*! 
+            /*!
               States whether this symbol has been defined to be in a COMMON.
               Use get_common to retrieve the COMMON symbol containing this symbol
 
@@ -571,7 +576,7 @@ namespace TL
             bool is_fortran_namelist() const;
 
             //! This symbol is in a namelist
-            /*! 
+            /*!
               States whether this symbol has been defined to be in a NAMELIST
               Use get_common to retrieve the NAMELIST symbol containing this symbol
 
@@ -580,7 +585,7 @@ namespace TL
             bool is_in_namelist() const;
 
             //! This symbol is OPTIONAL
-            /*! 
+            /*!
               States whether this dummy argument is an OPTIONAL dummy argument
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -594,7 +599,7 @@ namespace TL
             bool is_saved_program_unit() const;
 
             //! This symbol is TARGET
-            /*! 
+            /*!
               States whether this symbol has the TARGET attribute
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -602,7 +607,7 @@ namespace TL
             bool is_target() const;
 
             //! This symbol is ELEMENTAL
-            /*! 
+            /*!
               States whether this dummy argument has the ELEMENTAL attribute
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -610,7 +615,7 @@ namespace TL
             bool is_elemental() const;
 
             //! This symbol is RECURSIVE
-            /*! 
+            /*!
               States whether this dummy argument has the RECURSIVE attribute
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -618,7 +623,7 @@ namespace TL
             bool is_recursive() const;
 
             //! This symbol is RESULT
-            /*! 
+            /*!
               States whether this symbol is a RESULT attribute
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -626,7 +631,7 @@ namespace TL
             bool is_result() const;
 
             //! This symbol is a generic-specifier name
-            /*! 
+            /*!
               States whether this symbol is a generic-specifier name
 
               This function is only meaningful in Fortran. In C/C++ it always returns false
@@ -647,6 +652,9 @@ namespace TL
              * The exact set returned depends on the kind of the symbol as kept by the frontend
              */
             ObjectList<TL::Symbol> get_related_symbols() const;
+
+            //! Returns the symbols of the parameters of a function
+            ObjectList<TL::Symbol> get_function_parameters() const;
 
             //! Returns the gcc attributes of this symbol
             ObjectList<GCCAttribute> get_gcc_attributes() const;
@@ -693,7 +701,7 @@ namespace TL
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;
     };
-    
+
     //! @}
 }
 

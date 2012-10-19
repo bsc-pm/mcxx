@@ -49,6 +49,7 @@ namespace TL
         static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, Nodecl::NodeclBase ref_tree,
                 std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list);
 
+        UNUSED_PARAMETER
         static void parse_udr_identity(const std::string& omp_udr_identity,
                 Nodecl::NodeclBase ref_tree,
                 Type udr_type,
@@ -159,6 +160,7 @@ namespace TL
             }
         }
 
+        UNUSED_PARAMETER
         static std::string get_valid_value_initializer(Type t)
         {
             // Fall back
@@ -253,6 +255,7 @@ namespace TL
         // {
         //     $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
         // }
+        UNUSED_PARAMETER
         static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, 
                 Nodecl::NodeclBase ref_tree, 
                 std::string &udr_name,

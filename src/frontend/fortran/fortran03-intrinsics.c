@@ -280,6 +280,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
@@ -287,6 +288,10 @@ FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 ISO_C_BINDING_INTRINSICS
 
 #define ISO_C_BINDING_INTRINSICS \
@@ -3247,7 +3252,7 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -4676,6 +4681,28 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("and", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5502,6 +5529,94 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
             t0);
 }
 
+scope_entry_t* compute_intrinsic_lshift(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if(is_integer_type(t0)
+            && is_integer_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("lshift", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_or(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("or", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_rshift(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if(is_integer_type(t0)
+            && is_integer_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("rshift", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (equivalent_types(t0, t1)
+            && (is_integer_type(t0) || is_bool_type(t0)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("xor", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5890,7 +6005,12 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
     rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "iso_c_binding", iso_c_binding);
 
     type_t* int_type = fortran_get_default_integer_type();
-    type_t* character_type = fortran_get_default_character_type();
+
+    nodecl_t one = const_value_to_nodecl(const_value_get_signed_int(1));
+    type_t* character_type = 
+                    get_array_type_bounds(
+                            fortran_choose_character_type_from_kind(1), 
+                            one, one, decl_context);
 
     module_context.current_scope->related_entry = iso_c_binding;
 
@@ -5957,7 +6077,15 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
                 iso_c_binding->entity_specs.num_related_symbols,
                 symbol);
 
-        symbol->value = const_value_to_nodecl(const_value_get_signed_int(named_constants[i].value));
+        if (fortran_is_character_type(symbol->type_information))
+        {
+            char c = named_constants[i].value;
+            symbol->value = const_value_to_nodecl(const_value_make_string(&c, 1));
+        }
+        else
+        {
+            symbol->value = const_value_to_nodecl(const_value_get_signed_int(named_constants[i].value));
+        }
     }
 
     {

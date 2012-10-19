@@ -164,9 +164,6 @@ namespace TL
                     }
                     else
                     {
-                        bool found = false;
-
-
                         CXX_LANGUAGE()
                         {
                             if (udr_is_builtin_operator(reductor_name) 

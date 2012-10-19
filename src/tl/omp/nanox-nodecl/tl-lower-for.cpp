@@ -50,9 +50,6 @@ namespace TL { namespace Nanox {
             TL::Symbol ind_var = range_item.get_symbol();
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
-            for_code
-                ;
-
             if (range.get_step().is_constant())
             {
                 const_value_t* cval = range.get_step().get_constant();

@@ -36,5 +36,19 @@ void symbol_deep_copy(scope_entry_t* dest,
 
     symbol_deep_copy_entity_specs(dest, source, new_decl_context, symbol_map);
 
+    if (dest->kind == SK_FUNCTION)
+    {
+        int i;
+        for (i = 0; i < dest->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* current_symbol = dest->entity_specs.related_symbols[i];
+            if (!current_symbol->entity_specs.is_result)
+            {
+                symbol_set_as_parameter_of_function(current_symbol, dest,
+                        symbol_get_parameter_position_in_function(source->entity_specs.related_symbols[i], source));
+            }
+        }
+    }
+
     // FIXME - Not copying extended data. There is no way to reliably copy such information
 }

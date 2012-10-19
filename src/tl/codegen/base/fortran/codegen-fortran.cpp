@@ -277,8 +277,6 @@ namespace Codegen
 
     static std::string get_generic_specifier_str(const std::string& c)
     {
-        const char* const op_prefix = ".operator.";
-
         if (c == ".operator.=")
         {
             return "ASSIGNMENT(=)";
@@ -1329,6 +1327,7 @@ OPERATOR_TABLE
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
         int pos = 0;
+        bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
             if (pos > 0)
@@ -1347,13 +1346,19 @@ OPERATOR_TABLE
             if (!keyword.is_null()
                     && !called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword.get_symbol().get_type();
-                if (!keyword.get_symbol().not_to_be_printed())
+                TL::Symbol keyword_symbol = keyword.get_symbol();
+                parameter_type = keyword_symbol.get_type();
+                if (!keywords_are_mandatory)
                 {
-                    file << keyword.get_symbol().get_name() << " = ";
+                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
+                }
+                if (keywords_are_mandatory
+                        && !keyword_symbol.not_to_be_printed())
+                {
+                    file << keyword_symbol.get_name() << " = ";
                 }
             }
-            else if (pos < parameter_types.size())
+            else if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -1379,7 +1384,16 @@ OPERATOR_TABLE
                                 && !is_fortran_representable_pointer(arg_type))
                             || !is_ref)
                     {
-                        walk(arg);
+                        if (parameter_type.points_to().get_unqualified_type().is_char())
+                        {
+                            file << "(";
+                            walk(arg);
+                            file << ") // ACHAR(0)";
+                        }
+                        else
+                        {
+                            walk(arg);
+                        }
                     }
                     else
                     {
@@ -2468,24 +2482,11 @@ OPERATOR_TABLE
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
     {
         ERROR_CONDITION(!sym.is_valid(), "Invalid symbol", 0);
-        if (sym.is_from_module()
-                && sym.aliased_from_module().is_valid()
-                && sym.get_from_module_name() == sym.get_name())
-        {
-            sym = sym.aliased_from_module();
-        }
         _codegen_status[sym] = status;
     }
 
     codegen_status_t FortranBase::get_codegen_status(TL::Symbol sym)
     {
-        if (sym.is_from_module()
-                && sym.aliased_from_module().is_valid()
-                && sym.get_from_module_name() == sym.get_name())
-        {
-            sym = sym.aliased_from_module();
-        }
-
         std::map<TL::Symbol, codegen_status_t>::iterator it = _codegen_status.find(sym);
 
         if (it == _codegen_status.end())
@@ -2825,8 +2826,6 @@ OPERATOR_TABLE
                         // has not been emitted yet
                         (!class_type.is_from_module()
                             || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
-                        // The symbol should not be in the current module
-                        && !class_type.is_in_module()
                         // And its related entry should not be ours
                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
@@ -3310,7 +3309,6 @@ OPERATOR_TABLE
                     it != related_symbols.end();
                     it++)
             {
-                TL::Symbol &member(*it);
                 if (it != related_symbols.begin())
                     file << ", ";
 
@@ -3848,6 +3846,13 @@ OPERATOR_TABLE
             declare_global_entities(node);
         }
 
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        if (equivalence_symbol.is_valid())
+        {
+            walk(equivalence_symbol.get_value());
+        }
+
         pop_declaring_entity();
         dec_indent();
 
@@ -3986,7 +3991,6 @@ OPERATOR_TABLE
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
@@ -3997,7 +4001,6 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
@@ -4262,7 +4265,6 @@ OPERATOR_TABLE
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
@@ -4273,7 +4275,6 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
@@ -4420,9 +4421,13 @@ OPERATOR_TABLE
         ERROR_CONDITION(!entry.is_from_module(),
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
+        // Has the symbol 'entry' been declared as USEd in the current context?
+        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+            return;
+
         TL::Symbol module = entry.from_module();
 
-        // // Is this a module actually used in this program unit?
+        // Is this a module actually used in this program unit?
         TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
         if (!used_modules.is_valid())
             return;
