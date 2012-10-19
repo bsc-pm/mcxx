@@ -646,6 +646,13 @@ LIBMCXX_EXTERN size_t get_type_t_size(void);
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
 LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
 
+
+// C genericity stuff
+// Used only to implement gcc builtins. Not to be used elsewhere!
+LIBMCXX_EXTERN type_t* get_generic_type(int num);
+LIBMCXX_EXTERN char is_generic_type(type_t*);
+LIBMCXX_EXTERN int generic_type_get_num(type_t*);
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

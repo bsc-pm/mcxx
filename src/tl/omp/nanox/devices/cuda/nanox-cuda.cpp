@@ -42,9 +42,21 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static std::string gpu_outline_name(const std::string &task_name)
+bool DeviceCUDA::is_accelerator_device() const
 {
-	return "_gpu_" + task_name;
+    return true;
+}
+
+std::string DeviceCUDA::get_outline_name(const std::string & name) const
+{
+    return "_gpu_" + name;
+}
+
+std::string DeviceCUDA::get_function_name_for_instrumentation(const std::string & name,
+        const std::string& struct_typename UNUSED_PARAMETER,
+        const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
+{
+	return get_outline_name(name);
 }
 
 bool DeviceCUDA::is_wrapper_needed(PragmaCustomConstruct ctr)
@@ -879,94 +891,6 @@ void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 	insert_function_definition(ctr, is_copy);
 }
 
-void DeviceCUDA::insert_instrumentation_code(
-		Symbol function_symbol,
-		Source& outline_name,
-		const OutlineFlags& outline_flags,
-		AST_t& reference_tree,
-		Source& instrument_before,
-		Source& instrument_after)
-{
-	Source uf_name_id, uf_name_descr;
-	Source uf_location_id, uf_location_descr;
-	//Symbol function_symbol = enclosing_function.get_function_symbol();
-
-	instrument_before
-		<< "static int nanos_funct_id_init = 0;"
-		<< "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-		<< "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-		<< "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-		<< "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-		<< "if (nanos_funct_id_init == 0)"
-		<< "{"
-		<<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-		<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
-		<<               uf_name_id << "," << uf_name_descr << ", 0);"
-		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-
-		<<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-		<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-		<<               uf_location_id << "," << uf_location_descr << ", 0);"
-		<<    "if (err != NANOS_OK) nanos_handle_error(err);"
-		<<    "nanos_funct_id_init = 1;"
-		<< "}"
-		<< "nanos_event_t events_before[2];"
-		<< "events_before[0].type = NANOS_BURST_START;"
-		<< "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-		<< "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
-		<< "events_before[1].type = NANOS_BURST_START;"
-		<< "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-		<< "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-		<< "nanos_instrument_events(2, events_before);"
-		// << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
-		// << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
-		;
-
-	instrument_after
-		<< "nanos_instrument_close_user_fun_event();"
-		;
-
-
-	if (outline_flags.task_symbol != NULL)
-	{
-		uf_name_id
-			<< "\"" << outline_flags.task_symbol.get_name() << "\""
-			;
-		uf_location_id
-			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-			;
-
-		uf_name_descr
-			<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
-			;
-		uf_location_descr
-			<< "\"'" << function_symbol.get_qualified_name() << "'"
-			<< " invoked at '" << reference_tree.get_locus() << "'\""
-			;
-	}
-	else
-	{
-		uf_name_id
-			<< uf_location_id
-			;
-		uf_location_id
-			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-			;
-
-		uf_name_descr
-			<< uf_location_descr
-			;
-		uf_location_descr
-			<< "\"Outline from '"
-			<< reference_tree.get_locus()
-			<< "' in '" << function_symbol.get_qualified_name() << "'\""
-			;
-	}
-}
-
-
 void DeviceCUDA::create_wrapper_code(
 		PragmaCustomConstruct pragma_construct,
 		const OutlineFlags &outline_flags,
@@ -1055,12 +979,13 @@ void DeviceCUDA::create_outline(
 	// outline_name
 	Source outline_name, parameter_list;
 	outline_name
-		<< gpu_outline_name(task_name)
+		<< get_outline_name(task_name)
 		;
 
 	/***************** Write the CUDA file *****************/
 	process_device_side_code(
 			outline_name,
+            task_name,
 			struct_typename,
 			parameter_list,
 			data_environ,
@@ -1304,6 +1229,7 @@ void DeviceCUDA::do_wrapper_code_replacements(
 
 AST_t DeviceCUDA::generate_task_code(
 		Source& outline_name,
+		const std::string& task_name,
 		const std::string& struct_typename,
 		Source& parameter_list,
 		DataEnvironInfo& data_environ,
@@ -1325,6 +1251,7 @@ AST_t DeviceCUDA::generate_task_code(
 
 	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
 	FunctionDefinition enclosing_function(function_def_tree, sl);
+	Symbol function_symbol = enclosing_function.get_function_symbol();
 
 	Source result, arguments_struct_definition, body;
 	Source instrument_before, instrument_after;
@@ -1339,17 +1266,19 @@ AST_t DeviceCUDA::generate_task_code(
 		<< "}"
 		;
 
-	// Add the tracing instrumentation if needed
-	if (instrumentation_enabled())
-	{
-		insert_instrumentation_code(
-				enclosing_function.get_function_symbol(),
-				outline_name,
-				outline_flags,
-				reference_tree,
-				instrument_before,
-				instrument_after);
-	}
+    // Add the tracing instrumentation if needed
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                task_name,
+                struct_typename,
+                /* full outline name */ outline_name.get_source(),
+                outline_flags,
+                reference_tree,
+                sl,
+                instrument_before,
+                instrument_after);
+    }
 
 	// arguments_struct_definition
 	Scope sc = sl.get_scope(reference_tree);
@@ -1450,6 +1379,7 @@ AST_t DeviceCUDA::generate_task_code(
 
 void DeviceCUDA::process_device_side_code(
 		Source &outline_name,
+		const std::string& task_name,
 		const std::string& struct_typename,
 		Source& parameter_list,
 		DataEnvironInfo& data_environ,
@@ -1484,6 +1414,7 @@ void DeviceCUDA::process_device_side_code(
 	// Generate device side task code
 	AST_t outline_code_tree = generate_task_code(
 			outline_name,
+            task_name,
 			struct_typename,
 			parameter_list,
 			data_environ,
@@ -1636,7 +1567,7 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
-			<< gpu_outline_name(task_name)
+			<< get_outline_name(task_name)
 			;
 	}
 	else

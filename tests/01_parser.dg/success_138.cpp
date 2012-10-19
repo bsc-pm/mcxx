@@ -27,29 +27,30 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-#include "gpu_basic.cu"
-
-#pragma omp target device (cuda) copy_deps
-#pragma omp task inout (*a)
-void addOne (int *a)
+template < typename _T >
+struct C
 {
-	addOne_gpu <<<1, 1>>> (a);
-}
+    typedef _T Type;
+};
 
-
-int main (int argc, char *argv[])
+class A
 {
-	int a = 1;
+    template < typename _T >
+        _T fii (_T a)
+        {
+            return a;
+        }
+};
 
-	addOne(&a);
-
-	if (a != 2) abort();
-
-	return 0;
-}
+template < typename _T, class _C >
+struct B
+{
+    _T foo (typename C<_T>::Type a,  _C b)
+    {
+        return b.template fii< typename C<_T>::Type >(a);
+    }
+};

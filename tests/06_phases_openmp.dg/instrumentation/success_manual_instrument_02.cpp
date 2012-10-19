@@ -24,32 +24,33 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#include <stdlib.h>
-#include "gpu_basic.cu"
-
-#pragma omp target device (cuda) copy_deps
-#pragma omp task inout (*a)
-void addOne (int *a)
+template < typename _T >
+void foo(_T a)
 {
-	addOne_gpu <<<1, 1>>> (a);
+
+#pragma nanos instrument declare (myEvent, "This is my event")
+    sleep(1);
+#pragma nanos instrument emit (myEvent, "1")
+    sleep(1);
+#pragma nanos instrument emit (myEvent, "2")
+    sleep(1);
+#pragma nanos instrument emit (myEvent, "3")
+    sleep(1);
+#pragma nanos instrument emit (myEvent, "4")
+    sleep(1);
+#pragma nanos instrument emit (myEvent, "5")
+
 }
 
 
 int main (int argc, char *argv[])
 {
-	int a = 1;
-
-	addOne(&a);
-
-	if (a != 2) abort();
-
-	return 0;
+        foo(4);
+        return 0;
 }

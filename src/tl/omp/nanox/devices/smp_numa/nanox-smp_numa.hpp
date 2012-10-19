@@ -72,6 +72,11 @@ namespace TL
                         Source &ancillary_device_description,
                         Source &device_descriptor);
 
+                virtual std::string get_outline_name(const std::string & name) const;
+
+                virtual std::string get_function_name_for_instrumentation(const std::string & name,
+                        const std::string& struct_typename,
+                        const FunctionDefinition& enclosing_function) const;
             private:
                 void do_smp_numa_inline_get_addresses(
                         const Scope& sc,

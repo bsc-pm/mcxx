@@ -1782,6 +1782,7 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
             break;
         case AST_CLASS_SPECIFIER :
         case AST_ENUM_SPECIFIER :
+        case AST_ELABORATED_TYPENAME_SPEC :
             {
                 type_t* type_info = NULL;
 
@@ -1791,7 +1792,6 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
                 gather_type_spec_information(type_id, &type_info, &gather_info, decl_context);
                 return 1;
             }
-        case AST_ELABORATED_TYPENAME_SPEC :
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_CHAR_TYPE :
