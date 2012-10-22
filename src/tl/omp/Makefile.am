@@ -31,7 +31,6 @@ END=
 DIST_SUBDIRS=base \
              core \
              nanos-common \
-             nanox \
              nanox-nodecl \
              ss2omp \
              profile \

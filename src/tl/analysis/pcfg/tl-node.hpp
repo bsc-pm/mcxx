@@ -61,9 +61,19 @@ namespace Analysis {
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
 
+
+            // *** Private constructors *** //
+
+            //! Empty Node Constructor.
+            /*! The method sets to -1 the node identifier and has empty entry and exit edges lists.
+             *  The type of Node_type is, by default, UNCLASSIFIED_NODE.
+             */
+            Node( );
+
             // *** Not allowed construction methods *** //
-            Node(const Node& n);
-            Node& operator=(const Node&);
+            Node( const Node& n );
+            Node& operator=( const Node& );
+
 
             // *** Analysis *** //
 
@@ -73,7 +83,7 @@ namespace Analysis {
             does not contain statements.
             \return Pointer to the last node processed.
             */
-            Node* advance_over_non_statement_nodes();
+            Node* advance_over_non_statement_nodes( );
 
             //! Traverses backward the nodes that do not contain Statements inside them.
             /*!
@@ -81,24 +91,17 @@ namespace Analysis {
             does not contain statements.
             \return Pointer to the last node processed.
             */
-            Node* back_over_non_statement_nodes();
+            Node* back_over_non_statement_nodes( );
 
             //! Returns the list of live in variables in the node (Used in composite nodes)
-            Utils::ext_sym_set get_live_in_over_nodes();
+            Utils::ext_sym_set get_live_in_over_nodes( );
 
             //! Returns the list of live out variables in the node (Used in composite nodes)
-            Utils::ext_sym_set get_live_out_over_nodes();
+            Utils::ext_sym_set get_live_out_over_nodes( );
 
 
         public:
             // *** Constructors *** //
-
-            //! Empty Node Constructor.
-            /*!
-            The method sets to -1 the node identifier and has empty entry and exit edges lists.
-            The type of Node_type is, by default, UNCLASSIFIED_NODE.
-            */
-            Node();
 
             //! Node Constructor.
             /*!
@@ -108,7 +111,7 @@ namespace Analysis {
             \param outer_node Pointer to the wrapper node. If the node does not belong to other
                                 node, then this parameter must be NULL.
             */
-            Node(int& id, Node_type type, Node* outer_node);
+            Node( unsigned int& id, Node_type type, Node* outer_node );
 
             //! Node Constructor for Basic Normal Nodes.
             /*!
@@ -119,13 +122,13 @@ namespace Analysis {
             *                   node, then this parameter must be NULL.
             * \param nodecls List of Nodecl containing the Statements to be included in the new node
             */
-            Node(int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls);
+            Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls );
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
             //! must be included in the list
-            Node(int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl);
+            Node( unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl );
 
-            bool operator==(const Node& node) const;
+            bool operator==( const Node& node ) const;
 
 
             // *** Modifiers *** //
@@ -135,23 +138,23 @@ namespace Analysis {
             If the source node does not exist, then a warning message is shown.
             \param source Pointer to the source node of the Edge that will be erased.
             */
-            void erase_entry_edge(Node* source);
+            void erase_entry_edge( Node* source );
 
             //! Removes an exit edge from the correspondent list.
             /*!
             * If the target node does not exist, then a warning message is shown.
             * \param source Pointer to the target node of the Edge that will be erased.
             */
-            void erase_exit_edge(Node* target);
+            void erase_exit_edge( Node* target );
 
 
             // *** Getters and setters *** //
 
             //! Returns the node identifier
-            int get_id() const;
+            int get_id( ) const;
 
             //! Sets the node identifier
-            void set_id(int id);
+            void set_id( unsigned int id );
 
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -159,67 +162,67 @@ namespace Analysis {
             * Once the traversal is ended, all nodes must be set to non-visited using
             * set_visited method.
             */
-            bool is_visited() const;
-            bool is_visited_aux() const;
+            bool is_visited( ) const;
+            bool is_visited_aux( ) const;
 
             //! Sets the node as visited.
-            void set_visited(bool visited);
-            void set_visited_aux(bool visited);
+            void set_visited( bool visited );
+            void set_visited_aux( bool visited );
 
             //! Returns a boolean indicating whether the node is empty or not
             /*!
             * A empty node is created in the cases when we need a node to be returned but
             * no node is needed to represent data.
             */
-            bool is_empty_node();
+            bool is_empty_node( );
 
             //! Returns the list of entry edges of the node.
-            ObjectList<Edge*> get_entry_edges() const;
+            ObjectList<Edge*> get_entry_edges( ) const;
 
             //! Adds a new entry edge to the entry edges list.
-            void set_entry_edge(Edge *entry_edge);
+            void set_entry_edge( Edge *entry_edge );
 
             //! Returns the list of entry edges types of the node.
-            ObjectList<Edge_type> get_entry_edge_types();
+            ObjectList<Edge_type> get_entry_edge_types( );
 
             //! Returns the list of entry edges labels of the node.
-            ObjectList<std::string> get_entry_edge_labels();
+            ObjectList<std::string> get_entry_edge_labels( );
 
             //! Returns the list parent nodes of the node.
-            ObjectList<Node*> get_parents();
+            ObjectList<Node*> get_parents( );
 
             //! Returns the list of exit edges of the node.
-            ObjectList<Edge*> get_exit_edges() const;
+            ObjectList<Edge*> get_exit_edges( ) const;
 
             //! Adds a new exit edge to the exit edges list.
-            void set_exit_edge(Edge *exit_edge);
+            void set_exit_edge( Edge *exit_edge );
 
             //! Returns the list of exit edges types of the node.
-            ObjectList<Edge_type> get_exit_edge_types();
+            ObjectList<Edge_type> get_exit_edge_types( );
 
             //! Returns the list of exit edges labels of the node.
-            ObjectList<std::string> get_exit_edge_labels();
+            ObjectList<std::string> get_exit_edge_labels( );
 
             //! Returns the edge between the node and a target node, if exists
-            Edge* get_exit_edge(Node* target);
+            Edge* get_exit_edge( Node* target );
 
             //! Returns the list children nodes of the node.
-            ObjectList<Node*> get_children();
+            ObjectList<Node*> get_children( );
 
             //! States if the current node is strictly enclosed into a potential encloser node
             bool node_is_enclosed_by( Node* potential_encloser );
 
             //! Returns true when the node is not a composite node (does not contain nodes inside)
-            bool is_basic_node();
+            bool is_basic_node( );
 
             //! Returns true when the node is a composite node (contains nodes inside)
-            bool is_graph_node();
+            bool is_graph_node( );
 
             //! Returns true when the node is an ENTRY node
-            bool is_entry_node();
+            bool is_entry_node( );
 
             //! Returns true when the node is an EXIT node
-            bool is_exit_node();
+            bool is_exit_node( );
 
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
@@ -384,11 +387,11 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for OmpSs analysis ******************* //
 
-            Nodecl::NodeclBase get_task_context();
+            Nodecl::NodeclBase get_task_context( );
 
             void set_task_context(Nodecl::NodeclBase c);
 
-            Symbol get_task_function();
+            Symbol get_task_function( );
 
             void set_task_function(Symbol func_sym);
 
@@ -400,11 +403,11 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for loops analysis ******************* //
 
-            Node* get_stride_node();
+            Node* get_stride_node( );
 
             void set_stride_node(Node* stride);
 
-            bool is_stride_node();
+            bool is_stride_node( );
             bool is_stride_node( Node* loop );
 
             // ***************** END getters and setters for loops analysis ***************** //
@@ -416,7 +419,7 @@ namespace Analysis {
             // *************** Getters and setters for use-definition analysis ************** //
 //
             //! Returns the list of upper exposed variables of the node
-            Utils::ext_sym_set get_ue_vars();
+            Utils::ext_sym_set get_ue_vars( );
 
             //! Adds a new upper exposed variable to the node
             void set_ue_var(Utils::ExtendedSymbol new_ue_var);
@@ -428,7 +431,7 @@ namespace Analysis {
             void unset_ue_var(Utils::ExtendedSymbol old_ue_var);
 
             //! Returns the list of killed variables of the node
-            Utils::ext_sym_set get_killed_vars();
+            Utils::ext_sym_set get_killed_vars( );
 
             //! Adds a new killed variable to the node
             void set_killed_var(Utils::ExtendedSymbol new_killed_var);
@@ -440,7 +443,7 @@ namespace Analysis {
             void unset_killed_var(Utils::ExtendedSymbol old_killed_var);
 
             //! Returns the list of undefined behaviour variables of the node
-            Utils::ext_sym_set get_undefined_behaviour_vars();
+            Utils::ext_sym_set get_undefined_behaviour_vars( );
 
             //! Adds a new undefined behaviour variable to the node
             void set_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var);
@@ -487,7 +490,7 @@ namespace Analysis {
             // ****************** Getters and setters for liveness analysis ***************** //
 
             //! Returns the set of variables that are alive at the entry of the node.
-            Utils::ext_sym_set get_live_in_vars();
+            Utils::ext_sym_set get_live_in_vars( );
 
             //! Adds a new live in variable to the node.
             void set_live_in(Utils::ExtendedSymbol new_live_in_var);
@@ -499,7 +502,7 @@ namespace Analysis {
             void set_live_in(Utils::ext_sym_set new_live_in_set);
 
             //! Returns the set of variables that are alive at the exit of the node.
-            Utils::ext_sym_set get_live_out_vars();
+            Utils::ext_sym_set get_live_out_vars( );
 
             //! Adds a new live out variable to the node.
             void set_live_out(Utils::ExtendedSymbol new_live_out_var);
@@ -585,7 +588,7 @@ namespace Analysis {
             void set_sc_undef_var( Utils::ext_sym_set es_list );
 
             // Race condition variables
-            Utils::ext_sym_set get_sc_race_vars();
+            Utils::ext_sym_set get_sc_race_vars( );
             void set_sc_race_var( Utils::ExtendedSymbol es );
             void set_sc_race_var( Utils::ext_sym_set es_list );
 

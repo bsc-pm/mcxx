@@ -277,8 +277,6 @@ namespace Codegen
 
     static std::string get_generic_specifier_str(const std::string& c)
     {
-        const char* const op_prefix = ".operator.";
-
         if (c == ".operator.=")
         {
             return "ASSIGNMENT(=)";
@@ -1360,7 +1358,7 @@ OPERATOR_TABLE
                     file << keyword_symbol.get_name() << " = ";
                 }
             }
-            else if (pos < parameter_types.size())
+            else if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -3311,7 +3309,6 @@ OPERATOR_TABLE
                     it != related_symbols.end();
                     it++)
             {
-                TL::Symbol &member(*it);
                 if (it != related_symbols.begin())
                     file << ", ";
 
@@ -3994,7 +3991,6 @@ OPERATOR_TABLE
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
@@ -4005,7 +4001,6 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
@@ -4270,7 +4265,6 @@ OPERATOR_TABLE
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
@@ -4281,7 +4275,6 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
@@ -4428,9 +4421,13 @@ OPERATOR_TABLE
         ERROR_CONDITION(!entry.is_from_module(),
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
+        // Has the symbol 'entry' been declared as USEd in the current context?
+        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+            return;
+
         TL::Symbol module = entry.from_module();
 
-        // // Is this a module actually used in this program unit?
+        // Is this a module actually used in this program unit?
         TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
         if (!used_modules.is_valid())
             return;

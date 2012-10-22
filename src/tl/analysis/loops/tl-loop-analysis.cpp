@@ -310,8 +310,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions." \
-//                             " This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is<Nodecl::Predecrement>() || stride.is<Nodecl::Postdecrement>())
@@ -337,8 +336,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions." \
-//                             " This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is<Nodecl::AddAssignment>())
@@ -354,8 +352,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions." \
-//                             " This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is_null())

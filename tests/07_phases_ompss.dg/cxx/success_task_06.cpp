@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,25 +26,27 @@
 
 
 
-#include "tl-omp-nanox.hpp"
-namespace TL
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+
+struct A
 {
-    namespace Nanox
+    int x[10];
+#pragma omp task out(x[i])
+    void f(int i)
     {
-        void OMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
-        {
-            Source taskyield_source;
-
-            taskyield_source
-                << "{"
-                <<    "nanos_yield();"
-                << "}"
-                ;
-
-            AST_t taskyield_code = taskyield_source.parse_statement(taskyield_construct.get_ast(),
-                    taskyield_construct.get_scope_link());
-
-            taskyield_construct.get_ast().replace(taskyield_code);
-        }
+        x[i] = 0;
     }
+};
+
+int main()
+{
+    A a;
+    A* ptr_a = &a;
+
+    a.f(0);
+    ptr_a->f(1);
 }

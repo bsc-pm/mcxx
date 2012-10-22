@@ -32,8 +32,6 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ************************** Class implementing reaching definition analysis ************************* //
 
-    static Utils::ext_sym_map ext_sym_set_to_ext_sym_map( Utils::ext_sym_set set );
-
     ReachingDefinitions::ReachingDefinitions( ExtensibleGraph* graph )
             : _graph( graph )
     {}
@@ -168,7 +166,7 @@ namespace Analysis {
         }
     }
 
-    bool ReachingDefinitions::set_graph_node_reaching_definitions( Node* current )
+    void ReachingDefinitions::set_graph_node_reaching_definitions( Node* current )
     {
         if( current->is_graph_node( ) )
         {
@@ -190,18 +188,6 @@ namespace Analysis {
             }
             current->set_reaching_definitions_out( graph_rdo );
         }
-    }
-
-    static Utils::ext_sym_map ext_sym_set_to_ext_sym_map( Utils::ext_sym_set set )
-    {
-        Utils::ext_sym_map map;
-
-        for( Utils::ext_sym_set::iterator it = set.begin( ); it != set.end( ); ++it )
-        {
-            map[*it] = Nodecl::NodeclBase::null( );
-        }
-
-        return map;
     }
 
     // *********************** End class implementing reaching definitions analysis *********************** //

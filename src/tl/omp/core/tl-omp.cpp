@@ -405,18 +405,18 @@ namespace TL
         {
             return _copy_expr;
         }
-		
+
 		RealTimeInfo::RealTimeInfo() :
-		_time_deadline(NULL), _time_release(NULL) 
+		_time_deadline(NULL), _time_release(NULL)
         {
 		}
-				
+
 		RealTimeInfo::~RealTimeInfo()
 		{
             if(_time_release  != NULL) delete _time_release;
             if(_time_deadline != NULL) delete _time_deadline;
 		}
-        
+
         RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy) :
 		_time_deadline(NULL), _time_release(NULL),
         _map_error_behavior(rt_copy._map_error_behavior)
@@ -430,7 +430,7 @@ namespace TL
                 _time_deadline = new Nodecl::NodeclBase(rt_copy.get_time_deadline());
             }
         }
-               
+
        RealTimeInfo & RealTimeInfo::operator=(const RealTimeInfo & rt_copy)
        {
            if(this != &rt_copy)
@@ -439,7 +439,7 @@ namespace TL
                if(_time_release  != NULL) delete _time_release;
                if(_time_deadline != NULL) delete _time_deadline;
 
-               //copy new realtime information 
+               //copy new realtime information
                _time_release  = (rt_copy.has_release_time()  ? new Nodecl::NodeclBase(rt_copy.get_time_release()) : NULL);
                _time_deadline = (rt_copy.has_deadline_time() ? new Nodecl::NodeclBase(rt_copy.get_time_deadline()) : NULL);
                _map_error_behavior = rt_copy.get_map_error_behavior();
@@ -447,17 +447,17 @@ namespace TL
            return *this;
        }
 
-        Nodecl::NodeclBase RealTimeInfo::get_time_deadline() const 
+        Nodecl::NodeclBase RealTimeInfo::get_time_deadline() const
         {
             return (*_time_deadline);
         }
-        
-        Nodecl::NodeclBase RealTimeInfo::get_time_release() const 
+
+        Nodecl::NodeclBase RealTimeInfo::get_time_release() const
         {
             return (*_time_release);
         }
 
-        RealTimeInfo::map_error_behavior_t RealTimeInfo::get_map_error_behavior() const 
+        RealTimeInfo::map_error_behavior_t RealTimeInfo::get_map_error_behavior() const
         {
             return _map_error_behavior;
         }
@@ -466,15 +466,15 @@ namespace TL
         {
             return (_time_deadline != NULL);
         }
-        
+
         bool RealTimeInfo::has_release_time() const
         {
             return (_time_release != NULL);
         }
-        
+
         void RealTimeInfo::set_time_deadline(Nodecl::NodeclBase expr)
         {
-            if(_time_deadline != NULL) 
+            if(_time_deadline != NULL)
             {
                 delete _time_deadline;
             }
@@ -483,22 +483,22 @@ namespace TL
 
         void RealTimeInfo::set_time_release(Nodecl::NodeclBase expr)
         {
-            if(_time_release != NULL) 
+            if(_time_release != NULL)
             {
                 delete _time_release;
             }
             _time_release = new Nodecl::NodeclBase(expr);
         }
-                
-        static bool is_omp_error_event(std::string event) 
-        { 
+
+        static bool is_omp_error_event(std::string event)
+        {
             #define ENUM_OMP_ERROR_EVENT(x) \
                 if(event == #x) return true;
                 ENUM_OMP_ERROR_EVENT_LIST
             #undef ENUM_OMP_ERROR_EVENT
             return false;
         }
-        
+
         static bool is_omp_error_action(std::string action)
         {
             #define ENUM_OMP_ERROR_ACTION(x,y) \
@@ -507,25 +507,35 @@ namespace TL
             #undef ENUM_OMP_ERROR_ACTION
             return false;
         }
-        
+
         static RealTimeInfo::omp_error_event_t get_omp_error_event(std::string event)
-        { 
+        {
             #define ENUM_OMP_ERROR_EVENT(x) \
                 if(event == #x) return RealTimeInfo::x;
                 ENUM_OMP_ERROR_EVENT_LIST
             #undef ENUM_OMP_ERROR_EVENT
+
+            // This should never happen because we only call to this function
+            // if the 'event' string is a valid omp_error_event_t
+            internal_error("'%s' is not a valid event", event.c_str());
+            return RealTimeInfo::OMP_ANY_EVENT;
         }
-        
+
         static RealTimeInfo::omp_error_action_t get_omp_error_action(std::string action)
-        { 
+        {
             #define ENUM_OMP_ERROR_ACTION(x,y) \
                 if(action == #x) return RealTimeInfo::y;
                 ENUM_OMP_ERROR_ACTION_LIST
             #undef ENUM_OMP_ERROR_ACTION
-        }
+
+            // This should never happen because we only call to this function
+            // if the 'action' string is a valid omp_error_action_t
+            internal_error("'%s' is not a valid action", action.c_str());
+            return RealTimeInfo::OMP_NO_ACTION;
+       }
 
         static std::string get_omp_error_action_str(RealTimeInfo::omp_error_action_t action)
-        { 
+        {
             #define ENUM_OMP_ERROR_ACTION(x,y) \
                 if(action == RealTimeInfo::y) return #y;
                 ENUM_OMP_ERROR_ACTION_LIST
@@ -533,8 +543,8 @@ namespace TL
             return "";
         }
 
-        std::string RealTimeInfo::get_action_error(RealTimeInfo::omp_error_event_t event) 
-        { 
+        std::string RealTimeInfo::get_action_error(RealTimeInfo::omp_error_event_t event)
+        {
             RealTimeInfo::map_error_behavior_t::iterator it = _map_error_behavior.find(event);
             if(it != _map_error_behavior.end())
             {
@@ -542,7 +552,7 @@ namespace TL
             }
             return "";
         }
-        
+
         void RealTimeInfo::add_error_behavior(std::string event, std::string action)
         {
             if(is_omp_error_event(event))
@@ -552,31 +562,31 @@ namespace TL
                    std::pair<map_error_behavior_t::iterator, bool> ret =
                         _map_error_behavior.insert(
                             std::pair<omp_error_event_t, omp_error_action_t> (
-                                get_omp_error_event(event), 
+                                get_omp_error_event(event),
                                 get_omp_error_action(action)));
 
                    if(!ret.second)
                    {
-                       std::cerr << " warning: '" << event 
+                       std::cerr << " warning: '" << event
                                  << "' is already associated with an action, skipping."
                                  << std::endl;
                    }
                 }
                 else
                 {
-                    std::cerr << " warning: '" << action 
-                              << "' is not a valid error action, skipping." 
+                    std::cerr << " warning: '" << action
+                              << "' is not a valid error action, skipping."
                               << std::endl;
                 }
             }
             else
             {
-                std::cerr << " warning: '" << event 
-                          << "' is not a valid error event, skipping." 
+                std::cerr << " warning: '" << event
+                          << "' is not a valid error event, skipping."
                           << std::endl;
             }
         }
-        
+
         void RealTimeInfo::add_error_behavior(std::string action)
         {
             if(is_omp_error_action(action))
@@ -585,19 +595,19 @@ namespace TL
                 std::pair<map_error_behavior_t::iterator, bool> ret =
                     _map_error_behavior.insert(
                             std::pair<omp_error_event_t, omp_error_action_t> (
-                                RealTimeInfo::OMP_ANY_EVENT, 
+                                RealTimeInfo::OMP_ANY_EVENT,
                                 get_omp_error_action(action)));
                 if(!ret.second)
                 {
-                    std::cerr << " warning: 'OMP_ANY_EVENT'" 
+                    std::cerr << " warning: 'OMP_ANY_EVENT'"
                               << " is already associated with an action, skipping."
                               << std::endl;
                 }
             }
-            else 
+            else
             {
-                std::cerr << " warning: '" << action 
-                          << "' is not a valid error action, skipping." 
+                std::cerr << " warning: '" << action
+                          << "' is not a valid error action, skipping."
                           << std::endl;
             }
         }

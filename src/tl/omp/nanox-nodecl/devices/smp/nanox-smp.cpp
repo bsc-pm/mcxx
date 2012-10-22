@@ -153,8 +153,6 @@ namespace TL { namespace Nanox {
                 name = (*it)->get_field_name();
             }
 
-            bool already_mapped = false;
-
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:

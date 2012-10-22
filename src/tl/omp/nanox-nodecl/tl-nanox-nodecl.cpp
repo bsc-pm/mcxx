@@ -75,19 +75,8 @@ namespace TL { namespace Nanox {
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
     {
         Source src;
-        // if (!_static_weak_symbols)
-        // {
-        src 
-            << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-            ;
-        // }
-        // else
-        // {
-        //     // Some compilers (like ICC) may require this
-        //     src 
-        //         << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-        //         ;
-        // }
+         src << "static __attribute__((section(\"nanos_init\")))"
+             << "nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };";
 
         FORTRAN_LANGUAGE()
         {

@@ -1172,6 +1172,7 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
             || scs.conv[1] == SCI_COMPLEX_PROMOTION
             || scs.conv[1] == SCI_COMPLEX_FLOATING_INTEGRAL_CONVERSION
             || scs.conv[1] == SCI_FLOAT_TO_COMPLEX_CONVERSION
+            || scs.conv[1] == SCI_COMPLEX_TO_FLOAT_CONVERSION
             || scs.conv[1] == SCI_COMPLEX_CONVERSION)
     {
         result = SCR_PROMOTION;

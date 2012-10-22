@@ -26,22 +26,21 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
 
-#include "tl-omp-nanox.hpp"
-
-using namespace TL;
-using namespace TL::Nanox;
-
-void OMPTransform::flush_postorder(PragmaCustomConstruct flush_construct)
+struct A
 {
-    Source new_code;
+    double x[10];
+#pragma omp task out(x[i])
+    void f(int i)
+    {
+    }
+};
 
-    new_code
-        << "{"
-        << "__sync_synchronize();"
-        << "}"
-        ;
-
-    AST_t tree = new_code.parse_statement(flush_construct.get_ast(), flush_construct.get_scope_link());
-    flush_construct.get_ast().replace(tree);
+int main()
+{
 }

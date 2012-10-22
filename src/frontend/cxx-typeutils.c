@@ -9164,6 +9164,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+	else if (is_complex_type(orig)
+		&& is_floating_type(dest))
+	{
+	    DEBUG_CODE()
+	    {
+		fprintf(stderr, "SCS: Applying complex to floating conversion\n");
+	    }
+	    (*result).conv[1] = SCI_COMPLEX_TO_FLOAT_CONVERSION;
+	    // Direct conversion, no cv-qualifiers can be involved here
+	    orig = dest;
+	}
     }
 
     // Third kind of conversion

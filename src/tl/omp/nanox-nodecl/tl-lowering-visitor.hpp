@@ -57,6 +57,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Lowering* _lowering;
 
+        // this map is used to avoid repeat the definitions of the structure
+        // 'nanos_const_wd_definition_t'
+        std::map<int, Symbol> _declared_const_wd_type_map;
+
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
 
@@ -129,6 +133,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
                 bool mandatory_creation,
                 const ObjectList<std::string>& device_names,
+                Nodecl::NodeclBase construct);
+
+        TL::Symbol declare_const_wd_type(
+                int num_devices,
                 Nodecl::NodeclBase construct);
 
         void allocate_immediate_structure(

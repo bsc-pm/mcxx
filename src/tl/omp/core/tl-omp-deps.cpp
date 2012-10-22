@@ -53,7 +53,6 @@ namespace TL { namespace OpenMP {
             DependencyItem dep_item(*it, dep_attr);
 
             Symbol sym = expr.get_base_symbol();
-            DataSharingAttribute ds_attr = data_sharing.get_data_sharing(sym);
             Type data_type = expr.get_data_type();
 
             // Arguable if we have T (&)[10] (a reference to array)
