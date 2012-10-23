@@ -16,7 +16,12 @@ using namespace TL::Nanox;
 
 const unsigned char _vector_width = 16;
 
-static std::string smp_ocl_outline_name(const std::string & name)
+bool DeviceSMP_OCL::is_accelerator_device() const
+{
+    return true;
+}
+
+std::string DeviceSMP_OCL::get_outline_name(const std::string & name) const
 {
     return "_smp_ocl_" + name;
 }
@@ -25,7 +30,7 @@ std::string DeviceSMP_OCL::get_function_name_for_instrumentation(const std::stri
         const std::string& struct_typename,
         const FunctionDefinition& enclosing_function) const
 {
-    std::string outline_function_name = smp_ocl_outline_name(name);
+    std::string outline_function_name = get_outline_name(name);
     Symbol function_symbol = enclosing_function.get_function_symbol();
     if (enclosing_function.is_templated()
             && function_symbol.get_type().is_template_specialized_type())
@@ -781,6 +786,8 @@ void DeviceSMP_OCL::create_outline(
     Source result, arguments_struct_definition, outline_name, parameter_list, body;
     Source instrument_before, instrument_after;
 
+    outline_name << get_outline_name(task_name);
+
     result
         << arguments_struct_definition
         //          << "void " << outline_name << "(" << parameter_list << ")"
@@ -795,146 +802,15 @@ void DeviceSMP_OCL::create_outline(
     // Add the tracing instrumentation if needed
     if (instrumentation_enabled())
     {
-        Source uf_name_id, uf_name_descr;
-        Source uf_location_id, uf_location_descr;
-        Symbol function_symbol = enclosing_function.get_function_symbol();
-
-        if (Nanos::Version::interface_is_at_least("master", 5019))
-        {
-            // The function name used by instrumentantion may contain template arguments
-            std::string function_name_instr =
-                get_function_name_for_instrumentation(task_name, struct_typename, enclosing_function);
-
-            instrument_before
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
-                <<               " \"user-funct-name\", " << uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << function_name_instr << ", \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "nanos_instrument_events(2, events_before);"
-                ;
-        }
-        else if (Nanos::Version::interface_is_at_least("master", 5017))
-        {
-            instrument_before
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-                <<               uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[0].value = nanos_instr_uf_name_value;"
-                << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "events_before[1].value = nanos_instr_uf_location_value;"
-                << "nanos_instrument_events(2, events_before);"
-                ;
-        }
-        else
-        {
-            instrument_before
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-                <<               uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-                << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
-                << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-                << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-                << "nanos_instrument_events(2, events_before);"
-                ;
-        }
-
-        instrument_after
-            << "nanos_instrument_close_user_fun_event();"
-            ;
-
-        if (outline_flags.task_symbol != NULL)
-        {
-            uf_name_id
-                << "\"" << outline_flags.task_symbol.get_name() << "\""
-                ;
-            uf_location_id
-                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-                ;
-
-            uf_name_descr
-                << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
-                ;
-            uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
-                ;
-        }
-        else
-        {
-            uf_name_id
-                << uf_location_id
-                ;
-            uf_location_id
-                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-                ;
-
-            uf_name_descr
-                << uf_location_descr
-                ;
-            uf_location_descr
-                << "\"Outline created after construct at '"
-                << reference_tree.get_locus()
-                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
-                ;
-        }
+        get_instrumentation_code(
+                task_name,
+                struct_typename,
+                /* full outline name */ outline_name.get_source(),
+                outline_flags,
+                reference_tree,
+                sl,
+                instrument_before,
+                instrument_after);
     }
 
     // arguments_struct_definition
@@ -966,7 +842,7 @@ void DeviceSMP_OCL::create_outline(
         Symbol sym ((Symbol)(*it));
         if (sym.get_type().is_pointer())
         {
-            argument_struct_def_fields << "__global "; 
+            argument_struct_def_fields << "__global ";
         }
 
         argument_struct_def_fields << sym.get_type()
@@ -974,11 +850,6 @@ void DeviceSMP_OCL::create_outline(
             << ";"
             ;
     }
-
-    // outline_name
-    outline_name
-        << smp_ocl_outline_name(task_name)
-        ;
 
     // parameter_list
     parameter_list
@@ -1115,7 +986,7 @@ void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
 {
     Source outline_name;
     outline_name
-        << smp_ocl_outline_name(task_name)
+        << get_outline_name(task_name)
         ;
 
     Source template_args;

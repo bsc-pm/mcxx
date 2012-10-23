@@ -103,6 +103,58 @@ struct CheckIfInCudacompiler
 	}
 };
 
+
+
+// Check if the given path file comes from Nanox installation directory
+struct CheckIfInNanox
+{
+	static bool check(const std::string& path)
+	{
+#ifdef NANOX_INST_DIR
+		std::string nanoxPath(NANOX_INST_DIR);
+#else
+		std::string nanoxPath("???");
+#endif
+
+		if (path.substr(0, nanoxPath.size()) == nanoxPath)
+			return true;
+		else
+			return false;
+	}
+	static bool check_type(TL::Type t)
+	{
+		if (t.is_named())
+		{
+			return CheckIfInNanox::check(t.get_symbol().get_filename());
+		}
+		else if (t.is_pointer())
+		{
+			return check_type(t.points_to());
+		}
+		else if (t.is_array())
+		{
+			return check_type(t.array_element());
+		}
+		else if (t.is_function())
+		{
+			TL::ObjectList<TL::Type> types = t.parameters();
+			types.append(t.returns());
+			for (TL::ObjectList<TL::Type>::iterator it = types.begin(); it != types.end(); it++)
+			{
+				if (!check_type(*it))
+					return false;
+			}
+			return true;
+		}
+		else
+		{
+			return true;
+		}
+	}
+};
+
+
+
 static std::string param_position_name(int position)
 {
 	// Do not modify __tmp_ name unless needed, it has to be the

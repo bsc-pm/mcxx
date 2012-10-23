@@ -716,6 +716,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 break;
             }
         case AST_FLOATING_LITERAL :
+        case AST_HEXADECIMAL_FLOAT:
             {
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));

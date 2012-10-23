@@ -134,16 +134,6 @@ namespace TL
                         bool is_global_defined,
                         bool needs_extern_c);
 
-                void insert_instrumentation_code(
-                        const std::string& task_name,
-                        const std::string& struct_typename,
-                        const FunctionDefinition& enclosing_function,
-                        Source& outline_name,
-                        const OutlineFlags& outline_flags,
-                        AST_t& reference_tree,
-                        Source& instrument_before,
-                        Source& instrument_after);
-
                 void create_wrapper_code(
                         PragmaCustomConstruct pragma_construct,
                         const OutlineFlags &outline_flags,
@@ -218,6 +208,10 @@ namespace TL
                         ScopeLink sl,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
+
+                virtual bool is_accelerator_device() const;
+
+                virtual std::string get_outline_name(const std::string & name) const;
 
                 virtual std::string get_function_name_for_instrumentation(const std::string & name,
                         const std::string& struct_typename,

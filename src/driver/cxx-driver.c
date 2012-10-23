@@ -1314,7 +1314,10 @@ int parse_arguments(int argc, const char* argv[],
                         // Do not process anything
     {
         fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
-        output_file = uniquestr("-");
+        if (!CURRENT_CONFIGURATION->preprocessor_uses_stdout)
+        {
+            output_file = uniquestr("-");
+        }
     }
 
     // When -c and -o are given only one file is valid
@@ -1503,6 +1506,8 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
+        // IBM XL Compiler Optimization Flags
+        case 'q':
             {
                 add_parameter_all_toolchain(argument, dry_run);
                 if (!dry_run)
@@ -3205,7 +3210,10 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         if (translation_unit->output_filename == NULL)
         {
             // Send it to stdout
-            preprocessed_filename = uniquestr("-");
+            if (!uses_stdout)
+            {
+                preprocessed_filename = uniquestr("-");
+            }
         }
         else
         {

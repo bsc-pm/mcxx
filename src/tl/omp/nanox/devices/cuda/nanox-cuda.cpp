@@ -42,7 +42,12 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static std::string cuda_outline_name(const std::string & name)
+bool DeviceCUDA::is_accelerator_device() const
+{
+    return true;
+}
+
+std::string DeviceCUDA::get_outline_name(const std::string & name) const
 {
     return "_gpu_" + name;
 }
@@ -51,7 +56,7 @@ std::string DeviceCUDA::get_function_name_for_instrumentation(const std::string 
         const std::string& struct_typename UNUSED_PARAMETER,
         const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
 {
-	return cuda_outline_name(name);
+	return get_outline_name(name);
 }
 
 bool DeviceCUDA::is_wrapper_needed(PragmaCustomConstruct ctr)
@@ -886,159 +891,6 @@ void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
 	insert_function_definition(ctr, is_copy);
 }
 
-void DeviceCUDA::insert_instrumentation_code(
-        const std::string & task_name,
-		const std::string& struct_typename,
-        const FunctionDefinition& enclosing_function,
-        Source& outline_name,
-        const OutlineFlags& outline_flags,
-        AST_t& reference_tree,
-        Source& instrument_before,
-        Source& instrument_after)
-{
-	Symbol function_symbol = enclosing_function.get_function_symbol();
-    Source uf_name_id, uf_name_descr;
-    Source uf_location_id, uf_location_descr;
-
-    if (Nanos::Version::interface_is_at_least("master", 5019))
-    {
-        // The function name used by instrumentantion may contain template arguments
-        std::string function_name_instr =
-            get_function_name_for_instrumentation(task_name, struct_typename, enclosing_function);
-
-        instrument_before
-            << "static int nanos_funct_id_init = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-            << "if (nanos_funct_id_init == 0)"
-            << "{"
-            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
-            <<               " \"user-funct-name\", " << uf_name_id << "," << uf_name_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value_with_val((nanos_event_value_t) " << function_name_instr << ", \"user-funct-location\","
-            <<               uf_location_id << "," << uf_location_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "nanos_funct_id_init = 1;"
-            << "}"
-            << "nanos_event_t events_before[2];"
-            << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[1].type = NANOS_BURST_START;"
-            << "events_before[0].key = nanos_instr_uf_name_key;"
-            << "events_before[1].key = nanos_instr_uf_location_key;"
-            << "nanos_instrument_events(2, events_before);"
-            ;
-    }
-    else if (Nanos::Version::interface_is_at_least("master", 5017))
-    {
-        instrument_before
-            << "static int nanos_funct_id_init = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-            << "if (nanos_funct_id_init == 0)"
-            << "{"
-            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-            <<               uf_name_id << "," << uf_name_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-            <<               uf_location_id << "," << uf_location_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "nanos_funct_id_init = 1;"
-            << "}"
-            << "nanos_event_t events_before[2];"
-            << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[1].type = NANOS_BURST_START;"
-            << "events_before[0].key = nanos_instr_uf_name_key;"
-            << "events_before[0].value = nanos_instr_uf_name_value;"
-            << "events_before[1].key = nanos_instr_uf_location_key;"
-            << "events_before[1].value = nanos_instr_uf_location_value;"
-            << "nanos_instrument_events(2, events_before);"
-            ;
-    }
-    else
-    {
-        instrument_before
-            << "static int nanos_funct_id_init = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-            << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-            << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-            << "if (nanos_funct_id_init == 0)"
-            << "{"
-            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-            <<               uf_name_id << "," << uf_name_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-            <<               uf_location_id << "," << uf_location_descr << ", 0);"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "nanos_funct_id_init = 1;"
-            << "}"
-            << "nanos_event_t events_before[2];"
-            << "events_before[0].type = NANOS_BURST_START;"
-            << "events_before[1].type = NANOS_BURST_START;"
-            << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
-            << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
-            << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
-            << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-            << "nanos_instrument_events(2, events_before);"
-            ;
-    }
-
-    instrument_after
-        << "nanos_instrument_close_user_fun_event();"
-        ;
-
-	if (outline_flags.task_symbol != NULL)
-	{
-		uf_name_id
-			<< "\"" << outline_flags.task_symbol.get_name() << "\""
-			;
-		uf_location_id
-			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-			;
-
-		uf_name_descr
-			<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
-			;
-		uf_location_descr
-			<< "\"'" << function_symbol.get_qualified_name() << "'"
-			<< " invoked at '" << reference_tree.get_locus() << "'\""
-			;
-	}
-	else
-	{
-		uf_name_id
-			<< uf_location_id
-			;
-		uf_location_id
-			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-			;
-
-		uf_name_descr
-			<< uf_location_descr
-			;
-		uf_location_descr
-			<< "\"Outline from '"
-			<< reference_tree.get_locus()
-			<< "' in '" << function_symbol.get_qualified_name() << "'\""
-			;
-	}
-}
-
-
 void DeviceCUDA::create_wrapper_code(
 		PragmaCustomConstruct pragma_construct,
 		const OutlineFlags &outline_flags,
@@ -1127,7 +979,7 @@ void DeviceCUDA::create_outline(
 	// outline_name
 	Source outline_name, parameter_list;
 	outline_name
-		<< cuda_outline_name(task_name)
+		<< get_outline_name(task_name)
 		;
 
 	/***************** Write the CUDA file *****************/
@@ -1173,11 +1025,21 @@ void DeviceCUDA::process_local_symbols(
 		// If this symbol comes from the guts of CUDA, ignore it
 		if (CheckIfInCudacompiler::check(s.get_filename()))
 			continue;
-
 		// Let's check its type as well
 		TL::Type t = s.get_type();
 		if (CheckIfInCudacompiler::check_type(t))
 			continue;
+
+		std::cout << "Checking symbol belongs to Nanox: " << s.get_name() << std::endl;
+
+		// Check if the symbol comes from Nanox
+		if (CheckIfInNanox::check(s.get_filename()))
+			continue;
+		// Let's check its type as well
+		if (CheckIfInNanox::check_type(t))
+			continue;
+
+		std::cout << "    sym " << s.get_name() << " doesn't" << std::endl;
 
 		// Check we have not already added the symbol
 		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
@@ -1239,10 +1101,11 @@ void DeviceCUDA::process_extern_symbols(
 	for (std::set<Symbol>::iterator it = extern_symbols.begin();
 			it != extern_symbols.end(); it++)
 	{
+
 		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
 		// Check the symbol does not come from CUDA (see #753 and #959)
 		AST_t a = it->get_point_of_declaration();
-		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
+		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()) && !CheckIfInNanox::check(it->get_filename()))
 		{
 			forward_declaration << a.prettyprint_external() << "\n";
 		}
@@ -1403,16 +1266,16 @@ AST_t DeviceCUDA::generate_task_code(
 		<< "}"
 		;
 
-	// Add the tracing instrumentation if needed
+    // Add the tracing instrumentation if needed
     if (instrumentation_enabled())
     {
-        insert_instrumentation_code(
+        get_instrumentation_code(
                 task_name,
                 struct_typename,
-                enclosing_function,
-                outline_name,
+                /* full outline name */ outline_name.get_source(),
                 outline_flags,
                 reference_tree,
+                sl,
                 instrument_before,
                 instrument_after);
     }
@@ -1704,7 +1567,7 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
-			<< cuda_outline_name(task_name)
+			<< get_outline_name(task_name)
 			;
 	}
 	else
