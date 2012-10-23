@@ -52,14 +52,6 @@ namespace TL
 				std::string const &expression_string,
 				Region &region);
 			
-#if 0
-            static ObjectList<Region> handle_superscalar_declarator_list(AST_t ref_tree, 
-                    ScopeLink scope_link, 
-                    std::string const &declarator_string, 
-                    Region::Direction direction,
-                    Region::Reduction reduction, Symbol &original_symbol);
-#endif
-
 			static ObjectList<Expression> get_array_subscript_list(Type type, AST_t ref_tree, ScopeLink scope_link);
 	};
 	
