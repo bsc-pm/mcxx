@@ -545,36 +545,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             outline_info);
 }
 
-
-namespace {
-    void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
-    {
-        if (t.is_array())
-        {
-            fill_extra_ref_assumed_size(extra_ref, t.array_element());
-
-            Source current_dims;
-            Nodecl::NodeclBase lower_bound, upper_bound;
-            t.array_get_bounds(lower_bound, upper_bound);
-
-            if (lower_bound.is_null())
-            {
-                current_dims << "1:1";
-            }
-            else if (upper_bound.is_null())
-            {
-                current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
-            }
-            else
-            {
-                current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
-            }
-
-            extra_ref.append_with_separator(current_dims, ",");
-        }
-    }
-}
-
 void LoweringVisitor::fill_arguments(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
