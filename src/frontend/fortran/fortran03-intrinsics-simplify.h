@@ -2511,3 +2511,23 @@ static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     return result;
 }
+
+static nodecl_t simplify_mcc_loc(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+
+    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
+    {
+        arg = nodecl_get_child(arg, 0);
+    }
+
+    return nodecl_make_dereference(
+            nodecl_make_reference(
+                nodecl_shallow_copy(arg),
+                get_pointer_type(get_void_type()),
+                nodecl_get_filename(arguments[0]),
+                nodecl_get_line(arguments[0])),
+            get_lvalue_reference_type(get_void_type()),
+            nodecl_get_filename(arguments[0]),
+            nodecl_get_line(arguments[0]));
+}
