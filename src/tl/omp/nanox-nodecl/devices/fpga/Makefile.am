@@ -24,6 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-#SUBDIRS= smp smp_numa cuda smp_ocl gpu common
-SUBDIRS= smp fpga
 
+include ../../../../Makefile.phases
+
+END=
+
+phases_LTLIBRARIES=libtlnanox-fpga.la
+
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../core
+
+libtlnanox_fpga_la_CFLAGS = $(device_flags)
+libtlnanox_fpga_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_fpga_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_fpga_la_SOURCES = \
+       nanox-fpga.hpp \
+       nanox-fpga.cpp \
+       $(END)
