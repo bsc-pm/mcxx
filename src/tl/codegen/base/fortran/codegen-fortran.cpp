@@ -228,6 +228,8 @@ namespace Codegen
 
     void FortranBase::visit(const Nodecl::TopLevel& node)
     {
+        clear_renames();
+
         Nodecl::List list = node.get_top_level().as<Nodecl::List>();
 
         PreCodegenVisitor pre_visitor;
