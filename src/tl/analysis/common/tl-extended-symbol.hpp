@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_EXTENSIBLE_SYMBOL_HPP
-#define TL_EXTENSIBLE_SYMBOL_HPP
+#ifndef TL_EXTENDED_SYMBOL_HPP
+#define TL_EXTENDED_SYMBOL_HPP
 
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -114,4 +114,4 @@ namespace Utils {
 }
 }
 
-#endif // TL_EXTENSIBLE_SYMBOL_HPP
+#endif // TL_EXTENDED_SYMBOL_HPP
