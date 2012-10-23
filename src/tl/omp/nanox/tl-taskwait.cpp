@@ -237,8 +237,8 @@ namespace TL
                             aux_type.array_get_region_bounds(lb, ub);
                             size = aux_type.array_get_region_size();
 
-                            dims_description << "{" 
-                                << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
+                            dims_description << "{"
+                                << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), "
                                 << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
                                 << "sizeof(" << base_type_name << ") * (" << size.prettyprint() << ")  /**/"
                                 << "}"
@@ -249,7 +249,7 @@ namespace TL
                             std::string lb;
                             lb = "0";
 
-                            dims_description << ""
+                            dims_description << "{"
                                 << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), "
                                 << lb << ", "
                                 << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << ")"
