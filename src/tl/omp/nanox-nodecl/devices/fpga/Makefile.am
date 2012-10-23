@@ -33,6 +33,7 @@ phases_LTLIBRARIES=libtlnanox-fpga.la
 
 
 device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../nanos-common \
 			 -I$(srcdir)/../../../core
 
 libtlnanox_fpga_la_CFLAGS = $(device_flags)
