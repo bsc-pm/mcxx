@@ -43,11 +43,16 @@ namespace TL { namespace Nanox {
             virtual void pre_run(DTO& dto);
 
             Nodecl::List& get_extra_c_code();
+
         private:
+            Nodecl::List _extra_c_code;
+
             FILE* _ancillary_file;
             FILE* get_ancillary_file();
 
-            Nodecl::List _extra_c_code;
+            std::string _static_weak_symbols_str;
+            bool _static_weak_symbols;
+            void set_weaks_as_statics(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);
@@ -55,6 +60,6 @@ namespace TL { namespace Nanox {
             std::string _openmp_dry_run;
     };
 
-} } 
+} }
 
 #endif // TL_NANOX_NODECL_HPP

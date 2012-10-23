@@ -90,12 +90,15 @@ namespace TL { namespace Nanox {
         OutlineInfo& _outline_info;
         Nodecl::NodeclBase& _original_statements;
         TL::Symbol& _arguments_struct;
+        // Only used in CUDA device
+        TL::Symbol& _called_task;
 
-        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct)
+        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
             : _outline_name(outline_name),
-              _outline_info(outline_info),
-              _original_statements(statements),
-              _arguments_struct(args_struct)
+            _outline_info(outline_info),
+            _original_statements(statements),
+            _arguments_struct(args_struct),
+            _called_task(called_task)
         {
         }
     };

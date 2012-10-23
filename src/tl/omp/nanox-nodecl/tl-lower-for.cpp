@@ -203,6 +203,7 @@ namespace TL { namespace Nanox {
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();
 
         // Outline
+        TL::Symbol called_task_dummy = TL::Symbol::invalid();
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
@@ -214,7 +215,7 @@ namespace TL { namespace Nanox {
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             // FIXME: Can it be done only once?
-            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
             Nodecl::NodeclBase outline_placeholder;
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
 

@@ -84,6 +84,7 @@ namespace TL { namespace Nanox {
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();
 
+        TL::Symbol called_task_dummy = TL::Symbol::invalid();
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
@@ -98,7 +99,7 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
 
             // FIXME: Can it be done only once?
-            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
             device->create_outline(info, outline_placeholder, symbol_map);
 
             if (IS_FORTRAN_LANGUAGE)
