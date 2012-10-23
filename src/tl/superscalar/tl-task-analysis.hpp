@@ -45,6 +45,8 @@ namespace TL
 	{
 		private:
 			static PhaseStatus _status;
+			static Bool _supports_partial_reductions;
+			
 			std::string _allow_undefined_str;
 			bool _allow_undefined_parameters;
 			
@@ -92,6 +94,7 @@ namespace TL
 			virtual void run(DTO& data_flow)
 			{
 				_status = PHASE_STATUS_OK;
+				_supports_partial_reductions = data_flow["superscalar_partial_reductions"];
 				
 				try
 				{

@@ -162,6 +162,7 @@ namespace TL
 			
 			
 			static PhaseStatus _status;
+			static Bool _supports_partial_reductions;
 			
 			
 			void generate_task_ids(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link);

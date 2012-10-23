@@ -32,6 +32,7 @@
 
 #include "tl-langconstruct.hpp"
 #include "tl-object.hpp"
+#include "tl-refptr.hpp"
 #include "tl-scopelink.hpp"
 
 
@@ -87,12 +88,13 @@ namespace TL {
 			Direction _direction;
 			Reduction _reduction;
 			ObjectList<DimensionSpecifier *> _dimensions;
+			RefPtr<Expression> _minimum_reduction_completion_percent;
 			
 			bool check_expression(AST expression_ast, AST_t ref_ast, ScopeLink scope_link);
 			
 		public:
 			Region()
-				: _direction(UNKNOWN_DIR), _reduction(UNKNOWN_RED), _dimensions()
+				: _direction(UNKNOWN_DIR), _reduction(UNKNOWN_RED), _dimensions(), _minimum_reduction_completion_percent()
 			{
 			}
 			
@@ -104,6 +106,7 @@ namespace TL {
 					_direction = region->_direction;
 					_reduction = region->_reduction;
 					_dimensions = region->_dimensions;
+					_minimum_reduction_completion_percent = region->_minimum_reduction_completion_percent;
 				}
 				else
 				{
@@ -114,6 +117,7 @@ namespace TL {
 					_direction = UNKNOWN_DIR;
 					_reduction = UNKNOWN_RED;
 					_dimensions.clear();
+					_minimum_reduction_completion_percent.clear();
 				}
 			}
 
@@ -125,7 +129,7 @@ namespace TL {
 				return r;
 			}
 			
-			Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link);
+			Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t minimum_reduction_completion_percent_ast, AST_t ast, AST_t ref_ast, ScopeLink scope_link);
 			
 			// The default descructor destroys the contents of _dimensions
 			
@@ -165,6 +169,11 @@ namespace TL {
 			DimensionSpecifier &operator[](int index)
 			{
 				return *_dimensions[index];
+			}
+			
+			RefPtr<Expression> get_minimum_reduction_completion_percent() const
+			{
+				return _minimum_reduction_completion_percent;
 			}
 			
 			bool operator==(Region const &other) const;

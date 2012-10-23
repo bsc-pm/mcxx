@@ -38,6 +38,7 @@
 namespace TL
 {
 	CompilerPhase::PhaseStatus CodeConversion::_status;
+	Bool CodeConversion::_supports_partial_reductions(false);
 	
 	
 	void CodeConversion::TaskCallHandler::preorder(Context ctx, AST_t node)
@@ -199,11 +200,18 @@ namespace TL
 				Region &region = region_list[region_index];
 				Source direction_source;
 				Source dimension_count_source;
+				Source minimum_reduction_completion_percent_source;
 				
 				parameter_region_source
 					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].flags = " << direction_source << ";"
 					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimension_count = " << dimension_count_source << ";"
 					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimensions = " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated;";
+				
+				if (_supports_partial_reductions)
+				{
+					parameter_region_source
+						<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].minimum_reduction_completion_percent = " << minimum_reduction_completion_percent_source << ";";
+				}
 				
 				switch (region.get_direction())
 				{
@@ -424,6 +432,19 @@ namespace TL
 					throw FatalException();
 				}
 				
+				if (_supports_partial_reductions)
+				{
+					if (region.get_minimum_reduction_completion_percent().valid())
+					{
+						Expression minimum_reduction_completion_percent_expression = *region.get_minimum_reduction_completion_percent();
+						ParameterExpression::substitute(minimum_reduction_completion_percent_expression, arguments, argument.get_ast(), scope_link);
+						minimum_reduction_completion_percent_source << minimum_reduction_completion_percent_expression.prettyprint();
+					}
+					else
+					{
+						minimum_reduction_completion_percent_source << 100;
+					}
+				}
 			}
 		}
 		
@@ -737,6 +758,7 @@ namespace TL
 	void CodeConversion::run(DTO &dto)
 	{
 		_status = PHASE_STATUS_OK;
+		_supports_partial_reductions = dto["superscalar_partial_reductions"];
 		
 		try
 		{

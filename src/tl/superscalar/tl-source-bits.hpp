@@ -41,12 +41,14 @@ namespace TL
 	class SourceBits
 	{
 		public:
-            static Region handle_superscalar_declarator(AST_t ref_tree, 
-                    ScopeLink scope_link, 
-                    std::string const &declarator_string, 
-                    Region::Direction direction,
-                    Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &original_symbol);
-
+			static Region handle_superscalar_declarator(AST_t ref_tree, 
+				ScopeLink scope_link, 
+				std::string const &declarator_string, 
+				Region::Direction direction,
+				Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &original_symbol,
+				bool support_partial_reductions = false
+				);
+			
 			static Expression handle_superscalar_expression(AST_t ref_tree, 
 				ScopeLink scope_link,
 				std::string const &expression_string,

@@ -115,6 +115,23 @@ void TL::Configurator::run(DTO &dto)
 		set_phase_status(PHASE_STATUS_ERROR);
 		return;
 	}
+	
+	if (_partial_reductions == std::string("yes"))
+	{
+		dto.set_object("superscalar_partial_reductions", RefPtr<Bool>(new Bool(true)));
+	}
+	else if (_partial_reductions == std::string("no"))
+	{
+		dto.set_object("superscalar_partial_reductions", RefPtr<Bool>(new Bool(false)));
+	}
+	else
+	{
+		std::cerr << "Error: Invalid value '" << _partial_reductions << "' for the 'partial-reductions' option." << std::endl;
+		set_phase_status(PHASE_STATUS_ERROR);
+		return;
+	}
+	
+	
 }
 
 

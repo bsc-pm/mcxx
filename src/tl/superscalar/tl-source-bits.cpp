@@ -50,7 +50,7 @@ namespace TL
     Region SourceBits::handle_superscalar_declarator(AST_t ref_tree, ScopeLink
             scope_link, std::string const &declarator_string, Region::Direction
             direction, Region::Reduction reduction, AugmentedSymbol &function_symbol,
-            AugmentedSymbol &original_symbol)
+            AugmentedSymbol &original_symbol, bool support_partial_reductions)
 	{
 		std::string mangled_text = "@SUPERSCALAR_DECLARATOR@ " + declarator_string;
 		char* str = strdup(mangled_text.c_str());
@@ -131,9 +131,34 @@ namespace TL
 		// Fix up the type of the variable (merge the two types into a consistant type)
 		Type augmented_type = TypeUtils::fix_type(nonadjusted_type, Type(declared_type), scope_link);
 		
-		// Generate the region
 		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, ref_tree, scope_link);
-		Region region(direction, reduction, array_subscripts, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
+		
+		AST_t minimum_reduction_completion_percent_ast;
+		PredicateType completion_percent_predicate(AST_SUPERSCALAR_MINIMUM_REDUCTION_COMPLETION_PERCENT);
+		ObjectList<AST_t> mrcp_nodes = AST_t(superscalar_declarator_ast).depth_subtrees(completion_percent_predicate);
+		if (!mrcp_nodes.empty())
+		{
+			if (!support_partial_reductions)
+			{
+				std::cerr << ref_tree.get_locus() << " Warning: partial reductions not supported in this version." << std::endl;
+			}
+			else if (mrcp_nodes.size() != 1)
+			{
+				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+				throw FatalException();
+			}
+			else if (direction != Region::INOUT_DIR || reduction != Region::REDUCTION)
+			{
+				std::cerr << ref_tree.get_locus() << " Warning: partial reduction specified on non reduction clause." << std::endl;
+			}
+			else
+			{
+				minimum_reduction_completion_percent_ast = AST_t(ASTSon0(mrcp_nodes[0].get_internal_ast()));
+			}
+		}
+		
+		// Generate the region
+		Region region(direction, reduction, array_subscripts, minimum_reduction_completion_percent_ast, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
 		
 		// Set scope link to the outermost node so if we query in this tree
 		// they will be solved in the proper scope
@@ -210,7 +235,7 @@ namespace TL
 		
 		// Generate the region
 		ObjectList<Expression> array_subscripts = get_array_subscript_list(normalized_type, ref_tree, scope_link);
-		region = Region(Region::UNKNOWN_DIR, Region::UNKNOWN_RED, array_subscripts, ASTSon1(superscalar_expression_ast), ref_tree, scope_link);
+		region = Region(Region::UNKNOWN_DIR, Region::UNKNOWN_RED, array_subscripts, AST_t(), ASTSon1(superscalar_expression_ast), ref_tree, scope_link);
 		
 		// Set scope link to the outermost node so if we query in this tree
 		// they will be solved in the proper scope
