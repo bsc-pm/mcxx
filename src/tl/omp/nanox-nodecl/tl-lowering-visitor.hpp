@@ -66,7 +66,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void emit_async_common(
                 Nodecl::NodeclBase construct,
-                TL::Symbol function_symbol, 
+                TL::Symbol function_symbol,
+                TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority,
                 bool is_untied,
