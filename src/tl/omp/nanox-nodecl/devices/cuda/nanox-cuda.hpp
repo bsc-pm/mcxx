@@ -40,6 +40,9 @@ namespace TL
         class DeviceCUDA : public DeviceProvider
         {
             private:
+
+                  Nodecl::List _cuda_file_code;
+
 //                std::string _cudaFilename;
 //                std::string _cudaHeaderFilename;
 //                AST_t _root;
