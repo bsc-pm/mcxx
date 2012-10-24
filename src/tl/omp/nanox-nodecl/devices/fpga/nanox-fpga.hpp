@@ -59,6 +59,27 @@ namespace TL
                         Source &ancillary_device_description,
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
+            private:
+                Nodecl::List _fpga_file_code;
+
+                std::string fpga_outline_name(const std::string &outline_name);
+                TL::Symbol new_function_symbol_unpacked(
+                        TL::Symbol current_function,
+                        const std::string& function_name,
+                        OutlineInfo& outline_info,
+                        Nodecl::Utils::SymbolMap*& out_symbol_map);
+
+                void build_empty_body_for_function(
+                        TL::Symbol function_symbol,
+                        Nodecl::NodeclBase &function_code,
+                        Nodecl::NodeclBase &empty_stmt);
+            
+                TL::Symbol new_function_symbol(
+                            TL::Symbol current_function,
+                        const std::string& name,
+                        TL::Type return_type,
+                        ObjectList<std::string> parameter_names,
+                        ObjectList<TL::Type> parameter_types);
 
         };
     }
