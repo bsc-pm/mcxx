@@ -261,36 +261,6 @@ namespace TL { namespace Nanox {
     }
 
 
-//    void DeviceFPGA::old_get_device_descriptor(const std::string& task_name,
-//            DataEnvironInfo &data_environ,
-//            const OutlineFlags& outline_flags,
-//            AST_t reference_tree,
-//            ScopeLink sl,
-//            Source &ancillary_device_description,
-//            Source &device_descriptor)
-//    {
-//        Source outline_name;
-//        if (!outline_flags.implemented_outline)
-//        {
-//            outline_name
-//                << "_fpga_" + task_name
-//            ;
-//        }
-//        else
-//        {
-//            outline_name << task_name;
-//        }
-//
-//        ancillary_device_description
-//            << comment("FPGA device descriptor")
-//            << "nanos_smp_args_t " << task_name << "_fpga_args = { (void(*)(void*))0};"
-//            ;
-//
-//        device_descriptor
-//            << "{ nanos_fpga_factory, nanos_fpga_dd_size, &" << task_name << "_fpga_args },"
-//            ;
-//    }
-
     void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
             Source &ancillary_device_description,
             Source &device_descriptor,
