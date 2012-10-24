@@ -29,7 +29,6 @@
 #include "nanox-cuda.hpp"
 #include "tl-nanos.hpp"
 #include "tl-compilerpipeline.hpp"
-
 // #include "fortran03-scope.h"
 
 //#include "cuda-aux.hpp"
@@ -1090,6 +1089,39 @@ static std::string cuda_outline_name(const std::string & name)
 //}
 //
 
+static void build_empty_body_for_function(
+        TL::Symbol function_symbol,
+        Nodecl::NodeclBase &function_code,
+        Nodecl::NodeclBase &empty_stmt
+        )
+{
+    empty_stmt = Nodecl::EmptyStatement::make("", 0);
+    Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
+
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+        Nodecl::CompoundStatement compound_statement =
+            Nodecl::CompoundStatement::make(stmt_list,
+                    /* destructors */ Nodecl::NodeclBase::null(),
+                    "", 0);
+        stmt_list = Nodecl::List::make(compound_statement);
+    }
+
+    Nodecl::NodeclBase context = Nodecl::Context::make(
+            stmt_list,
+            function_symbol.get_related_scope(), "", 0);
+
+    function_symbol.get_internal_symbol()->defined = 1;
+
+    function_code = Nodecl::FunctionCode::make(context,
+            // Initializers
+            Nodecl::NodeclBase::null(),
+            // Internal functions
+            Nodecl::NodeclBase::null(),
+            function_symbol,
+            "", 0);
+}
+
 static TL::Symbol new_function_symbol(
         TL::Symbol current_function,
         const std::string& name,
@@ -1109,8 +1141,8 @@ static TL::Symbol new_function_symbol(
     entry->file = "";
     entry->line = 0;
 
-    // Do not make it static: this function is shared between two files
-    entry->entity_specs.is_static = 0;
+    // Make it static
+    entry->entity_specs.is_static = 1;
 
     // Make it member if the enclosing function is member
     if (current_function.is_member())
@@ -1126,15 +1158,9 @@ static TL::Symbol new_function_symbol(
     ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
     decl_context_t function_context ;
-    //if (IS_FORTRAN_LANGUAGE)
-    //{
-    //    function_context = new_program_unit_context(decl_context);
-    //}
-    //else
-    {
-        function_context = new_function_context(decl_context);
-        function_context = new_block_context(function_context);
-    }
+    function_context = new_function_context(decl_context);
+    function_context = new_block_context(function_context);
+
     function_context.function_scope->related_entry = entry;
     function_context.block_scope->related_entry = entry;
 
@@ -1181,38 +1207,6 @@ static TL::Symbol new_function_symbol(
     return entry;
 }
 
-static void build_empty_body_for_function(
-        TL::Symbol function_symbol,
-        Nodecl::NodeclBase &function_code,
-        Nodecl::NodeclBase &empty_stmt
-        )
-{
-    empty_stmt = Nodecl::EmptyStatement::make("", 0);
-    Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
-
-    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-    {
-        Nodecl::CompoundStatement compound_statement =
-            Nodecl::CompoundStatement::make(stmt_list,
-                    /* destructors */ Nodecl::NodeclBase::null(),
-                    "", 0);
-        stmt_list = Nodecl::List::make(compound_statement);
-    }
-
-    Nodecl::NodeclBase context = Nodecl::Context::make(
-            stmt_list,
-            function_symbol.get_related_scope(), "", 0);
-
-    function_symbol.get_internal_symbol()->defined = 1;
-
-    function_code = Nodecl::FunctionCode::make(context,
-            // Initializers
-            Nodecl::NodeclBase::null(),
-            // Internal functions
-            Nodecl::NodeclBase::null(),
-            function_symbol,
-            "", 0);
-}
 
 static TL::Symbol new_function_symbol_unpacked(
         TL::Symbol current_function,
@@ -1225,15 +1219,8 @@ static TL::Symbol new_function_symbol_unpacked(
     decl_context_t decl_context = sc.get_decl_context();
     decl_context_t function_context;
 
-    // if (IS_FORTRAN_LANGUAGE)
-    // {
-    //     function_context = new_program_unit_context(decl_context);
-    // }
-    // else
-    {
-        function_context = new_function_context(decl_context);
-        function_context = new_block_context(function_context);
-    }
+    function_context = new_function_context(decl_context);
+    function_context = new_block_context(function_context);
 
     // Create all the symbols and an appropiate mapping
 
@@ -1314,72 +1301,31 @@ static TL::Symbol new_function_symbol_unpacked(
             case OutlineDataItem::SHARING_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 {
-                    switch ((*it)->get_item_kind())
+                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                            name.c_str());
+                    private_sym->kind = SK_VARIABLE;
+                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+
+                    if (sym.is_valid())
                     {
-                        case OutlineDataItem::ITEM_KIND_NORMAL:
-                        case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
-                            {
-                                scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                        name.c_str());
-                                private_sym->kind = SK_VARIABLE;
-                                private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                                private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-
-                                if (sym.is_valid())
-                                {
-                                    private_sym->entity_specs.is_optional = sym.is_optional();
-                                    private_sym->entity_specs.is_allocatable =
-                                        !sym.is_member() && sym.is_allocatable();
-                                    if (!already_mapped)
-                                    {
-                                        symbol_map->add_map(sym, private_sym);
-                                    }
-                                }
-
-                                parameter_symbols.append(private_sym);
-
-                                break;
-                            }
-                        case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
-                            {
-                                scope_entry_t* param_addr_sym = ::new_symbol(function_context, function_context.current_scope, 
-                                        ("ptr_" + name).c_str());
-                                param_addr_sym->kind = SK_VARIABLE;
-                                param_addr_sym->type_information = ::get_pointer_type(::get_void_type());
-                                param_addr_sym->defined = param_addr_sym->entity_specs.is_user_declared = 1;
-
-                                parameter_symbols.append(param_addr_sym);
-
-                                scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
-                                private_sym->kind = SK_VARIABLE;
-                                private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                                private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-                                // Properly initialize it
-                                nodecl_t nodecl_sym = nodecl_make_symbol(param_addr_sym, NULL, 0);
-                                nodecl_set_type(nodecl_sym, lvalue_ref(param_addr_sym->type_information));
-
-                                // This is doing
-                                //    T v = (T)ptr_v;
-                                private_sym->value = 
-                                    nodecl_make_cast(
-                                            nodecl_sym,
-                                            private_sym->type_information,
-                                            "C", NULL, 0);
-
-                                if (sym.is_valid()
-                                        && !already_mapped)
-                                {
-                                    symbol_map->add_map(sym, private_sym);
-                                }
-                                break;
-                            }
-                        default:
-                            {
-                                internal_error("Code unreachable", 0);
-                            }
+                        private_sym->entity_specs.is_optional = sym.is_optional();
+                        private_sym->entity_specs.is_allocatable =
+                            !sym.is_member() && sym.is_allocatable();
+                        if (!already_mapped)
+                        {
+                            symbol_map->add_map(sym, private_sym);
+                        }
                     }
+
+                    private_sym->entity_specs.is_allocatable = 
+                        sym.is_allocatable() ||
+                        (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE) 
+                         == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+
+                    parameter_symbols.append(private_sym);
+
                     break;
                 }
             case OutlineDataItem::SHARING_REDUCTION:
@@ -1406,15 +1352,6 @@ static TL::Symbol new_function_symbol_unpacked(
                         // T*
                         private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
                     }
-                    // else if (IS_FORTRAN_LANGUAGE)
-                    // {
-                    //     // The type will be a pointer to a descripted array
-                    //     private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
-                    //             Nodecl::NodeclBase::null(),
-                    //             Nodecl::NodeclBase::null(),
-                    //             sc);
-                    //     private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
-                    // }
                     else
                     {
                         internal_error("Code unreachable", 0);
@@ -1534,7 +1471,6 @@ static TL::Symbol new_function_symbol_unpacked(
 }
 
 
-
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::Utils::SymbolMap* &symbol_map)
@@ -1560,6 +1496,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     Source unpacked_arguments, private_entities;
+
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -1579,25 +1516,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 {
                     TL::Type param_type = (*it)->get_in_outline_type();
 
-                    switch ((*it)->get_item_kind())
-                    {
-                        case OutlineDataItem::ITEM_KIND_NORMAL:
-                        case OutlineDataItem::ITEM_KIND_DATA_DIMENSION:
-                            {
-                                break;
-                            }
-                        case OutlineDataItem::ITEM_KIND_DATA_ADDRESS:
-                            {
-                                param_type = TL::Type::get_void_type().get_pointer_to();
-
-                                break;
-                            }
-                        default:
-                            {
-                                internal_error("Code unreachable", 0);
-                            }
-                    }
-
                     Source argument;
                     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
@@ -1606,7 +1524,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                         if (((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
                                     || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE
                                     || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE)
-                                && (*it)->get_item_kind() == OutlineDataItem::ITEM_KIND_NORMAL
                                 && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                         {
                             argument << "*(args." << (*it)->get_field_name() << ")";
@@ -1705,6 +1622,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             TL::Type::get_void_type(),
             structure_name,
             structure_type);
+
+    // The outline function must not be static because this function is called
+    // from mnvcc_filename.c and it is defined in cudacc_filename.cu
+    outline_function.get_internal_symbol()->entity_specs.is_static = 0;
 
     Nodecl::NodeclBase outline_function_code, outline_function_body;
     build_empty_body_for_function(outline_function,

@@ -292,7 +292,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
-ISO_C_BINDING_INTRINSICS
+ISO_C_BINDING_INTRINSICS \
+MERCURIUM_SPECIFIC_INTRINSICS
 
 #define ISO_C_BINDING_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_associated, "C_PTR_1,?C_PTR_2", S, NULL) \
@@ -301,6 +302,8 @@ ISO_C_BINDING_INTRINSICS
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_loc, NULL, S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_sizeof, "X", S, NULL)
 
+#define MERCURIUM_SPECIFIC_INTRINSICS \
+  FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_loc, "X", I, simplify_mcc_loc) \
 
 // Well, for some reason C_LOC and C_FUNLOC do not have a known interface in gfortran
 #if 0
@@ -5842,6 +5845,20 @@ scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
     type_t* t0 = no_ref(argument_types[0]);
 
     return GET_INTRINSIC_INQUIRY("c_sizeof", get_size_t_type(), t0);
+}
+
+scope_entry_t* compute_intrinsic_mercurium_loc(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    return GET_INTRINSIC_INQUIRY("mercurium_loc", get_pointer_type(get_void_type()), t0);
 }
 
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)

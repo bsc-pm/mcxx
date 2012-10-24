@@ -108,6 +108,17 @@ namespace TL
             //! Returns an expression that designates the size of the DataReference
             Nodecl::NodeclBase get_sizeof() const;
 
+            //! Returns an expression that computes the offset in bytes
+            Nodecl::NodeclBase get_offsetof() const;
+
+
+            //! Returns an expression that computes the offset in bytes
+            /*!
+             * The extra parameters are a reference expression used to compute
+             * runtime bounded parameters in Fortran
+             */
+            Nodecl::NodeclBase get_offsetof(Nodecl::NodeclBase reference, TL::Scope sc) const;
+
             friend struct DataReferenceVisitor;
 
             ~DataReference();
@@ -124,7 +135,9 @@ namespace TL
             std::string _error_log;
 
             Nodecl::NodeclBase _base_address;
-            Nodecl::NodeclBase _sizeof;
+
+            Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type) const;
+            Nodecl::NodeclBase compute_offsetof(Nodecl::NodeclBase expr, Nodecl::NodeclBase reference_expr, TL::Scope sc) const;
     };
 }
 
