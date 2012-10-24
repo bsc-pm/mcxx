@@ -80,6 +80,10 @@ namespace Nodecl {
                 }
                 return result;
             }
+            Nodecl::NodeclBase duplicate() const
+            {
+                return nodecl_duplicate(this->_n);
+            }
             Nodecl::NodeclBase shallow_copy() const
             {
                 return nodecl_shallow_copy(this->_n);
