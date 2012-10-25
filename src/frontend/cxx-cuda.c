@@ -75,9 +75,10 @@ static type_t* cuda_get_dim3_type(void)
             new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
         }
         new_class_sym->kind = SK_CLASS;
+
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
+        class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -426,10 +427,10 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
             nodecl_get_template_parameters(nodecl_postfix);
         nodecl_set_template_parameters(function_form, template_args);
     }
-    
+
     if (is_dependent)
     {
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_make_cuda_kernel_call(
                     nodecl_cuda_kernel_args,
                     nodecl_make_function_call(
@@ -446,8 +447,8 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
         return;
     }
 
-    check_nodecl_cuda_kernel_call(nodecl_postfix, 
-            nodecl_cuda_kernel_args, 
+    check_nodecl_cuda_kernel_call(nodecl_postfix,
+            nodecl_cuda_kernel_args,
             nodecl_argument_list,
             decl_context,
             filename, line,
