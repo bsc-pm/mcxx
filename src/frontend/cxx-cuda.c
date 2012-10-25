@@ -75,6 +75,7 @@ static type_t* cuda_get_dim3_type(void)
             new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
         }
         new_class_sym->kind = SK_CLASS;
+        new_class_sym->do_not_print = 1;
 
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
