@@ -368,6 +368,14 @@ static void ast_copy_one_node(AST dest, AST orig)
     dest->children = 0;
 }
 
+AST ast_duplicate_one_node(AST orig)
+{
+    AST dest = ASTLeaf(AST_INVALID_NODE, NULL, 0, NULL);
+    ast_copy_one_node(dest, orig);
+
+    return dest;
+}
+
 static char ast_is_parent_rec(const_AST parent, const_AST current)
 {
     if (current == NULL)

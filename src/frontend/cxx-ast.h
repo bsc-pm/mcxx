@@ -128,6 +128,9 @@ LIBMCXX_EXTERN void ast_free(AST a);
 // Gives a copy of all the tree but extended data is the same as original trees
 LIBMCXX_EXTERN AST ast_copy(const_AST a);
 
+// Duplicates a node but none of its children. The result is always a leaf
+LIBMCXX_EXTERN AST ast_duplicate_one_node(AST orig);
+
 // Gives a copy of all the tree but extended data is the same as original trees
 LIBMCXX_EXTERN AST ast_copy_clearing_extended_data(const_AST a);
 

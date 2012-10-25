@@ -46,6 +46,9 @@ AST nodecl_get_ast(nodecl_t t);
 // Replicates the tree but does not change symbols or other indirectly mentioned symbols
 nodecl_t nodecl_shallow_copy(nodecl_t t);
 
+// Duplicates the node like nodecl_shallow_copy but does not copy children. Creates a leaf node
+nodecl_t nodecl_duplicate(nodecl_t t);
+
 // Replicates the tree and duplicates bound variables. Free variables may be replaced using the given map
 nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, symbol_map_t* symbol_map);
 

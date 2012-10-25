@@ -31,6 +31,8 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-devices.hpp"
+#include "fortran03-typeutils.h"
+#include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 
 using TL::Source;
@@ -547,36 +549,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             task_environment.is_untied,
 
             outline_info);
-}
-
-
-namespace {
-    void fill_extra_ref_assumed_size(Source &extra_ref, TL::Type t)
-    {
-        if (t.is_array())
-        {
-            fill_extra_ref_assumed_size(extra_ref, t.array_element());
-
-            Source current_dims;
-            Nodecl::NodeclBase lower_bound, upper_bound;
-            t.array_get_bounds(lower_bound, upper_bound);
-
-            if (lower_bound.is_null())
-            {
-                current_dims << "1:1";
-            }
-            else if (upper_bound.is_null())
-            {
-                current_dims << as_expression(lower_bound) << ":" << as_expression(lower_bound);
-            }
-            else
-            {
-                current_dims << as_expression(lower_bound) << ":" << as_expression(upper_bound);
-            }
-
-            extra_ref.append_with_separator(current_dims, ",");
-        }
-    }
 }
 
 void LoweringVisitor::fill_arguments(
@@ -1836,6 +1808,184 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
 }
 
+static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase expr)
+{
+    Nodecl::NodeclBase base_expr = expr;
+
+    Nodecl::NodeclBase result;
+    if (base_expr.is<Nodecl::Symbol>())
+    {
+        TL::Symbol sym = base_expr.get_symbol();
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (!::fortran_is_array_type(t.get_internal_type()))
+            return expr;
+
+        int ndims = ::fortran_get_rank_of_type(t.get_internal_type());
+
+        Source src;
+
+        src << base_expr.prettyprint() << "(";
+
+        for (int i = 1; i <= ndims; i++)
+        {
+            if (i > 1)
+                src << ", ";
+
+            src << "LBOUND(" << as_expression(base_expr.shallow_copy()) << ", DIM = " << i << ")";
+        }
+
+        src << ")";
+
+        return src.parse_expression(base_expr.retrieve_context());
+    }
+    else if (base_expr.is<Nodecl::ArraySubscript>())
+    {
+        Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
+
+        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+        Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
+        TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
+
+        int num_dimensions = subscripts.size();
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++, num_dimensions--)
+        {
+            Source src;
+            src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
+
+            fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
+        }
+
+        return Nodecl::ArraySubscript::make(result,
+                Nodecl::List::make(fixed_subscripts),
+                ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
+                base_expr.get_filename(),
+                base_expr.get_line());
+    }
+    else
+    {
+        return expr;
+    }
+}
+
+static void give_up_task_call(const Nodecl::OpenMP::TaskCall& construct)
+{
+    Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
+    TL::Symbol called_sym = function_call.get_called().get_symbol();
+
+    std::cerr << construct.get_locus() << ": note: call to task function '"
+        << called_sym.get_qualified_name() << "' has been skipped due to errors" << std::endl;
+
+    construct.replace(construct.get_call());
+}
+
+typedef std::map<TL::Symbol, TL::Symbol> extra_map_replacements_t;
+
+static void add_extra_dimensions_for_arguments(const Nodecl::NodeclBase data_ref, 
+        OutlineInfoRegisterEntities& outline_register_entities,
+        extra_map_replacements_t& extra_map_replacements,
+        Scope sc,
+        bool do_capture = false)
+{
+    if (data_ref.is_null())
+        return;
+
+    if (data_ref.is<Nodecl::ArraySubscript>())
+    {
+        Nodecl::ArraySubscript arr_subscript = data_ref.as<Nodecl::ArraySubscript>();
+        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++)
+        {
+            add_extra_dimensions_for_arguments(*it, outline_register_entities, extra_map_replacements, sc, /* do_capture = */ true);
+        }
+
+        add_extra_dimensions_for_arguments(arr_subscript.get_subscripted(), outline_register_entities, 
+                extra_map_replacements, sc, do_capture);
+    }
+    else if (data_ref.is<Nodecl::Symbol>()
+            && do_capture)
+    {
+        TL::Symbol current_sym = data_ref.get_symbol();
+
+        if (extra_map_replacements.find(current_sym) == extra_map_replacements.end())
+        {
+            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+
+            std::stringstream ss;
+            ss << "mcc_arg_" << (int)arg_counter;
+            TL::Symbol new_symbol = sc.new_symbol(ss.str());
+            arg_counter++;
+
+            new_symbol.get_internal_symbol()->kind = current_sym.get_internal_symbol()->kind;
+            new_symbol.get_internal_symbol()->type_information = current_sym.get_internal_symbol()->type_information;
+
+            extra_map_replacements[current_sym] = new_symbol;
+
+            outline_register_entities.add_capture_with_value(new_symbol, data_ref);
+        }
+    }
+    else
+    {
+        TL::ObjectList<Nodecl::NodeclBase> children = data_ref.children();
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            add_extra_dimensions_for_arguments(*it,
+                    outline_register_entities,
+                    extra_map_replacements,
+                    sc,
+                    do_capture);
+        }
+    }
+}
+
+static Nodecl::NodeclBase replace_arguments_with_extra(Nodecl::NodeclBase n, extra_map_replacements_t& extra_map)
+{
+    TL::Symbol sym;
+    extra_map_replacements_t::iterator it;
+    if (n.is_null())
+    {
+        return n;
+    }
+    else if ((sym = n.get_symbol()).is_valid()
+            && (it = extra_map.find(sym)) != extra_map.end())
+    {
+        Nodecl::NodeclBase result = Nodecl::Symbol::make(
+                it->second,
+                n.get_filename(),
+                n.get_line());
+
+        result.set_type(n.get_type());
+
+        return result;
+    }
+    else
+    {
+        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            *it = replace_arguments_with_extra(*it, extra_map);
+        }
+
+        n.rechild(children);
+
+        return n;
+    }
+}
+
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -1906,6 +2056,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
     OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc, /* is_function_task */ true);
 
+    extra_map_replacements_t extra_map_replacements;
+
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
@@ -1924,54 +2076,121 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         }
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-        std::stringstream ss;
-        ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
-        arg_counter++;
-
-        // FIXME - Wrap this sort of things
-        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_symbol.get_internal_symbol()->type_information = it->first.get_type().get_internal_type();
-
-        param_sym_to_arg_sym[it->first] = new_symbol;
-
-        new_arguments.append(new_symbol);
-
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
-
-        if (parameter_outline_data_item.get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+        if (!IS_FORTRAN_LANGUAGE)
         {
-            outline_register_entities.add_capture_with_value(new_symbol, it->second);
+            // Create a new variable holding the address of the dependency
+            std::stringstream ss;
+            ss << "mcc_arg_" << (int)arg_counter;
+            TL::Symbol new_symbol = sc.new_symbol(ss.str());
+            arg_counter++;
+
+            // FIXME - Wrap this sort of things
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.get_internal_symbol()->type_information = it->first.get_type().get_internal_type();
+
+            param_sym_to_arg_sym[it->first] = new_symbol;
+
+            new_arguments.append(new_symbol);
+
+            OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+
+            if (parameter_outline_data_item.get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+            {
+                outline_register_entities.add_capture_with_value(new_symbol, it->second);
+            }
+            else
+            {
+                OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+
+                DataReference data_ref(it->second);
+                if (data_ref.is_valid())
+                {
+                    TL::Type in_outline_type = outline_register_entities.add_extra_dimensions(
+                            data_ref.get_base_symbol(),
+                            data_ref.get_base_symbol().get_type());
+
+                    if (!in_outline_type.is_any_reference())
+                        in_outline_type = in_outline_type.get_lvalue_reference_to();
+
+                    argument_outline_data_item.set_in_outline_type(in_outline_type);
+                }
+
+                // Copy what must be copied from the parameter info
+                copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
+
+                // This is a special kind of shared
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+                argument_outline_data_item.set_base_address_expression(it->second);
+            }
         }
         else
         {
-            OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+            std::stringstream ss;
+            ss << "mcc_arg_" << (int)arg_counter;
+            TL::Symbol new_symbol = sc.new_symbol(ss.str());
+            arg_counter++;
 
-            DataReference data_ref(it->second);
-            if (data_ref.is_valid())
+            // FIXME - Wrap this sort of things
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.get_internal_symbol()->type_information = no_ref(it->first.get_type().get_internal_type());
+
+            new_arguments.append(new_symbol);
+
+            OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+
+            if (parameter_outline_data_item.get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
             {
+                outline_register_entities.add_capture_with_value(new_symbol, it->second);
+                param_sym_to_arg_sym[it->first] = new_symbol;
+
+            }
+            else
+            {
+                // Create a new variable holding the base symbol of the data-reference of the argument
+                DataReference data_ref(it->second);
+                if (!data_ref.is_valid())
+                {
+                    error_printf("%s: error: actual argument '%s' must be a data-reference "
+                            "because it is associated to dependence dummy argument '%s'\n",
+                            construct.get_locus().c_str(),
+                            it->second.prettyprint().c_str(),
+                            it->first.get_name().c_str());
+                    give_up_task_call(construct);
+                    return;
+                }
+
+                new_symbol.get_internal_symbol()->type_information
+                    = data_ref.get_base_symbol().get_type().get_internal_type();
+
+                OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+                // This is a special kind of shared
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+                argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
+
+                // The argument may not be suitable for a base address
+                argument_outline_data_item.set_base_address_expression(
+                        array_section_to_array_element(it->second));
+
+                param_sym_to_arg_sym[data_ref.get_base_symbol()] = new_symbol;
+                extra_map_replacements[data_ref.get_base_symbol()] = new_symbol;
+
                 TL::Type in_outline_type = outline_register_entities.add_extra_dimensions(
                         data_ref.get_base_symbol(),
                         data_ref.get_base_symbol().get_type());
+
+                add_extra_dimensions_for_arguments(it->second, outline_register_entities,
+                        extra_map_replacements, construct.retrieve_context());
 
                 if (!in_outline_type.is_any_reference())
                     in_outline_type = in_outline_type.get_lvalue_reference_to();
 
                 argument_outline_data_item.set_in_outline_type(in_outline_type);
+
+                // Copy what must be copied from the parameter info
+                copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
+
             }
-
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
-            }
-
-            // Copy what must be copied from the parameter info
-            copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
-
-            // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
-
-            argument_outline_data_item.set_base_address_expression(it->second);
         }
     }
 
@@ -2025,10 +2244,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             params_it != param_to_arg_expr.end();
             params_it++, args_it++)
     {
-        Nodecl::NodeclBase nodecl_arg = Nodecl::Symbol::make(*args_it,
-                function_call.get_filename(),
-                function_call.get_line());
-        nodecl_arg.set_type(args_it->get_type());
+        Nodecl::NodeclBase nodecl_arg;
+
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            nodecl_arg = Nodecl::Symbol::make(*args_it,
+                    function_call.get_filename(),
+                    function_call.get_line());
+            nodecl_arg.set_type(args_it->get_type());
+        }
+        else
+        {
+            nodecl_arg = replace_arguments_with_extra(
+                    params_it->second.shallow_copy(),
+                    extra_map_replacements);
+        }
 
         // We must respect symbols in Fortran because of optional stuff
         if (IS_FORTRAN_LANGUAGE
