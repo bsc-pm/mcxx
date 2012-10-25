@@ -1123,6 +1123,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/codegen/base/fortran/Makefile 
            src/tl/codegen/vector/Makefile 
            src/tl/codegen/vector/sse/Makefile 
+           src/tl/codegen/cuda/Makefile
+           src/tl/codegen/cuda/cuda/Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
