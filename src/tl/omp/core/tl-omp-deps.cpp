@@ -45,7 +45,7 @@ namespace TL { namespace OpenMP {
             if (!expr.is_valid())
             {
                 std::cerr << expr.get_error_log();
-                std::cerr << expr.get_locus() 
+                std::cerr << expr.get_locus()
                     << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
@@ -53,35 +53,8 @@ namespace TL { namespace OpenMP {
             DependencyItem dep_item(*it, dep_attr);
 
             Symbol sym = expr.get_base_symbol();
-            Type data_type = expr.get_data_type();
 
-            // Arguable if we have T (&)[10] (a reference to array)
-            if (data_type.is_any_reference())
-            {
-                data_type = data_type.references_to();
-            }
-
-            if (expr.is<Nodecl::Symbol>() || sym.is_member())
-            {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-            }
-            else
-            {
-                Type sym_type = sym.get_type();
-                if (sym_type.is_any_reference())
-                {
-                    sym_type = sym_type.references_to();
-                }
-
-                if (sym_type.is_array())
-                {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                }
-                else
-                {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
-                }
-            }
+            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             data_sharing.add_dependence(dep_item);
         }
     }
