@@ -1804,34 +1804,70 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
 }
 
-static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase base_expr)
+static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase expr)
 {
-    if (!base_expr.is<Nodecl::ArraySubscript>())
-        return base_expr;
+    Nodecl::NodeclBase base_expr = expr;
 
-    Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
-
-    Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
-
-    Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
-    TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
-
-    int num_dimensions = subscripts.size();
-    for (Nodecl::List::iterator it = subscripts.begin();
-            it != subscripts.end();
-            it++, num_dimensions--)
+    Nodecl::NodeclBase result;
+    if (base_expr.is<Nodecl::Symbol>())
     {
+        TL::Symbol sym = base_expr.get_symbol();
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (!::fortran_is_array_type(t.get_internal_type()))
+            return expr;
+
+        int ndims = ::fortran_get_rank_of_type(t.get_internal_type());
+
         Source src;
-        src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
 
-        fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
+        src << base_expr.prettyprint() << "(";
+
+        for (int i = 1; i <= ndims; i++)
+        {
+            if (i > 1)
+                src << ", ";
+
+            src << "LBOUND(" << as_expression(base_expr.shallow_copy()) << ", DIM = " << i << ")";
+        }
+
+        src << ")";
+
+        return src.parse_expression(base_expr.retrieve_context());
     }
+    else if (base_expr.is<Nodecl::ArraySubscript>())
+    {
+        Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
 
-    return Nodecl::ArraySubscript::make(result, 
-            Nodecl::List::make(fixed_subscripts),
-            ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
-            base_expr.get_filename(),
-            base_expr.get_line());
+        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+        Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
+        TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
+
+        int num_dimensions = subscripts.size();
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++, num_dimensions--)
+        {
+            Source src;
+            src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
+
+            fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
+        }
+
+        return Nodecl::ArraySubscript::make(result,
+                Nodecl::List::make(fixed_subscripts),
+                ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
+                base_expr.get_filename(),
+                base_expr.get_line());
+    }
+    else
+    {
+        return expr;
+    }
 }
 
 static void give_up_task_call(const Nodecl::OpenMP::TaskCall& construct)
