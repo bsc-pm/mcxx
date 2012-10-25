@@ -28,12 +28,13 @@
 #include "tl-devices.hpp"
 #include "nanox-cuda.hpp"
 #include "tl-nanos.hpp"
+#include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
 // #include "fortran03-scope.h"
 
 //#include "cuda-aux.hpp"
 //#include "tl-declarationclosure.hpp"
-//#include "tl-multifile.hpp"
+
 //#include "tl-cuda.hpp"
 //#include "tl-omp-nanox.hpp"
 
@@ -2296,6 +2297,27 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
 //			initial_setup,
 //			replaced_src);
 //}
+//
+
+void DeviceCUDA::add_included_cuda_files(FILE* file)
+{
+    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+    std::string cuda_file_ext(".cu\"");
+    std::string cuda_header_ext(".cuh\"");
+
+    for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+    {
+        std::string line = (*it).get_preprocessor_line();
+        std::string extension = line.substr(line.find_last_of("."));
+
+        if (extension == cuda_file_ext || extension == cuda_header_ext)
+        {
+            int output = fprintf(file, "%s\n", line.c_str());
+            if (output < 0)
+                internal_error("Error trying to write the intermediate cuda file\n", 0);
+        }
+    }
+}
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
@@ -2313,6 +2335,9 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
                     strerror(errno));
         }
 
+		// Add to the new intermediate file the *.cu, *.cuh included files
+        add_included_cuda_files(ancillary_file);
+
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
         ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
 
@@ -2321,6 +2346,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         TL::CompilationProcess::add_file(new_filename, "cuda");
 
+        //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
