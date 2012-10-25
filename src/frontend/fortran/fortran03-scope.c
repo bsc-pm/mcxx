@@ -33,6 +33,7 @@
 #include "cxx-ambiguity.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-intrinsics.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -414,8 +415,7 @@ static char symbol_is_intrinsic_function(scope_entry_t* sym, void* data UNUSED_P
 
 scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
-    decl_context_t global_context = decl_context;
-    global_context.current_scope = decl_context.global_scope;
+    decl_context_t global_context = fortran_get_context_of_intrinsics(decl_context);
     
     scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name));
 

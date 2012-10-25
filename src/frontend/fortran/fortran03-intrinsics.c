@@ -1028,17 +1028,21 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
     return NULL;
 }
 
+static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
 
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
+    fortran_create_scope_for_intrinsics(decl_context);
     fortran_init_intrinsic_modules(decl_context);
+
+    decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
     if (fake_computed_function_type == NULL)
         fake_computed_function_type = get_computed_function_type(fake_computed_function);
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
-        decl_context_t relevant_decl_context = decl_context; \
+        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
         if (module_name != NULL) \
         { \
@@ -1077,7 +1081,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
 #define FORTRAN_GENERIC_INTRINSIC_2(module_name, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
     { \
-        decl_context_t relevant_decl_context = decl_context; \
+        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
         if (module_name != NULL) \
         { \
@@ -1120,7 +1124,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
     intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
 
     // Sign in specific names for intrinsics
-    fortran_init_specific_names(decl_context);
+    fortran_init_specific_names(fortran_intrinsic_context);
 }
 
 static scope_entry_t* register_specific_intrinsic_name(
@@ -6183,4 +6187,28 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
             iso_c_binding->entity_specs.num_related_symbols,
             c_null_funptr);
     }
+}
+
+static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
+{
+    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context.current_scope, ".fortran_intrinsics");
+    fortran_intrinsics->kind = SK_NAMESPACE;
+    fortran_intrinsics->related_decl_context = new_namespace_context(decl_context, fortran_intrinsics);
+}
+
+decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
+{
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = decl_context.global_scope;
+
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics");
+
+    ERROR_CONDITION(global_list == NULL, "Fortran intrinsics context was requested but it is missing", 0);
+
+    scope_entry_t* symbol = entry_list_head(global_list);
+    entry_list_free(global_list);
+
+    ERROR_CONDITION(symbol->kind != SK_NAMESPACE, "Invalid symbol .fortran_intrinsics", 0);
+
+    return symbol->related_decl_context;
 }
