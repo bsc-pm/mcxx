@@ -47,6 +47,7 @@ enum DependencyDirection
     DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
     // Concurrent dependences
     DEP_CONCURRENT = BITMAP(3),
+    DEP_COMMUTATIVE = BITMAP(4),
 };
 
 } }

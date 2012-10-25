@@ -163,7 +163,7 @@ namespace TL { namespace Nanox {
         <<             "err = nanos_create_sliced_wd(&nanos_wd_, "
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
-        <<                                           "(void**)&ol_args, nanos_current_wd(), replicate,"
+        <<                                           "(void**)&ol_args, (nanos_wd_t*)0, replicate,"
         <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"

@@ -181,7 +181,7 @@ namespace TL { namespace Nanox {
         return add_extra_dimensions(sym, t, NULL);
     }
 
-    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t, 
+    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item)
     {
         if (t.is_array())
@@ -637,6 +637,15 @@ namespace TL { namespace Nanox {
                 add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
             }
 
+            void visit(const Nodecl::OpenMP::Concurrent& concurrent)
+            {
+                add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+            }
+
+            void visit(const Nodecl::OpenMP::Commutative& commutative)
+            {
+                add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
+            }
 
             void visit(const Nodecl::OpenMP::CopyIn& copy_in)
             {
