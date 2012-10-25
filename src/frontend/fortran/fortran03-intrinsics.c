@@ -56,6 +56,9 @@ enum intrinsic_kind_tag
     INTRINSIC_KIND_MIXED,
 } intrinsic_kind_t;
 
+// Internal state variable which is only set in fortran_solve_generic_intrinsic_call
+static char solving_call_statement = 0;
+
 // We do not use the I in <complex.h>
 #undef I
 
@@ -291,6 +294,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 ISO_C_BINDING_INTRINSICS \
 MERCURIUM_SPECIFIC_INTRINSICS
@@ -1161,7 +1165,7 @@ static scope_entry_t* register_specific_intrinsic_name(
     scope_entry_t* specific_entry = fortran_solve_generic_intrinsic_call(generic_entry, 
             argument_keywords, 
             nodecl_actual_arguments,
-            num_args);
+            num_args, /* is call */ 0);
     
     ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
             specific_name,
@@ -5620,6 +5624,35 @@ scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_system(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1
+            && num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (!fortran_is_character_type(t0))
+        return NULL;
+
+    if (solving_call_statement)
+    {
+        return GET_INTRINSIC_IMPURE("system", get_void_type(), t0, get_signed_int_type());
+    }
+    else
+    {
+        if (num_arguments != 1)
+            return NULL;
+        return GET_INTRINSIC_IMPURE("system", get_signed_int_type(), t0);
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5923,8 +5956,13 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
         const char** actual_arguments_keywords, 
         nodecl_t* nodecl_actual_arguments,
-        int num_actual_arguments)
+        int num_actual_arguments,
+        char is_call)
 {
+    // This is a local variable of this file and is used only in those intrinsics that can be both
+    // used in a CALL statement or a function-reference
+    solving_call_statement = is_call;
+
     computed_function_type_t functions[2] = { NULL, NULL };
     const char** current_keyword_set = NULL; 
     int num_keywords = 0;
