@@ -294,6 +294,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 ISO_C_BINDING_INTRINSICS \
@@ -5655,6 +5656,20 @@ scope_entry_t* compute_intrinsic_system(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (!is_integer_type(t0))
+        return NULL;
+
+    return GET_INTRINSIC_TRANSFORMATIONAL("sleep", get_void_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
