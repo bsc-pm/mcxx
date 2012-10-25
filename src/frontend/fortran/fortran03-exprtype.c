@@ -3723,7 +3723,7 @@ static void check_symbol_of_called_name(AST sym,
         decl_context_t decl_context, 
         scope_entry_list_t** call_list, 
         char is_call_stmt)
-{ 
+{
     if (ASTType(sym) != AST_SYMBOL)
     {
         if (!checking_ambiguity())
@@ -3737,10 +3737,29 @@ static void check_symbol_of_called_name(AST sym,
     // Look the symbol up. This will ignore INTRINSIC names
     scope_entry_list_t* entry_list = fortran_query_name_str_for_function(decl_context, ASTText(sym),
             ASTFileName(sym), ASTLine(sym));
+
+    if (entry_list != NULL)
+    {
+        scope_entry_t* symbol = entry_list_head(entry_list);
+        if (symbol->decl_context.current_scope == symbol->decl_context.global_scope)
+        {
+            scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
+            if (intrinsic != NULL)
+            {
+                // This is a global name that matches the name of an intrinsic, hide the global name.
+                //
+                // Global names (but intrinsics) do not exist in Fortran, thus this symbol came elsewhere
+                // (likely from a C header)
+                entry_list_free(entry_list);
+                entry_list = NULL;
+            }
+        }
+    }
+
     if (entry_list == NULL)
     {
         char entry_is_an_intrinsic = 0;
-        
+
         // We did not find anything.
         //
         // Does this name match the name of an INTRINSIC?
@@ -3748,7 +3767,7 @@ static void check_symbol_of_called_name(AST sym,
         if (entry != NULL)
         {
             // It names an intrinsic
-            entry_is_an_intrinsic = 1; 
+            entry_is_an_intrinsic = 1;
 
             // Make sure this intrinsic can be CALLed
             if (is_call_stmt

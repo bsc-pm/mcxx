@@ -406,23 +406,26 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
     return result;
 }
 
+static char symbol_is_intrinsic_function(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return sym != NULL 
+        && sym->entity_specs.is_builtin;
+}
+
 scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
     
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name));
+
+    scope_entry_list_t* result_list = filter_symbol_using_predicate(global_list, symbol_is_intrinsic_function, NULL);
+    entry_list_free(global_list);
+
     scope_entry_t* result = NULL;
-    scope_entry_list_t* result_list = query_in_scope_str(global_context, strtolower(unqualified_name));
-    if (result_list != NULL) 
+    if (result_list != NULL)
     {
         result = entry_list_head(result_list);
-        entry_list_free(result_list);
-
-        // It must be an intrinsic found in global scope
-        if (!result->entity_specs.is_builtin)
-        {
-            result = NULL;
-        }
     }
     
     return result;
