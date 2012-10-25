@@ -1670,7 +1670,12 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     if (called_task.is_valid())
     {
+        // Add the user function to the intermediate file
         _cuda_file_code.push_back(Nodecl::Utils::deep_copy(called_task.get_function_code(), called_task.get_scope()));
+
+        // Remove the user function definition from the original source because
+        // It is used only in the intermediate file
+        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
     }
 }
 
