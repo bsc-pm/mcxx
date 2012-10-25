@@ -435,6 +435,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
+                 | NODECL_OPEN_M_P*CONCURRENT([inout_deps]expression-seq)
+                 | NODECL_OPEN_M_P*COMMUTATIVE([inout_deps]expression-seq)
                  | NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
                  | NODECL_OPEN_M_P*TARGET([devices] text-seq, [items] target-item-seq-opt)
 # Used for parallel + {sections,for}
