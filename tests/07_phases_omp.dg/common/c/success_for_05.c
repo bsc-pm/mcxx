@@ -37,10 +37,6 @@ test_exec_faulty_nanos4_plain_2thread=yes
 test_exec_fail_nanos4_plain_4thread=yes
 test_exec_faulty_nanos4_plain_4thread=yes
 
-test_compile_fail_nanox_mercurium=yes
-test_compile_faulty_nanox_mercurium=yes
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
