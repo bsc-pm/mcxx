@@ -614,12 +614,19 @@ namespace TL
             else if (t.is_pointer())
             {
                 // In C/C++ one can index a pointer using array notation
+                Nodecl::NodeclBase current_subscript = subscripts[0];
+
+                if (current_subscript.is<Nodecl::Range>())
+                {
+                    current_subscript = current_subscript.as<Nodecl::Range>().get_lower();
+                }
+
                 result = Nodecl::Mul::make(
                         const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.points_to().get_internal_type()))),
-                        subscripts[0].shallow_copy(),
+                        current_subscript.shallow_copy(),
                         TL::Type::get_int_type(),
-                        subscripts[0].get_filename(),
-                        subscripts[0].get_line());
+                        current_subscript.get_filename(),
+                        current_subscript.get_line());
             }
             else
             {
