@@ -4700,6 +4700,9 @@ static void cast_initialization(
     }
     else
     {
+        // FIXME: if the type of 'val' and 'initialized_type' are the same but they
+        // have different kinds, we need a cast!
+
         // No cast
         *casted_const = val;
     }
