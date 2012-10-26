@@ -285,6 +285,12 @@ FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
 FORTRAN_GENERIC_INTRINSIC(NULL, access, "NAME,MODE", I, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, besj0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besj1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, besjn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besy0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besy1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, besyn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
@@ -4737,6 +4743,78 @@ scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_besj0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_j0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besj1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_j1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besjn_0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_jn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besjn_1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_jn_1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besy0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_y0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besy1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_y1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besyn_0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_yn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besyn_1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_yn_1(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
