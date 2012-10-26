@@ -205,7 +205,7 @@ namespace TL { namespace Nanox {
                     }
                 }
 
-                TL::Type t = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+                t = add_extra_dimensions(sym, t.array_element(), outline_data_item);
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
