@@ -1575,6 +1575,16 @@ namespace TL { namespace OpenMP {
                 filename, line,
                 result_list);
 
+        make_dependency_list<Nodecl::OpenMP::Concurrent>(
+                dependences, OpenMP::DEP_CONCURRENT,
+                filename, line,
+                result_list);
+
+        make_dependency_list<Nodecl::OpenMP::Commutative>(
+                dependences, OpenMP::DEP_COMMUTATIVE,
+                filename, line,
+                result_list);
+
         // Build the tree which contains the target information
         TargetInfo target_info = data_sharing_env.get_target_info();
 

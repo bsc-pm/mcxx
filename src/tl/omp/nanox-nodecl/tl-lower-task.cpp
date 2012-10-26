@@ -1206,7 +1206,7 @@ void LoweringVisitor::fill_dependences(
                 int num_dimensions = dependency_type.get_num_dimensions();
 
                 int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
-                int commutative = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
+                int commutative = ((dir & OutlineDataItem::DIRECTIONALITY_COMMUTATIVE) == OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
 
                 dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) 
                         || concurrent || commutative);

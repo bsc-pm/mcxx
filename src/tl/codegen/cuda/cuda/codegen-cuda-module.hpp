@@ -24,34 +24,30 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef CUDA_MODULE_HPP
+#define CUDA_MODULE_HPP
+
+#include "codegen-common.hpp"
+#include "tl-nodecl-base.hpp"
 
 
-#ifndef TL_OMP_DEPS_HPP
-#define TL_OMP_DEPS_HPP
-
-// This header does not contain anything at the moment, it is just here for
-// consistency with the other files
-
-#define BITMAP(x) (1<<x)
-
-namespace TL { namespace OpenMP {
-
-enum DependencyDirection
+namespace Codegen
 {
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_IN = BITMAP(1),
-    // Output dependence
-    DEP_DIR_OUT = BITMAP(2),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
-    // Concurrent dependences
-    DEP_CONCURRENT = BITMAP(3),
-    DEP_COMMUTATIVE = BITMAP(4),
-};
+    class CudaModuleVisitor : public CodegenModuleVisitor
+    {
+        public:
 
-} }
+            CudaModuleVisitor(CodegenVisitor* base_codegen);
 
-#undef BITMAP
+            void visit(const Nodecl::CudaKernelCall & node);
 
-#endif // TL_OMP_DEPS_HPP
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+
+        private:
+
+            void walk_list(const Nodecl::List& list, const std::string& separator);
+
+    };
+}
+
+#endif // CUDA_MODULE_HPP

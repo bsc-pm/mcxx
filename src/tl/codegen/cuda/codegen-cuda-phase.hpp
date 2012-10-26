@@ -24,34 +24,17 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef CODEGEN_CUDA_PHASE_HPP
+#define CODEGEN_CUDA_PHASE_HPP
 
+#include "tl-compilerphase.hpp"
 
-#ifndef TL_OMP_DEPS_HPP
-#define TL_OMP_DEPS_HPP
-
-// This header does not contain anything at the moment, it is just here for
-// consistency with the other files
-
-#define BITMAP(x) (1<<x)
-
-namespace TL { namespace OpenMP {
-
-enum DependencyDirection
+namespace Codegen
 {
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_IN = BITMAP(1),
-    // Output dependence
-    DEP_DIR_OUT = BITMAP(2),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
-    // Concurrent dependences
-    DEP_CONCURRENT = BITMAP(3),
-    DEP_COMMUTATIVE = BITMAP(4),
-};
+    class CodegenCudaPhase : public TL::CompilerPhase
+    {
+        virtual void run(TL::DTO& dto);
+    };
+}
 
-} }
-
-#undef BITMAP
-
-#endif // TL_OMP_DEPS_HPP
+#endif // CODEGEN_CUDA_PHASE_HPP

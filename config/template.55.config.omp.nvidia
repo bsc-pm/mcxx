@@ -7,6 +7,7 @@ preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
 #compiler_dto = remove_attributes:string:host,device
+compiler_phase = libcodegen-cuda.so
 compiler_phase = libtlnanox-cuda.so
 #compiler_phase = libtl-remove-attrs.so
 
@@ -18,5 +19,6 @@ preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
 #compiler_dto = remove_attributes:string:host,device
+compiler_phase = libcodegen-cuda.so
 compiler_phase = libtlnanox-cuda.so
 #compiler_phase = libtl-remove-attrs.so

@@ -2567,7 +2567,8 @@ static void check_called_symbol_list(
         scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol, 
                 actual_arguments_keywords,
                 nodecl_actual_arguments, 
-                num_actual_arguments);
+                num_actual_arguments,
+                is_call_stmt);
 
         if (entry == NULL)
         {

@@ -24,34 +24,17 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "codegen-cuda-phase.hpp"
+#include "codegen-phase.hpp"
+#include "codegen-cuda-module.hpp"
 
-
-#ifndef TL_OMP_DEPS_HPP
-#define TL_OMP_DEPS_HPP
-
-// This header does not contain anything at the moment, it is just here for
-// consistency with the other files
-
-#define BITMAP(x) (1<<x)
-
-namespace TL { namespace OpenMP {
-
-enum DependencyDirection
+namespace Codegen
 {
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_IN = BITMAP(1),
-    // Output dependence
-    DEP_DIR_OUT = BITMAP(2),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
-    // Concurrent dependences
-    DEP_CONCURRENT = BITMAP(3),
-    DEP_COMMUTATIVE = BITMAP(4),
-};
+    void CodegenCudaPhase::run(TL::DTO& dto)
+    {
+        CodegenPhase& current_codegen = Codegen::get_current();
+        current_codegen.set_module_cuda(new CudaModuleVisitor(&current_codegen));
+    }
+}
 
-} }
-
-#undef BITMAP
-
-#endif // TL_OMP_DEPS_HPP
+EXPORT_PHASE(Codegen::CodegenCudaPhase);

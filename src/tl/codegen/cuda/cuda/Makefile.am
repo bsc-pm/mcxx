@@ -24,4 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=common base vector cuda
+
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libcodegen-cuda-module.la
+
+END=
+
+libcodegen_cuda_module_la_CFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_cuda_module_la_CXXFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_cuda_module_la_LDFLAGS = $(tl_ldflags)
+libcodegen_cuda_module_la_LIBADD = ../../common/libcodegen-common.la \
+					       $(END)
+
+
+libcodegen_cuda_module_la_SOURCES = \
+	 codegen-cuda-module.hpp \
+	 codegen-cuda-module.cpp \
+  	 $(END)

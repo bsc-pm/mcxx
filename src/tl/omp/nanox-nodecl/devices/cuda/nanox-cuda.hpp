@@ -187,6 +187,7 @@ namespace TL
 //                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
 //                        ScopeLink &sl);
 
+                void add_included_cuda_files(FILE* file);
             public:
 
                 // This phase does nothing

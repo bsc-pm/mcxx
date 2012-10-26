@@ -30,6 +30,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "string_utils.h"
+#include "tl-compilerpipeline.hpp"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
@@ -6558,13 +6559,25 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 {
     std::string result;
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
-    int i = 0;
+    int attributes_counter = 0;
+
+    bool is_cuda =
+        (TL::CompilationConfiguration::get_current_configuration() == "cuda");
+
     for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
             it != gcc_attr_list.end();
-            it++, i++)
+            it++)
     {
-        if (i > 0)
+        if (attributes_counter > 0)
             result += " ";
+
+        if (!is_cuda
+                && (it->get_attribute_name() == "host"
+                    || it->get_attribute_name() == "device"
+                    || it->get_attribute_name() == "shared"
+                    || it->get_attribute_name() == "constant"
+                    || it->get_attribute_name() == "global"))
+            continue;
 
         if (it->get_expression_list().is_null())
         {
@@ -6590,6 +6603,7 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 
             result += ")))";
         }
+        attributes_counter++;
     }
 
     return result;
