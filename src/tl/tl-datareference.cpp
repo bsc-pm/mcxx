@@ -186,7 +186,7 @@ namespace TL
                             Nodecl::Range::make(
                                     item.shallow_copy(),
                                     item.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
                                     item.get_type(),
                                     item.get_filename(),
                                     item.get_line());
@@ -463,7 +463,7 @@ namespace TL
                             TL::Type::get_int_type(),
                             upper_bound.get_filename(),
                             upper_bound.get_line()),
-                        const_value_to_nodecl(const_value_get_one(4, 1)),
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
                         TL::Type::get_int_type(),
                         lower_bound.get_filename(),
                         lower_bound.get_line());
