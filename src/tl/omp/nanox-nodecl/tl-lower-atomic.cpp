@@ -379,7 +379,7 @@ namespace TL { namespace Nanox {
                     }
                 }
 
-                replacements.push_back(atomic_tree);
+                replacements.append(atomic_tree);
             }
         }
 
