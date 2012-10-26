@@ -28,6 +28,7 @@
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-counters.hpp"
 #include "cxx-cexpr.h"
 #include "tl-predicateutils.hpp"
 #include "tl-devices.hpp"
@@ -39,6 +40,7 @@ namespace TL { namespace Nanox {
             Nodecl::List& distribute_environment,
             Nodecl::List& ranges,
             OutlineInfo& outline_info,
+            TL::Symbol slicer_descriptor,
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2)
     {
@@ -88,7 +90,7 @@ namespace TL { namespace Nanox {
 
                 for_code
                     << lastprivate_code
-                    << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    << "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
                     << "}"
                     ;
             }
@@ -107,7 +109,7 @@ namespace TL { namespace Nanox {
                     <<       statement_placeholder(placeholder1)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    <<       "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
                     << "else"
@@ -121,7 +123,7 @@ namespace TL { namespace Nanox {
                     <<          statement_placeholder(placeholder2)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+                    <<       "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
                     ;
@@ -142,7 +144,7 @@ namespace TL { namespace Nanox {
             << reduction_initialization
             << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(wsd, (void**)&nanos_item_loop);"
+            << "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
@@ -170,6 +172,7 @@ namespace TL { namespace Nanox {
            Nodecl::List& ranges,
            OutlineInfo& outline_info,
            Nodecl::NodeclBase& statements,
+           TL::Symbol slicer_descriptor,
            Source &outline_distribute_loop_source,
            // Loop (in the outline distributed code)
            Nodecl::NodeclBase& outline_placeholder1,
@@ -181,20 +184,10 @@ namespace TL { namespace Nanox {
 
         std::string outline_name = get_outline_name(function_symbol);
 
-        // Add field wsd
-        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
-        ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
-
-        TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
-        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
-
-        TL::Symbol wsd_sym = construct.retrieve_context().new_symbol("wsd");
-        wsd_sym.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
-
-        OutlineDataItem &wsd_data_item = outline_info.prepend_field(wsd_sym);
+        OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
         {
-            wsd_data_item.set_in_outline_type(nanos_ws_desc_type.get_lvalue_reference_to());
+            wsd_data_item.set_in_outline_type(slicer_descriptor.get_type().get_lvalue_reference_to());
         }
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
@@ -257,7 +250,7 @@ namespace TL { namespace Nanox {
             symbol_map = NULL;
         }
 
-        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol);
+        loop_spawn(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, slicer_descriptor);
     }
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
@@ -273,6 +266,22 @@ namespace TL { namespace Nanox {
         // Get the new statements
         statements = construct.get_statements();
 
+        // Slicer descriptor
+        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
+        ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
+
+        TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
+        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
+
+        Counter& arg_counter = CounterManager::get_counter("nanos++-slicer-descriptor");
+        std::stringstream ss;
+        ss << "wsd_" << (int)arg_counter++;
+
+        TL::Symbol slicer_descriptor = construct.retrieve_context().new_symbol(ss.str());
+        slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
+        slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
+
         Nodecl::NodeclBase environment = construct.get_environment();
 
         OutlineInfo outline_info(environment);
@@ -282,6 +291,7 @@ namespace TL { namespace Nanox {
                 distribute_environment,
                 ranges,
                 outline_info,
+                slicer_descriptor,
                 outline_placeholder1,
                 outline_placeholder2);
 
@@ -289,6 +299,7 @@ namespace TL { namespace Nanox {
                 distribute_environment, ranges,
                 outline_info,
                 statements,
+                slicer_descriptor,
                 outline_distribute_loop_source,
                 outline_placeholder1,
                 outline_placeholder2);

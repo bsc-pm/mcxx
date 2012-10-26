@@ -160,6 +160,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List& distribute_environment,
                 Nodecl::List& ranges,
                 OutlineInfo& outline_info,
+                TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2);
 
@@ -169,6 +170,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List& ranges,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
+                TL::Symbol slicer_descriptor,
                 Source &outline_distribute_loop_source,
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
@@ -182,7 +184,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                TL::Symbol slicer_descriptor);
 
         Source full_barrier_source();
 
