@@ -283,7 +283,14 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, access, "NAME,MODE", I, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, besj0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besj1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, besjn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besy0, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, besy1, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC_2(NULL, besyn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
@@ -294,6 +301,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 ISO_C_BINDING_INTRINSICS \
@@ -1028,17 +1036,21 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
     return NULL;
 }
 
+static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
 
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
+    fortran_create_scope_for_intrinsics(decl_context);
     fortran_init_intrinsic_modules(decl_context);
+
+    decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
     if (fake_computed_function_type == NULL)
         fake_computed_function_type = get_computed_function_type(fake_computed_function);
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
-        decl_context_t relevant_decl_context = decl_context; \
+        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
         if (module_name != NULL) \
         { \
@@ -1077,7 +1089,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
 #define FORTRAN_GENERIC_INTRINSIC_2(module_name, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
     { \
-        decl_context_t relevant_decl_context = decl_context; \
+        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
         if (module_name != NULL) \
         { \
@@ -1120,7 +1132,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
     intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
 
     // Sign in specific names for intrinsics
-    fortran_init_specific_names(decl_context);
+    fortran_init_specific_names(fortran_intrinsic_context);
 }
 
 static scope_entry_t* register_specific_intrinsic_name(
@@ -1330,6 +1342,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", fortran_get_default_real_type(), fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdcos", "cos", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_2("char", "char", fortran_get_default_integer_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(fortran_get_default_real_type()));
@@ -4688,6 +4701,29 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_access(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if(fortran_is_character_type(t0)
+            && fortran_is_character_type(t1))
+    {
+        return GET_INTRINSIC_INQUIRY("access",
+                fortran_get_default_integer_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -4708,6 +4744,78 @@ scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_besj0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_j0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besj1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_j1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besjn_0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_jn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besjn_1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_jn_1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besy0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_y0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besy1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_y1(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besyn_0(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_yn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_besyn_1(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_bessel_yn_1(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -5653,6 +5761,20 @@ scope_entry_t* compute_intrinsic_system(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (!is_integer_type(t0))
+        return NULL;
+
+    return GET_INTRINSIC_TRANSFORMATIONAL("sleep", get_void_type(), t0);
+}
+
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6183,4 +6305,28 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
             iso_c_binding->entity_specs.num_related_symbols,
             c_null_funptr);
     }
+}
+
+static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
+{
+    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context.current_scope, ".fortran_intrinsics");
+    fortran_intrinsics->kind = SK_NAMESPACE;
+    fortran_intrinsics->related_decl_context = new_namespace_context(decl_context, fortran_intrinsics);
+}
+
+decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
+{
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = decl_context.global_scope;
+
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics");
+
+    ERROR_CONDITION(global_list == NULL, "Fortran intrinsics context was requested but it is missing", 0);
+
+    scope_entry_t* symbol = entry_list_head(global_list);
+    entry_list_free(global_list);
+
+    ERROR_CONDITION(symbol->kind != SK_NAMESPACE, "Invalid symbol .fortran_intrinsics", 0);
+
+    return symbol->related_decl_context;
 }
