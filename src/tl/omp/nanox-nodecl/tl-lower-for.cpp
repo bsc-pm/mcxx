@@ -90,7 +90,7 @@ namespace TL { namespace Nanox {
 
                 for_code
                     << lastprivate_code
-                    << "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
+                    << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                     << "}"
                     ;
             }
@@ -109,7 +109,7 @@ namespace TL { namespace Nanox {
                     <<       statement_placeholder(placeholder1)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
+                    <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
                     << "else"
@@ -123,7 +123,7 @@ namespace TL { namespace Nanox {
                     <<          statement_placeholder(placeholder2)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
+                    <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                     <<   "}"
                     << "}"
                     ;
@@ -144,7 +144,7 @@ namespace TL { namespace Nanox {
             << reduction_initialization
             << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(" << as_symbol(slicer_descriptor) << ", (void**)&nanos_item_loop);"
+            << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
             << for_code
@@ -267,17 +267,17 @@ namespace TL { namespace Nanox {
         statements = construct.get_statements();
 
         // Slicer descriptor
-        TL::Symbol sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
-        ERROR_CONDITION(sym.is_invalid(), "Invalid symbol", 0);
+        TL::Symbol nanos_ws_desc_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
+        ERROR_CONDITION(nanos_ws_desc_t_sym.is_invalid(), "Invalid symbol", 0);
 
-        TL::Type nanos_ws_desc_type = ::get_user_defined_type(sym.get_internal_symbol());
+        TL::Type nanos_ws_desc_type = ::get_user_defined_type(nanos_ws_desc_t_sym.get_internal_symbol());
         nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-slicer-descriptor");
         std::stringstream ss;
         ss << "wsd_" << (int)arg_counter++;
 
-        TL::Symbol slicer_descriptor = construct.retrieve_context().new_symbol(ss.str());
+        TL::Symbol slicer_descriptor = statements.retrieve_context().new_symbol(ss.str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
         slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
