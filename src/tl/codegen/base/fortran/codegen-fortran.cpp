@@ -228,8 +228,6 @@ namespace Codegen
 
     void FortranBase::visit(const Nodecl::TopLevel& node)
     {
-        clear_renames();
-
         Nodecl::List list = node.get_top_level().as<Nodecl::List>();
 
         PreCodegenVisitor pre_visitor;
@@ -244,13 +242,13 @@ namespace Codegen
             set_codegen_status(current_module, CODEGEN_STATUS_DEFINED);
 
             push_declaring_entity(current_module);
+            push_declaration_status();
+            clear_renames();
 
             TL::ObjectList<Nodecl::NodeclBase> &nodes_before_contains = it->nodes_before_contains;
             TL::ObjectList<Nodecl::NodeclBase> &nodes_after_contains = it->nodes_after_contains;
 
             codegen_module_header(current_module, nodes_before_contains, nodes_after_contains);
-
-            clear_renames();
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes_after_contains.begin();
                     it2 != it->nodes_after_contains.end();
@@ -262,15 +260,12 @@ namespace Codegen
                 clear_renames();
 
                 walk(node);
-
                 pop_declaration_status();
             }
 
             codegen_module_footer(current_module);
 
-            clear_codegen_status();
-            clear_renames();
-
+            pop_declaration_status();
             pop_declaring_entity();
         }
 
@@ -474,6 +469,7 @@ namespace Codegen
         _external_symbols.clear();
 
         push_declaring_entity(entry);
+        push_declaration_status();
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
@@ -511,9 +507,7 @@ namespace Codegen
             internal_error("Unexpected symbol kind %s", symbol_kind_name(entry.get_internal_symbol()));
         }
 
-        clear_codegen_status();
-        clear_renames();
-
+        pop_declaration_status();
         pop_declaring_entity();
     }
 
@@ -2502,7 +2496,12 @@ OPERATOR_TABLE
 
     bool FortranBase::name_has_already_been_used(std::string str)
     {
-        return (_name_set.find(str) != _name_set.end());
+        if (_name_set_stack.empty())
+            return false;
+
+        name_set_t &last = _name_set_stack.back();
+
+        return (last.find(str) != last.end());
     }
 
     bool FortranBase::name_has_already_been_used(TL::Symbol sym)
@@ -2512,9 +2511,18 @@ OPERATOR_TABLE
 
     std::string FortranBase::rename(TL::Symbol sym)
     {
+        if (_name_set_stack.empty())
+            return sym.get_name();
+
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+                "Mismatch between rename map stack and name set stack", 0);
+
+        name_set_t& name_set = _name_set_stack.back();
+        rename_map_t& rename_map = _rename_map_stack.back();
+
         static int prefix = 0;
 
-        rename_map_t::iterator it = _rename_map.find(sym);
+        rename_map_t::iterator it = rename_map.find(sym);
 
         std::string result;
 
@@ -2527,7 +2535,7 @@ OPERATOR_TABLE
         }
         else
         {
-            if (it == _rename_map.end())
+            if (it == rename_map.end())
             {
                 std::stringstream ss;
 
@@ -2540,8 +2548,8 @@ OPERATOR_TABLE
                     ss << sym.get_name() << "_" << prefix;
                     prefix++;
                 }
-                _name_set.insert(ss.str());
-                _rename_map[sym] = ss.str();
+                name_set.insert(ss.str());
+                rename_map[sym] = ss.str();
 
                 result = ss.str();
             }
@@ -2767,9 +2775,8 @@ OPERATOR_TABLE
         }
         bool lacks_result = false;
 
-        push_declaration_status();
-
         // In an interface we have to forget everything...
+        push_declaration_status();
         clear_codegen_status();
         clear_renames();
 
@@ -3568,8 +3575,11 @@ OPERATOR_TABLE
             }
             
             // Keep the rename info
-            name_set_t old_name_set = _name_set;
-            rename_map_t old_rename_map = _rename_map;
+            name_set_t old_name_set;
+            rename_map_t old_rename_map;
+
+            if (!_name_set_stack.empty()) old_name_set = _name_set_stack.back();
+            if (!_rename_map_stack.empty()) old_rename_map = _rename_map_stack.back();
 
             clear_renames();
 
@@ -3685,8 +3695,8 @@ OPERATOR_TABLE
             file << "END TYPE " << real_name << "\n";
             
             // And restore it after the internal function has been emitted
-            _name_set = old_name_set;
-            _rename_map = old_rename_map;
+            if (!_name_set_stack.empty()) _name_set_stack.back() = old_name_set;
+            if (!_rename_map_stack.empty()) _rename_map_stack.back() = old_rename_map;
         }
         else if (entry.is_label())
         {
@@ -5021,8 +5031,8 @@ OPERATOR_TABLE
 
     void FortranBase::clear_renames()
     {
-        _name_set.clear();
-        _rename_map.clear();
+        if (!_name_set_stack.empty()) _name_set_stack.back().clear();
+        if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
@@ -5165,6 +5175,7 @@ OPERATOR_TABLE
 
     std::string FortranBase::emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc)
     {
+        push_declaration_status();
         clear_codegen_status();
         clear_renames();
 
@@ -5191,10 +5202,8 @@ OPERATOR_TABLE
         file.clear();
         file.str("");
 
+        pop_declaration_status();
         pop_declaring_entity();
-
-        clear_codegen_status();
-        clear_renames();
 
         return result;
     }
@@ -5217,8 +5226,21 @@ OPERATOR_TABLE
     {
         // Keep the codegen map
         _codegen_status_stack.push_back(_codegen_status);
-        _name_set_stack.push_back(_name_set);
-        _rename_map_stack.push_back(_rename_map);
+
+        ERROR_CONDITION(_name_set_stack.empty()
+                != _rename_map_stack.empty(),
+                "Unbalanced push/pop declaration status", 0);
+
+        // We propagate name sets
+        if (_name_set_stack.empty())
+            _name_set_stack.push_back(name_set_t());
+        else
+            _name_set_stack.push_back(_name_set_stack.back());
+
+        if (_rename_map_stack.empty())
+            _rename_map_stack.push_back(rename_map_t());
+        else
+            _rename_map_stack.push_back(_rename_map_stack.back());
     }
 
     void FortranBase::pop_declaration_status()
@@ -5226,10 +5248,11 @@ OPERATOR_TABLE
         _codegen_status = _codegen_status_stack.back();
         _codegen_status_stack.pop_back();
 
-        _name_set = _name_set_stack.back();
-        _name_set_stack.pop_back();
+        ERROR_CONDITION(_name_set_stack.empty()
+                != _rename_map_stack.empty(),
+                "Unbalanced push/pop declaration status", 0);
 
-        _rename_map = _rename_map_stack.back();
+        _name_set_stack.pop_back();
         _rename_map_stack.pop_back();
     }
 

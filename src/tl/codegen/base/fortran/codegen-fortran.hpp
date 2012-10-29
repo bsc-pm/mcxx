@@ -257,14 +257,12 @@ namespace Codegen
             // Set of names actively used in the current scoping unit
             // This is used for renames (see later)
             typedef std::set<std::string> name_set_t;
-            name_set_t _name_set;
             std::vector<name_set_t> _name_set_stack;
 
             // Given a symbol, its rename, if any. When _name_set detects
             // that a name has already been used in this scoping unit
             // a rename for it is computed, and then kep here
             typedef std::map<TL::Symbol, std::string> rename_map_t;
-            rename_map_t _rename_map;
             std::vector<rename_map_t> _rename_map_stack;
 
             std::vector<TL::Symbol> _being_declared_stack;
