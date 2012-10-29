@@ -1637,6 +1637,16 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Add the unpacked function to the intermediate cuda file
     _cuda_file_code.push_back(unpacked_function_code);
 
+    // Add a declaration of the unpacked function symbol in the original source
+    if (IS_CXX_LANGUAGE)
+    {
+        Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                /* optative context */ nodecl_null(),
+                unpacked_function,
+                original_statements.get_filename(),
+                original_statements.get_line());
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+    }
 
 
     // Create the outline function
@@ -1674,22 +1684,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         << "}"
         ;
 
-    if (IS_CXX_LANGUAGE)
-    {
-        if (!outline_function.is_member())
-        {
-            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                    /* optative context */ nodecl_null(),
-                    outline_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
-        }
-    }
-
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
-    Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 }
 
 
