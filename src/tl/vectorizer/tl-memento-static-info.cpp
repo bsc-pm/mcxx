@@ -51,8 +51,6 @@ namespace TL
 
         MementoStaticInfo::MementoStaticInfo(const Nodecl::NodeclBase n)
         {
-            // As SIMD node is not supported
-            /*
             TL::Analysis::AnalysisSingleton& analysis = 
                 TL::Analysis::AnalysisSingleton::get_analysis();
             
@@ -74,7 +72,7 @@ namespace TL
                     NodeclStaticInfo(analysis_state.get_induction_variables(n),
                         ObjectList<Nodecl::NodeclBase>()))//analysis_state.get_constants(n),
                     );
-            */
+            
             //Visit interesting nested nodes, for example FOR, IF, IFELSE, etc.
         }
 
