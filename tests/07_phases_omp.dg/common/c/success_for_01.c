@@ -51,6 +51,12 @@ int main(int argc, char *argv[])
         c[i] = i;
     }
 
+#pragma omp for
+    for (i = 0; i < MAX_ELEMS; i++)
+    {
+        c[i] = i;
+    }
+
     for (i = 0; i < MAX_ELEMS; i++)
     {
         if (c[i] != i)

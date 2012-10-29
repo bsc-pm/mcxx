@@ -57,6 +57,7 @@
      #define WARN_UNUSED __attribute__((warn_unused_result))
      #define DEPRECATED __attribute__((deprecated))
      #define UNUSED_PARAMETER __attribute__((unused))
+     #define WARN_FUNCTION(x) __attribute__((warning(x)))
   #elif __GNUC__ == 2
      #error "This code will not compile with GCC 2"
   #else
@@ -67,6 +68,7 @@
   #define WARN_UNUSED
   #define UNUSED_PARAMETER
   #define DEPRECATED
+  #define WARN_FUNCTION(x)
 #endif
 
 #ifdef __cplusplus

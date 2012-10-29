@@ -378,7 +378,7 @@ namespace Nodecl
             List l = n.as<List>(); List new_l = List::make(NodeclBase::null());
             for (List::iterator it = l.begin(); it != l.end(); ++it)
             {
-                new_l.push_back(reduce_expression(*it));
+                new_l.append(reduce_expression(*it));
             }
             simplified_expr = new_l;
         }
@@ -766,22 +766,9 @@ namespace Nodecl
 
     void Utils::append_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
-        if (n.is<Nodecl::List>())
-        {
-            Nodecl::List l = n.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin();
-                    it != l.end();
-                    it++)
-            {
-                append_to_top_level_nodecl(*it);
-            }
-        }
-        else
-        {
-            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
-            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
-            list.push_back(n);
-        }
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        list.append(n);
     }
 
     namespace
@@ -899,22 +886,9 @@ namespace Nodecl
 
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
-        if (n.is<Nodecl::List>())
-        {
-            Nodecl::List l = n.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin();
-                    it != l.end();
-                    it++)
-            {
-                prepend_to_top_level_nodecl(*it);
-            }
-        }
-        else
-        {
-            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
-            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
-            list.push_front(n);
-        }
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        list.prepend(n);
     }
 
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)

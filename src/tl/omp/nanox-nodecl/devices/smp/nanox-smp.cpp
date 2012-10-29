@@ -1259,13 +1259,7 @@ namespace TL { namespace Nanox {
         // Restore original source language (Fortran)
         Source::source_language = SourceLanguage::Current;
 
-        // Figure a better way!
-        for (Nodecl::List::iterator it = n.begin();
-                it != n.end();
-                it++)
-        {
-            _extra_c_code.push_back(*it);
-        }
+        _extra_c_code.append(n);
     }
 
     DeviceSMP::DeviceSMP()

@@ -163,6 +163,7 @@ namespace TL { namespace Nanox {
             TL::Symbol module = construct.retrieve_context().get_related_symbol().in_module();
 
             new_class_symbol.get_internal_symbol()->entity_specs.in_module = module.get_internal_symbol();
+            new_class_symbol.get_internal_symbol()->entity_specs.access = AS_PRIVATE;
 
             P_LIST_ADD(
                     module.get_internal_symbol()->entity_specs.related_symbols,
