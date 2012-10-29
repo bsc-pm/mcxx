@@ -1587,11 +1587,34 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         }
     }
 
+    // Add the user function to the intermediate file
+    if (called_task.is_valid())
+    {
+        _cuda_file_code.push_back(Nodecl::Utils::deep_copy(
+                    called_task.get_function_code(),
+                    called_task.get_scope()));
+
+        // Remove the user function definition from the original source because
+        // It is used only in the intermediate file
+        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
+    }
+
+
+    // Create the new unpacked function
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
             device_outline_name + "_unpacked",
             outline_info,
             symbol_map);
+
+    // The unpacked function must not be static and must have external linkage because
+    // this function is called from the original source and but It is defined
+    // in cudacc_filename.cu
+    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+    if (IS_C_LANGUAGE)
+    {
+        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
+    }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
     build_empty_body_for_function(unpacked_function,
@@ -1606,7 +1629,16 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         << "}"
         ;
 
-    // Creating the symbol related to the outline function
+    Nodecl::NodeclBase new_unpacked_body =
+        unpacked_source.parse_statement(unpacked_function_body);
+    unpacked_function_body.replace(new_unpacked_body);
+
+    // Add the unpacked function to the intermediate cuda file
+    _cuda_file_code.push_back(unpacked_function_code);
+
+
+
+    // Create the outline function
     //The outline function has always only one parameter which name is 'args'
     ObjectList<std::string> structure_name;
     structure_name.append("args");
@@ -1624,10 +1656,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             structure_name,
             structure_type);
 
-    // The outline function must not be static because this function is called
-    // from mnvcc_filename.c and it is defined in cudacc_filename.cu
-    outline_function.get_internal_symbol()->entity_specs.is_static = 0;
-
     Nodecl::NodeclBase outline_function_code, outline_function_body;
     build_empty_body_for_function(outline_function,
             outline_function_code,
@@ -1636,6 +1664,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     Source outline_src,
            instrument_before,
            instrument_after;
+
     outline_src
         << "{"
         <<      instrument_before
@@ -1643,13 +1672,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         <<      instrument_after
         << "}"
         ;
-
-    Nodecl::NodeclBase new_unpacked_body =
-        unpacked_source.parse_statement(unpacked_function_body);
-    unpacked_function_body.replace(new_unpacked_body);
-
-    // Add the unpacked function to the cuda file
-    _cuda_file_code.push_back(unpacked_function_code);
 
     if (IS_CXX_LANGUAGE)
     {
@@ -1663,21 +1685,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
         }
     }
+
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
-
-    // Add the outline function to the cuda file
-    _cuda_file_code.push_back(outline_function_code);
-
-    if (called_task.is_valid())
-    {
-        // Add the user function to the intermediate file
-        _cuda_file_code.push_back(Nodecl::Utils::deep_copy(called_task.get_function_code(), called_task.get_scope()));
-
-        // Remove the user function definition from the original source because
-        // It is used only in the intermediate file
-        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
-    }
+    Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
 }
 
 
@@ -2350,7 +2361,13 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+
+        source_language_t old_language = CURRENT_CONFIGURATION->source_language;
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
+
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
+
+        CURRENT_CONFIGURATION->source_language = old_language;
 
         fclose(ancillary_file);
 
