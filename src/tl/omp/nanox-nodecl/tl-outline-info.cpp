@@ -108,6 +108,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
     }
 
@@ -140,6 +142,8 @@ namespace TL { namespace Nanox {
                 in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
                 outline_info.set_in_outline_type(in_outline_type);
+
+                _outline_info.move_at_end(outline_info);
             }
         }
     }
@@ -170,6 +174,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
         outline_info.set_field_type(t.get_pointer_to());
@@ -201,6 +207,10 @@ namespace TL { namespace Nanox {
                         if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                         {
                             outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                        }
+                        else
+                        {
+                            outline_data_item->set_field_type(TL::Type::get_void_type().get_pointer_to());
                         }
                     }
                 }
@@ -513,6 +523,8 @@ namespace TL { namespace Nanox {
             {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
+
+            _outline_info.move_at_end(outline_info);
         }
     }
 
@@ -535,6 +547,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
         outline_info.set_field_type(t);
@@ -569,6 +583,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(symbol, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
         outline_info.set_private_type(t);
@@ -718,6 +734,8 @@ namespace TL { namespace Nanox {
                         in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
                         outline_info.set_in_outline_type(in_outline_type);
+
+                        _outline_info.move_at_end(outline_info);
                     }
 
                     outline_info.set_private_type(sym.get_type());
@@ -796,6 +814,23 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
+    }
+
+    void OutlineInfo::move_at_end(OutlineDataItem& item)
+    {
+        TL::ObjectList<OutlineDataItem*> new_list;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            if (*it != &item)
+            {
+                new_list.append(*it);
+            }
+        }
+        new_list.append(&item);
+
+        std::swap(_data_env_items, new_list);
     }
 
     void OutlineInfo::add_device_name(std::string device_name)
