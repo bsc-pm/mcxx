@@ -277,7 +277,13 @@ namespace TL { namespace Nanox {
         std::stringstream ss;
         ss << "wsd_" << (int)arg_counter++;
 
-        TL::Symbol slicer_descriptor = statements.retrieve_context().new_symbol(ss.str());
+        // Create a detached symbol. Will put in a scope later, in loop_spawn
+        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::calloc(1, sizeof(*slicer_descriptor_internal));
+        // This is a transient scope but it will be changed before inserting the symbol
+        // to its final scope
+        slicer_descriptor_internal->decl_context = construct.retrieve_context().get_decl_context();
+        TL::Symbol slicer_descriptor(slicer_descriptor_internal);
+        slicer_descriptor.get_internal_symbol()->symbol_name = ::uniquestr(ss.str().c_str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
         slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
