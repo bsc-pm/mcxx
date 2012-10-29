@@ -101,6 +101,7 @@ static type_t* cuda_get_dim3_type(void)
             member_sym->kind = SK_VARIABLE;
             member_sym->type_information = get_unsigned_int_type();
             member_sym->entity_specs.is_member = 1;
+            member_sym->entity_specs.access = AS_PUBLIC;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
             class_type_add_member(new_class_sym->type_information, member_sym);
@@ -151,6 +152,7 @@ static type_t* cuda_get_uint3_type(void)
             member_sym->kind = SK_VARIABLE;
             member_sym->type_information = get_unsigned_int_type();
             member_sym->entity_specs.is_member = 1;
+            member_sym->entity_specs.access = AS_PUBLIC;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
             class_type_add_member(new_class_sym->type_information, member_sym);
