@@ -287,10 +287,9 @@ namespace Codegen
         {
             return "OPERATOR(" + c.substr(strlen(".operator."), std::string::npos) + ")";
         }
-        else 
-            return c;
+        else return c;
     }
-    
+
     void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
             bool lacks_result)
     {
@@ -372,7 +371,7 @@ namespace Codegen
                 {
                     if (it->get_type().basic_type().is_class())
                     {
-                        declare_symbol(it->get_type().basic_type().get_symbol(), 
+                        declare_symbol(it->get_type().basic_type().get_symbol(),
                                 it->get_type().basic_type().get_symbol().get_scope());
                     }
                 }
@@ -385,7 +384,7 @@ namespace Codegen
         {
             walk(data_symbol.get_value());
         }
-        
+
         // Could we improve the name of this function?
         TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
@@ -3005,7 +3004,7 @@ OPERATOR_TABLE
         // Unless
         // a) the entity is in the global scope
         if (!ok_to_declare
-                && (entry_context.current_scope == entry_context.global_scope))
+                && entry_context.current_scope == entry_context.global_scope)
         {
             ok_to_declare = true;
         }
@@ -3017,7 +3016,7 @@ OPERATOR_TABLE
         {
             ok_to_declare = true;
         }
-        
+
         // c) the entity is an ENTRY alternate-name which is also a module procedure
         if (!ok_to_declare
                 && entry.is_function()
@@ -3845,7 +3844,7 @@ OPERATOR_TABLE
                 it++)
         {
             Nodecl::NodeclBase& node(*it);
-            declare_global_entities(node);
+            declare_module_level_entities(node);
         }
 
         // EQUIVALENCE
@@ -3910,7 +3909,7 @@ OPERATOR_TABLE
         declare_symbols_from_modules_rec(node, sc, use_stmt_info);
     }
 
-    void FortranBase::do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
+    void FortranBase::do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
     {
          decl_context_t decl_context = entry.get_scope().get_decl_context();
 
@@ -3924,7 +3923,7 @@ OPERATOR_TABLE
 
         if (decl_context.current_scope == decl_context.global_scope)
         {
-            declare_symbol(entry, entry.get_scope());
+            // We do not emit global stuff at the module level
         }
         else
         {
@@ -3941,8 +3940,8 @@ OPERATOR_TABLE
                 {
                     TL::Symbol &member(*it);
 
-                    do_declare_global_entities(member, node, data);
-                    declare_global_entities(member.get_value());
+                    do_declare_module_level_entities(member, node, data);
+                    declare_module_level_entities(member.get_value());
                 }
             }
             else if (entry.is_variable())
@@ -3961,21 +3960,21 @@ OPERATOR_TABLE
                     entry_type.array_get_bounds(lower, upper);
                     if (!lower.is_null())
                     {
-                        declare_global_entities(lower);
+                        declare_module_level_entities(lower);
                         if (lower.is<Nodecl::Symbol>()
                                 && lower.get_symbol().is_saved_expression())
                         {
-                            declare_global_entities(lower.get_symbol().get_value());
+                            declare_module_level_entities(lower.get_symbol().get_value());
                         }
                     }
 
                     if (!upper.is_null())
                     {
-                        declare_global_entities(upper);
+                        declare_module_level_entities(upper);
                         if (upper.is<Nodecl::Symbol>()
                                 && upper.get_symbol().is_saved_expression())
                         {
-                            declare_global_entities(upper.get_symbol().get_value());
+                            declare_module_level_entities(upper.get_symbol().get_value());
                         }
                     }
 
@@ -3987,7 +3986,7 @@ OPERATOR_TABLE
                 if (entry_type.is_named_class())
                 {
                     TL::Symbol class_entry = entry_type.get_symbol();
-                    do_declare_global_entities(class_entry, node, data);
+                    do_declare_module_level_entities(class_entry, node, data);
                 }
             }
             else if (entry.is_fortran_namelist())
@@ -3997,7 +3996,7 @@ OPERATOR_TABLE
                         it != symbols_in_namelist.end();
                         it++)
                 {
-                    do_declare_global_entities(*it, node, data);
+                    do_declare_module_level_entities(*it, node, data);
                 }
             }
             else if (entry.is_generic_specifier())
@@ -4007,7 +4006,7 @@ OPERATOR_TABLE
                         it != specific_interfaces.end();
                         it++)
                 {
-                    do_declare_global_entities(*it, node, data);
+                    do_declare_module_level_entities(*it, node, data);
                 }
             }
         }
@@ -4015,9 +4014,9 @@ OPERATOR_TABLE
         being_checked.erase(entry);
     }
 
-    void FortranBase::declare_global_entities(Nodecl::NodeclBase node)
+    void FortranBase::declare_module_level_entities(Nodecl::NodeclBase node)
     {
-        traverse_looking_for_symbols(node, &FortranBase::do_declare_global_entities, NULL);
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_module_level_entities, NULL);
     }
 
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)

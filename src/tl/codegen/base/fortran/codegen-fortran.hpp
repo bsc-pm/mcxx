@@ -333,8 +333,8 @@ namespace Codegen
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo&);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo&);
 
-            void declare_global_entities(Nodecl::NodeclBase node);
-            void do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
+            void declare_module_level_entities(Nodecl::NodeclBase node);
+            void do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
