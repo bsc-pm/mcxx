@@ -61,7 +61,7 @@ libmcxx_utils_la_SOURCES = \
 						  mcxx_refcount.c \
 						  mcxx_refcount.h \
 						  uniquestr.h \
-						  char_trie.c \
+						  char_hash.c \
                           libutils-common.h \
                           filename.c \
                           filename.h \
