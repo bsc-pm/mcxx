@@ -2076,7 +2076,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         }
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-        if (!IS_FORTRAN_LANGUAGE)
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             // Create a new variable holding the address of the dependency
             std::stringstream ss;
@@ -2094,35 +2094,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
             OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
 
-            if (parameter_outline_data_item.get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
-            {
-                outline_register_entities.add_capture_with_value(new_symbol, it->second);
-            }
-            else
-            {
-                OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+            outline_register_entities.add_capture_with_value(new_symbol, it->second);
 
-                DataReference data_ref(it->second);
-                if (data_ref.is_valid())
-                {
-                    TL::Type in_outline_type = outline_register_entities.add_extra_dimensions(
-                            data_ref.get_base_symbol(),
-                            data_ref.get_base_symbol().get_type());
-
-                    if (!in_outline_type.is_any_reference())
-                        in_outline_type = in_outline_type.get_lvalue_reference_to();
-
-                    argument_outline_data_item.set_in_outline_type(in_outline_type);
-                }
-
-                // Copy what must be copied from the parameter info
-                copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
-
-                // This is a special kind of shared
-                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
-
-                argument_outline_data_item.set_base_address_expression(it->second);
-            }
+            OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+            copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
         }
         else
         {
