@@ -42,6 +42,11 @@ namespace Codegen
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
         public:
+
+            CxxBase() : _emit_always_extern_linkage(false)
+            {
+            }
+
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
@@ -202,6 +207,8 @@ namespace Codegen
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
+            void set_emit_always_extern_linkage(bool emit);
+
         private:
 
             // State
@@ -282,6 +289,8 @@ namespace Codegen
 
             std::vector<TL::Scope> _scope_stack;
 
+            // States whether we should emit the extern linkage
+            bool _emit_always_extern_linkage;
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
             bool symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol);

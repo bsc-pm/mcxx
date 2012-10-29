@@ -2132,7 +2132,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || _emit_always_extern_linkage)
     {
         requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
@@ -2179,7 +2180,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     this->walk(context);
 
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || _emit_always_extern_linkage)
     {
         if (requires_extern_linkage)
         {
@@ -4601,7 +4603,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     std::string bit_field;
 
     bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || _emit_always_extern_linkage)
     {
         requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
@@ -4850,7 +4853,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         file << ";\n";
     }
 
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || _emit_always_extern_linkage)
     {
         if (requires_extern_linkage)
         {
@@ -5235,7 +5239,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         char is_primary_template = 0;
         bool requires_extern_linkage = false;
-        CXX_LANGUAGE()
+        if (IS_CXX_LANGUAGE
+                || _emit_always_extern_linkage)
         {
             move_to_namespace_of_symbol(symbol);
 
@@ -5250,7 +5255,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
                 inc_indent();
             }
+        }
 
+        CXX_LANGUAGE()
+        {
             if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
@@ -5401,7 +5409,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         indent();
         file << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
 
-        CXX_LANGUAGE()
+        if (IS_CXX_LANGUAGE
+                || _emit_always_extern_linkage)
         {
             if (requires_extern_linkage)
             {
@@ -7014,6 +7023,11 @@ TL::Type CxxBase::fix_references(TL::Type t)
         // Anything else must be left untouched
         return t;
     }
+}
+
+void CxxBase::set_emit_always_extern_linkage(bool emit)
+{
+    _emit_always_extern_linkage = emit;
 }
 
 } // Codegen

@@ -39,7 +39,8 @@
 //#include "tl-omp-nanox.hpp"
 
 #include "codegen-phase.hpp"
-#include "codegen-fortran.hpp"
+#include "codegen-cxx.hpp"
+//#include "codegen-fortran.hpp"
 
 //#include <iostream>
 //#include <fstream>
@@ -2350,7 +2351,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         add_included_cuda_files(ancillary_file);
 
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
-        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
@@ -2360,14 +2361,19 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
 
-        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        Codegen::CxxBase* phase = reinterpret_cast<Codegen::CxxBase*>(configuration->codegen_phase);
 
-        source_language_t old_language = CURRENT_CONFIGURATION->source_language;
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
+        C_LANGUAGE()
+        {
+            phase->set_emit_always_extern_linkage(/* emit externs */ true);
+        }
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
-        CURRENT_CONFIGURATION->source_language = old_language;
+        C_LANGUAGE()
+        {
+            phase->set_emit_always_extern_linkage(/* emit externs */ false);
+        }
 
         fclose(ancillary_file);
 
