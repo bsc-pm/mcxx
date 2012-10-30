@@ -2382,6 +2382,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         {
             phase->set_emit_always_extern_linkage(/* emit externs */ true);
         }
+        phase->set_print_cuda_attributes(/* print attributes */ true);
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
@@ -2389,6 +2390,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         {
             phase->set_emit_always_extern_linkage(/* emit externs */ false);
         }
+        phase->set_print_cuda_attributes(/* print attributes */ false);
 
         fclose(ancillary_file);
 

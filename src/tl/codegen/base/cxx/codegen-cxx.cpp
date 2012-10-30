@@ -6570,9 +6570,6 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
     int attributes_counter = 0;
 
-    bool is_cuda =
-        (TL::CompilationConfiguration::get_current_configuration() == "cuda");
-
     for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
             it != gcc_attr_list.end();
             it++)
@@ -6580,13 +6577,13 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
         if (attributes_counter > 0)
             result += " ";
 
-        if (!is_cuda
-                && (it->get_attribute_name() == "host"
-                    || it->get_attribute_name() == "device"
-                    || it->get_attribute_name() == "shared"
-                    || it->get_attribute_name() == "constant"
-                    || it->get_attribute_name() == "global"))
-            continue;
+         if (!_print_cuda_attributes
+                 && (it->get_attribute_name() == "host"
+                     || it->get_attribute_name() == "device"
+                     || it->get_attribute_name() == "shared"
+                     || it->get_attribute_name() == "constant"
+                     || it->get_attribute_name() == "global"))
+             continue;
 
         if (it->get_expression_list().is_null())
         {
@@ -7028,6 +7025,11 @@ TL::Type CxxBase::fix_references(TL::Type t)
 void CxxBase::set_emit_always_extern_linkage(bool emit)
 {
     _emit_always_extern_linkage = emit;
+}
+
+void CxxBase::set_print_cuda_attributes(bool b)
+{
+    _print_cuda_attributes = b;
 }
 
 } // Codegen
