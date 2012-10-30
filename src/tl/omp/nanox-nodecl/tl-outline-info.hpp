@@ -56,14 +56,10 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
-                    // Used for lastprivate
-                    SHARING_SHARED_PRIVATE,
-                    // Used for firstlastprivate
-                    SHARING_SHARED_CAPTURED_PRIVATE,
-
                     SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _base_address_expression
+                    // This is used for dependences in function tasks
                     SHARING_CAPTURE_ADDRESS,
                 };
 
@@ -131,6 +127,7 @@ namespace TL
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
 
+                bool _is_lastprivate;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol), 
@@ -142,7 +139,8 @@ namespace TL
                     _base_address_expression(),
                     _directionality(),
                     _copy_directionality(),
-                    _allocation_policy_flags()
+                    _allocation_policy_flags(),
+                    _is_lastprivate()
                 {
                 }
 
@@ -293,6 +291,16 @@ namespace TL
                 {
                     return _captured_value;
                 }
+
+                bool get_is_lastprivate() const
+                {
+                    return _is_lastprivate;
+                }
+
+                void set_is_lastprivate(bool b)
+                {
+                    _is_lastprivate = b;
+                }
         };
 
         class OutlineInfo
@@ -363,6 +371,7 @@ namespace TL
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc, bool is_function_task)
                     : _outline_info(outline_info), _sc(sc), _is_function_task(is_function_task) { }
 
+                void add_private(Symbol sym);
                 void add_shared_opaque(Symbol sym);
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);

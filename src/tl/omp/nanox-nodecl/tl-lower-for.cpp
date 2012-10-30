@@ -322,12 +322,23 @@ namespace TL { namespace Nanox {
                 it != outline_data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE
-                    || ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE))
+            if ((*it)->get_is_lastprivate())
             {
-                lastprivate_updates
-                    << (*it)->get_symbol().get_name() << " = p_" << (*it)->get_symbol().get_name() << ";"
-                    ;
+                if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        && (*it)->get_private_type().is_array())
+                {
+                    lastprivate_updates
+                        << "__builtin_memcpy(" << (*it)->get_symbol().get_name() << "_addr, " 
+                        << (*it)->get_symbol().get_name() << ", "
+                        << "sizeof(" << as_type((*it)->get_private_type()) << "));"
+                        ;
+                }
+                else
+                {
+                    lastprivate_updates
+                        << "*(" << (*it)->get_symbol().get_name() << "_addr) = " << (*it)->get_symbol().get_name() << ";"
+                        ;
+                }
                 num_items++;
             }
         }

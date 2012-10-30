@@ -221,6 +221,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
 
+        void add_field(OutlineDataItem& outline_data_item, 
+                TL::Type new_class_type,
+                TL::Scope class_scope,
+                TL::Symbol new_class_symbol,
+                Nodecl::NodeclBase construct);
+
         static Nodecl::NodeclBase get_size_for_dimension(
                 TL::Type array_type,
                 int fortran_dimension,

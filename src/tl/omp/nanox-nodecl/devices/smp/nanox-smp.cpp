@@ -153,8 +153,6 @@ namespace TL { namespace Nanox {
                     {
                         break;
                     }
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
@@ -327,31 +325,6 @@ namespace TL { namespace Nanox {
 
                         private_symbols.append(private_sym);
                         break;
-                    }
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
-                    {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, 
-                                ("p_" + name).c_str());
-                        private_sym->kind = SK_VARIABLE;
-                        private_sym->type_information = (*it)->get_private_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-                        if (sym.is_valid())
-                        {
-                            symbol_map->add_map(sym, private_sym);
-
-                            // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
-
-                            // We do not want it be mapped again
-                            // in the fall-through branch
-                            already_mapped = true;
-                        }
-
-                        private_symbols.append(private_sym);
-
-                        /* FALL THROUGH */
                     }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
@@ -762,8 +735,6 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 
@@ -772,9 +743,7 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if (((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                        || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE
-                                        || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE)
+                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 argument << "*(args." << (*it)->get_field_name() << ")";
@@ -809,15 +778,6 @@ namespace TL { namespace Nanox {
                         else
                         {
                             internal_error("running error", 0);
-                        }
-
-                        if  ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE)
-                        {
-                            std::string name = (*it)->get_symbol().get_name();
-
-                            private_entities
-                                << "p_" << name << " = " << name << ";"
-                                ;
                         }
 
                         unpacked_arguments.append_with_separator(argument, ", ");
