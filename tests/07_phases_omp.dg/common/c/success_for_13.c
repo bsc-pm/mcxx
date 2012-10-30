@@ -29,10 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-# rferrer: REMOVE (when nanos++ works again)
-test_ignore=yes
-# rferrer: END OF REMOVE
 </testinfo>
 */
 
