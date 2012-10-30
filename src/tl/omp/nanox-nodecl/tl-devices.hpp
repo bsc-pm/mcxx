@@ -268,6 +268,11 @@ namespace TL { namespace Nanox {
     //         {
     //             return Source();
     //         }
+    //
+               virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
+               {
+                   return false;
+               }
      };
 
     class DeviceHandler

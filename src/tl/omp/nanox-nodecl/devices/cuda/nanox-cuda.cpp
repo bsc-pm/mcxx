@@ -2328,6 +2328,24 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
     }
 }
 
+bool DeviceCUDA::copy_stuff_to_device_file(Nodecl::List symbols)
+{
+    for (Nodecl::List::iterator it = symbols.begin();
+            it != symbols.end();
+            ++it)
+    {
+        Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
+        if (sym.is_function()
+                && !sym.get_function_code().is_null())
+        {
+            _cuda_file_code.push_back(Nodecl::Utils::deep_copy(
+                        sym.get_function_code(),
+                        sym.get_scope()));
+        }
+    }
+    return true;
+}
+
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (!_cuda_file_code.is_null())

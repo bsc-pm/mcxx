@@ -60,6 +60,7 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-critical.cpp \
 								 tl-lower-flush.cpp \
 								 tl-lower-atomic.cpp \
+								 tl-lower-target.cpp \
 								 tl-parallel-spawn.cpp \
 								 tl-loop-spawn.cpp \
 								 tl-reduction-common.cpp \
