@@ -1233,6 +1233,8 @@ namespace TL
 
             _induction_var = TL::Symbol(NULL);
 
+            _induction_variable_in_separate_scope = false;
+
             // _induction_var = lb
             if (init_expr.is<Nodecl::Assignment>())
             {
@@ -1248,6 +1250,7 @@ namespace TL
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
             {
+                _induction_variable_in_separate_scope = true;
                 _induction_var = init_expr.get_symbol();
 
                 _lower_bound = _induction_var.get_value().shallow_copy();
@@ -1545,6 +1548,11 @@ namespace TL
     TL::Symbol ForStatement::get_induction_variable() const
     {
         return _induction_var;
+    }
+
+    bool ForStatement::induction_variable_in_separate_scope() const
+    {
+        return _induction_variable_in_separate_scope;
     }
 
     Nodecl::NodeclBase ForStatement::get_lower_bound() const
