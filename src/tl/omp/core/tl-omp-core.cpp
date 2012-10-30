@@ -890,7 +890,23 @@ namespace TL
             if (for_statement.is_omp_valid_loop())
             {
                 Symbol sym  = for_statement.get_induction_variable();
-                data_sharing.set_data_sharing(sym, DS_PRIVATE);
+
+                DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
+
+                if (sym_data_sharing != DS_UNDEFINED
+                        && sym_data_sharing != DS_PRIVATE
+                        && sym_data_sharing != DS_NONE)
+                {
+                    running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
+                            statement.get_locus().c_str(),
+                            sym.get_name().c_str()
+                            );
+                }
+                // We set it to none to avoid it left as DS_UNDEFINED
+                if (data_sharing.get_data_sharing(sym) == DS_UNDEFINED)
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
+                }
             }
             else
             {
