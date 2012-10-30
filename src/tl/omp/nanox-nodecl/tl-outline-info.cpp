@@ -153,18 +153,20 @@ namespace TL { namespace Nanox {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
         if (is_new)
         {
-            TL::Type in_outline_type = sym.get_type();
-            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+            TL::Type in_outline_type = add_extra_dimensions(sym, t, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
 
             _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_private_type(sym.get_type());
-
+        outline_info.set_private_type(t);
         outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
 
     }

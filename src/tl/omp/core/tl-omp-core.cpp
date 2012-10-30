@@ -892,8 +892,10 @@ namespace TL
                 Symbol sym  = for_statement.get_induction_variable();
 
                 DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
+                bool is_implicit = (data_sharing.get_data_sharing(sym) & DS_IMPLICIT);
 
-                if (sym_data_sharing != DS_UNDEFINED
+                if (!is_implicit
+                        && sym_data_sharing != DS_UNDEFINED
                         && sym_data_sharing != DS_PRIVATE
                         && sym_data_sharing != DS_NONE)
                 {
@@ -902,11 +904,8 @@ namespace TL
                             sym.get_name().c_str()
                             );
                 }
-                // We set it to none to avoid it left as DS_UNDEFINED
-                if (data_sharing.get_data_sharing(sym) == DS_UNDEFINED)
-                {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
-                }
+                // We set it to none, later phases must give this symbol appropiate predetermined private behaviour
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
             }
             else
             {
