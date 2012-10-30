@@ -994,7 +994,7 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
-    void Base::target_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)   { }
     void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
@@ -1004,7 +1004,60 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        Nodecl::Utils::remove_from_enclosing_list(decl);
+        if (decl.get_nested_pragma().is_null())
+        {
+            Nodecl::NodeclBase result;
+            ObjectList<Nodecl::NodeclBase> devices;
+            ObjectList<Nodecl::NodeclBase> symbols;
+
+            int line = decl.get_line();
+            std::string file = decl.get_filename();
+
+            PragmaCustomLine pragma_line = decl.get_pragma_line();
+            PragmaCustomClause device_clause = pragma_line.get_clause("device");
+            if (device_clause.is_defined())
+            {
+                ObjectList<std::string> device_names = device_clause.get_tokenized_arguments();
+                for (ObjectList<std::string>::iterator it = device_names.begin();
+                        it != device_names.end();
+                        ++it)
+                {
+                    devices.append(Nodecl::Text::make(*it, file, line));
+                }
+            }
+
+            ERROR_CONDITION(!decl.has_symbol(),
+                    "%s: expecting a function declaration or definition", decl.get_locus().c_str());
+
+            Symbol sym = decl.get_symbol();
+
+            ERROR_CONDITION(!sym.is_function(),
+                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
+
+            symbols.append(Nodecl::Symbol::make(sym, file, line));
+
+            Nodecl::NodeclBase function_code = sym.get_function_code();
+            if (!function_code.is_null())
+            {
+                result = Nodecl::OpenMP::TargetDefinition::make(
+                        Nodecl::List::make(devices),
+                        Nodecl::List::make(symbols),
+                        file, line);
+            }
+            else
+            {
+                result = Nodecl::OpenMP::TargetDeclaration::make(
+                        Nodecl::List::make(devices),
+                        Nodecl::List::make(symbols),
+                        file, line);
+            }
+
+            decl.replace(result);
+        }
+        else
+        {
+            Nodecl::Utils::remove_from_enclosing_list(decl);
+        }
     }
 
     // SIMD For Statement
