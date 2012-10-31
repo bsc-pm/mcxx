@@ -29,18 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_exec_fail_nanos4_plain_1thread=yes
-test_exec_faulty_nanos4_plain_1thread=yes
-test_exec_fail_nanos4_plain_2thread=yes
-test_exec_faulty_nanos4_plain_2thread=yes
-test_exec_fail_nanos4_plain_4thread=yes
-test_exec_faulty_nanos4_plain_4thread=yes
-
-test_compile_fail_nanox_mercurium=yes
-test_compile_faulty_nanox_mercurium=yes
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -65,13 +53,13 @@ int main(int argc, char *argv[])
         b[4] = b[5];
     }
 
-    if (a[1] != 23) 
+    if (a[1] != 2)
         abort();
-    if (a[2] != 2) 
+    if (a[2] != 2)
         abort();
-    if (b[4] != 54) 
+    if (b[4] != 5)
         abort();
-    if (b[5] != 5) 
+    if (b[5] != 5)
         abort();
 
     return 0;

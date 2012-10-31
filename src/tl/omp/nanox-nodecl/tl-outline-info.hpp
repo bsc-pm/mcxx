@@ -49,22 +49,6 @@ namespace TL
         class OutlineDataItem
         {
             public:
-                enum ItemKind
-                {
-                    // Means this item keeps either a value or an
-                    // address to a program entity. It is the only
-                    // item needed to describe the program entity
-                    ITEM_KIND_NORMAL = 0,
-                    // Means this items keeps an address to a program entity
-                    // but this item alone is not enough to describe that
-                    // entity because of additional outline items describing it
-                    // (i.e. ITEM_KIND_DATA_DIMENSION)
-                    ITEM_KIND_DATA_ADDRESS,
-                    // Means this items keeps a value representing a dimension
-                    // of a runtime data. This is for VLAs
-                    ITEM_KIND_DATA_DIMENSION
-                };
-
                 enum Sharing
                 {
                     SHARING_UNDEFINED = 0,
@@ -72,14 +56,10 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
-                    // Used for lastprivate
-                    SHARING_SHARED_PRIVATE,
-                    // Used for firstlastprivate
-                    SHARING_SHARED_CAPTURED_PRIVATE,
-
                     SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
-                    // the symbol but of the _shared_expression
+                    // the symbol but of the _base_address_expression
+                    // This is used for dependences in function tasks
                     SHARING_CAPTURE_ADDRESS,
                 };
 
@@ -116,8 +96,6 @@ namespace TL
                 };
 
             private:
-                ItemKind _item_kind;
-
                 // Original symbol
                 TL::Symbol _sym;
 
@@ -130,7 +108,7 @@ namespace TL
                 TL::Type _private_type;
 
                 Sharing _sharing;
-                Nodecl::NodeclBase _shared_expression;
+                Nodecl::NodeclBase _base_address_expression;
 
                 // Reductions
                 OpenMP::UDRInfoItem *_udr_info_item;
@@ -146,46 +124,24 @@ namespace TL
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
+                // Captured value
+                Nodecl::NodeclBase _captured_value;
+
+                bool _is_lastprivate;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
-                    : _item_kind(ITEM_KIND_NORMAL),
-                    _sym(symbol), 
+                    : _sym(symbol), 
                     _field_name(field_name), 
                     _field_type(_sym.get_type()),
                     _in_outline_type(_field_type),
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
-                    _shared_expression(),
+                    _base_address_expression(),
                     _directionality(),
                     _copy_directionality(),
-                    _allocation_policy_flags()
+                    _allocation_policy_flags(),
+                    _is_lastprivate()
                 {
-                }
-
-                OutlineDataItem(const std::string field_name, TL::Type field_type)
-                    : _item_kind(ITEM_KIND_NORMAL),
-                    _sym(NULL), 
-                    _field_name(field_name), 
-                    _field_type(field_type),
-                    _in_outline_type(_field_type),
-                    _private_type(TL::Type::get_void_type()),
-                    _sharing(),
-                    _shared_expression(),
-                    _udr_info_item(NULL),
-                    _directionality(),
-                    _copy_directionality(),
-                    _allocation_policy_flags()
-                {
-                }
-
-                ItemKind get_item_kind() const
-                {
-                    return _item_kind;
-                }
-
-                void set_item_kind(ItemKind item_kind)
-                {
-                    _item_kind = item_kind;
                 }
 
                 //! Returns the symbol of this item
@@ -297,18 +253,18 @@ namespace TL
                     return _copies;
                 }
 
-                void set_shared_expression(Nodecl::NodeclBase shared_expr)
+                void set_base_address_expression(Nodecl::NodeclBase base_address_expr)
                 {
-                    _shared_expression = shared_expr;
+                    _base_address_expression = base_address_expr;
                 }
 
-                Nodecl::NodeclBase get_shared_expression() const
+                Nodecl::NodeclBase get_base_address_expression() const
                 {
                     ERROR_CONDITION(
-                            (_shared_expression.is_null()
+                            (_base_address_expression.is_null()
                             && _sharing == SHARING_CAPTURE_ADDRESS),
                             "Shared expression is missing!", 0);
-                    return _shared_expression;
+                    return _base_address_expression;
                 }
 
                 void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
@@ -324,6 +280,26 @@ namespace TL
                 OpenMP::UDRInfoItem* get_reduction_info() const
                 {
                     return _udr_info_item;
+                }
+
+                void set_captured_value(Nodecl::NodeclBase captured_value)
+                {
+                    _captured_value = captured_value;
+                }
+
+                Nodecl::NodeclBase get_captured_value() const
+                {
+                    return _captured_value;
+                }
+
+                bool get_is_lastprivate() const
+                {
+                    return _is_lastprivate;
+                }
+
+                void set_is_lastprivate(bool b)
+                {
+                    _is_lastprivate = b;
                 }
         };
 
@@ -354,14 +330,12 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
+                OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
                 ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
                 }
-
-                OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
-                OutlineDataItem& append_field(const std::string& str, TL::Type t);
 
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
@@ -375,6 +349,41 @@ namespace TL
                 {
                     _unpacked_function_symbol = sym;
                 }
+
+                OutlineDataItem& append_field(TL::Symbol sym);
+                OutlineDataItem& prepend_field(TL::Symbol sym);
+
+                // This is needed for VLAs
+                void move_at_end(OutlineDataItem&);
+        };
+
+        class OutlineInfoRegisterEntities
+        {
+            private:
+                OutlineInfo& _outline_info;
+                Scope _sc;
+                bool _is_function_task;
+
+            public:
+                OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
+                    : _outline_info(outline_info), _sc(sc), _is_function_task(false) { }
+
+                OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc, bool is_function_task)
+                    : _outline_info(outline_info), _sc(sc), _is_function_task(is_function_task) { }
+
+                void add_private(Symbol sym);
+                void add_shared_opaque(Symbol sym);
+                void add_shared(Symbol sym);
+                void add_shared_with_private_storage(Symbol sym, bool captured);
+                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::Directionality directionality);
+                void add_dependences(Nodecl::List list, OutlineDataItem::Directionality directionality);
+                void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
+                void add_capture(Symbol sym);
+                void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
+                void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info);
+
+                TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
+                TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
         };
     }
 }

@@ -54,7 +54,7 @@ namespace TL
 
                 virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
 
-                NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
@@ -69,7 +69,7 @@ namespace TL
 
                 void visit(const Nodecl::LoopControl& loop_header);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
@@ -84,7 +84,7 @@ namespace TL
                 void visit(const Nodecl::Assignment& node);
                 void visit(const Nodecl::Comma& node);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
  
         class VectorizerVisitorLoopCond : public Nodecl::NodeclVisitor<void>
@@ -104,7 +104,7 @@ namespace TL
                 void visit(const Nodecl::GreaterOrEqualThan& node);
                 void visit_condition(const Nodecl::NodeclBase& condition);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
  
         class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
@@ -122,7 +122,7 @@ namespace TL
                 void visit(const Nodecl::Postincrement& node);
                 void visit(const Nodecl::AddAssignment& node);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }
 }

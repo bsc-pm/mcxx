@@ -46,6 +46,11 @@ namespace TL { namespace Nanox {
                 "Disables OpenMP transformation",
                 _openmp_dry_run,
                 "0");
+
+    register_parameter("weaks_as_statics",
+            "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
+            _static_weak_symbols_str,
+            "0").connect(functor(&Lowering::set_weaks_as_statics, *this));
     }
 
     void Lowering::run(DTO& dto)
@@ -72,11 +77,27 @@ namespace TL { namespace Nanox {
         set_openmp_programming_model(global_node);
     }
 
+    void Lowering::set_weaks_as_statics(const std::string& str)
+    {
+        parse_boolean_option("set_weaks_as_statics", str, _static_weak_symbols, "Assuming false.");
+    }
+
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
     {
         Source src;
-         src << "static __attribute__((section(\"nanos_init\")))"
-             << "nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };";
+        if (!_static_weak_symbols)
+        {
+            src
+                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+        else
+        {
+            // Some compilers (like ICC) may require this
+            src
+                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
 
         FORTRAN_LANGUAGE()
         {
@@ -87,13 +108,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::List& extra_c_code = this->get_extra_c_code();
 
-        // Figure a better way!
-        for (Nodecl::List::iterator it = n.begin();
-                it != n.end();
-                it++)
-        {
-            extra_c_code.push_back(*it);
-        }
+        extra_c_code.append(n);
 
         FORTRAN_LANGUAGE()
         {

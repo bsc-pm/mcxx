@@ -284,6 +284,18 @@ namespace TL
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
             Type get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
+            
+            //! Returns a ranged array to the current type with descriptor
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to_with_region(Nodecl::NodeclBase lower_bound, 
+                    Nodecl::NodeclBase upper_bound, 
+                    Nodecl::NodeclBase region_lower_bound,
+                    Nodecl::NodeclBase region_upper_bound,
+                    Scope scope);
 
             //! Gets a lvalue reference (C++) to the current type
             Type get_lvalue_reference_to();

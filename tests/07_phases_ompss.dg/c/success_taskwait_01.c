@@ -28,43 +28,25 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#define MAX_ELEMS 100
+int foo(void)
+{
+        return 999;
+}
 
 int main(int argc, char *argv[])
 {
-    int c[MAX_ELEMS];
-    int i;
+        int result=666;
+        #pragma omp task out(result)
+        result = foo();
+        #pragma omp taskwait on(result)
+        if (result != 999) abort();
 
-    memset(c, 0, sizeof(c));
-
-#pragma omp for
-    for (i = 0; i < MAX_ELEMS; i++)
-    {
-        c[i] = i;
-    }
-
-#pragma omp for
-    for (i = 0; i < MAX_ELEMS; i++)
-    {
-        c[i] = i;
-    }
-
-    for (i = 0; i < MAX_ELEMS; i++)
-    {
-        if (c[i] != i)
-        {
-            fprintf(stderr, "c[%d] == %d != %d\n", i, c[i], i);
-            abort();
-        }
-    }
-
-    return 0;
+        return 0;
 }

@@ -257,14 +257,12 @@ namespace Codegen
             // Set of names actively used in the current scoping unit
             // This is used for renames (see later)
             typedef std::set<std::string> name_set_t;
-            name_set_t _name_set;
             std::vector<name_set_t> _name_set_stack;
 
             // Given a symbol, its rename, if any. When _name_set detects
             // that a name has already been used in this scoping unit
             // a rename for it is computed, and then kep here
             typedef std::map<TL::Symbol, std::string> rename_map_t;
-            rename_map_t _rename_map;
             std::vector<rename_map_t> _rename_map_stack;
 
             std::vector<TL::Symbol> _being_declared_stack;
@@ -333,8 +331,8 @@ namespace Codegen
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo&);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo&);
 
-            void declare_global_entities(Nodecl::NodeclBase node);
-            void do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
+            void declare_module_level_entities(Nodecl::NodeclBase node);
+            void do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase, void *data);
 
             void codegen_write_or_read_statement(
                     const std::string& keyword,
