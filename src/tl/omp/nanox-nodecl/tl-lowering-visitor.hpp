@@ -99,6 +99,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
+        void fill_dependences_internal(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                Source arguments_accessor,
+                bool on_wait,
+                // out
+                Source& result_src
+                );
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -106,7 +115,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
-        void fill_dependences_wait(
+
+        void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out

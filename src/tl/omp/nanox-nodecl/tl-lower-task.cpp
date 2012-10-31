@@ -1088,6 +1088,18 @@ void LoweringVisitor::fill_dependences(
         Source& result_src
         )
 {
+    fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
+}
+
+void LoweringVisitor::fill_dependences_internal(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        Source arguments_accessor,
+        bool on_wait,
+        // out
+        Source& result_src
+        )
+{
     Source dependency_init;
 
     int num_deps = count_dependences(outline_info);
@@ -1372,9 +1384,20 @@ void LoweringVisitor::fill_dependences(
                         dependency_init << ", ";
                     }
 
+                    Source dep_address;
+                    if (on_wait)
+                    {
+                       dep_address << as_expression(base_address);
+                    }
+                    else
+                    {                        
+                        dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
+                            ;
+                    }
+
                     dependency_init
                         << "{"
-                        << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
+                        << dep_address << ", "
                         << dependency_flags << ", "
                         << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num << ","
