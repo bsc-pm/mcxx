@@ -34,25 +34,23 @@ compile_versions=cuda_omp
 */
 
 #include <stdlib.h>
-#include "gpu_basic.cu"
+#include "success_gpu_basic_03.cu"
 
+struct MyType
+{
+    int x;
+};
 #pragma omp target device (cuda) copy_deps
 #pragma omp task inout (*a)
-void addOne (int *a)
+void addOne (struct MyType *a)
 {
-#pragma mcc verbatim start
-	addOne_gpu <<<1, 1>>> (a);
-#pragma mcc verbatim end
+    struct dim3 x1,x2;
+	addOne_gpu <<<x1, x2>>> (&(a->x));
 }
 
 
 int main (int argc, char *argv[])
 {
-	int a = 1;
-
-	addOne(&a);
-
-	if (a != 2) abort();
-
+	addOne((struct MyType*) 0);
 	return 0;
 }

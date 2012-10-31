@@ -39,7 +39,8 @@
 //#include "tl-omp-nanox.hpp"
 
 #include "codegen-phase.hpp"
-#include "codegen-fortran.hpp"
+#include "codegen-cxx.hpp"
+//#include "codegen-fortran.hpp"
 
 //#include <iostream>
 //#include <fstream>
@@ -1636,6 +1637,16 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Add the unpacked function to the intermediate cuda file
     _cuda_file_code.push_back(unpacked_function_code);
 
+    // Add a declaration of the unpacked function symbol in the original source
+    if (IS_CXX_LANGUAGE)
+    {
+        Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                /* optative context */ nodecl_null(),
+                unpacked_function,
+                original_statements.get_filename(),
+                original_statements.get_line());
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+    }
 
 
     // Create the outline function
@@ -1673,22 +1684,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         << "}"
         ;
 
-    if (IS_CXX_LANGUAGE)
-    {
-        if (!outline_function.is_member())
-        {
-            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                    /* optative context */ nodecl_null(),
-                    outline_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
-        }
-    }
-
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
-    Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 }
 
 
@@ -2330,6 +2328,24 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
     }
 }
 
+bool DeviceCUDA::copy_stuff_to_device_file(Nodecl::List symbols)
+{
+    for (Nodecl::List::iterator it = symbols.begin();
+            it != symbols.end();
+            ++it)
+    {
+        Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
+        if (sym.is_function()
+                && !sym.get_function_code().is_null())
+        {
+            _cuda_file_code.push_back(Nodecl::Utils::deep_copy(
+                        sym.get_function_code(),
+                        sym.get_scope()));
+        }
+    }
+    return true;
+}
+
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (!_cuda_file_code.is_null())
@@ -2350,7 +2366,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         add_included_cuda_files(ancillary_file);
 
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
-        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
@@ -2360,14 +2376,21 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
 
-        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        Codegen::CxxBase* phase = reinterpret_cast<Codegen::CxxBase*>(configuration->codegen_phase);
 
-        source_language_t old_language = CURRENT_CONFIGURATION->source_language;
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
+        C_LANGUAGE()
+        {
+            phase->set_emit_always_extern_linkage(/* emit externs */ true);
+        }
+        phase->set_print_cuda_attributes(/* print attributes */ true);
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
-        CURRENT_CONFIGURATION->source_language = old_language;
+        C_LANGUAGE()
+        {
+            phase->set_emit_always_extern_linkage(/* emit externs */ false);
+        }
+        phase->set_print_cuda_attributes(/* print attributes */ false);
 
         fclose(ancillary_file);
 

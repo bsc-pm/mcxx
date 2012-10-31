@@ -24,32 +24,40 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_VISITOR_FUNCTION_HPP
-#define TL_VECTORIZER_VISITOR_FUNCTION_HPP
 
-#include "tl-nodecl-visitor.hpp"
+/*
+<testinfo>
+test_generator=config/mercurium-cuda
+compile_versions=cuda_omp
+</testinfo>
+*/
 
-namespace TL 
-{ 
-    namespace Vectorization
-    {
-        class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                const std::string _device;
-                const unsigned int _vector_length;
-                const TL::Type _target_type;
 
-            public:
-                VectorizerVisitorFunction(const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
+#include <stdlib.h>
 
-                virtual void visit(const Nodecl::FunctionCode& function_code);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
-        };
-    }
+#pragma omp target device(cuda)
+__global__ void addOne_gpu(int *a)
+{
+	*a += 1;
 }
 
-#endif //TL_VECTORIZER_VISITOR_FUNCTION_HPP
+#pragma omp target device (cuda) copy_deps
+#pragma omp task inout (*a)
+void addOne (int *a)
+{
+    struct dim3 x, y;
+	addOne_gpu <<<x, y>>> (a);
+}
+
+
+
+int main (int argc, char *argv[])
+{
+	int a = 1;
+
+	addOne(&a);
+
+	if (a != 2) abort();
+
+	return 0;
+}

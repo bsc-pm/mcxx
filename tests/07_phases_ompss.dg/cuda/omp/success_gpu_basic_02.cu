@@ -24,32 +24,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_VISITOR_FUNCTION_HPP
-#define TL_VECTORIZER_VISITOR_FUNCTION_HPP
 
-#include "tl-nodecl-visitor.hpp"
+/*
+<testinfo>
+test_ignore=yes
+</testinfo>
+*/
 
-namespace TL 
-{ 
-    namespace Vectorization
-    {
-        class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                const std::string _device;
-                const unsigned int _vector_length;
-                const TL::Type _target_type;
+#ifdef __CUDACC__
 
-            public:
-                VectorizerVisitorFunction(const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
-
-                virtual void visit(const Nodecl::FunctionCode& function_code);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
-        };
-    }
+__global__ void addOne_gpu(int *a)
+{
+	*a += 1;
 }
+#else
+extern void addOne_gpu(int* a);
+#endif
 
-#endif //TL_VECTORIZER_VISITOR_FUNCTION_HPP

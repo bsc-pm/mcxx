@@ -207,6 +207,8 @@ namespace TL
                      Source &device_descriptor,
                      Source &fortran_dynamic_init);
 
+             bool copy_stuff_to_device_file(Nodecl::List symbols);
+
               //  virtual void create_outline(
               //          const std::string& task_name,
               //          const std::string& struct_typename,

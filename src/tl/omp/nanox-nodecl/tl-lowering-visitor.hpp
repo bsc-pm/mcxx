@@ -52,6 +52,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
+        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+        virtual void visit(const Nodecl::OpenMP::TargetDefinition& construct);
 
     private:
 

@@ -42,6 +42,11 @@ namespace Codegen
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
         public:
+
+            CxxBase() : _emit_always_extern_linkage(false), _print_cuda_attributes(false)
+            {
+            }
+
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
@@ -202,6 +207,9 @@ namespace Codegen
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
+            void set_emit_always_extern_linkage(bool emit);
+            void set_print_cuda_attributes(bool emit);
+
         private:
 
             // State
@@ -281,6 +289,12 @@ namespace Codegen
             // End of State
 
             std::vector<TL::Scope> _scope_stack;
+
+            // States whether we should emit the extern linkage
+            bool _emit_always_extern_linkage;
+
+            // States whether we should print, if any, the cuda attributes of a symbol
+            bool _print_cuda_attributes;
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
