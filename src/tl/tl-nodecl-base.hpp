@@ -462,14 +462,53 @@ namespace Nodecl {
                 }
             }
 
-            void push_front(Nodecl::NodeclBase n)
+        private:
+            void push_back_(Nodecl::NodeclBase n)
+            {
+                insert(this->end(), n);
+            }
+
+            void push_front_(Nodecl::NodeclBase n)
             {
                 insert(this->begin(), n);
             }
-
-            void push_back(Nodecl::NodeclBase n)
+        public:
+            WARN_FUNCTION("You want to call Nodecl::List::prepend instead") void push_front(Nodecl::NodeclBase n)
             {
-                insert(this->end(), n);
+                this->push_front_(n);
+            }
+
+            WARN_FUNCTION("You want to call Nodecl::List::append instead") void push_back(Nodecl::NodeclBase n)
+            {
+                this->push_back_(n);
+            }
+
+            void append(Nodecl::NodeclBase n)
+            {
+                if (n.is<Nodecl::List>())
+                {
+                    Nodecl::List l = n.as<Nodecl::List>();
+                    for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+                    {
+                        this->push_back_(*it);
+                    }
+                }
+                else
+                    this->push_back_(n);
+            }
+
+            void prepend(Nodecl::NodeclBase n)
+            {
+                if (n.is<Nodecl::List>())
+                {
+                    Nodecl::List l = n.as<Nodecl::List>();
+                    for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+                    {
+                        this->push_front_(*it);
+                    }
+                }
+                else
+                    this->push_front_(n);
             }
 
             // Removes the iterator it

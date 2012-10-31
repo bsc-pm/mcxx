@@ -38,7 +38,8 @@ namespace TL { namespace Nanox {
             Nodecl::List distribute_environment,
             Nodecl::List ranges,
             const std::string& outline_name,
-            TL::Symbol structure_symbol)
+            TL::Symbol structure_symbol,
+            TL::Symbol slicer_descriptor)
     {
         if (ranges.size() != 1)
         {
@@ -103,7 +104,7 @@ namespace TL { namespace Nanox {
 
         Source worksharing_creation;
         worksharing_creation
-            <<     "err = nanos_worksharing_create(&wsd, current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
+            <<     "err = nanos_worksharing_create(&" << as_symbol(slicer_descriptor) << ", current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
@@ -132,7 +133,6 @@ namespace TL { namespace Nanox {
         <<     "nanos_setup_info_loop.upper_bound = " << as_expression(upper) << ";"
         <<     "nanos_setup_info_loop.loop_step = "   << as_expression(step)  << ";"
         <<     "nanos_setup_info_loop.chunk_size = nanos_chunk;"
-        <<     "nanos_ws_desc_t *wsd;"
         <<     worksharing_creation
         <<     "if (single_guard)"
         <<     "{"
@@ -142,10 +142,11 @@ namespace TL { namespace Nanox {
         <<             "nanos_handle_error(err);"
         <<         "if (sup_threads > 0)"
         <<         "{"
-        <<             "err = nanos_malloc((void**)&(wsd->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
+        <<             "err = nanos_malloc((void**)&(" << as_symbol(slicer_descriptor) << "->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
-        <<             "err = nanos_team_get_supporting_threads(&wsd->nths, wsd->threads);"
+        <<             "err = nanos_team_get_supporting_threads(&" << as_symbol(slicer_descriptor) << "->nths, " 
+        <<                        as_symbol(slicer_descriptor) << "->threads);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
@@ -167,18 +168,16 @@ namespace TL { namespace Nanox {
         <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
-        <<             "ol_args->wsd = wsd;"
         <<             statement_placeholder(fill_outline_arguments_tree)
         <<             "err = nanos_submit(nanos_wd_, 0, ( " << dependence_type << ") 0, (nanos_team_t) 0);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
-        <<             "err = nanos_free(wsd->threads);"
+        <<             "err = nanos_free(" << as_symbol(slicer_descriptor) << "->threads);"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<         "}"
         <<     "}"
         <<     immediate_decl
-        <<     "imm_args.wsd = wsd;"
         <<     statement_placeholder(fill_immediate_arguments_tree)
         /*      FIXME: This call always be always to smp outline function? */
         <<     "smp_" << outline_name << "(imm_args);"
@@ -197,6 +196,13 @@ namespace TL { namespace Nanox {
         {
             Source::source_language = SourceLanguage::Current;
         }
+
+        // Now attach the slicer symbol to its final scope
+        // See tl-lower-for.cpp
+        slicer_descriptor.get_internal_symbol()->decl_context =
+            fill_immediate_arguments_tree.retrieve_context().get_decl_context();
+        ::insert_entry(fill_immediate_arguments_tree.retrieve_context().get_decl_context().current_scope,
+                slicer_descriptor.get_internal_symbol());
 
         if (!fill_outline_arguments.empty())
         {

@@ -8750,7 +8750,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     // C only
-    // T -> T @ref@
     if (IS_C_LANGUAGE
             && is_lvalue_reference_type(dest))
     {
@@ -8759,6 +8758,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_orig = get_unqualified_type(orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
+        // T -> T @ref@
         if (equivalent_types(unqualif_orig, unqualif_ref_dest))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -8768,7 +8768,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             return 1;
         }
+        // void& -> T @ref@
+        else if (is_lvalue_reference_type(orig)
+                && is_void_type(no_ref(orig)))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Mercurium Extension for C: binding a void& to a reference type\n");
+            }
+            return 1;
+        }
     }
+
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
             && is_lvalue_reference_type(dest))

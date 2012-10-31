@@ -591,7 +591,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause untied = pragma_line.get_clause("untied");
         if (untied.is_defined())
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Untied::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -609,7 +609,7 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                execution_environment.push_back(
+                execution_environment.append(
                         Nodecl::OpenMP::Priority::make(
                             expr_list[0],
                             directive.get_filename(),
@@ -618,12 +618,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -663,12 +663,12 @@ namespace TL { namespace OpenMP {
 
         // Since the parallel construct implies a barrier at its end,
         // there is no need of adding a flush at end, because the barrier implies also a flush
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -696,20 +696,20 @@ namespace TL { namespace OpenMP {
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
 
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
 
         Nodecl::List code;
-        code.push_back(
+        code.append(
                 Nodecl::OpenMP::Single::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
@@ -751,12 +751,12 @@ namespace TL { namespace OpenMP {
         // Set the implicit OpenMP flush / barrier nodes to the environment
         if (barrier_at_end)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -764,7 +764,7 @@ namespace TL { namespace OpenMP {
 
         if (is_combined_worksharing)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -786,7 +786,7 @@ namespace TL { namespace OpenMP {
 
             Nodecl::PragmaCustomStatement p = it->as<Nodecl::PragmaCustomStatement>();
 
-            section_list.push_back(
+            section_list.append(
                     Nodecl::OpenMP::Section::make(
                         p.get_statements().shallow_copy(),
                         p.get_filename(),
@@ -853,7 +853,7 @@ namespace TL { namespace OpenMP {
                     || schedule == "runtime"
                     || schedule == "auto")
             {
-                execution_environment.push_back(
+                execution_environment.append(
                         Nodecl::OpenMP::Schedule::make(
                             chunk,
                             schedule,
@@ -869,7 +869,7 @@ namespace TL { namespace OpenMP {
         else
         {
             // def-sched-var is STATIC in our implementation
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Schedule::make(
                         ::const_value_to_nodecl(const_value_get_signed_int(0)),
                         "static",
@@ -879,13 +879,13 @@ namespace TL { namespace OpenMP {
 
         if (barrier_at_end)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
 
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -893,7 +893,7 @@ namespace TL { namespace OpenMP {
 
         if (is_combined_worksharing)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -961,12 +961,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -1231,12 +1231,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -1284,12 +1284,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())

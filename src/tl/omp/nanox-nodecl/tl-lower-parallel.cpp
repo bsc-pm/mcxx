@@ -114,7 +114,7 @@ namespace TL { namespace Nanox {
                 Source::source_language = SourceLanguage::Current;
             }
 
-            Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, inner_placeholder, *symbol_map);
+            Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(statements, construct, *symbol_map);
             delete symbol_map;
 
             inner_placeholder.replace(outline_statements_code);

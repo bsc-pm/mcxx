@@ -110,10 +110,14 @@ dist-hook:
         cp -vr $(srcdir)/$${DIR} $(distdir); \
 	done
 
-distclean-local:
+clean-local:
 	rm -f lt-mcxx_success*.c
 	rm -f lt-mcxx_failure*.c
 	rm -f lt-mcxx_success*.cpp
 	rm -f lt-mcxx_failure*.cpp
 	rm -f *backtrace.txt
 	rm -f stm_unhandled_functions*.log
+	rm -f mcc_*.c mcc_*.f90.c mcc_*.f90.o
+	rm -f mfc_*.f90 mfc_*.f90.c mfc_*.f90.o
+	rm -f aux_*.f90.c aux_*.f90.o
+	rm -f *.mod

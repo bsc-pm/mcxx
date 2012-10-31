@@ -252,6 +252,8 @@ namespace TL
             Nodecl::NodeclBase _upper_bound;
             Nodecl::NodeclBase _step;
 
+            bool _induction_variable_in_separate_scope;
+
             void analyze_loop_header();
         public:
             ForStatement(const Nodecl::ForStatement n)
@@ -263,6 +265,8 @@ namespace TL
             bool is_omp_valid_loop() const;
 
             Symbol get_induction_variable() const;
+
+            bool induction_variable_in_separate_scope() const;
 
             Nodecl::NodeclBase get_lower_bound() const;
             Nodecl::NodeclBase get_upper_bound() const;

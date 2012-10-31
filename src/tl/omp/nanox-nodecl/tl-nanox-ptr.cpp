@@ -269,13 +269,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::List& extra_c_code = _lowering->get_extra_c_code();
 
-        // Figure a better way!
-        for (Nodecl::List::iterator it = n.begin();
-                it != n.end();
-                it++)
-        {
-            extra_c_code.push_back(*it);
-        }
+        extra_c_code.append(n);
 
         return result;
     }

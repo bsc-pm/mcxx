@@ -100,6 +100,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
+        void fill_dependences_internal(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                Source arguments_accessor,
+                bool on_wait,
+                // out
+                Source& result_src
+                );
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -107,7 +116,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
-        void fill_dependences_wait(
+
+        void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
@@ -161,6 +171,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List& distribute_environment,
                 Nodecl::List& ranges,
                 OutlineInfo& outline_info,
+                TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2);
 
@@ -170,6 +181,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List& ranges,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
+                TL::Symbol slicer_descriptor,
                 Source &outline_distribute_loop_source,
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
@@ -183,7 +195,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::List distribute_environment,
                 Nodecl::List ranges,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                TL::Symbol slicer_descriptor);
 
         Source full_barrier_source();
 
@@ -218,6 +231,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+
+        void add_field(OutlineDataItem& outline_data_item, 
+                TL::Type new_class_type,
+                TL::Scope class_scope,
+                TL::Symbol new_class_symbol,
+                Nodecl::NodeclBase construct);
 
         static Nodecl::NodeclBase get_size_for_dimension(
                 TL::Type array_type,
