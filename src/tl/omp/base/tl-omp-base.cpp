@@ -172,6 +172,20 @@ namespace TL { namespace OpenMP {
                         line,
                         result_list);
 
+                make_dependency_list<Nodecl::OpenMP::Concurrent>(
+                        task_dependences,
+                        OpenMP::DEP_CONCURRENT,
+                        filename,
+                        line,
+                        result_list);
+
+                make_dependency_list<Nodecl::OpenMP::Commutative>(
+                        task_dependences,
+                        OpenMP::DEP_COMMUTATIVE,
+                        filename,
+                        line,
+                        result_list);
+
                 // Make sure the remaining symbols are firstprivate
                 std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
