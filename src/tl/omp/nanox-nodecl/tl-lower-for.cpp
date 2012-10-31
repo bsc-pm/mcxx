@@ -52,6 +52,10 @@ namespace TL { namespace Nanox {
             TL::Symbol ind_var = range_item.get_symbol();
             Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
 
+            // Mark the induction variable as a private entity
+            OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
+            outline_info_register.add_private(ind_var);
+
             if (range.get_step().is_constant())
             {
                 const_value_t* cval = range.get_step().get_constant();
@@ -278,7 +282,13 @@ namespace TL { namespace Nanox {
         std::stringstream ss;
         ss << "wsd_" << (int)arg_counter++;
 
-        TL::Symbol slicer_descriptor = statements.retrieve_context().new_symbol(ss.str());
+        // Create a detached symbol. Will put in a scope later, in loop_spawn
+        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::calloc(1, sizeof(*slicer_descriptor_internal));
+        // This is a transient scope but it will be changed before inserting the symbol
+        // to its final scope
+        slicer_descriptor_internal->decl_context = construct.retrieve_context().get_decl_context();
+        TL::Symbol slicer_descriptor(slicer_descriptor_internal);
+        slicer_descriptor.get_internal_symbol()->symbol_name = ::uniquestr(ss.str().c_str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
         slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
@@ -317,12 +327,23 @@ namespace TL { namespace Nanox {
                 it != outline_data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE
-                    || ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE))
+            if ((*it)->get_is_lastprivate())
             {
-                lastprivate_updates
-                    << (*it)->get_symbol().get_name() << " = p_" << (*it)->get_symbol().get_name() << ";"
-                    ;
+                if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        && (*it)->get_private_type().is_array())
+                {
+                    lastprivate_updates
+                        << "__builtin_memcpy(" << (*it)->get_symbol().get_name() << "_addr, " 
+                        << (*it)->get_symbol().get_name() << ", "
+                        << "sizeof(" << as_type((*it)->get_private_type()) << "));"
+                        ;
+                }
+                else
+                {
+                    lastprivate_updates
+                        << "*(" << (*it)->get_symbol().get_name() << "_addr) = " << (*it)->get_symbol().get_name() << ";"
+                        ;
+                }
                 num_items++;
             }
         }

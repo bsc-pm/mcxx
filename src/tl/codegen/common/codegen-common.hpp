@@ -57,10 +57,10 @@ namespace Codegen
             CodegenVisitor();
 
             bool is_file_output() const;
-
-            std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);
+            void set_is_file_output(bool b);
 
             void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
+            std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 

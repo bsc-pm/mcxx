@@ -78,8 +78,8 @@ namespace TL
             std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range = 
                 _versions.equal_range(func_name);
 
-            typename versions_map_t::const_iterator it;
-            typename versions_map_t::const_iterator best_version = _versions.end();
+            versions_map_t::const_iterator it;
+            versions_map_t::const_iterator best_version = _versions.end();
 
             for (it = func_range.first;
                     it != func_range.second;

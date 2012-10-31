@@ -197,6 +197,13 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
+        // Now attach the slicer symbol to its final scope
+        // See tl-lower-for.cpp
+        slicer_descriptor.get_internal_symbol()->decl_context =
+            fill_immediate_arguments_tree.retrieve_context().get_decl_context();
+        ::insert_entry(fill_immediate_arguments_tree.retrieve_context().get_decl_context().current_scope,
+                slicer_descriptor.get_internal_symbol());
+
         if (!fill_outline_arguments.empty())
         {
             Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);

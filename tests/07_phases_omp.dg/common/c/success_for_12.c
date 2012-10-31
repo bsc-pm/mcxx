@@ -29,18 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_exec_fail_nanos4_plain_1thread=yes
-test_exec_faulty_nanos4_plain_1thread=yes
-test_exec_fail_nanos4_plain_2thread=yes
-test_exec_faulty_nanos4_plain_2thread=yes
-test_exec_fail_nanos4_plain_4thread=yes
-test_exec_faulty_nanos4_plain_4thread=yes
-
-test_compile_fail_nanox_mercurium=yes
-test_compile_faulty_nanox_mercurium=yes
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -53,11 +41,6 @@ int main(int argc, char* argv[])
 {
     int i;
     int s = 0;
-
-    // Remove me when reductions are working again
-    do not compile);
-    abort();
-    // End of Remove me
 
     #pragma omp parallel shared(s)
     {

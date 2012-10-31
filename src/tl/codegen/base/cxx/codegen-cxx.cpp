@@ -1200,6 +1200,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
         Nodecl::NodeclBase actual_arg = *arg_it;
 
+
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
 
@@ -1208,16 +1209,21 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
         if (type_it != type_end
                 && type_it->is_valid())
         {
+            while (actual_arg.is<Nodecl::Conversion>())
+            {
+                actual_arg = actual_arg.as<Nodecl::Conversion>().get_nest();
+            }
+
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
-            bool arg_is_ref = is_non_language_reference_variable(*arg_it);
+            bool arg_is_ref = is_non_language_reference_variable(actual_arg);
 
             if (param_is_ref && !arg_is_ref)
             {
-                if (arg_it->template is<Nodecl::Dereference>())
+                if (actual_arg.is<Nodecl::Dereference>())
                 {
                     // Consider this case                 [ Emitted C ]
-                    // void f(int &s, int (&v)[10])    -> void f(int* const s, int * const v)
+                    // void f(int (&v)[10])    ->         void f(int * const v)
                     // {
                     // }
                     //
@@ -1230,12 +1236,12 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
                     // Note that "*k" has type "int[10]" but then it gets converted into "int*"
                     // conversely "k" is just "int(*)[10]" but this cannot be converted into "int*"
                     bool is_array_argument =
-                        (arg_it->get_type().is_array()
-                         || (arg_it->get_type().is_any_reference()
-                             && arg_it->get_type().references_to().is_array()));
+                        (actual_arg.get_type().is_array()
+                         || (actual_arg.get_type().is_any_reference()
+                             && actual_arg.get_type().references_to().is_array()));
                     if (!is_array_argument)
                     {
-                        actual_arg = arg_it->template as<Nodecl::Dereference>().get_rhs();
+                        actual_arg = actual_arg.as<Nodecl::Dereference>().get_rhs();
                     }
                 }
                 else

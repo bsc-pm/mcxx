@@ -102,6 +102,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
+        void fill_dependences_internal(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                Source arguments_accessor,
+                bool on_wait,
+                // out
+                Source& result_src
+                );
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -109,7 +118,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
-        void fill_dependences_wait(
+
+        void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
@@ -223,6 +233,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+
+        void add_field(OutlineDataItem& outline_data_item, 
+                TL::Type new_class_type,
+                TL::Scope class_scope,
+                TL::Symbol new_class_symbol,
+                Nodecl::NodeclBase construct);
 
         static Nodecl::NodeclBase get_size_for_dimension(
                 TL::Type array_type,

@@ -592,7 +592,6 @@ void LoweringVisitor::fill_arguments(
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
                                 == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
@@ -683,7 +682,6 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
                         // 'this' is special in C++
@@ -765,7 +763,6 @@ void LoweringVisitor::fill_arguments(
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_CAPTURE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         TL::Type t = sym.get_type();
                         if (t.is_any_reference())
@@ -817,7 +814,6 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
                     {
                         TL::Type t = sym.get_type();
@@ -1092,6 +1088,18 @@ void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         Source arguments_accessor,
+        // out
+        Source& result_src
+        )
+{
+    fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
+}
+
+void LoweringVisitor::fill_dependences_internal(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        Source arguments_accessor,
+        bool on_wait,
         // out
         Source& result_src
         )
@@ -1380,9 +1388,20 @@ void LoweringVisitor::fill_dependences(
                         dependency_init << ", ";
                     }
 
+                    Source dep_address;
+                    if (on_wait)
+                    {
+                       dep_address << as_expression(base_address);
+                    }
+                    else
+                    {                        
+                        dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
+                            ;
+                    }
+
                     dependency_init
                         << "{"
-                        << "(void*)" << arguments_accessor << (*it)->get_field_name() << ","
+                        << dep_address << ", "
                         << dependency_flags << ", "
                         << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num << ","

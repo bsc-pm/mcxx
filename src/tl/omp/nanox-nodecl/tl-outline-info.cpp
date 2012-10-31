@@ -108,6 +108,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
     }
 
@@ -140,40 +142,66 @@ namespace TL { namespace Nanox {
                 in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
                 outline_info.set_in_outline_type(in_outline_type);
+
+                _outline_info.move_at_end(outline_info);
             }
         }
     }
 
-    void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
+    void OutlineInfoRegisterEntities::add_private(Symbol sym)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
-        if (captured)
-        {
-            outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE);
-        }
-        else
-        {
-            outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_PRIVATE);
-        }
-
-        Type t = sym.get_type();
+        TL::Type t = sym.get_type();
         if (t.is_any_reference())
-        {
             t = t.references_to();
-        }
 
         if (is_new)
         {
-            TL::Type in_outline_type = t.get_lvalue_reference_to();
-            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+            TL::Type in_outline_type = add_extra_dimensions(sym, t, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_field_type(t.get_pointer_to());
         outline_info.set_private_type(t);
+        outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
+
+    }
+
+    void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
+    {
+        if (captured)
+        {
+            this->add_capture(sym);
+        }
+        else
+        {
+            this->add_private(sym);
+        }
+
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+        outline_info.set_is_lastprivate(true);
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        outline_info.set_private_type(t);
+
+        // Add a new symbol just to hold the address
+        TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+        new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, "", 0);
+        sym_ref.set_type(t.get_lvalue_reference_to());
+
+        this->add_capture_with_value(
+                new_addr_symbol,
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), "", 0));
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
@@ -201,6 +229,10 @@ namespace TL { namespace Nanox {
                         if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                         {
                             outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                        }
+                        else
+                        {
+                            outline_data_item->set_field_type(TL::Type::get_void_type().get_pointer_to());
                         }
                     }
                 }
@@ -513,6 +545,8 @@ namespace TL { namespace Nanox {
             {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
+
+            _outline_info.move_at_end(outline_info);
         }
     }
 
@@ -535,6 +569,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
         outline_info.set_field_type(t);
@@ -569,6 +605,8 @@ namespace TL { namespace Nanox {
             in_outline_type = add_extra_dimensions(symbol, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
         }
 
         outline_info.set_private_type(t);
@@ -709,24 +747,11 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    bool is_new = false;
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
-
-                    if (is_new)
-                    {
-                        TL::Type in_outline_type = sym.get_type();
-                        in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
-
-                        outline_info.set_in_outline_type(in_outline_type);
-                    }
-
-                    outline_info.set_private_type(sym.get_type());
-
-                    outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
+                    add_private(sym);
 
                     if (sym.is_allocatable())
                     {
-                        error_printf("%s: error: setting a PRIVATe data-sharing to ALLOCATABLE arrays are not supported\n",
+                        error_printf("%s: error: setting a PRIVATE data-sharing to ALLOCATABLE arrays are not supported\n",
                                 private_.get_locus().c_str());
                     }
                 }
@@ -796,6 +821,23 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
+    }
+
+    void OutlineInfo::move_at_end(OutlineDataItem& item)
+    {
+        TL::ObjectList<OutlineDataItem*> new_list;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            if (*it != &item)
+            {
+                new_list.append(*it);
+            }
+        }
+        new_list.append(&item);
+
+        std::swap(_data_env_items, new_list);
     }
 
     void OutlineInfo::add_device_name(std::string device_name)
