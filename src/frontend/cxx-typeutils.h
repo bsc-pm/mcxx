@@ -746,7 +746,4 @@ LIBMCXX_EXTERN const char* print_opencl_vector_type(
         void* print_symbol_data);
 
 MCXX_END_DECLS
-
-typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
-
 #endif // CXX_TYPEUTILS_H

@@ -1353,8 +1353,8 @@ const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_
     }
     else
     {
-        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
 #ifdef HAVE_QUADMATH_H
+        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
         if (floating_info->bits == 128)
         {
             return const_value_cast_to_float128_value(val);
