@@ -29,6 +29,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -1405,6 +1406,17 @@ namespace TL { namespace OpenMP {
     {
         TL::ObjectList<Symbol> symbols;
         data_sharing_env.get_all_symbols(data_attr, symbols);
+
+        // Get the symbols in dependences
+        TL::ObjectList<DependencyItem> all_dependences;
+        data_sharing_env.get_all_dependences(all_dependences);
+        TL::ObjectList<DataReference> dependences_in_symbols
+            = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
+        TL::ObjectList<Symbol> symbols_in_dependences
+            = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
+
+        // Remove all symbols appearing in dependences
+        symbols = symbols.filter(not_in_set(symbols_in_dependences));
 
         if (!symbols.empty())
         {

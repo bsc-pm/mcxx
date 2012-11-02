@@ -362,19 +362,16 @@ namespace TL
             private:
                 OutlineInfo& _outline_info;
                 Scope _sc;
-                bool _is_function_task;
 
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
-                    : _outline_info(outline_info), _sc(sc), _is_function_task(false) { }
-
-                OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc, bool is_function_task)
-                    : _outline_info(outline_info), _sc(sc), _is_function_task(is_function_task) { }
+                    : _outline_info(outline_info), _sc(sc) { }
 
                 void add_private(Symbol sym);
-                void add_shared_opaque(Symbol sym);
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
+                void add_shared_opaque(Symbol sym);
+                void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::Directionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::Directionality directionality);
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);

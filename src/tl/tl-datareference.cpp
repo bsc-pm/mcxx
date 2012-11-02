@@ -253,18 +253,28 @@ namespace TL
                     _data_ref._data_type = t;
                 }
 
-                _data_ref._base_address =
-                    Nodecl::Reference::make(
-                            Nodecl::ArraySubscript::make(
-                                _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                Nodecl::List::make(low_subscripts),
-                                t,
+                if (array.get_subscripted().is<Nodecl::Shaping>())
+                {
+                    // The base address of a shaping expression is itself
+                }
+                else
+                {
+                    ERROR_CONDITION(!_data_ref._base_address.is<Nodecl::Reference>(), 
+                            "Invalid address for the subscripted expression", 0);
+
+                    _data_ref._base_address =
+                        Nodecl::Reference::make(
+                                Nodecl::ArraySubscript::make(
+                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
+                                    Nodecl::List::make(low_subscripts),
+                                    t,
+                                    array.get_filename(),
+                                    array.get_line()
+                                    ),
+                                t.get_pointer_to(),
                                 array.get_filename(),
-                                array.get_line()
-                                ),
-                            t.get_pointer_to(),
-                            array.get_filename(),
-                            array.get_line());
+                                array.get_line());
+                }
             }
 
             virtual void visit(const Nodecl::ClassMemberAccess& member)

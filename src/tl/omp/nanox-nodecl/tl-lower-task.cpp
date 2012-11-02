@@ -1385,15 +1385,15 @@ void LoweringVisitor::fill_dependences_internal(
                     }
 
                     Source dep_address;
-                    if (on_wait)
+                    // if (on_wait)
                     {
                        dep_address << as_expression(base_address);
                     }
-                    else
-                    {                        
-                        dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
-                            ;
-                    }
+                    // else
+                    // {                        
+                    //     dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
+                    //         ;
+                    // }
 
                     dependency_init
                         << "{"
@@ -2069,7 +2069,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
                     function_call.get_line()));
     }
 
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc, /* is_function_task */ true);
+    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
 
     extra_map_replacements_t extra_map_replacements;
 
@@ -2093,7 +2093,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            // Create a new variable holding the address of the dependency
+            // Create a new variable holding the value of the argument
             std::stringstream ss;
             ss << "mcc_arg_" << (int)arg_counter;
             TL::Symbol new_symbol = sc.new_symbol(ss.str());
@@ -2116,6 +2116,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         }
         else
         {
+            // Create a new variable holding the address of the dependency
             std::stringstream ss;
             ss << "mcc_arg_" << (int)arg_counter;
             TL::Symbol new_symbol = sc.new_symbol(ss.str());
