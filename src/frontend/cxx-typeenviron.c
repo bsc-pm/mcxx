@@ -1966,7 +1966,7 @@ void init_type_environments(void)
     linux_ppc32.sizeof_bool = 1;
     linux_ppc32.alignof_bool = 1;
 
-    linux_ppc32.int_type_of_wchar_t = get_signed_int_type;
+    linux_ppc32.int_type_of_wchar_t = get_signed_long_int_type;
     linux_ppc32.sizeof_wchar_t = 4;
     linux_ppc32.alignof_wchar_t = 4;
 

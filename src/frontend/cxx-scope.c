@@ -922,49 +922,6 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     derived->path[derived->path_length - 1] = current_class_type;
     derived->is_virtual[derived->path_length - 1] = is_virtual;
 
-    class_scope_lookup_t bases_lookup[MCXX_MAX_CLASS_BASES];
-    memset(bases_lookup, 0, sizeof(bases_lookup));
-
-    int num_bases = class_type_get_num_bases(current_class_type);
-    ERROR_CONDITION(num_bases > MCXX_MAX_CLASS_BASES, "Too many bases", 0);
-
-    for (i = 0; i < num_bases; i++)
-    {
-        char current_base_is_virtual = 0;
-        char current_base_is_dependent = 0;
-        access_specifier_t access_specifier = AS_UNKNOWN;
-        scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, 
-                &current_base_is_virtual,
-                &current_base_is_dependent,
-                &access_specifier);
-
-        if (current_base_is_dependent)
-            continue;
-
-        type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
-        decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
-        scope_t* base_class_scope = base_class_context.current_scope;
-
-        // Copy the info
-        bases_lookup[i] = *derived;
-
-        class_scope_lookup_rec(base_class_scope, name, &(bases_lookup[i]), 
-                current_base_is_virtual, /* initial_lookup */ 0, decl_flags,
-                filename, line);
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "SCOPE: Looking in class scope '");
-        for (i = 0; i < derived->path_length - 1; i++)
-        {
-            fprintf(stderr, "%s%s", 
-                    (i > 0) ? "::" : "",
-                    class_type_get_inner_context(derived->path[i]).current_scope->related_entry->symbol_name);
-        }
-        fprintf(stderr, "'\n");
-    }
-
     scope_entry_list_t* entry_list = query_name_in_scope(current_class_scope, name);
 
     if (!initial_lookup)
@@ -986,18 +943,27 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     }
     else
     {
-        int num_contributing_bases = 0;
+        // Check bases if not found in the current class
+        int num_all_bases = class_type_get_num_bases(current_class_type);
 
-        for (i = 0; i < num_bases; i++)
+        int num_nondependent_bases = 0;
+        for (i = 0; i < num_all_bases; i++)
         {
-            if (bases_lookup[i].entry_list != NULL)
-            {
-                num_contributing_bases++;
-            }
-        }
+            char current_base_is_virtual = 0;
+            char current_base_is_dependent = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
+            /* scope_entry_t* base_class_entry = */ class_type_get_base_num(current_class_type, i, 
+                    &current_base_is_virtual,
+                    &current_base_is_dependent,
+                    &access_specifier);
 
+            if (current_base_is_dependent)
+                continue;
+
+            num_nondependent_bases++;
+        }
         // Combine results from bases
-        if (num_contributing_bases == 0)
+        if (num_nondependent_bases == 0)
         {
             DEBUG_CODE()
             {
@@ -1006,98 +972,105 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
             // No results :)
             derived->entry_list = NULL;
         }
-        else if (num_contributing_bases == 1)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Not found in current class but in only one (possibly indirect) base\n");
-            }
-            // Easy case where no merge must be performed, just get the result of the only base that is not null
-            for (i = 0; i < num_bases; i++)
-            {
-                if (bases_lookup[i].entry_list != NULL)
-                {
-                    *derived = bases_lookup[i];
-                    break;
-                }
-            }
-        }
         else
         {
-            // Merge must be done. Create a candidate result based on the first
-            // and check if they refer to the same subobject (or static base
-            // class)
-            // Create the candidate, the first non null
+            class_scope_lookup_t bases_lookup[num_nondependent_bases + 1];
+            memset(bases_lookup, 0, sizeof(bases_lookup));
+
+            int num_bases = 0;
+            for (i = 0; i < num_all_bases; i++)
+            {
+                char current_base_is_virtual = 0;
+                char current_base_is_dependent = 0;
+                access_specifier_t access_specifier = AS_UNKNOWN;
+                scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, 
+                        &current_base_is_virtual,
+                        &current_base_is_dependent,
+                        &access_specifier);
+
+                if (current_base_is_dependent)
+                    continue;
+
+                type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
+                decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
+                scope_t* base_class_scope = base_class_context.current_scope;
+
+                // Get the info from the base
+                class_scope_lookup_t current_base_info = *derived;
+
+                // Lookup in the base
+                class_scope_lookup_rec(base_class_scope, name, &current_base_info,
+                        current_base_is_virtual, /* initial_lookup */ 0, decl_flags,
+                        filename, line);
+
+                // If the result is valid, add it
+                if (current_base_info.entry_list != NULL)
+                {
+                    bases_lookup[num_bases] = current_base_info;
+                    num_bases++;
+                }
+            }
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Name found in two or more bases, will have to check if they come from the same subobject\n");
-            }
-
-            char valid = 0;
-            int index_candidate = -1;
-            for (i = 0; i < num_bases; i++)
-            {
-                if (bases_lookup[i].entry_list != NULL)
+                fprintf(stderr, "SCOPE: Looking in class scope '");
+                for (i = 0; i < derived->path_length - 1; i++)
                 {
-                    *derived = bases_lookup[i];
-                    index_candidate = i;
-                    valid = 1;
+                    fprintf(stderr, "%s%s", 
+                            (i > 0) ? "::" : "",
+                            class_type_get_inner_context(derived->path[i]).current_scope->related_entry->symbol_name);
                 }
+                fprintf(stderr, "'\n");
             }
 
-            char finished = 0;
-            char several_subobjects = 0;
-            for (i = 0; (i < num_bases) && !finished && valid; i++)
+            // Combine results from bases
+            if (num_bases == 1)
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: Checking entity '%s' found to come from different base classes\n",
-                            name);
+                    fprintf(stderr, "SCOPE: Not found in current class but in only one (possibly indirect) base\n");
                 }
-                class_scope_lookup_t *current = &(bases_lookup[i]);
 
-                if ((current->entry_list == NULL)
-                        || (index_candidate == i))
-                    continue;
-
-                int path_candidate = derived->path_length - 1;
-                int path_current = current->path_length - 1;
+                // Only a single base
+                *derived = bases_lookup[0];
+            }
+            else if (num_bases > 1)
+            {
+                // Merge must be done. Create a candidate result based on the first
+                // and check if they refer to the same subobject (or static base
+                // class)
+                // Create the candidate, the first non null
 
                 DEBUG_CODE()
                 {
-                    int k;
-                    fprintf(stderr, "SCOPE: First one is '");
-                    for (k = 0; k < derived->path_length; k++)
-                    {
-                        fprintf(stderr, "%s%s%s", 
-                                derived->is_virtual[k] ? "<v>" : "",
-                                class_type_get_inner_context(derived->path[k]).current_scope->related_entry->symbol_name,
-                                ((k+1) < derived->path_length) ? "::" : "");
-                    }
-                    fprintf(stderr, "'\n");
-                    fprintf(stderr, "SCOPE: Second one is '");
-                    for (k = 0; k < current->path_length; k++)
-                    {
-                        fprintf(stderr, "%s%s%s", 
-                                current->is_virtual[k] ? "<v>" : "",
-                                class_type_get_inner_context(current->path[k]).current_scope->related_entry->symbol_name,
-                                ((k+1) < current->path_length) ? "::" : "");
-                    }
-                    fprintf(stderr, "'\n");
+                    fprintf(stderr, "SCOPE: Name found in two or more bases, will have to check if they come from the same subobject\n");
                 }
 
-                if (current->path[path_current]
-                        != derived->path[path_candidate])
+                char valid = 1;
+                int index_candidate = 0;
+                *derived = bases_lookup[0];
+
+                char finished = 0;
+                char several_subobjects = 0;
+                for (i = 0; (i < num_bases) && !finished && valid; i++)
                 {
-                    // Cannot be the same because they do not end in the same class
-                    finished = 1;
-                    valid = 0;
+                    if (index_candidate == i)
+                        continue;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Checking entity '%s' found to come from different base classes\n",
+                                name);
+                    }
+                    class_scope_lookup_t *current = &(bases_lookup[i]);
+
+
+                    int path_candidate = derived->path_length - 1;
+                    int path_current = current->path_length - 1;
+
                     DEBUG_CODE()
                     {
                         int k;
-                        fprintf(stderr, "SCOPE: Entity '%s' entity found to come from different subobjects\n",
-                                name);
                         fprintf(stderr, "SCOPE: First one is '");
                         for (k = 0; k < derived->path_length; k++)
                         {
@@ -1117,92 +1090,125 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                         }
                         fprintf(stderr, "'\n");
                     }
-                }
-                else
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "SCOPE: Entity '%s' seems to come from the same "
-                                "class but it still might come from different subobjects\n", name);
-                    }
 
-                    // Unless we prove the opposite
-                    // they come from several subobjects
-                    several_subobjects = 1;
-                    while ((path_candidate > 0
-                                && path_current > 0)
-                            && !finished)
+                    if (current->path[path_current]
+                            != derived->path[path_candidate])
                     {
-                        if (derived->path[path_candidate] == current->path[path_current])
+                        // Cannot be the same because they do not end in the same class
+                        finished = 1;
+                        valid = 0;
+                        DEBUG_CODE()
                         {
-                            DEBUG_CODE()
+                            int k;
+                            fprintf(stderr, "SCOPE: Entity '%s' entity found to come from different subobjects\n",
+                                    name);
+                            fprintf(stderr, "SCOPE: First one is '");
+                            for (k = 0; k < derived->path_length; k++)
                             {
-                                fprintf(stderr, "SCOPE: We reached same classes '%s' and '%s'\n",
-                                        class_type_get_inner_context(derived->path[path_candidate]).current_scope->related_entry->symbol_name,
-                                        class_type_get_inner_context(current->path[path_current]).current_scope->related_entry->symbol_name);
-
+                                fprintf(stderr, "%s%s%s", 
+                                        derived->is_virtual[k] ? "<v>" : "",
+                                        class_type_get_inner_context(derived->path[k]).current_scope->related_entry->symbol_name,
+                                        ((k+1) < derived->path_length) ? "::" : "");
                             }
-                            if (derived->is_virtual[path_candidate]
-                                    && current->is_virtual[path_current])
+                            fprintf(stderr, "'\n");
+                            fprintf(stderr, "SCOPE: Second one is '");
+                            for (k = 0; k < current->path_length; k++)
                             {
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "SCOPE: Entity '%s' found to come from the same (shared) subobject\n",
-                                            name);
-                                }
-                                several_subobjects = 0;
-                                finished = 1;
+                                fprintf(stderr, "%s%s%s", 
+                                        current->is_virtual[k] ? "<v>" : "",
+                                        class_type_get_inner_context(current->path[k]).current_scope->related_entry->symbol_name,
+                                        ((k+1) < current->path_length) ? "::" : "");
                             }
+                            fprintf(stderr, "'\n");
                         }
-                        path_current--;
-                        path_candidate--;
                     }
-
-                    if (several_subobjects)
+                    else
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "SCOPE: Entity '%s' found to come from the different subobjects\n",
-                                    name);
+                            fprintf(stderr, "SCOPE: Entity '%s' seems to come from the same "
+                                    "class but it still might come from different subobjects\n", name);
                         }
-                    }
 
-                }
-            }
-
-            if (valid)
-            {
-                if (several_subobjects)
-                {
-                    scope_entry_list_iterator_t* it = NULL; 
-                    for (it = entry_list_iterator_begin(derived->entry_list);
-                            !entry_list_iterator_end(it);
-                            entry_list_iterator_next(it))
-                    {
-                        scope_entry_t* entry = entry_list_iterator_current(it);
-                        if (entry->kind == SK_VARIABLE
-                                || entry->kind == SK_FUNCTION
-                                /* || entry->kind == SK_TEMPLATE_FUNCTION */)
+                        // Unless we prove the opposite
+                        // they come from several subobjects
+                        several_subobjects = 1;
+                        while ((path_candidate > 0
+                                    && path_current > 0)
+                                && !finished)
                         {
-                            valid = (entry->entity_specs.is_static);
+                            if (derived->path[path_candidate] == current->path[path_current])
+                            {
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "SCOPE: We reached same classes '%s' and '%s'\n",
+                                            class_type_get_inner_context(derived->path[path_candidate]).current_scope->related_entry->symbol_name,
+                                            class_type_get_inner_context(current->path[path_current]).current_scope->related_entry->symbol_name);
+
+                                }
+                                if (derived->is_virtual[path_candidate]
+                                        && current->is_virtual[path_current])
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "SCOPE: Entity '%s' found to come from the same (shared) subobject\n",
+                                                name);
+                                    }
+                                    several_subobjects = 0;
+                                    finished = 1;
+                                }
+                            }
+                            path_current--;
+                            path_candidate--;
+                        }
+
+                        if (several_subobjects)
+                        {
                             DEBUG_CODE()
                             {
-                                if (!valid)
+                                fprintf(stderr, "SCOPE: Entity '%s' found to come from the different subobjects\n",
+                                        name);
+                            }
+                        }
+
+                    }
+                }
+
+                if (valid)
+                {
+                    if (several_subobjects)
+                    {
+                        scope_entry_list_iterator_t* it = NULL; 
+                        for (it = entry_list_iterator_begin(derived->entry_list);
+                                !entry_list_iterator_end(it);
+                                entry_list_iterator_next(it))
+                        {
+                            scope_entry_t* entry = entry_list_iterator_current(it);
+                            if (entry->kind == SK_VARIABLE
+                                    || entry->kind == SK_FUNCTION
+                                    /* || entry->kind == SK_TEMPLATE_FUNCTION */)
+                            {
+                                valid = (entry->entity_specs.is_static);
+                                DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "SCOPE: One of the entities is not static so lookup of '%s' is not valid\n", 
-                                            name);
+                                    if (!valid)
+                                    {
+                                        fprintf(stderr, "SCOPE: One of the entities is not static "
+                                                "so lookup of '%s' is not valid\n", 
+                                                name);
+                                    }
                                 }
                             }
                         }
+                        entry_list_iterator_free(it);
                     }
-                    entry_list_iterator_free(it);
                 }
-            }
 
-            if (!valid)
-            {
-                entry_list_free(derived->entry_list);
-                derived->entry_list = NULL;
+                if (!valid)
+                {
+                    entry_list_free(derived->entry_list);
+                    derived->entry_list = NULL;
+                }
             }
         }
     }

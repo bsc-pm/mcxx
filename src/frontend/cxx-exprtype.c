@@ -9837,7 +9837,7 @@ static void check_postoperator_user_defined(
     entry_list_free(old_overload_set);
     entry_list_free(operator_overload_set);
 
-    scope_entry_t* conversors[1] = { NULL };
+    scope_entry_t* conversors[2] = { NULL, NULL };
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -9852,7 +9852,9 @@ static void check_postoperator_user_defined(
     entry_list_iterator_free(it);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
-            decl_context, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr), 
+            decl_context, 
+            nodecl_get_filename(postoperated_expr), 
+            nodecl_get_line(postoperated_expr), 
             conversors);
 
     if (overloaded_call == NULL)
@@ -9863,13 +9865,18 @@ static void check_postoperator_user_defined(
                     get_operator_function_name(operator),
                     decl_context,
                     num_arguments, argument_types,
-                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                    nodecl_get_filename(postoperated_expr), 
+                    nodecl_get_line(postoperated_expr));
         }
-        *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+        *nodecl_output = nodecl_make_err_expr(
+                nodecl_get_filename(postoperated_expr), 
+                nodecl_get_line(postoperated_expr));
         return;
     }
 
-    if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)))
+    if (function_has_been_deleted(decl_context, overloaded_call, 
+                nodecl_get_filename(postoperated_expr), 
+                nodecl_get_line(postoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         return;
@@ -9887,7 +9894,9 @@ static void check_postoperator_user_defined(
         {
             if (conversors[0] != NULL)
             {
-                if (function_has_been_deleted(decl_context, conversors[0], nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)))
+                if (function_has_been_deleted(decl_context, conversors[0], 
+                            nodecl_get_filename(postoperated_expr), 
+                            nodecl_get_line(postoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
                     return;
@@ -9895,11 +9904,16 @@ static void check_postoperator_user_defined(
 
                 postoperated_expr =
                     cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
-                            nodecl_make_list_1(postoperated_expr),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_filename(postoperated_expr), 
+                            nodecl_make_symbol(conversors[0], 
+                                nodecl_get_filename(postoperated_expr), 
                                 nodecl_get_line(postoperated_expr)),
-                            actual_type_of_conversor(conversors[0]), nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                            nodecl_make_list_1(postoperated_expr),
+                            nodecl_make_cxx_function_form_implicit(
+                                nodecl_get_filename(postoperated_expr), 
+                                nodecl_get_line(postoperated_expr)),
+                            actual_type_of_conversor(conversors[0]), 
+                            nodecl_get_filename(postoperated_expr), 
+                            nodecl_get_line(postoperated_expr));
             }
         }
     }
@@ -9916,13 +9930,18 @@ static void check_postoperator_user_defined(
     {
         *nodecl_output =
             cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    nodecl_make_symbol(overloaded_call, 
+                        nodecl_get_filename(postoperated_expr), 
+                        nodecl_get_line(postoperated_expr)),
                     nodecl_make_list_2(/* 0 */
                         postoperated_expr,
                         const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
-                    nodecl_make_cxx_function_form_unary_postfix(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    nodecl_make_cxx_function_form_unary_postfix(
+                        nodecl_get_filename(postoperated_expr), 
+                        nodecl_get_line(postoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information),
-                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                    nodecl_get_filename(postoperated_expr), 
+                    nodecl_get_line(postoperated_expr));
     }
 }
 
@@ -10177,7 +10196,7 @@ static void check_postoperator(AST operator,
             postoperator_result);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
-    
+
     // Only C++ after this point
     check_postoperator_user_defined(operator, 
             postoperated_expr, decl_context, builtins, nodecl_fun, nodecl_output);
