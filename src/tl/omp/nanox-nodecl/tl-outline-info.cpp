@@ -148,6 +148,41 @@ namespace TL { namespace Nanox {
         }
     }
 
+    void OutlineInfoRegisterEntities::add_capture_address(Symbol sym, TL::DataReference& data_ref)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        outline_info.set_base_address_expression(data_ref.get_base_address());
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        if (t.is_array())
+        {
+            t = t.array_element().get_pointer_to();
+        }
+
+        outline_info.set_field_type(t.get_unqualified_type());
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
     void OutlineInfoRegisterEntities::add_private(Symbol sym)
     {
         bool is_new = false;
@@ -429,31 +464,23 @@ namespace TL { namespace Nanox {
         if (data_ref.is_valid())
         {
             TL::Symbol sym = data_ref.get_base_symbol();
-            if (!_is_function_task)
+            if (IS_FORTRAN_LANGUAGE)
             {
-                // If we are in an inline task, dependences are
-                // truly shared...
-                if (IS_FORTRAN_LANGUAGE)
-                {
-                    add_shared_opaque(sym);
-                }
-                else
-                {
-                    add_shared(sym);
-                }
+                add_shared_opaque(sym);
+            }
+            else if (data_ref.is<Nodecl::Symbol>())
+            {
+                add_shared(sym);
             }
             else
             {
-                // ... but in function tasks, dependences have just
-                // their addresses captured
-                add_capture(sym);
+                add_capture_address(sym, data_ref);
             }
 
             OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
             outline_info.set_directionality(
                     OutlineDataItem::Directionality(directionality | outline_info.get_directionality())
                     );
-
             outline_info.get_dependences().append(data_ref);
         }
         else
@@ -485,18 +512,10 @@ namespace TL { namespace Nanox {
             if (data_ref.is_valid())
             {
                 TL::Symbol sym = data_ref.get_base_symbol();
-                if (!_is_function_task)
-                {
-                    // If we are in an inline task, dependences are
-                    // truly shared...
-                    add_shared(sym);
-                }
-                else
-                {
-                    // ... but in function tasks, dependences have just
-                    // their addresses captured
-                    add_capture(sym);
-                }
+                // -- FIXME ---
+                // If we are in an inline task, dependences are
+                // truly shared...
+                add_shared(sym);
 
                 OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
                 outline_info.set_copy_directionality(
@@ -617,8 +636,8 @@ namespace TL { namespace Nanox {
         private:
             OutlineInfo& _outline_info;
         public:
-            OutlineInfoSetupVisitor(OutlineInfo& outline_info, TL::Scope sc, bool is_function_task)
-                : OutlineInfoRegisterEntities(outline_info, sc, is_function_task), 
+            OutlineInfoSetupVisitor(OutlineInfo& outline_info, TL::Scope sc)
+                : OutlineInfoRegisterEntities(outline_info, sc),
                 _outline_info(outline_info)
             {
             }
@@ -631,7 +650,7 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n", 
+                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
                             it->get_locus().c_str(),
                             sym.get_name().c_str());
                 }
@@ -801,7 +820,7 @@ namespace TL { namespace Nanox {
         {
             sc = environment.retrieve_context();
         }
-        OutlineInfoSetupVisitor setup_visitor(*this, sc, is_function_task);
+        OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
     }
 

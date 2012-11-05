@@ -99,7 +99,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
             else
             {
                 AST previous_interpretation = ast_get_ambiguity(a, valid_option);
-                char chosen_result = 0;
+                int chosen_result = 0;
 
                 if (ambiguity_choose_interpretation != NULL)
                 {
@@ -184,7 +184,7 @@ char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *in
             else
             {
                 AST previous_interpretation = ast_get_ambiguity(a, valid_option);
-                char chosen_result = 0;
+                int chosen_result = 0;
 
                 if (ambiguity_choose_interpretation != NULL)
                 {
