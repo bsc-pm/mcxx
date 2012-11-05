@@ -74,8 +74,8 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
+                //case OutlineDataItem::SHARING_SHARED_PRIVATE:
+                //case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 
@@ -85,8 +85,9 @@ namespace TL { namespace Nanox {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
                             if (((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                        || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE
-                                        || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE)
+                                        //|| (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE
+                                        //|| (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_PRIVATE
+                                        )
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 argument << "*(args." << (*it)->get_field_name() << ")";
@@ -108,14 +109,14 @@ namespace TL { namespace Nanox {
                             internal_error("running error fortran not supported", 0);
                         }
 
-                        if  ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE)
-                        {
-                            std::string name = (*it)->get_symbol().get_name();
+                       // if  ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE)
+                       // {
+                       //     std::string name = (*it)->get_symbol().get_name();
 
-                            private_entities
-                                << "p_" << name << " = " << name << ";"
-                                ;
-                        }
+                       //     private_entities
+                       //         << "p_" << name << " = " << name << ";"
+                       //         ;
+                       // }
 
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
@@ -271,7 +272,7 @@ namespace TL { namespace Nanox {
     Source device_outline_name;
 
     device_outline_name << fpga_outline_name(outline_name);
-
+//*
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
@@ -284,7 +285,7 @@ namespace TL { namespace Nanox {
     {
         internal_error("Unsupported Nanos version.", 0);
     }
-
+//*/
     device_descriptor
         << "{ nanos_fpga_factory,  &" << outline_name << "_args },";
         ;
@@ -445,31 +446,31 @@ namespace TL { namespace Nanox {
                         private_symbols.append(private_sym);
                         break;
                     }
-                case OutlineDataItem::SHARING_SHARED_PRIVATE:
-                case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
-                    {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, 
-                                ("p_" + name).c_str());
-                        private_sym->kind = SK_VARIABLE;
-                        private_sym->type_information = (*it)->get_private_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                //case OutlineDataItem::SHARING_SHARED_PRIVATE:
+                //case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
+                //    {
+                //        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, 
+                //                ("p_" + name).c_str());
+                //        private_sym->kind = SK_VARIABLE;
+                //        private_sym->type_information = (*it)->get_private_type().get_internal_type();
+                //        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                        if (sym.is_valid())
-                        {
-                            symbol_map->add_map(sym, private_sym);
+                //        if (sym.is_valid())
+                //        {
+                //            symbol_map->add_map(sym, private_sym);
 
-                            // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+                //            // Copy attributes that must be preserved
+                //            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
 
-                            // We do not want it be mapped again
-                            // in the fall-through branch
-                            already_mapped = true;
-                        }
+                //            // We do not want it be mapped again
+                //            // in the fall-through branch
+                //            already_mapped = true;
+                //        }
 
-                        private_symbols.append(private_sym);
+                //        private_symbols.append(private_sym);
 
-                        /* FALL THROUGH */
-                    }
+                //        /* FALL THROUGH */
+                //    }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
