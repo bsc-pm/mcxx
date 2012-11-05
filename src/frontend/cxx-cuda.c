@@ -75,6 +75,9 @@ static type_t* cuda_get_dim3_type(void)
             new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
         }
         new_class_sym->kind = SK_CLASS;
+
+        // We are not interested in define this special class because It is a
+        // built-in data type of CUDA
         new_class_sym->do_not_print = 1;
 
         new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
@@ -103,6 +106,9 @@ static type_t* cuda_get_dim3_type(void)
             member_sym->entity_specs.is_member = 1;
             member_sym->entity_specs.access = AS_PUBLIC;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
+
+            // The members of this special class should not be defined neither
+            member_sym->do_not_print = 1;
 
             class_type_add_member(new_class_sym->type_information, member_sym);
         }
