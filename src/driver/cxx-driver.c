@@ -449,7 +449,7 @@ static void print_version(void);
 static void driver_initialization(int argc, const char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
-static void finalize_committed_configuration(void);
+static void finalize_committed_configuration(compilation_configuration_t*);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
@@ -547,9 +547,6 @@ int main(int argc, char* argv[])
         }
         exit(EXIT_FAILURE);
     }
-
-    // This performs additional steps depending on some enabled features
-    finalize_committed_configuration();
 
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
@@ -2490,6 +2487,8 @@ static void commit_configuration(void)
             P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
                     strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
         }
+
+        finalize_committed_configuration(configuration);
     }
 
     DEBUG_CODE()
@@ -2502,71 +2501,71 @@ static void commit_configuration(void)
     }
 }
 
-static void register_upc_pragmae(void);
-static void enable_hlt_phase(void);
+static void register_upc_pragmae(compilation_configuration_t* configuration);
+static void enable_hlt_phase(compilation_configuration_t* configuration);
 
-static void finalize_committed_configuration(void)
+static void finalize_committed_configuration(compilation_configuration_t* configuration)
 {
     // OpenMP support involves omp pragma
-    if (CURRENT_CONFIGURATION->enable_openmp)
+    if (configuration->enable_openmp)
     {
-        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
+        config_add_preprocessor_prefix(configuration, /* index */ NULL, "omp");
     }
     else
     {
         // Disable empty sentinels
-        CURRENT_CONFIGURATION->disable_empty_sentinels = 1;
+        configuration->disable_empty_sentinels = 1;
     }
 
     // UPC support involves some specific pragmae
-    if (CURRENT_CONFIGURATION->enable_upc)
+    if (configuration->enable_upc)
     {
-        register_upc_pragmae();
+        register_upc_pragmae(configuration);
     }
 
     // HLT additional support
-    if (CURRENT_CONFIGURATION->enable_hlt)
+    if (configuration->enable_hlt)
     {
-        enable_hlt_phase();
+        enable_hlt_phase(configuration);
     }
 }
 
-static void enable_hlt_phase(void)
+static void enable_hlt_phase(compilation_configuration_t* configuration)
 {
     // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
     // Register '#pragma hlt'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "hlt");
+    config_add_preprocessor_prefix(configuration, /* index */ NULL, "hlt");
 
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM_HLT");
+    add_to_parameter_list_str(&configuration->preprocessor_options, "-D_MERCURIUM_HLT");
 
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
 	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
 	cl->func = compiler_regular_phase_loader;
 	cl->data = (void*)uniquestr(library_name);
-    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->phase_loader, 
-            CURRENT_CONFIGURATION->num_compiler_phases,
+    P_LIST_ADD_PREPEND(configuration->phase_loader, 
+            configuration->num_compiler_phases,
 			cl);
 }
 
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
 // where we cannot call driver functions, so we will implement here
 // maybe a better file to put it would be cxx-upc-driver.c
-static void register_upc_pragmae(void)
+static void register_upc_pragmae(compilation_configuration_t* configuration)
 {
     // Register '#pragma upc'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "upc");
-    // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
+    config_add_preprocessor_prefix(configuration, /* index */ NULL, "upc");
+    // Lexer already uses configuration this is why it is not specified here
     // Register '#pragma upc relaxed'
-    register_new_directive("upc", "relaxed", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
+    register_new_directive(configuration, "upc", "relaxed", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
     // Register '#pragma upc strict'
-    register_new_directive("upc", "strict", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
+    register_new_directive(configuration, "upc", "strict", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "distributed");
+    config_add_preprocessor_prefix(configuration, /* index */ NULL, "distributed");
     // Register the empty directive since the syntax is '#pragma distributed'
-    register_new_directive("distributed", "", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
+    register_new_directive(configuration, "distributed", "", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 }
 
 static void compile_every_translation_unit_aux_(int num_translation_units,
@@ -4231,9 +4230,12 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             do_combining(target_map, configuration);
 
             // Now add the linked output as an additional link file
-            P_LIST_ADD((*additional_files), 
-                    (*num_additional_files), 
-                    configuration->linked_output_filename);
+            if (target_map->do_combining)
+            {
+                P_LIST_ADD((*additional_files), 
+                        (*num_additional_files), 
+                        configuration->linked_output_filename);
+            }
         }
     }
 }

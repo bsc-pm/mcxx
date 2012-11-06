@@ -149,6 +149,8 @@ namespace TL
                 virtual void run(TL::DTO& dto);
                 virtual void pre_run(TL::DTO& dto);
 
+                virtual void phase_cleanup(TL::DTO& data_flow);
+
                 virtual ~Core() { }
 
                 RefPtr<OpenMP::Info> get_openmp_info();
