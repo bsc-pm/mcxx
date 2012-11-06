@@ -96,7 +96,9 @@ namespace TL
 
                 std::stack<TargetContext> _target_context;
 
-                void common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx);
+                void common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
+                        TargetContext& target_ctx,
+                        TL::Scope scope);
 
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);

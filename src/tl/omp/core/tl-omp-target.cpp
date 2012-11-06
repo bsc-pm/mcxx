@@ -34,7 +34,9 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx)
+        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
+                TargetContext& target_ctx,
+                TL::Scope scope)
         {
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
@@ -55,19 +57,19 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions();
+                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions();
+                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions();
+                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
@@ -79,7 +81,7 @@ namespace TL
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions();
+                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions(scope);
 
                 if (implements_list.size() != 1)
                 {
@@ -121,8 +123,6 @@ namespace TL
         {
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
-
-            common_target_handler_pre(pragma_line, target_ctx);
 
             if (target_ctx.has_implements)
             {
@@ -180,6 +180,12 @@ namespace TL
                     return;
                 }
             }
+
+            // Now get a suitable scope for this symbol
+
+            common_target_handler_pre(pragma_line, target_ctx,
+                    ctr.get_context_of_parameters().retrieve_context());
+
             _target_context.push(target_ctx);
         }
 
@@ -221,7 +227,7 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line, target_ctx);
+            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context());
 
             _target_context.push(target_ctx);
         }
