@@ -11585,6 +11585,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
+    // Propagate 'do_not_print' attribute to the current member
+    entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
     entry->entity_specs.access = current_access;
     entry->entity_specs.is_defined_inside_class_specifier = 1;
     entry->entity_specs.is_inline = 1;
@@ -12113,6 +12116,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
                                     class_name);
                         }
+
+                        // Propagate 'do_not_print' attribute to the current member
+                        entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
                         entry->entity_specs.is_member = 1;
                         entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;

@@ -1553,7 +1553,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Add the user function to the intermediate file
     if (called_task.is_valid())
     {
-        _cuda_file_code.push_back(Nodecl::Utils::deep_copy(
+        _cuda_file_code.append(Nodecl::Utils::deep_copy(
                     called_task.get_function_code(),
                     called_task.get_scope()));
 
@@ -1597,7 +1597,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     unpacked_function_body.replace(new_unpacked_body);
 
     // Add the unpacked function to the intermediate cuda file
-    _cuda_file_code.push_back(unpacked_function_code);
+    _cuda_file_code.append(unpacked_function_code);
 
     // Add a declaration of the unpacked function symbol in the original source
     if (IS_CXX_LANGUAGE)
@@ -2300,7 +2300,7 @@ bool DeviceCUDA::copy_stuff_to_device_file(Nodecl::List symbols)
         if (sym.is_function()
                 && !sym.get_function_code().is_null())
         {
-            _cuda_file_code.push_back(Nodecl::Utils::deep_copy(
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(
                         sym.get_function_code(),
                         sym.get_scope()));
         }
@@ -2324,8 +2324,13 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
                     strerror(errno));
         }
 
-		// Add to the new intermediate file the *.cu, *.cuh included files
-        add_included_cuda_files(ancillary_file);
+        CXX_LANGUAGE()
+        {
+            // Add to the new intermediate file the *.cu, *.cuh included files.
+            // It must be done only in C++ language because the C++ codegen do
+            // not deduce the set of used symbols
+            add_included_cuda_files(ancillary_file);
+        }
 
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
         ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
