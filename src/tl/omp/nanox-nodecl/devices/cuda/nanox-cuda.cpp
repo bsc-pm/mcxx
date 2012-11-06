@@ -2324,8 +2324,13 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
                     strerror(errno));
         }
 
-		// Add to the new intermediate file the *.cu, *.cuh included files
-        // add_included_cuda_files(ancillary_file);
+        CXX_LANGUAGE()
+        {
+            // Add to the new intermediate file the *.cu, *.cuh included files.
+            // It must be done only in C++ language because the C++ codegen do
+            // not deduce the set of used symbols
+            add_included_cuda_files(ancillary_file);
+        }
 
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
         ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
