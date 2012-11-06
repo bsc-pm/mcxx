@@ -1687,19 +1687,34 @@ static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
     return result;
 }
 
+static TL::ObjectList<Nodecl::NodeclBase> rewrite_copies(
+        const TL::ObjectList<Nodecl::NodeclBase>& deps, 
+        const sym_to_argument_expr_t& param_to_arg_expr)
+{
+    TL::ObjectList<Nodecl::NodeclBase> result;
+    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = deps.begin();
+            it != deps.end();
+            it++)
+    {
+        Nodecl::NodeclBase copy = it->shallow_copy();
+        result.append( rewrite_expression_in_dependency(copy, param_to_arg_expr) );
+    }
+
+    return result;
+}
+
 static void copy_outline_data_item(
         OutlineDataItem& dest_info, 
         const OutlineDataItem& source_info,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
-    // Copy directionality
+    // Copy dependence directionality
     dest_info.set_directionality(source_info.get_directionality());
-
-    // Update dependences to reflect arguments as well
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
 
+    // Copy copy directionality
     dest_info.set_copy_directionality(source_info.get_copy_directionality());
-    dest_info.get_copies() = source_info.get_copies();
+    dest_info.get_copies() = rewrite_copies(source_info.get_copies(), param_to_arg_expr);
 }
 
 static void fill_map_parameters_to_arguments(
