@@ -40,7 +40,7 @@ int my_global = 1;
 int main(int argc, char *argv[])
 {
     int cpinout = 9;
-#pragma omp target device(smp_numa) copy_inout(my_global, cpinout)
+#pragma omp target device(smp) copy_inout(my_global, cpinout)
 #pragma omp task 
     {
         my_global++;
