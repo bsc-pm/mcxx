@@ -1159,6 +1159,12 @@ void LoweringVisitor::fill_dependences_internal(
             {
                 TL::DataReference dep_expr(*dep_it);
 
+                ERROR_CONDITION(!dep_expr.is_valid(),
+                        "%s: Invalid dependency detected '%s'. Reason: %s\n",
+                        dep_expr.get_locus().c_str(),
+                        dep_expr.prettyprint().c_str(),
+                        dep_expr.get_error_log().c_str());
+
                 Source dependency_offset,
                        dependency_flags,
                        dependency_flags_in,
