@@ -1163,6 +1163,12 @@ void LoweringVisitor::fill_dependences_internal(
             {
                 TL::DataReference dep_expr(*dep_it);
 
+                ERROR_CONDITION(!dep_expr.is_valid(),
+                        "%s: Invalid dependency detected '%s'. Reason: %s\n",
+                        dep_expr.get_locus().c_str(),
+                        dep_expr.prettyprint().c_str(),
+                        dep_expr.get_error_log().c_str());
+
                 Source dependency_offset,
                        dependency_flags,
                        dependency_flags_in,
@@ -1645,17 +1651,25 @@ static Nodecl::NodeclBase rewrite_single_dependency(Nodecl::NodeclBase node, con
     for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
             it != children.end();
             it++)
-    { 
+    {
         *it = rewrite_single_dependency(*it, map);
     }
 
+    node.rechild(children);
+
+    // Update indexes where is due
     if (node.is<Nodecl::ArraySubscript>())
     {
-        // Update the indexes as well...
-        rewrite_expression_in_dependency(node.as<Nodecl::ArraySubscript>().get_subscripts(), map);
+        Nodecl::ArraySubscript arr_subscr = node.as<Nodecl::ArraySubscript>();
+        arr_subscr.set_subscripts(
+                rewrite_expression_in_dependency(arr_subscr.get_subscripts(), map));
     }
-
-    node.rechild(children);
+    else if (node.is<Nodecl::Shaping>())
+    {
+        Nodecl::Shaping shaping = node.as<Nodecl::Shaping>();
+        shaping.set_shape(
+                rewrite_expression_in_dependency(shaping.get_shape(), map));
+    }
 
     return node;
 }
@@ -1677,16 +1691,34 @@ static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
     return result;
 }
 
+static TL::ObjectList<Nodecl::NodeclBase> rewrite_copies(
+        const TL::ObjectList<Nodecl::NodeclBase>& deps, 
+        const sym_to_argument_expr_t& param_to_arg_expr)
+{
+    TL::ObjectList<Nodecl::NodeclBase> result;
+    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = deps.begin();
+            it != deps.end();
+            it++)
+    {
+        Nodecl::NodeclBase copy = it->shallow_copy();
+        result.append( rewrite_expression_in_dependency(copy, param_to_arg_expr) );
+    }
+
+    return result;
+}
+
 static void copy_outline_data_item(
         OutlineDataItem& dest_info, 
         const OutlineDataItem& source_info,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
-    // Copy directionality
+    // Copy dependence directionality
     dest_info.set_directionality(source_info.get_directionality());
-
-    // Update dependences to reflect arguments as well
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
+
+    // Copy copy directionality
+    dest_info.set_copy_directionality(source_info.get_copy_directionality());
+    dest_info.get_copies() = rewrite_copies(source_info.get_copies(), param_to_arg_expr);
 }
 
 static void fill_map_parameters_to_arguments(
@@ -2117,6 +2149,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
             OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
             copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
+
+            if (parameter_outline_data_item.get_directionality() != OutlineDataItem::DIRECTIONALITY_NONE)
+            {
+                argument_outline_data_item.set_base_address_expression(it->second);
+            }
         }
         else
         {
@@ -2138,7 +2175,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             {
                 outline_register_entities.add_capture_with_value(new_symbol, it->second);
                 param_sym_to_arg_sym[it->first] = new_symbol;
-
             }
             else
             {
@@ -2163,8 +2199,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
                 argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
                 argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
 
-                // The argument may not be suitable for a base address
                 argument_outline_data_item.set_base_address_expression(
+                        // The argument may not be suitable for a base address
                         array_section_to_array_element(it->second));
 
                 param_sym_to_arg_sym[data_ref.get_base_symbol()] = new_symbol;

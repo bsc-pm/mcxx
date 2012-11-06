@@ -797,6 +797,7 @@ namespace TL { namespace Nanox {
                     std::string current_device = it->as<Nodecl::Text>().get_text();
                     _outline_info.add_device_name(current_device);
                 }
+                walk(target.get_items());
             }
     };
 
