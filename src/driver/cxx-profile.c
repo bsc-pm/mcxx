@@ -132,6 +132,8 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
             base->num_compiler_phases);
     dst->external_vars = copy_external_vars(base->external_vars, 
             base->num_external_vars);
+    dst->pragma_custom_prefix = copy_pragma_directive_set(base->pragma_custom_prefix, 
+            base->num_pragma_custom_prefix);
     dst->pragma_custom_prefix_info = copy_pragma_directive_set(base->pragma_custom_prefix_info, 
             base->num_pragma_custom_prefix);
 }

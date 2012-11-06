@@ -377,7 +377,7 @@ static void print_version(void);
 static void driver_initialization(int argc, const char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
-static void finalize_committed_configuration(void);
+static void finalize_committed_configuration(compilation_configuration_t*);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
@@ -476,9 +476,6 @@ int main(int argc, char* argv[])
         }
         exit(EXIT_FAILURE);
     }
-
-    // This performs additional steps depending on some enabled features
-    finalize_committed_configuration();
 
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
@@ -2308,6 +2305,8 @@ static void commit_configuration(void)
                 config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
         }
+
+        finalize_committed_configuration(configuration);
     }
 
     DEBUG_CODE()
@@ -2323,12 +2322,12 @@ static void commit_configuration(void)
 static void register_upc_pragmae(void);
 static void enable_hlt_phase(void);
 
-static void finalize_committed_configuration(void)
+static void finalize_committed_configuration(compilation_configuration_t* configuration)
 {
     // OpenMP support involves omp pragma
-    if (!CURRENT_CONFIGURATION->disable_openmp)
+    if (!configuration->disable_openmp)
     {
-        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
+        config_add_preprocessor_prefix(configuration, /* index */ NULL, "omp");
     }
     else
     {
@@ -2339,13 +2338,13 @@ static void finalize_committed_configuration(void)
     }
 
     // UPC support involves some specific pragmae
-    if (CURRENT_CONFIGURATION->enable_upc)
+    if (configuration->enable_upc)
     {
         register_upc_pragmae();
     }
 
     // HLT additional support
-    if (CURRENT_CONFIGURATION->enable_hlt)
+    if (configuration->enable_hlt)
     {
         enable_hlt_phase();
     }
@@ -3836,16 +3835,19 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
                 strappend(configuration->configuration_name, linked_output_suffix);
 
             // Here the file list contains all the elements of this secondary profile.
-            link_files(multifile_file_list, multifile_num_files, 
+            link_files(multifile_file_list, multifile_num_files,
                     configuration->linked_output_filename,
                     configuration);
 
             do_combining(target_map, configuration);
 
             // Now add the linked output as an additional link file
-            P_LIST_ADD((*additional_files), 
-                    (*num_additional_files), 
-                    configuration->linked_output_filename);
+            if (target_map->do_combining)
+            {
+                P_LIST_ADD((*additional_files),
+                        (*num_additional_files),
+                        configuration->linked_output_filename);
+            }
         }
     }
 }
