@@ -1697,6 +1697,9 @@ static void copy_outline_data_item(
 
     // Update dependences to reflect arguments as well
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
+
+    dest_info.set_copy_directionality(source_info.get_copy_directionality());
+    dest_info.get_copies() = source_info.get_copies();
 }
 
 static void fill_map_parameters_to_arguments(
