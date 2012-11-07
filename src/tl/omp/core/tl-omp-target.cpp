@@ -341,6 +341,8 @@ namespace TL
             }
         }
 
+        // This function is invoked only for inline tasks (and some other
+        // constructs though target info is unused for them)
         void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
         {
             if (_target_context.empty())
