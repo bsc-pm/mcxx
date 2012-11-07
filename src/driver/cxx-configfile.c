@@ -269,6 +269,14 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
     
     // Reuse P_LIST_ADD
     int num_prefixes = config->num_pragma_custom_prefix;
+    for (i = 0; i < num_prefixes; i++)
+    {
+        if (strcasecmp(value, config->pragma_custom_prefix[i]) == 0)
+        {
+            // Already registered, ignore
+            return 0;
+        }
+    }
 
     P_LIST_ADD(config->pragma_custom_prefix,
             config->num_pragma_custom_prefix,

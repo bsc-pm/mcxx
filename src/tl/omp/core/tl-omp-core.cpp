@@ -177,6 +177,11 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
         }
 
+        void Core::phase_cleanup(DTO& data_flow)
+        {
+            _already_registered = false;
+        }
+
         void Core::get_clause_symbols(
                 PragmaCustomClause clause, 
                 const TL::ObjectList<TL::Symbol> &symbols_in_construct,
