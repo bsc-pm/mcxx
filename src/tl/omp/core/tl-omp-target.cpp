@@ -124,6 +124,9 @@ namespace TL
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
+            common_target_handler_pre(pragma_line, target_ctx,
+                    ctr.get_context_of_parameters().retrieve_context());
+
             if (target_ctx.has_implements)
             {
                 Symbol function_sym = ctr.get_symbol();
@@ -180,11 +183,6 @@ namespace TL
                     return;
                 }
             }
-
-            // Now get a suitable scope for this symbol
-
-            common_target_handler_pre(pragma_line, target_ctx,
-                    ctr.get_context_of_parameters().retrieve_context());
 
             _target_context.push(target_ctx);
         }
