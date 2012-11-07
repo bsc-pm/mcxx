@@ -47,7 +47,7 @@ namespace TL
             { 
                 _data_ref._is_valid = false;
                 _data_ref._error_log = 
-                    tree.get_locus() + ": error: expression not allowed in data-reference\n";
+                    tree.get_locus() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
             }
 
             // Symbol
@@ -79,10 +79,14 @@ namespace TL
 
             virtual void visit(const Nodecl::Dereference& derref)
             {
-                if (derref.get_rhs().is<Nodecl::Reference>())
+                Nodecl::NodeclBase operand = derref.get_rhs();
+                while (operand.is<Nodecl::ParenthesizedExpression>())
+                    operand = operand.as<Nodecl::ParenthesizedExpression>().get_nest();
+
+                if (operand.is<Nodecl::Reference>())
                 {
                     // *&a is like a
-                    walk(derref.get_rhs().as<Nodecl::Reference>().get_rhs());
+                    walk(operand.as<Nodecl::Reference>().get_rhs());
                     return;
                 }
 
@@ -207,6 +211,11 @@ namespace TL
             virtual void visit(const Nodecl::Conversion& c)
             {
                walk(c.get_nest());
+            }
+
+            virtual void visit(const Nodecl::ParenthesizedExpression& p)
+            {
+                walk(p.get_nest());
             }
 
             virtual void visit(const Nodecl::ArraySubscript& array)
@@ -364,6 +373,7 @@ namespace TL
     {
         if (expr.is_null()
                 || expr.is<Nodecl::ErrExpr>()
+                || !expr.get_type().is_valid()
                 || expr.get_type().is_error_type())
         {
             _is_valid = false;

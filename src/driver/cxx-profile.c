@@ -99,6 +99,7 @@ static element_type** _fun_name(element_type** orig, int num_elems) \
 DEF_COPY_ARRAY(copy_external_vars, external_var_t)
 DEF_COPY_ARRAY(copy_pragma_directive_set, pragma_directive_set_t)
 DEF_COPY_ARRAY(copy_compiler_phase_loader, compiler_phase_loader_t)
+DEF_COPY_ARRAY(copy_pragma_custom_prefix, const char)
 
 static void initialize_with_base_config(compilation_configuration_t* dst, 
         compilation_configuration_t const * base)
@@ -130,6 +131,8 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
             base->num_compiler_phases);
     dst->external_vars = copy_external_vars(base->external_vars, 
             base->num_external_vars);
+    dst->pragma_custom_prefix = copy_pragma_custom_prefix(base->pragma_custom_prefix, 
+            base->num_pragma_custom_prefix);
     dst->pragma_custom_prefix_info = copy_pragma_directive_set(base->pragma_custom_prefix_info, 
             base->num_pragma_custom_prefix);
 }
