@@ -264,6 +264,18 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
+                ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
+                    function_task_info.get_devices_with_implementation();
+                for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
+                        it != implementation_table.end(); ++it)
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Implements::make(
+                                Nodecl::Text::make(it->first),
+                                Nodecl::Symbol::make(it->second, filename, line),
+                                filename, line));
+                }
+
                 result_list.append(
                         Nodecl::OpenMP::Target::make(
                             Nodecl::List::make(devices),

@@ -140,6 +140,24 @@ namespace TL
             }
         };
 
+    template <typename T, typename Q>
+        struct ModuleWriterTrait<std::multimap<T, Q> >
+        {
+            typedef std::multimap<T, Q> MultiMap;
+
+            static void write(ModuleWriter& mw, MultiMap& table)
+            {
+                mw.write((int)table.size());
+                for (typename MultiMap::iterator it = table.begin();
+                        it != table.end();
+                        it++)
+                {
+                    mw.write(it->first);
+                    mw.write(it->second);
+                }
+            }
+        };
+
     template <typename E>
         struct EnumWriterTrait
         {
@@ -228,6 +246,27 @@ namespace TL
             typedef std::map<T, Q> Map;
 
             static void read(ModuleReader& mr, Map& table)
+            {
+                int n;
+                mr.read(n);
+
+                for (int i = 0; i < n; i++)
+                {
+                    T t; Q q;
+                    mr.read(t);
+                    mr.read(q);
+
+                    table.insert(std::make_pair<T, Q>(t, q));
+                }
+            }
+        };
+
+    template <typename T, typename Q>
+        struct ModuleReaderTrait<std::multimap<T, Q> >
+        {
+            typedef std::multimap<T, Q> MultiMap;
+
+            static void read(ModuleReader& mr, MultiMap& table)
             {
                 int n;
                 mr.read(n);

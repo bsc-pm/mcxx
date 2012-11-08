@@ -458,6 +458,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
+                 | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 
 reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
 

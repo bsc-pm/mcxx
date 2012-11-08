@@ -33,6 +33,25 @@
 
 namespace TL { namespace Nanox {
 
+
+    static void print_dataItem_info(OutlineDataItem *item, const TL::Scope & scope)
+    {
+        std::cout << "--- dataItem info --- " << std::endl
+            << "field_name: " << item->get_field_name() << std::endl
+        ;
+
+        const TL::Type & type = item->get_field_type();
+
+        std::cout << "declaration: " << type.get_declaration(scope, "") << std::endl
+            << "is scalar: " << type.is_scalar_type() << std::endl
+            << "is pointer: " << type.is_pointer() << std::endl
+            << "copy_directionality: " << item->get_copy_directionality() << std::endl
+            << "directionality: " << item->get_directionality() << std::endl
+            << "--- ---" << std::endl
+        ;
+
+    }
+
     void DeviceFPGA::create_outline(CreateOutlineInfo& info,
             Nodecl::NodeclBase& outline_placeholder,
             Nodecl::Utils::SymbolMap* &symbol_map)
@@ -48,6 +67,8 @@ namespace TL { namespace Nanox {
         TL::Symbol& arguments_struct = info._arguments_struct;
         TL::Symbol& called_task = info._called_task;
 
+        const TL::Scope & called_scope = called_task.get_scope();
+
         TL::Symbol current_function =
             original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
@@ -58,13 +79,21 @@ namespace TL { namespace Nanox {
                         original_statements.get_locus().c_str());
         }
 
+        //set arguments and transfers
+        //forall outputs generate transfers
+        //forall inputs
+        //forall scalars/noncopy set arguments (supose address is always the same)
+        //we may need 3 loops
         Source unpacked_arguments, private_entities;
 
+        //TODO if it's scalar and is not pointer -> set argument
+#if 1
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
+            print_dataItem_info(*it, called_scope);
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -149,6 +178,7 @@ namespace TL { namespace Nanox {
                     }
             }
         }
+#endif //0
 
         TL::Symbol unpacked_function = new_function_symbol_unpacked(
                 current_function,

@@ -305,6 +305,10 @@ namespace TL
 
         class OutlineInfo
         {
+
+            public:
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
@@ -319,7 +323,10 @@ namespace TL
                 OutlineInfo(const OutlineInfo&);
                 OutlineInfo& operator=(const OutlineInfo&);
 
+                implementation_table_t _implementation_table;
             public:
+
+
                 OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
                 OutlineInfo();
                 ~OutlineInfo();
@@ -339,6 +346,9 @@ namespace TL
 
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
+
+                void add_implementation(std::string device_name, TL::Symbol function_symbol);
+                implementation_table_t get_implementation_table();
 
                 TL::Symbol get_unpacked_function_symbol() const
                 {
