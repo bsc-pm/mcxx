@@ -62,7 +62,6 @@ namespace TL
             private:
                 Nodecl::List _fpga_file_code;
 
-                std::string fpga_outline_name(const std::string &outline_name);
                 TL::Symbol new_function_symbol_unpacked(
                         TL::Symbol current_function,
                         const std::string& function_name,
