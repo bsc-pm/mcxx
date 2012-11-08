@@ -285,7 +285,6 @@ Source LoweringVisitor::fill_const_wd_info(
         std::string implementor_outline_name = it->second;
 
         DeviceProvider* device = device_handler.get_device(device_name);
-        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
         DeviceDescriptorInfo info_implementor(implementor_outline_name);
         device->get_device_descriptor(
@@ -297,6 +296,7 @@ Source LoweringVisitor::fill_const_wd_info(
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;
         opt_fortran_dynamic_init << aux_fortran_init;
+
     }
 
     return result;
@@ -449,7 +449,7 @@ void LoweringVisitor::emit_async_common(
     translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // For every device name specified in the 'device' clause, we create its outline function
-    CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
+    CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
     for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
             it != device_names.end();
@@ -471,9 +471,9 @@ void LoweringVisitor::emit_async_common(
         outline_placeholder.replace(outline_statements_code);
     }
 
-    Nodecl::NodeclBase function_call_nodecl = statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
-    Nodecl::NodeclBase called_symbol_nodecl = function_call_nodecl.as<Nodecl::FunctionCall>().get_called();
-    TL::Symbol called_task = called_symbol_nodecl.as<Nodecl::Symbol>().get_symbol();
+    // Nodecl::NodeclBase function_call_nodecl = statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
+    // Nodecl::NodeclBase called_symbol_nodecl = function_call_nodecl.as<Nodecl::FunctionCall>().get_called();
+    // TL::Symbol called_task = called_symbol_nodecl.as<Nodecl::Symbol>().get_symbol();
 
     // The current function task may have additional implementations. For every
     // existant implementation, we should create its outline function.
@@ -501,7 +501,13 @@ void LoweringVisitor::emit_async_common(
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
 
-        CreateOutlineInfo info_implementor(implementor_outline_name, outline_info, copy_statements, structure_symbol);
+        CreateOutlineInfo info_implementor(
+                implementor_outline_name,
+                outline_info,
+                copy_statements,
+                structure_symbol,
+                implementor_symbol);
+
         Nodecl::NodeclBase outline_placeholder;
 
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
