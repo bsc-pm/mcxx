@@ -512,10 +512,6 @@ namespace TL { namespace Nanox {
             if (data_ref.is_valid())
             {
                 TL::Symbol sym = data_ref.get_base_symbol();
-                // -- FIXME ---
-                // If we are in an inline task, dependences are
-                // truly shared...
-                add_shared(sym);
 
                 OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
                 outline_info.set_copy_directionality(
