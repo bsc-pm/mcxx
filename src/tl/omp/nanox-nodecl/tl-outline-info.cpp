@@ -721,6 +721,12 @@ namespace TL { namespace Nanox {
                 add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
 
+            void visit(const Nodecl::OpenMP::Implements& implements)
+            {
+                _outline_info.add_implementation(
+                        implements.get_device().as<Nodecl::Text>().get_text(),
+                        implements.get_function_name().as<Nodecl::Symbol>().get_symbol());
+            }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
@@ -870,4 +876,13 @@ namespace TL { namespace Nanox {
         return _device_names;
     }
 
+    void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
+    {
+        _implementation_table.insert(make_pair(device_name, function_symbol));
+    }
+
+    OutlineInfo::implementation_table_t OutlineInfo::get_implementation_table()
+    {
+        return _implementation_table;
+    }
 } }

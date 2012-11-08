@@ -187,14 +187,14 @@ namespace TL
 
         void FunctionTaskInfo::add_device(const std::string& device_name)
         {
-            _implementation_table[device_name] = Symbol(NULL);
+            _implementation_table.insert(make_pair(device_name,Symbol(NULL)));
         }
 
         void FunctionTaskInfo::add_device_with_implementation(
                 const std::string& device_name,
                 Symbol implementor_symbol)
         {
-            _implementation_table[device_name] = implementor_symbol;
+            _implementation_table.insert(make_pair(device_name, implementor_symbol));
         }
 
         ObjectList<std::string> FunctionTaskInfo::get_all_devices()
@@ -405,12 +405,9 @@ namespace TL
         {
             private:
                 DependencyDirection _direction;
-                Nodecl::NodeclBase _ref_tree;
-
             public:
-                FunctionTaskDependencyGenerator(DependencyDirection direction,
-                        Nodecl::NodeclBase ref_tree)
-                    : _direction(direction), _ref_tree(ref_tree)
+                FunctionTaskDependencyGenerator(DependencyDirection direction)
+                    : _direction(direction)
                 {
                 }
 
@@ -426,12 +423,10 @@ namespace TL
         {
             private:
                 CopyDirection _copy_direction;
-                Nodecl::NodeclBase _ref_tree;
 
             public:
-                FunctionCopyItemGenerator(CopyDirection copy_direction,
-                        Nodecl::NodeclBase ref_tree)
-                    : _copy_direction(copy_direction), _ref_tree(ref_tree)
+                FunctionCopyItemGenerator(CopyDirection copy_direction)
+                    : _copy_direction(copy_direction)
                 {
                 }
 
@@ -617,17 +612,13 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
 
 
-            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
-                            param_ref_tree)));
+            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
 
-            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT,
-                            param_ref_tree)));
+            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
 
-            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                            param_ref_tree)));
+            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
 
-            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
-                            param_ref_tree)));
+            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
 
             dependence_list_check(dependence_list);
 
@@ -639,16 +630,28 @@ namespace TL
             {
                 TargetContext& target_context = _target_context.top();
 
-                ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_IN, param_ref_tree));
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = target_context.copy_in;
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = target_context.copy_out;
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = target_context.copy_inout;
+
+                if (target_context.copy_deps)
+                {
+                    // Honour copy deps
+                    target_ctx_copy_in.append(input_arguments);
+                    target_ctx_copy_out.append(output_arguments);
+                    target_ctx_copy_inout.append(inout_arguments);
+                }
+
+                ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_IN));
                 target_info.append_to_copy_in(copy_in);
 
-                ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                            COPY_DIR_OUT, param_ref_tree));
+                ObjectList<CopyItem> copy_out = target_ctx_copy_out.map(FunctionCopyItemGenerator(
+                            COPY_DIR_OUT));
                 target_info.append_to_copy_out(copy_out);
 
-                ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                            COPY_DIR_INOUT, param_ref_tree));
+                ObjectList<CopyItem> copy_inout = target_ctx_copy_inout.map(FunctionCopyItemGenerator(
+                            COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.append_to_device_list(target_context.device_list);
