@@ -64,7 +64,6 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 
 TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
-    //FIXME: The 'construct' parameter is only used to obtain the line and the filename
     std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
     if (it == _declared_const_wd_type_map.end())
     {
@@ -362,7 +361,6 @@ void LoweringVisitor::allocate_immediate_structure(
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
         TL::Symbol function_symbol,
-        TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
         bool is_untied,
@@ -462,11 +460,6 @@ void LoweringVisitor::emit_async_common(
 
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-<<<<<<< HEAD
-        // FIXME: Can it be done only once?
-        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
-=======
->>>>>>> origin/nodecl
         Nodecl::NodeclBase outline_placeholder;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
         device->create_outline(info, outline_placeholder, symbol_map);
@@ -638,16 +631,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     OutlineInfo outline_info(environment);
 
-    Symbol called_task_dummy = Symbol::invalid();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
             construct,
-            function_symbol,
-            called_task_dummy,
-            statements,
-            task_environment.priority,
-            task_environment.is_untied,
+            function_symbol, 
+            statements, 
+            task_environment.priority, 
+            task_environment.is_untied, 
 
             outline_info);
 }
@@ -2466,7 +2457,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     emit_async_common(
             construct,
             function_symbol,
-            called_symbol,
             statements,
             /* priority */ Nodecl::NodeclBase::null(),
             /* is_untied */ false,
