@@ -2,31 +2,31 @@
 [plaincc]
 language = C
 options =
-preprocessor_name = gcc
+preprocessor_name = @GCC@
 preprocessor_options = -E
-compiler_name = gcc
+compiler_name = @GCC@
 compiler_options = 
-linker_name = gcc
+linker_name = @GCC@
 linker_options = 
 
 [plaincxx]
 language = C++
 options = 
-preprocessor_name = g++
+preprocessor_name = @G++@
 preprocessor_options = -E 
-compiler_name = g++
+compiler_name = @G++@
 compiler_options = 
-linker_name = g++
+linker_name = @G++@
 linker_options = 
 
 [plainfc]
 language = Fortran
 options = 
-preprocessor_name = gfortran
+preprocessor_name = @GFORTRAN@
 preprocessor_options = -cpp -E
-compiler_name = gfortran
+compiler_name = @GFORTRAN@
 compiler_options = 
-linker_name = gfortran
+linker_name = @GFORTRAN@
 linker_options = 
 {openmp} compiler_phase = libtlomp-core.so
 
