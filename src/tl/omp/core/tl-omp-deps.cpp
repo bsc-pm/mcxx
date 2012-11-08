@@ -73,7 +73,6 @@ namespace TL { namespace OpenMP {
                     || (sym.get_type().is_any_reference()
                         && sym.get_type().references_to().is_array()))
             {
-                std::cerr << "SETTING SYM TO SHARED " << sym.get_name() << std::endl;
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
 
