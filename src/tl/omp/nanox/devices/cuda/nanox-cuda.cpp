@@ -1030,16 +1030,12 @@ void DeviceCUDA::process_local_symbols(
 		if (CheckIfInCudacompiler::check_type(t))
 			continue;
 
-		std::cout << "Checking symbol belongs to Nanox: " << s.get_name() << std::endl;
-
 		// Check if the symbol comes from Nanox
 		if (CheckIfInNanox::check(s.get_filename()))
 			continue;
 		// Let's check its type as well
 		if (CheckIfInNanox::check_type(t))
 			continue;
-
-		std::cout << "    sym " << s.get_name() << " doesn't" << std::endl;
 
 		// Check we have not already added the symbol
 		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
