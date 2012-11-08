@@ -10,14 +10,15 @@
 
 // Tokens for rules
 %type<ast> superscalar_declarator superscalar_declarator_list opt_superscalar_region_spec_list superscalar_region_spec_list superscalar_region_spec
+%type<ast> opt_superscalar_minimum_reduction_completion_percent
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
 // Grammar entry point
-subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_superscalar_region_spec_list
+subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_superscalar_region_spec_list opt_superscalar_minimum_reduction_completion_percent
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+	$$ = ASTMake3(AST_SUPERSCALAR_DECLARATOR, $2, $3, $4, ASTFileName($2), ASTLine($2), NULL);
 }
 | SUBPARSE_SUPERSCALAR_DECLARATOR_LIST superscalar_declarator_list
 {
@@ -84,6 +85,18 @@ superscalar_region_spec : '{' '}'
 | '{' expression ':' expression '}'
 {
 	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_LENGTH, $2, $4, $1.token_file, $1.token_line, NULL);
+}
+;
+
+
+opt_superscalar_minimum_reduction_completion_percent :
+/* NULL */
+{
+	$$ = NULL;
+}
+| ':' expression
+{
+	$$ = ASTMake1(AST_SUPERSCALAR_MINIMUM_REDUCTION_COMPLETION_PERCENT, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 

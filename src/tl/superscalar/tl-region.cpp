@@ -200,8 +200,8 @@ namespace TL {
 	}
 	
 	
-	Region::Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link)
-		: _direction(direction), _reduction(reduction), _dimensions()
+	Region::Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t minimum_reduction_completion_percent_ast, AST_t ast, AST_t ref_ast, ScopeLink scope_link)
+		: _direction(direction), _reduction(reduction), _dimensions(), _minimum_reduction_completion_percent()
 	{
 		// If there are range specifiers
 		if (ast != NULL)
@@ -313,6 +313,11 @@ namespace TL {
 				_dimensions.push_back( new FullDimensionSpecifier(dimension_list[index]) );
 			}
 			
+		}
+		
+		if (minimum_reduction_completion_percent_ast != 0)
+		{
+			_minimum_reduction_completion_percent = RefPtr<Expression> (new Expression(minimum_reduction_completion_percent_ast, scope_link));
 		}
 	}
 	

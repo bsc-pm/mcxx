@@ -44,6 +44,7 @@ namespace TL
 			std::string _generate_task_ids;
 			std::string _generate_task_adapters;
 			std::string _align_memory;
+			std::string _partial_reductions;
 			
 		public:
 			Configurator()
@@ -74,6 +75,11 @@ namespace TL
 					"align-memory",
 					"Specifies that memory allocation should be aligned.",
 					_align_memory,
+					"no");
+				register_parameter(
+					"partial-reductions",
+					"Specifies if the runtime supports partial reductions.",
+					_partial_reductions,
 					"no");
 			}
 			

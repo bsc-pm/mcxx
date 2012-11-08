@@ -414,7 +414,7 @@ namespace TL
                     }
                     else
                     {
-                        internal_error("Invalid dependency kind", 0);
+                        continue;
                     }
 
                     p->append(it->get_dependency_expression());

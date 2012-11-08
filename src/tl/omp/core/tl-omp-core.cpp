@@ -187,6 +187,11 @@ namespace TL
             _already_registered = true;
         }
 
+        void Core::phase_cleanup(DTO& data_flow)
+        {
+            _already_registered = false;
+        }
+
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)

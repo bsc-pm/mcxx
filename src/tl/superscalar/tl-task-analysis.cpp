@@ -45,6 +45,8 @@
 namespace TL
 {
 	CompilerPhase::PhaseStatus TaskAnalysis::_status;
+	Bool TaskAnalysis::_supports_partial_reductions(false);
+	
 	
 	IdExpression TL::TaskAnalysis::get_base_id_expression(Expression expression)
 	{
@@ -170,7 +172,7 @@ namespace TL
 		
 		try
 		{
-			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, reduction, function_symbol, parameter_symbol);
+			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, reduction, function_symbol, parameter_symbol, _supports_partial_reductions);
 			
 			if (!parameter_symbol.is_parameter())
 			{
@@ -259,7 +261,7 @@ namespace TL
 		
 		if (has_high_priority && !construct.get_clause("highpriority").get_arguments().empty())
 		{
-			std::cerr << context_ast.get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
+			std::cerr << construct_ast.get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
 			TaskAnalysis::fail();
 		}
 		
@@ -270,32 +272,32 @@ namespace TL
 				ObjectList< std::string > args = construct.get_clause("device").get_arguments(ExpressionTokenizerTrim());
 				ObjectList< std::string >::iterator it = args.begin();
 				if ( it == args.end() ) {
-					std::cerr << context_ast.get_locus() << " Error: the you must specify something inside the device clause." << std::endl;
+					std::cerr << construct_ast.get_locus() << " Error: the you must specify something inside the device clause." << std::endl;
 					TaskAnalysis::fail();
 				}
 				for ( ; it != args.end(); it++) {
 					if ( *it == std::string("comm_thread")) {
 						if ( is_blocking ) {
-							std::cerr << context_ast.get_locus() << " Warning: the 'comm_thread' target was already defined"<< std::endl;
+							std::cerr << construct_ast.get_locus() << " Warning: the 'comm_thread' target was already defined"<< std::endl;
 							break;
 						}
 						is_blocking = true;
 					}
 				}
 			} else {
-				std::cerr << context_ast.get_locus() << " Error: the 'target' clause needs the 'device' clause to be specified." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: the 'target' clause needs the 'device' clause to be specified." << std::endl;
 				TaskAnalysis::fail();
 			}
 		} else {
 			if (construct.get_clause("device").is_defined()) {
-				std::cerr << context_ast.get_locus() << " Error: the 'device' clause needs the 'target' clause to be specified." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: the 'device' clause needs the 'target' clause to be specified." << std::endl;
 				TaskAnalysis::fail();
 			}
 		}
 		
 		if (has_high_priority && is_blocking)
 		{
-			std::cerr << context_ast.get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
+			std::cerr << construct_ast.get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
 		}
 		
 		std::map<Symbol, RegionList> parameter_region_lists;
@@ -314,19 +316,11 @@ namespace TL
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
 			
-			Region::Reduction red = Region::NON_REDUCTION;
-			if (reduction_regions.contains(parameter_specification))
-			{
-				red = Region::REDUCTION;
-				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
-				reduction_regions.erase(it);
-			}
-			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, red, function_symbol, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, Region::NON_REDUCTION, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
-				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
 				TaskAnalysis::fail();
 			}
 		}
@@ -338,51 +332,78 @@ namespace TL
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
 			
-			Region::Reduction red = Region::NON_REDUCTION;
-			if (reduction_regions.contains(parameter_specification))
-			{
-				red = Region::REDUCTION;
-				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
-				reduction_regions.erase(it);
-			}
-			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, function_symbol, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, Region::NON_REDUCTION, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
-				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
 				TaskAnalysis::fail();
 			}
 		}
 		
-		// Build all inout regions
+		// Build non-reduction inout regions
 		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments(ExpressionTokenizerTrim());
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
 			
-			Region::Reduction red = Region::NON_REDUCTION;
-			if (reduction_regions.contains(parameter_specification))
+			// FIXME: These comparisons should be much more sophisticated
+			bool skip = false;
+			for (ObjectList<std::string>::iterator it2 = reduction_regions.begin(); it2 != reduction_regions.end(); it2++)
 			{
-				red = Region::REDUCTION;
-				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
-				reduction_regions.erase(it);
+				if (*it2 == parameter_specification)
+				{
+					skip = true;
+				}
+				else
+				{
+					if (it2->substr(0, parameter_specification.length()) == parameter_specification)
+					{
+						for (unsigned int i=parameter_specification.length(); i < (*it2).length(); i++)
+						{
+							if ((*it2)[i] == ':')
+							{
+								// Found the partial reduction separator token
+								skip = true;
+								break;
+							}
+							else if (!isspace((*it2)[i]))
+							{
+								// Found non space, so the regions could be different
+								break;
+							}
+						}
+					}
+				}
+			}
+			if (skip)
+			{
+				std::cerr << construct_ast.get_locus() << " Warning: please remove region '" << parameter_specification << "' from the inout clause and leave it only in the reduction clause." << std::endl;
 			}
 			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, red, function_symbol, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, Region::NON_REDUCTION, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
-				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
 				TaskAnalysis::fail();
 			}
 		}
 		
-		for (ObjectList<std::string>::iterator it = reduction_regions.begin(); it !=reduction_regions.end(); it++)
+		// Build reduction regions. Note that we are no longer checking if the region is also in the inout clause
+		for (ObjectList<std::string>::iterator it = reduction_regions.begin(); it != reduction_regions.end(); it++)
 		{
-			std::cerr << context_ast.get_locus() << " Error: reduction parameter '" << *it << "' not specified present in any input, output or inout clause." << std::endl;
-			TaskAnalysis::fail();
+			std::string const &parameter_specification = *it;
+			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, Region::REDUCTION, function_symbol, parameter_symbol);
+			bool correct = parameter_region_lists[parameter_symbol].add(region);
+			if (!correct)
+			{
+				std::cerr << construct_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				TaskAnalysis::fail();
+			}
 		}
 		
 		
@@ -450,12 +471,12 @@ namespace TL
 			// Check that everything still matches
 			if (function_symbol.has_high_priority() != has_high_priority)
 			{
-				std::cerr << construct.get_ast().get_locus() << " Error: priority does not match with previous definition or declaration." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: priority does not match with previous definition or declaration." << std::endl;
 				TaskAnalysis::fail();
 			}
 			if (function_symbol.is_blocking() != is_blocking)
 			{
-				std::cerr << construct.get_ast().get_locus() << " Error: blocking property does not match with previous definition or declaration." << std::endl;
+				std::cerr << construct_ast.get_locus() << " Error: blocking property does not match with previous definition or declaration." << std::endl;
 				TaskAnalysis::fail();
 			}
 			

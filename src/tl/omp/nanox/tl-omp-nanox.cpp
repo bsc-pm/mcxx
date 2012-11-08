@@ -80,6 +80,11 @@ OMPTransform::OMPTransform()
             _do_not_create_translation_str,
             "0").connect(functor(&OMPTransform::set_translation_function_flag, *this));
 
+    register_parameter("weaks_as_statics",
+            "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
+            _static_weak_symbols_str,
+            "0").connect(functor(&OMPTransform::set_weaks_as_statics, *this));
+ 
     register_parameter("no-nanox-calls",
             "Specifies that the generated code must not contain calls to the runtime. The execution will be serial.",
             _no_nanox_calls_str,
@@ -139,6 +144,11 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
     _converted_vlas.clear();
     // For every file, we should initialize the worksharings
     _initialize_worksharings = true;
+}
+
+void OMPTransform::set_weaks_as_statics(const std::string& str)
+{
+    parse_boolean_option("set_weaks_as_statics", str, _static_weak_symbols, "Assuming false.");
 }
 
 void OMPTransform::run(DTO& dto)
