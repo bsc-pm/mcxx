@@ -1156,7 +1156,7 @@ void LoweringVisitor::fill_copies(
             TL::DataReference data_ref(*copy_it);
 
             int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-            int output = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_OUT;
+            int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
 
             copy_ol_setup
                 << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
