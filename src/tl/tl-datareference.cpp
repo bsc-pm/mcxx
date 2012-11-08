@@ -105,14 +105,26 @@ namespace TL
 
             virtual void visit(const Nodecl::Reference& ref)
             {
-                if (ref.get_rhs().is<Nodecl::Dereference>())
+                // In general we do not allow &x but there are some cases that may arise
+                // during internal transformations
+                //
+                Nodecl::NodeclBase rhs = ref.get_rhs();
+                if (rhs.is<Nodecl::Dereference>())
                 {
                     // &*a is like a
                     walk(ref.get_rhs().as<Nodecl::Dereference>().get_rhs());
-                    return;
                 }
-
-                unhandled_node(ref);
+                else if (rhs.is<Nodecl::ArraySubscript>())
+                {
+                    // &(a[e])
+                    // &(a[l:u])
+                    // &(a[l;S])
+                    walk(rhs.as<Nodecl::ArraySubscript>().get_subscripted());
+                }
+                else
+                {
+                    unhandled_node(ref);
+                }
             }
 
             TL::Type extend_array_type_to_regions(const Nodecl::ArraySubscript& array)
