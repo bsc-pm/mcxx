@@ -361,6 +361,7 @@ void LoweringVisitor::allocate_immediate_structure(
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
         TL::Symbol function_symbol,
+        TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
         bool is_untied,
@@ -637,11 +638,13 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     OutlineInfo outline_info(environment);
 
+    Symbol called_task_dummy = Symbol::invalid();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
             construct,
-            function_symbol, 
+            function_symbol,
+            called_task_dummy, 
             statements, 
             task_environment.priority, 
             task_environment.is_untied, 
@@ -2463,6 +2466,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     emit_async_common(
             construct,
             function_symbol,
+            called_symbol,
             statements,
             /* priority */ Nodecl::NodeclBase::null(),
             /* is_untied */ false,
