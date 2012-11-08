@@ -187,14 +187,14 @@ namespace TL
 
         void FunctionTaskInfo::add_device(const std::string& device_name)
         {
-            _implementation_table[device_name] = Symbol(NULL);
+            _implementation_table.insert(make_pair(device_name,Symbol(NULL)));
         }
 
         void FunctionTaskInfo::add_device_with_implementation(
                 const std::string& device_name,
                 Symbol implementor_symbol)
         {
-            _implementation_table[device_name] = implementor_symbol;
+            _implementation_table.insert(make_pair(device_name, implementor_symbol));
         }
 
         ObjectList<std::string> FunctionTaskInfo::get_all_devices()

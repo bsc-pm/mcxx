@@ -108,7 +108,7 @@ namespace TL { namespace Nanox {
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
-
+        std::multimap<std::string, std::string> dummy_multimap;
         Source const_wd_info;
         const_wd_info
             << fill_const_wd_info(struct_arg_type_name,
@@ -116,6 +116,7 @@ namespace TL { namespace Nanox {
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
                     outline_info.get_device_names(),
+                    /* only used in task calls */ dummy_multimap,
                     construct);
 
         Source dependence_type;

@@ -92,12 +92,14 @@ namespace TL { namespace Nanox {
             <<       translation_fun_arg_name << ");"
             ;
 
+        std::multimap<std::string, std::string> dummy_multimap;
         Source const_wd_info;
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
                 outline_info.get_device_names(),
+                /* only used in task calls */ dummy_multimap,
                 construct);
 
         Source num_threads;

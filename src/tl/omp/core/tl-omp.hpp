@@ -430,7 +430,8 @@ namespace TL
         class LIBTL_CLASS FunctionTaskInfo
         {
             public:
-                typedef std::map<std::string, Symbol> implementation_table_t;
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 Symbol _sym;
 
