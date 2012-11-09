@@ -2252,7 +2252,7 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_gpu_factory, &" << outline_name << "_args },";
+    device_descriptor << "{ &nanos_gpu_factory, &" << outline_name << "_args }";
 }
 
 //void DeviceCUDA::do_replacements(
