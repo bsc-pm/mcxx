@@ -563,7 +563,10 @@ namespace OpenMP
             {
                 arg_clauses << " commutative(" << commutative_args << ")";
             }
-
+            if (task_info.get_untied())
+            {
+                arg_clauses << " untied";
+            }
 
             // Add the task symbol name to the clause
             arg_clauses << " __symbol(" << sym.get_qualified_name(expr.get_scope()) << ")";

@@ -443,6 +443,8 @@ namespace TL
 
                 implementation_table_t get_implementation_table() const;
 
+                bool _untied;
+
             public:
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
@@ -487,6 +489,9 @@ namespace TL
                 bool has_if_clause() const;
 
                 void set_if_clause_conditional_expression(Expression expr);
+
+                void set_untied(bool b);
+                bool get_untied() const;
                 
                 Expression get_if_clause_conditional_expression() const;
         };

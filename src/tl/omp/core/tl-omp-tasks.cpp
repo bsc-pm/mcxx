@@ -144,7 +144,8 @@ namespace TL
             _implementation_table(),
             _target_info(target_info),
             _real_time_info(),
-            _if_clause_cond_expr(NULL)
+            _if_clause_cond_expr(NULL),
+            _untied(false)
         {
         }
 
@@ -163,7 +164,8 @@ namespace TL
             _real_time_info(ft_copy._real_time_info),
             _has_task_priority(ft_copy._has_task_priority),
             _task_priority(ft_copy._task_priority),
-            _if_clause_cond_expr(NULL)
+            _if_clause_cond_expr(NULL),
+            _untied(ft_copy._untied)
         {
             if(ft_copy.has_if_clause()) 
             {
@@ -186,6 +188,7 @@ namespace TL
                 _has_task_priority = ft_copy.get_has_task_priority();
                 _task_priority = ft_copy.get_task_priority();
                 _if_clause_cond_expr = NULL;
+                _untied = ft_copy._untied;
                 if(ft_copy.has_if_clause()) 
                 {
                    _if_clause_cond_expr = 
@@ -319,7 +322,15 @@ namespace TL
             return (*_if_clause_cond_expr);
         }
 
+        void FunctionTaskInfo::set_untied(bool b)
+        {
+            _untied = b;
+        }
 
+        bool FunctionTaskInfo::get_untied() const
+        {
+            return _untied;
+        }
 
         FunctionTaskSet::FunctionTaskSet()
         {
@@ -551,6 +562,9 @@ namespace TL
                commutative_arguments = commutative_clause.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause untied_clause = construct.get_clause("untied");
+
+
             // Now discover whether this is a function definition or a declaration
             DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
             if (Declaration::predicate(construct.get_declaration()))
@@ -686,6 +700,8 @@ namespace TL
                 Expression cond_expr = Expression(expr_tree, construct.get_scope_link());
                 task_info.set_if_clause_conditional_expression(cond_expr);
             }
+
+            task_info.set_untied(untied_clause.is_defined());
             
             // Support priority clause
             bool has_priority = false;
