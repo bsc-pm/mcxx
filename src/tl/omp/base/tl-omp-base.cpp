@@ -282,6 +282,12 @@ namespace TL { namespace OpenMP {
                             Nodecl::List::make(target_items),
                             filename, line));
 
+                if (function_task_info.get_untied())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Untied::make(filename, line));
+                }
+
                 return Nodecl::List::make(result_list);
             }
     };

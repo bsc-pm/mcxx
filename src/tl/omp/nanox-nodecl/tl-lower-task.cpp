@@ -2145,6 +2145,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
     OutlineInfo parameters_outline_info(parameters_environment, /* function_task */ true);
 
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(parameters_environment);
+
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
@@ -2461,8 +2464,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             construct,
             function_symbol,
             statements,
-            /* priority */ Nodecl::NodeclBase::null(),
-            /* is_untied */ false,
+            task_environment.priority,
+            task_environment.is_untied,
             arguments_outline_info);
 }
 
