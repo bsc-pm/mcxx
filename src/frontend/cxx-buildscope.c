@@ -369,6 +369,10 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 
     nodecl_t nodecl = nodecl_null();
 
+    C_LANGUAGE()
+    {
+        linkage_push("\"C\"", /* is_braced */ 1);
+    }
     CXX_LANGUAGE()
     {
         instantiation_init();
@@ -386,6 +390,11 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 #endif
+
+    C_LANGUAGE()
+    {
+        linkage_pop();
+    }
 
     return nodecl;
 }
@@ -515,10 +524,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         // This is reserved for C only
         gcc_sign_in_spu_builtins(decl_context);
-    }
 
-    C_LANGUAGE()
-    {
         if (CURRENT_CONFIGURATION->enable_upc)
         {
             upc_sign_in_builtins(decl_context);
