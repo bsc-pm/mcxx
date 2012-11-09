@@ -4,7 +4,7 @@ language = Fortran
 options = -I @PKGDATADIR@/fortran/openmp
 # IBM provides its own Fortran preprocessor but there is no way to make xlf only
 # preprocess a Fortran file, so lets use gfortran
-fortran_preprocessor_name = gfortran
+fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @XLF@
 compiler_options =
