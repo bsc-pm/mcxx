@@ -286,6 +286,7 @@ Source LoweringVisitor::fill_const_wd_info(
         std::string implementor_outline_name = it->second;
 
         DeviceProvider* device = device_handler.get_device(device_name);
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
         DeviceDescriptorInfo info_implementor(implementor_outline_name);
         device->get_device_descriptor(
@@ -297,7 +298,6 @@ Source LoweringVisitor::fill_const_wd_info(
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;
         opt_fortran_dynamic_init << aux_fortran_init;
-
     }
 
     return result;
@@ -490,6 +490,17 @@ void LoweringVisitor::emit_async_common(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
+        CreateOutlineInfo info_implementor(
+                implementor_outline_name,
+                outline_info,
+                statements,
+                structure_symbol,
+				implementor_symbol);
+
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        device->create_outline(info_implementor, outline_placeholder, symbol_map);
+
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
         // function specified in the 'implements' clause. For this reason, we
@@ -502,19 +513,6 @@ void LoweringVisitor::emit_async_common(
                 statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
-
-        CreateOutlineInfo info_implementor(
-                implementor_outline_name,
-                outline_info,
-                copy_statements,
-                structure_symbol,
-                implementor_symbol);
-
-        Nodecl::NodeclBase outline_placeholder;
-
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-
-        device->create_outline(info_implementor, outline_placeholder, symbol_map);
 
         Nodecl::NodeclBase outline_statements_code =
             Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
@@ -2151,6 +2149,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
     OutlineInfo parameters_outline_info(parameters_environment, /* function_task */ true);
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
