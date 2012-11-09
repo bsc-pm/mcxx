@@ -488,6 +488,16 @@ void LoweringVisitor::emit_async_common(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
+        CreateOutlineInfo info_implementor(
+                implementor_outline_name,
+                outline_info,
+                statements,
+                structure_symbol);
+
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        device->create_outline(info_implementor, outline_placeholder, symbol_map);
+
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
         // function specified in the 'implements' clause. For this reason, we
@@ -500,13 +510,6 @@ void LoweringVisitor::emit_async_common(
                 statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
-
-        CreateOutlineInfo info_implementor(implementor_outline_name, outline_info, copy_statements, structure_symbol);
-        Nodecl::NodeclBase outline_placeholder;
-
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-
-        device->create_outline(info_implementor, outline_placeholder, symbol_map);
 
         Nodecl::NodeclBase outline_statements_code =
             Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
