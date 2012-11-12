@@ -66,12 +66,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void emit_async_common(
                 Nodecl::NodeclBase construct,
-                TL::Symbol function_symbol, 
+                TL::Symbol function_symbol,
                 Nodecl::NodeclBase statements,
-                Nodecl::NodeclBase priority,
+                Nodecl::NodeclBase priority_expr,
                 bool is_untied,
-
-                OutlineInfo& outline_info);
+                OutlineInfo& outline_info,
+                OutlineInfo* parameter_outline_info);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -90,7 +90,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void fill_copies(
                 Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info, 
+                OutlineInfo& outline_info,
+                OutlineInfo* parameter_outline_info,
+                TL::Symbol structure_symbol,
                 // Source arguments_accessor,
                 // out
                 Source& copy_ol_decl,
@@ -100,7 +102,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup);
         void fill_copies_nonregion(
                 Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info, 
+                OutlineInfo& outline_info,
                 int num_copies,
                 // Source arguments_accessor,
                 // out
@@ -111,7 +113,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup);
         void fill_copies_region(
                 Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info, 
+                OutlineInfo& outline_info,
                 int num_copies,
                 // Source arguments_accessor,
                 // out
@@ -120,6 +122,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_ol_setup,
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
+
+        void emit_translation_function(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                OutlineInfo* parameter_outline_info,
+                TL::Symbol structure_symbol);
 
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
@@ -267,6 +275,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 DataReference data_reference);
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
+
 };
 
 } }

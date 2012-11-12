@@ -178,6 +178,8 @@ namespace TL { namespace Nanox {
 
         fill_copies(construct,
                 outline_info,
+                /* parameter_outline_info */ NULL,
+                structure_symbol,
                 copy_ol_decl,
                 copy_ol_arg,
                 copy_ol_setup,
