@@ -145,6 +145,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 bool is_untied,
                 bool mandatory_creation,
+                int num_copies,
                 const ObjectList<std::string>& device_names,
                 const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);

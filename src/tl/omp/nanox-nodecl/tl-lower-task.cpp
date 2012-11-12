@@ -182,6 +182,7 @@ Source LoweringVisitor::fill_const_wd_info(
         const std::string& outline_name,
         bool is_untied,
         bool mandatory_creation,
+        int num_copies,
         const ObjectList<std::string>& device_names,
         const std::multimap<std::string, std::string>& devices_and_implementors,
         Nodecl::NodeclBase construct)
@@ -198,7 +199,7 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_devices = device_names.size();
     TL::Symbol const_wd_type = declare_const_wd_type(num_devices + devices_and_implementors.size(), construct);
 
-    Source alignment, props_init, num_copies;
+    Source alignment, props_init;
 
     Source ancillary_device_descriptions,
            device_descriptions,
@@ -220,7 +221,6 @@ Source LoweringVisitor::fill_const_wd_info(
         ;
 
     alignment << "__alignof__(" << struct_arg_type_name << ")";
-    num_copies << "0";
 
     Source tiedness,
            priority;
@@ -422,6 +422,7 @@ void LoweringVisitor::emit_async_common(
             outline_name,
             is_untied,
             /* mandatory_creation */ 0,
+            /* num_copies */ count_copies(outline_info),
             device_names,
             devices_and_implementors,
             construct);

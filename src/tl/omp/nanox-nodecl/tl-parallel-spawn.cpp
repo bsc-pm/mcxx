@@ -98,6 +98,7 @@ namespace TL { namespace Nanox {
                 outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
+                /* num_copies */ count_copies(outline_info),
                 outline_info.get_device_names(),
                 /* only used in task calls */ dummy_multimap,
                 construct);
