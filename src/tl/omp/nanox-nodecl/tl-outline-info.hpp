@@ -327,7 +327,7 @@ namespace TL
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+                OutlineInfo(Nodecl::NodeclBase environment);
                 OutlineInfo();
                 ~OutlineInfo();
 
