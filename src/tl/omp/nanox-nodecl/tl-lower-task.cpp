@@ -1287,7 +1287,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
     argument_type = argument_type.get_lvalue_reference_to();
 
     function_def
-        << "void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
+        << "static void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
         << "{"
         <<      statement_placeholder(function_body)
         << "}"
