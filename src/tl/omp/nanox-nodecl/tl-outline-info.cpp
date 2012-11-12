@@ -815,7 +815,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment)
         : _data_env_items()
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);

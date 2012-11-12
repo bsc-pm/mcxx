@@ -156,6 +156,11 @@ namespace TL
                     return _field_name;
                 }
 
+                void set_field_name(const std::string& field_name)
+                {
+                    _field_name = field_name;
+                }
+
                 // Returns the type used in the outline code
                 // or the field type if not defined
                 Type get_in_outline_type() const
@@ -327,7 +332,7 @@ namespace TL
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+                OutlineInfo(Nodecl::NodeclBase environment);
                 OutlineInfo();
                 ~OutlineInfo();
 
