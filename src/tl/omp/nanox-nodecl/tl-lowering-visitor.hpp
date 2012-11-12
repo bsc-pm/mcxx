@@ -95,11 +95,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol,
                 // Source arguments_accessor,
                 // out
+                int &num_copies,
                 Source& copy_ol_decl,
                 Source& copy_ol_arg,
                 Source& copy_ol_setup,
                 Source& copy_imm_arg,
-                Source& copy_imm_setup);
+                Source& copy_imm_setup,
+                Source& xlate_function_name);
+
         void fill_copies_nonregion(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -123,11 +126,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
-        void emit_translation_function(
+        void emit_translation_function_nonregion(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                TL::Source& xlate_function_name);
 
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,

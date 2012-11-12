@@ -380,9 +380,10 @@ void LoweringVisitor::emit_async_common(
            immediate_decl,
            copy_imm_arg,
            copy_imm_setup,
-           translation_fun_arg_name,
+           translation_function,
            const_wd_info,
-           dynamic_wd_info;
+           dynamic_wd_info,
+           xlate_function_name;
 
     Nodecl::NodeclBase fill_outline_arguments_tree,
         fill_dependences_outline_tree;
@@ -449,8 +450,6 @@ void LoweringVisitor::emit_async_common(
             // out
             immediate_decl,
             dynamic_size);
-
-    translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // For every device name specified in the 'device' clause, we create its outline function
     CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol);
@@ -567,7 +566,7 @@ void LoweringVisitor::emit_async_common(
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
         <<                  copy_imm_arg << ", "
-        <<                  translation_fun_arg_name << ");"
+        <<                  translation_function << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         << "}"
@@ -579,15 +578,33 @@ void LoweringVisitor::emit_async_common(
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
 
+    int num_copies = 0;
     fill_copies(construct,
-        outline_info,
-        parameter_outline_info,
-        structure_symbol,
-        copy_ol_decl,
-        copy_ol_arg,
-        copy_ol_setup,
-        copy_imm_arg,
-        copy_imm_setup);
+            outline_info,
+            parameter_outline_info,
+            structure_symbol,
+
+            num_copies,
+            copy_ol_decl,
+            copy_ol_arg,
+            copy_ol_setup,
+            copy_imm_arg,
+            copy_imm_setup,
+            xlate_function_name);
+
+    if (num_copies == 0)
+    {
+        translation_function << "(nanos_translate_args_t)0";
+    }
+    else
+    {
+        translation_function << "(nanos_translate_args_t)" << xlate_function_name;
+
+        copy_ol_setup
+            << err_name << " = nanos_set_translate_function(nanos_wd_, (nanos_translate_args_t)" << xlate_function_name << ");"
+            << "if (" << err_name << " != NANOS_OK) nanos_handle_error(" << err_name << ");"
+            ;
+    }
 
     fill_dependences(construct, 
             outline_info, 
@@ -1200,13 +1217,16 @@ void LoweringVisitor::fill_copies(
         TL::Symbol structure_symbol,
         // Source arguments_accessor,
         // out
+        int &num_copies,
         Source& copy_ol_decl,
         Source& copy_ol_arg,
         Source& copy_ol_setup,
         Source& copy_imm_arg,
-        Source& copy_imm_setup)
+        Source& copy_imm_setup,
+        Source& xlate_function_name
+        )
 {
-    int num_copies = count_copies(outline_info);
+    num_copies = count_copies(outline_info);
 
     if (num_copies == 0)
     {
@@ -1235,21 +1255,29 @@ void LoweringVisitor::fill_copies(
                 copy_ol_setup,
                 copy_imm_arg,
                 copy_imm_setup);
+        emit_translation_function_nonregion(ctr, 
+                outline_info, 
+                parameter_outline_info, 
+                structure_symbol, 
+                xlate_function_name);
     }
-
-    emit_translation_function(ctr, outline_info, parameter_outline_info, structure_symbol);
 }
 
-void LoweringVisitor::emit_translation_function(
+void LoweringVisitor::emit_translation_function_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         OutlineInfo* parameter_outline_info,
-        TL::Symbol structure_symbol)
+        TL::Symbol structure_symbol,
+
+        // Out
+        TL::Source& xlate_function_name
+        )
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
     Source fun_name;
     fun_name << "nanos_xlate_fun_" << fun_num;
     fun_num++;
+    xlate_function_name = fun_name;
 
     Source function_def;
 
