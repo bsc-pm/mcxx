@@ -53,7 +53,7 @@ using namespace TL::Nanox;
 
 static std::string cuda_outline_name(const std::string & name)
 {
-    return "_gpu_" + name;
+    return "gpu_" + name;
 }
 
 //
@@ -2234,17 +2234,13 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &device_descriptor,
         Source &fortran_dynamic_init UNUSED_PARAMETER)
 {
-    std::string outline_name = info._outline_name;
-
-    Source device_outline_name;
-    device_outline_name << cuda_outline_name(outline_name);
-
+    const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
             << comment("CUDA device descriptor")
             << "static nanos_smp_args_t "
-            << outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
+            << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
             ;
     }
     else
@@ -2252,7 +2248,7 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_gpu_factory, &" << outline_name << "_args }";
+    device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
 }
 
 //void DeviceCUDA::do_replacements(
