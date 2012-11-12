@@ -1095,9 +1095,10 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
     return num_copies;
 }
 
-void LoweringVisitor::fill_copies(
+void LoweringVisitor::fill_copies_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info, 
+        int num_copies,
         // Source arguments_accessor,
         // out
         Source& copy_ol_decl,
@@ -1106,24 +1107,8 @@ void LoweringVisitor::fill_copies(
         Source& copy_imm_arg,
         Source& copy_imm_setup)
 {
-    int num_copies = count_copies(outline_info);
-
-    if (num_copies == 0)
-    {
-        copy_ol_arg << "(nanos_copy_data_t**)0";
-        copy_imm_arg << "(nanos_copy_data_t*)0";
-        return;
-    }
-    
     copy_ol_arg << "&ol_copy_data";
     copy_imm_arg << "imm_copy_data";
-
-    // FIXME - This must be versioned
-    if (Nanos::Version::interface_is_at_least("copies_dep", 1000))
-    {
-        internal_error("New copies dependency not implemented", 0);
-        return;
-    }
 
     copy_ol_decl
         << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
@@ -1177,6 +1162,65 @@ void LoweringVisitor::fill_copies(
                 << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
                 ;
         }
+    }
+}
+
+void LoweringVisitor::fill_copies_region(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info, 
+        int num_copies,
+        // Source arguments_accessor,
+        // out
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup)
+{
+        internal_error("New copies dependency not yet implemented", 0);
+        return;
+}
+
+void LoweringVisitor::fill_copies(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info, 
+        // Source arguments_accessor,
+        // out
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup)
+{
+    int num_copies = count_copies(outline_info);
+
+    if (num_copies == 0)
+    {
+        copy_ol_arg << "(nanos_copy_data_t**)0";
+        copy_imm_arg << "(nanos_copy_data_t*)0";
+        return;
+    }
+
+    if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+    {
+        fill_copies_region(ctr, 
+                outline_info,
+                num_copies,
+                copy_ol_decl, copy_ol_arg,
+                copy_ol_setup,
+                copy_imm_arg,
+                copy_imm_setup);
+    }
+    else
+    {
+        fill_copies_nonregion(ctr, 
+                outline_info,
+                num_copies,
+                copy_ol_decl, 
+                copy_ol_arg,
+                copy_ol_setup,
+                copy_imm_arg,
+                copy_imm_setup);
     }
 }
 
