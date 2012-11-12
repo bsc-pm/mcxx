@@ -195,8 +195,8 @@ Source LoweringVisitor::fill_const_wd_info(
     //     size_t num_devices;
     // } nanos_const_wd_definition_t;
 
-    int num_devices = device_names.size();
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices + devices_and_implementors.size(), construct);
+    int num_devices = device_names.size() + devices_and_implementors.size();
+    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
     Source alignment, props_init;
 
