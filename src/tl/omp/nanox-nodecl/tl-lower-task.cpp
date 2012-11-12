@@ -1353,7 +1353,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "char *host_base_address;"
 
             << "host_base_address = (char*)arg." << (*it)->get_field_name() << ";"
-            << "offset = (signed long)&(" << as_expression(data_ref.shallow_copy()) << ") - (signed long)host_base_address;"
+            << "offset = (signed long)(" << as_expression(data_ref.get_base_address()) << ") - (signed long)host_base_address;"
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
             << "device_base_address -= offset;"
