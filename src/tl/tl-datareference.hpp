@@ -105,12 +105,14 @@ namespace TL
             //! Returns the base address of the DataReference
             Nodecl::NodeclBase get_base_address() const;
 
+            //! Returns an expression denoting the base address of the base symbol of the data reference
+            Nodecl::NodeclBase get_address_of_symbol() const;
+
             //! Returns an expression that designates the size of the DataReference
             Nodecl::NodeclBase get_sizeof() const;
 
             //! Returns an expression that computes the offset in bytes
             Nodecl::NodeclBase get_offsetof() const;
-
 
             //! Returns an expression that computes the offset in bytes
             /*!

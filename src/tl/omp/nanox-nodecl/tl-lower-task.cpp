@@ -1091,9 +1091,6 @@ int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
             it != data_items.end();
             it++)
     {
-        if ((*it)->get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
-            continue;
-
         num_deps += (*it)->get_dependences().size();
     }
 
@@ -1109,9 +1106,6 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
             it != data_items.end();
             it++)
     {
-        if ((*it)->get_copy_directionality() == OutlineDataItem::COPY_NONE)
-            continue;
-
         num_copies += (*it)->get_copies().size();
     }
 
@@ -1156,13 +1150,11 @@ void LoweringVisitor::fill_copies_nonregion(
             it != data_items.end();
             it++)
     {
-        OutlineDataItem::CopyDirectionality dir = (*it)->get_copy_directionality();
-        if (dir == OutlineDataItem::COPY_NONE)
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
             continue;
 
-        TL::ObjectList<Nodecl::NodeclBase> copies = (*it)->get_copies();
-
-        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
         if (copies.size() > 1)
         {
             warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
@@ -1171,7 +1163,9 @@ void LoweringVisitor::fill_copies_nonregion(
                     (*it)->get_symbol().get_name().c_str());
         }
 
-        TL::DataReference data_ref(copies[0]);
+        TL::DataReference data_ref(copies[0].expression);
+        OutlineDataItem::CopyDirectionality dir = copies[0].directionality;
+
 
         int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
         int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
@@ -1206,8 +1200,144 @@ void LoweringVisitor::fill_copies_region(
         Source& copy_imm_arg,
         Source& copy_imm_setup)
 {
-        internal_error("New copies dependency not yet implemented", 0);
-        return;
+    // typedef struct {
+    //     void *address;
+    //     nanos_sharing_t sharing;
+    //     struct {
+    //         bool input: 1;
+    //         bool output: 1;
+    //     } flags;
+    //     short dimension_count;
+    //     nanos_region_dimension_internal_t const *dimensions;
+    //     ptrdiff_t offset;
+    // } nanos_copy_data_internal_t;
+
+     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+
+     int i = 0;
+     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+             it != data_items.end();
+             it++)
+     {
+         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+         if (copies.empty())
+             continue;
+
+         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                 copy_it != copies.end();
+                 copy_it++, i++)
+         {
+             TL::DataReference data_ref(copy_it->expression);
+             OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
+
+             Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+
+             int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+             int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+
+             Source num_dimensions, dimension_descriptor_name, dimension_descriptors, copy_offset;
+
+             copy_ol_setup
+                 << dimension_descriptors
+                 << "ol_copy_data[" << i << "].sharing = NANOS_SHARED;"
+                 << "ol_copy_data[" << i << "].address = (uint64_t)" << as_expression(address_of_object) << ";"
+                 << "ol_copy_data[" << i << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                 << "ol_copy_data[" << i << "].flags.input = " << input << ";"
+                 << "ol_copy_data[" << i << "].flags.output = " << output << ";"
+                 << "ol_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                 << "ol_copy_data[" << i << "].dimensions = " << dimension_descriptor_name << ";"
+                 << "ol_copy_data[" << i << "].offset = " << copy_offset << ";"
+                 ;
+
+             copy_imm_setup
+                 << dimension_descriptors
+                 << "imm_copy_data[" << i << "].sharing = NANOS_SHARED;"
+                 << "imm_copy_data[" << i << "].address = (uint64_t)" << as_expression(address_of_object) << ";"
+                 << "imm_copy_data[" << i << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                 << "imm_copy_data[" << i << "].flags.input = " << input << ";"
+                 << "imm_copy_data[" << i << "].flags.output = " << output << ";"
+                 << "imm_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                 << "imm_copy_data[" << i << "].dimensions = " << dimension_descriptor_name << ";"
+                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
+                 ;
+
+             TL::Type copy_type = data_ref.get_data_type();
+             TL::Type base_type = copy_type;
+
+             ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
+
+             int num_dimensions_count = copy_type.get_num_dimensions();
+             if (num_dimensions_count == 0)
+             {
+                 lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+                 region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+             }
+             else
+             {
+                 TL::Type t = copy_type;
+                 while (t.is_array())
+                 {
+                     Nodecl::NodeclBase lower, upper;
+                     t.array_get_region_bounds(lower, upper);
+
+                     Nodecl::NodeclBase region_size = t.array_get_size();
+
+                     lower_bounds.append(lower);
+                     upper_bounds.append(upper);
+                     region_sizes.append(region_size);
+
+                     t = t.array_element();
+                 }
+
+                 base_type = t;
+
+                 // Sanity check
+                 ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
+                         || num_dimensions_count != (signed)upper_bounds.size()
+                         || num_dimensions_count != (signed)region_sizes.size(),
+                         "Mismatch between dimensions", 0);
+
+             }
+
+             dimension_descriptor_name
+                 << "copy_dimensions_" << i;
+
+             dimension_descriptors
+                 << "nanos_region_dimension_t " << dimension_descriptor_name << "[" << num_dimensions_count << "];";
+
+
+             for (int dim = 0; dim < num_dimensions_count; dim++)
+             {
+                 if (dim == 0)
+                 {
+                     // In bytes
+                     dimension_descriptors
+                         << dimension_descriptor_name << "[" << dim  << "].size = "
+                         << "(" << as_expression(region_sizes[i].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                         << dimension_descriptor_name << "[" << dim  << "].lower_bound = "
+                         << "(" << as_expression(lower_bounds[i].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                         << dimension_descriptor_name << "[" << dim  << "].accessed_length = "
+                         << "((" << as_expression(upper_bounds[i].shallow_copy()) << ") - ("
+                         << as_expression(lower_bounds[i].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                         ;
+                 }
+                 else
+                 {
+                     // In elements
+                     dimension_descriptors
+                         << dimension_descriptor_name << "[" << dim  << "].size = "
+                         << as_expression(region_sizes[i].shallow_copy()) << ";"
+                         << dimension_descriptor_name << "[" << dim  << "].lower_bound = "
+                         << as_expression(lower_bounds[i].shallow_copy()) << ";"
+                         << dimension_descriptor_name << "[" << dim  << "].accessed_length = "
+                         << "(" << as_expression(upper_bounds[i].shallow_copy()) << ") - ("
+                         << as_expression(lower_bounds[i].shallow_copy()) << ") + 1;"
+                         ;
+                 }
+             }
+         }
+     }
 }
 
 void LoweringVisitor::fill_copies(
@@ -1323,11 +1453,10 @@ void LoweringVisitor::emit_translation_function_nonregion(
             it != data_items.end();
             it++, copy_num++)
     {
-        OutlineDataItem::CopyDirectionality dir = (*it)->get_copy_directionality();
-        if (dir == OutlineDataItem::COPY_NONE)
-            continue;
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
-        TL::ObjectList<Nodecl::NodeclBase> copies = (*it)->get_copies();
+        if (copies.empty())
+            continue;
 
         ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
         if (copies.size() > 1)
@@ -1338,7 +1467,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
                     (*it)->get_symbol().get_name().c_str());
         }
 
-        TL::DataReference data_ref(copies[0]);
+        TL::DataReference data_ref(copies[0].expression);
 
         translations
             << "{"
@@ -1432,16 +1561,17 @@ void LoweringVisitor::fill_dependences_internal(
                 it != data_items.end();
                 it++)
         {
-            OutlineDataItem::Directionality dir = (*it)->get_directionality();
-            if (dir == OutlineDataItem::DIRECTIONALITY_NONE)
+            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+
+            if (deps.empty())
                 continue;
 
-            TL::ObjectList<Nodecl::NodeclBase> deps = (*it)->get_dependences();
-            for (ObjectList<Nodecl::NodeclBase>::iterator dep_it = deps.begin();
+            for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++, current_dep_num++)
             {
-                TL::DataReference dep_expr(*dep_it);
+                OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
+                TL::DataReference dep_expr(dep_it->expression);
 
                 ERROR_CONDITION(!dep_expr.is_valid(),
                         "%s: Invalid dependency detected '%s'. Reason: %s\n",
@@ -1499,12 +1629,12 @@ void LoweringVisitor::fill_dependences_internal(
 
                 int num_dimensions = dependency_type.get_num_dimensions();
 
-                int concurrent = ((dir & OutlineDataItem::DIRECTIONALITY_CONCURRENT) == OutlineDataItem::DIRECTIONALITY_CONCURRENT);
-                int commutative = ((dir & OutlineDataItem::DIRECTIONALITY_COMMUTATIVE) == OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
+                int concurrent = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+                int commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-                dependency_flags_in << (((dir & OutlineDataItem::DIRECTIONALITY_IN) == OutlineDataItem::DIRECTIONALITY_IN) 
+                dependency_flags_in << (((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN) 
                         || concurrent || commutative);
-                dependency_flags_out << (((dir & OutlineDataItem::DIRECTIONALITY_OUT) == OutlineDataItem::DIRECTIONALITY_OUT) 
+                dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT) 
                         || concurrent || commutative);
                 dependency_flags_concurrent << concurrent;
                 dependency_flags_commutative << commutative;
@@ -1955,40 +2085,44 @@ static Nodecl::NodeclBase rewrite_single_dependency(Nodecl::NodeclBase node, con
 }
 
 // Rewrite every dependence in terms of the arguments of the function task call
-static TL::ObjectList<Nodecl::NodeclBase> rewrite_dependences(
-        const TL::ObjectList<Nodecl::NodeclBase>& deps, 
+static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences(
+        const TL::ObjectList<OutlineDataItem::DependencyItem>& deps,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
-    TL::ObjectList<Nodecl::NodeclBase> result;
-    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = deps.begin();
+    TL::ObjectList<OutlineDataItem::DependencyItem> result;
+    for (TL::ObjectList<OutlineDataItem::DependencyItem>::const_iterator it = deps.begin();
             it != deps.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->shallow_copy();
-        result.append( rewrite_single_dependency(copy, param_to_arg_expr) );
+        Nodecl::NodeclBase copy = it->expression.shallow_copy();
+        result.append( OutlineDataItem::DependencyItem(
+                    rewrite_single_dependency(copy, param_to_arg_expr),
+                    it->directionality) );
     }
 
     return result;
 }
 
-static TL::ObjectList<Nodecl::NodeclBase> rewrite_copies(
-        const TL::ObjectList<Nodecl::NodeclBase>& deps, 
+static TL::ObjectList<OutlineDataItem::CopyItem> rewrite_copies(
+        const TL::ObjectList<OutlineDataItem::CopyItem>& deps,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
-    TL::ObjectList<Nodecl::NodeclBase> result;
-    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = deps.begin();
+    TL::ObjectList<OutlineDataItem::CopyItem> result;
+    for (TL::ObjectList<OutlineDataItem::CopyItem>::const_iterator it = deps.begin();
             it != deps.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->shallow_copy();
-        result.append( rewrite_expression_in_dependency(copy, param_to_arg_expr) );
+        Nodecl::NodeclBase copy = it->expression.shallow_copy();
+        result.append( OutlineDataItem::CopyItem(
+                    rewrite_expression_in_dependency(copy, param_to_arg_expr),
+                    it->directionality) );
     }
 
     return result;
 }
 
 static void copy_outline_data_item(
-        OutlineDataItem& dest_info, 
+        OutlineDataItem& dest_info,
         const OutlineDataItem& source_info,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
@@ -1996,11 +2130,9 @@ static void copy_outline_data_item(
     dest_info.set_field_name(source_info.get_field_name());
 
     // Copy dependence directionality
-    dest_info.set_directionality(source_info.get_directionality());
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
 
     // Copy copy directionality
-    dest_info.set_copy_directionality(source_info.get_copy_directionality());
     dest_info.get_copies() = rewrite_copies(source_info.get_copies(), param_to_arg_expr);
 }
 
@@ -2436,7 +2568,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
             copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
 
-            if (parameter_outline_data_item.get_directionality() != OutlineDataItem::DIRECTIONALITY_NONE)
+            if (!parameter_outline_data_item.get_dependences().empty())
             {
                 argument_outline_data_item.set_base_address_expression(it->second);
             }
@@ -2457,7 +2589,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
             OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
 
-            if (parameter_outline_data_item.get_directionality() == OutlineDataItem::DIRECTIONALITY_NONE)
+            if (parameter_outline_data_item.get_dependences().empty())
             {
                 outline_register_entities.add_capture_with_value(new_symbol, it->second);
                 param_sym_to_arg_sym[it->first] = new_symbol;

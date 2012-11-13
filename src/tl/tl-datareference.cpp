@@ -446,6 +446,12 @@ namespace TL
         return _base_address.shallow_copy();
     }
 
+    Nodecl::NodeclBase DataReference::get_address_of_symbol() const
+    {
+        internal_error("Not yet implemented", 0);
+        return Nodecl::NodeclBase::null();
+    }
+
     Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const
     {
         if (relevant_type.is_any_reference())
