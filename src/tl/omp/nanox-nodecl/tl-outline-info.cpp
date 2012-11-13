@@ -724,6 +724,11 @@ namespace TL { namespace Nanox {
                         implements.get_function_name().as<Nodecl::Symbol>().get_symbol());
             }
 
+            void visit(const Nodecl::OpenMP::NDRange& ndrange)
+            {
+                _outline_info.append_to_ndrange(ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+            }
+
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
                 Nodecl::List l = shared.get_firstprivate_symbols().as<Nodecl::List>();
@@ -870,6 +875,16 @@ namespace TL { namespace Nanox {
     ObjectList<std::string> OutlineInfo::get_device_names()
     {
         return _device_names;
+    }
+
+    void OutlineInfo::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    {
+        _ndrange_exprs.append(ndrange_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange() const
+    {
+        return _ndrange_exprs;
     }
 
     void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)

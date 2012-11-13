@@ -317,6 +317,8 @@ namespace TL
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
+                ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
+
                 // Devices information
                 ObjectList<std::string> _device_names;
 
@@ -351,6 +353,9 @@ namespace TL
 
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
                 void add_implementation(std::string device_name, TL::Symbol function_symbol);
                 implementation_table_t get_implementation_table();

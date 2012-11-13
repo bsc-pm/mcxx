@@ -1462,6 +1462,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     TL::Symbol& arguments_struct = info._arguments_struct;
     TL::Symbol& called_task = info._called_task;
 
+    ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
+            "The '%s' symbol is not a function", called_task.get_name().c_str());
+
     TL::Symbol current_function =
         original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
@@ -1569,6 +1572,38 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             device_outline_name + "_unpacked",
             outline_info,
             symbol_map);
+
+    TL::ObjectList<Nodecl::NodeclBase> ndrange_exprs = outline_info.get_ndrange();
+        int num_args_ndrange = ndrange_exprs.size();
+    if (num_args_ndrange > 0
+            && called_task.is_valid())
+    {
+        Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+        std::cerr << "USER FUNC: " << called_task.get_name() << std::endl;
+        std::cerr << "UNPACKED FUNC: " << unpacked_function.get_name() << std::endl;
+
+        TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
+        TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
+        ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
+
+        int num_params = parameters_called.size();
+        for (int i = 0; i < num_params; ++i)
+        {
+            translate_parameters_map.add_map(
+                    parameters_called[i],
+                    parameters_unpacked[i]);
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+
+        new_ndrange.append(Nodecl::Utils::deep_copy(
+                ndrange_exprs[i],
+                unpacked_function.get_related_scope(),
+                translate_parameters_map));
+        }
+    }
 
     // The unpacked function must not be static and must have external linkage because
     // this function is called from the original source and but It is defined

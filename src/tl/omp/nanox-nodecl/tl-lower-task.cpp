@@ -2353,6 +2353,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         arguments_outline_info.add_device_name(*it);
     }
 
+    // Copy ndrange information from parameters_outline_info to arguments_outline_info
+    arguments_outline_info.append_to_ndrange(parameters_outline_info.get_ndrange());
+
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
     param_sym_to_arg_sym_t param_sym_to_arg_sym;
