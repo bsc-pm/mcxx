@@ -140,6 +140,8 @@ namespace TL
 
             Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type) const;
             Nodecl::NodeclBase compute_offsetof(Nodecl::NodeclBase expr, Nodecl::NodeclBase reference_expr, TL::Scope sc) const;
+
+            Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr) const;
     };
 }
 
