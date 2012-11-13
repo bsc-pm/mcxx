@@ -253,6 +253,8 @@ namespace TL
                 ObjectList<CopyItem> _copy_out;
                 ObjectList<CopyItem> _copy_inout;
 
+                ObjectList<Nodecl::NodeclBase> _ndrange;
+
                 ObjectList<std::string> _device_list;
 
                 bool _copy_deps;
@@ -267,6 +269,9 @@ namespace TL
                 ObjectList<CopyItem> get_copy_in() const;
                 ObjectList<CopyItem> get_copy_out() const;
                 ObjectList<CopyItem> get_copy_inout() const;
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;

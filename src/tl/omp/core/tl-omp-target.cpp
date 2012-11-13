@@ -72,6 +72,12 @@ namespace TL
                 target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
             }
 
+            PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");
+            if (ndrange.is_defined())
+            {
+                target_ctx.ndrange = ndrange.get_arguments_as_expressions(scope);
+            }
+
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             if (copy_deps.is_defined())
             {
@@ -366,6 +372,7 @@ namespace TL
                     COPY_DIR_INOUT,
                     target_info);
 
+            target_info.append_to_ndrange(target_ctx.ndrange);
             target_info.append_to_device_list(target_ctx.device_list);
 
             // Set data sharings for referenced entities in copies
