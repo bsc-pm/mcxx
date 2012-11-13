@@ -447,7 +447,6 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*TARGET([devices] text-seq, [items] target-item-seq-opt)
 # Used for parallel + {sections,for}
                  | NODECL_OPEN_M_P*COMBINED_WORKSHARING()
-# Not yet decided
                  | NODECL_OPEN_M_P*PRIORITY([priority]expression)
                  | NODECL_OPEN_M_P*UNTIED()
                  | NODECL_OPEN_M_P*CRITICAL_NAME() text

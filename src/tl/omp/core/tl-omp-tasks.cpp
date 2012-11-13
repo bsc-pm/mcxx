@@ -303,6 +303,16 @@ namespace TL
             return _map.find(sym)->second;
         }
 
+        void FunctionTaskInfo::set_untied(bool b)
+        {
+            _untied = b;
+        }
+
+        bool FunctionTaskInfo::get_untied() const
+        {
+            return _untied;
+        }
+
         void FunctionTaskInfo::module_write(ModuleWriter& mw)
         {
             mw.write(_sym);
@@ -311,6 +321,7 @@ namespace TL
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
+            mw.write(_untied);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -321,6 +332,7 @@ namespace TL
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
+            mr.read(_untied);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -677,6 +689,9 @@ namespace TL
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
             }
+
+            PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
+            task_info.set_untied(untied_clause.is_defined());
 
             std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;

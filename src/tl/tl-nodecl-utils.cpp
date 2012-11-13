@@ -977,7 +977,7 @@ namespace Nodecl
         }
     }
 
-    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase items)
     {
         while (!current_location.is_null()
                 && (!current_location.is<Nodecl::List>()
@@ -986,16 +986,30 @@ namespace Nodecl
             current_location = current_location.get_parent();
         }
 
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
         ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+        ERROR_CONDITION(!current_location.is<Nodecl::List>(), "Thist must be a list", 0);
 
         // This is a list node inside the top level list
         Nodecl::List list = current_location.as<Nodecl::List>();
 
-        Nodecl::List::iterator it = list.last();
-        list.insert(it, n);
+        Nodecl::List::iterator last_it = list.last();
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
     }
 
-    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase items)
     {
         while (!current_location.is_null()
                 && (!current_location.is<Nodecl::List>()
@@ -1004,13 +1018,27 @@ namespace Nodecl
             current_location = current_location.get_parent();
         }
 
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
         ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+        ERROR_CONDITION(!current_location.is<Nodecl::List>(), "Thist must be a list", 0);
 
         // This is a list node inside the top level list
         Nodecl::List list = current_location.as<Nodecl::List>();
 
-        Nodecl::List::iterator it = list.last();
-        list.insert(it+1, n);
+        Nodecl::List::iterator last_it = list.last();
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
     }
 
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_of_entity_at_top_level(TL::Symbol symbol)

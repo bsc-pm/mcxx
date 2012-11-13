@@ -34,3 +34,18 @@ config_edit = \
      -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
      -e 's|@SIMD_INCLUDES[@]|$(SIMD_INCLUDES)|g' \
     $(END)
+
+# Cross compiler profile names
+#
+# Profiles of Mercurium
+profiles = mcxx $(COMPILER_NAMES)
+config_edit += $(foreach profile, $(profiles), \
+    -e 's|^\[\( *\)$(profile)\( *\)\(:.*\)\?\]|\[\1'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\2\3\]|g' \
+    -e 's|^\[\(.*\):\( *\)$(profile)\( *\)\]|\[\1:\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3\]|g' \
+    )
+
+# gcc, g++ and gfortran
+config_edit += -e 's|@GCC[@]|'`echo gcc | $(SED) '$(program_transform_name)'`'|g' \
+	-e 's|@G++[@]|'`echo g++ | $(SED) '$(program_transform_name)'`'|g' \
+	-e 's|@GFORTRAN[@]|'`echo gfortran | $(SED) '$(program_transform_name)'`'|g'
+

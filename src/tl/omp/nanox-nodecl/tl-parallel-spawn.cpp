@@ -57,9 +57,9 @@ namespace TL { namespace Nanox {
                 immediate_decl,
                 dynamic_size);
 
-        Source translation_fun_arg_name;
+        Source translation_fun_arg_name, xlate_function_name;
 
-        translation_fun_arg_name << "(void(*)(void*, void*))0";
+        translation_fun_arg_name << "(nanos_translate_args_t)0";
 
         Source copy_ol_decl,
                copy_ol_arg, 
@@ -98,6 +98,7 @@ namespace TL { namespace Nanox {
                 outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
+                /* num_copies */ count_copies(outline_info),
                 outline_info.get_device_names(),
                 /* only used in task calls */ dummy_multimap,
                 construct);
@@ -175,13 +176,19 @@ namespace TL { namespace Nanox {
         // Fill dependences for outline
         num_dependences << count_dependences(outline_info);
 
+        int num_copies = 0;
         fill_copies(construct,
                 outline_info,
+                /* parameter_outline_info */ NULL,
+                structure_symbol,
+
+                num_copies,
                 copy_ol_decl,
                 copy_ol_arg,
                 copy_ol_setup,
                 copy_imm_arg,
-                copy_imm_setup);
+                copy_imm_setup,
+                xlate_function_name);
 
         fill_dependences(construct, 
                 outline_info, 

@@ -447,8 +447,10 @@ namespace TL
 
                 implementation_table_t get_implementation_table() const;
 
+                bool _untied;
+
             public:
-                FunctionTaskInfo() { }
+                FunctionTaskInfo() : _untied(false) { }
 
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
@@ -478,6 +480,9 @@ namespace TL
                 bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                bool get_untied() const;
+                void set_untied(bool b);
 
                 Symbol get_symbol() const;
 

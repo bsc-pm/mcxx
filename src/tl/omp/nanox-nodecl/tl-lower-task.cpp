@@ -181,6 +181,7 @@ Source LoweringVisitor::fill_const_wd_info(
         const std::string& outline_name,
         bool is_untied,
         bool mandatory_creation,
+        int num_copies,
         const ObjectList<std::string>& device_names,
         const std::multimap<std::string, std::string>& devices_and_implementors,
         Nodecl::NodeclBase construct)
@@ -194,10 +195,10 @@ Source LoweringVisitor::fill_const_wd_info(
     //     size_t num_devices;
     // } nanos_const_wd_definition_t;
 
-    int num_devices = device_names.size();
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices + devices_and_implementors.size(), construct);
+    int num_devices = device_names.size() + devices_and_implementors.size();
+    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
-    Source alignment, props_init, num_copies;
+    Source alignment, props_init;
 
     Source ancillary_device_descriptions,
            device_descriptions,
@@ -219,7 +220,6 @@ Source LoweringVisitor::fill_const_wd_info(
         ;
 
     alignment << "__alignof__(" << struct_arg_type_name << ")";
-    num_copies << "0";
 
     Source tiedness,
            priority;
@@ -285,6 +285,7 @@ Source LoweringVisitor::fill_const_wd_info(
         std::string implementor_outline_name = it->second;
 
         DeviceProvider* device = device_handler.get_device(device_name);
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
         DeviceDescriptorInfo info_implementor(implementor_outline_name);
         device->get_device_descriptor(
@@ -296,7 +297,6 @@ Source LoweringVisitor::fill_const_wd_info(
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;
         opt_fortran_dynamic_init << aux_fortran_init;
-
     }
 
     return result;
@@ -366,7 +366,10 @@ void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase priority_expr,
         bool is_untied,
 
-        OutlineInfo& outline_info)
+        OutlineInfo& outline_info,
+
+        /* this is non-NULL only for function tasks */
+        OutlineInfo* parameter_outline_info)
 {
     Source spawn_code;
 
@@ -378,9 +381,10 @@ void LoweringVisitor::emit_async_common(
            immediate_decl,
            copy_imm_arg,
            copy_imm_setup,
-           translation_fun_arg_name,
+           translation_function,
            const_wd_info,
-           dynamic_wd_info;
+           dynamic_wd_info,
+           xlate_function_name;
 
     Nodecl::NodeclBase fill_outline_arguments_tree,
         fill_dependences_outline_tree;
@@ -421,6 +425,7 @@ void LoweringVisitor::emit_async_common(
             outline_name,
             is_untied,
             /* mandatory_creation */ 0,
+            /* num_copies */ count_copies(outline_info),
             device_names,
             devices_and_implementors,
             construct);
@@ -446,8 +451,6 @@ void LoweringVisitor::emit_async_common(
             // out
             immediate_decl,
             dynamic_size);
-
-    translation_fun_arg_name << "(void (*)(void*, void*))0";
 
     // For every device name specified in the 'device' clause, we create its outline function
     CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
@@ -489,6 +492,17 @@ void LoweringVisitor::emit_async_common(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
+        CreateOutlineInfo info_implementor(
+                implementor_outline_name,
+                outline_info,
+                statements,
+                structure_symbol,
+				implementor_symbol);
+
+        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+        device->create_outline(info_implementor, outline_placeholder, symbol_map);
+
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
         // function specified in the 'implements' clause. For this reason, we
@@ -501,19 +515,6 @@ void LoweringVisitor::emit_async_common(
                 statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
-
-        CreateOutlineInfo info_implementor(
-                implementor_outline_name,
-                outline_info,
-                copy_statements,
-                structure_symbol,
-                implementor_symbol);
-
-        Nodecl::NodeclBase outline_placeholder;
-
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-
-        device->create_outline(info_implementor, outline_placeholder, symbol_map);
 
         Nodecl::NodeclBase outline_statements_code =
             Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
@@ -567,7 +568,7 @@ void LoweringVisitor::emit_async_common(
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
         <<                  copy_imm_arg << ", "
-        <<                  translation_fun_arg_name << ");"
+        <<                  translation_function << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         << "}"
@@ -579,13 +580,33 @@ void LoweringVisitor::emit_async_common(
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
 
+    int num_copies = 0;
     fill_copies(construct,
-        outline_info,
-        copy_ol_decl,
-        copy_ol_arg,
-        copy_ol_setup,
-        copy_imm_arg,
-        copy_imm_setup);
+            outline_info,
+            parameter_outline_info,
+            structure_symbol,
+
+            num_copies,
+            copy_ol_decl,
+            copy_ol_arg,
+            copy_ol_setup,
+            copy_imm_arg,
+            copy_imm_setup,
+            xlate_function_name);
+
+    if (num_copies == 0)
+    {
+        translation_function << "(nanos_translate_args_t)0";
+    }
+    else
+    {
+        translation_function << "(nanos_translate_args_t)" << xlate_function_name;
+
+        copy_ol_setup
+            << err_name << " = nanos_set_translate_function(nanos_wd_, (nanos_translate_args_t)" << xlate_function_name << ");"
+            << "if (" << err_name << " != NANOS_OK) nanos_handle_error(" << err_name << ");"
+            ;
+    }
 
     fill_dependences(construct, 
             outline_info, 
@@ -649,7 +670,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             task_environment.priority, 
             task_environment.is_untied, 
 
-            outline_info);
+            outline_info,
+            /* parameter_outline_info */ NULL);
 }
 
 void LoweringVisitor::fill_arguments(
@@ -1100,9 +1122,10 @@ int LoweringVisitor::count_copies(OutlineInfo& outline_info)
     return num_copies;
 }
 
-void LoweringVisitor::fill_copies(
+void LoweringVisitor::fill_copies_nonregion(
         Nodecl::NodeclBase ctr,
-        OutlineInfo& outline_info, 
+        OutlineInfo& outline_info,
+        int num_copies,
         // Source arguments_accessor,
         // out
         Source& copy_ol_decl,
@@ -1111,24 +1134,8 @@ void LoweringVisitor::fill_copies(
         Source& copy_imm_arg,
         Source& copy_imm_setup)
 {
-    int num_copies = count_copies(outline_info);
-
-    if (num_copies == 0)
-    {
-        copy_ol_arg << "(nanos_copy_data_t**)0";
-        copy_imm_arg << "(nanos_copy_data_t*)0";
-        return;
-    }
-    
     copy_ol_arg << "&ol_copy_data";
     copy_imm_arg << "imm_copy_data";
-
-    // FIXME - This must be versioned
-    if (Nanos::Version::interface_is_at_least("copies_dep", 1000))
-    {
-        internal_error("New copies dependency not implemented", 0);
-        return;
-    }
 
     copy_ol_decl
         << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
@@ -1158,31 +1165,207 @@ void LoweringVisitor::fill_copies(
             continue;
 
         TL::ObjectList<Nodecl::NodeclBase> copies = (*it)->get_copies();
-        for (ObjectList<Nodecl::NodeclBase>::iterator copy_it = copies.begin();
-                copy_it != copies.end();
-                copy_it++, current_copy_num++)
+
+        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
+        if (copies.size() > 1)
         {
-            TL::DataReference data_ref(*copy_it);
-
-            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-            int output = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_OUT;
-
-            copy_ol_setup
-                << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-                << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-                << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-                << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-                ;
-            copy_imm_setup
-                << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-                << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-                << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-                << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-                ;
+            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
+                    "Only the first one will be registered\n",
+                    ctr.get_locus().c_str(),
+                    (*it)->get_symbol().get_name().c_str());
         }
+
+        TL::DataReference data_ref(copies[0]);
+
+        int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+        int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+
+        copy_ol_setup
+            << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+            << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+            << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+            << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+            << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+            ;
+        copy_imm_setup
+            << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+            << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+            << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+            << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+            << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+            ;
+        current_copy_num++;
     }
+}
+
+void LoweringVisitor::fill_copies_region(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        int num_copies,
+        // Source arguments_accessor,
+        // out
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup)
+{
+        internal_error("New copies dependency not yet implemented", 0);
+        return;
+}
+
+void LoweringVisitor::fill_copies(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        OutlineInfo* parameter_outline_info,
+        TL::Symbol structure_symbol,
+        // Source arguments_accessor,
+        // out
+        int &num_copies,
+        Source& copy_ol_decl,
+        Source& copy_ol_arg,
+        Source& copy_ol_setup,
+        Source& copy_imm_arg,
+        Source& copy_imm_setup,
+        Source& xlate_function_name
+        )
+{
+    num_copies = count_copies(outline_info);
+
+    if (num_copies == 0)
+    {
+        copy_ol_arg << "(nanos_copy_data_t**)0";
+        copy_imm_arg << "(nanos_copy_data_t*)0";
+        return;
+    }
+
+    if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+    {
+        fill_copies_region(ctr, 
+                outline_info,
+                num_copies,
+                copy_ol_decl, copy_ol_arg,
+                copy_ol_setup,
+                copy_imm_arg,
+                copy_imm_setup);
+    }
+    else
+    {
+        fill_copies_nonregion(ctr, 
+                outline_info,
+                num_copies,
+                copy_ol_decl, 
+                copy_ol_arg,
+                copy_ol_setup,
+                copy_imm_arg,
+                copy_imm_setup);
+        emit_translation_function_nonregion(ctr, 
+                outline_info, 
+                parameter_outline_info, 
+                structure_symbol, 
+                xlate_function_name);
+    }
+}
+
+void LoweringVisitor::emit_translation_function_nonregion(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        OutlineInfo* parameter_outline_info,
+        TL::Symbol structure_symbol,
+
+        // Out
+        TL::Source& xlate_function_name
+        )
+{
+    TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
+    Source fun_name;
+    fun_name << "nanos_xlate_fun_" << fun_num;
+    fun_num++;
+    xlate_function_name = fun_name;
+
+    Source function_def;
+
+    Nodecl::NodeclBase function_body;
+
+    TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
+    argument_type = argument_type.get_lvalue_reference_to();
+
+    function_def
+        << "static void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
+        << "{"
+        <<      statement_placeholder(function_body)
+        << "}"
+        ;
+
+    Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
+
+    TL::ObjectList<OutlineDataItem*> data_items;
+   
+    if (parameter_outline_info != NULL)
+    {
+        data_items = parameter_outline_info->get_data_items();
+    }
+    else
+    {
+        data_items = outline_info.get_data_items();
+    }
+
+    Source translations;
+
+    // First gather all the data, so the translations are easier later
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end(); it++)
+    {
+        translations
+            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
+            << " = arg." << (*it)->get_field_name() << ";"
+            ;
+    }
+
+    int copy_num = 0;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++, copy_num++)
+    {
+        OutlineDataItem::CopyDirectionality dir = (*it)->get_copy_directionality();
+        if (dir == OutlineDataItem::COPY_NONE)
+            continue;
+
+        TL::ObjectList<Nodecl::NodeclBase> copies = (*it)->get_copies();
+
+        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
+        if (copies.size() > 1)
+        {
+            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
+                    "Only the first one will be translated\n",
+                    ctr.get_locus().c_str(),
+                    (*it)->get_symbol().get_name().c_str());
+        }
+
+        TL::DataReference data_ref(copies[0]);
+
+        translations
+            << "{"
+            << "void *device_base_address;"
+            << "signed long offset;"
+            << "nanos_err_t err;"
+            << "char *host_base_address;"
+
+            << "host_base_address = (char*)arg." << (*it)->get_field_name() << ";"
+            << "offset = (signed long)(" << as_expression(data_ref.get_base_address()) << ") - (signed long)host_base_address;"
+            << "device_base_address = 0;"
+            << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
+            << "device_base_address -= offset;"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+            << "}"
+            ;
+    }
+
+    Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    function_body.replace(translations_tree);
+
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
 }
 
 void LoweringVisitor::fill_dependences(
@@ -1813,6 +1996,9 @@ static void copy_outline_data_item(
         const OutlineDataItem& source_info,
         const sym_to_argument_expr_t& param_to_arg_expr)
 {
+    // We want the same field name
+    dest_info.set_field_name(source_info.get_field_name());
+
     // Copy dependence directionality
     dest_info.set_directionality(source_info.get_directionality());
     dest_info.get_dependences() = rewrite_dependences(source_info.get_dependences(), param_to_arg_expr);
@@ -2149,7 +2335,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment, /* function_task */ true);
+    OutlineInfo parameters_outline_info(parameters_environment);
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
@@ -2468,9 +2657,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             function_symbol,
             called_symbol,
             statements,
-            /* priority */ Nodecl::NodeclBase::null(),
-            /* is_untied */ false,
-            arguments_outline_info);
+            task_environment.priority,
+            task_environment.is_untied,
+            arguments_outline_info,
+            &parameters_outline_info);
 }
 
 } }
