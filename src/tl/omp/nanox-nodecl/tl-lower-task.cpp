@@ -1634,17 +1634,6 @@ void LoweringVisitor::emit_translation_function_region(
         if (copies.empty())
             continue;
 
-        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
-        if (copies.size() > 1)
-        {
-            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
-                    "Only the first one will be translated\n",
-                    ctr.get_locus().c_str(),
-                    (*it)->get_symbol().get_name().c_str());
-        }
-
-        TL::DataReference data_ref(copies[0].expression);
-
         translations
             << "{"
             << "void *device_base_address;"
