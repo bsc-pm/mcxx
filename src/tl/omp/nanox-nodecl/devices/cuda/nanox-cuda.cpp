@@ -1448,8 +1448,60 @@ static TL::Symbol new_function_symbol_unpacked(
 }
 
 
+void DeviceCUDA::do_ndrange_transformation_if_needed(
+        const TL::Symbol& called_task,
+        const TL::Symbol& unpacked_function,
+        const Nodecl::NodeclBase& original_statements,
+        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+        Nodecl::NodeclBase &output_statements)
+{
+    int num_args_ndrange = ndrange_args.size();
+    if (num_args_ndrange > 0
+            && called_task.is_valid())
+    {
+        Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+
+        TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
+        TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
+        ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
+
+        int num_params = parameters_called.size();
+        for (int i = 0; i < num_params; ++i)
+        {
+            translate_parameters_map.add_map(
+                    parameters_called[i],
+                    parameters_unpacked[i]);
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+
+            new_ndrange.append(Nodecl::Utils::deep_copy(
+                        ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        translate_parameters_map));
+        }
+
+        Nodecl::NodeclBase function_call_nodecl =
+            original_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
+
+        Nodecl::NodeclBase kernell_call =
+            Nodecl::CudaKernelCall::make(
+                    Nodecl::List::make(new_ndrange),
+                    function_call_nodecl,
+                    TL::Type::get_void_type(),
+                    original_statements.get_filename(),
+                    original_statements.get_line());
+
+        // In this case, we should change the output statements!
+        output_statements = kernell_call;
+    }
+}
+
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
+        Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
@@ -1457,10 +1509,11 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
+    const Nodecl::NodeclBase& original_statements = info._original_statements;
+    const TL::Symbol& called_task = info._called_task;
     OutlineInfo& outline_info = info._outline_info;
-    Nodecl::NodeclBase& original_statements = info._original_statements;
-    TL::Symbol& arguments_struct = info._arguments_struct;
-    TL::Symbol& called_task = info._called_task;
+
+    output_statements = original_statements;
 
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
@@ -1573,37 +1626,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             outline_info,
             symbol_map);
 
-    TL::ObjectList<Nodecl::NodeclBase> ndrange_exprs = outline_info.get_ndrange();
-        int num_args_ndrange = ndrange_exprs.size();
-    if (num_args_ndrange > 0
-            && called_task.is_valid())
-    {
-        Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-        std::cerr << "USER FUNC: " << called_task.get_name() << std::endl;
-        std::cerr << "UNPACKED FUNC: " << unpacked_function.get_name() << std::endl;
 
-        TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-        TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-        ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
-
-        int num_params = parameters_called.size();
-        for (int i = 0; i < num_params; ++i)
-        {
-            translate_parameters_map.add_map(
-                    parameters_called[i],
-                    parameters_unpacked[i]);
-        }
-
-        TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-        for (int i = 0; i < num_args_ndrange; ++i)
-        {
-
-        new_ndrange.append(Nodecl::Utils::deep_copy(
-                ndrange_exprs[i],
-                unpacked_function.get_related_scope(),
-                translate_parameters_map));
-        }
-    }
 
     // The unpacked function must not be static and must have external linkage because
     // this function is called from the original source and but It is defined
@@ -1631,6 +1654,12 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
 
+    do_ndrange_transformation_if_needed(called_task,
+            unpacked_function,
+            original_statements,
+            outline_info.get_ndrange(),
+            output_statements);
+
     // Add the unpacked function to the intermediate cuda file
     _cuda_file_code.append(unpacked_function_code);
 
@@ -1655,7 +1684,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     ObjectList<TL::Type> structure_type;
     structure_type.append(TL::Type(
                 get_user_defined_type(
-                    arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
+                    info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
     TL::Symbol outline_function = new_function_symbol(
             current_function,

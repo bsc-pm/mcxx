@@ -195,15 +195,16 @@ namespace TL { namespace Nanox {
         }
         wsd_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
-        // Build the structure
+        // Outline
+
+        DeviceHandler device_handler = DeviceHandler::get_device_handler();
+
+        TL::Symbol called_task_dummy = TL::Symbol::invalid();
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
+        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();
-
-        // Outline
-        TL::Symbol called_task_dummy = TL::Symbol::invalid();
-        DeviceHandler device_handler = DeviceHandler::get_device_handler();
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
                 it++)
@@ -213,12 +214,9 @@ namespace TL { namespace Nanox {
 
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-            // FIXME: Can it be done only once?
-            CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
-            Nodecl::NodeclBase outline_placeholder;
+            Nodecl::NodeclBase outline_placeholder, output_statements;
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
-
-            device->create_outline(info, outline_placeholder, symbol_map);
+            device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
@@ -240,13 +238,13 @@ namespace TL { namespace Nanox {
             }
 
             // Duplicate labels
-            Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, statements, outline_placeholder);
-            outline_placeholder1.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder1, label_symbol_map1));
+            Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, output_statements, outline_placeholder);
+            outline_placeholder1.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder1, label_symbol_map1));
 
             if (!outline_placeholder2.is_null())
             {
-                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, statements, outline_placeholder);
-                outline_placeholder2.replace(Nodecl::Utils::deep_copy(statements, outline_placeholder2, label_symbol_map2));
+                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements, outline_placeholder);
+                outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder2, label_symbol_map2));
             }
 
             outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));

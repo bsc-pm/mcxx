@@ -465,20 +465,16 @@ void LoweringVisitor::emit_async_common(
 
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::NodeclBase outline_placeholder, output_statements;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        device->create_outline(info, outline_placeholder, symbol_map);
+        device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
         Nodecl::NodeclBase outline_statements_code =
-            Nodecl::Utils::deep_copy(statements, outline_placeholder, *symbol_map);
+            Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
         delete symbol_map;
 
         outline_placeholder.replace(outline_statements_code);
     }
-
-    // Nodecl::NodeclBase function_call_nodecl = statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
-    // Nodecl::NodeclBase called_symbol_nodecl = function_call_nodecl.as<Nodecl::FunctionCall>().get_called();
-    // TL::Symbol called_task = called_symbol_nodecl.as<Nodecl::Symbol>().get_symbol();
 
     // The current function task may have additional implementations. For every
     // existant implementation, we should create its outline function.
@@ -500,9 +496,9 @@ void LoweringVisitor::emit_async_common(
                 structure_symbol,
 				implementor_symbol);
 
-        Nodecl::NodeclBase outline_placeholder;
+        Nodecl::NodeclBase outline_placeholder, output_statements;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        device->create_outline(info_implementor, outline_placeholder, symbol_map);
+        device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
@@ -513,7 +509,7 @@ void LoweringVisitor::emit_async_common(
         symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
         Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
-                statements,
+                output_statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
 
