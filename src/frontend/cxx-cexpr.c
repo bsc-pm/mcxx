@@ -2968,7 +2968,7 @@ static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value
     internal_error("Not yet implemented", 0);
 }
 
-void const_value_string_unpack(const_value_t* v, int **values, int *num_elements)
+void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_elements)
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
@@ -2982,6 +2982,22 @@ void const_value_string_unpack(const_value_t* v, int **values, int *num_elements
 
     *num_elements = nels;
     *values = result;
+}
+
+const char *const_value_string_unpack_to_string(const_value_t* v)
+{
+    int *values = NULL, num_elements = 0;
+    const_value_string_unpack_to_int(v, &values, &num_elements);
+
+    char str[num_elements + 1];
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        str[i] = (char)values[i];
+    }
+    str[num_elements] = '\0';
+
+    return uniquestr(str);
 }
 
 const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)

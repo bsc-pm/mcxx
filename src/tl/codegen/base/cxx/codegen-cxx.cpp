@@ -2809,7 +2809,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     int *bytes = NULL;
     int length = 0;
-    const_value_string_unpack(v, &bytes, &length);
+    const_value_string_unpack_to_int(v, &bytes, &length);
 
     type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
     char is_wchar = !is_unsigned_char_type(element_type)
