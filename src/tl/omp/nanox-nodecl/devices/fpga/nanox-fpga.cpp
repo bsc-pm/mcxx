@@ -84,6 +84,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const TL::Scope & called_scope = called_task.get_scope();
     Source unpacked_arguments, private_entities;
 
+    //generate calls for output arguments
+    //generate code for input arguments
+    //set scalar arguments
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -161,7 +164,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         }
     }
 
-    // Add the user function to the intermediate file
+    // Add the user function to the intermediate file -> to HLS
     if (called_task.is_valid())
     {
         _fpga_file_code.append(Nodecl::Utils::deep_copy(
@@ -170,6 +173,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
         // Remove the user function definition from the original source because
         // It is used only in the intermediate file
+        // ^^ Are we completely sure about this? 
         Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
     }
 
@@ -182,8 +186,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             symbol_map);
 
     // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source and but It is defined
-    // in cudacc_filename.cu
+    // this function is called from the original source 
     unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
     if (IS_C_LANGUAGE)
     {
@@ -245,15 +248,15 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             outline_function_code,
             outline_function_body);
 
-    Source outline_src,
-           instrument_before,
-           instrument_after;
+    Source outline_src;
+//    Source instrument_before,
+//           instrument_after;
 
     outline_src
         << "{"
-        <<      instrument_before
-        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
-        <<      instrument_after
+//        <<      instrument_before
+//        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+//        <<      instrument_after
         << "}"
         ;
 
