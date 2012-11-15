@@ -54,9 +54,7 @@ namespace Codegen
         {
             walk_list(function_args.as<Nodecl::List>(), ", ");
         }
-        file << ")";
-
-
+        file << ");\n";
     }
 
     Nodecl::NodeclVisitor<void>::Ret CudaModuleVisitor::unhandled_node(const Nodecl::NodeclBase& n)
