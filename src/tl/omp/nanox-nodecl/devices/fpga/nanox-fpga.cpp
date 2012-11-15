@@ -92,7 +92,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             it != data_items.end();
             it++)
     {
-        print_dataItem_info(*it, called_scope);
+//        print_dataItem_info(*it, called_scope);
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
@@ -210,8 +210,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
 
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
     // Add the unpacked function to the intermediate cuda file
-    _fpga_file_code.append(unpacked_function_code);
+//    _fpga_file_code.append(unpacked_function_code);
 
     // Add a declaration of the unpacked function symbol in the original source
     if (IS_CXX_LANGUAGE)
@@ -224,6 +225,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
 
+//    Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
+//    outline_function_body.replace(new_outline_body);
+//    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 
     // Create the outline function
     //The outline function has always only one parameter which name is 'args'
@@ -249,14 +253,14 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             outline_function_body);
 
     Source outline_src;
-//    Source instrument_before,
-//           instrument_after;
+    Source instrument_before,
+           instrument_after;
 
     outline_src
         << "{"
-//        <<      instrument_before
-//        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
-//        <<      instrument_after
+        <<      instrument_before
+        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+        <<      instrument_after
         << "}"
         ;
 
@@ -428,6 +432,7 @@ TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
             it != data_items.end();
             it++)
     {
+        print_dataItem_info(*it, sc);
         TL::Symbol sym = (*it)->get_symbol();
 
         std::string name;
@@ -467,31 +472,6 @@ TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
                     private_symbols.append(private_sym);
                     break;
                 }
-            //case OutlineDataItem::SHARING_SHARED_PRIVATE:
-            //case OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE:
-            //    {
-            //        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, 
-            //                ("p_" + name).c_str());
-            //        private_sym->kind = SK_VARIABLE;
-            //        private_sym->type_information = (*it)->get_private_type().get_internal_type();
-            //        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-            //        if (sym.is_valid())
-            //        {
-            //            symbol_map->add_map(sym, private_sym);
-
-            //            // Copy attributes that must be preserved
-            //            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
-
-            //            // We do not want it be mapped again
-            //            // in the fall-through branch
-            //            already_mapped = true;
-            //        }
-
-            //        private_symbols.append(private_sym);
-
-            //        /* FALL THROUGH */
-            //    }
             case OutlineDataItem::SHARING_SHARED:
             case OutlineDataItem::SHARING_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
