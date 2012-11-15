@@ -1436,31 +1436,35 @@ void LoweringVisitor::fill_copies(
     {
         int num_copies_dimensions = count_copies_dimensions(outline_info);
 
-        fill_copies_region(ctr, 
+        fill_copies_region(ctr,
                 outline_info,
                 num_copies,
                 num_copies_dimensions,
-                copy_ol_decl, 
+                copy_ol_decl,
                 copy_ol_arg,
                 copy_ol_setup,
                 copy_imm_arg,
                 copy_imm_setup);
-        xlate_function_name << "(nanos_translate_args_t)0";
+        emit_translation_function_region(ctr,
+                outline_info,
+                parameter_outline_info,
+                structure_symbol,
+                xlate_function_name);
     }
     else
     {
-        fill_copies_nonregion(ctr, 
+        fill_copies_nonregion(ctr,
                 outline_info,
                 num_copies,
-                copy_ol_decl, 
+                copy_ol_decl,
                 copy_ol_arg,
                 copy_ol_setup,
                 copy_imm_arg,
                 copy_imm_setup);
-        emit_translation_function_nonregion(ctr, 
-                outline_info, 
-                parameter_outline_info, 
-                structure_symbol, 
+        emit_translation_function_nonregion(ctr,
+                outline_info,
+                parameter_outline_info,
+                structure_symbol,
                 xlate_function_name);
     }
 }
@@ -1553,6 +1557,101 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
             << "device_base_address -= offset;"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+            << "}"
+            ;
+    }
+
+    Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    function_body.replace(translations_tree);
+
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
+}
+
+void LoweringVisitor::emit_translation_function_region(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        OutlineInfo* parameter_outline_info,
+        TL::Symbol structure_symbol,
+
+        // Out
+        TL::Source& xlate_function_name
+        )
+{
+    TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
+    Source fun_name;
+    fun_name << "nanos_xlate_fun_" << fun_num;
+    fun_num++;
+    xlate_function_name = fun_name;
+
+    Source function_def;
+
+    Nodecl::NodeclBase function_body;
+
+    TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
+    argument_type = argument_type.get_lvalue_reference_to();
+
+    function_def
+        << "static void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
+        << "{"
+        <<      statement_placeholder(function_body)
+        << "}"
+        ;
+
+    Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
+
+    TL::ObjectList<OutlineDataItem*> data_items;
+   
+    if (parameter_outline_info != NULL)
+    {
+        data_items = parameter_outline_info->get_data_items();
+    }
+    else
+    {
+        data_items = outline_info.get_data_items();
+    }
+
+    Source translations;
+
+    // First gather all the data, so the translations are easier later
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end(); it++)
+    {
+        translations
+            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
+            << " = arg." << (*it)->get_field_name() << ";"
+            ;
+    }
+
+    int copy_num = 0;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++, copy_num++)
+    {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
+            continue;
+
+        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
+        if (copies.size() > 1)
+        {
+            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
+                    "Only the first one will be translated\n",
+                    ctr.get_locus().c_str(),
+                    (*it)->get_symbol().get_name().c_str());
+        }
+
+        TL::DataReference data_ref(copies[0].expression);
+
+        translations
+            << "{"
+            << "void *device_base_address;"
+            << "nanos_err_t err;"
+
+            << "device_base_address = 0;"
+            << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"

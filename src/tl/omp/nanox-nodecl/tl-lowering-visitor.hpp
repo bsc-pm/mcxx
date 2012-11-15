@@ -134,6 +134,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo* parameter_outline_info,
                 TL::Symbol structure_symbol,
                 TL::Source& xlate_function_name);
+        void emit_translation_function_region(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                OutlineInfo* parameter_outline_info,
+                TL::Symbol structure_symbol,
+                TL::Source& xlate_function_name);
 
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
