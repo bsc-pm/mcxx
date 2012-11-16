@@ -706,6 +706,74 @@ Source DeviceFPGA::fpga_param_code(
     //Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     Source args_src;
+    /*
+     * At some point we should have something like a nanox fpga-api so we can call functions
+     * like init/deinit hardware, get channels and (maybe) setup config.
+     */
+
+    /*
+     * Get the fpga handle to write the data that we need.
+     */
+    args_src
+        << "int fd = open(\"/dev/mem\", O_RDWR);"
+        << "unsigned int pipeacc_addr = 0x40440000;"
+        << "unsigned int *pipeacc_handle = "
+        << "    (unsigned int *) mmap(NULL, 4096,"
+        << "        PROT_READ | PROT_WRITE,"
+        << "        MAP_SHARED, fd, pipeacc_addr);"
+    ;
+
+    
+    //pipeacc_handle[XPIPEACC_AXILITE_ADDR_ADD_DATA/(sizeof(int))] = 10; // write parameter add (xpipeacc_AXIlite.h pcore vivado_hls)
+
+
+//    int i;
+    //set scalar arguments
+    /* FIXME
+     * We assume that the base address to set scalar parameters
+     * (which appears to be true)
+     * In fact all of this is defined in the 
+     *   impl/pcores/foo_top_v1_00_a/include/xfoo_AXIlite.h
+     * where foo is the name of the function and top_v1_00_a is the version name
+     * This path may change so we are assuming base addres does not
+     */
+
+    /* 
+     * Parameter have an offset of 8 bytes with the preceding one (except for 64bit ones)
+     * If any parameter is smaller than 32bit (4byte), padding is added in between
+     * If a paramater is 64bit(aka long long int) another 32bit of padding are added 
+     *
+     */
+
+    
+
+    int argIndex = 0x14/4;  //base address/(sizeof(int)=4)
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+//        print_dataItem_info(*it, sc);
+        Symbol outline_symbol = (*it)->get_symbol();
+//        OutlineDataItem::CopyDirectionality directionality = (*it)->get_directionality();
+        const TL::ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
+
+        //if copies are empty, we need to set the scalar value
+        if (copies.empty())
+        {
+            //set argument
+            argIndex++;
+        }
+
+        /* 
+         * There should be a control bus mapped at 0x40440000
+         * To start the device we must set the first bt to 1
+         */
+
+
+    }
+
+    args_src << "pipeacc_handle[0] = 1;";
+
     return args_src;
 }
 
