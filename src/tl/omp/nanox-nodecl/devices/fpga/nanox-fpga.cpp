@@ -198,6 +198,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             unpacked_function_code,
             unpacked_function_body);
 
+    Source fpga_params;
+    fpga_params = fpga_param_code(outline_info, symbol_map, called_scope);
+
     Source unpacked_source;
     unpacked_source
         << "{"
@@ -224,10 +227,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 original_statements.get_line());
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
-
-//    Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
-//    outline_function_body.replace(new_outline_body);
-//    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 
     // Create the outline function
     //The outline function has always only one parameter which name is 'args'
@@ -267,6 +266,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
+    original_statements = Nodecl::EmptyStatement::make(
+                original_statements.get_filename(),
+                original_statements.get_line());
 }
 
 DeviceFPGA::DeviceFPGA()
@@ -406,6 +408,7 @@ TL::Symbol DeviceFPGA::new_function_symbol(
 
     return entry;
 }
+
 
 TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
         TL::Symbol current_function,
@@ -677,6 +680,78 @@ void DeviceFPGA::build_empty_body_for_function(
             function_symbol,
             "", 0);
 }
+/*
+ * We may need to set scalar arguments here, but not transfers
+ */
+Source DeviceFPGA::fpga_param_code(
+        OutlineInfo &outline_info,
+        Nodecl::Utils::SymbolMap *symbol_map,//we may not need it
+        Scope sc
+        )
+{
 
+
+    // Preapare&submit all outputs
+    // Prepare&submit all inputs
+    // wait for all inputs
+    // wait for all outputs
+    // set scalars
+    // This might need 3 loops (inputs, outputs and scalars)
+    // TODO we may need to do something to get tx/rx channels
+    // TODO we need do declare 
+
+    Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
+    Source param_source;
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    Source in_sub, out_sub, in_wait, out_wait;
+    //generate init code & get channels
+    /*
+     * At some point we should have something libe a nanox fpga-api so we can call functions
+     * like init/deinit hardware and det channels
+     */
+
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        print_dataItem_info(*it, sc);
+        Symbol outline_symbol = (*it)->get_symbol();
+        OutlineDataItem::Directionality directionality = (*it)->get_directionality();
+        if (directionality != OutlineDataItem::DIRECTIONALITY_NONE)
+        {
+            //Let's copy something
+            if (directionality == OutlineDataItem::DIRECTIONALITY_IN)
+            {
+                //do input
+            }
+
+            if (directionality == OutlineDataItem::DIRECTIONALITY_OUT)
+            {
+                //do output
+            }
+        }
+        else
+        {
+            //set scalar
+        }
+
+    }
+
+    //outputs;
+//    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//            it != data_items.end();
+//            it++)
+//    {
+//        print_dataItem_info(*it, sc);
+//        Symbol outline_symbol = (*it)->get_symbol();
+//        std::cerr 
+//            << "outline_symbol: "
+//            << outline_symbol.get_name() << std::endl
+//            << "new_symbol: "
+//            << symbol_map->map(outline_symbol).get_name()
+//            << std::endl;
+//    }
+    return param_source;
+}
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);

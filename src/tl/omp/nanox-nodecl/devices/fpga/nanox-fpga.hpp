@@ -80,6 +80,12 @@ namespace TL
                         ObjectList<std::string> parameter_names,
                         ObjectList<TL::Type> parameter_types);
 
+                TL::Source fpga_param_code(
+                        TL::Nanox::OutlineInfo &,
+                        Nodecl::Utils::SymbolMap *,
+                        TL::Scope
+                        );
+
         };
     }
 }
