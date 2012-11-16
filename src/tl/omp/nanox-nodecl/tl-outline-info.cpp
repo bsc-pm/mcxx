@@ -418,6 +418,16 @@ namespace TL { namespace Nanox {
                     result_upper = upper;
                 }
 
+                TL::Type res = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+                if (make_allocatable)
+                {
+                    res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
+                }
+                else
+                {
+                    res = res.get_array_to(result_lower, result_upper, _sc);
+                }
+
                 if (make_allocatable
                         && outline_data_item != NULL)
                 {
@@ -431,8 +441,7 @@ namespace TL { namespace Nanox {
                     }
                 }
 
-                TL::Type res = add_extra_dimensions(sym, t.array_element(), outline_data_item);
-                return res.get_array_to(result_lower, result_upper, _sc);
+                return res;
             }
         }
         else if (t.is_pointer())
