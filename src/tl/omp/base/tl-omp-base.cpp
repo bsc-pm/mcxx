@@ -265,10 +265,13 @@ namespace TL { namespace OpenMP {
                         target_items);
 
                 ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
-                target_items.append(
-                        Nodecl::OpenMP::NDRange::make(
-                            Nodecl::List::make(ndrange_exprs),
-                            filename, line));
+                if (0 < ndrange_exprs.size())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::NDRange::make(
+                                Nodecl::List::make(ndrange_exprs),
+                                filename, line));
+                }
 
                 ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
                     function_task_info.get_devices_with_implementation();
