@@ -188,12 +188,16 @@ namespace TL
 //                        ScopeLink &sl);
 
 
-                  void do_ndrange_transformation_if_needed(const TL::Symbol& called_task,
+                  void generate_ndrange_additional_code(
+                          const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,
-                          const Nodecl::NodeclBase& original_statements,
                           const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-                          Nodecl::NodeclBase& output_statements);
+                          TL::Source& code_ndrange);
 
+                  void generate_ndrange_kernel_call(
+                          const TL::Scope& scope,
+                          const Nodecl::NodeclBase& original_statements,
+                          Nodecl::NodeclBase& output_statements);
 
                   void add_included_cuda_files(FILE* file);
             public:
