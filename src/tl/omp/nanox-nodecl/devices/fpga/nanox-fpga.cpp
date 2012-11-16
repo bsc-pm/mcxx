@@ -41,24 +41,26 @@ static std::string fpga_outline_name(const std::string &name)
 
 static void print_dataItem_info(OutlineDataItem *item, const TL::Scope & scope)
 {
-    std::cout << "--- dataItem info --- " << std::endl
-        << "field_name: " << item->get_field_name() << std::endl
-    ;
+    // std::cout << "--- dataItem info --- " << std::endl
+    //     << "field_name: " << item->get_field_name() << std::endl
+    // ;
 
-    const TL::Type & type = item->get_field_type();
+    // const TL::Type & type = item->get_field_type();
 
-    std::cout << "declaration: " << type.get_declaration(scope, "") << std::endl
-        << "is scalar: " << type.is_scalar_type() << std::endl
-        << "is pointer: " << type.is_pointer() << std::endl
-        << "copy_directionality: " << item->get_copy_directionality() << std::endl
-        << "directionality: " << item->get_directionality() << std::endl
-        << "--- ---" << std::endl
-    ;
+    // std::cout << "declaration: " << type.get_declaration(scope, "") << std::endl
+    //     << "is scalar: " << type.is_scalar_type() << std::endl
+    //     << "is pointer: " << type.is_pointer() << std::endl
+    //     << "copy_directionality: " << item->get_copy_directionality() << std::endl
+    //     << "directionality: " << item->get_directionality() << std::endl
+    //     << "--- ---" << std::endl
+    // ;
 
 }
 
+
 void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
+        Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
@@ -67,9 +69,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
     OutlineInfo& outline_info = info._outline_info;
-    Nodecl::NodeclBase& original_statements = info._original_statements;
-    TL::Symbol& arguments_struct = info._arguments_struct;
-    TL::Symbol& called_task = info._called_task;
+    const Nodecl::NodeclBase& original_statements = info._original_statements;
+    const TL::Symbol& arguments_struct = info._arguments_struct;
+    const TL::Symbol& called_task = info._called_task;
 
     TL::Symbol current_function =
         original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -266,7 +268,8 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
-    original_statements = Nodecl::EmptyStatement::make(
+
+    output_statements = Nodecl::EmptyStatement::make(
                 original_statements.get_filename(),
                 original_statements.get_line());
 }
@@ -700,58 +703,10 @@ Source DeviceFPGA::fpga_param_code(
     // TODO we may need to do something to get tx/rx channels
     // TODO we need do declare 
 
-    Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
-    Source param_source;
+    //Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-    Source in_sub, out_sub, in_wait, out_wait;
-    //generate init code & get channels
-    /*
-     * At some point we should have something libe a nanox fpga-api so we can call functions
-     * like init/deinit hardware and det channels
-     */
-
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        print_dataItem_info(*it, sc);
-        Symbol outline_symbol = (*it)->get_symbol();
-        OutlineDataItem::Directionality directionality = (*it)->get_directionality();
-        if (directionality != OutlineDataItem::DIRECTIONALITY_NONE)
-        {
-            //Let's copy something
-            if (directionality == OutlineDataItem::DIRECTIONALITY_IN)
-            {
-                //do input
-            }
-
-            if (directionality == OutlineDataItem::DIRECTIONALITY_OUT)
-            {
-                //do output
-            }
-        }
-        else
-        {
-            //set scalar
-        }
-
-    }
-
-    //outputs;
-//    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//            it != data_items.end();
-//            it++)
-//    {
-//        print_dataItem_info(*it, sc);
-//        Symbol outline_symbol = (*it)->get_symbol();
-//        std::cerr 
-//            << "outline_symbol: "
-//            << outline_symbol.get_name() << std::endl
-//            << "new_symbol: "
-//            << symbol_map->map(outline_symbol).get_name()
-//            << std::endl;
-//    }
-    return param_source;
+    Source args_src;
+    return args_src;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);

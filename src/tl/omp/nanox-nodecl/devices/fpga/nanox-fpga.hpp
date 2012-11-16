@@ -49,9 +49,9 @@ namespace TL
 
                 virtual void phase_cleanup(DTO& data_flow);
 
-                virtual void create_outline(
-                        CreateOutlineInfo &info,
+                virtual void create_outline(CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
+                        Nodecl::NodeclBase &output_statements,
                         Nodecl::Utils::SymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(
