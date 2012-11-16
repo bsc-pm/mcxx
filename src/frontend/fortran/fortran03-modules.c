@@ -175,6 +175,7 @@ enum type_kind_table_tag
     TKT_FUNCTION,
     TKT_NONPROTOTYPE_FUNCTION,
     TKT_ARRAY,
+    TKT_ARRAY_DESCRIPTOR,
     TKT_CLASS,
     TKT_VOID,
     TKT_INDIRECT,
@@ -1308,7 +1309,12 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
 
         sqlite3_uint64 element_type = insert_type(handle, array_type_get_element_type(t));
 
-        result = insert_type_ref_to_ast(handle, t, TKT_ARRAY, element_type, lower_tree, upper_tree);
+
+        type_kind_table_t kind = TKT_ARRAY;
+        if (array_type_with_descriptor(t))
+            kind = TKT_ARRAY_DESCRIPTOR;
+
+        result = insert_type_ref_to_ast(handle, t, kind, element_type, lower_tree, upper_tree);
     }
     else if (is_unnamed_class_type(t))
     {
@@ -2526,6 +2532,7 @@ static int get_type(void *datum,
             break;
         }
         case TKT_ARRAY:
+        case TKT_ARRAY_DESCRIPTOR:
         {
             nodecl_t lower_bound = load_nodecl(handle, ast0);
             nodecl_t upper_bound = load_nodecl(handle, ast1);
@@ -2535,7 +2542,23 @@ static int get_type(void *datum,
             // At the moment we do not store the decl_context
             // Hopefully this will be enough
             decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-            _type_assign_to(*pt, get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context));
+            if (kind == TKT_ARRAY)
+            {
+                _type_assign_to(*pt,
+                        get_array_type_bounds(element_type,
+                            lower_bound, upper_bound, decl_context));
+            }
+            else if (kind == TKT_ARRAY_DESCRIPTOR)
+            {
+                _type_assign_to(*pt,
+                        get_array_type_bounds_with_descriptor(element_type,
+                            lower_bound, upper_bound, decl_context));
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
             break;
         }
