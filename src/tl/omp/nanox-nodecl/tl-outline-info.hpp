@@ -63,14 +63,22 @@ namespace TL
                     SHARING_CAPTURE_ADDRESS,
                 };
 
-                enum Directionality
+                enum DependencyDirectionality
                 {
-                    DIRECTIONALITY_NONE = 0,
-                    DIRECTIONALITY_IN =   1 << 0,
-                    DIRECTIONALITY_OUT =  1 << 1,
-                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_CONCURRENT = 1 << 2,
-                    DIRECTIONALITY_COMMUTATIVE = 1 << 3
+                    DEP_NONE = 0,
+                    DEP_IN =   1 << 0,
+                    DEP_OUT =  1 << 1,
+                    DEP_INOUT = DEP_IN | DEP_OUT,
+                    DEP_CONCURRENT = 1 << 2,
+                    DEP_COMMUTATIVE = 1 << 3
+                };
+                struct DependencyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    DependencyDirectionality directionality;
+
+                    DependencyItem(Nodecl::NodeclBase expr_, DependencyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum CopyDirectionality
@@ -79,6 +87,14 @@ namespace TL
                     COPY_IN,
                     COPY_OUT,
                     COPY_INOUT
+                };
+                struct CopyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    CopyDirectionality directionality;
+
+                    CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum AllocationPolicyFlags
@@ -113,14 +129,9 @@ namespace TL
                 // Reductions
                 OpenMP::UDRInfoItem *_udr_info_item;
 
-                // Dependences
-                Directionality _directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _dependences;
+                TL::ObjectList<DependencyItem> _dependences;
 
-                // -- FIXME ---
-                // Copies
-                CopyDirectionality _copy_directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _copies;
+                TL::ObjectList<CopyItem> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
@@ -137,8 +148,6 @@ namespace TL
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _base_address_expression(),
-                    _directionality(),
-                    _copy_directionality(),
                     _allocation_policy_flags(),
                     _is_lastprivate()
                 {
@@ -218,42 +227,22 @@ namespace TL
                     return _allocation_policy_flags;
                 }
 
-                void set_directionality(Directionality directionality)
-                {
-                    _directionality = directionality;
-                }
-
-                CopyDirectionality get_copy_directionality() const
-                {
-                    return _copy_directionality;
-                }
-
-                void set_copy_directionality(CopyDirectionality directionality)
-                {
-                    _copy_directionality = directionality;
-                }
-
-                Directionality get_directionality() const
-                {
-                    return _directionality;
-                }
-
-                TL::ObjectList<Nodecl::NodeclBase>& get_dependences()
+                TL::ObjectList<DependencyItem>& get_dependences()
                 {
                     return _dependences;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_dependences() const
+                const TL::ObjectList<DependencyItem>& get_dependences() const
                 {
                     return _dependences;
                 }
 
-                TL::ObjectList<Nodecl::NodeclBase>& get_copies()
+                TL::ObjectList<CopyItem>& get_copies()
                 {
                     return _copies;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_copies() const
+                const TL::ObjectList<CopyItem>& get_copies() const
                 {
                     return _copies;
                 }
@@ -392,8 +381,8 @@ namespace TL
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
-                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::Directionality directionality);
-                void add_dependences(Nodecl::List list, OutlineDataItem::Directionality directionality);
+                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
+                void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
