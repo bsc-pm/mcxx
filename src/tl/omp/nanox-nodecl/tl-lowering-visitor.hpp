@@ -90,6 +90,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         int count_dependences(OutlineInfo& outline_info);
         int count_copies(OutlineInfo& outline_info);
+        int count_copies_dimensions(OutlineInfo& outline_info);
 
         void fill_copies(
                 Nodecl::NodeclBase ctr,
@@ -121,6 +122,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 int num_copies,
+                int num_copies_dimensions,
                 // Source arguments_accessor,
                 // out
                 Source& copy_ol_decl,
@@ -130,6 +132,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup);
 
         void emit_translation_function_nonregion(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                OutlineInfo* parameter_outline_info,
+                TL::Symbol structure_symbol,
+                TL::Source& xlate_function_name);
+        void emit_translation_function_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info,
@@ -180,6 +188,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
                 bool mandatory_creation,
                 int num_copies,
+                int num_copies_dimensions,
                 const ObjectList<std::string>& device_names,
                 const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);

@@ -102,6 +102,16 @@ namespace TL
             return _copy_inout;
         }
 
+        void TargetInfo::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions)
+        {
+            _ndrange.append(expressions);
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_ndrange() const
+        {
+            return _ndrange;
+        }
+
         void TargetInfo::set_copy_deps(bool b)
         {
             _copy_deps = b;
@@ -665,6 +675,8 @@ namespace TL
                 ObjectList<CopyItem> copy_inout = target_ctx_copy_inout.map(FunctionCopyItemGenerator(
                             COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
+
+                target_info.append_to_ndrange(target_context.ndrange);
 
                 target_info.append_to_device_list(target_context.device_list);
 

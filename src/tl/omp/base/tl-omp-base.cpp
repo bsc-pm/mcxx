@@ -264,6 +264,15 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
+                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+                if (0 < ndrange_exprs.size())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::NDRange::make(
+                                Nodecl::List::make(ndrange_exprs),
+                                filename, line));
+                }
+
                 ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
                     function_task_info.get_devices_with_implementation();
                 for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
@@ -1548,6 +1557,12 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
+
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        target_items.append(
+                Nodecl::OpenMP::NDRange::make(
+                    Nodecl::List::make(ndrange_exprs),
+                    filename, line));
 
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)

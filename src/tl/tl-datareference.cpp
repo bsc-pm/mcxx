@@ -446,6 +446,85 @@ namespace TL
         return _base_address.shallow_copy();
     }
 
+    Nodecl::NodeclBase DataReference::get_address_of_symbol_helper(Nodecl::NodeclBase expr) const
+    {
+        if (expr.is<Nodecl::Symbol>())
+        {
+            TL::Symbol sym = expr.as<Nodecl::Symbol>().get_symbol();
+            if (sym.get_type().is_array()
+                    || (sym.get_type().is_any_reference()
+                        && sym.get_type().references_to().is_array()))
+            {
+                return expr.shallow_copy();
+            }
+            else
+            {
+                TL::Type t = expr.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                return Nodecl::Reference::make(
+                        expr.shallow_copy(),
+                        t.get_pointer_to(),
+                        expr.get_filename(),
+                        expr.get_line());
+            }
+        }
+        else if (expr.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::NodeclBase subscripted = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+
+            if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                    && (subscripted.get_type().is_pointer()
+                        || (subscripted.get_type().is_any_reference()
+                            && subscripted.get_type().references_to().is_pointer())))
+            {
+                return subscripted.shallow_copy();
+            }
+            else
+            {
+                return get_address_of_symbol_helper(subscripted);
+            }
+        }
+        else if (expr.is<Nodecl::Reference>())
+        {
+            return expr.as<Nodecl::Reference>().get_rhs();
+        }
+        else if (expr.is<Nodecl::Shaping>())
+        {
+            Nodecl::NodeclBase postfix = expr.as<Nodecl::Shaping>().get_postfix();
+
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && (postfix.get_type().is_pointer()
+                        || (postfix.get_type().is_any_reference()
+                            && postfix.get_type().references_to().is_pointer())))
+            {
+                return postfix.shallow_copy();
+            }
+            else
+            {
+                return get_address_of_symbol_helper(postfix);
+            }
+        }
+        else if (expr.is<Nodecl::Dereference>())
+        {
+            return expr.as<Nodecl::Dereference>().get_rhs();
+        }
+        else
+        {
+            internal_error("Unhandled case '%s'\n", ast_print_node_type(expr.get_kind()));
+        }
+    }
+
+    Nodecl::NodeclBase DataReference::get_address_of_symbol() const
+    {
+        if (!_is_valid)
+            return Nodecl::NodeclBase::null();
+
+        return get_address_of_symbol_helper(*this);
+    }
+
     Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const
     {
         if (relevant_type.is_any_reference())

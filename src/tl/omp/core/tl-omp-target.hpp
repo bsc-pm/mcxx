@@ -45,6 +45,8 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> copy_out;
             ObjectList<Nodecl::NodeclBase> copy_inout;
 
+            ObjectList<Nodecl::NodeclBase> ndrange;
+
             bool has_implements;
             Symbol implements;
 

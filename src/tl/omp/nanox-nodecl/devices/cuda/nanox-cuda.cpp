@@ -40,6 +40,7 @@
 
 #include "codegen-phase.hpp"
 #include "codegen-cxx.hpp"
+#include "cxx-cexpr.h"
 //#include "codegen-fortran.hpp"
 
 //#include <iostream>
@@ -1448,8 +1449,167 @@ static TL::Symbol new_function_symbol_unpacked(
 }
 
 
+void DeviceCUDA::generate_ndrange_additional_code(
+        const TL::Symbol& called_task,
+        const TL::Symbol& unpacked_function,
+        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+        TL::Source& code_ndrange)
+{
+    int num_args_ndrange = ndrange_args.size();
+    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+
+    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
+    TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
+    ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
+
+    int num_params = parameters_called.size();
+    for (int i = 0; i < num_params; ++i)
+    {
+        translate_parameters_map.add_map(
+                parameters_called[i],
+                parameters_unpacked[i]);
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
+    for (int i = 0; i < num_args_ndrange; ++i)
+    {
+
+        new_ndrange.append(Nodecl::Utils::deep_copy(
+                    ndrange_args[i],
+                    unpacked_function.get_related_scope(),
+                    translate_parameters_map));
+    }
+
+    ERROR_CONDITION(!new_ndrange[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
+
+    int num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
+
+    ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
+
+    bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
+            && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+
+    ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
+
+    code_ndrange << "dim3 dimGrid;";
+    code_ndrange << "dim3 dimBlock;";
+    const char* field[3] = { "x", "y", "z"};
+    for (int i = 1; i <= 3; ++i)
+    {
+        if (check_dim)
+        {
+            if (i < num_dim)
+            {
+                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
+                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
+                if (check_dim)
+                {
+                    code_ndrange
+                        << "if (" << as_expression(new_ndrange[i]) << "%" <<  as_expression(new_ndrange[num_dim + i])<< " != 0 ) "
+                        << "fatal(\"WARNING:  Size " << field[i-1] << " of cuda kernel is not divisible by local size\\n\");";
+                }
+            }
+            else if (i == num_dim)
+            {
+                code_ndrange << "dimBlock." << field[i-1] << " = "
+                    << "(("
+                    << as_expression(new_ndrange[i])
+                    << " < " << as_expression(new_ndrange[num_dim + i])
+                    << ") ? (" << as_expression(new_ndrange[i])
+                    << ") : (" << as_expression(new_ndrange[num_dim + i])
+                    << "));";
+
+                code_ndrange << "dimGrid."  << field[i-1] << " = "
+                    << "(("
+                    << as_expression(new_ndrange[i])
+                    << " < " << as_expression(new_ndrange[num_dim + i])
+                    << ") ? 1 : (("
+                    << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i])
+                    << ") + ((" << as_expression(new_ndrange[i]) << " %  " << as_expression(new_ndrange[num_dim + i])
+                    << " == 0) ? 0 : 1)));";
+            }
+            else
+            {
+                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
+                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
+            }
+        }
+        else
+        {
+            if (i <= num_dim)
+            {
+                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
+                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
+            }
+            else
+            {
+                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
+                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
+            }
+        }
+    }
+
+}
+
+void DeviceCUDA::generate_ndrange_kernel_call(
+        const Scope& scope,
+        const Nodecl::NodeclBase& original_statements,
+        Nodecl::NodeclBase& output_statements)
+{
+    Nodecl::NodeclBase function_call_nodecl =
+        original_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
+
+    ObjectList<Nodecl::NodeclBase> cuda_kernel_config;
+    Symbol dim_grid  = scope.get_symbol_from_name("dimGrid");
+    Symbol dim_block = scope.get_symbol_from_name("dimBlock");
+    Symbol exec_stream = scope.get_symbol_from_name("nanos_get_kernel_execution_stream");
+    ERROR_CONDITION(!dim_grid.is_valid() || !dim_block.is_valid() || !exec_stream.is_valid(), "Unreachable code", 0);
+
+    cuda_kernel_config.append(
+            Nodecl::Symbol::make(dim_grid,
+                original_statements.get_filename(),
+                original_statements.get_line()));
+
+    cuda_kernel_config.append(
+            Nodecl::Symbol::make(dim_block,
+                original_statements.get_filename(),
+                original_statements.get_line()));
+
+    cuda_kernel_config.append(
+            Nodecl::IntegerLiteral::make(
+                TL::Type::get_int_type(),
+                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
+                original_statements.get_filename(),
+                original_statements.get_line()));
+
+    cuda_kernel_config.append(
+            Nodecl::FunctionCall::make(
+                Nodecl::Symbol::make(
+                    exec_stream,
+                    original_statements.get_filename(),
+                    original_statements.get_line()),
+                /* arguments */ nodecl_null(),
+                /* alternate_name */ nodecl_null(),
+                /* function_form */ nodecl_null(),
+                TL::Type::get_void_type(),
+                original_statements.get_filename(),
+                original_statements.get_line()));
+
+    Nodecl::NodeclBase kernell_call =
+        Nodecl::CudaKernelCall::make(
+                Nodecl::List::make(cuda_kernel_config),
+                function_call_nodecl,
+                TL::Type::get_void_type(),
+                original_statements.get_filename(),
+                original_statements.get_line());
+    // In this case, we should change the output statements!
+    output_statements = kernell_call;
+}
+
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
+        Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
@@ -1457,10 +1617,14 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
+    const Nodecl::NodeclBase& original_statements = info._original_statements;
+    const TL::Symbol& called_task = info._called_task;
     OutlineInfo& outline_info = info._outline_info;
-    Nodecl::NodeclBase& original_statements = info._original_statements;
-    TL::Symbol& arguments_struct = info._arguments_struct;
-    TL::Symbol& called_task = info._called_task;
+
+    output_statements = original_statements;
+
+    ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
+            "The '%s' symbol is not a function", called_task.get_name().c_str());
 
     TL::Symbol current_function =
         original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -1562,13 +1726,22 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
     }
 
-
     // Create the new unpacked function
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
             device_outline_name + "_unpacked",
             outline_info,
             symbol_map);
+
+    Source ndrange_code;
+    if (called_task.is_valid()
+            && outline_info.get_ndrange().size() > 0)
+    {
+        generate_ndrange_additional_code(called_task,
+                unpacked_function,
+                outline_info.get_ndrange(),
+                ndrange_code);
+    }
 
     // The unpacked function must not be static and must have external linkage because
     // this function is called from the original source and but It is defined
@@ -1588,6 +1761,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     unpacked_source
         << "{"
         << private_entities
+        << ndrange_code
         << statement_placeholder(outline_placeholder)
         << "}"
         ;
@@ -1595,6 +1769,15 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_unpacked_body =
         unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
+
+    if (called_task.is_valid()
+            && outline_info.get_ndrange().size() > 0)
+    {
+        generate_ndrange_kernel_call(
+                outline_placeholder.retrieve_context(),
+                original_statements,
+                output_statements);
+    }
 
     // Add the unpacked function to the intermediate cuda file
     _cuda_file_code.append(unpacked_function_code);
@@ -1610,7 +1793,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
 
-
     // Create the outline function
     //The outline function has always only one parameter which name is 'args'
     ObjectList<std::string> structure_name;
@@ -1620,7 +1802,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     ObjectList<TL::Type> structure_type;
     structure_type.append(TL::Type(
                 get_user_defined_type(
-                    arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
+                    info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
     TL::Symbol outline_function = new_function_symbol(
             current_function,

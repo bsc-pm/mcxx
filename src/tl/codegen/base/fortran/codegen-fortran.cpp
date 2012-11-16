@@ -734,7 +734,7 @@ OPERATOR_TABLE
 
         int length = 0;
         int *bytes = NULL;
-        const_value_string_unpack(v, &bytes, &length);
+        const_value_string_unpack_to_int(v, &bytes, &length);
 
         if (length == 0
                 || (::isprint(bytes[0])))

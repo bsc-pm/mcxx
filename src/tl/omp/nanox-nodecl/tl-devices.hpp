@@ -87,18 +87,18 @@ namespace TL { namespace Nanox {
     struct CreateOutlineInfo
     {
         const std::string& _outline_name;
+        const Nodecl::NodeclBase& _original_statements;
+        const TL::Symbol& _arguments_struct;
+        const TL::Symbol& _called_task; // Only used in CUDA device
         OutlineInfo& _outline_info;
-        Nodecl::NodeclBase& _original_statements;
-        TL::Symbol& _arguments_struct;
-        // Only used in CUDA device
-        TL::Symbol& _called_task;
+
 
         CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
             : _outline_name(outline_name),
-            _outline_info(outline_info),
             _original_statements(statements),
             _arguments_struct(args_struct),
-            _called_task(called_task)
+            _called_task(called_task),
+            _outline_info(outline_info)
         {
         }
     };
@@ -175,6 +175,7 @@ namespace TL { namespace Nanox {
     //
              virtual void create_outline(CreateOutlineInfo &info,
                      Nodecl::NodeclBase &outline_placeholder,
+                     Nodecl::NodeclBase &output_statements,
                      Nodecl::Utils::SymbolMap* &symbol_map) = 0;
     
     //         virtual void create_outline(

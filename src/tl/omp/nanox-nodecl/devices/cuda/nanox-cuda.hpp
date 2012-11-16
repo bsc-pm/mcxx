@@ -187,7 +187,19 @@ namespace TL
 //                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
 //                        ScopeLink &sl);
 
-                void add_included_cuda_files(FILE* file);
+
+                  void generate_ndrange_additional_code(
+                          const TL::Symbol& called_task,
+                          const TL::Symbol& unpacked_function,
+                          const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                          TL::Source& code_ndrange);
+
+                  void generate_ndrange_kernel_call(
+                          const TL::Scope& scope,
+                          const Nodecl::NodeclBase& original_statements,
+                          Nodecl::NodeclBase& output_statements);
+
+                  void add_included_cuda_files(FILE* file);
             public:
 
                 // This phase does nothing
@@ -200,6 +212,7 @@ namespace TL
 
              virtual void create_outline(CreateOutlineInfo &info,
                      Nodecl::NodeclBase &outline_placeholder,
+                     Nodecl::NodeclBase &output_statements,
                      Nodecl::Utils::SymbolMap* &symbol_map);
 
              virtual void get_device_descriptor(DeviceDescriptorInfo& info,

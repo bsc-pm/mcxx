@@ -458,7 +458,7 @@ namespace TL { namespace Nanox {
         return t;
     }
 
-    void OutlineInfoRegisterEntities::add_dependence(Nodecl::NodeclBase node, OutlineDataItem::Directionality directionality)
+    void OutlineInfoRegisterEntities::add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality)
     {
         TL::DataReference data_ref(node);
         if (data_ref.is_valid())
@@ -478,10 +478,7 @@ namespace TL { namespace Nanox {
             }
 
             OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-            outline_info.set_directionality(
-                    OutlineDataItem::Directionality(directionality | outline_info.get_directionality())
-                    );
-            outline_info.get_dependences().append(data_ref);
+            outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, directionality));
         }
         else
         {
@@ -492,7 +489,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void OutlineInfoRegisterEntities::add_dependences(Nodecl::List list, OutlineDataItem::Directionality directionality)
+    void OutlineInfoRegisterEntities::add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality)
     {
         for (Nodecl::List::iterator it = list.begin();
                 it != list.end();
@@ -514,11 +511,7 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = data_ref.get_base_symbol();
 
                 OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-                outline_info.set_copy_directionality(
-                        OutlineDataItem::CopyDirectionality(copy_directionality | outline_info.get_copy_directionality())
-                        );
-
-                outline_info.get_copies().append(data_ref);
+                outline_info.get_copies().append(OutlineDataItem::CopyItem(data_ref, copy_directionality));
             }
             else
             {
@@ -679,27 +672,27 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
-                add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
+                add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
-                add_dependences(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
+                add_dependences(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DEP_OUT);
             }
 
             void visit(const Nodecl::OpenMP::DepInout& dep_inout)
             {
-                add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
+                add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
             }
 
             void visit(const Nodecl::OpenMP::Concurrent& concurrent)
             {
-                add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_CONCURRENT);
+                add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
             }
 
             void visit(const Nodecl::OpenMP::Commutative& commutative)
             {
-                add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_COMMUTATIVE);
+                add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
             void visit(const Nodecl::OpenMP::CopyIn& copy_in)
@@ -722,6 +715,11 @@ namespace TL { namespace Nanox {
                 _outline_info.add_implementation(
                         implements.get_device().as<Nodecl::Text>().get_text(),
                         implements.get_function_name().as<Nodecl::Symbol>().get_symbol());
+            }
+
+            void visit(const Nodecl::OpenMP::NDRange& ndrange)
+            {
+                _outline_info.append_to_ndrange(ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
@@ -870,6 +868,16 @@ namespace TL { namespace Nanox {
     ObjectList<std::string> OutlineInfo::get_device_names()
     {
         return _device_names;
+    }
+
+    void OutlineInfo::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    {
+        _ndrange_exprs.append(ndrange_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange() const
+    {
+        return _ndrange_exprs;
     }
 
     void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
