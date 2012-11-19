@@ -24,8 +24,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <errno.h>
+
 #include "tl-devices.hpp"
+#include "tl-compilerpipeline.hpp"
+#include "tl-multifile.hpp"
+#include "codegen-phase.hpp"
+#include "codegen-cxx.hpp"
+#include "cxx-cexpr.h"
+#include "cxx-driver-utils.h"
+
 #include "nanox-fpga.hpp"
+
+
+
 
 #include "tl-nanos.hpp"
 
@@ -326,6 +338,60 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 //write/close intermediate files, free temporal nodes, etc.
 void DeviceFPGA::phase_cleanup(DTO& data_flow)
 {
+    if (!_fpga_file_code.is_null())
+    {
+        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "hls_" + original_filename;
+
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+//        CXX_LANGUAGE()
+//        {
+//            // Add to the new intermediate file the *.cu, *.cuh included files.
+//            // It must be done only in C++ language because the C++ codegen do
+//            // not deduce the set of used symbols
+//            add_included_cuda_files(ancillary_file);
+//        }
+
+        compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
+        ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "fpga");
+
+        //Remove the intermediate source file
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CxxBase* phase = reinterpret_cast<Codegen::CxxBase*>(configuration->codegen_phase);
+
+//        C_LANGUAGE()
+//        {
+//            phase->set_emit_always_extern_linkage(/* emit externs */ true);
+//        }
+//        phase->set_print_cuda_attributes(/* print attributes */ true);
+
+        phase->codegen_top_level(_fpga_file_code, ancillary_file);
+
+//        C_LANGUAGE()
+//        {
+//            phase->set_emit_always_extern_linkage(/* emit externs */ false);
+//        }
+//        phase->set_print_cuda_attributes(/* print attributes */ false);
+
+        fclose(ancillary_file);
+
+        // Do not forget the clear the code for next files
+        _fpga_file_code.get_internal_nodecl() = nodecl_null();
+    }
 }
 
 TL::Symbol DeviceFPGA::new_function_symbol(
