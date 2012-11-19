@@ -64,7 +64,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for CUDA devices is not supported yet\n", 0);
+        running_error("Fortran for FPGA devices is not supported yet\n", 0);
 
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
@@ -439,7 +439,7 @@ TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
             it != data_items.end();
             it++)
     {
-        print_dataItem_info(*it, sc);
+        //print_dataItem_info(*it, sc);
         TL::Symbol sym = (*it)->get_symbol();
 
         std::string name;
@@ -784,7 +784,11 @@ Source DeviceFPGA::fpga_param_code(
      * This is true if function has non-scalar parameters
      * To start the device we must set the first bt to 1
      */
-    args_src << "pipeacc_handle[0] = 1;";
+    args_src << "pipeacc_handle[0] = 1;"
+        << "munmap(pipeacc_handle, 4096);"
+        << "close(fd);"
+        ;
+
 
     return args_src;
 }
