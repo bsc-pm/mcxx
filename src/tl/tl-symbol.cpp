@@ -845,12 +845,16 @@ namespace TL
 
     bool Symbol::is_bind_c() const
     {
-        return _symbol->entity_specs.bind_c;
+        Nodecl::NodeclBase n( _symbol->entity_specs.bind_info );
+        return !n.is_null()
+            && n.is<Nodecl::FortranBindC>();
     }
 
     Nodecl::NodeclBase Symbol::get_bind_c_name() const
     {
-        return _symbol->entity_specs.bind_c_name;
+        Nodecl::FortranBindC n ( _symbol->entity_specs.bind_info );
+
+        return n.get_name();
     }
 
     std::string Symbol::get_from_module_name() const
