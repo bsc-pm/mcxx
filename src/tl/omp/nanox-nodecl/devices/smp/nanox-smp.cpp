@@ -97,6 +97,35 @@ namespace TL { namespace Nanox {
             }
     };
 
+    struct FortranInternalFunctions : Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            std::set<TL::Symbol> _already_visited;
+        public:
+            TL::ObjectList<Nodecl::NodeclBase> function_codes;
+
+            FortranInternalFunctions()
+                : _already_visited(), function_codes()
+            {
+            }
+
+            virtual void visit(const Nodecl::Symbol& node_sym)
+            {
+                TL::Symbol sym = node_sym.get_symbol();
+
+                if (sym.is_function()
+                        && sym.is_nested_function())
+                {
+                    if (_already_visited.find(sym) == _already_visited.end())
+                    {
+                        _already_visited.insert(sym);
+                        function_codes.append(sym.get_function_code());
+                        walk(sym.get_function_code());
+                    }
+                }
+            }
+    };
+
     static std::string smp_outline_name(const std::string &task_name)
     {
         return "smp_" + task_name;
@@ -883,12 +912,21 @@ namespace TL { namespace Nanox {
                     current_function,
                     unpacked_function);
 
-            // Replicate internal functions
-            Nodecl::FunctionCode function_code = current_function.get_function_code().as<Nodecl::FunctionCode>();
-            Nodecl::NodeclBase internal_functions = function_code.get_internal_functions();
+            // Now get all the needed internal functions and replicate them in the outline
+            FortranInternalFunctions internal_functions;
+            internal_functions.walk(info._original_statements);
 
-            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(
-                    Nodecl::Utils::deep_copy(internal_functions, unpacked_function.get_related_scope(), *symbol_map));
+            Nodecl::List l;
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_functions.function_codes.begin();
+                    it != internal_functions.function_codes.end();
+                    it++)
+            {
+                l.append(
+                        Nodecl::Utils::deep_copy(*it, unpacked_function.get_related_scope(), *symbol_map)
+                        );
+            }
+
+            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
         }
 
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
