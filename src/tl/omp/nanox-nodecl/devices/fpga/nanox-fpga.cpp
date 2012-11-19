@@ -706,6 +706,7 @@ Source DeviceFPGA::fpga_param_code(
      * Get the fpga handle to write the data that we need.
      *
      * XXX: Constant definitions do not seem to work in generated source
+     * TODO: Make sure mmap + set arg does not brax when we don't have scalar arguments
      */
     args_src
         << "int fd = open(\"/dev/mem\", 2);"    //2=O_RDWR
@@ -715,9 +716,6 @@ Source DeviceFPGA::fpga_param_code(
         << "    0x03, 0x01,"           //"        PROT_READ | PROT_WRITE, MAP_SHARED"
         << "    fd, pipeacc_addr);"
     ;
-
-    
-
 
     //set scalar arguments
     /* FIXME
@@ -750,8 +748,30 @@ Source DeviceFPGA::fpga_param_code(
         //if copies are empty, we need to set the scalar value
         if (copies.empty())
         {
+            const Type & type = (*it)->get_field_type();
+
             //set argument
-            argIndex++;
+//            std::cerr 
+//                << "argSymbol: " << outline_symbol.get_name() << std::endl
+//                << "argsize: " << type.get_size() << std::endl
+//                << "decl: " << type.get_declaration(sc, "") << std::endl
+//                << "address: " << std::hex << argIndex*4 << std::endl
+//            ;
+
+
+            args_src
+                << "pipeacc_handle[" << argIndex << "] = " 
+                << outline_symbol.get_name() << ";"
+            ;
+
+
+            //+1 for field +1 for padding
+            //we are adding an index to int[] => addresses are 4x
+            argIndex+=2;
+            if (type.get_size() >= 8)
+            {
+                argIndex ++;
+            }
         }
 
         //pipeacc_handle[XPIPEACC_AXILITE_ADDR_ADD_DATA/(sizeof(int))] = 10; // write parameter add (xpipeacc_AXIlite.h pcore vivado_hls)
