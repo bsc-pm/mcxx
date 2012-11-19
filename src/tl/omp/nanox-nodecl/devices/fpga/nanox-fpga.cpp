@@ -207,6 +207,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     unpacked_source
         << "{"
         << private_entities
+        << fpga_params
         << statement_placeholder(outline_placeholder)
         << "}"
         ;
@@ -693,16 +694,6 @@ Source DeviceFPGA::fpga_param_code(
         )
 {
 
-
-    // Preapare&submit all outputs
-    // Prepare&submit all inputs
-    // wait for all inputs
-    // wait for all outputs
-    // set scalars
-    // This might need 3 loops (inputs, outputs and scalars)
-    // TODO we may need to do something to get tx/rx channels
-    // TODO we need do declare 
-
     //Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     Source args_src;
@@ -713,21 +704,21 @@ Source DeviceFPGA::fpga_param_code(
 
     /*
      * Get the fpga handle to write the data that we need.
+     *
+     * XXX: Constant definitions do not seem to work in generated source
      */
     args_src
-        << "int fd = open(\"/dev/mem\", O_RDWR);"
+        << "int fd = open(\"/dev/mem\", 2);"    //2=O_RDWR
         << "unsigned int pipeacc_addr = 0x40440000;"
         << "unsigned int *pipeacc_handle = "
-        << "    (unsigned int *) mmap(NULL, 4096,"
-        << "        PROT_READ | PROT_WRITE,"
-        << "        MAP_SHARED, fd, pipeacc_addr);"
+        << "    (unsigned int *) mmap(0, 4096,"     //0=NULL
+        << "    0x03, 0x01,"           //"        PROT_READ | PROT_WRITE, MAP_SHARED"
+        << "    fd, pipeacc_addr);"
     ;
 
     
-    //pipeacc_handle[XPIPEACC_AXILITE_ADDR_ADD_DATA/(sizeof(int))] = 10; // write parameter add (xpipeacc_AXIlite.h pcore vivado_hls)
 
 
-//    int i;
     //set scalar arguments
     /* FIXME
      * We assume that the base address to set scalar parameters
@@ -738,11 +729,10 @@ Source DeviceFPGA::fpga_param_code(
      * This path may change so we are assuming base addres does not
      */
 
-    /* 
+    /*
      * Parameter have an offset of 8 bytes with the preceding one (except for 64bit ones)
      * If any parameter is smaller than 32bit (4byte), padding is added in between
      * If a paramater is 64bit(aka long long int) another 32bit of padding are added 
-     *
      */
 
     
@@ -764,17 +754,20 @@ Source DeviceFPGA::fpga_param_code(
             argIndex++;
         }
 
-        /* 
-         * There should be a control bus mapped at 0x40440000
-         * To start the device we must set the first bt to 1
-         */
+        //pipeacc_handle[XPIPEACC_AXILITE_ADDR_ADD_DATA/(sizeof(int))] = 10; // write parameter add (xpipeacc_AXIlite.h pcore vivado_hls)
 
 
     }
 
+    /*
+     * There should be a control bus mapped at 0x40440000
+     * This is true if function has non-scalar parameters
+     * To start the device we must set the first bt to 1
+     */
     args_src << "pipeacc_handle[0] = 1;";
 
     return args_src;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);
+
