@@ -1034,7 +1034,8 @@ namespace TL
                         DataSharingEnvironment* enclosing = data_sharing.get_enclosing();
 
                         // If it is a global, it will be always shared
-                        if (!(sym.has_namespace_scope()
+                        if (!(sym.has_namespace_scope() // C++
+                                    || sym.is_from_module() // Fortran
                                     || (sym.is_member() && sym.is_static())))
                         {
                             while ((enclosing != NULL) && is_shared)
