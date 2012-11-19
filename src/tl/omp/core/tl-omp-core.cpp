@@ -513,12 +513,14 @@ namespace TL
 
                 scope_t* _scope;
                 SymbolsOfScope _symbols_of_scope_visitor;
+
+                std::set<TL::Symbol> _visited_function;
             public:
                 ObjectList<Nodecl::Symbol> symbols;
 
                 SymbolsUsedInNestedFunctions(Symbol current_function)
                     : _scope(current_function.get_related_scope().get_decl_context().current_scope),
-                      _symbols_of_scope_visitor(_scope, symbols)
+                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(), symbols()
                 {
                 }
 
@@ -531,7 +533,13 @@ namespace TL
                     {
                         Nodecl::NodeclBase body = sym.get_function_code();
 
-                        _symbols_of_scope_visitor.walk(body);
+                        if (_visited_function.find(sym) == _visited_function.end())
+                        {
+                            _symbols_of_scope_visitor.walk(body);
+
+                            _visited_function.insert(sym);
+                            walk(body);
+                        }
                     }
                 }
 
