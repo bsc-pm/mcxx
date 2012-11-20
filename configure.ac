@@ -1135,6 +1135,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/devices/Makefile
            src/tl/omp/nanox-nodecl/devices/smp/Makefile
            src/tl/omp/nanox-nodecl/devices/cuda/Makefile
+           src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
