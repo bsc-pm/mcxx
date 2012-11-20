@@ -36,7 +36,8 @@
 
 #include "nanox-fpga.hpp"
 
-
+#include "cxx-nodecl.h"
+#include "cxx-graphviz.h"
 
 
 #include "tl-nanos.hpp"
@@ -185,6 +186,21 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     called_task.get_function_code(),
                     called_task.get_scope()));
 
+        std::cerr << "_dump_ast" << _dump_ast << std::endl;
+        if (_dump_ast != "0")
+        {
+            //write ast to a file
+            std::string filename = called_task.get_name() + "_ast.dot";
+            //include cxx-nodecl.hpp
+            FILE* out_file = fopen(filename.c_str(), "w");
+            ast_dump_graphviz(
+                    nodecl_get_ast(called_task.get_function_code().get_internal_nodecl()),
+                    out_file);
+            fclose(out_file);
+        }
+
+
+
         // Remove the user function definition from the original source because
         // It is used only in the intermediate file
         // ^^ Are we completely sure about this? 
@@ -292,6 +308,9 @@ DeviceFPGA::DeviceFPGA()
 {
     set_phase_name("Nanox FPGA support");
     set_phase_description("This phase is used by Nanox phases to implement FPGA device support");
+    register_parameter("dump_fpga_ast",
+            "Dumps ast of functions to be implemented in the FPGA into a dot file",
+            _dump_ast, "0");
 }
 
 void DeviceFPGA::pre_run(DTO& dto)

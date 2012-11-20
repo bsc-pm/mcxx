@@ -61,6 +61,7 @@ namespace TL
                         Source &fortran_dynamic_init);
             private:
                 Nodecl::List _fpga_file_code;
+                std::string _dump_ast;
 
                 TL::Symbol new_function_symbol_unpacked(
                         TL::Symbol current_function,
