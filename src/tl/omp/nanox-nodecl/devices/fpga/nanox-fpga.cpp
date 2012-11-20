@@ -161,26 +161,46 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     // Add the user function to the intermediate file -> to HLS
     if (called_task.is_valid())
     {
-        _fpga_file_code.append(Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope()));
-
-        if (_dump_ast != "0")
+//        std::cerr << "orig_sym: " << called_task.get_name() << std::endl;
+        //find out if the function is already in the list
+        //Currently ckecking function name only
+        bool found = false;
+        const std::string &orig_name = called_task.get_name();
+        for (Nodecl::List::iterator it = _fpga_file_code.begin();
+                it != _fpga_file_code.end() && !found;
+                it++)
         {
-            //write ast to a file
-            std::string filename = called_task.get_name() + "_ast.dot";
-            //include cxx-nodecl.hpp
-            FILE* out_file = fopen(filename.c_str(), "w");
-            ast_dump_graphviz(
-                    nodecl_get_ast(called_task.get_function_code().get_internal_nodecl()),
-                    out_file);
-            fclose(out_file);
+//            const Symbol &fun_symbol = it->get_symbol();
+//            std::cerr << "list sym: "
+//                << fun_symbol.get_name() << std::endl;
+            found = (it->get_symbol().get_name() == orig_name);
         }
 
-        // Remove the user function definition from the original source because
-        // It is used only in the intermediate file
-        // ^^ Are we completely sure about this? 
-        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
+
+        //if function is in the list, do not add it again
+        if (!found)
+        {
+            _fpga_file_code.append(Nodecl::Utils::deep_copy(
+                        called_task.get_function_code(),
+                        called_task.get_scope()));
+
+            if (_dump_ast != "0")
+            {
+                //write ast to a file
+                std::string filename = called_task.get_name() + "_ast.dot";
+                //include cxx-nodecl.hpp
+                FILE* out_file = fopen(filename.c_str(), "w");
+                ast_dump_graphviz(
+                        nodecl_get_ast(called_task.get_function_code().get_internal_nodecl()),
+                        out_file);
+                fclose(out_file);
+            }
+
+            // Remove the user function definition from the original source because
+            // It is used only in the intermediate file
+            // ^^ Are we completely sure about this? 
+            Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
+        }
     }
 
 
@@ -329,6 +349,8 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 //write/close intermediate files, free temporal nodes, etc.
 void DeviceFPGA::phase_cleanup(DTO& data_flow)
 {
+    //XXX: We may need to create one file per function 
+    //  if we want to work with multiple accelerators
     if (!_fpga_file_code.is_null())
     {
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
@@ -743,7 +765,7 @@ Source DeviceFPGA::fpga_param_code(
      * Get the fpga handle to write the data that we need.
      *
      * XXX: Constant definitions do not seem to work in generated source
-     * TODO: Make sure mmap + set arg does not brax when we don't have scalar arguments
+     * TODO: Make sure mmap + set arg does not break when we don't have scalar arguments
      */
     args_src
         << "int fd = open(\"/dev/mem\", 2);"    //2=O_RDWR
@@ -769,8 +791,6 @@ Source DeviceFPGA::fpga_param_code(
      * If any parameter is smaller than 32bit (4byte), padding is added in between
      * If a paramater is 64bit(aka long long int) another 32bit of padding are added 
      */
-
-    
 
     int argIndex = 0x14/4;  //base address/(sizeof(int)=4)
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
