@@ -39,7 +39,6 @@
 #include "cxx-nodecl.h"
 #include "cxx-graphviz.h"
 
-
 #include "tl-nanos.hpp"
 
 
@@ -51,25 +50,6 @@ static std::string fpga_outline_name(const std::string &name)
 {
     return "_fpga_" + name;
 }
-
-static void print_dataItem_info(OutlineDataItem *item, const TL::Scope & scope)
-{
-    // std::cout << "--- dataItem info --- " << std::endl
-    //     << "field_name: " << item->get_field_name() << std::endl
-    // ;
-
-    // const TL::Type & type = item->get_field_type();
-
-    // std::cout << "declaration: " << type.get_declaration(scope, "") << std::endl
-    //     << "is scalar: " << type.is_scalar_type() << std::endl
-    //     << "is pointer: " << type.is_pointer() << std::endl
-    //     << "copy_directionality: " << item->get_copy_directionality() << std::endl
-    //     << "directionality: " << item->get_directionality() << std::endl
-    //     << "--- ---" << std::endl
-    // ;
-
-}
-
 
 void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
@@ -107,7 +87,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             it != data_items.end();
             it++)
     {
-//        print_dataItem_info(*it, called_scope);
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
@@ -186,7 +165,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     called_task.get_function_code(),
                     called_task.get_scope()));
 
-        std::cerr << "_dump_ast" << _dump_ast << std::endl;
         if (_dump_ast != "0")
         {
             //write ast to a file
@@ -198,8 +176,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     out_file);
             fclose(out_file);
         }
-
-
 
         // Remove the user function definition from the original source because
         // It is used only in the intermediate file
@@ -245,8 +221,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     unpacked_function_body.replace(new_unpacked_body);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
-    // Add the unpacked function to the intermediate cuda file
-//    _fpga_file_code.append(unpacked_function_code);
 
     // Add a declaration of the unpacked function symbol in the original source
     if (IS_CXX_LANGUAGE)
@@ -334,7 +308,6 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
     Source device_outline_name;
 
     device_outline_name << fpga_outline_name(outline_name);
-    //*
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
@@ -347,7 +320,6 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
     {
         internal_error("Unsupported Nanos version.", 0);
     }
-    //*/
     device_descriptor
         << "{ nanos_fpga_factory,  &" << outline_name << "_args },";
         ;
@@ -371,13 +343,6 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
                     strerror(errno));
         }
 
-//        CXX_LANGUAGE()
-//        {
-//            // Add to the new intermediate file the *.cu, *.cuh included files.
-//            // It must be done only in C++ language because the C++ codegen do
-//            // not deduce the set of used symbols
-//            add_included_cuda_files(ancillary_file);
-//        }
 
         compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
         ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
@@ -392,20 +357,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
 
         Codegen::CxxBase* phase = reinterpret_cast<Codegen::CxxBase*>(configuration->codegen_phase);
 
-//        C_LANGUAGE()
-//        {
-//            phase->set_emit_always_extern_linkage(/* emit externs */ true);
-//        }
-//        phase->set_print_cuda_attributes(/* print attributes */ true);
-
         phase->codegen_top_level(_fpga_file_code, ancillary_file);
-
-//        C_LANGUAGE()
-//        {
-//            phase->set_emit_always_extern_linkage(/* emit externs */ false);
-//        }
-//        phase->set_print_cuda_attributes(/* print attributes */ false);
-
         fclose(ancillary_file);
 
         // Do not forget the clear the code for next files
@@ -835,20 +787,10 @@ Source DeviceFPGA::fpga_param_code(
         {
             const Type & type = (*it)->get_field_type();
 
-            //set argument
-//            std::cerr 
-//                << "argSymbol: " << outline_symbol.get_name() << std::endl
-//                << "argsize: " << type.get_size() << std::endl
-//                << "decl: " << type.get_declaration(sc, "") << std::endl
-//                << "address: " << std::hex << argIndex*4 << std::endl
-//            ;
-
-
             args_src
                 << "pipeacc_handle[" << argIndex << "] = " 
                 << outline_symbol.get_name() << ";"
             ;
-
 
             //+1 for field +1 for padding
             //we are adding an index to int[] => addresses are 4x
@@ -858,9 +800,6 @@ Source DeviceFPGA::fpga_param_code(
                 argIndex ++;
             }
         }
-
-        //pipeacc_handle[XPIPEACC_AXILITE_ADDR_ADD_DATA/(sizeof(int))] = 10; // write parameter add (xpipeacc_AXIlite.h pcore vivado_hls)
-
 
     }
 
