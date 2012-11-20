@@ -1500,10 +1500,18 @@ void LoweringVisitor::emit_translation_function_nonregion(
         << "}"
         ;
 
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+    }
     Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
 
     TL::ObjectList<OutlineDataItem*> data_items;
-   
+
     if (parameter_outline_info != NULL)
     {
         data_items = parameter_outline_info->get_data_items();
@@ -1519,6 +1527,11 @@ void LoweringVisitor::emit_translation_function_nonregion(
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end(); it++)
     {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
+            continue;
+
         translations
             << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
             << " = arg." << (*it)->get_field_name() << ";"
@@ -1564,7 +1577,16 @@ void LoweringVisitor::emit_translation_function_nonregion(
             ;
     }
 
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+    }
     Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
+
     function_body.replace(translations_tree);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
@@ -1600,7 +1622,15 @@ void LoweringVisitor::emit_translation_function_region(
         << "}"
         ;
 
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+    }
     Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
 
     TL::ObjectList<OutlineDataItem*> data_items;
    
@@ -1619,6 +1649,11 @@ void LoweringVisitor::emit_translation_function_region(
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end(); it++)
     {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
+            continue;
+
         translations
             << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
             << " = arg." << (*it)->get_field_name() << ";"
@@ -1648,7 +1683,16 @@ void LoweringVisitor::emit_translation_function_region(
             ;
     }
 
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+    }
     Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
+
     function_body.replace(translations_tree);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
