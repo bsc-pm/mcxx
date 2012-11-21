@@ -1587,15 +1587,15 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
         translations
             << "{"
-            << "void *device_base_address;"
+            << "intptr_t device_base_address;"
             << "signed long offset;"
             << "nanos_err_t err;"
-            << "char *host_base_address;"
+            << "intptr_t host_base_address;"
 
-            << "host_base_address = (char*)arg." << (*it)->get_field_name() << ";"
-            << "offset = (signed long)(" << as_expression(data_ref.get_base_address()) << ") - (signed long)host_base_address;"
+            << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
+            << "offset = (intptr_t)(" << as_expression(data_ref.get_base_address()) << ") - (intptr_t)host_base_address;"
             << "device_base_address = 0;"
-            << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
+            << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
             << "device_base_address -= offset;"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
