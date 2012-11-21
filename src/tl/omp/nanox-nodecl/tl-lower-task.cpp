@@ -1243,10 +1243,9 @@ void LoweringVisitor::fill_copies_nonregion(
             << "{"
             << "nanos_err_t err;"
             << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-            << "if (err != NANOS_OK) nanos_handle_error (err);"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "}"
             ;
-
     }
 }
 
