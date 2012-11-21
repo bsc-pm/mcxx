@@ -1159,14 +1159,29 @@ void LoweringVisitor::fill_copies_nonregion(
         Source& copy_imm_arg,
         Source& copy_imm_setup)
 {
-    copy_ol_arg << "&ol_copy_data";
-    copy_imm_arg << "imm_copy_data";
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        copy_ol_arg << "&ol_copy_data";
+        copy_imm_arg << "imm_copy_data";
 
-    copy_ol_decl
-        << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
-        ;
-    copy_imm_setup 
-        << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+        copy_ol_decl
+            << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
+            ;
+        copy_imm_setup 
+            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        copy_ol_arg << "(nanos_copy_data_t**)0";
+        copy_imm_arg << "imm_copy_data";
+
+        copy_ol_decl
+            << "nanos_copy_data_t ol_copy_data[" << num_copies << "];";
+            ;
+        copy_imm_setup
+            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+    }
 
     // typedef struct {
     //    uint64_t address;
@@ -1220,6 +1235,18 @@ void LoweringVisitor::fill_copies_nonregion(
             << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
             ;
         current_copy_num++;
+    }
+
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        copy_ol_setup
+            << "{"
+            << "nanos_err_t err;"
+            << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+            << "if (err != NANOS_OK) nanos_handle_error (err);"
+            << "}"
+            ;
+
     }
 }
 
