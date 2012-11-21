@@ -1549,6 +1549,8 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
     Source translations;
 
+    Nodecl::Utils::SimpleSymbolMap symbol_map;
+
     // First gather all the data, so the translations are easier later
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end(); it++)
@@ -1558,8 +1560,20 @@ void LoweringVisitor::emit_translation_function_nonregion(
         if (copies.empty())
             continue;
 
+        Source declaration;
+        declaration
+            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name();
+
+        declaration.parse_statement(function_body);
+
+        TL::Symbol new_sym = ReferenceScope(function_body).get_scope().get_symbol_from_name((*it)->get_symbol().get_name());
+        ERROR_CONDITION(!new_sym.is_valid(), "Invalid symbol just created", 0);
+
+        symbol_map.add_map((*it)->get_symbol(), new_sym);
+
         translations
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
+            // << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name()
+            << (*it)->get_symbol().get_name()
             << " = arg." << (*it)->get_field_name() << ";"
             ;
     }
@@ -1593,7 +1607,9 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "intptr_t host_base_address;"
 
             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
-            << "offset = (intptr_t)(" << as_expression(data_ref.get_base_address()) << ") - (intptr_t)host_base_address;"
+            << "offset = (intptr_t)(" << as_expression(
+                        Nodecl::Utils::deep_copy(data_ref.get_base_address(), function_body,
+                            symbol_map)) << ") - (intptr_t)host_base_address;"
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
             << "device_base_address -= offset;"
