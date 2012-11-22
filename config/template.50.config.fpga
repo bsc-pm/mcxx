@@ -1,0 +1,38 @@
+# fpgacc (FPGA-Zynq)
+# ripped from nvidia (55.config.omp.nvidia) profile
+[fpgacc: omp-base]
+language = C
+options =
+preprocessor_name = arm-linux-gnueabi-gcc
+preprocessor_options =-E -I/home/afilguer/Zynq/mnanox_fpga/include -include nanos-fpga.h -include nanos.h -include nanos_omp.h
+#-include sys/mman.h -include sys/types.h -include sys/stat.h -include sys/fcntl.h 
+compiler_name = arm-linux-gnueabi-gcc
+linker_name = arm-linux-gnueabi-gcc
+linker_options = -L/home/afilguer/Zynq/mnanox_fpga/lib -lnanox
+compiler_phase = libtlnanox-fpga.so
+
+
+
+[fpgacxx: omp-base]
+language = C++
+options =
+preprocessor_name = arm-linux-gnueabi-g++
+preprocessor_options = -E
+compiler_name = arm-linux-gnueabi-g++
+linker_name = arm-linux-gnueabi-ld
+compiler_phase = libtlnanox-fpga.so
+
+# FPGA profile
+[fpga]
+language = C
+options =
+#cross compile for arm
+preprocessor_name = arm-linux-gnueabi-gcc
+preprocessor_options = -E
+compiler_name = arm-linux-gnueabi-gcc 
+#include mininanos
+compiler_options = 
+linker_name = arm-linux-gnueabi-ld
+linker_options = 
+target_options[fpgacc] = no_sublink no_embed
+target_options[fpgacxx] = no_sublink no_embed
