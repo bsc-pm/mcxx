@@ -2361,6 +2361,47 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences(
     return result;
 }
 
+static Nodecl::NodeclBase rewrite_expression_in_copy(Nodecl::NodeclBase node, const sym_to_argument_expr_t& map)
+{
+    if (node.is_null())
+        return node;
+
+    TL::Symbol sym = node.get_symbol();
+    if (sym.is_valid())
+    {
+        if (sym.is_saved_expression())
+        {
+            return rewrite_expression_in_dependency(sym.get_value(), map);
+        }
+
+        sym_to_argument_expr_t::const_iterator it = map.find(sym);
+        if (it != map.end())
+        {
+            Nodecl::NodeclBase arg = it->second.shallow_copy();
+            return Nodecl::ParenthesizedExpression::make(
+                    arg,
+                    arg.get_type(),
+                    arg.get_filename(),
+                    arg.get_line());
+        }
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            it != children.end();
+            it++)
+    {
+        *it = rewrite_expression_in_dependency(*it, map);
+    }
+
+    node.rechild(children);
+
+    // Update the types too
+    node.set_type(rewrite_dependency_type(node.get_type(), map));
+
+    return node;
+}
+
 static TL::ObjectList<OutlineDataItem::CopyItem> rewrite_copies(
         const TL::ObjectList<OutlineDataItem::CopyItem>& deps,
         const sym_to_argument_expr_t& param_to_arg_expr)
@@ -2371,8 +2412,10 @@ static TL::ObjectList<OutlineDataItem::CopyItem> rewrite_copies(
             it++)
     {
         Nodecl::NodeclBase copy = it->expression.shallow_copy();
+        Nodecl::NodeclBase rewritten = rewrite_expression_in_copy(copy, param_to_arg_expr);
+
         result.append( OutlineDataItem::CopyItem(
-                    rewrite_expression_in_dependency(copy, param_to_arg_expr),
+                    rewritten,
                     it->directionality) );
     }
 
