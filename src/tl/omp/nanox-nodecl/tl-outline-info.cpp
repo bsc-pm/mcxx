@@ -29,6 +29,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-datareference.hpp"
 #include "tl-counters.hpp"
+#include "tl-predicateutils.hpp"
 #include "codegen-phase.hpp"
 #include "cxx-diagnostic.h"
 #include "cxx-exprtype.h"
@@ -897,5 +898,18 @@ namespace TL { namespace Nanox {
     OutlineInfo::implementation_table_t OutlineInfo::get_implementation_table()
     {
         return _implementation_table;
+    }
+
+    namespace
+    {
+        bool is_not_private(OutlineDataItem* it)
+        {
+            return it->get_sharing() != OutlineDataItem::SHARING_PRIVATE;
+        }
+    }
+
+    ObjectList<OutlineDataItem*> OutlineInfo::get_fields() const
+    {
+        return _data_env_items.filter(predicate(is_not_private));
     }
 } }

@@ -340,6 +340,8 @@ namespace TL
                     return _data_env_items;
                 }
 
+                ObjectList<OutlineDataItem*> get_fields() const;
+
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
 
