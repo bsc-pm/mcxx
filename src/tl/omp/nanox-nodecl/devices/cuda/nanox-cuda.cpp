@@ -1715,7 +1715,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // Add the user function to the intermediate file
-    if (called_task.is_valid())
+    if (called_task.is_valid()
+            && !called_task.get_function_code().is_null())
     {
         _cuda_file_code.append(Nodecl::Utils::deep_copy(
                     called_task.get_function_code(),
@@ -2466,6 +2467,11 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
                 internal_error("Error trying to write the intermediate cuda file\n", 0);
         }
     }
+}
+
+bool DeviceCUDA::allow_mandatory_creation()
+{
+    return true;
 }
 
 bool DeviceCUDA::copy_stuff_to_device_file(Nodecl::List symbols)
