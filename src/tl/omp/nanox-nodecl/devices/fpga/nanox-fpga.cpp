@@ -762,15 +762,14 @@ Source DeviceFPGA::fpga_param_code(
     /*
      * Get the fpga handle to write the data that we need.
      *
-     * XXX: Constant definitions do not seem to work in generated source
      * TODO: Make sure mmap + set arg does not break when we don't have scalar arguments
      */
     args_src
-        << "int fd = open(\"/dev/mem\", 2);"    //2=O_RDWR
-        << "unsigned int pipeacc_addr = 0x40440000;"
+        << "int fd = open(\"/dev/mem\", NANOS_O_RDWR);"    //2=O_RDWR
+        << "unsigned int pipeacc_addr = NANOS_AXI_BASE_ADDRESS;"
         << "unsigned int *pipeacc_handle = "
-        << "    (unsigned int *) mmap(0, 4096,"     //0=NULL
-        << "    0x03, 0x01,"           //"        PROT_READ | PROT_WRITE, MAP_SHARED"
+        << "    (unsigned int *) mmap(0, NANOS_MMAP_SIZE,"     //0=NULL
+        << "    NANOS_PROT_READ|NANOS_PROT_WRITE, NANOS_MAP_SHARED,"           //"        PROT_READ | PROT_WRITE, MAP_SHARED"
         << "    fd, pipeacc_addr);"
     ;
 
@@ -827,7 +826,7 @@ Source DeviceFPGA::fpga_param_code(
      * To start the device we must set the first bt to 1
      */
     args_src << "pipeacc_handle[0] = 1;"
-        << "munmap(pipeacc_handle, 4096);"
+        << "munmap(pipeacc_handle, NANOS_MMAP_SIZE);"
         << "close(fd);"
         ;
 
