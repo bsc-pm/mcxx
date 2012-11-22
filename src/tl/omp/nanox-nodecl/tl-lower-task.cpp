@@ -1599,6 +1599,17 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
         TL::DataReference data_ref(copies[0].expression);
 
+        Nodecl::NodeclBase base_address;
+       
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            base_address = data_ref.get_base_address_as_integer();
+        }
+        else
+        {
+            base_address = data_ref.get_base_address();
+        }
+
         translations
             << "{"
             << "intptr_t device_base_address;"
@@ -1608,7 +1619,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
             << "offset = (intptr_t)(" << as_expression(
-                        Nodecl::Utils::deep_copy(data_ref.get_base_address(), function_body,
+                        Nodecl::Utils::deep_copy(base_address, function_body,
                             symbol_map)) << ") - (intptr_t)host_base_address;"
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"

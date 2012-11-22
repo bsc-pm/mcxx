@@ -446,6 +446,76 @@ namespace TL
         return _base_address.shallow_copy();
     }
 
+
+    Nodecl::NodeclBase get_index_expression(Nodecl::List indexes, TL::Type subscripted_type) const
+    {
+        ObjectList<Nodecl::NodeclBase> reversed_indexes;
+        ObjectList<Nodecl::NodeclBase> reversed_sizes;
+
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++)
+        {
+            if (it->is<Nodecl::Range>())
+            {
+                reversed_indexes.push_front(it->as<Nodecl::Range>().get_lower());
+            }
+            else
+            {
+                reversed_indexes.push_front(*it);
+            }
+        }
+
+        TL::Type it_type = subscripted_type;
+        while (it_type.is_array())
+        {
+            Nodecl::NodeclBase size = it_type.array_get_size();
+            reversed_sizes.push_front(size);
+        }
+
+        ERROR_CONDITION(reversed_indexes.size() ! reversed_sizes.size(), "Mismatch between indexes and dimensions", 0);
+
+        return get_index_expression_rec(
+    }
+
+    Nodecl::NodeclBase DataReference::get_base_address_as_integer() const
+    {
+        Nodecl::NodeclBase base_address = _base_address;
+
+        if (!base_address.is<Nodecl::Reference>())
+            internal_error("Base address is not an address actually", 0);
+
+        base_address = base_address.as<Nodecl::Reference>().get_rhs();
+
+        if (base_address.is<Nodecl::Symbol>())
+        {
+            return base_address.shallow_copy();
+        }
+        else if (base_address.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript arr_subscript = base_address.as<Nodecl::ArraySubscript>();
+
+            Nodecl::NodeclBase subscripted = arr_subscript.get_subscripted();
+
+            TL::Type subscripted_type = subscripted.get_type();
+            if (subscripted_type.is_any_reference())
+                subscripted_type = subscripted_type.references_to();
+
+            if (subscripted_type.is_pointer())
+                internal_error("Not yet implemented", 0);
+
+            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+
+            Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+            return indexing;
+        }
+        else
+        {
+            internal_error("Not yet implemented %s", ast_print_node_type(base_address.get_kind()));
+        }
+    }
+
     Nodecl::NodeclBase DataReference::get_address_of_symbol_helper(Nodecl::NodeclBase expr) const
     {
         if (expr.is<Nodecl::Symbol>())
