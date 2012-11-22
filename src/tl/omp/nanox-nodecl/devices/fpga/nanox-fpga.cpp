@@ -79,9 +79,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const TL::Scope & called_scope = called_task.get_scope();
     Source unpacked_arguments, private_entities;
 
-    //generate calls for output arguments
-    //generate code for input arguments
-    //set scalar arguments
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -161,7 +158,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     // Add the user function to the intermediate file -> to HLS
     if (called_task.is_valid())
     {
-//        std::cerr << "orig_sym: " << called_task.get_name() << std::endl;
         //find out if the function is already in the list
         //Currently ckecking function name only
         bool found = false;
@@ -170,9 +166,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 it != _fpga_file_code.end() && !found;
                 it++)
         {
-//            const Symbol &fun_symbol = it->get_symbol();
-//            std::cerr << "list sym: "
-//                << fun_symbol.get_name() << std::endl;
             found = (it->get_symbol().get_name() == orig_name);
         }
 
@@ -180,9 +173,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         //if function is in the list, do not add it again
         if (!found)
         {
-            _fpga_file_code.append(Nodecl::Utils::deep_copy(
+            Nodecl::NodeclBase tmp_task = Nodecl::Utils::deep_copy(
                         called_task.get_function_code(),
-                        called_task.get_scope()));
+                        called_task.get_scope());
 
             if (_dump_ast != "0")
             {
@@ -196,6 +189,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 fclose(out_file);
             }
 
+            //add pragmas to the output code
+            add_hls_pragmas(tmp_task, outline_info);
+
+
+            _fpga_file_code.append(tmp_task);
             // Remove the user function definition from the original source because
             // It is used only in the intermediate file
             // ^^ Are we completely sure about this? 
@@ -836,6 +834,39 @@ Source DeviceFPGA::fpga_param_code(
 
     return args_src;
 }
+
+void DeviceFPGA::add_hls_pragmas(
+        Nodecl::NodeclBase &task,
+        const OutlineInfo &outline_info)
+{
+    /*
+     * Insert hls pragmas in order to denerate input/output connections
+     * Every parameter needs a directive:
+     * scalar: create plain wire connections:
+     *      #pragma HLS INTERFACE ap_none port=VAR
+     *      #pragma AP resource core=AXI_SLAVE variable=VAR metadata="-bus_bundle AXIlite"
+     *
+     * Array; create fifo port to be handled by axi stream
+     *      #pragma HLS stream variable=VAR
+     *      #pragma HLS resource core=AXI4Stream variable=VAR
+     *      #pragma HLS interface ap_fifo port=in
+     * 
+     * For every task there is a control bus defined to kick the accelerator off:
+     *
+     * #pragma AP resource core=AXI_SLAVE variable=return metadata="-bus_bundle AXIlite" \
+     *      port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}
+     *
+     * All of this stuff must be inside the function body i.e.
+     *
+     * void foo(...)
+     * {
+     *     pragma stuff
+     *     function body
+     * }
+     *
+     */
+}
+
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);
 

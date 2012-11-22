@@ -87,6 +87,11 @@ namespace TL
                         TL::Scope
                         );
 
+                void add_hls_pragmas(
+                        Nodecl::NodeclBase &,
+                        const TL::Nanox::OutlineInfo&
+                        );
+
         };
     }
 }
