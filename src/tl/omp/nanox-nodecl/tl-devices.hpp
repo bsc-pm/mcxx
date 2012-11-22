@@ -224,6 +224,8 @@ namespace TL { namespace Nanox {
                      Source &device_descriptor,
                      Source &fortran_dynamic_init) = 0;
 
+
+
     //         /*!
     //           This function adds a new function definition to a device. Its
     //           default implementation simply removes the pragma.
@@ -270,10 +272,17 @@ namespace TL { namespace Nanox {
     //             return Source();
     //         }
     //
-               virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
-               {
-                   return false;
-               }
+             virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
+             {
+                 return false;
+             }
+
+             virtual bool allow_mandatory_creation()
+             {
+                 return false;
+             }
+
+
      };
 
     class DeviceHandler
