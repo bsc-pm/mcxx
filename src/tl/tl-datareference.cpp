@@ -446,36 +446,94 @@ namespace TL
         return _base_address.shallow_copy();
     }
 
-
-    Nodecl::NodeclBase get_index_expression(Nodecl::List indexes, TL::Type subscripted_type) const
+    namespace
     {
-        ObjectList<Nodecl::NodeclBase> reversed_indexes;
-        ObjectList<Nodecl::NodeclBase> reversed_sizes;
-
-        for (Nodecl::List::iterator it = subscripts.begin();
-                it != subscripts.end();
-                it++)
+        Nodecl::NodeclBase get_index_expression_rec(
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_index,
+                TL::ObjectList<Nodecl::NodeclBase>::iterator end_index,
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_size
+                )
         {
-            if (it->is<Nodecl::Range>())
+            if ((current_index + 1) == end_index)
             {
-                reversed_indexes.push_front(it->as<Nodecl::Range>().get_lower());
+                return current_index->shallow_copy();
             }
             else
             {
-                reversed_indexes.push_front(*it);
+                Nodecl::NodeclBase next_indexing = get_index_expression_rec(current_index + 1, end_index, current_size+1);
+
+                // Horner algorithm
+                Nodecl::NodeclBase result;
+                result = Nodecl::Add::make(
+                        current_index->shallow_copy(),
+                        Nodecl::Mul::make(
+                            current_size->shallow_copy(),
+                            Nodecl::ParenthesizedExpression::make(
+                                next_indexing,
+                                next_indexing.get_type(),
+                                next_indexing.get_filename(),
+                                next_indexing.get_line()),
+                            current_size->get_type(),
+                            current_size->get_filename(),
+                            current_size->get_line()),
+                        current_index->get_type(),
+                        current_index->get_filename(),
+                        current_index->get_line());
+
+                return result;
             }
         }
 
-        TL::Type it_type = subscripted_type;
-        while (it_type.is_array())
+        Nodecl::NodeclBase get_index_expression(Nodecl::List subscripts, TL::Type subscripted_type)
         {
-            Nodecl::NodeclBase size = it_type.array_get_size();
-            reversed_sizes.push_front(size);
+            ObjectList<Nodecl::NodeclBase> reversed_indexes;
+            ObjectList<Nodecl::NodeclBase> reversed_sizes;
+
+            for (Nodecl::List::iterator it = subscripts.begin();
+                    it != subscripts.end();
+                    it++)
+            {
+                if (it->is<Nodecl::Range>())
+                {
+                    reversed_indexes.prepend(it->as<Nodecl::Range>().get_lower());
+                }
+                else
+                {
+                    reversed_indexes.prepend(*it);
+                }
+            }
+
+            TL::Type it_type = subscripted_type;
+            while (it_type.is_array())
+            {
+                Nodecl::NodeclBase size = it_type.array_get_size();
+                reversed_sizes.prepend(size);
+                it_type = it_type.array_element();
+            }
+
+            ERROR_CONDITION(reversed_indexes.size() != reversed_sizes.size(), "Mismatch between indexes and dimensions", 0);
+
+            Nodecl::NodeclBase index_expression = get_index_expression_rec(
+                    reversed_indexes.begin(), reversed_indexes.end(),
+                    reversed_sizes.begin());
+
+            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+
+            Nodecl::NodeclBase result =
+                Nodecl::Mul::make(
+                        const_value_to_nodecl(const_value_get_signed_int(it_type.get_size())),
+                        Nodecl::ParenthesizedExpression::make(
+                            index_expression,
+                            index_expression.get_type(),
+                            index_expression.get_filename(),
+                            index_expression.get_line()),
+                        index_type,
+                        index_expression.get_filename(),
+                        index_expression.get_line()
+                        );
+
+            return result;
         }
-
-        ERROR_CONDITION(reversed_indexes.size() ! reversed_sizes.size(), "Mismatch between indexes and dimensions", 0);
-
-        return get_index_expression_rec(
     }
 
     Nodecl::NodeclBase DataReference::get_base_address_as_integer() const
@@ -496,6 +554,7 @@ namespace TL
             Nodecl::ArraySubscript arr_subscript = base_address.as<Nodecl::ArraySubscript>();
 
             Nodecl::NodeclBase subscripted = arr_subscript.get_subscripted();
+            Nodecl::NodeclBase subscripts = arr_subscript.get_subscripts();
 
             TL::Type subscripted_type = subscripted.get_type();
             if (subscripted_type.is_any_reference())
@@ -504,11 +563,21 @@ namespace TL
             if (subscripted_type.is_pointer())
                 internal_error("Not yet implemented", 0);
 
-            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+            Nodecl::NodeclBase index_expression = get_index_expression(subscripts.as<Nodecl::List>(), subscripted_type);
 
-            Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+            Nodecl::NodeclBase result = Nodecl::Add::make(
+                    subscripted.shallow_copy(),
+                    Nodecl::ParenthesizedExpression::make(
+                        index_expression,
+                        index_expression.get_type(),
+                        index_expression.get_filename(),
+                        index_expression.get_line()),
+                    index_expression.get_type(),
+                    index_expression.get_filename(),
+                    index_expression.get_line()
+                    );
 
-            return indexing;
+            return result;
         }
         else
         {
