@@ -1537,15 +1537,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
     }
 
     TL::ObjectList<OutlineDataItem*> data_items;
-
-    if (parameter_outline_info != NULL)
-    {
-        data_items = parameter_outline_info->get_data_items();
-    }
-    else
-    {
-        data_items = outline_info.get_data_items();
-    }
+    data_items = outline_info.get_fields();
 
     Source translations;
 
@@ -1557,19 +1549,29 @@ void LoweringVisitor::emit_translation_function_nonregion(
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
-        if (copies.empty())
-            continue;
-
         Source declaration;
         declaration
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name();
+            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() << ";";
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::C;
+        }
         declaration.parse_statement(function_body);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         TL::Symbol new_sym = ReferenceScope(function_body).get_scope().get_symbol_from_name((*it)->get_symbol().get_name());
         ERROR_CONDITION(!new_sym.is_valid(), "Invalid symbol just created", 0);
 
         symbol_map.add_map((*it)->get_symbol(), new_sym);
+
+        if ((*it)->get_base_symbol_of_argument().is_valid())
+        {
+            symbol_map.add_map((*it)->get_base_symbol_of_argument(), new_sym);
+        }
 
         translations
             // << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name()
@@ -1600,7 +1602,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         TL::DataReference data_ref(copies[0].expression);
 
         Nodecl::NodeclBase base_address;
-       
+
         if (IS_FORTRAN_LANGUAGE)
         {
             base_address = data_ref.get_base_address_as_integer();
@@ -1685,16 +1687,7 @@ void LoweringVisitor::emit_translation_function_region(
         Source::source_language = SourceLanguage::Current;
     }
 
-    TL::ObjectList<OutlineDataItem*> data_items;
-   
-    if (parameter_outline_info != NULL)
-    {
-        data_items = parameter_outline_info->get_data_items();
-    }
-    else
-    {
-        data_items = outline_info.get_data_items();
-    }
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     Source translations;
 
@@ -2939,6 +2932,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
                     in_outline_type = in_outline_type.get_lvalue_reference_to();
 
                 argument_outline_data_item.set_in_outline_type(in_outline_type);
+
+                argument_outline_data_item.set_base_symbol_of_argument(data_ref.get_base_symbol());
 
                 // Copy what must be copied from the parameter info
                 copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
