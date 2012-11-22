@@ -3835,7 +3835,7 @@ OPERATOR_TABLE
                 if (it != private_names.begin())
                     file << ", ";
 
-                file << *it;
+                file << get_generic_specifier_str(*it);
             }
             file << std::endl;
         }
