@@ -431,12 +431,24 @@ void LoweringVisitor::emit_async_common(
                     get_outline_name(it->second))); /*implementor outline name */
     }
 
+    // Disallow GPU tasks to be executed at the time they are created
+    bool mandatory_creation = false;
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+            it != device_names.end() && !mandatory_creation;
+            it++)
+    {
+        std::string device_name = *it;
+        DeviceProvider* device = device_handler.get_device(device_name);
+        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+        mandatory_creation = device->allow_mandatory_creation();
+    }
 
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             outline_name,
             is_untied,
-            /* mandatory_creation */ 0,
+            mandatory_creation,
             /* num_copies */ count_copies(outline_info),
             /* num_copies_dimensions */ count_copies_dimensions(outline_info),
             device_names,
@@ -467,7 +479,6 @@ void LoweringVisitor::emit_async_common(
 
     // For every device name specified in the 'device' clause, we create its outline function
     CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
-    DeviceHandler device_handler = DeviceHandler::get_device_handler();
     for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
             it != device_names.end();
             it++)
