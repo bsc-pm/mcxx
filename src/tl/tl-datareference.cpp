@@ -450,22 +450,36 @@ namespace TL
     {
         Nodecl::NodeclBase get_index_expression_rec(
                 TL::ObjectList<Nodecl::NodeclBase>::iterator current_index,
+
                 TL::ObjectList<Nodecl::NodeclBase>::iterator end_index,
-                TL::ObjectList<Nodecl::NodeclBase>::iterator current_size
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_size,
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_lower
                 )
         {
             if ((current_index + 1) == end_index)
             {
-                return current_index->shallow_copy();
+                return Nodecl::Minus::make(
+                            current_index->shallow_copy(),
+                            current_lower->shallow_copy(),
+                            current_index->get_type(),
+                            current_index->get_filename(),
+                            current_index->get_line());
             }
             else
             {
-                Nodecl::NodeclBase next_indexing = get_index_expression_rec(current_index + 1, end_index, current_size+1);
+                Nodecl::NodeclBase next_indexing = get_index_expression_rec(
+                        current_index + 1, end_index,
+                        current_size + 1, current_lower + 1);
 
                 // Horner algorithm
                 Nodecl::NodeclBase result;
                 result = Nodecl::Add::make(
-                        current_index->shallow_copy(),
+                        Nodecl::Minus::make(
+                            current_index->shallow_copy(),
+                            current_lower->shallow_copy(),
+                            current_index->get_type(),
+                            current_index->get_filename(),
+                            current_index->get_line()),
                         Nodecl::Mul::make(
                             current_size->shallow_copy(),
                             Nodecl::ParenthesizedExpression::make(
@@ -488,6 +502,7 @@ namespace TL
         {
             ObjectList<Nodecl::NodeclBase> reversed_indexes;
             ObjectList<Nodecl::NodeclBase> reversed_sizes;
+            ObjectList<Nodecl::NodeclBase> reversed_lower_bounds;
 
             for (Nodecl::List::iterator it = subscripts.begin();
                     it != subscripts.end();
@@ -508,14 +523,23 @@ namespace TL
             {
                 Nodecl::NodeclBase size = it_type.array_get_size();
                 reversed_sizes.prepend(size);
+                Nodecl::NodeclBase lower, upper;
+                it_type.array_get_bounds(lower, upper);
+
+                reversed_lower_bounds.prepend(lower);
+
                 it_type = it_type.array_element();
+
             }
 
             ERROR_CONDITION(reversed_indexes.size() != reversed_sizes.size(), "Mismatch between indexes and dimensions", 0);
 
             Nodecl::NodeclBase index_expression = get_index_expression_rec(
-                    reversed_indexes.begin(), reversed_indexes.end(),
-                    reversed_sizes.begin());
+                    reversed_indexes.begin(),
+                    reversed_indexes.end(),
+
+                    reversed_sizes.begin(),
+                    reversed_lower_bounds.begin());
 
             TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
 
