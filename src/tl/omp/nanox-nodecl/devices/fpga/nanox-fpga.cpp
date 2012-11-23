@@ -836,7 +836,7 @@ Source DeviceFPGA::fpga_param_code(
 
 void DeviceFPGA::add_hls_pragmas(
         Nodecl::NodeclBase &task,
-        const OutlineInfo &outline_info)
+        OutlineInfo &outline_info)
 {
     /*
      * Insert hls pragmas in order to denerate input/output connections
@@ -848,8 +848,8 @@ void DeviceFPGA::add_hls_pragmas(
      * Array; create fifo port to be handled by axi stream
      *      #pragma HLS stream variable=VAR
      *      #pragma HLS resource core=AXI4Stream variable=VAR
-     *      #pragma HLS interface ap_fifo port=in
-     * 
+     *      #pragma HLS interface ap_fifo port=VAR
+     *
      * For every task there is a control bus defined to kick the accelerator off:
      *
      * #pragma AP resource core=AXI_SLAVE variable=return metadata="-bus_bundle AXIlite" \
@@ -864,6 +864,62 @@ void DeviceFPGA::add_hls_pragmas(
      * }
      *
      */
+
+    //see what kind of ast it really is
+
+    std::cerr << ast_node_type_name(task.get_kind()) 
+        << " in_list: " << task.is_in_list()
+        << " locus: " << task.get_locus()
+        << std::endl;
+
+    //Dig into the tree and find where the function statements are
+    ObjectList<Nodecl::NodeclBase> tchildren = task.children();
+    Nodecl::NodeclBase& context = tchildren.front();
+    ObjectList<Nodecl::NodeclBase> cchildren = context.children();
+    Nodecl::List list(cchildren.front().get_internal_nodecl());
+    Nodecl::List stlist(list.begin()->children().front().get_internal_nodecl());
+
+    Nodecl::UnknownPragma ctrl_bus = Nodecl::UnknownPragma::make(
+        "AP resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}");
+    stlist.prepend(ctrl_bus);
+
+
+    //since we are using prepend, everything is going to appar in reverse order
+    //but this may not be a real issue
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        std::string field_name = (*it)->get_field_name();
+        Nodecl::UnknownPragma pragma_node;
+
+        if ((*it)->get_copies().empty())
+        {
+            //set scalar argumenit pragmas
+            pragma_node = Nodecl::UnknownPragma::make("HLS INTERFACE ap_none port=" + field_name);
+            stlist.prepend(pragma_node);
+
+            pragma_node = Nodecl::UnknownPragma::make("AP resource core=AXI_SLAVE variable="
+                    + field_name
+                    + " metadata=\"-bus_bundle AXIlite\"");
+            stlist.prepend(pragma_node);
+        }
+        else
+        {
+            //set array/stream pragmas
+            pragma_node = Nodecl::UnknownPragma::make(
+                    "HLS stream variable=" + field_name);
+            stlist.prepend(pragma_node);
+            pragma_node = Nodecl::UnknownPragma::make(
+                    "HLS resource core=AXI4Stream variable=" + field_name);
+            stlist.prepend(pragma_node);
+            pragma_node = Nodecl::UnknownPragma::make(
+                    "HLS interface ap_fifo port=" + field_name);
+            stlist.prepend(pragma_node);
+            
+        }
+    }
 }
 
 

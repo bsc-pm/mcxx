@@ -89,7 +89,7 @@ namespace TL
 
                 void add_hls_pragmas(
                         Nodecl::NodeclBase &,
-                        const TL::Nanox::OutlineInfo&
+                        TL::Nanox::OutlineInfo&
                         );
 
         };
