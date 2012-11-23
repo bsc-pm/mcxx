@@ -1275,164 +1275,202 @@ void LoweringVisitor::fill_copies_region(
     //     ptrdiff_t offset;
     // } nanos_copy_data_internal_t;
 
-    copy_ol_decl
-        << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
-        << "nanos_region_dimension_internal_t * ol_copy_dimensions = (nanos_region_dimension_internal_t*)0;"
-        ;
-    copy_ol_arg << "&ol_copy_data, &ol_copy_dimensions";
-    copy_imm_arg << "imm_copy_data, imm_copy_dimensions";
-    copy_imm_setup
-        << "nanos_copy_data_t imm_copy_data[" << num_copies << "];"
-        << "nanos_region_dimension_internal_t imm_copy_dimensions[" << num_copies_dimensions << "];"
-        ;
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        copy_ol_decl
+            << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
+            << "nanos_region_dimension_internal_t * ol_copy_dimensions = (nanos_region_dimension_internal_t*)0;"
+            ;
+        copy_ol_arg << "&ol_copy_data, &ol_copy_dimensions";
+        copy_imm_arg << "imm_copy_data, imm_copy_dimensions";
+        copy_imm_setup
+            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];"
+            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << num_copies_dimensions << "];"
+            ;
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        copy_ol_decl
+            << "nanos_copy_data_t ol_copy_data[" << num_copies << "];"
+            << "nanos_region_dimension_internal_t ol_copy_dimensions[" << num_copies_dimensions << "];"
+            ;
+        copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
+        copy_imm_arg << "imm_copy_data, imm_copy_dimensions";
+        copy_imm_setup
+            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];"
+            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << num_copies_dimensions << "];"
+            ;
+    }
 
-     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
-     int current_dimension_descriptor = 0;
-     int i = 0;
-     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-             it != data_items.end();
-             it++)
-     {
-         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+    int current_dimension_descriptor = 0;
+    int i = 0;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
-         if (copies.empty())
-             continue;
+        if (copies.empty())
+            continue;
 
-         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-                 copy_it != copies.end();
-                 copy_it++, i++)
-         {
-             TL::DataReference data_ref(copy_it->expression);
-             OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++, i++)
+        {
+            TL::DataReference data_ref(copy_it->expression);
+            OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
 
-             Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+            Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
 
-             int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-             int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+            int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
 
-             Source num_dimensions, dimension_descriptor_name, dimension_descriptors, copy_offset;
+            Source num_dimensions, dimension_descriptor_name, ol_dimension_descriptors, imm_dimension_descriptors, copy_offset;
 
-             copy_ol_setup
-                 << dimension_descriptors
-                 << "ol_copy_data[" << i << "].sharing = NANOS_SHARED;"
-                 << "ol_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
-                 // << "ol_copy_data[" << i << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                 << "ol_copy_data[" << i << "].flags.input = " << input << ";"
-                 << "ol_copy_data[" << i << "].flags.output = " << output << ";"
-                 << "ol_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
-                 << "ol_copy_data[" << i << "].dimensions = &(ol_copy_dimensions[" << current_dimension_descriptor << "]);"
-                 << "ol_copy_data[" << i << "].offset = " << copy_offset << ";"
-                 ;
+            copy_ol_setup
+                << ol_dimension_descriptors
+                << "ol_copy_data[" << i << "].sharing = NANOS_SHARED;"
+                << "ol_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
+                << "ol_copy_data[" << i << "].flags.input = " << input << ";"
+                << "ol_copy_data[" << i << "].flags.output = " << output << ";"
+                << "ol_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                << "ol_copy_data[" << i << "].dimensions = &(ol_copy_dimensions[" << current_dimension_descriptor << "]);"
+                << "ol_copy_data[" << i << "].offset = " << copy_offset << ";"
+                ;
 
-             copy_imm_setup
-                 << dimension_descriptors
-                 << "imm_copy_data[" << i << "].sharing = NANOS_SHARED;"
-                 << "imm_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
-                 // << "imm_copy_data[" << i << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                 << "imm_copy_data[" << i << "].flags.input = " << input << ";"
-                 << "imm_copy_data[" << i << "].flags.output = " << output << ";"
-                 << "imm_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
-                 << "imm_copy_data[" << i << "].dimensions = &(imm_copy_dimensions[" << current_dimension_descriptor << "]);"
-                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
-                 ;
+            copy_imm_setup
+                << imm_dimension_descriptors
+                << "imm_copy_data[" << i << "].sharing = NANOS_SHARED;"
+                << "imm_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
+                << "imm_copy_data[" << i << "].flags.input = " << input << ";"
+                << "imm_copy_data[" << i << "].flags.output = " << output << ";"
+                << "imm_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                << "imm_copy_data[" << i << "].dimensions = &(imm_copy_dimensions[" << current_dimension_descriptor << "]);"
+                << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
+                ;
 
-             copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof());
 
-             TL::Type copy_type = data_ref.get_data_type();
-             TL::Type base_type = copy_type;
+            TL::Type copy_type = data_ref.get_data_type();
+            TL::Type base_type = copy_type;
 
-             ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
+            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
 
-             int num_dimensions_count = copy_type.get_num_dimensions();
-             if (num_dimensions_count == 0)
-             {
-                 lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                 upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                 region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
-                 num_dimensions_count++;
-             }
-             else
-             {
-                 TL::Type t = copy_type;
-                 while (t.is_array())
-                 {
-                     Nodecl::NodeclBase lower, upper, region_size;
-                     if (t.array_is_region())
-                     {
-                         t.array_get_region_bounds(lower, upper);
-                         region_size = t.array_get_region_size();
-                     }
-                     else
-                     {
-                         t.array_get_bounds(lower, upper);
-                         region_size = t.array_get_size();
-                     }
-
-
-                     lower_bounds.append(lower);
-                     upper_bounds.append(upper);
-                     region_sizes.append(region_size);
-
-                     t = t.array_element();
-                 }
-
-                 base_type = t;
-
-                 // Sanity check
-                 ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
-                         || num_dimensions_count != (signed)upper_bounds.size()
-                         || num_dimensions_count != (signed)region_sizes.size(),
-                         "Mismatch between dimensions", 0);
-
-             }
-
-             num_dimensions
-                 << num_dimensions_count;
-
-             dimension_descriptor_name
-                 << "copy_dimensions_" << i;
-
-             dimension_descriptors
-                 << "nanos_region_dimension_t " << dimension_descriptor_name << "[" << num_dimensions_count << "];";
+            int num_dimensions_count = copy_type.get_num_dimensions();
+            if (num_dimensions_count == 0)
+            {
+                lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+                upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+                region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+                num_dimensions_count++;
+            }
+            else
+            {
+                TL::Type t = copy_type;
+                while (t.is_array())
+                {
+                    Nodecl::NodeclBase lower, upper, region_size;
+                    if (t.array_is_region())
+                    {
+                        t.array_get_region_bounds(lower, upper);
+                        region_size = t.array_get_region_size();
+                    }
+                    else
+                    {
+                        t.array_get_bounds(lower, upper);
+                        region_size = t.array_get_size();
+                    }
 
 
-             for (int dim = 0; dim < num_dimensions_count; dim++)
-             {
-                 // Sanity check
-                 ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
-                         current_dimension_descriptor, num_copies_dimensions);
+                    lower_bounds.append(lower);
+                    upper_bounds.append(upper);
+                    region_sizes.append(region_size);
 
-                 if (dim == 0)
-                 {
-                     // In bytes
-                     dimension_descriptors
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].size = "
-                         << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].lower_bound = "
-                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].accessed_length = "
-                         << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                         << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
-                         ;
-                 }
-                 else
-                 {
-                     // In elements
-                     dimension_descriptors
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].size = "
-                         << as_expression(region_sizes[dim].shallow_copy()) << ";"
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].lower_bound = "
-                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
-                         << dimension_descriptor_name << "[" << current_dimension_descriptor  << "].accessed_length = "
-                         << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                         << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
-                         ;
-                 }
-                 current_dimension_descriptor++;
-             }
-         }
-     }
+                    t = t.array_element();
+                }
+
+                base_type = t;
+
+                // Sanity check
+                ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
+                        || num_dimensions_count != (signed)upper_bounds.size()
+                        || num_dimensions_count != (signed)region_sizes.size(),
+                        "Mismatch between dimensions", 0);
+
+            }
+
+            num_dimensions
+                << num_dimensions_count;
+
+
+            for (int dim = 0; dim < num_dimensions_count; dim++)
+            {
+                // Sanity check
+                ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
+                        current_dimension_descriptor, num_copies_dimensions);
+
+                if (dim == 0)
+                {
+                    // In bytes
+                    ol_dimension_descriptors
+                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
+                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
+                        << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
+                        << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                        ;
+                    imm_dimension_descriptors
+                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
+                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
+                        << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
+                        << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                        ;
+                }
+                else
+                {
+                    // In elements
+                    ol_dimension_descriptors
+                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
+                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ";"
+                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
+                        << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
+                        ;
+                    imm_dimension_descriptors
+                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
+                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ";"
+                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
+                        << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
+                        ;
+                }
+                current_dimension_descriptor++;
+            }
+        }
+    }
+
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        copy_ol_setup
+            << "{"
+            << "nanos_err_t err;"
+            << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "}"
+            ;
+    }
 }
 
 void LoweringVisitor::fill_copies(
@@ -1453,16 +1491,15 @@ void LoweringVisitor::fill_copies(
 {
     num_copies = count_copies(outline_info);
 
-    if (num_copies == 0)
-    {
-        copy_ol_arg << "(nanos_copy_data_t**)0";
-        copy_imm_arg << "(nanos_copy_data_t*)0";
-        return;
-    }
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
         int num_copies_dimensions = count_copies_dimensions(outline_info);
+        if (num_copies == 0)
+        {
+            copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
+            copy_imm_arg << "(nanos_copy_data_t*)0, (nanos_region_dimension_internal_t*)0";
+        }
 
         fill_copies_region(ctr,
                 outline_info,
@@ -1481,19 +1518,27 @@ void LoweringVisitor::fill_copies(
     }
     else
     {
-        fill_copies_nonregion(ctr,
-                outline_info,
-                num_copies,
-                copy_ol_decl,
-                copy_ol_arg,
-                copy_ol_setup,
-                copy_imm_arg,
-                copy_imm_setup);
-        emit_translation_function_nonregion(ctr,
-                outline_info,
-                parameter_outline_info,
-                structure_symbol,
-                xlate_function_name);
+        if (num_copies == 0)
+        {
+            copy_ol_arg << "(nanos_copy_data_t**)0";
+            copy_imm_arg << "(nanos_copy_data_t*)0";
+        }
+        else
+        {
+            fill_copies_nonregion(ctr,
+                    outline_info,
+                    num_copies,
+                    copy_ol_decl,
+                    copy_ol_arg,
+                    copy_ol_setup,
+                    copy_imm_arg,
+                    copy_imm_setup);
+            emit_translation_function_nonregion(ctr,
+                    outline_info,
+                    parameter_outline_info,
+                    structure_symbol,
+                    xlate_function_name);
+        }
     }
 }
 

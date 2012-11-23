@@ -674,6 +674,10 @@ namespace TL
         {
             return expr.as<Nodecl::Dereference>().get_rhs();
         }
+        else if (expr.is<Nodecl::ParenthesizedExpression>())
+        {
+            return get_address_of_symbol_helper(expr.as<Nodecl::ParenthesizedExpression>().get_nest());
+        }
         else
         {
             internal_error("Unhandled case '%s'\n", ast_print_node_type(expr.get_kind()));
