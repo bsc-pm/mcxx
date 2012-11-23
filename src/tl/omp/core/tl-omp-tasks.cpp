@@ -745,6 +745,10 @@ namespace TL
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
+            // We do this to silence the compiler complaining about priority clause not being used
+            // (it IS used but too late for the checks)
+            PragmaCustomClause priority_clause = construct.get_clause("priority");
+
             get_data_explicit_attributes(construct, data_sharing);
 
             get_dependences_info(construct, data_sharing);
