@@ -214,7 +214,8 @@ Source LoweringVisitor::fill_const_wd_info(
         << "{"
         << /* ".props = " << */ props_init << ", \n"
         << /* ".data_alignment = " << */ alignment << ", \n"
-        << /* ".num_copies = " << */ num_copies << ",\n"
+        // We do not register copies at creation in Fortran
+        << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
         << /* ".num_devices = " << */ num_devices << ",\n"
         ;
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
