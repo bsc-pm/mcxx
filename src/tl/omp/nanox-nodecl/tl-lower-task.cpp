@@ -1630,8 +1630,12 @@ void LoweringVisitor::emit_translation_function_nonregion(
             symbol_map.add_map((*it)->get_base_symbol_of_argument(), new_sym);
         }
 
+        if (IS_CXX_LANGUAGE)
+        {
+            translations << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_sym));
+        }
+
         translations
-            // << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name()
             << (*it)->get_symbol().get_name()
             << " = arg." << (*it)->get_field_name() << ";"
             ;
@@ -3015,10 +3019,13 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         if (!sym.is_valid())
             continue;
 
-        TL::Type updated_type = rewrite_type_in_outline((*it)->get_in_outline_type(), param_sym_to_arg_sym);
-
-        sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
+        TL::Type updated_type = rewrite_type_in_outline((*it)->get_in_outline_type(),
+                param_sym_to_arg_sym);
         (*it)->set_in_outline_type(updated_type);
+
+        updated_type = rewrite_type_in_outline(sym.get_internal_symbol()->type_information,
+                param_sym_to_arg_sym);
+        sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
     }
 
     TL::Symbol alternate_name;
