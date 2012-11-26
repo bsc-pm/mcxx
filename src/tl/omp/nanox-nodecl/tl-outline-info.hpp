@@ -138,6 +138,9 @@ namespace TL
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
 
+                // Base symbol of the argument in Fortran
+                TL::Symbol _base_symbol_of_argument;
+
                 bool _is_lastprivate;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
@@ -149,6 +152,7 @@ namespace TL
                     _sharing(),
                     _base_address_expression(),
                     _allocation_policy_flags(),
+                    _base_symbol_of_argument(),
                     _is_lastprivate()
                 {
                 }
@@ -295,6 +299,16 @@ namespace TL
                 {
                     _is_lastprivate = b;
                 }
+
+                void set_base_symbol_of_argument(TL::Symbol symbol)
+                {
+                    _base_symbol_of_argument = symbol;
+                }
+
+                TL::Symbol get_base_symbol_of_argument() const
+                {
+                    return _base_symbol_of_argument;
+                }
         };
 
         class OutlineInfo
@@ -339,6 +353,8 @@ namespace TL
                 {
                     return _data_env_items;
                 }
+
+                ObjectList<OutlineDataItem*> get_fields() const;
 
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();

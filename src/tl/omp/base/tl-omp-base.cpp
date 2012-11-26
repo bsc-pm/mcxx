@@ -240,7 +240,7 @@ namespace TL { namespace OpenMP {
                 ObjectList<std::string> device_list = target_info.get_device_list();
                 for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
                 {
-                    devices.append(Nodecl::Text::make(*it, filename, line));
+                    devices.append(Nodecl::Text::make(strtolower(it->c_str()), filename, line));
                 }
 
                 ObjectList<CopyItem> copy_in = target_info.get_copy_in();

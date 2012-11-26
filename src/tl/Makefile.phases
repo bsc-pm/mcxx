@@ -38,5 +38,6 @@ else
 tl_ldflags += \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN \
 	-Wl,-z,origin \
+	--enable-new-dtags \
 	$(END)
 endif

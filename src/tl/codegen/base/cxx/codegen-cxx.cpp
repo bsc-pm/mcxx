@@ -1689,6 +1689,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
+// Bug in GCC 4.4
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::FunctionCall>(const Nodecl::FunctionCall& node, bool is_virtual_call);
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node, bool is_virtual_call);
+
 CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
     // We are going to generate dependent code
@@ -3160,6 +3164,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
 }
+
+// Bug in GCC 4.4
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::VirtualFunctionCall>(const Nodecl::VirtualFunctionCall& node, bool is_virtual_call);
 
 CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
 {

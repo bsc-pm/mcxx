@@ -510,6 +510,8 @@ static const char* safe_asttext(AST a)
 %type<ast> read_stmt
 %type<ast> nullify_stmt
 %type<ast> language_binding_spec
+%type<ast> language_binding_spec_c
+%type<ast> language_binding_spec_opencl
 %type<ast> named_constant_def
 %type<ast> sync_memory_stmt
 %type<ast> mask_elsewhere_part
@@ -753,6 +755,7 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> TOK_DEALLOCATE "DEALLOCATE"
 %token<token_atrib> TOK_FUNCTION "FUNCTION"
 %token<token_atrib> TOK_C "C"
+%token<token_atrib> TOK_OPENCL "OPENCL"
 %token<token_atrib> TOK_ENUMERATOR "ENUMERATOR"
 %token<token_atrib> TOK_RECURSIVE "RECURSIVE"
 %token<token_atrib> TOK_SEQUENCE "SEQUENCE"
@@ -1938,13 +1941,21 @@ access_spec : TOK_PUBLIC
 ;
 proc_language_binding_spec : language_binding_spec
 ;
-language_binding_spec : TOK_BIND '(' TOK_C ',' TOK_NAME '=' default_char_constant_expr ')'
+language_binding_spec : language_binding_spec_c
+| language_binding_spec_opencl
+;
+language_binding_spec_c : TOK_BIND '(' TOK_C ',' TOK_NAME '=' default_char_constant_expr ')'
 {
     $$ = ASTMake1(AST_BIND_C_SPEC, $7, $1.token_file, $1.token_line, "bind");
 }
 | TOK_BIND '(' TOK_C ')'
 {
     $$ = ASTMake1(AST_BIND_C_SPEC, NULL, $1.token_file, $1.token_line, "bind");
+}
+;
+language_binding_spec_opencl : TOK_BIND '(' TOK_OPENCL ',' TOK_NAME '=' default_char_constant_expr ',' TOK_FILE '=' default_char_constant_expr ')'
+{
+    $$ = ASTMake1(AST_BIND_OPENCL_SPEC, $7, $1.token_file, $1.token_line, "bind");
 }
 ;
 coarray_spec : array_spec
@@ -6101,6 +6112,7 @@ keyword : TOK_FORMAT
 | TOK_DEALLOCATE
 | TOK_FUNCTION
 | TOK_C
+| TOK_OPENCL
 | TOK_ENUMERATOR
 | TOK_RECURSIVE
 | TOK_SEQUENCE
