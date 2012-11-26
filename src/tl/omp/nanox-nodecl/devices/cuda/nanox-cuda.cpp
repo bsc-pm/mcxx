@@ -30,6 +30,7 @@
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
+#include "cxx-profile.h"
 // #include "fortran03-scope.h"
 
 //#include "cuda-aux.hpp"
@@ -39,7 +40,7 @@
 //#include "tl-omp-nanox.hpp"
 
 #include "codegen-phase.hpp"
-#include "codegen-cxx.hpp"
+#include "codegen-cuda.hpp"
 #include "cxx-cexpr.h"
 //#include "codegen-fortran.hpp"
 
@@ -2516,18 +2517,16 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
             add_included_cuda_files(ancillary_file);
         }
 
-        compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
-        ERROR_CONDITION (configuration == NULL, "The compilation configuration cannot be NULL", 0);
+        compilation_configuration_t* configuration = ::get_compilation_configuration("cuda");
+        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvcc/mnvcxx", 0);
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
 
-        TL::CompilationProcess::add_file(new_filename, "cuda");
-
         //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
 
-        Codegen::CxxBase* phase = reinterpret_cast<Codegen::CxxBase*>(configuration->codegen_phase);
+        Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
 
         C_LANGUAGE()
         {

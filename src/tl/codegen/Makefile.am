@@ -24,4 +24,4 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=common base vector cuda
+SUBDIRS=common base vector gpu

@@ -41,6 +41,9 @@ namespace Codegen
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
+            // Needed by codegen of cuda
+            void walk_list(const Nodecl::List&, const std::string& separator);
+
         public:
 
             CxxBase() : _emit_always_extern_linkage(false), _print_cuda_attributes(false)
@@ -411,7 +414,7 @@ namespace Codegen
             int get_indent_level();
             void set_indent_level(int);
 
-            void walk_list(const Nodecl::List&, const std::string& separator);
+
             void walk_expression_list(const Nodecl::List&);
 
             template <typename Iterator>

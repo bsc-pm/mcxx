@@ -17,27 +17,27 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
-  --------------------------------------------------------------------*/
+--------------------------------------------------------------------*/
 
-#include "codegen-cuda-module.hpp"
-#include "codegen-cxx.hpp"
+#include "codegen-cuda.hpp"
+
+// #ifdef HAVE_QUADMATH_H
+// MCXX_BEGIN_DECLS
+// #include <quadmath.h>
+// MCXX_END_DECLS
+// #endif
 
 namespace Codegen
 {
-    CudaModuleVisitor::CudaModuleVisitor(CodegenVisitor* base_codegen)
-        : CodegenModuleVisitor(base_codegen)
+    void CudaGPU::visit(const Nodecl::CudaKernelCall &n)
     {
-    }
-
-    void CudaModuleVisitor::visit(const Nodecl::CudaKernelCall & node)
-    {
-        Nodecl::NodeclBase nodecl_function_call = node.get_function_call();
-        Nodecl::NodeclBase kernel_config = node.get_kernel_config();
+        Nodecl::NodeclBase nodecl_function_call = n.get_function_call();
+        Nodecl::NodeclBase kernel_config = n.get_kernel_config();
 
         Nodecl::FunctionCall function_call = nodecl_function_call.as<Nodecl::FunctionCall>();
         Nodecl::NodeclBase called_expr = function_call.get_called();
@@ -54,35 +54,8 @@ namespace Codegen
         {
             walk_list(function_args.as<Nodecl::List>(), ", ");
         }
-        file << ");\n";
+        file << ")";
     }
+} // Codegen
 
-    Nodecl::NodeclVisitor<void>::Ret CudaModuleVisitor::unhandled_node(const Nodecl::NodeclBase& n)
-    {
-        fprintf(stderr, "CUDA Codegen: Unknown node %s at %s.\n",
-                ast_print_node_type(n.get_kind()),
-                n.get_locus().c_str());
-        /*
-           running_error("SSE Codegen: Unknown node %s at %s.",
-           ast_print_node_type(n.get_kind()),
-           n.get_locus().c_str()); 
-         */
-        return Ret();
-    }
-
-    void CudaModuleVisitor::walk_list(const Nodecl::List& list, const std::string& separator)
-    {
-        Nodecl::List::const_iterator it = list.begin(), begin = it;
-
-        while (it != list.end())
-        {
-            if (it != begin)
-            {
-                file << separator;
-            }
-
-            walk(*it);
-            it++;
-        }
-    }
-}
+EXPORT_PHASE(Codegen::CudaGPU)

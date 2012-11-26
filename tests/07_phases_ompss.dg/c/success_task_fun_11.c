@@ -24,17 +24,40 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_CUDA_PHASE_HPP
-#define CODEGEN_CUDA_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
 
-namespace Codegen
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include <stdlib.h>
+
+#pragma omp target device(smp) copy_deps
+#pragma omp task inout(a[0;10])
+void f(int *a)
 {
-    class CodegenCudaPhase : public TL::CompilerPhase
-    {
-        virtual void run(TL::DTO& dto);
-    };
+    int i;
+    for (i = 0; i < 10; i++)
+        a[i]++;
 }
 
-#endif // CODEGEN_CUDA_PHASE_HPP
+int main(int argc, char *argv[])
+{
+    int v[10];
+
+    int i;
+    for (i = 0; i < 10; i++)
+        v[i] = i;
+
+    f(v);
+#pragma omp taskwait
+
+    for (i = 0; i < 10; i++)
+    {
+        if (v[i] != (i+1))
+            abort();
+    }
+
+    return 0;
+}

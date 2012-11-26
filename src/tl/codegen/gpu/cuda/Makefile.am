@@ -24,28 +24,24 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
 
-SUBDIRS = cuda .
+include ../../../Makefile.phases
 
+phases_LTLIBRARIES = libcodegen-cuda.la
 
-lib_LTLIBRARIES = libcodegen-cuda.la
+libcodegen_cuda_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+libcodegen_cuda_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
 
 END=
 
-libcodegen_cuda_la_CFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/cuda/cuda \
-	$(END)
-
-libcodegen_cuda_la_CXXFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/cuda/cuda \
-	$(END)
-
 libcodegen_cuda_la_LDFLAGS = $(tl_ldflags)
-libcodegen_cuda_la_SOURCES = \
-    codegen-cuda-phase.cpp \
-    codegen-cuda-phase.hpp \
-	$(END)
-
-libcodegen_cuda_la_LIBADD = cuda/libcodegen-cuda-module.la \
+libcodegen_cuda_la_LIBADD = ../../common/libcodegen-common.la \
+						   $(tl_libadd) \
+					       $(quadmath_LIBS) \
 					       $(END)
+
+
+libcodegen_cuda_la_SOURCES = \
+	 codegen-cuda.hpp \
+	 codegen-cuda.cpp \
+  	 $(END)

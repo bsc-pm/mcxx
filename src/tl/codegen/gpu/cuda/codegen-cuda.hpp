@@ -24,30 +24,24 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CUDA_MODULE_HPP
-#define CUDA_MODULE_HPP
+#ifndef CODEGEN_CUDA_HPP
+#define CODEGEN_CUDA_HPP
 
-#include "codegen-common.hpp"
-#include "tl-nodecl-base.hpp"
-
+#include "codegen-phase.hpp"
+#include "codegen-cxx.hpp"
+// #include "tl-scope.hpp"
+// #include "tl-symbol.hpp"
+// 
+// #include <sstream>
+// #include <map>
+// #include <set>
 
 namespace Codegen
 {
-    class CudaModuleVisitor : public CodegenModuleVisitor
+    class CudaGPU : public CxxBase
     {
-        public:
-
-            CudaModuleVisitor(CodegenVisitor* base_codegen);
-
-            void visit(const Nodecl::CudaKernelCall & node);
-
-            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-
-        private:
-
-            void walk_list(const Nodecl::List& list, const std::string& separator);
-
+        void visit(const Nodecl::CudaKernelCall &);
     };
 }
 
-#endif // CUDA_MODULE_HPP
+#endif // CODEGEN_CUDA_HPP
