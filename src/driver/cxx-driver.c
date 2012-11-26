@@ -256,6 +256,9 @@
 "                           and quits\n" \
 "  --no-whole-file          Fortran front-end does not resolve\n" \
 "                           external procedure calls inside a file\n" \
+"  --do-not-process-file    The driver will hand the file directly\n" \
+"                           to the native compiler. No further\n" \
+"                           action will be carried by the driver\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -357,6 +360,7 @@ typedef enum
     OPTION_VECTOR_FLAVOR,
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_NO_WHOLE_FILE,
+    OPTION_DO_NOT_PROCESS_FILE,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -431,6 +435,7 @@ struct command_line_long_options command_line_long_options[] =
     {"list-vector-flavors", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     {"list-vector-flavours", CLP_NO_ARGUMENT, OPTION_LIST_VECTOR_FLAVORS},
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
+    {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1382,6 +1387,12 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_NO_WHOLE_FILE:
                     {
                         CURRENT_CONFIGURATION->fortran_no_whole_file = 1;
+                        break;
+                    }
+                case OPTION_DO_NOT_PROCESS_FILE:
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |=
+                            (SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_PREPROCESSED);
                         break;
                     }
                 default:
@@ -2613,9 +2624,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             continue;
         }
 
+        char file_not_processed = BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_PROCESS)
+            || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_DO_NOT_PROCESS);
+
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
+                && !file_not_processed)
         {
             fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename,
@@ -2717,7 +2731,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
+                    && !file_not_processed)
             {
                 // * Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -2836,7 +2850,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             // * Codegen
             const char* prettyprinted_filename = NULL;
-            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
+            if (!file_not_processed)
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
@@ -2869,13 +2883,13 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
 
             // * Native compilation
-            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
+            if (!file_not_processed)
             {
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
             }
             else
             {
-                // Do not parse
+                // Do not process
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
 
