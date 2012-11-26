@@ -581,12 +581,6 @@ namespace OpenMP
             //         ;
             // }
             
-            // Propagate the priority information
-            if (task_info.get_has_task_priority())
-            {
-                arg_clauses << " priority("<< task_info.get_task_priority()<<")";
-            }
-            
             FunctionTaskTargetInfo target_info = task_info.get_target_info();
 
             if (!target_info.can_be_ommitted())
@@ -771,12 +765,9 @@ namespace OpenMP
             }
 
             //support if clause
-            if(task_info.has_if_clause())
+            if(task_info.has_if_clause()
+                    || task_info.has_task_priority())
             {
-                // we need to replace the symbols in the if clause because
-                // this symbols are from a different scope.
-                Expression cond_expr = task_info.get_if_clause_conditional_expression();
-                
                 //replace parameters in the clause
                 AST_t func_decl_ast = sym.get_point_of_declaration();
                 FunctionDefinition func_def(func_decl_ast, scope_link);
@@ -784,8 +775,8 @@ namespace OpenMP
                 ObjectList<ParameterDeclaration> params = decl_entity.get_parameter_declarations();
                 int param_num = 0;
                 for(ObjectList<ParameterDeclaration>::iterator it = params.begin();
-                    it != params.end(); 
-                    ++it)
+                        it != params.end(); 
+                        ++it)
                 {
                     IdExpression expr = (*it).get_name();
                     std::stringstream tmp_param_name;
@@ -794,32 +785,64 @@ namespace OpenMP
                     ++param_num;
                 }
 
-                //replace data members in the clause
-                ObjectList<IdExpression> all_sym = cond_expr.all_symbol_occurrences();
-                for(ObjectList<IdExpression>::iterator it = all_sym.begin();
-                    it != all_sym.end(); 
-                    ++it)
+                // we need to replace the symbols in the if clause because
+                // this symbols are from a different scope.
+                ObjectList<TL::Symbol> all_symbols;
+
+                if (task_info.has_if_clause())
                 {
-                    Symbol act_sym = (*it).get_symbol();
-                    
-                    //add a new declaration for every used data member in the clause
+                    Expression cond_expr = task_info.get_if_clause_conditional_expression();
+
+                    // replace data members in the clause
+                    all_symbols.insert(
+                            cond_expr
+                            .all_symbol_occurrences()
+                            .map(functor(&TL::IdExpression::get_symbol)));
+                }
+                if (task_info.has_task_priority())
+                {
+                    Expression task_prio = task_info.get_task_priority();
+
+                    all_symbols.insert(
+                            task_prio
+                            .all_symbol_occurrences()
+                            .map(functor(&TL::IdExpression::get_symbol)));
+                }
+
+                for(ObjectList<TL::Symbol>::iterator it = all_symbols.begin();
+                        it != all_symbols.end(); 
+                        ++it)
+                {
+                    Symbol &act_sym = (*it);
+
+                    // add a new declaration for every used data member in the clause
                     if(act_sym.is_member() && !act_sym.is_static())
                     {
                         std::stringstream tmp_data_member_name;
                         tmp_data_member_name << "__tmp_" << param_num;
 
                         additional_decls  << "const " 
-                                          << act_sym.get_type().get_declaration(
-                                                    (*it).get_scope(),tmp_data_member_name.str())
-                                          << " = __tmp_this->" << act_sym.get_name() 
-                                          << ";";
-                        
+                            << act_sym.get_type().get_declaration(
+                                    (*it).get_scope(),tmp_data_member_name.str())
+                            << " = __tmp_this->" << act_sym.get_name() 
+                            << ";";
+
                         replace.add_replacement(act_sym, tmp_data_member_name.str());
                         ++param_num;
                     }
                 }
+
+                if (task_info.has_if_clause())
+                {
                 //do all replaces in the conditional expression
-                arg_clauses << " if ( "<< replace.replace(cond_expr) <<" )";
+                    arg_clauses << " if ( "<< replace.replace(task_info.get_if_clause_conditional_expression()) <<" )";
+                }
+                
+                // Propagate the priority information
+                if (task_info.has_task_priority())
+                {
+                    arg_clauses << " priority("<< replace.replace( task_info.get_task_priority() ) <<")";
+                }
             }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),

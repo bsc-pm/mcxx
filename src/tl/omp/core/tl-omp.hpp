@@ -433,11 +433,9 @@ namespace TL
                 
                 RealTimeInfo _real_time_info;
 
-                bool _has_task_priority;
-
-                int _task_priority;
-
                 Expression *_if_clause_cond_expr;
+
+                Expression *_task_priority;
 
                 Symbol get_symbol() const;
 
@@ -478,13 +476,10 @@ namespace TL
 
                 RealTimeInfo get_real_time_info() const;
 
-                void set_has_task_priority(bool b);
-
-                bool get_has_task_priority() const;
+                bool has_task_priority() const;
                 
-                void set_task_priority(int i);
-
-                int get_task_priority() const;
+                void set_task_priority(Expression expr);
+                Expression get_task_priority() const;
 
                 bool has_if_clause() const;
 
