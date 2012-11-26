@@ -25,5 +25,4 @@
 ##########################################################################
 
 #SUBDIRS= smp smp_numa cuda smp_ocl gpu common
-SUBDIRS= smp cuda
-
+SUBDIRS= smp cuda opencl

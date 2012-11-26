@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,53 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-lib_LTLIBRARIES = libmcxxtl.la
 
-# Gluing library C to C++
-libmcxxtl_la_SOURCES = \
-	cxx-compilerphases.hpp \
-	cxx-compilerphases.cpp
-
-COMMON_CFLAGS= -DLIBMCXXTL_DLL_EXPORT \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/frontend/fortran \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/tl/codegen/common \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/frontend/fortran \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/lib
-
-libmcxxtl_la_CXXFLAGS = $(COMMON_CFLAGS)
-
-libmcxxtl_la_CFLAGS = $(COMMON_CFLAGS)
+include ../../../../Makefile.phases
 
 END=
 
-if WINDOWS_BUILD
-no_undefined=-no-undefined
-DL_LIBRARY=
-else
-no_undefined=
-DL_LIBRARY=-ldl
-endif
+phases_LTLIBRARIES=libtlnanox-opencl.la
 
-libmcxxtl_la_LIBADD = \
-        $(top_builddir)/src/frontend/libmcxx-process.la \
-        $(top_builddir)/src/frontend/libmcxx.la \
-        $(top_builddir)/src/tl/libtl.la \
-        $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
-	    $(top_builddir)/lib/libmcxx-utils.la \
-        $(DL_LIBRARY)
-		$(END)
-	
-libmcxxtl_la_LDFLAGS=-avoid-version $(no_undefined) \
-    -Wl,@RPATH_PARAMETER@,$(pkglibdir) \
-    -Wl,@RPATH_PARAMETER@,\$$ORIGIN \
-    -Wl,@RPATH_PARAMETER@,\$$ORIGIN/mcxx \
-    -Wl,-z,origin \
-	--enable-new-dtags \
-    $(END)
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../nanos-common \
+			 -I$(srcdir)/../../../core
+
+libtlnanox_opencl_la_CFLAGS = $(device_flags)
+libtlnanox_opencl_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_opencl_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_opencl_la_SOURCES = \
+       nanox-opencl.hpp \
+       nanox-opencl.cpp \
+       $(END)

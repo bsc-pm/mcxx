@@ -5963,7 +5963,8 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
     scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
 
     if (sym->kind == SK_FUNCTION
-            && sym->entity_specs.bind_c)
+            && !nodecl_is_null(sym->entity_specs.bind_info)
+            && nodecl_get_kind(sym->entity_specs.bind_info) == NODECL_FORTRAN_BIND_C)
     {
         return GET_INTRINSIC_INQUIRY("c_funloc", get_user_defined_type(c_funptr), t0);
     }

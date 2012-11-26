@@ -105,6 +105,12 @@ namespace TL
             //! Returns the base address of the DataReference
             Nodecl::NodeclBase get_base_address() const;
 
+            //! Returns the base address of the DataReference as an integer expression
+            /*
+               This is needed in Fortran
+             */
+            Nodecl::NodeclBase get_base_address_as_integer() const;
+
             //! Returns an expression denoting the base address of the base symbol of the data reference
             Nodecl::NodeclBase get_address_of_symbol() const;
 
@@ -140,6 +146,9 @@ namespace TL
 
             Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type) const;
             Nodecl::NodeclBase compute_offsetof(Nodecl::NodeclBase expr, Nodecl::NodeclBase reference_expr, TL::Scope sc) const;
+            Nodecl::NodeclBase compute_offsetof_integer(Nodecl::NodeclBase expr, 
+                    Nodecl::NodeclBase reference_expr,
+                    TL::Scope scope) const;
 
             Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr) const;
     };

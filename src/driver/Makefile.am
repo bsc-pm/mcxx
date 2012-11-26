@@ -122,7 +122,8 @@ mcxx_LDFLAGS = \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib/mcxx \
-    -Wl,-z,origin
+    -Wl,-z,origin \
+	--enable-new-dtags \
     $(END)
 endif
 
@@ -258,4 +259,5 @@ mcxx_embedder_LDADD = \
 
 mcxx_embedder_LDFLAGS = \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
+	--enable-new-dtags \
     $(END)
