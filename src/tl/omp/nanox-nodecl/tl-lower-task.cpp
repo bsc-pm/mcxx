@@ -2925,6 +2925,20 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             if (!parameter_outline_data_item.get_dependences().empty())
             {
                 argument_outline_data_item.set_base_address_expression(it->second);
+
+                // Create a new variable holding the base symbol of the data-reference of the argument
+                DataReference data_ref(it->second);
+                if (!data_ref.is_valid())
+                {
+                    error_printf("%s: error: actual argument '%s' must be a data-reference "
+                            "because it is associated to dependence dummy argument '%s'\n",
+                            construct.get_locus().c_str(),
+                            it->second.prettyprint().c_str(),
+                            it->first.get_name().c_str());
+                    give_up_task_call(construct);
+                    return;
+                }
+                argument_outline_data_item.set_base_symbol_of_argument(data_ref.get_base_symbol());
             }
         }
         else
