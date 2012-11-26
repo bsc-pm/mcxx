@@ -34,30 +34,28 @@
 
 namespace Codegen
 {
-        void CudaGPU::visit(const Nodecl::CudaKernelCall &n)
+    void CudaGPU::visit(const Nodecl::CudaKernelCall &n)
+    {
+        Nodecl::NodeclBase nodecl_function_call = n.get_function_call();
+        Nodecl::NodeclBase kernel_config = n.get_kernel_config();
+
+        Nodecl::FunctionCall function_call = nodecl_function_call.as<Nodecl::FunctionCall>();
+        Nodecl::NodeclBase called_expr = function_call.get_called();
+        Nodecl::NodeclBase function_args = function_call.get_arguments();
+
+        walk(called_expr);
+
+        file << "<<<";
+        walk_list(kernel_config.as<Nodecl::List>(),", ");
+        file << ">>>";
+
+        file << "(";
+        if (!function_args.is_null())
         {
-            Nodecl::NodeclBase nodecl_function_call = n.get_function_call();
-            Nodecl::NodeclBase kernel_config = n.get_kernel_config();
-
-            Nodecl::FunctionCall function_call = nodecl_function_call.as<Nodecl::FunctionCall>();
-            Nodecl::NodeclBase called_expr = function_call.get_called();
-            Nodecl::NodeclBase function_args = function_call.get_arguments();
-
-            walk(called_expr);
-
-            file << "<<<";
-            walk_list(kernel_config.as<Nodecl::List>(),", ");
-            file << ">>>";
-
-            file << "(";
-            if (!function_args.is_null())
-            {
-                walk_list(function_args.as<Nodecl::List>(), ", ");
-            }
-            file << ");\n";
+            walk_list(function_args.as<Nodecl::List>(), ", ");
         }
-
-
+        file << ")";
+    }
 } // Codegen
 
 EXPORT_PHASE(Codegen::CudaGPU)
