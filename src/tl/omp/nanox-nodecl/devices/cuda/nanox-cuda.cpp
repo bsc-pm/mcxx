@@ -1500,18 +1500,7 @@ void DeviceCUDA::generate_ndrange_additional_code(
     {
         if (check_dim)
         {
-            if (i < num_dim)
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
-                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
-                if (check_dim)
-                {
-                    code_ndrange
-                        << "if (" << as_expression(new_ndrange[i]) << "%" <<  as_expression(new_ndrange[num_dim + i])<< " != 0 ) "
-                        << "fatal(\"WARNING:  Size " << field[i-1] << " of cuda kernel is not divisible by local size\\n\");";
-                }
-            }
-            else if (i == num_dim)
+            if (i <= num_dim)
             {
                 code_ndrange << "dimBlock." << field[i-1] << " = "
                     << "(("
