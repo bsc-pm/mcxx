@@ -13797,6 +13797,10 @@ static void build_scope_upc_forall_statement(AST a,
 static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
+    if (!nodecl_is_list(*nodecl_output))
+    {
+        *nodecl_output = nodecl_make_list_1(*nodecl_output);
+    }
 }
 
 static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
