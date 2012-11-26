@@ -1116,14 +1116,14 @@ AC_CONFIG_FILES([Makefile
            src/tl/vectorizer/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
-           src/tl/codegen/Makefile 
-           src/tl/codegen/common/Makefile 
-           src/tl/codegen/base/Makefile 
-           src/tl/codegen/base/cxx/Makefile 
-           src/tl/codegen/base/fortran/Makefile 
-           src/tl/codegen/vector/Makefile 
-           src/tl/codegen/vector/sse/Makefile 
-           src/tl/omp/Makefile 
+           src/tl/codegen/Makefile
+           src/tl/codegen/common/Makefile
+           src/tl/codegen/base/Makefile
+           src/tl/codegen/base/cxx/Makefile
+           src/tl/codegen/base/fortran/Makefile
+           src/tl/codegen/vector/Makefile
+           src/tl/codegen/vector/sse/Makefile
+           src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
            src/tl/omp/profile/Makefile
