@@ -48,40 +48,9 @@ namespace Codegen
 #endif
         }
 
-        static bool check_type(TL::Type t)
-        {
-            if (t.is_named())
-            {
-                return CheckIfInCudaCompiler::check(t.get_symbol().get_filename());
-            }
-            else if (t.is_pointer())
-            {
-                return check_type(t.points_to());
-            }
-            else if (t.is_array())
-            {
-                return check_type(t.array_element());
-            }
-            else if (t.is_function())
-            {
-                TL::ObjectList<TL::Type> types = t.parameters();
-                types.append(t.returns());
-                for (TL::ObjectList<TL::Type>::iterator it = types.begin(); it != types.end(); it++)
-                {
-                    if (!check_type(*it))
-                        return false;
-                }
-                return true;
-            }
-            else
-            {
-                return true;
-            }
-        }
-
         static bool check_symbol(TL::Symbol s)
         {
-            return CheckIfInCudaCompiler::check_type(s.get_type());
+            return CheckIfInCudaCompiler::check(s.get_filename());
         }
     }
 
