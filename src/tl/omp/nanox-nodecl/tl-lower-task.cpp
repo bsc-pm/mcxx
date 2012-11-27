@@ -1646,7 +1646,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++, copy_num++)
+            it++)
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
@@ -1693,6 +1693,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
+        copy_num++;
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -1772,7 +1773,7 @@ void LoweringVisitor::emit_translation_function_region(
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++, copy_num++)
+            it++)
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
@@ -1790,6 +1791,8 @@ void LoweringVisitor::emit_translation_function_region(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
+
+        copy_num++;
     }
 
     if (IS_FORTRAN_LANGUAGE)
