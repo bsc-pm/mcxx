@@ -1629,8 +1629,12 @@ void LoweringVisitor::emit_translation_function_nonregion(
             symbol_map.add_map((*it)->get_base_symbol_of_argument(), new_sym);
         }
 
+        if (IS_CXX_LANGUAGE)
+        {
+            translations << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_sym));
+        }
+
         translations
-            // << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name()
             << (*it)->get_symbol().get_name()
             << " = arg." << (*it)->get_field_name() << ";"
             ;
@@ -2484,6 +2488,14 @@ static void copy_outline_data_item(
 
     // Copy copy directionality
     dest_info.get_copies() = rewrite_copies(source_info.get_copies(), param_to_arg_expr);
+    if (!dest_info.get_copies().empty())
+    {
+        DataReference data_ref(dest_info.get_copies()[0].expression);
+        if (data_ref.is_valid())
+        {
+            dest_info.set_base_symbol_of_argument(data_ref.get_base_symbol());
+        }
+    }
 }
 
 static void fill_map_parameters_to_arguments(
@@ -2924,20 +2936,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
             if (!parameter_outline_data_item.get_dependences().empty())
             {
                 argument_outline_data_item.set_base_address_expression(it->second);
-
-                // Create a new variable holding the base symbol of the data-reference of the argument
-                DataReference data_ref(it->second);
-                if (!data_ref.is_valid())
-                {
-                    error_printf("%s: error: actual argument '%s' must be a data-reference "
-                            "because it is associated to dependence dummy argument '%s'\n",
-                            construct.get_locus().c_str(),
-                            it->second.prettyprint().c_str(),
-                            it->first.get_name().c_str());
-                    give_up_task_call(construct);
-                    return;
-                }
-                argument_outline_data_item.set_base_symbol_of_argument(data_ref.get_base_symbol());
             }
         }
         else
@@ -3003,8 +3001,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 
                 argument_outline_data_item.set_in_outline_type(in_outline_type);
 
-                argument_outline_data_item.set_base_symbol_of_argument(data_ref.get_base_symbol());
-
                 // Copy what must be copied from the parameter info
                 copy_outline_data_item(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
 
@@ -3022,10 +3018,13 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
         if (!sym.is_valid())
             continue;
 
-        TL::Type updated_type = rewrite_type_in_outline((*it)->get_in_outline_type(), param_sym_to_arg_sym);
-
-        sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
+        TL::Type updated_type = rewrite_type_in_outline((*it)->get_in_outline_type(),
+                param_sym_to_arg_sym);
         (*it)->set_in_outline_type(updated_type);
+
+        updated_type = rewrite_type_in_outline(sym.get_internal_symbol()->type_information,
+                param_sym_to_arg_sym);
+        sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
     }
 
     TL::Symbol alternate_name;

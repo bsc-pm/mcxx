@@ -268,6 +268,16 @@ namespace TL
             return _if_clause_cond_expr;
         }
 
+        void FunctionTaskInfo::set_priority_clause_expression(Nodecl::NodeclBase expr)
+        {
+            _priority_clause_expr = expr;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
+        {
+            return _priority_clause_expr;
+        }
+
         FunctionTaskSet::FunctionTaskSet()
         {
         }
@@ -700,6 +710,19 @@ namespace TL
                             construct.get_locus().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
+            }
+
+            // Support priority clause
+            PragmaCustomClause priority_clause = pragma_line.get_clause("priority");
+            if (priority_clause.is_defined())
+            {
+                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(param_ref_tree);
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'if' requires just one argument\n",
+                            construct.get_locus().c_str());
+                }
+                task_info.set_priority_clause_expression(expr_list[0]);
             }
 
             PragmaCustomClause untied_clause = pragma_line.get_clause("untied");

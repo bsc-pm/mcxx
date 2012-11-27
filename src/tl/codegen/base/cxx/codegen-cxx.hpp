@@ -41,9 +41,6 @@ namespace Codegen
         protected:
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
-            // Needed by codegen of cuda
-            void walk_list(const Nodecl::List&, const std::string& separator);
-
         public:
 
             CxxBase() : _emit_always_extern_linkage(false), _print_cuda_attributes(false)
@@ -323,15 +320,7 @@ namespace Codegen
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
 
-            void do_define_symbol(TL::Symbol symbol,
-                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
-                    TL::Scope* scope = NULL);
 
-            void do_declare_symbol(TL::Symbol symbol,
-                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
-                    TL::Scope* scope = NULL);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -395,8 +384,6 @@ namespace Codegen
                     void (CxxBase::*def_sym_fun)(TL::Symbol));
 
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
-            void set_codegen_status(TL::Symbol sym, codegen_status_t status);
-            codegen_status_t get_codegen_status(TL::Symbol sym);
 
             void codegen_fill_namespace_list_rec(
                     scope_entry_t* namespace_sym, 
@@ -413,7 +400,6 @@ namespace Codegen
 
             int get_indent_level();
             void set_indent_level(int);
-
 
             void walk_expression_list(const Nodecl::List&);
 
@@ -512,6 +498,25 @@ namespace Codegen
                     Nodecl::RangeLoopControl lc,
                     Nodecl::NodeclBase statement,
                     const std::string& rel_op);
+
+
+        protected:
+            // Needed by codegen of cuda
+            void walk_list(const Nodecl::List&, const std::string& separator);
+
+            virtual void do_define_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
+
+            virtual void do_declare_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
+
+            void set_codegen_status(TL::Symbol sym, codegen_status_t status);
+
+            codegen_status_t get_codegen_status(TL::Symbol sym);
 
     };
 }

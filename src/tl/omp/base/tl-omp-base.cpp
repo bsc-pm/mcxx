@@ -297,6 +297,20 @@ namespace TL { namespace OpenMP {
                             Nodecl::OpenMP::Untied::make(filename, line));
                 }
 
+                if (!function_task_info.get_if_clause_conditional_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression())
+                        );
+                }
+
+                if (!function_task_info.get_priority_clause_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::Priority::make(function_task_info.get_priority_clause_expression())
+                        );
+                }
+
                 return Nodecl::List::make(result_list);
             }
     };
