@@ -454,6 +454,8 @@ namespace TL
 
                 bool _untied;
 
+                Nodecl::NodeclBase _priority_clause_expr;
+
             public:
                 FunctionTaskInfo() : _untied(false) { }
 
@@ -482,9 +484,11 @@ namespace TL
                 RealTimeInfo get_real_time_info();
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
-                bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                void set_priority_clause_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_priority_clause_expression() const;
 
                 bool get_untied() const;
                 void set_untied(bool b);
