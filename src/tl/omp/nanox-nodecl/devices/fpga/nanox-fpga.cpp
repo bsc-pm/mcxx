@@ -990,11 +990,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
         internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
                 datareference.get_locus().c_str());
     }
-
-    //TODO: Get constant value from node
-
-
-
+/*
     std::cerr 
         << "is array: " << type.is_array() << std::endl
         << "has size: " << type.array_has_size() << std::endl
@@ -1002,7 +998,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
         << "region:   " << type.array_is_region() << std::endl
         << "reg size: " << type.array_get_region_size().prettyprint() << std::endl
     ;
-
+*/
     return const_value_cast_to_4(cp_size.get_constant());
 
 }
@@ -1039,14 +1035,30 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     //Source wrapper_params;
     std::string in_dec, out_dec;
     get_inout_decl(data_items, in_dec, out_dec);
+    Source pragmas_src;
+    pragmas_src
+        << "#pragma AP resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\""
+        << "port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}\n";
+    ;
     Source args;
     if (in_dec != "")
     {
         args << in_dec << hls_in;
+        //add stream parameter pragma
+        pragmas_src
+            << "#pragma HLS stream variable=" << hls_in << "\n"
+            << "#pragma HLS resource core=AXI4Stream variable=" << hls_in << "\n"
+            << "#pragma HLS interface ap_fifo port=" << hls_in << "\n"
+        ;
     }
     if (out_dec != "")
     {
         args.append_with_separator(out_dec + hls_out, ",");
+        pragmas_src
+            << "#pragma HLS stream variable=" << hls_out << "\n"
+            << "#pragma HLS resource core=AXI4Stream variable=" << hls_out << "\n"
+            << "#pragma HLS interface ap_fifo port=" << hls_out << "\n"
+        ;
     }
     //TODO: generate stream parameter pragmas
 
@@ -1073,6 +1085,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
 
 
         fun_params.append_with_separator((*it)->get_field_name(), ",");
+        const std::string &field_name = (*it)->get_field_name();
         const Scope &scope = (*it)->get_symbol().get_scope();
         const ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
         if (!copies.empty())
@@ -1109,7 +1122,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                         expr.get_locus().c_str());
             }   
 
-            std::string par_simple_decl = elem_type.get_simple_declaration(scope, (*it)->get_field_name());
+            std::string par_simple_decl = elem_type.get_simple_declaration(scope, field_name);
             local_decls
                 << par_simple_decl << "[" << n_elements << "];\n";
 
@@ -1119,11 +1132,10 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                 in_copies
                     << "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  " << (*it)->get_field_name() << "[i] = " << hls_in << "[i+in_k];"
+                    << "  " << field_name << "[i] = " << hls_in << "[i+in_k];"
                     << "}"
                     << "in_k +=" << n_elements << ";"
                 ;
-//                std::cerr << "===" << std::endl << in_copies.get_source() << std::endl;
             }
             if (copies.front().directionality == OutlineDataItem::COPY_OUT 
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
@@ -1131,7 +1143,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                 out_copies
                     << "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  "  << hls_in << "[i+out_k] = " << (*it)->get_field_name() << "[i];"
+                    << "  "  << hls_in << "[i+out_k] = " << field_name << "[i];"
                     << "}"
                     << "out_k +=" << n_elements << ";"
                 ;
@@ -1141,13 +1153,19 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
         {
             //generate scalar parameter code
             Source par_src;
+
             par_src
-                << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
+                << (*it)->get_field_type().get_simple_declaration(scope, field_name)
             ;
             args.append_with_separator(par_src, ",");
+            pragmas_src
+                << "#pragma HLS INTERFACE ap_none port=" <<  field_name << "\n"
+                << "#pragma AP resource core=AXI_SLAVE variable=" << field_name << " metadata=\"-bus_bundle AXIlite\"\n"
+            ;
             //TODO: Generate scalar parameter pragmas
         }
     }
+    Nodecl::NodeclBase fun_code =  func_symbol.get_function_code();
     Source wrapper_src;
     wrapper_src
         << "void core_hw_accelerator(" << args<< "){"
@@ -1162,9 +1180,8 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     {
         local_decls << "int out_k = 0;" << "";
     }
-
-    Nodecl::NodeclBase fun_code =  func_symbol.get_function_code();
     wrapper_src
+        << pragmas_src
         << local_decls
         << in_copies
         << func_symbol.get_name() << "(" << fun_params << ");"
