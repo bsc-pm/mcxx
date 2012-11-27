@@ -34,6 +34,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
+#include "cxx-cexpr-fwd.h"
 
 #include "nanox-fpga.hpp"
 
@@ -46,6 +47,10 @@
 
 using namespace TL;
 using namespace TL::Nanox;
+
+const std::string DeviceFPGA::hls_in = "_hls_in";
+const std::string DeviceFPGA::hls_out = "_hls_out";
+
 
 static std::string fpga_outline_name(const std::string &name)
 {
@@ -984,8 +989,8 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
                 datareference.get_locus().c_str());
     }
 
-
     //TODO: Get constant value from node
+
 
 
     std::cerr 
@@ -995,6 +1000,8 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
         << "region:   " << type.array_is_region() << std::endl
         << "reg size: " << type.array_get_region_size().prettyprint() << std::endl
     ;
+
+    return const_value_cast_to_4(cp_size.get_constant());
 
 }
 
@@ -1032,12 +1039,13 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     Source args;
     if (in_dec != "")
     {
-        args << in_dec << "_hls_in";
+        args << in_dec << hls_in;
     }
     if (out_dec != "")
     {
-        args.append_with_separator(out_dec + "_hls_out", ",");
+        args.append_with_separator(out_dec + hls_out, ",");
     }
+    //TODO: generate stream parameter pragmas
 
 
     /*
@@ -1051,15 +1059,24 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
      * Scalar parameters are going to be copied as long as no unpacking is needed
      */
     Source copies_src;
+    Source in_copies, out_copies;
 
     for (ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
+        std::cerr << "_param_" << std::endl;
         Scope scope = (*it)->get_symbol().get_scope();
         const ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
         if (!copies.empty())
         {
+            Nodecl::NodeclBase expr = copies.front().expression;
+            if (copies.size() > 1)
+            {
+                internal_error("Only one copy per object (in/out/inout) is allowed (%s)", 
+                        expr.get_locus().c_str());
+            }
+
             /*
              * emit copy code
              * - Create local variable (known size in compile time)
@@ -1073,34 +1090,54 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
              * Type::is_array(), Type::array_has_size() Type::get_num_dimensions()
              */
 
-            const Type &p_type = (*it)->get_field_type();
-//            std::cerr 
-//                << "is array: " << p_type.is_array() << std::endl
-//                << "has size: " << p_type.array_has_size() << std::endl
-//                << "size      " << p_type.get_size() << std::endl
-//                << "num dim:  " << p_type.get_size() << std::endl
-//                ;
-
-
-            //get expression constant
-            Nodecl::NodeclBase expr = copies.front().expression;
-//            std::cerr << "========" << std::endl
-//                << expr.prettyprint() << std::endl
-//                << "is const: " << expr.is_constant();
-//                //<< expr.get_text() << std::endl;
             int n_elements = get_copy_elements(expr);
 
-            Source cp_source;
-            cp_source
-                << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
-            ;
+//            Source cp_source;
+//            cp_source
+//                << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
+//            ;
+
+            const Type &field_type = (*it)->get_field_type();
+            Type elem_type;
+            if (field_type.is_pointer())
+            {
+                elem_type = field_type.points_to();
+            }
+            else if (field_type.is_array())
+            {
+                elem_type = field_type.array_element();
+            }
+            else
+            {
+                internal_error("invalid type for input/output, only pointer and array is allowed (%d)",
+                        expr.get_locus().c_str());
+            }   
+
+            std::string par_simple_decl = elem_type.get_simple_declaration(scope, (*it)->get_field_name());
             if (copies.front().directionality == OutlineDataItem::COPY_IN 
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
+                in_copies
+                    << par_simple_decl << "[" << n_elements << "];\n" 
+                    << "for (i=0; i<" << n_elements << "; i++)\n"
+                    << "{\n"
+                    << "  " << (*it)->get_field_name() << "[i] = " << hls_in << "[i+in_k];\n"
+                    << "}\n"
+                    << "in_k +=" << n_elements << ";"
+                ;
+//                std::cerr << "===" << std::endl << in_copies.get_source() << std::endl;
             }
             if (copies.front().directionality == OutlineDataItem::COPY_OUT 
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
+                out_copies
+                    << par_simple_decl << "[" << n_elements << "];\n" 
+                    << "for (i=0; i<" << n_elements << "; i++)\n"
+                    << "{\n"
+                    << "  "  << hls_in << "[i+out_k] = " << (*it)->get_field_name() << "[i];\n"
+                    << "}\n"
+                    << "out_k +=" << n_elements << ";"
+                ;
             }
         }
         else
@@ -1111,11 +1148,34 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                 << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
             ;
             args.append_with_separator(par_src, ",");
+            //TODO: Generate scalar parameter pragmas
         }
     }
-    std::cerr << "_____________________" << std::endl << args.get_source()
-        << std::endl;
+    Source wrapper_src;
+    wrapper_src
+        << "core_hw_accelerator(" << args<< ")\n{\n"
+        << "insigned int i;"
+    ;
+    if (!in_copies.empty())
+    {
+        wrapper_src << "int in_k = 0;" << "\n";
+    }
+    if (!out_copies.empty())
+    {
+        wrapper_src << "int out_k = 0;" << "\n";
+    }
 
+    wrapper_src
+        << "k=0"
+        << in_copies
+        //function call
+        << out_copies
+        << "}"
+    ;
+    std::cerr << "===" << std::endl << wrapper_src.get_source() << std::endl;
+
+    //parse source
+    //return nodecl
 
 }
 
