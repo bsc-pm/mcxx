@@ -1248,8 +1248,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
                 param_sym_to_arg_sym);
         (*it)->set_in_outline_type(updated_type);
 
-        updated_type = rewrite_type_in_outline(sym.get_internal_symbol()->type_information,
-                param_sym_to_arg_sym);
         sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
     }
 
