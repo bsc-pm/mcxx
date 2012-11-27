@@ -1593,8 +1593,15 @@ void DeviceCUDA::generate_ndrange_kernel_call(
                 TL::Type::get_void_type(),
                 original_statements.get_filename(),
                 original_statements.get_line());
+
+    Nodecl::NodeclBase expression_stmt =
+        Nodecl::ExpressionStatement::make(
+                kernell_call,
+                original_statements.get_filename(),
+                original_statements.get_line());
+
     // In this case, we should change the output statements!
-    output_statements = kernell_call;
+    output_statements = expression_stmt;
 }
 
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
@@ -2511,6 +2518,8 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "cuda");
 
         //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
