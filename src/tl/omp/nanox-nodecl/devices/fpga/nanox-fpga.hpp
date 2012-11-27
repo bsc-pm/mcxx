@@ -92,6 +92,12 @@ namespace TL
                         TL::Nanox::OutlineInfo&
                         );
 
+                Nodecl::NodeclBase gen_hls_wrapper(
+                        const TL::Symbol& func_symbol,
+                        //TL::Nanox::OutlineInfo &
+                        TL::ObjectList<TL::Nanox::OutlineDataItem*>&
+                        );
+
         };
     }
 }

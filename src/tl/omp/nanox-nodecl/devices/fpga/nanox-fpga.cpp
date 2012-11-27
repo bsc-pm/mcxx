@@ -33,6 +33,7 @@
 #include "codegen-cxx.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
+#include "cxx-process.h"
 
 #include "nanox-fpga.hpp"
 
@@ -49,6 +50,13 @@ using namespace TL::Nanox;
 static std::string fpga_outline_name(const std::string &name)
 {
     return "_fpga_" + name;
+}
+
+static void print_ast_dot(const Nodecl::NodeclBase &node)
+{
+    std::cerr << std::endl << std::endl;
+    ast_dump_graphviz(nodecl_get_ast(node.get_internal_nodecl()), stderr);
+    std::cerr << std::endl << std::endl;
 }
 
 void DeviceFPGA::create_outline(CreateOutlineInfo &info,
@@ -190,9 +198,12 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             }
 
             //add pragmas to the output code
-            add_hls_pragmas(tmp_task, outline_info);
+//            add_hls_pragmas(tmp_task, outline_info);
 
 
+            ObjectList<OutlineDataItem*> t_data_items = outline_info.get_data_items();
+            gen_hls_wrapper(called_task, t_data_items);
+            //gen_hls_wrapper(called_task, outline_info.get_data_items());
             _fpga_file_code.append(tmp_task);
             // Remove the user function definition from the original source because
             // It is used only in the intermediate file
@@ -922,6 +933,191 @@ void DeviceFPGA::add_hls_pragmas(
     }
 }
 
+static void get_inout_decl(ObjectList<OutlineDataItem*>& data_items, std::string &in_type, std::string &out_type)
+{
+    in_type = "";
+    out_type = "";
+    for (ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        const ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
+        if (!copies.empty())
+        {
+            Scope scope = (*it)->get_symbol().get_scope();
+            if (copies.front().directionality == OutlineDataItem::COPY_IN
+                    && in_type == "")
+            {
+                in_type = (*it)->get_field_type().get_simple_declaration(scope, "");
+            }
+            else if  (copies.front().directionality == OutlineDataItem::COPY_OUT
+                    && out_type == "")
+            {
+                out_type = (*it)->get_field_type().get_simple_declaration(scope, "");
+            } else if (copies.front().directionality == OutlineDataItem::COPY_INOUT)
+            {
+                //If we find an inout, set both input and output types and return
+                out_type = (*it)->get_field_type().get_simple_declaration(scope, "");
+                in_type = out_type;
+                return;
+            }
+        }
+    }
+}
+
+static int get_copy_elements(Nodecl::NodeclBase expr)
+{
+    DataReference datareference(expr);
+    if (!datareference.is_valid())
+    {
+        internal_error("invalid data reference (%s)", datareference.get_locus().c_str());
+    }
+    Type type = datareference.get_data_type();
+    if (!type.is_array() || !type.array_is_region())
+    {
+        internal_error("Data copies must be an array region expression (%d)", datareference.get_locus().c_str());
+    }
+    const Nodecl::NodeclBase &cp_size = type.array_get_region_size();
+    if (!cp_size.is_constant())
+    {
+        internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
+                datareference.get_locus().c_str());
+    }
+
+
+    //TODO: Get constant value from node
+
+
+    std::cerr 
+        << "is array: " << type.is_array() << std::endl
+        << "has size: " << type.array_has_size() << std::endl
+        << "size:     " << type.array_get_size().prettyprint() << std::endl
+        << "region:   " << type.array_is_region() << std::endl
+        << "reg size: " << type.array_get_region_size().prettyprint() << std::endl
+    ;
+
+}
+
+
+/*
+ * Create wrapper function for HLS to unpack streamed arguments
+ */
+Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, ObjectList<OutlineDataItem*>& data_items)
+{
+    //Check that we are calling a function task (this checking may be performed earlyer in the code)
+    if (!func_symbol.is_function())
+    {
+        running_error("Only function-tasks are supperted at this moment");
+    }
+    Scope fun_scope = func_symbol.get_scope();
+//    const ObjectList<Symbol> &param_list = func_symbol.get_function_parameters();
+    /*
+     * FIXME We suppose that all the input or the output arrays
+     * are of the same type
+     * Otherwise we must convert (~cast, raw type conversion) for each type
+     */
+
+    /*
+     * The wrapper function must have:
+     *      An input and an output parameters
+     *      with respective pragmas needed for streaming
+     *      For each scalar parameter, another scalar patameter
+     *      IN THE SAME ORDER AS THE ORIGINAL FUNCTION as long as we are generating
+     *      scalar parameter passing based on original function task parameters
+     */
+    //Source wrapper_params;
+    std::string in_dec, out_dec;
+    get_inout_decl(data_items, in_dec, out_dec);
+    //std::cerr << "in_t: " << in_dec << " out_t: " << out_dec << std::endl;
+    Source args;
+    if (in_dec != "")
+    {
+        args << in_dec << "_hls_in";
+    }
+    if (out_dec != "")
+    {
+        args.append_with_separator(out_dec + "_hls_out", ",");
+    }
+
+
+    /*
+     * Generate wrapper code
+     * We are going to keep original parameter name for the original function
+     *
+     * input/outlut parameters are received concatenated one after another.
+     * The wrapper must create local variables for each input/output and unpack 
+     * streamed input/output data into that local variables.
+     *
+     * Scalar parameters are going to be copied as long as no unpacking is needed
+     */
+    Source copies_src;
+
+    for (ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        Scope scope = (*it)->get_symbol().get_scope();
+        const ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
+        if (!copies.empty())
+        {
+            /*
+             * emit copy code
+             * - Create local variable (known size in compile time)
+             * - Create create copy loop + update param offset
+             */
+            
+            //get copy size (must be known at compile time)
+
+            /*
+             * Useful stuff
+             * Type::is_array(), Type::array_has_size() Type::get_num_dimensions()
+             */
+
+            const Type &p_type = (*it)->get_field_type();
+//            std::cerr 
+//                << "is array: " << p_type.is_array() << std::endl
+//                << "has size: " << p_type.array_has_size() << std::endl
+//                << "size      " << p_type.get_size() << std::endl
+//                << "num dim:  " << p_type.get_size() << std::endl
+//                ;
+
+
+            //get expression constant
+            Nodecl::NodeclBase expr = copies.front().expression;
+//            std::cerr << "========" << std::endl
+//                << expr.prettyprint() << std::endl
+//                << "is const: " << expr.is_constant();
+//                //<< expr.get_text() << std::endl;
+            int n_elements = get_copy_elements(expr);
+
+            Source cp_source;
+            cp_source
+                << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
+            ;
+            if (copies.front().directionality == OutlineDataItem::COPY_IN 
+                    or copies.front().directionality == OutlineDataItem::COPY_INOUT)
+            {
+            }
+            if (copies.front().directionality == OutlineDataItem::COPY_OUT 
+                    or copies.front().directionality == OutlineDataItem::COPY_INOUT)
+            {
+            }
+        }
+        else
+        {
+            //generate scalar parameter code
+            Source par_src;
+            par_src
+                << (*it)->get_field_type().get_simple_declaration(scope, (*it)->get_field_name())
+            ;
+            args.append_with_separator(par_src, ",");
+        }
+    }
+    std::cerr << "_____________________" << std::endl << args.get_source()
+        << std::endl;
+
+
+}
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);
 
