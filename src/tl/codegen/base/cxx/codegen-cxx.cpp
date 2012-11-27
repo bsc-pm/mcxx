@@ -2757,8 +2757,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     walk(lb_expr);
     file << ":";
     walk(ub_expr);
-    file << ":";
-    walk(step_expr);
+
+    // Do not emit stride 1 because it looks weird in C
+    if (!step_expr.is_constant()
+            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
+    {
+        file << ":";
+        walk(step_expr);
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
