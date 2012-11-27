@@ -192,172 +192,6 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
 }
 
-static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase expr)
-{
-    Nodecl::NodeclBase base_expr = expr;
-
-    Nodecl::NodeclBase result;
-    if (base_expr.is<Nodecl::Symbol>())
-    {
-        TL::Symbol sym = base_expr.get_symbol();
-
-        TL::Type t = sym.get_type();
-        if (t.is_any_reference())
-            t = t.references_to();
-
-        if (!::fortran_is_array_type(t.get_internal_type()))
-            return expr;
-
-        int ndims = ::fortran_get_rank_of_type(t.get_internal_type());
-
-        Source src;
-
-        src << base_expr.prettyprint() << "(";
-
-        for (int i = 1; i <= ndims; i++)
-        {
-            if (i > 1)
-                src << ", ";
-
-            src << "LBOUND(" << as_expression(base_expr.shallow_copy()) << ", DIM = " << i << ")";
-        }
-
-        src << ")";
-
-        return src.parse_expression(base_expr.retrieve_context());
-    }
-    else if (base_expr.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
-
-        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
-
-        Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
-        TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
-
-        int num_dimensions = subscripts.size();
-        for (Nodecl::List::iterator it = subscripts.begin();
-                it != subscripts.end();
-                it++, num_dimensions--)
-        {
-            Source src;
-            src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
-
-            fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
-        }
-
-        return Nodecl::ArraySubscript::make(result,
-                Nodecl::List::make(fixed_subscripts),
-                ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
-                base_expr.get_filename(),
-                base_expr.get_line());
-    }
-    else
-    {
-        return expr;
-    }
-}
-
-typedef std::map<TL::Symbol, TL::Symbol> extra_map_replacements_t;
-
-static void add_extra_dimensions_for_arguments(const Nodecl::NodeclBase data_ref, 
-        OutlineInfoRegisterEntities& outline_register_entities,
-        extra_map_replacements_t& extra_map_replacements,
-        Scope sc,
-        bool do_capture = false)
-{
-    if (data_ref.is_null())
-        return;
-
-    if (data_ref.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscript = data_ref.as<Nodecl::ArraySubscript>();
-        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
-
-        for (Nodecl::List::iterator it = subscripts.begin();
-                it != subscripts.end();
-                it++)
-        {
-            add_extra_dimensions_for_arguments(*it, outline_register_entities, extra_map_replacements, sc, /* do_capture = */ true);
-        }
-
-        add_extra_dimensions_for_arguments(arr_subscript.get_subscripted(), outline_register_entities, 
-                extra_map_replacements, sc, do_capture);
-    }
-    else if (data_ref.is<Nodecl::Symbol>()
-            && do_capture)
-    {
-        TL::Symbol current_sym = data_ref.get_symbol();
-
-        if (extra_map_replacements.find(current_sym) == extra_map_replacements.end())
-        {
-            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-            std::stringstream ss;
-            ss << "mcc_arg_" << (int)arg_counter;
-            TL::Symbol new_symbol = sc.new_symbol(ss.str());
-            arg_counter++;
-
-            new_symbol.get_internal_symbol()->kind = current_sym.get_internal_symbol()->kind;
-            new_symbol.get_internal_symbol()->type_information = current_sym.get_internal_symbol()->type_information;
-
-            extra_map_replacements[current_sym] = new_symbol;
-
-            outline_register_entities.add_capture_with_value(new_symbol, data_ref);
-        }
-    }
-    else
-    {
-        TL::ObjectList<Nodecl::NodeclBase> children = data_ref.children();
-
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            add_extra_dimensions_for_arguments(*it,
-                    outline_register_entities,
-                    extra_map_replacements,
-                    sc,
-                    do_capture);
-        }
-    }
-}
-
-static Nodecl::NodeclBase replace_arguments_with_extra(Nodecl::NodeclBase n, extra_map_replacements_t& extra_map)
-{
-    TL::Symbol sym;
-    extra_map_replacements_t::iterator it;
-    if (n.is_null())
-    {
-        return n;
-    }
-    else if ((sym = n.get_symbol()).is_valid()
-            && (it = extra_map.find(sym)) != extra_map.end())
-    {
-        Nodecl::NodeclBase result = Nodecl::Symbol::make(
-                it->second,
-                n.get_filename(),
-                n.get_line());
-
-        result.set_type(n.get_type());
-
-        return result;
-    }
-    else
-    {
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            *it = replace_arguments_with_extra(*it, extra_map);
-        }
-
-        n.rechild(children);
-
-        return n;
-    }
-}
 
 // ************************************************************************************
 // ************************************************************************************
@@ -507,9 +341,6 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
         Nodecl::NodeclBase copy = it->expression.shallow_copy();
         Nodecl::NodeclBase rewritten = rewrite_expression_in_dependency_c(copy, map);
 
-        std::cerr << "OLD DEP " << it->expression.prettyprint() << std::endl;
-        std::cerr << "NEW DEP " << rewritten.prettyprint() << std::endl;
-
         result.append( OutlineDataItem::DependencyItem(rewritten, it->directionality) );
     }
 
@@ -528,9 +359,6 @@ static TL::ObjectList<OutlineDataItem::CopyItem> rewrite_copies_c(
     {
         Nodecl::NodeclBase copy = it->expression.shallow_copy();
         Nodecl::NodeclBase rewritten = rewrite_expression_in_dependency_c(copy, param_sym_to_arg_sym);
-
-        std::cerr << "OLD COPY -> " << it->expression.prettyprint() << std::endl;
-        std::cerr << "NEW COPY -> " << rewritten.prettyprint() << std::endl;
 
         result.append( OutlineDataItem::CopyItem(
                     rewritten,
@@ -636,9 +464,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
 
-    extra_map_replacements_t extra_map_replacements;
-
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
+
+    // First register all symbols
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
             it++)
@@ -662,18 +490,15 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         TL::Symbol new_symbol = sc.new_symbol(ss.str());
         arg_counter++;
 
-        assignments_src << as_symbol(new_symbol) << " = " << as_expression(it->second.shallow_copy()) << ";";
-
         // FIXME - Wrap this sort of things
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = it->first.get_type().get_internal_type();
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
         param_sym_to_arg_sym[it->first] = new_symbol;
 
-        new_arguments.append(new_symbol);
+        assignments_src << as_symbol(new_symbol) << " = " << as_expression(it->second.shallow_copy()) << ";";
 
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+        new_arguments.append(new_symbol);
 
         Nodecl::Symbol sym_ref = Nodecl::Symbol::make(new_symbol);
         TL::Type t = new_symbol.get_type();
@@ -682,6 +507,24 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         sym_ref.set_type(t);
 
         outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+    }
+
+    // Now update them (we don't do this in the previous traversal because we allow forward references)
+    // like in
+    //
+    // #pragma omp task inout([n]a)
+    // void f(int *a, int n);
+    //
+    // We will first see 'a' and then 'n' but the dependence on 'a' uses 'n', so we need the map fully populated
+    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
+            it != param_to_arg_expr.end();
+            it++)
+    {
+        ERROR_CONDITION(param_sym_to_arg_sym.find(it->first) == param_sym_to_arg_sym.end(), "Symbol not found", 0);
+
+        TL::Symbol &new_symbol = param_sym_to_arg_sym[it->first];
+
+        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
         copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
@@ -867,6 +710,73 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_fortran(Nodecl::Nodec
 
     return node;
 }
+
+static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase expr)
+{
+    Nodecl::NodeclBase base_expr = expr;
+
+    Nodecl::NodeclBase result;
+    if (base_expr.is<Nodecl::Symbol>())
+    {
+        TL::Symbol sym = base_expr.get_symbol();
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (!::fortran_is_array_type(t.get_internal_type()))
+            return expr;
+
+        int ndims = ::fortran_get_rank_of_type(t.get_internal_type());
+
+        Source src;
+
+        src << base_expr.prettyprint() << "(";
+
+        for (int i = 1; i <= ndims; i++)
+        {
+            if (i > 1)
+                src << ", ";
+
+            src << "LBOUND(" << as_expression(base_expr.shallow_copy()) << ", DIM = " << i << ")";
+        }
+
+        src << ")";
+
+        return src.parse_expression(base_expr.retrieve_context());
+    }
+    else if (base_expr.is<Nodecl::ArraySubscript>())
+    {
+        Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
+
+        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+        Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
+        TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
+
+        int num_dimensions = subscripts.size();
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++, num_dimensions--)
+        {
+            Source src;
+            src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
+
+            fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
+        }
+
+        return Nodecl::ArraySubscript::make(result,
+                Nodecl::List::make(fixed_subscripts),
+                ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
+                base_expr.get_filename(),
+                base_expr.get_line());
+    }
+    else
+    {
+        return expr;
+    }
+}
+
 
 
 // Update the types of a dependency expression
@@ -1054,6 +964,108 @@ static void copy_outline_data_item_fortran(
         if (data_ref.is_valid())
         {
             dest_info.set_base_symbol_of_argument(data_ref.get_base_symbol());
+        }
+    }
+}
+
+typedef std::map<TL::Symbol, TL::Symbol> extra_map_replacements_t;
+
+static Nodecl::NodeclBase replace_arguments_with_extra(Nodecl::NodeclBase n, extra_map_replacements_t& extra_map)
+{
+    TL::Symbol sym;
+    extra_map_replacements_t::iterator it;
+    if (n.is_null())
+    {
+        return n;
+    }
+    else if ((sym = n.get_symbol()).is_valid()
+            && (it = extra_map.find(sym)) != extra_map.end())
+    {
+        Nodecl::NodeclBase result = Nodecl::Symbol::make(
+                it->second,
+                n.get_filename(),
+                n.get_line());
+
+        result.set_type(n.get_type());
+
+        return result;
+    }
+    else
+    {
+        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            *it = replace_arguments_with_extra(*it, extra_map);
+        }
+
+        n.rechild(children);
+
+        return n;
+    }
+}
+
+
+static void add_extra_dimensions_for_arguments(const Nodecl::NodeclBase data_ref, 
+        OutlineInfoRegisterEntities& outline_register_entities,
+        extra_map_replacements_t& extra_map_replacements,
+        Scope sc,
+        bool do_capture = false)
+{
+    if (data_ref.is_null())
+        return;
+
+    if (data_ref.is<Nodecl::ArraySubscript>())
+    {
+        Nodecl::ArraySubscript arr_subscript = data_ref.as<Nodecl::ArraySubscript>();
+        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
+
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it != subscripts.end();
+                it++)
+        {
+            add_extra_dimensions_for_arguments(*it, outline_register_entities, extra_map_replacements, sc, /* do_capture = */ true);
+        }
+
+        add_extra_dimensions_for_arguments(arr_subscript.get_subscripted(), outline_register_entities, 
+                extra_map_replacements, sc, do_capture);
+    }
+    else if (data_ref.is<Nodecl::Symbol>()
+            && do_capture)
+    {
+        TL::Symbol current_sym = data_ref.get_symbol();
+
+        if (extra_map_replacements.find(current_sym) == extra_map_replacements.end())
+        {
+            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+
+            std::stringstream ss;
+            ss << "mcc_arg_" << (int)arg_counter;
+            TL::Symbol new_symbol = sc.new_symbol(ss.str());
+            arg_counter++;
+
+            new_symbol.get_internal_symbol()->kind = current_sym.get_internal_symbol()->kind;
+            new_symbol.get_internal_symbol()->type_information = current_sym.get_internal_symbol()->type_information;
+
+            extra_map_replacements[current_sym] = new_symbol;
+
+            outline_register_entities.add_capture_with_value(new_symbol, data_ref);
+        }
+    }
+    else
+    {
+        TL::ObjectList<Nodecl::NodeclBase> children = data_ref.children();
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end();
+                it++)
+        {
+            add_extra_dimensions_for_arguments(*it,
+                    outline_register_entities,
+                    extra_map_replacements,
+                    sc,
+                    do_capture);
         }
     }
 }
