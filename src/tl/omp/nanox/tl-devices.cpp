@@ -131,7 +131,7 @@ void DeviceProvider::get_instrumentation_code(
         //  - LINE: The line number
         //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
         //
-        Source extended_descr;
+        Source extended_descr, extra_cast;
         if (outline_flags.task_symbol != NULL)
         {
             extended_descr << outline_flags.task_symbol.get_type().get_declaration(
@@ -154,7 +154,7 @@ void DeviceProvider::get_instrumentation_code(
             << "{"
             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) " << function_name_instr << ","
+            <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
             <<               " \"user-funct-location\", \"" << outline_name << "\", \"" << extended_descr << "\", 0);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "nanos_funct_id_init = 1;"
@@ -165,6 +165,14 @@ void DeviceProvider::get_instrumentation_code(
             << "event.value = (nanos_event_value_t) " << function_name_instr << ";"
             << "nanos_instrument_events(1, &event);"
             ;
+
+        // GCC complains if you convert a pointer to an integer of different
+        // size. Since we target a unsigned long long, in architectures of 32
+        // bits we first cast to an unsigned int
+        if (CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer == 4)
+        {
+            extra_cast << "(unsigned int)";
+        }
 
         if (!is_accelerator_device())
         {
