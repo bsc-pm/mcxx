@@ -1675,8 +1675,6 @@ void LoweringVisitor::emit_translation_function_nonregion(
             base_address = data_ref.get_base_address();
         }
 
-        std::cerr << "COPY EXPRESSION -> " << copies[0].expression.prettyprint() << std::endl;
-
         translations
             << "{"
             << "intptr_t device_base_address;"
