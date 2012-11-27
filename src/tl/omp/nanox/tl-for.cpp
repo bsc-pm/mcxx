@@ -167,6 +167,16 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 initial_setup,
                 replaced_body);
 
+        Source replaced_step;
+        {
+            Source dummy;
+            device_provider->do_replacements(data_environ_info,
+                    for_statement.get_step().get_ast(),
+                    ctr.get_scope_link(),
+                    dummy,
+                    replaced_step);
+        }
+
         Source outline_body;
         if (Nanos::Version::interface_is_at_least("worksharing", 1000))
         {
@@ -213,7 +223,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
                         << "loop_events_before[0].value = _nth_info.lower;"
                         << "loop_events_before[1].value = _nth_info.upper;"
-                        << "loop_events_before[2].value = " << for_statement.get_step() << ";"
+                        << "loop_events_before[2].value = " << replaced_step << ";"
                         << "loop_events_before[3].value = " << chunk_value << ";"
 
                         << "nanos_instrument_events(4, loop_events_before);"
@@ -233,7 +243,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
                         << "loop_events_after[0].value = _nth_info.lower;"
                         << "loop_events_after[1].value = _nth_info.upper;"
-                        << "loop_events_after[2].value = " << for_statement.get_step() << ";"
+                        << "loop_events_after[2].value = " << replaced_step << ";"
                         << "loop_events_after[3].value = " << chunk_value << ";"
 
                         << "nanos_instrument_events(4, loop_events_after);"
@@ -279,7 +289,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events_before.info.point.values = (nanos_event_value_t*) __builtin_alloca(sizeof(nanos_event_value_t)*4);"
                         << "loop_events_before.info.point.values[0] = _nth_info.lower;"
                         << "loop_events_before.info.point.values[1] = _nth_info.upper;"
-                        << "loop_events_before.info.point.values[2] = " << for_statement.get_step() << ";"
+                        << "loop_events_before.info.point.values[2] = " << replaced_step << ";"
                         << "loop_events_before.info.point.values[3] = " << chunk_value << ";"
 
                         << "nanos_instrument_events(1, &loop_events_before);"
@@ -300,7 +310,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events_after.info.point.values = (nanos_event_value_t*) __builtin_alloca(sizeof(nanos_event_value_t)*4);"
                         << "loop_events_after.info.point.values[0] = _nth_info.lower;"
                         << "loop_events_after.info.point.values[1] = _nth_info.upper;"
-                        << "loop_events_after.info.point.values[2] = " << for_statement.get_step() << ";"
+                        << "loop_events_after.info.point.values[2] = " << replaced_step << ";"
                         << "loop_events_after.info.point.values[3] = " << chunk_value << ";"
 
                         << "nanos_instrument_events(1, &loop_events_after);"
@@ -312,13 +322,13 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 << loop_distr_setup
                 << "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 << instrument_before_opt
-                << "if ("<< for_statement.get_step() <<" > 0)"
+                << "if ("<< replaced_step <<" > 0)"
                 << "{"
                 <<      "while (_nth_info.execute)"
                 <<      "{"
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " <= _nth_info.upper;"
-                <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
+                <<                     induction_var_name << " +=" << replaced_step << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"
@@ -331,7 +341,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 <<      "{"
                 <<          "for (" << induction_var_name << " = _nth_info.lower;"
                 <<                     induction_var_name << " >= _nth_info.upper;"
-                <<                     induction_var_name << " +=" << for_statement.get_step() << ")"
+                <<                     induction_var_name << " +=" << replaced_step << ")"
                 <<          "{"
                 <<              replaced_body
                 <<          "}"

@@ -1583,15 +1583,15 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                             CURRENT_CONFIGURATION->do_not_parse = 1;
                             CURRENT_CONFIGURATION->do_not_compile = 1;
                             CURRENT_CONFIGURATION->do_not_link = 1;
+
+                            // Remove -E as some drivers do not accept -E and -M/-MM at the same time
+                            remove_string_from_null_ended_string_array(CURRENT_CONFIGURATION->preprocessor_options, "-E");
                         }
                     }
 
                     if (!dry_run)
                     {
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
-
-                        // Remove -E as some drivers do not accept -E and -M/-MM at the same time
-                        remove_string_from_null_ended_string_array(CURRENT_CONFIGURATION->preprocessor_options, "-E");
                     }
                     (*should_advance)++;
                 }

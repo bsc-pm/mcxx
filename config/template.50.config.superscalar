@@ -47,7 +47,7 @@ pragma_prefix = css
 [smpss-cc]
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
-preprocessor_name = gcc
+preprocessor_name = @GCC@
 {xlc} preprocessor_name = xlc
 {icc} preprocessor_name = icc
 preprocessor_options = -std=c99 -E -I@SUPERSCALAR_INCLUDES@
@@ -56,11 +56,11 @@ preprocessor_options = -std=c99 -E -I@SUPERSCALAR_INCLUDES@
 {icc} preprocessor_options = -include CellSS.h 
 preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
 
-compiler_name = gcc
+compiler_name = @GCC@
 {gcc} compiler_options = -g3 -std=c99
 {xlc} compiler_options = -g -qlanglvl=std99
 {icc} compiler_options = -g -std=c99
-linker_name = g++
+linker_name = @G++@
 linker_options = -g3 -L@SUPERSCALAR_LIBS@ -lSMPSS -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-preanalysis.so
