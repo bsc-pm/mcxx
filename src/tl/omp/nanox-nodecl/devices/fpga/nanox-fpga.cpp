@@ -29,6 +29,7 @@
 #include "tl-devices.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-multifile.hpp"
+#include "tl-source.hpp"
 #include "codegen-phase.hpp"
 #include "codegen-cxx.hpp"
 #include "cxx-cexpr.h"
@@ -207,8 +208,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
 
             ObjectList<OutlineDataItem*> t_data_items = outline_info.get_data_items();
-            gen_hls_wrapper(called_task, t_data_items);
-            //gen_hls_wrapper(called_task, outline_info.get_data_items());
+            Nodecl::NodeclBase wrapper = gen_hls_wrapper(called_task, t_data_items);
+
+            _fpga_file_code.append(wrapper);
             _fpga_file_code.append(tmp_task);
             // Remove the user function definition from the original source because
             // It is used only in the intermediate file
@@ -1008,6 +1010,8 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
 
 /*
  * Create wrapper function for HLS to unpack streamed arguments
+ * TODO: Add prefix to all wrapper local variables (i, in_k ...)
+ * TODO: Statically generate offsets
  */
 Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, ObjectList<OutlineDataItem*>& data_items)
 {
@@ -1060,13 +1064,17 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
      */
     Source copies_src;
     Source in_copies, out_copies;
+    Source fun_params;
+    Source local_decls;
 
     for (ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        std::cerr << "_param_" << std::endl;
-        Scope scope = (*it)->get_symbol().get_scope();
+
+
+        fun_params.append_with_separator((*it)->get_field_name(), ", ");
+        const Scope &scope = (*it)->get_symbol().get_scope();
         const ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
         if (!copies.empty())
         {
@@ -1114,11 +1122,13 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             }   
 
             std::string par_simple_decl = elem_type.get_simple_declaration(scope, (*it)->get_field_name());
+            local_decls
+                << par_simple_decl << "[" << n_elements << "];\n";
+
             if (copies.front().directionality == OutlineDataItem::COPY_IN 
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 in_copies
-                    << par_simple_decl << "[" << n_elements << "];\n" 
                     << "for (i=0; i<" << n_elements << "; i++)\n"
                     << "{\n"
                     << "  " << (*it)->get_field_name() << "[i] = " << hls_in << "[i+in_k];\n"
@@ -1131,7 +1141,6 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 out_copies
-                    << par_simple_decl << "[" << n_elements << "];\n" 
                     << "for (i=0; i<" << n_elements << "; i++)\n"
                     << "{\n"
                     << "  "  << hls_in << "[i+out_k] = " << (*it)->get_field_name() << "[i];\n"
@@ -1153,29 +1162,35 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     }
     Source wrapper_src;
     wrapper_src
-        << "core_hw_accelerator(" << args<< ")\n{\n"
-        << "insigned int i;"
+        << "void core_hw_accelerator(" << args<< ")\n{\n"
     ;
+    local_decls << "unsigned int i;";
+
     if (!in_copies.empty())
     {
-        wrapper_src << "int in_k = 0;" << "\n";
+        local_decls << "int in_k = 0;" << "\n";
     }
     if (!out_copies.empty())
     {
-        wrapper_src << "int out_k = 0;" << "\n";
+        local_decls << "int out_k = 0;" << "\n";
     }
 
+    Nodecl::NodeclBase fun_code =  func_symbol.get_function_code();
+//    print_ast_dot(fun_code);
     wrapper_src
-        << "k=0"
+        << local_decls
         << in_copies
-        //function call
+        << func_symbol.get_name() << "(" << fun_params << ");\n"
         << out_copies
         << "}"
     ;
-    std::cerr << "===" << std::endl << wrapper_src.get_source() << std::endl;
+//    std::cerr << "===" << std::endl << wrapper_src.get_source() << std::endl;
 
     //parse source
-    //return nodecl
+    ReferenceScope refscope(func_symbol.get_scope());
+    Nodecl::NodeclBase wrapper_node = wrapper_src.parse_global(refscope);
+//    std::cerr << std::endl << wrapper_node.prettyprint() << std::endl;
+    return wrapper_node;
 
 }
 
