@@ -51,6 +51,9 @@ namespace TL
             register_omp_constructs();
             register_parameter("new_udr", "Alternative implementation for UDRs",
                     _new_udr_str, "1").connect(functor(&Core::parse_new_udr,*this));
+
+            register_parameter("do_not_repeat_copies_for_same_symbol", "Legacy behaviour for old copies. This is deprecated",
+                    _do_not_repeat_copies_for_same_symbol_str, "0").connect(functor(&Core::parse_do_not_repeat_copies, *this));
         }
 
 
@@ -59,6 +62,11 @@ namespace TL
             parse_boolean_option("new_udr", str, _new_udr, "Assuming true.");
         }
 
+        void Core::parse_do_not_repeat_copies(const std::string& str)
+        {
+            parse_boolean_option("do_not_repeat_copies_for_same_symbol", str,
+                    _do_not_repeat_copies_for_same_symbol, "Assuming false");
+        }
 
         void Core::pre_run(TL::DTO& dto)
         {

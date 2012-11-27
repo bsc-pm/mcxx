@@ -339,6 +339,9 @@ namespace TL
                 
                 void set_real_time_info(const RealTimeInfo & rt_info);
                 RealTimeInfo get_real_time_info();
+
+                // This function is deprecated, do not use it
+                void add_copy_if_not_repeated(const CopyItem& copy_item);
         };
 
         class LIBTL_CLASS Info : public Object

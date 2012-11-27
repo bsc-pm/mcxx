@@ -218,6 +218,11 @@ namespace TL
 
         void DataSharingEnvironment::add_copy(const CopyItem& copy_item)
         {
+            _copy_items.append(copy_item);
+        }
+
+        void DataSharingEnvironment::add_copy_if_not_repeated(const CopyItem& copy_item)
+        {
             if (!_copy_items.contains(copy_item))
             {
                 _copy_items.append(copy_item);
