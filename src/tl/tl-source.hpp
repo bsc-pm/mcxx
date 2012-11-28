@@ -372,14 +372,6 @@ namespace TL
              */
             Nodecl::NodeclBase parse_member(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
-            //! Parse some code
-            /*! 
-             * Except for parse_expression this routine can be used instead of 
-             * parse_global, parse_declaration, parse_statement and parse_membe. The
-             * current context of the ReferenceScope is used to determine the exact parsing
-             */
-            Nodecl::NodeclBase parse(ReferenceScope sc, ParseFlags flags = DEFAULT);
-
             // Format string for debugging
             static std::string format_source(const std::string&);
 
