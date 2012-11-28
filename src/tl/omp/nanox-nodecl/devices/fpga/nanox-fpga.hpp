@@ -100,6 +100,8 @@ namespace TL
             protected:
                 static const std::string hls_in;
                 static const std::string hls_out;
+                static const std::string HLS_VPREF;
+                static const std::string HLS_I;
         };
     }
 }

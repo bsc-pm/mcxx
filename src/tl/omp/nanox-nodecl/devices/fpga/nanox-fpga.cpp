@@ -49,8 +49,10 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-const std::string DeviceFPGA::hls_in = "_hls_in";
-const std::string DeviceFPGA::hls_out = "_hls_out";
+const std::string DeviceFPGA::HLS_VPREF = "_hls_var_";
+const std::string DeviceFPGA::HLS_I = HLS_VPREF + "i";
+const std::string DeviceFPGA::hls_in = HLS_VPREF + "in";
+const std::string DeviceFPGA::hls_out = HLS_VPREF + "out";
 
 
 static std::string fpga_outline_name(const std::string &name)
@@ -1130,9 +1132,9 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 in_copies
-                    << "for (i=0; i<" << n_elements << "; i++)"
+                    << "for (" << HLS_I << "=0;" << HLS_I << "<" << n_elements << "; " << HLS_I << "++)"
                     << "{"
-                    << "  " << field_name << "[i] = " << hls_in << "[i+" << in_offset << "];"
+                    << "  " << field_name << "[" << HLS_I << "] = " << hls_in << "[" << HLS_I << "+" << in_offset << "];"
                     << "}"
                 ;
                 in_offset += n_elements;
@@ -1141,9 +1143,10 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 out_copies
-                    << "for (i=0; i<" << n_elements << "; i++)"
+                    << "for (" << HLS_I << "=0;" << HLS_I << "<" << n_elements << "; " << HLS_I << "++)"
+                    //<< "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  "  << hls_out << "[i+" << out_offset << "] = " << field_name << "[i];"
+                    << "  "  << hls_out << "[" << HLS_I << "+" << out_offset << "] = " << field_name << "[" << HLS_I << "];"
                     << "}"
                 ;
                 out_offset += n_elements;
@@ -1169,7 +1172,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     wrapper_src
         << "void core_hw_accelerator(" << args<< "){"
     ;
-    local_decls << "unsigned int i;";
+    local_decls << "unsigned int " << HLS_I << ";";
 
     wrapper_src
         << pragmas_src
