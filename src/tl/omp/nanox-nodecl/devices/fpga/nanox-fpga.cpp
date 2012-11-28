@@ -1037,7 +1037,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     get_inout_decl(data_items, in_dec, out_dec);
     Source pragmas_src;
     pragmas_src
-        << "#pragma AP resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\""
+        << "#pragma AP resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" "
         << "port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}\n";
     ;
     Source args;
@@ -1143,7 +1143,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                 out_copies
                     << "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  "  << hls_in << "[i+out_k] = " << field_name << "[i];"
+                    << "  "  << hls_out << "[i+out_k] = " << field_name << "[i];"
                     << "}"
                     << "out_k +=" << n_elements << ";"
                 ;
