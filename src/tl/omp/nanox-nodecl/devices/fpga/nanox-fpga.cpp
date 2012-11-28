@@ -1007,7 +1007,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
 /*
  * Create wrapper function for HLS to unpack streamed arguments
  * TODO: Add prefix to all wrapper local variables (i, in_k ...)
- * TODO: Statically generate offsets
+ * TODO: Add inline pragma to called task #pragma HLS inline
  */
 Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, ObjectList<OutlineDataItem*>& data_items)
 {
@@ -1037,7 +1037,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     get_inout_decl(data_items, in_dec, out_dec);
     Source pragmas_src;
     pragmas_src
-        << "#pragma AP resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" "
+        << "#pragma HLS resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" "
         << "port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}\n";
     ;
     Source args;
@@ -1060,15 +1060,13 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             << "#pragma HLS interface ap_fifo port=" << hls_out << "\n"
         ;
     }
-    //TODO: generate stream parameter pragmas
-
 
     /*
      * Generate wrapper code
      * We are going to keep original parameter name for the original function
      *
      * input/outlut parameters are received concatenated one after another.
-     * The wrapper must create local variables for each input/output and unpack 
+     * The wrapper must create local variables for each input/output and unpack
      * streamed input/output data into that local variables.
      *
      * Scalar parameters are going to be copied as long as no unpacking is needed
@@ -1077,6 +1075,8 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     Source in_copies, out_copies;
     Source fun_params;
     Source local_decls;
+    int in_offset  = 0;
+    int out_offset = 0;
 
     for (ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -1093,7 +1093,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             Nodecl::NodeclBase expr = copies.front().expression;
             if (copies.size() > 1)
             {
-                internal_error("Only one copy per object (in/out/inout) is allowed (%s)", 
+                internal_error("Only one copy per object (in/out/inout) is allowed (%s)",
                         expr.get_locus().c_str());
             }
 
@@ -1102,7 +1102,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
              * - Create local variable (known size in compile time)
              * - Create create copy loop + update param offset
              */
-            
+
             //get copy size (must be known at compile time)
             int n_elements = get_copy_elements(expr);
 
@@ -1120,33 +1120,33 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             {
                 internal_error("invalid type for input/output, only pointer and array is allowed (%d)",
                         expr.get_locus().c_str());
-            }   
+            }
 
             std::string par_simple_decl = elem_type.get_simple_declaration(scope, field_name);
             local_decls
                 << par_simple_decl << "[" << n_elements << "];\n";
 
-            if (copies.front().directionality == OutlineDataItem::COPY_IN 
+            if (copies.front().directionality == OutlineDataItem::COPY_IN
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 in_copies
                     << "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  " << field_name << "[i] = " << hls_in << "[i+in_k];"
+                    << "  " << field_name << "[i] = " << hls_in << "[i+" << in_offset << "];"
                     << "}"
-                    << "in_k +=" << n_elements << ";"
                 ;
+                in_offset += n_elements;
             }
-            if (copies.front().directionality == OutlineDataItem::COPY_OUT 
+            if (copies.front().directionality == OutlineDataItem::COPY_OUT
                     or copies.front().directionality == OutlineDataItem::COPY_INOUT)
             {
                 out_copies
                     << "for (i=0; i<" << n_elements << "; i++)"
                     << "{"
-                    << "  "  << hls_out << "[i+out_k] = " << field_name << "[i];"
+                    << "  "  << hls_out << "[i+" << out_offset << "] = " << field_name << "[i];"
                     << "}"
-                    << "out_k +=" << n_elements << ";"
                 ;
+                out_offset += n_elements;
             }
         }
         else
@@ -1162,7 +1162,6 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
                 << "#pragma HLS INTERFACE ap_none port=" <<  field_name << "\n"
                 << "#pragma AP resource core=AXI_SLAVE variable=" << field_name << " metadata=\"-bus_bundle AXIlite\"\n"
             ;
-            //TODO: Generate scalar parameter pragmas
         }
     }
     Nodecl::NodeclBase fun_code =  func_symbol.get_function_code();
@@ -1172,14 +1171,6 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     ;
     local_decls << "unsigned int i;";
 
-    if (!in_copies.empty())
-    {
-        local_decls << "int in_k = 0;" << "";
-    }
-    if (!out_copies.empty())
-    {
-        local_decls << "int out_k = 0;" << "";
-    }
     wrapper_src
         << pragmas_src
         << local_decls
