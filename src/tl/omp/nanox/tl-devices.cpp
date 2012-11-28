@@ -162,7 +162,7 @@ void DeviceProvider::get_instrumentation_code(
             << "nanos_event_t event;"
             << "event.type = NANOS_BURST_START;"
             << "event.key = nanos_instr_uf_location_key;"
-            << "event.value = (nanos_event_value_t) " << function_name_instr << ";"
+            << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
             << "nanos_instrument_events(1, &event);"
             ;
 
@@ -179,7 +179,7 @@ void DeviceProvider::get_instrumentation_code(
             instrument_after
                 << "event.type = NANOS_BURST_END;"
                 << "event.key = nanos_instr_uf_location_key;"
-                << "event.value = (nanos_event_value_t) " << function_name_instr << ";"
+                << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
                 << "nanos_instrument_events(1, &event);"
                 ;
         }
