@@ -856,7 +856,7 @@ namespace Nodecl
         {
             list.insert(last_it, *it);
             // We may have a new last node now
-            last_it = it->get_parent().as<Nodecl::List>().last();
+            last_it = list.last();
         }
     }
 
