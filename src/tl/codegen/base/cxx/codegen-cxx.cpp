@@ -2143,7 +2143,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
-            || _emit_always_extern_linkage)
+            || cuda_emit_always_extern_linkage())
     {
         requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
@@ -2191,7 +2191,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     this->walk(context);
 
     if (IS_CXX_LANGUAGE
-            || _emit_always_extern_linkage)
+            || cuda_emit_always_extern_linkage())
     {
         if (requires_extern_linkage)
         {
@@ -4623,7 +4623,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
-            || _emit_always_extern_linkage)
+            || cuda_emit_always_extern_linkage())
     {
         requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
@@ -4873,7 +4873,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     }
 
     if (IS_CXX_LANGUAGE
-            || _emit_always_extern_linkage)
+            || cuda_emit_always_extern_linkage())
     {
         if (requires_extern_linkage)
         {
@@ -5259,7 +5259,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         char is_primary_template = 0;
         bool requires_extern_linkage = false;
         if (IS_CXX_LANGUAGE
-                || _emit_always_extern_linkage)
+                || cuda_emit_always_extern_linkage())
         {
             move_to_namespace_of_symbol(symbol);
 
@@ -5429,7 +5429,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         file << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
 
         if (IS_CXX_LANGUAGE
-                || _emit_always_extern_linkage)
+                || cuda_emit_always_extern_linkage())
         {
             if (requires_extern_linkage)
             {
@@ -6588,6 +6588,7 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
     std::string result;
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
     int attributes_counter = 0;
+    bool print_cuda_attributes = cuda_print_special_attributes();
 
     for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
             it != gcc_attr_list.end();
@@ -6596,12 +6597,12 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
         if (attributes_counter > 0)
             result += " ";
 
-         if (!_print_cuda_attributes
-                 && (it->get_attribute_name() == "host"
-                     || it->get_attribute_name() == "device"
-                     || it->get_attribute_name() == "shared"
-                     || it->get_attribute_name() == "constant"
-                     || it->get_attribute_name() == "global"))
+        if (!print_cuda_attributes
+                && (it->get_attribute_name() == "host"
+                    || it->get_attribute_name() == "device"
+                    || it->get_attribute_name() == "shared"
+                    || it->get_attribute_name() == "constant"
+                    || it->get_attribute_name() == "global"))
              continue;
 
         if (it->get_expression_list().is_null())
@@ -6630,7 +6631,6 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
         }
         attributes_counter++;
     }
-
     return result;
 }
 
@@ -7041,14 +7041,14 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
 }
 
-void CxxBase::set_emit_always_extern_linkage(bool emit)
+bool CxxBase::cuda_print_special_attributes()
 {
-    _emit_always_extern_linkage = emit;
+    return false;
 }
 
-void CxxBase::set_print_cuda_attributes(bool b)
+bool CxxBase::cuda_emit_always_extern_linkage()
 {
-    _print_cuda_attributes = b;
+    return false;
 }
 
 } // Codegen

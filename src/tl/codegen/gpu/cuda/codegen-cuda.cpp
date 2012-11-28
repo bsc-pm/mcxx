@@ -35,7 +35,7 @@
 namespace Codegen
 {
 
-  // Check if the given path file comes from CUDA installation directory
+    // Check if the given path file comes from CUDA installation directory
     namespace CheckIfInCudaCompiler
     {
         static bool check(const std::string& path)
@@ -115,6 +115,17 @@ namespace Codegen
             set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
         }
     }
+
+    bool CudaGPU::cuda_print_special_attributes()
+    {
+        return true;
+    }
+
+    bool CudaGPU::cuda_emit_always_extern_linkage()
+    {
+        return IS_C_LANGUAGE;
+    }
+
 } // Codegen
 
 EXPORT_PHASE(Codegen::CudaGPU)
