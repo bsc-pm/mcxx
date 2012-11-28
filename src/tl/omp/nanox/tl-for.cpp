@@ -208,20 +208,20 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "}"
 
                         << "nanos_event_t loop_events[3];"
-                        << "loop_events_before[0].type = NANOS_POINT;"
-                        << "loop_events_before[1].type = NANOS_POINT;"
-                        << "loop_events_before[2].type = NANOS_POINT;"
+                        << "loop_events[0].type = NANOS_POINT;"
+                        << "loop_events[1].type = NANOS_POINT;"
+                        << "loop_events[2].type = NANOS_POINT;"
 
-                        << "loop_events_before[0].key = nanos_instr_loop_lower_key;"
-                        << "loop_events_before[1].key = nanos_instr_loop_upper_key;"
-                        << "loop_events_before[2].key = nanos_instr_loop_step_key;"
+                        << "loop_events[0].key = nanos_instr_loop_lower_key;"
+                        << "loop_events[1].key = nanos_instr_loop_upper_key;"
+                        << "loop_events[2].key = nanos_instr_loop_step_key;"
                         ;
 
                     instrument_loop_opt
-                        << "loop_events_before[0].value = _nth_info.lower;"
-                        << "loop_events_before[1].value = _nth_info.upper;"
-                        << "loop_events_before[2].value = " << replaced_step << ";"
-                        << "nanos_instrument_events(3, loop_events_before);"
+                        << "loop_events[0].value = _nth_info.lower;"
+                        << "loop_events[1].value = _nth_info.upper;"
+                        << "loop_events[2].value = " << replaced_step << ";"
+                        << "nanos_instrument_events(3, loop_events);"
                         ;
                 }
                 else
