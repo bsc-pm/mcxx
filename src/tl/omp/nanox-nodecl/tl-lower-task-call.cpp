@@ -423,7 +423,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Scope sc = construct.retrieve_context();
     TL::ObjectList<TL::Symbol> new_arguments;
 
-    Source assignments_src;
+    Source initializations_src;
 
     // If the current function is a non-static function and It is member of a
     // class, the first argument of the arguments list represents the object of
@@ -442,11 +442,23 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         TL::Symbol new_symbol = sc.new_symbol(ss.str());
         arg_counter++;
 
-        assignments_src << as_symbol(new_symbol) << " = " << as_symbol(this_symbol) << ";";
-
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+        if (IS_CXX_LANGUAGE)
+        {
+            // We need to declare explicitly this object in C++
+            initializations_src
+                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_symbol))
+                ;
+        }
+
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+        sym_ref.set_type(this_symbol.get_type());
+
+            // Direct initialization is enough
+        new_symbol.get_internal_symbol()->value = sym_ref.get_internal_nodecl();
 
         new_arguments.append(new_symbol);
 
@@ -496,7 +508,29 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
         param_sym_to_arg_sym[it->first] = new_symbol;
 
-        assignments_src << as_symbol(new_symbol) << " = " << as_expression(it->second.shallow_copy()) << ";";
+        if (IS_CXX_LANGUAGE)
+        {
+            // We need to declare explicitly this object in C++ and initialize it properly
+            initializations_src
+                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_symbol))
+                ;
+        }
+        else if (IS_C_LANGUAGE)
+        {
+            initializations_src
+                << as_statement(Nodecl::ObjectInit::make(new_symbol))
+                ;
+        }
+
+        if (it->first.get_type().is_class() && IS_CXX_LANGUAGE)
+        {
+            internal_error("Copy-construction of a class type is not yet implemented", 0);
+        }
+        else
+        {
+            // Direct initialization is enough
+            new_symbol.get_internal_symbol()->value = it->second.shallow_copy().get_internal_nodecl();
+        }
 
         new_arguments.append(new_symbol);
 
@@ -534,8 +568,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
     ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
 
-    Nodecl::NodeclBase assignments_tree = assignments_src.parse_statement(sc);
-    Nodecl::Utils::prepend_items_before(enclosing_expression_stmt, assignments_tree);
+    if (!initializations_src.empty())
+    {
+        Nodecl::NodeclBase assignments_tree = initializations_src.parse_statement(sc);
+        Nodecl::Utils::prepend_items_before(enclosing_expression_stmt, assignments_tree);
+    }
 
     // Now fix again arguments of the outline
     data_items = arguments_outline_info.get_data_items();
