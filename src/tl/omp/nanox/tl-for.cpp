@@ -180,7 +180,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         Source outline_body;
         if (Nanos::Version::interface_is_at_least("worksharing", 1000))
         {
-            Source instrument_before_opt, instrument_loop_opt;
+            Source instrument_before_opt, instrument_after_opt, instrument_loop_opt;
             if (_enable_instrumentation)
             {
                 if (Nanos::Version::interface_is_at_least("master", 5017))
@@ -221,6 +221,13 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events[0].value = _nth_info.lower;"
                         << "loop_events[1].value = _nth_info.upper;"
                         << "loop_events[2].value = " << replaced_step << ";"
+                        << "nanos_instrument_events(3, loop_events);"
+                        ;
+
+                    instrument_after_opt
+                        << "loop_events[0].value = 0;"
+                        << "loop_events[1].value = 0;"
+                        << "loop_events[2].value = 1;"
                         << "nanos_instrument_events(3, loop_events);"
                         ;
                 }
@@ -271,6 +278,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                         << "loop_events.info.point.values[3] = " << chunk_value << ";"
                         << "nanos_instrument_events(1, &loop_events);"
                         ;
+
+                    instrument_after_opt
+                        << "loop_events.info.point.values[0] = 0;"
+                        << "loop_events.info.point.values[1] = 0;"
+                        << "loop_events.info.point.values[2] = 1;"
+                        << "loop_events.info.point.values[3] = 0;"
+                        << "nanos_instrument_events(1, &loop_events);"
+                        ;
                 }
             }
 
@@ -306,6 +321,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 <<          "nanos_worksharing_next_item(_args->wsd, (nanos_ws_item_t *) &_nth_info);"
                 <<      "}"
                 << "}"
+                << instrument_after_opt
                 << final_barrier
                 ;
         }
