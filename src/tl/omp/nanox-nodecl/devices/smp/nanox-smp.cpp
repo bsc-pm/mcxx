@@ -45,6 +45,9 @@
 
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
+
+#include "tl-nanos.hpp"
+
 #include <errno.h>
 #include <string.h>
 
@@ -1083,80 +1086,103 @@ namespace TL { namespace Nanox {
         {
             internal_error("Code unreachable", 0);
         }
-
         if (instrumentation_enabled())
         {
-            Source uf_name_id, uf_name_descr,
-                   uf_location_id, uf_location_descr,
-                   instrument_before_c, instrument_after_c;
+            if (Nanos::Version::interface_is_at_least("master", 5019))
+            {
+                const TL::Symbol& called_task = info._called_task;
+                Source extended_descr, extra_cast, instrument_before_c,
+                       instrument_after_c, function_name_instr;
 
-            instrument_before_c
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-                << "nanos_err_t err; "
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-                <<               uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                if (called_task.is_valid())
+                {
+                    // It's a function task
+                    extended_descr << called_task.get_type().get_declaration(
+                            called_task.get_scope(), called_task.get_qualified_name());
+                }
+                else
+                {
+                    // It's an inline task
+                    std::string function_name =
+                        outline_function.get_type().get_declaration(
+                            outline_function.get_scope(), outline_function.get_qualified_name());
 
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[0].value = nanos_instr_uf_name_value;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "events_before[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_before);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
+                    // The character '@' will be used as a separator of the
+                    // description. Since the function name may contain one or
+                    // more '@' characters, we should replace them by an other
+                    // special char
+                    for (unsigned int i = 0; i < function_name.length(); i++)
+                    {
+                        if (function_name[i] == '@')
+                            function_name[i] = '#';
+                    }
 
-            instrument_after_c
-                << "nanos_event_t events_after[2];"
-                << "events_after[0].type = NANOS_BURST_END;"
-                << "events_after[0].key = nanos_instr_uf_name_key;"
-                << "events_after[0].value = nanos_instr_uf_name_value;"
-                << "events_after[1].type = NANOS_BURST_END;"
-                << "events_after[1].key = nanos_instr_uf_location_key;"
-                << "events_after[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_after);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
+                    extended_descr << function_name;
+                }
 
+                // The description should contains:
+                //  - FUNC_DECL: The declaration of the function. The function name shall be qualified
+                //  - FILE: The filename
+                //  - LINE: The line number
+                //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
+                extended_descr
+                    << "@" << original_statements.get_filename()
+                    << "@" << original_statements.get_line()
+                    ;
 
-            uf_name_id << uf_location_id;
-            uf_location_id << "\"" << outline_name << ":" << original_statements.get_locus() << "\"";
+                // GCC complains if you convert a pointer to an integer of different
+                // size. Since we target a unsigned long long, in architectures of 32
+                // bits we first cast to an unsigned int
+                if (CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer == 4)
+                {
+                    extra_cast << "(unsigned int)";
+                }
 
-            uf_name_descr << uf_location_descr;
-            uf_location_descr
-                << "\"Outline from '"
-                << original_statements.get_locus()
-                << "' in '" << outline_function.get_qualified_name() << "'\"";
+                // FIXME: We may need an additional cast here (GCC bug solved in 4.5)
+                function_name_instr << as_symbol(outline_function);
 
+                instrument_before_c
+                    << "static int nanos_funct_id_init = 0;"
+                    << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                    << "if (nanos_funct_id_init == 0)"
+                    << "{"
+                    <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
+                    <<               " \"user-funct-location\", \"" << outline_name << "\", \"" << extended_descr << "\", 0);"
+                    <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                    <<    "nanos_funct_id_init = 1;"
+                    << "}"
+                    << "nanos_event_t event;"
+                    << "event.type = NANOS_BURST_START;"
+                    << "event.key = nanos_instr_uf_location_key;"
+                    << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+                    << "nanos_instrument_events(1, &event);"
+                    ;
 
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::C;
+                instrument_after_c
+                    << "event.type = NANOS_BURST_END;"
+                    << "event.key = nanos_instr_uf_location_key;"
+                    << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+                    << "nanos_instrument_events(1, &event);"
+                    ;
 
-            Nodecl::NodeclBase instr_before = instrument_before_c.parse_statement(outline_function_body);
-            Nodecl::NodeclBase instr_after = instrument_after_c.parse_statement(outline_function_body);
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::C;
 
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::Current;
+                Nodecl::NodeclBase instr_before = instrument_before_c.parse_statement(outline_function_body);
+                Nodecl::NodeclBase instr_after = instrument_after_c.parse_statement(outline_function_body);
 
-            instrument_before << as_statement(instr_before);
-            instrument_after << as_statement(instr_after);
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::Current;
+
+                instrument_before << as_statement(instr_before);
+                instrument_after << as_statement(instr_after);
+            }
+            else
+            {
+                internal_error("Unsupported nanox version for instrumentation", 0);
+            }
         }
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
