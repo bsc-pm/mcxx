@@ -47,13 +47,13 @@ namespace TL { namespace Nanox {
 
     DeviceProvider::DeviceProvider(const std::string& device_name)
         : _device_name(device_name),
-          _enable_instrumentation(false),
-          _enable_instrumentation_str("")
+        _enable_instrumentation(false),
+        _enable_instrumentation_str("")
     {
-             DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-             device_handler.register_device(device_name, this);
+        DeviceHandler &device_handler(DeviceHandler::get_device_handler());
+        device_handler.register_device(device_name, this);
 
-             common_constructor_code();
+        common_constructor_code();
     }
 
     DeviceProvider* DeviceHandler::get_device(const std::string& str)
@@ -80,10 +80,10 @@ namespace TL { namespace Nanox {
                 /* Error message */  "Instrumentation disabled");
     }
 
-     bool DeviceProvider::instrumentation_enabled()
-     {
-         return _enable_instrumentation;
-     }
+    bool DeviceProvider::instrumentation_enabled()
+    {
+        return _enable_instrumentation;
+    }
     //
     //
     // bool DeviceProvider::do_not_create_translation_function()
@@ -98,18 +98,19 @@ namespace TL { namespace Nanox {
     // }
     // 
 
-     void DeviceProvider::common_constructor_code()
-     {
-         register_parameter("instrument",
-                 "Enables instrumentation of the device provider if set to '1'",
-                 _enable_instrumentation_str,
-                 "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+    void DeviceProvider::common_constructor_code()
+    {
+        register_parameter("instrument",
+                "Enables instrumentation of the device provider if set to '1'",
+                _enable_instrumentation_str,
+                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
 
-         //     register_parameter("do_not_create_translation_function",
-         //             "Even if the runtime interface supports a translation function, it will not be generated",
-         //             _do_not_create_translation_str,
-         //             "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
-     }
+        //     register_parameter("do_not_create_translation_function",
+        //             "Even if the runtime interface supports a translation function, it will not be generated",
+        //             _do_not_create_translation_str,
+        //             "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
+    }
+
     void DeviceProvider::get_instrumentation_code(
             const TL::Symbol& called_task,
             const TL::Symbol& outline_function,
