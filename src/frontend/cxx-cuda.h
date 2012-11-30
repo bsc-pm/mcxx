@@ -37,7 +37,4 @@ void cuda_kernel_symbols_for_function_body(
         decl_context_t block_context);
 
 void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-
-void init_cuda_builtins(decl_context_t decl_context);
-
 #endif // CXX_CUDA_H
