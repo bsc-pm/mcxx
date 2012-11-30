@@ -374,7 +374,7 @@ void LoweringVisitor::allocate_immediate_structure(
 
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
-        TL::Symbol function_symbol,
+        TL::Symbol current_function,
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
@@ -410,7 +410,7 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
-    std::string outline_name = get_outline_name(function_symbol);
+    std::string outline_name = get_outline_name(current_function);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
