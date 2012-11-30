@@ -531,11 +531,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         }
     }
 
-    if (CURRENT_CONFIGURATION->enable_cuda)
-    {
-        init_cuda_builtins(decl_context);
-    }
-
     // Mercurium limit constants
 
     struct {

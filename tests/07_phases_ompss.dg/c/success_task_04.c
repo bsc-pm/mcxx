@@ -25,18 +25,21 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
-test_ignore=yes
+test_generator=config/mercurium-ompss
+test_nolink=yes
 </testinfo>
 */
 
-#ifdef __CUDACC__
-__global__ void addOne_gpu(int *a)
+int main()
 {
-	*a += 1;
+    const int ntasks = 4;
+    int out[4];
+#pragma omp target device(smp) copy_out(out[0:ntasks-1])
+#pragma omp task inout(out[0:ntasks-1])
+    {
+        ntasks;
+    }
 }
-#else
-extern void addOne_gpu(int* a);
-#endif
-
