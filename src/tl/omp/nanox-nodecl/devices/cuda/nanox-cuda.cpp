@@ -58,6 +58,11 @@ static std::string cuda_outline_name(const std::string & name)
     return "gpu_" + name;
 }
 
+bool DeviceCUDA::is_gpu_device() const
+{
+    return true;
+}
+
 //
 //std::string DeviceCUDA::get_outline_name_for_instrumentation(const std::string & name,
 //        bool is_template_specialized UNUSED_PARAMETER, const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
@@ -1825,6 +1830,18 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         <<      instrument_after
         << "}"
         ;
+
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                outline_function,
+                outline_function_body,
+                original_statements.get_filename(),
+                original_statements.get_line(),
+                instrument_before,
+                instrument_after);
+    }
 
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);

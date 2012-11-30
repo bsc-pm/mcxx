@@ -223,6 +223,7 @@ namespace TL
              bool copy_stuff_to_device_file(Nodecl::List symbols);
              bool allow_mandatory_creation();
 
+             virtual bool is_gpu_device() const;
               //  virtual void create_outline(
               //          const std::string& task_name,
               //          const std::string& struct_typename,
