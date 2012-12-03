@@ -265,7 +265,6 @@ namespace TL { namespace OpenMP {
                         target_items);
 
                 ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
-                if (0 < ndrange_exprs.size())
                 if (!ndrange_exprs.empty())
                 {
                     target_items.append(
@@ -276,7 +275,7 @@ namespace TL { namespace OpenMP {
                 }
                 
                 ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
-                if (0 < onto_exprs.size())
+                if (!onto_exprs.empty())
                 {
                     target_items.append(
                             Nodecl::OpenMP::Onto::make(
@@ -1594,11 +1593,14 @@ namespace TL { namespace OpenMP {
         }
         
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
-        target_items.append(
-                Nodecl::OpenMP::Onto::make(
-                    Nodecl::List::make(onto_exprs),                                
-                    Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                    filename, line));
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
                     
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
