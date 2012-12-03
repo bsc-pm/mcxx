@@ -290,6 +290,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // Note that in this case we use the implementor outline name as outline name    
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices=implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
         Source ancillary_device_description, device_description, aux_fortran_init;
@@ -315,7 +316,11 @@ Source LoweringVisitor::fill_const_wd_info(
         opt_fortran_dynamic_init << aux_fortran_init;
         
         devices_and_implementors_it++;
-        implementation_table_it++;
+        n_devices--;
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
     }
 
     return result;
@@ -514,6 +519,7 @@ void LoweringVisitor::emit_async_common(
     // we should create its outline function.
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices=implementation_table_it->second.get_device_names().size();    
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
         std::string device_name = devices_and_implementors_it->first;
@@ -560,8 +566,12 @@ void LoweringVisitor::emit_async_common(
 
         outline_placeholder.replace(outline_statements_code);
 
-        devices_and_implementors_it++;
-        implementation_table_it++;
+        devices_and_implementors_it++;        
+        n_devices--;
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
     }
 
 
