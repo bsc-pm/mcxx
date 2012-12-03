@@ -702,11 +702,14 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
 static void handle_save_expressions(decl_context_t function_context,
         TL::Type t,
-        Nodecl::Utils::SimpleSymbolMap& symbol_map)
+
+        // Out
+        Nodecl::Utils::SimpleSymbolMap& symbol_map,
+        TL::ObjectList<TL::Symbol> &save_expressions)
 {
     if (t.is_any_reference())
     {
-        handle_save_expressions(function_context, t.references_to(), symbol_map);
+        handle_save_expressions(function_context, t.references_to(), symbol_map, save_expressions);
     }
     else if (t.is_array())
     {
@@ -743,10 +746,12 @@ static void handle_save_expressions(decl_context_t function_context,
                         symbol_map.get_symbol_map());
 
                 symbol_map.add_map(orig_save_expression, new_save_expression);
+
+                save_expressions.append(new_save_expression);
             }
         }
 
-        handle_save_expressions(function_context, t.array_element(), symbol_map);
+        handle_save_expressions(function_context, t.array_element(), symbol_map, save_expressions);
     }
 }
 
@@ -757,7 +762,8 @@ static TL::Symbol new_function_symbol_adapter(
         const std::string& function_name,
 
         // out
-        Nodecl::Utils::SimpleSymbolMap &symbol_map)
+        Nodecl::Utils::SimpleSymbolMap &symbol_map,
+        TL::ObjectList<TL::Symbol> &save_expressions)
 {
     Scope sc = current_function.get_scope();
 
@@ -790,11 +796,12 @@ static TL::Symbol new_function_symbol_adapter(
             it++)
     {
         // This will register the extra symbols required by VLAs
-        handle_save_expressions(function_context, it->get_type(), symbol_map);
+        handle_save_expressions(function_context, it->get_type(), symbol_map, save_expressions);
 
         it->get_internal_symbol()->type_information =
             type_deep_copy(it->get_internal_symbol()->type_information,
                     function_context,
+
                     symbol_map.get_symbol_map());
     }
 
@@ -867,6 +874,7 @@ static Nodecl::NodeclBase fill_adapter_function(
         TL::Symbol called_function,
         Nodecl::Utils::SymbolMap &symbol_map,
         Nodecl::NodeclBase original_environment,
+        TL::ObjectList<TL::Symbol> &save_expressions,
 
         // out
         Nodecl::NodeclBase& task_construct,
@@ -874,7 +882,17 @@ static Nodecl::NodeclBase fill_adapter_function(
         Nodecl::NodeclBase& new_environment
         )
 {
-    TL::ObjectList<Nodecl::NodeclBase> statement_list;
+    TL::ObjectList<Nodecl::NodeclBase> statements_of_function;
+
+    TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
+    // Create one object init per save expression
+    for (TL::ObjectList<TL::Symbol>::iterator it = save_expressions.begin();
+            it != save_expressions.end();
+            it++)
+    {
+        statements_of_function.append(
+                Nodecl::ObjectInit::make(*it));
+    }
 
     // Create a reference to the function
     Nodecl::NodeclBase function_ref = Nodecl::Symbol::make(called_function);
@@ -898,7 +916,6 @@ static Nodecl::NodeclBase fill_adapter_function(
     Nodecl::NodeclBase argument_seq = Nodecl::List::make(argument_list);
 
     // Create the call
-    TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
     Nodecl::NodeclBase call_to_adapter =
         Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(function_ref,
@@ -919,9 +936,9 @@ static Nodecl::NodeclBase fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    statement_list.append(task_construct);
+    statements_of_function.append(task_construct);
 
-    Nodecl::NodeclBase in_context = Nodecl::List::make(statement_list);
+    Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
     Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
@@ -966,18 +983,24 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
     adapter_counter++;
 
+    TL::ObjectList<Symbol> save_expressions;
+
     Nodecl::Utils::SimpleSymbolMap symbol_map;
     TL::Symbol adapter_function = new_function_symbol_adapter(
             current_function,
             called_task_function,
             ss.str(),
-            symbol_map);
+
+            // out
+            symbol_map,
+            save_expressions);
 
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
             symbol_map,
             parameters_environment,
+            save_expressions,
 
             // Out
             new_task_construct,
