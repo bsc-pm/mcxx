@@ -25,45 +25,48 @@
 --------------------------------------------------------------------*/
 
 
+#include "tl-target-information.hpp"
+#include "tl-nodecl-visitor.hpp"
+#include "tl-datareference.hpp"
+#include "tl-counters.hpp"
+#include "tl-predicateutils.hpp"
+#include "codegen-phase.hpp"
+#include "cxx-diagnostic.h"
+#include "cxx-exprtype.h"
+#include "fortran03-typeutils.h"
+
+namespace TL { namespace Nanox {
 
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
 
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-
-namespace TL
-{
-    namespace OpenMP
+    void TargetInformation::add_device_name(std::string device_name)
     {
-        struct TargetContext
-        {
-            ObjectList<std::string> device_list;
-
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
-
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> onto;
-
-            bool has_implements;
-            Symbol implements;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(), 
-                copy_in(), 
-                copy_out(), 
-                has_implements(), 
-                implements(), 
-                copy_deps()
-            {
-            }
-        };
+        _device_names.append(device_name);
     }
-}
 
-#endif // TL_OMP_TARGET_HPP
+    ObjectList<std::string> TargetInformation::get_device_names()
+    {
+        return _device_names;
+    }
+
+    void TargetInformation::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    {
+        _ndrange_exprs.append(ndrange_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase> TargetInformation::get_ndrange() const
+    {
+        return _ndrange_exprs;
+    }
+    
+    void TargetInformation::append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
+    {
+        _onto_exprs.append(onto_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase> TargetInformation::get_onto() const
+    {
+        return _onto_exprs;
+    }
+
+} }

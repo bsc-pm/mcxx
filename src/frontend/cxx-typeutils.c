@@ -8060,7 +8060,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                         break;
                     case BT_UNKNOWN :
                     default :
-                        result = strappend(result, "¿¿¿unknown builtin type???");
+                        result = strappend(result, "ï¿½ï¿½ï¿½unknown builtin type???");
                         break;
                 }
                 break;

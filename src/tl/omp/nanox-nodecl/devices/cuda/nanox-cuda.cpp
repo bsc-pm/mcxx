@@ -1215,7 +1215,7 @@ static TL::Symbol new_function_symbol(
 static TL::Symbol new_function_symbol_unpacked(
         TL::Symbol current_function,
         const std::string& function_name,
-        OutlineInfo& outline_info,
+        CreateOutlineInfo& info,
         Nodecl::Utils::SymbolMap*& out_symbol_map)
 {
     Scope sc = current_function.get_scope();
@@ -1232,7 +1232,7 @@ static TL::Symbol new_function_symbol_unpacked(
 
     TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -1609,7 +1609,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
-    OutlineInfo& outline_info = info._outline_info;
+    //OutlineInfo& outline_info = info._outline_info;
 
     output_statements = original_statements;
 
@@ -1628,7 +1628,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_arguments, private_entities;
 
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -1721,16 +1721,16 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
             device_outline_name + "_unpacked",
-            outline_info,
+            info,
             symbol_map);
 
     Source ndrange_code;
     if (called_task.is_valid()
-            && outline_info.get_ndrange().size() > 0)
+            && info._target_info.get_ndrange().size() > 0)
     {
         generate_ndrange_additional_code(called_task,
                 unpacked_function,
-                outline_info.get_ndrange(),
+                info._target_info.get_ndrange(),
                 ndrange_code);
     }
 
@@ -1762,7 +1762,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     unpacked_function_body.replace(new_unpacked_body);
 
     if (called_task.is_valid()
-            && outline_info.get_ndrange().size() > 0)
+            && info._target_info.get_ndrange().size() > 0)
     {
         generate_ndrange_kernel_call(
                 outline_placeholder.retrieve_context(),
@@ -2405,7 +2405,8 @@ DeviceCUDA::DeviceCUDA()
 void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
-        Source &fortran_dynamic_init UNUSED_PARAMETER)
+        Source &fortran_dynamic_init UNUSED_PARAMETER,
+        TargetInformation& target_information)
 {
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     if (Nanos::Version::interface_is_at_least("master", 5012))

@@ -38,6 +38,7 @@
 #include <sstream>
 
 #include "tl-omp.hpp"
+#include "tl-target-information.hpp"
 
 namespace TL
 {
@@ -315,19 +316,13 @@ namespace TL
         {
 
             public:
-                typedef std::multimap<std::string, Symbol> implementation_table_t;
+                typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
+                TL::Symbol _funct_symbol;
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
-                ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
-
-                // Devices information
-                ObjectList<std::string> _device_names;
-
                 std::string get_field_name(std::string name);
-
-                TL::Symbol _unpacked_function_symbol;
 
                 // Do not copy
                 OutlineInfo(const OutlineInfo&);
@@ -337,7 +332,7 @@ namespace TL
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment);
+                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid());
                 OutlineInfo();
                 ~OutlineInfo();
 
@@ -352,28 +347,34 @@ namespace TL
                 ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
+                }               
+
+                TL::Symbol get_funct_symbol() const {
+                    return _funct_symbol;
                 }
 
                 ObjectList<OutlineDataItem*> get_fields() const;
 
-                void add_device_name(std::string device_name);
-                ObjectList<std::string> get_device_names();
+                void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
+                ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
 
-                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
-                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+                void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
+                ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
+                                
+                void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
+                ObjectList<Nodecl::NodeclBase> get_onto(TL::Symbol function_symbol);
 
+                /**
+                 * Adds implementation, if already exists, it adds device name to that symbol
+                 * @param device_name
+                 * @param function_symbol
+                 */
                 void add_implementation(std::string device_name, TL::Symbol function_symbol);
                 implementation_table_t get_implementation_table();
 
-                TL::Symbol get_unpacked_function_symbol() const
-                {
-                    return _unpacked_function_symbol;
-                }
+                TL::Symbol get_unpacked_function_symbol(TL::Symbol function_symbol=Symbol::invalid());
 
-                void set_unpacked_function_symbol(TL::Symbol sym)
-                {
-                    _unpacked_function_symbol = sym;
-                }
+                void set_unpacked_function_symbol(TL::Symbol unpacked_sym,TL::Symbol function_symbol=Symbol::invalid());
 
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);

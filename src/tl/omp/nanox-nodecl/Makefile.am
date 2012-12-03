@@ -69,4 +69,6 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-nanox-ptr.cpp \
 								 tl-devices.cpp \
 								 tl-devices.hpp \
+								 tl-target-information.cpp \
+								 tl-target-information.hpp \
 								 $(END)

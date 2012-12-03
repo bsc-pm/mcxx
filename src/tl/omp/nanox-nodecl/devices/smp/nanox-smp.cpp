@@ -135,7 +135,7 @@ namespace TL { namespace Nanox {
     static TL::Symbol new_function_symbol_forward(
             TL::Symbol current_function,
             const std::string& function_name,
-            OutlineInfo& outline_info)
+            CreateOutlineInfo& info)
     {
         // This is only for Fortran!
         Scope sc = current_function.get_scope();
@@ -154,7 +154,7 @@ namespace TL { namespace Nanox {
         ptr_to_outline->type_information = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
         parameter_symbols.append(ptr_to_outline);
 
-        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -287,7 +287,7 @@ namespace TL { namespace Nanox {
     static TL::Symbol new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
-            OutlineInfo& outline_info,
+            CreateOutlineInfo& info,
             Nodecl::Utils::SymbolMap*& out_symbol_map)
     {
         Scope sc = current_function.get_scope();
@@ -311,7 +311,7 @@ namespace TL { namespace Nanox {
 
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
-        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -725,7 +725,7 @@ namespace TL { namespace Nanox {
         //Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
         const Nodecl::NodeclBase& original_statements = info._original_statements;
-        OutlineInfo& outline_info = info._outline_info;
+        //OutlineInfo& outline_info = info._outline_info;
 
         output_statements = original_statements;
 
@@ -746,7 +746,7 @@ namespace TL { namespace Nanox {
         int lower_bound_index = 0;
         int upper_bound_index = 0;
 
-        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -849,11 +849,11 @@ namespace TL { namespace Nanox {
             forward_function = new_function_symbol_forward(
                     current_function,
                     outline_name + "_forward",
-                    outline_info);
+                    info);
             unpacked_function = new_function_symbol_unpacked(
                     current_function,
                     outline_name + "_unpack",
-                    outline_info,
+                    info,
                     symbol_map);
         }
         else
@@ -861,11 +861,11 @@ namespace TL { namespace Nanox {
             unpacked_function = new_function_symbol_unpacked(
                     current_function,
                     outline_name + "_unpacked",
-                    outline_info,
+                    info,
                     symbol_map);
         }
 
-        outline_info.set_unpacked_function_symbol(unpacked_function);
+        info._target_info.set_unpacked_function_symbol(unpacked_function);
 
         ObjectList<std::string> structure_name;
         structure_name.append("args");
@@ -1281,7 +1281,8 @@ namespace TL { namespace Nanox {
     void DeviceSMP::get_device_descriptor(DeviceDescriptorInfo& info,
             Source &ancillary_device_description,
             Source &device_descriptor,
-            Source &fortran_dynamic_init)
+            Source &fortran_dynamic_init,
+            TargetInformation& target_information)
     {
         std::string outline_name = smp_outline_name(info._outline_name);
         if (!IS_FORTRAN_LANGUAGE)

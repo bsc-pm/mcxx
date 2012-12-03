@@ -84,7 +84,7 @@ namespace TL { namespace Nanox {
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
 
         TL::Symbol called_task_dummy = TL::Symbol::invalid();
-        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(),outline_info.get_implementation_table()[function_symbol], statements, structure_symbol, called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();

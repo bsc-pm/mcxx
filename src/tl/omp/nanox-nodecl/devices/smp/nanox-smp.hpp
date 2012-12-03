@@ -59,7 +59,8 @@ namespace TL
                         DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,
                         Source &device_descriptor,
-                        Source &fortran_dynamic_init);
+                        Source &fortran_dynamic_init,
+                        TargetInformation& target_information);
 
             private:
 

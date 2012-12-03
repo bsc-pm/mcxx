@@ -566,25 +566,31 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment,called_sym);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
-
-    // Copy device information from parameters_outline_info to arguments_outline_info
-    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
-    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
-            it != _device_names.end();
-            it++)
+    
+    //Copy target info table from parameter_outline_info to arguments_outline_info
+    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
     {
-        arguments_outline_info.add_device_name(*it);
+        ObjectList<std::string> devices=it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end();
+                ++it2)
+        {
+                arguments_outline_info.add_implementation(*it2, it->first);
+                arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
+                arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
+        }
     }
 
-    // Copy ndrange information from parameters_outline_info to arguments_outline_info
-    arguments_outline_info.append_to_ndrange(parameters_outline_info.get_ndrange());
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -795,15 +801,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-
-    //Copy implementation table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        arguments_outline_info.add_implementation(it->first, it->second);
-    }
 
     emit_async_common(
             construct,
@@ -1069,7 +1066,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment,called_sym);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -1077,17 +1074,22 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-    // Copy device information from parameters_outline_info to arguments_outline_info
-    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
-    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
-            it != _device_names.end();
-            it++)
+     //Copy target info table from parameter_outline_info to arguments_outline_info
+    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
     {
-        arguments_outline_info.add_device_name(*it);
+        ObjectList<std::string> devices=it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end();
+                ++it2)
+        {
+                arguments_outline_info.add_implementation(*it2, it->first);
+                arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
+                arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
+        }
     }
-
-    // Copy ndrange information from parameters_outline_info to arguments_outline_info
-    arguments_outline_info.append_to_ndrange(parameters_outline_info.get_ndrange());
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -1316,14 +1318,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-    //Copy implementation table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        arguments_outline_info.add_implementation(it->first, it->second);
-    }
 
     emit_async_common(
             construct,
