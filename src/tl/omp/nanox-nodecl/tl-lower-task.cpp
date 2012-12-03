@@ -293,6 +293,10 @@ Source LoweringVisitor::fill_const_wd_info(
     int n_devices=implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
         Source ancillary_device_description, device_description, aux_fortran_init;
 
         if (devices_and_implementors_it!=devices_and_implementors.begin()) device_descriptions <<  ", ";
@@ -317,10 +321,6 @@ Source LoweringVisitor::fill_const_wd_info(
         
         devices_and_implementors_it++;
         n_devices--;
-        if (n_devices<1){
-                implementation_table_it++;
-                n_devices=implementation_table_it->second.get_device_names().size();
-        }
     }
 
     return result;
@@ -522,6 +522,10 @@ void LoweringVisitor::emit_async_common(
     int n_devices=implementation_table_it->second.get_device_names().size();    
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
         std::string device_name = devices_and_implementors_it->first;
         std::string implementor_outline_name = devices_and_implementors_it->second;
         TL::Symbol implementor_symbol = implementation_table_it->first;
@@ -568,10 +572,6 @@ void LoweringVisitor::emit_async_common(
 
         devices_and_implementors_it++;        
         n_devices--;
-        if (n_devices<1){
-                implementation_table_it++;
-                n_devices=implementation_table_it->second.get_device_names().size();
-        }
     }
 
 

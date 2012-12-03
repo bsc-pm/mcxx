@@ -1885,12 +1885,12 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 if (CompilationConfiguration::get_current_configuration() != "mic"){
                     filenameSrc << "mic";
                 }
-                if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
-                {
-                    filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename)  << "\");";
-                } else {
+                //if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+                // {
+                    //filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename)  << "\");";
+                //} else {
                     filenameSrc << "a.out"  << "\");";
-                }
+                //}
                 Source real_main;
                 real_main << "int _ompss_tmp_main(int argc, char* argv[]) {"
                         << filenameSrc
