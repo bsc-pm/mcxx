@@ -1589,6 +1589,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
         
