@@ -4621,22 +4621,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     || symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
-        if (symbol.is_member()
-                // FIXME -> || !is_local_symbol_but_local_class(symbol))
-            || (!symbol.get_scope().is_block_scope()
-                    && !symbol.get_scope().is_function_scope()))
-                    {
-                        // This is a member or nonlocal symbol
-                        define_nonnested_entities_in_trees(symbol.get_value());
-                    }
-        else
-        {
-            // This is a local symbol
-            define_local_entities_in_trees(symbol.get_value());
-        }
     }
-
-    move_to_namespace_of_symbol(symbol);
 
     // Initializer
     if (emit_initializer)
@@ -4786,22 +4771,61 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
     return variable_name;
 }
 
+void CxxBase::emit_declarations_of_initializer(TL::Symbol symbol)
+{
+    if (!symbol.get_value().is_null()
+            && (!symbol.is_member()
+                || ((symbol.is_static()
+                        && (!state.in_member_declaration
+                            || ((symbol.get_type().is_integral_type()
+                                    || symbol.get_type().is_enum())
+                                && symbol.get_type().is_const())))
+                    || symbol.is_defined_inside_class())))
+    {
+        if (symbol.is_member()
+                // FIXME -> || !is_local_symbol_but_local_class(symbol))
+            || (!symbol.get_scope().is_block_scope()
+                    && !symbol.get_scope().is_function_scope()))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(symbol.get_value());
+                    }
+        else
+        {
+            // This is a local symbol
+            define_local_entities_in_trees(symbol.get_value());
+        }
+    }
+}
+
 void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition)
 {
     codegen_status_t codegen_status =
         (is_definition) ? CODEGEN_STATUS_DEFINED : CODEGEN_STATUS_DECLARED;
 
-    define_or_declare_variable(symbols[0], is_definition);
-    for (unsigned int i = 1; i < symbols.size(); ++i)
+    for (TL::ObjectList<TL::Symbol>::iterator it = symbols.begin();
+            it != symbols.end();
+            it++)
     {
-        std::string variable_name =
-            define_or_declare_variable_get_name_variable(symbols[i]);
+        TL::Symbol &symbol (*it);
+        emit_declarations_of_initializer(symbol);
+    }
 
-        set_codegen_status(symbols[i], codegen_status);
+    define_or_declare_variable(symbols[0], is_definition);
+    // We ignore the first symbol as it has been already declared
+    for (TL::ObjectList<TL::Symbol>::iterator it = (symbols.begin() + 1);
+            it != symbols.end();
+            it++)
+    {
+        TL::Symbol &symbol (*it);
+        std::string variable_name =
+            define_or_declare_variable_get_name_variable(symbol);
+
+        set_codegen_status(symbol, codegen_status);
 
         file <<  ", " << variable_name;
 
-        define_or_declare_variable_emit_initializer(symbols[i], is_definition);
+        define_or_declare_variable_emit_initializer(symbol, is_definition);
     }
 }
 
@@ -4889,6 +4913,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         bit_field = ss.str();
     }
 
+    emit_declarations_of_initializer(symbol);
+
+    move_to_namespace_of_symbol(symbol);
+
     std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
 
     declarator = this->get_declaration(symbol.get_type(),
@@ -4913,6 +4941,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
     }
+
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
