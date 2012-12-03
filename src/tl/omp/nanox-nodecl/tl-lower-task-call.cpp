@@ -34,25 +34,14 @@
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
+#include "fortran03-scope.h"
 
 #include "tl-lower-task-common.hpp"
 
 namespace TL { namespace Nanox {
 
-static void give_up_task_call(const Nodecl::OpenMP::TaskCall& construct)
-{
-    Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
-    TL::Symbol called_sym = function_call.get_called().get_symbol();
-
-    std::cerr << construct.get_locus() << ": note: call to task function '"
-        << called_sym.get_qualified_name() << "' has been skipped due to errors" << std::endl;
-
-    construct.replace(construct.get_call());
-}
-
 typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
 typedef std::map<TL::Symbol, TL::Symbol> param_sym_to_arg_sym_t;
-
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,
@@ -705,406 +694,261 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 // ************************************************************************************
 // ************************************************************************************
 //
-// When a dependency expression type has an expression (e.g. in an array) this function
-// rewrites the expresion using the proper argument of the function task
+//
+// In Fortran, we use a very different approach to that of C/C++. Instead of keeping the arguments
+// values (which is not always possible due to Fortran limitations) we will create a new function
+// with the same parameters as the original task. This new function will have a simple body
+// with a task that calls the original function
 
-// When a dependency expression type has an expression (e.g. in an array) this function
-// rewrites the expresion using the proper argument of the function task
-static Nodecl::NodeclBase rewrite_expression_in_dependency_fortran(Nodecl::NodeclBase node, const sym_to_argument_expr_t& map)
+static void handle_save_expressions(decl_context_t function_context,
+        TL::Type t,
+
+        // Out
+        Nodecl::Utils::SimpleSymbolMap& symbol_map,
+        TL::ObjectList<TL::Symbol> &save_expressions)
 {
-    if (node.is_null())
-        return node;
-
-    TL::Symbol sym = node.get_symbol();
-    if (sym.is_valid())
+    if (t.is_any_reference())
     {
-        if (sym.is_saved_expression())
-        {
-            return rewrite_expression_in_dependency_fortran(sym.get_value(), map);
-        }
-
-        sym_to_argument_expr_t::const_iterator it = map.find(sym);
-        if (it != map.end())
-        {
-            Nodecl::NodeclBase arg = it->second.shallow_copy();
-            return Nodecl::ParenthesizedExpression::make(
-                    arg,
-                    arg.get_type(),
-                    arg.get_filename(),
-                    arg.get_line());
-        }
-    }
-
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
-            it++)
-    {
-        *it = rewrite_expression_in_dependency_fortran(*it, map);
-    }
-
-    node.rechild(children);
-
-    return node;
-}
-
-static Nodecl::NodeclBase array_section_to_array_element(Nodecl::NodeclBase expr)
-{
-    Nodecl::NodeclBase base_expr = expr;
-
-    Nodecl::NodeclBase result;
-    if (base_expr.is<Nodecl::Symbol>())
-    {
-        TL::Symbol sym = base_expr.get_symbol();
-
-        TL::Type t = sym.get_type();
-        if (t.is_any_reference())
-            t = t.references_to();
-
-        if (!::fortran_is_array_type(t.get_internal_type()))
-            return expr;
-
-        int ndims = ::fortran_get_rank_of_type(t.get_internal_type());
-
-        Source src;
-
-        src << base_expr.prettyprint() << "(";
-
-        for (int i = 1; i <= ndims; i++)
-        {
-            if (i > 1)
-                src << ", ";
-
-            src << "LBOUND(" << as_expression(base_expr.shallow_copy()) << ", DIM = " << i << ")";
-        }
-
-        src << ")";
-
-        return src.parse_expression(base_expr.retrieve_context());
-    }
-    else if (base_expr.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscript = base_expr.as<Nodecl::ArraySubscript>();
-
-        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
-
-        Nodecl::NodeclBase result = arr_subscript.get_subscripted().shallow_copy();
-        TL::ObjectList<Nodecl::NodeclBase> fixed_subscripts;
-
-        int num_dimensions = subscripts.size();
-        for (Nodecl::List::iterator it = subscripts.begin();
-                it != subscripts.end();
-                it++, num_dimensions--)
-        {
-            Source src;
-            src << "LBOUND(" << as_expression(result.shallow_copy()) << ", DIM = " << num_dimensions << ")";
-
-            fixed_subscripts.append(src.parse_expression(base_expr.retrieve_context()));
-        }
-
-        return Nodecl::ArraySubscript::make(result,
-                Nodecl::List::make(fixed_subscripts),
-                ::get_lvalue_reference_type(::fortran_get_rank0_type(base_expr.get_type().get_internal_type())),
-                base_expr.get_filename(),
-                base_expr.get_line());
-    }
-    else
-    {
-        return expr;
-    }
-}
-
-
-
-// Update the types of a dependency expression
-static TL::Type rewrite_dependency_type_fortran(TL::Type t, const sym_to_argument_expr_t& map)
-{
-    if (!t.is_valid())
-        return t;
-
-    if (t.is_lvalue_reference())
-    {
-        return rewrite_dependency_type_fortran(t.references_to(), map).get_lvalue_reference_to();
-    }
-    else if (t.is_pointer())
-    {
-        return (rewrite_dependency_type_fortran(t.points_to(), map)).get_pointer_to();
+        handle_save_expressions(function_context, t.references_to(), symbol_map, save_expressions);
     }
     else if (t.is_array())
     {
-        TL::Type element_type = rewrite_dependency_type_fortran(t.array_element(), map);
+        Nodecl::NodeclBase lower, upper;
+        t.array_get_bounds(lower, upper);
 
-        Nodecl::NodeclBase lower_bound, upper_bound;
-        t.array_get_bounds(lower_bound, upper_bound);
-
-        lower_bound = rewrite_expression_in_dependency_fortran(lower_bound.shallow_copy(), map);
-        upper_bound = rewrite_expression_in_dependency_fortran(upper_bound.shallow_copy(), map);
-
-        if (!t.array_is_region())
+        struct params
         {
-            return element_type.get_array_to(lower_bound, upper_bound,
-                    CURRENT_COMPILED_FILE->global_decl_context);
-        }
-        else
+            Nodecl::NodeclBase& tree;
+            params(Nodecl::NodeclBase& t) : tree(t) { }
+        } args[2] = { lower, upper };
+
+        for (int i = 0; i < 2; i++)
         {
-            Nodecl::NodeclBase region_lower_bound, region_upper_bound;
-            t.array_get_region_bounds(region_lower_bound, region_upper_bound);
+            Nodecl::NodeclBase& tree(args[i].tree);
 
-            region_lower_bound = rewrite_expression_in_dependency_fortran(region_lower_bound.shallow_copy(), map);
-            region_upper_bound = rewrite_expression_in_dependency_fortran(region_upper_bound.shallow_copy(), map);
+            if (!tree.is_null()
+                    && tree.is<Nodecl::Symbol>()
+                    && tree.get_symbol().is_saved_expression())
+            {
+                scope_entry_t* orig_save_expression = tree.get_symbol().get_internal_symbol();
 
-            return element_type.get_array_to_with_region(
-                    lower_bound, upper_bound,
-                    region_lower_bound, region_upper_bound,
-                    CURRENT_COMPILED_FILE->global_decl_context);
+                scope_entry_t* new_save_expression
+                    = new_symbol(function_context,
+                            function_context.current_scope,
+                            orig_save_expression->symbol_name);
+                new_save_expression->kind = SK_VARIABLE;
+                new_save_expression->type_information = orig_save_expression->type_information;
+
+                new_save_expression->entity_specs.is_saved_expression = 1;
+
+                new_save_expression->value = nodecl_deep_copy(orig_save_expression->value,
+                        function_context,
+                        symbol_map.get_symbol_map());
+
+                symbol_map.add_map(orig_save_expression, new_save_expression);
+
+                save_expressions.append(new_save_expression);
+            }
         }
-    }
-    else
-    {
-        // Best effort
-        return t;
+
+        handle_save_expressions(function_context, t.array_element(), symbol_map, save_expressions);
     }
 }
 
-// This function only updates the types of a dependency expression. Everything else is left as is
-static Nodecl::NodeclBase rewrite_single_dependency_fortran(Nodecl::NodeclBase node, const sym_to_argument_expr_t& map)
+
+static TL::Symbol new_function_symbol_adapter(
+        TL::Symbol current_function,
+        TL::Symbol called_function,
+        const std::string& function_name,
+
+        // out
+        Nodecl::Utils::SimpleSymbolMap &symbol_map,
+        TL::ObjectList<TL::Symbol> &save_expressions)
 {
-    if (node.is_null())
-        return node;
+    Scope sc = current_function.get_scope();
 
-    node.set_type(rewrite_dependency_type_fortran(node.get_type(), map));
+    decl_context_t decl_context = sc.get_decl_context();
+    decl_context_t function_context;
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
+    function_context = new_program_unit_context(decl_context);
+
+    TL::ObjectList<TL::Symbol> parameters_of_new_function;
+
+    TL::ObjectList<TL::Symbol> parameters_of_called_function = called_function.get_related_symbols();
+
+    // Create symbols
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_called_function.begin();
+            it != parameters_of_called_function.end();
             it++)
     {
-        *it = rewrite_single_dependency_fortran(*it, map);
+        scope_entry_t* new_parameter_symbol
+            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+        new_parameter_symbol->kind = SK_VARIABLE;
+        new_parameter_symbol->type_information = it->get_type().get_internal_type();
+
+        parameters_of_new_function.append(new_parameter_symbol);
+        symbol_map.add_map(*it, new_parameter_symbol);
     }
 
-    node.rechild(children);
-
-    // Update indexes where is due
-    if (node.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscr = node.as<Nodecl::ArraySubscript>();
-        arr_subscr.set_subscripts(
-                rewrite_expression_in_dependency_fortran(arr_subscr.get_subscripts(), map));
-    }
-    else if (node.is<Nodecl::Shaping>())
-    {
-        Nodecl::Shaping shaping = node.as<Nodecl::Shaping>();
-        shaping.set_shape(
-                rewrite_expression_in_dependency_fortran(shaping.get_shape(), map));
-    }
-
-    return node;
-}
-
-// Rewrite every dependence in terms of the arguments of the function task call
-static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_fortran(
-        const TL::ObjectList<OutlineDataItem::DependencyItem>& deps,
-        const sym_to_argument_expr_t& param_to_arg_expr)
-{
-    TL::ObjectList<OutlineDataItem::DependencyItem> result;
-    for (TL::ObjectList<OutlineDataItem::DependencyItem>::const_iterator it = deps.begin();
-            it != deps.end();
+    // Update types of types
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_new_function.begin();
+            it != parameters_of_new_function.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->expression.shallow_copy();
-        result.append( OutlineDataItem::DependencyItem(
-                    rewrite_single_dependency_fortran(copy, param_to_arg_expr),
-                    it->directionality) );
+        // This will register the extra symbols required by VLAs
+        handle_save_expressions(function_context, it->get_type(), symbol_map, save_expressions);
+
+        it->get_internal_symbol()->type_information =
+            type_deep_copy(it->get_internal_symbol()->type_information,
+                    function_context,
+
+                    symbol_map.get_symbol_map());
     }
 
-    return result;
+    // Now everything is set to register the function
+    scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+    new_function_sym->entity_specs.is_user_declared = 1;
+
+    new_function_sym->kind = SK_FUNCTION;
+    new_function_sym->file = "";
+    new_function_sym->line = 0;
+
+    function_context.function_scope->related_entry = new_function_sym;
+    function_context.block_scope->related_entry = new_function_sym;
+
+    new_function_sym->related_decl_context = function_context;
+
+    parameter_info_t* p_types = new parameter_info_t[parameters_of_new_function.size() + 1];
+
+    parameter_info_t* it_ptypes = &(p_types[0]);
+    for (ObjectList<TL::Symbol>::iterator it = parameters_of_new_function.begin();
+            it != parameters_of_new_function.end();
+            it++, it_ptypes++)
+    {
+        scope_entry_t* param = it->get_internal_symbol();
+
+        symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+
+        P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
+                new_function_sym->entity_specs.num_related_symbols,
+                param);
+
+        it_ptypes->is_ellipsis = 0;
+        it_ptypes->nonadjusted_type_info = NULL;
+        it_ptypes->type_info = get_user_defined_type(param);
+    }
+
+    type_t *function_type = get_new_function_type(
+            get_void_type(),
+            p_types,
+            parameters_of_new_function.size());
+
+    new_function_sym->type_information = function_type;
+
+    // Add the called symbol in the scope of the function
+    insert_entry(function_context.current_scope, called_function.get_internal_symbol());
+
+    // Propagate USE information
+    new_function_sym->entity_specs.used_modules = current_function.get_internal_symbol()->entity_specs.used_modules;
+
+    // If the current function is a module, make this new function a sibling of it
+    if (current_function.is_in_module()
+            && current_function.is_module_procedure())
+    {
+        new_function_sym->entity_specs.in_module = current_function.in_module().get_internal_symbol();
+        new_function_sym->entity_specs.access = AS_PRIVATE;
+        new_function_sym->entity_specs.is_module_procedure = 1;
+
+        P_LIST_ADD(new_function_sym->entity_specs.in_module->entity_specs.related_symbols,
+                new_function_sym->entity_specs.in_module->entity_specs.num_related_symbols,
+                new_function_sym);
+    }
+
+    delete[] p_types;
+
+    return new_function_sym;
 }
 
-static Nodecl::NodeclBase rewrite_expression_in_copy_fortran(Nodecl::NodeclBase node, const sym_to_argument_expr_t& map)
+static Nodecl::NodeclBase fill_adapter_function(
+        TL::Symbol adapter_function,
+        TL::Symbol called_function,
+        Nodecl::Utils::SymbolMap &symbol_map,
+        Nodecl::NodeclBase original_environment,
+        TL::ObjectList<TL::Symbol> &save_expressions,
+
+        // out
+        Nodecl::NodeclBase& task_construct,
+        Nodecl::NodeclBase& statements_of_task_seq,
+        Nodecl::NodeclBase& new_environment
+        )
 {
-    if (node.is_null())
-        return node;
+    TL::ObjectList<Nodecl::NodeclBase> statements_of_function;
 
-    TL::Symbol sym = node.get_symbol();
-    if (sym.is_valid())
-    {
-        if (sym.is_saved_expression())
-        {
-            return rewrite_expression_in_dependency_fortran(sym.get_value(), map);
-        }
-
-        sym_to_argument_expr_t::const_iterator it = map.find(sym);
-        if (it != map.end())
-        {
-            Nodecl::NodeclBase arg = it->second.shallow_copy();
-            return Nodecl::ParenthesizedExpression::make(
-                    arg,
-                    arg.get_type(),
-                    arg.get_filename(),
-                    arg.get_line());
-        }
-    }
-
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
+    TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
+    // Create one object init per save expression
+    for (TL::ObjectList<TL::Symbol>::iterator it = save_expressions.begin();
+            it != save_expressions.end();
             it++)
     {
-        *it = rewrite_expression_in_dependency_fortran(*it, map);
+        statements_of_function.append(
+                Nodecl::ObjectInit::make(*it));
     }
 
-    node.rechild(children);
+    // Create a reference to the function
+    Nodecl::NodeclBase function_ref = Nodecl::Symbol::make(called_function);
+    function_ref.set_type(called_function.get_type().get_lvalue_reference_to());
 
-    // Update the types too
-    node.set_type(rewrite_dependency_type_fortran(node.get_type(), map));
-
-    return node;
-}
-
-
-static TL::ObjectList<OutlineDataItem::CopyItem> rewrite_copies_fortran(
-        const TL::ObjectList<OutlineDataItem::CopyItem>& deps,
-        const sym_to_argument_expr_t& param_to_arg_expr)
-{
-    TL::ObjectList<OutlineDataItem::CopyItem> result;
-    for (TL::ObjectList<OutlineDataItem::CopyItem>::const_iterator it = deps.begin();
-            it != deps.end();
+    // Create the arguments of the call
+    TL::ObjectList<Nodecl::NodeclBase> argument_list;
+    TL::ObjectList<TL::Symbol> parameters_of_adapter_function = adapter_function.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_adapter_function.begin();
+            it != parameters_of_adapter_function.end();
             it++)
     {
-        Nodecl::NodeclBase copy = it->expression.shallow_copy();
-        Nodecl::NodeclBase rewritten = rewrite_expression_in_copy_fortran(copy, param_to_arg_expr);
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(*it);
+        TL::Type t = it->get_type();
+        if (!t.is_lvalue_reference())
+            t = t.get_lvalue_reference_to();
 
-        result.append( OutlineDataItem::CopyItem(
-                    rewritten,
-                    it->directionality) );
+        argument_list.append(sym_ref);
     }
 
-    return result;
-}
+    Nodecl::NodeclBase argument_seq = Nodecl::List::make(argument_list);
 
-static void copy_outline_data_item_fortran(
-        OutlineDataItem& dest_info,
-        const OutlineDataItem& source_info,
-        const sym_to_argument_expr_t& param_to_arg_expr)
-{
-    // We want the same field name
-    dest_info.set_field_name(source_info.get_field_name());
+    // Create the call
+    Nodecl::NodeclBase call_to_adapter =
+        Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(function_ref,
+                    argument_seq,
+                    /* alternate name */ Nodecl::NodeclBase::null(),
+                    /* function form */ Nodecl::NodeclBase::null(),
+                TL::Type::get_void_type()));
 
-    // Copy dependence directionality
-    dest_info.get_dependences() = rewrite_dependences_fortran(source_info.get_dependences(), param_to_arg_expr);
+    statements_of_task_list.append(call_to_adapter);
 
-    // Copy copy directionality
-    dest_info.get_copies() = rewrite_copies_fortran(source_info.get_copies(), param_to_arg_expr);
-    if (!dest_info.get_copies().empty())
-    {
-        DataReference data_ref(dest_info.get_copies()[0].expression);
-        if (data_ref.is_valid())
-        {
-            dest_info.set_base_symbol_of_argument(data_ref.get_base_symbol());
-        }
-    }
-}
+    statements_of_task_seq = Nodecl::List::make(statements_of_task_list);
 
-typedef std::map<TL::Symbol, TL::Symbol> extra_map_replacements_t;
+    // Update the environment of pragma omp task
+    new_environment = Nodecl::Utils::deep_copy(original_environment,
+            TL::Scope(CURRENT_COMPILED_FILE->global_decl_context),
+            symbol_map);
 
-static Nodecl::NodeclBase replace_arguments_with_extra(Nodecl::NodeclBase n, extra_map_replacements_t& extra_map)
-{
-    TL::Symbol sym;
-    extra_map_replacements_t::iterator it;
-    if (n.is_null())
-    {
-        return n;
-    }
-    else if ((sym = n.get_symbol()).is_valid()
-            && (it = extra_map.find(sym)) != extra_map.end())
-    {
-        Nodecl::NodeclBase result = Nodecl::Symbol::make(
-                it->second,
-                n.get_filename(),
-                n.get_line());
+    // Create the #pragma omp task
+    task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-        result.set_type(n.get_type());
+    statements_of_function.append(task_construct);
 
-        return result;
-    }
-    else
-    {
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            *it = replace_arguments_with_extra(*it, extra_map);
-        }
+    Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
-        n.rechild(children);
+    Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
-        return n;
-    }
-}
+    Nodecl::NodeclBase function_code =
+        Nodecl::FunctionCode::make(context,
+                /* initializers */ Nodecl::NodeclBase::null(),
+                /* internal_functions */ Nodecl::NodeclBase::null(),
+                adapter_function);
 
-
-static void add_extra_dimensions_for_arguments(const Nodecl::NodeclBase data_ref, 
-        OutlineInfoRegisterEntities& outline_register_entities,
-        extra_map_replacements_t& extra_map_replacements,
-        Scope sc,
-        bool do_capture = false)
-{
-    if (data_ref.is_null())
-        return;
-
-    if (data_ref.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscript = data_ref.as<Nodecl::ArraySubscript>();
-        Nodecl::List subscripts = arr_subscript.get_subscripts().as<Nodecl::List>();
-
-        for (Nodecl::List::iterator it = subscripts.begin();
-                it != subscripts.end();
-                it++)
-        {
-            add_extra_dimensions_for_arguments(*it, outline_register_entities, extra_map_replacements, sc, /* do_capture = */ true);
-        }
-
-        add_extra_dimensions_for_arguments(arr_subscript.get_subscripted(), outline_register_entities, 
-                extra_map_replacements, sc, do_capture);
-    }
-    else if (data_ref.is<Nodecl::Symbol>()
-            && do_capture)
-    {
-        TL::Symbol current_sym = data_ref.get_symbol();
-
-        if (extra_map_replacements.find(current_sym) == extra_map_replacements.end())
-        {
-            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-            std::stringstream ss;
-            ss << "mcc_arg_" << (int)arg_counter;
-            TL::Symbol new_symbol = sc.new_symbol(ss.str());
-            arg_counter++;
-
-            new_symbol.get_internal_symbol()->kind = current_sym.get_internal_symbol()->kind;
-            new_symbol.get_internal_symbol()->type_information = current_sym.get_internal_symbol()->type_information;
-
-            extra_map_replacements[current_sym] = new_symbol;
-
-            outline_register_entities.add_capture_with_value(new_symbol, data_ref);
-        }
-    }
-    else
-    {
-        TL::ObjectList<Nodecl::NodeclBase> children = data_ref.children();
-
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            add_extra_dimensions_for_arguments(*it,
-                    outline_register_entities,
-                    extra_map_replacements,
-                    sc,
-                    do_capture);
-        }
-    }
+    return function_code;
 }
 
 void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct)
@@ -1112,275 +956,87 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
 
-    TL::Symbol called_sym = function_call.get_called().get_symbol();
+    TL::Symbol called_task_function = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    TL::Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
+    if (current_function.is_nested_function())
+    {
+        error_printf("%s: error: call to task function '%s' from an internal subprogram is not supported\n",
+                construct.get_locus().c_str(),
+                called_task_function.get_qualified_name().c_str());
+        return;
+    }
+
+    std::cerr << construct.get_locus()
+        << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
     OutlineInfo parameters_outline_info(parameters_environment);
 
-    TaskEnvironmentVisitor task_environment;
-    task_environment.walk(parameters_environment);
-
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-    // Copy device information from parameters_outline_info to arguments_outline_info
-    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
-    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
-            it != _device_names.end();
-            it++)
-    {
-        arguments_outline_info.add_device_name(*it);
-    }
+    Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
+    std::stringstream ss;
+    ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
+    adapter_counter++;
 
-    // Copy ndrange information from parameters_outline_info to arguments_outline_info
-    arguments_outline_info.append_to_ndrange(parameters_outline_info.get_ndrange());
+    TL::ObjectList<Symbol> save_expressions;
 
-    // This map associates every parameter symbol with its argument expression
-    sym_to_argument_expr_t param_to_arg_expr;
-    param_sym_to_arg_sym_t param_sym_to_arg_sym;
-    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
-    fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
+    Nodecl::Utils::SimpleSymbolMap symbol_map;
+    TL::Symbol adapter_function = new_function_symbol_adapter(
+            current_function,
+            called_task_function,
+            ss.str(),
 
-    Scope sc = construct.retrieve_context();
-    TL::ObjectList<TL::Symbol> new_arguments;
+            // out
+            symbol_map,
+            save_expressions);
 
-    // If the current function is a non-static function and It is member of a
-    // class, the first argument of the arguments list represents the object of
-    // this class
-    if (IS_CXX_LANGUAGE
-            && !called_sym.is_static()
-            && called_sym.is_member())
-    {
-        Nodecl::NodeclBase class_object = *(arguments.begin());
-        TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
-        ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+    Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
+    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
+            called_task_function,
+            symbol_map,
+            parameters_environment,
+            save_expressions,
 
-        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-        std::stringstream ss;
-        ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
-        arg_counter++;
+            // Out
+            new_task_construct,
+            new_statements,
+            new_environment);
 
-        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-        new_arguments.append(new_symbol);
+    OutlineInfo new_outline_info(new_environment);
 
-        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
-        // This is a special kind of shared
-        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(new_environment);
 
-        argument_outline_data_item.set_base_address_expression(
-                Nodecl::Reference::make(
-                    class_object,
-                    new_symbol.get_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()));
-    }
-
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
-
-    extra_map_replacements_t extra_map_replacements;
-
-    TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
-    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
-            it != param_to_arg_expr.end();
-            it++)
-    {
-        // We search by parameter position here
-        ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
-                it->first.get_parameter_position_in(called_sym));
-
-        if (found.empty())
-        {
-            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
-                    arguments.get_locus().c_str(),
-                    it->first.get_name().c_str());
-        }
-
-        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-        // Create a new variable holding the address of the dependency
-        std::stringstream ss;
-        ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
-        arg_counter++;
-
-        // FIXME - Wrap this sort of things
-        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_symbol.get_internal_symbol()->type_information = no_ref(it->first.get_type().get_internal_type());
-
-        new_arguments.append(new_symbol);
-
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
-
-        if (parameter_outline_data_item.get_dependences().empty())
-        {
-            outline_register_entities.add_capture_with_value(new_symbol, it->second);
-            param_sym_to_arg_sym[it->first] = new_symbol;
-        }
-        else
-        {
-            // Create a new variable holding the base symbol of the data-reference of the argument
-            DataReference data_ref(it->second);
-            if (!data_ref.is_valid())
-            {
-                error_printf("%s: error: actual argument '%s' must be a data-reference "
-                        "because it is associated to dependence dummy argument '%s'\n",
-                        construct.get_locus().c_str(),
-                        it->second.prettyprint().c_str(),
-                        it->first.get_name().c_str());
-                give_up_task_call(construct);
-                return;
-            }
-
-            new_symbol.get_internal_symbol()->type_information
-                = data_ref.get_base_symbol().get_type().get_internal_type();
-
-            OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
-            // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
-            argument_outline_data_item.set_field_type(TL::Type::get_void_type().get_pointer_to());
-
-            argument_outline_data_item.set_base_address_expression(
-                    // The argument may not be suitable for a base address
-                    array_section_to_array_element(it->second));
-
-            param_sym_to_arg_sym[data_ref.get_base_symbol()] = new_symbol;
-            extra_map_replacements[data_ref.get_base_symbol()] = new_symbol;
-
-            TL::Type in_outline_type = outline_register_entities.add_extra_dimensions(
-                    data_ref.get_base_symbol(),
-                    data_ref.get_base_symbol().get_type());
-
-            add_extra_dimensions_for_arguments(it->second, outline_register_entities,
-                    extra_map_replacements, construct.retrieve_context());
-
-            if (!in_outline_type.is_any_reference())
-                in_outline_type = in_outline_type.get_lvalue_reference_to();
-
-            argument_outline_data_item.set_in_outline_type(in_outline_type);
-
-            // Copy what must be copied from the parameter info
-            copy_outline_data_item_fortran(argument_outline_data_item, parameter_outline_data_item, param_to_arg_expr);
-
-        }
-    }
-
-    // Now fix again arguments of the outline
-    data_items = arguments_outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        TL::Symbol sym = (*it)->get_symbol();
-        if (!sym.is_valid())
-            continue;
-
-        TL::Type updated_type = rewrite_type_in_outline((*it)->get_in_outline_type(),
-                param_sym_to_arg_sym);
-        (*it)->set_in_outline_type(updated_type);
-
-        sym.get_internal_symbol()->type_information = updated_type.get_internal_type();
-    }
-
-    TL::Symbol alternate_name;
-    if (!function_call.get_alternate_name().is_null())
-    {
-        alternate_name = function_call.get_alternate_name().get_symbol();
-    }
-
-    // Craft a new function call with the new mcc_arg_X symbols
-    TL::ObjectList<TL::Symbol>::iterator args_it = new_arguments.begin();
-    TL::ObjectList<Nodecl::NodeclBase> arg_list;
-
-    for (sym_to_argument_expr_t::iterator params_it = param_to_arg_expr.begin();
-            params_it != param_to_arg_expr.end();
-            params_it++, args_it++)
-    {
-        Nodecl::NodeclBase nodecl_arg;
-
-        nodecl_arg = replace_arguments_with_extra(
-                params_it->second.shallow_copy(),
-                extra_map_replacements);
-
-        // We must respect symbols in Fortran because of optional stuff
-        Nodecl::Symbol nodecl_param = Nodecl::Symbol::make(
-                params_it->first,
-                function_call.get_filename(),
-                function_call.get_line());
-
-        nodecl_arg = Nodecl::FortranNamedPairSpec::make(
-                nodecl_param,
-                nodecl_arg,
-                function_call.get_filename(),
-                function_call.get_line());
-
-        arg_list.append(nodecl_arg);
-    }
-
-    Nodecl::List nodecl_arg_list = Nodecl::List::make(arg_list);
-
-    Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
-    Nodecl::NodeclBase function_form = nodecl_null();
-    Symbol called_symbol = called.get_symbol();
-    if (!called_symbol.is_valid()
-            && called_symbol.get_type().is_template_specialized_type())
-    {
-        function_form =
-            Nodecl::CxxFunctionFormTemplateId::make(
-                    function_call.get_filename(),
-                    function_call.get_line());
-
-        TemplateParameters template_args =
-            called.get_template_parameters();
-        function_form.set_template_parameters(template_args);
-    }
-
-    Nodecl::NodeclBase expr_statement =
-        Nodecl::ExpressionStatement::make(
-                Nodecl::FunctionCall::make(
-                    called,
-                    nodecl_arg_list,
-                    function_call.get_alternate_name().shallow_copy(),
-                    function_form,
-                    Type::get_void_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()),
-                function_call.get_filename(),
-                function_call.get_line());
-
-    TL::ObjectList<Nodecl::NodeclBase> list_stmt;
-    list_stmt.append(expr_statement);
-
-    Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
-
-    construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
-
-    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-
-    //Copy implementation table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        arguments_outline_info.add_implementation(it->first, it->second);
-    }
+    // Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
-            construct,
-            function_symbol,
-            called_symbol,
-            statements,
+            new_task_construct,
+            adapter_function,
+            called_task_function, // Which one we want now?
+            new_statements,
             task_environment.priority,
             task_environment.is_untied,
-            arguments_outline_info,
-            &parameters_outline_info);
+            new_outline_info,
+            NULL);
+
+    // Now call the adapter function instead of the original
+    Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
+    adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
+
+    // Add a map from the original called task to the adapter function
+    symbol_map.add_map(called_task_function, adapter_function);
+
+    // And replace everything with a call to the adapter function
+    construct.replace(
+            Nodecl::Utils::deep_copy(function_call, construct, symbol_map)
+            );
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)

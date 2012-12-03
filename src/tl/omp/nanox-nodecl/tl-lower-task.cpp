@@ -373,7 +373,7 @@ void LoweringVisitor::allocate_immediate_structure(
 
 void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase construct,
-        TL::Symbol function_symbol,
+        TL::Symbol current_function,
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
@@ -409,7 +409,7 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
-    std::string outline_name = get_outline_name(function_symbol);
+    std::string outline_name = get_outline_name(current_function);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
@@ -981,16 +981,31 @@ void LoweringVisitor::fill_arguments(
                         }
                         else
                         {
-                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
-                                    ctr.retrieve_context());
+                            Source lbound_specifier;
+                            if (t.is_array())
+                            {
+                                lbound_specifier << "(";
+
+                                int i, N = t.get_num_dimensions();
+                                for (i = 1; i <= N; i++)
+                                {
+                                    if (i > 1)
+                                    {
+                                        lbound_specifier << ", ";
+                                    }
+                                    lbound_specifier << "LBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << i << ")";
+                                }
+
+                                lbound_specifier << ")";
+                            }
 
                             fill_outline_arguments <<
                                 "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << ") \n"
+                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
                             fill_immediate_arguments <<
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << ") \n"
+                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
                         }
 
