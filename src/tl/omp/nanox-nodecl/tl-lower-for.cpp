@@ -294,7 +294,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase environment = construct.get_environment();
 
-        OutlineInfo outline_info(environment);
+        OutlineInfo outline_info(environment,Nodecl::Utils::get_enclosing_function(construct));
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
         Source outline_distribute_loop_source = get_loop_distribution_source(construct,
