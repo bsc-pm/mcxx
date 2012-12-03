@@ -310,8 +310,10 @@ namespace Codegen
 
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
+            std::string define_or_declare_variable_get_name_variable(TL::Symbol& symbol);
+            void define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition);
 
-
+            void define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
