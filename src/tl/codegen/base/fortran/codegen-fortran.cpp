@@ -2439,6 +2439,15 @@ OPERATOR_TABLE
             walk(nest);
             file << ")";
         }
+        else if (dest_type.is_pointer()
+                && source_type.is_function())
+        {
+            // We need a LOC here
+            file << "LOC(";
+            nest = advance_parenthesized_expression(nest);
+            walk(nest);
+            file << ")";
+        }
         else
         {
             // Best effort: Not a known conversion, ignore it
