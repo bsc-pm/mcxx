@@ -845,10 +845,12 @@ static TL::Symbol new_function_symbol_adapter(
     new_function_sym->entity_specs.used_modules = current_function.get_internal_symbol()->entity_specs.used_modules;
 
     // If the current function is a module, make this new function a sibling of it
-    if (current_function.is_in_module())
+    if (current_function.is_in_module()
+            && current_function.is_module_procedure())
     {
         new_function_sym->entity_specs.in_module = current_function.in_module().get_internal_symbol();
         new_function_sym->entity_specs.access = AS_PRIVATE;
+        new_function_sym->entity_specs.is_module_procedure = 1;
 
         P_LIST_ADD(new_function_sym->entity_specs.in_module->entity_specs.related_symbols,
                 new_function_sym->entity_specs.in_module->entity_specs.num_related_symbols,
