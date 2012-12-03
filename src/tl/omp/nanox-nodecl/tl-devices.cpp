@@ -173,7 +173,6 @@ namespace TL { namespace Nanox {
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
                 << "nanos_err_t err;"
-                <<
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
                 <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
