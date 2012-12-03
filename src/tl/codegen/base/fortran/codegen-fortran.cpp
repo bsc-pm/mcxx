@@ -2439,8 +2439,13 @@ OPERATOR_TABLE
             walk(nest);
             file << ")";
         }
-        else if (dest_type.is_pointer()
-                && source_type.is_function())
+        else if (
+                //  T() -> T (*)() (function to pointer)
+                (dest_type.is_pointer()
+                 && source_type.is_function())
+                //  T() -> int (function to integral...)
+                ||(source_type.is_function()
+                    && dest_type.is_integral_type()))
         {
             // We need a LOC here
             file << "LOC(";
