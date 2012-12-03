@@ -58,6 +58,11 @@ static std::string cuda_outline_name(const std::string & name)
     return "gpu_" + name;
 }
 
+bool DeviceCUDA::is_gpu_device() const
+{
+    return true;
+}
+
 //
 //std::string DeviceCUDA::get_outline_name_for_instrumentation(const std::string & name,
 //        bool is_template_specialized UNUSED_PARAMETER, const FunctionDefinition& enclosing_function UNUSED_PARAMETER) const
@@ -1593,8 +1598,15 @@ void DeviceCUDA::generate_ndrange_kernel_call(
                 TL::Type::get_void_type(),
                 original_statements.get_filename(),
                 original_statements.get_line());
+
+    Nodecl::NodeclBase expression_stmt =
+        Nodecl::ExpressionStatement::make(
+                kernell_call,
+                original_statements.get_filename(),
+                original_statements.get_line());
+
     // In this case, we should change the output statements!
-    output_statements = kernell_call;
+    output_statements = expression_stmt;
 }
 
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
@@ -1818,6 +1830,18 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         <<      instrument_after
         << "}"
         ;
+
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                outline_function,
+                outline_function_body,
+                original_statements.get_filename(),
+                original_statements.get_line(),
+                instrument_before,
+                instrument_after);
+    }
 
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
@@ -2513,24 +2537,14 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
 
+        TL::CompilationProcess::add_file(new_filename, "cuda");
+
         //Remove the intermediate source file
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
 
-        C_LANGUAGE()
-        {
-            phase->set_emit_always_extern_linkage(/* emit externs */ true);
-        }
-        phase->set_print_cuda_attributes(/* print attributes */ true);
-
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
-
-        C_LANGUAGE()
-        {
-            phase->set_emit_always_extern_linkage(/* emit externs */ false);
-        }
-        phase->set_print_cuda_attributes(/* print attributes */ false);
 
         fclose(ancillary_file);
 

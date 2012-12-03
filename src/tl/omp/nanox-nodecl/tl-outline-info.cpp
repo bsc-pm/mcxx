@@ -546,8 +546,8 @@ namespace TL { namespace Nanox {
         {
             t = t.references_to();
         }
-
-        outline_info.set_field_type(t);
+        
+        outline_info.set_field_type(t.get_unqualified_type());
 
         if (is_new)
         {

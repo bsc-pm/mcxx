@@ -1236,36 +1236,33 @@ void LoweringVisitor::fill_copies_nonregion(
         if (copies.empty())
             continue;
 
-        if (copies.size() > 1)
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++)
         {
-            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
-                    "Only the first one will be registered\n",
-                    ctr.get_locus().c_str(),
-                    (*it)->get_symbol().get_name().c_str());
+            TL::DataReference data_ref((*copy_it).expression);
+            OutlineDataItem::CopyDirectionality dir = (*copy_it).directionality;
+
+
+            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+            int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+
+            copy_ol_setup
+                << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+            copy_imm_setup
+                << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+                << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+                << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+                ;
+            current_copy_num++;
         }
-
-        TL::DataReference data_ref(copies[0].expression);
-        OutlineDataItem::CopyDirectionality dir = copies[0].directionality;
-
-
-        int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-        int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-
-        copy_ol_setup
-            << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-            << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-            << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-            << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-            << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-            ;
-        copy_imm_setup
-            << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-            << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-            << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-            << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-            << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-            ;
-        current_copy_num++;
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -1663,7 +1660,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++, copy_num++)
+            it++)
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
@@ -1673,10 +1670,11 @@ void LoweringVisitor::emit_translation_function_nonregion(
         ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
         if (copies.size() > 1)
         {
-            warn_printf("%s: warning: more than one copy specified for '%s' but the runtime does not support it. "
-                    "Only the first one will be translated\n",
+            info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
+                    "Only the first copy (%s) will be translated\n",
                     ctr.get_locus().c_str(),
-                    (*it)->get_symbol().get_name().c_str());
+                    (*it)->get_symbol().get_name().c_str(),
+                    copies[0].expression.prettyprint().c_str());
         }
 
         TL::DataReference data_ref(copies[0].expression);
@@ -1691,8 +1689,6 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             base_address = data_ref.get_base_address();
         }
-
-        std::cerr << "COPY EXPRESSION -> " << copies[0].expression.prettyprint() << std::endl;
 
         translations
             << "{"
@@ -1712,6 +1708,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
+        copy_num++;
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -1791,7 +1788,7 @@ void LoweringVisitor::emit_translation_function_region(
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++, copy_num++)
+            it++)
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
 
@@ -1809,6 +1806,8 @@ void LoweringVisitor::emit_translation_function_region(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
+
+        copy_num++;
     }
 
     if (IS_FORTRAN_LANGUAGE)

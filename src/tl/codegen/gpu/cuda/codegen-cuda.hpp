@@ -41,7 +41,6 @@ namespace Codegen
     class CudaGPU : public CxxBase
     {
         public:
-
             void visit(const Nodecl::CudaKernelCall &);
 
         protected:
@@ -56,6 +55,10 @@ namespace Codegen
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
                     TL::Scope* scope = NULL);
+
+            virtual bool cuda_print_special_attributes();
+
+            virtual bool cuda_emit_always_extern_linkage();
     };
 }
 

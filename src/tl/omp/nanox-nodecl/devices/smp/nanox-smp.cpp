@@ -45,6 +45,7 @@
 
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
+
 #include <errno.h>
 #include <string.h>
 
@@ -1086,77 +1087,14 @@ namespace TL { namespace Nanox {
 
         if (instrumentation_enabled())
         {
-            Source uf_name_id, uf_name_descr,
-                   uf_location_id, uf_location_descr,
-                   instrument_before_c, instrument_after_c;
-
-            instrument_before_c
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-                << "nanos_err_t err; "
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-                <<               uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[0].value = nanos_instr_uf_name_value;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "events_before[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_before);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
-
-            instrument_after_c
-                << "nanos_event_t events_after[2];"
-                << "events_after[0].type = NANOS_BURST_END;"
-                << "events_after[0].key = nanos_instr_uf_name_key;"
-                << "events_after[0].value = nanos_instr_uf_name_value;"
-                << "events_after[1].type = NANOS_BURST_END;"
-                << "events_after[1].key = nanos_instr_uf_location_key;"
-                << "events_after[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_after);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
-
-
-            uf_name_id << uf_location_id;
-            uf_location_id << "\"" << outline_name << ":" << original_statements.get_locus() << "\"";
-
-            uf_name_descr << uf_location_descr;
-            uf_location_descr
-                << "\"Outline from '"
-                << original_statements.get_locus()
-                << "' in '" << outline_function.get_qualified_name() << "'\"";
-
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::C;
-
-            Nodecl::NodeclBase instr_before = instrument_before_c.parse_statement(outline_function_body);
-            Nodecl::NodeclBase instr_after = instrument_after_c.parse_statement(outline_function_body);
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::Current;
-
-            instrument_before << as_statement(instr_before);
-            instrument_after << as_statement(instr_after);
+            get_instrumentation_code(
+                    info._called_task,
+                    outline_function,
+                    outline_function_body,
+                    original_statements.get_filename(),
+                    original_statements.get_line(),
+                    instrument_before,
+                    instrument_after);
         }
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);

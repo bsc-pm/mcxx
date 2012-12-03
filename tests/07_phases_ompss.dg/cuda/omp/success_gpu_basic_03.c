@@ -34,12 +34,17 @@ compile_versions=cuda_omp
 */
 
 #include <stdlib.h>
-#include "success_gpu_basic_03.cu"
+
+__global__ void addOne_gpu(int *a)
+{
+	*a += 1;
+}
 
 struct MyType
 {
     int x;
 };
+
 #pragma omp target device (cuda) copy_deps
 #pragma omp task inout (*a)
 void addOne (struct MyType *a)

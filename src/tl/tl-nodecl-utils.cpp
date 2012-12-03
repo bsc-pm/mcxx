@@ -43,6 +43,10 @@ namespace Nodecl
 
         if (n.has_symbol())
         {
+            if (n.is<Nodecl::ObjectInit>())
+            {
+                get_all_symbols_rec(n.get_symbol().get_value(), result);
+            }
             result.insert(n.get_symbol());
         }
 
@@ -133,6 +137,10 @@ namespace Nodecl
         {
             result.append(n.as<Nodecl::Symbol>());
         }
+        else if (n.is<Nodecl::ObjectInit>())
+        {
+            get_all_symbols_occurrences_rec(n.get_symbol().get_value(), result);
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
 
@@ -209,7 +217,7 @@ namespace Nodecl
         }
         else if (n.is<Nodecl::ObjectInit>())
         {
-            get_all_symbols_first_occurrence_rec(n.as<Nodecl::ObjectInit>().get_symbol().get_value(), result);
+            get_all_symbols_first_occurrence_rec(n.get_symbol().get_value(), result);
         }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
@@ -856,7 +864,7 @@ namespace Nodecl
         {
             list.insert(last_it, *it);
             // We may have a new last node now
-            last_it = it->get_parent().as<Nodecl::List>().last();
+            last_it = list.last();
         }
     }
 

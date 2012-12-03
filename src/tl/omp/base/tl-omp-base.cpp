@@ -266,6 +266,7 @@ namespace TL { namespace OpenMP {
 
                 ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
                 if (0 < ndrange_exprs.size())
+                if (!ndrange_exprs.empty())
                 {
                     target_items.append(
                             Nodecl::OpenMP::NDRange::make(
@@ -1584,11 +1585,13 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> target_items;
 
         ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
-        target_items.append(
-                Nodecl::OpenMP::NDRange::make(
-                    Nodecl::List::make(ndrange_exprs), 
-                    Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                    filename, line));
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::NDRange::make(
+                        Nodecl::List::make(ndrange_exprs),
+                        filename, line));
+        }
         
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
         target_items.append(

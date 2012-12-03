@@ -229,6 +229,23 @@ namespace TL { namespace Nanox {
                      TargetInformation &target_information) = 0;
 
 
+             void get_instrumentation_code(
+                     const TL::Symbol& called_task,
+                     const TL::Symbol& outline_function,
+                     Nodecl::NodeclBase outline_function_body,
+                     std::string filename,
+                     int line,
+                     /* output parameters */
+                     Source& instrumentation_before,
+                     Source& instrumentation_after);
+
+             /*!
+               This function returns true if the current device is a gpu
+               accelerator. Otherwise It returns false.  The gpu devices
+               must redefine this function
+               */
+             virtual bool is_gpu_device() const;
+
 
     //         /*!
     //           This function adds a new function definition to a device. Its
