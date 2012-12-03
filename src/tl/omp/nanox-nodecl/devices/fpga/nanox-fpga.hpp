@@ -97,6 +97,8 @@ namespace TL
                         //TL::Nanox::OutlineInfo &
                         TL::ObjectList<TL::Nanox::OutlineDataItem*>&
                         );
+                bool task_has_scalars(TL::ObjectList<OutlineDataItem*> &);
+
             protected:
                 static const std::string hls_in;
                 static const std::string hls_out;

@@ -205,7 +205,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 fclose(out_file);
             }
 
-            //add pragmas to the output code
+            //add pragmas to the output code (only when working in stream mode)
 //            add_hls_pragmas(tmp_task, outline_info);
 
 
@@ -214,7 +214,9 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
             _fpga_file_code.append(wrapper);
             _fpga_file_code.append(tmp_task);
+            //TODO: Add inline pragma to called task #pragma HLS inline
             // Remove the user function definition from the original source because
+
             // It is used only in the intermediate file
             // ^^ Are we completely sure about this? 
             Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
@@ -243,7 +245,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             unpacked_function_body);
 
     Source fpga_params;
-    fpga_params = fpga_param_code(outline_info, symbol_map, called_scope);
+    //Only generate scalar parameter passing when it's necessary
+    if (task_has_scalars(data_items))
+    {
+        fpga_params = fpga_param_code(outline_info, symbol_map, called_scope);
+    }
 
     Source unpacked_source;
     unpacked_source
@@ -334,7 +340,24 @@ void DeviceFPGA::run(DTO& dto)
     DeviceProvider::run(dto);
 }
 
-
+bool DeviceFPGA::task_has_scalars(TL::ObjectList<OutlineDataItem*> & dataitems)
+{
+    for (ObjectList<OutlineDataItem*>::iterator it = dataitems.begin();
+            it != dataitems.end();
+            it++)
+    {
+        /*
+         * We happily assume that everything that does not need a copy is a scalar
+         * Which is true as long everything that is not a scalar is going to be copied
+         * We could also use DataReference to check this
+         */
+        if((*it)->get_copies().empty())
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
 void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
@@ -786,11 +809,12 @@ Source DeviceFPGA::fpga_param_code(
      */
     args_src
         << "int fd = open(\"/dev/mem\", NANOS_O_RDWR);"    //2=O_RDWR
-        << "unsigned int pipeacc_addr = NANOS_AXI_BASE_ADDRESS;"
-        << "unsigned int *pipeacc_handle = "
+//        << "unsigned int acc_addr = NANOS_AXI_BASE_ADDRESS;"
+//        << "printf(\"address: %x\\n\", acc_addr);"
+        << "unsigned int *acc_handle = "
         << "    (unsigned int *) mmap(0, NANOS_MMAP_SIZE,"     //0=NULL
         << "    NANOS_PROT_READ|NANOS_PROT_WRITE, NANOS_MAP_SHARED,"           //"        PROT_READ | PROT_WRITE, MAP_SHARED"
-        << "    fd, pipeacc_addr);"
+        << "    fd, NANOS_AXI_BASE_ADDRESS);"
     ;
 
     //set scalar arguments
@@ -825,7 +849,7 @@ Source DeviceFPGA::fpga_param_code(
             const Type & type = (*it)->get_field_type();
 
             args_src
-                << "pipeacc_handle[" << argIndex << "] = " 
+                << "acc_handle[" << argIndex << "] = "
                 << outline_symbol.get_name() << ";"
             ;
 
@@ -845,8 +869,8 @@ Source DeviceFPGA::fpga_param_code(
      * This is true if function has non-scalar parameters
      * To start the device we must set the first bt to 1
      */
-    args_src << "pipeacc_handle[0] = 1;"
-        << "munmap(pipeacc_handle, NANOS_MMAP_SIZE);"
+    args_src << "acc_handle[0] = 1;"
+        << "munmap(acc_handle, NANOS_MMAP_SIZE);"
         << "close(fd);"
         ;
 
@@ -1008,8 +1032,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
 
 /*
  * Create wrapper function for HLS to unpack streamed arguments
- * TODO: Add prefix to all wrapper local variables (i, in_k ...)
- * TODO: Add inline pragma to called task #pragma HLS inline
+ * 
  */
 Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, ObjectList<OutlineDataItem*>& data_items)
 {
@@ -1038,10 +1061,15 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     std::string in_dec, out_dec;
     get_inout_decl(data_items, in_dec, out_dec);
     Source pragmas_src;
-    pragmas_src
-        << "#pragma HLS resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" "
-        << "port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}\n";
-    ;
+    //call to task_has_scalars is not the optimal, but it is much more simple and readable
+    //than checking inside another loop
+    if (task_has_scalars(data_items))
+    {
+        pragmas_src
+            << "#pragma HLS resource core=AXI_SLAVE variable=return metadata=\"-bus_bundle AXIlite\" "
+            << "port_map={{ap_start START} {ap_done DONE} {ap_idle IDLE} {ap_return RETURN}}\n";
+        ;
+    }
     Source args;
     if (in_dec != "")
     {
