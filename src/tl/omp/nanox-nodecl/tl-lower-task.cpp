@@ -307,13 +307,12 @@ Source LoweringVisitor::fill_const_wd_info(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        DeviceDescriptorInfo info_implementor(implementor_outline_name);
+        DeviceDescriptorInfo info_implementor(implementor_outline_name,implementation_table_it->second);
         device->get_device_descriptor(
                 info_implementor,
                 ancillary_device_description,
                 device_description,
-                aux_fortran_init,
-                implementation_table_it->second);
+                aux_fortran_init);
 
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;

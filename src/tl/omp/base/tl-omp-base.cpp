@@ -1594,7 +1594,7 @@ namespace TL { namespace OpenMP {
         }
         
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
-        if (!ndrange_exprs.empty())
+        if (!onto_exprs.empty())
         {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(

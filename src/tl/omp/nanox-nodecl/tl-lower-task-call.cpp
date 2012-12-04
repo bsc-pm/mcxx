@@ -483,7 +483,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
 
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
-
+       
+    //Map so the device provider can translate between parameters and arguments
+    Nodecl::Utils::SimpleSymbolMap param_to_args_map;
     // First register all symbols
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
             it != param_to_arg_expr.end();
@@ -547,7 +549,18 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         sym_ref.set_type(t);
 
         outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+        param_to_args_map.add_map(it->first,new_symbol);
     }
+    
+    //Add this map to target information, so DeviceProviders can translate 
+    //Clauses in case it's needed, now we only add the same for every task, but in a future?
+    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();    
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it) {
+       arguments_outline_info.set_param_arg_map(param_to_args_map,it->first);
+    }
+    
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in

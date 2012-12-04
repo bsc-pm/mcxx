@@ -2429,8 +2429,7 @@ DeviceCUDA::DeviceCUDA()
 void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
-        Source &fortran_dynamic_init UNUSED_PARAMETER,
-        TargetInformation& target_information)
+        Source &fortran_dynamic_init UNUSED_PARAMETER)
 {
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     if (Nanos::Version::interface_is_at_least("master", 5012))

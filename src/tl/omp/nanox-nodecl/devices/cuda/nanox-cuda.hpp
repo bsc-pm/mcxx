@@ -218,8 +218,7 @@ namespace TL
              virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                      Source &ancillary_device_description,
                      Source &device_descriptor,
-                     Source &fortran_dynamic_init,
-                     TargetInformation& target_information);
+                     Source &fortran_dynamic_init);
 
              bool copy_stuff_to_device_file(Nodecl::List symbols);
              bool allow_mandatory_creation();

@@ -81,27 +81,28 @@ namespace TL { namespace Nanox {
     struct DeviceDescriptorInfo
     {
         const std::string& _outline_name;
-        DeviceDescriptorInfo(std::string outline_name) : _outline_name(outline_name) { }
+        TargetInformation& _target_info;
+        DeviceDescriptorInfo(std::string outline_name,TargetInformation& target_info) : _outline_name(outline_name), _target_info(target_info) { }
     };
 
     // This DTO stores information used in 'create_outline' function
     struct CreateOutlineInfo
     {
         const std::string& _outline_name;
+        ObjectList<OutlineDataItem*> _data_items;
+        TargetInformation& _target_info;
         const Nodecl::NodeclBase& _original_statements;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task; // Only used in CUDA device
-        ObjectList<OutlineDataItem*> _data_items;
-        TargetInformation& _target_info;
  
 
         CreateOutlineInfo(std::string& outline_name, ObjectList<OutlineDataItem*> data_items, TargetInformation& target_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
             : _outline_name(outline_name),
+            _data_items(data_items),
+            _target_info(target_info),
             _original_statements(statements),
             _arguments_struct(args_struct),
-            _called_task(called_task),
-            _data_items(data_items),
-            _target_info(target_info)
+            _called_task(called_task)
         {
         }
     };
@@ -225,8 +226,7 @@ namespace TL { namespace Nanox {
                      // ScopeLink sl,
                      Source &ancillary_device_description,
                      Source &device_descriptor,
-                     Source &fortran_dynamic_init,
-                     TargetInformation &target_information) = 0;
+                     Source &fortran_dynamic_init) = 0;
 
 
              void get_instrumentation_code(

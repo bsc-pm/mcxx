@@ -735,7 +735,7 @@ namespace TL { namespace Nanox {
             
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
-                _outline_info.append_to_ndrange(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
+                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
@@ -936,6 +936,20 @@ namespace TL { namespace Nanox {
         if (function_symbol==NULL) function_symbol=Symbol::invalid();
         ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
         _implementation_table[function_symbol].set_unpacked_function_symbol(unpacked_sym);
+    }
+    
+    Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        return _implementation_table[function_symbol].get_param_arg_map();
+    }
+
+    void OutlineInfo::set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
     void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
