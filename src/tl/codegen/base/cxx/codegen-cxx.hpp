@@ -492,6 +492,8 @@ namespace Codegen
                     Nodecl::NodeclBase statement,
                     const std::string& rel_op);
 
+            void emit_declarations_of_initializer(TL::Symbol symbol);
+
         protected:
             // Needed by codegen of cuda
             void walk_list(const Nodecl::List&, const std::string& separator);

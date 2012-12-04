@@ -172,9 +172,10 @@ namespace TL { namespace Nanox {
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                << "nanos_err_t err;"
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
-                <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
                 <<               " \"user-funct-location\", \"" << outline_function.get_name() << "\", \"" << extended_descr << "\", 0);"
@@ -185,12 +186,12 @@ namespace TL { namespace Nanox {
                 << "event.type = NANOS_BURST_START;"
                 << "event.key = nanos_instr_uf_location_key;"
                 << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                << "nanos_instrument_events(1, &event);"
+                << "err = nanos_instrument_events(1, &event);"
                 ;
 
             if (is_gpu_device())
             {
-                instrument_after_c << "nanos_instrument_close_user_fun_event();";
+                instrument_after_c << "err = nanos_instrument_close_user_fun_event();";
             }
             else
             {
@@ -198,7 +199,7 @@ namespace TL { namespace Nanox {
                     << "event.type = NANOS_BURST_END;"
                     << "event.key = nanos_instr_uf_location_key;"
                     << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                    << "nanos_instrument_events(1, &event);"
+                    << "err = nanos_instrument_events(1, &event);"
                     ;
             }
 

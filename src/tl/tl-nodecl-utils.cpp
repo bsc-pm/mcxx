@@ -1256,7 +1256,7 @@ namespace TL
         else if (lc.is<Nodecl::LoopControl>())
         {
             Nodecl::LoopControl loop_control = lc.as<Nodecl::LoopControl>();
-            Nodecl::NodeclBase init_expr = loop_control.get_init();
+            Nodecl::List init_expr_list = loop_control.get_init().as<Nodecl::List>();
             Nodecl::NodeclBase test_expr = loop_control.get_cond();
             Nodecl::NodeclBase incr_expr = loop_control.get_next();
 
@@ -1270,6 +1270,14 @@ namespace TL
             _induction_var = TL::Symbol(NULL);
 
             _induction_variable_in_separate_scope = false;
+
+            if (init_expr_list.size() != 1)
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            Nodecl::NodeclBase init_expr = init_expr_list.front();
 
             // _induction_var = lb
             if (init_expr.is<Nodecl::Assignment>())
