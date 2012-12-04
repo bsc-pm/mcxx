@@ -12981,9 +12981,24 @@ static void build_scope_for_statement(AST a,
                 /* is_template */ 0, /* is_explicit_instantiation */ 0,
                 &nodecl_loop_init, 
                 /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
-        if (!nodecl_is_null(nodecl_loop_init))
+
+        if (IS_CXX_LANGUAGE)
         {
-            nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
+            if (!nodecl_is_null(nodecl_loop_init))
+            {
+                int num_items = 0, i;
+                nodecl_t* list = nodecl_unpack_list(nodecl_loop_init, &num_items);
+
+                nodecl_loop_init = nodecl_null();
+                for (i = 0; i < num_items; i++)
+                {
+                    if (nodecl_get_kind(list[i]) != NODECL_CXX_DECL
+                            && nodecl_get_kind(list[i]) != NODECL_CXX_DEF)
+                    {
+                        nodecl_loop_init = nodecl_append_to_list(nodecl_loop_init, list[i]);
+                    }
+                }
+            }
         }
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
@@ -12991,7 +13006,7 @@ static void build_scope_for_statement(AST a,
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
         nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
         // Get the expression itself instead of an expression statement
-        nodecl_loop_init = nodecl_get_child(nodecl_loop_init, 0); 
+        nodecl_loop_init = nodecl_make_list_1(nodecl_get_child(nodecl_loop_init, 0));
     }
     else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
     {

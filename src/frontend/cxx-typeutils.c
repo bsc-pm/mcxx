@@ -11085,6 +11085,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
             region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, symbol_map);
             region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, symbol_map);
+            region_stride = nodecl_deep_copy(region_stride, new_decl_context, symbol_map);
 
             result = get_array_type_bounds_with_regions(element_type,
                     lower_bound,
