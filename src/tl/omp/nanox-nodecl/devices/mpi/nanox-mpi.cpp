@@ -1427,22 +1427,22 @@ static TL::Symbol new_function_symbol_unpacked(
 void DeviceMPI::generate_additional_mpi_code(
         const TL::Symbol& called_task,
         const TL::Symbol& host_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& device_info,
+        const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
         const TL::Symbol& struct_args,
         TL::Source& code_host,
         TL::Source& code_device_pre,        
         TL::Source& code_device_post) {
-    int num_args_devinfo = device_info.size();
+    int num_args_devinfo = onto_clause.size();
     Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
 
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     int num_params = parameters_called.size();
     TL::ObjectList<std::string> new_dev_info;
     for (int i = 0; i < num_args_devinfo; ++i) {
-        if (parameters_called.contains(device_info[i].get_symbol())){
-            new_dev_info.append("args."+device_info[i].prettyprint());
+        if (parameters_called.contains(onto_clause[i].get_symbol())){
+            new_dev_info.append("args."+onto_clause[i].prettyprint());
         } else {
-            new_dev_info.append(device_info[i].prettyprint());            
+            new_dev_info.append(onto_clause[i].prettyprint());            
         }
     }
     if (new_dev_info.size()==0){
@@ -1666,7 +1666,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     if (called_task.is_valid()) {
         generate_additional_mpi_code(called_task,
                 host_function,
-                info._target_info.get_ndrange(),
+                info._target_info.get_onto(),
                 info._arguments_struct,
                 code_host,
                 code_device_pre,
@@ -1730,7 +1730,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             << "}"
             ;
     
-    std::cout << code_host.get_source(true) << "\n";
+    //std::cout << code_host.get_source(true) << "\n";
     Nodecl::NodeclBase new_host_body = host_src.parse_statement(host_function_body);
     host_function_body.replace(new_host_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, host_function_code);
@@ -1775,15 +1775,28 @@ DeviceMPI::DeviceMPI()
 void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
-        Source &fortran_dynamic_init UNUSED_PARAMETER,
-        TargetInformation& target_information) {
+        Source &fortran_dynamic_init UNUSED_PARAMETER) {
+    TargetInformation& target_information = info._target_info;
     const std::string& device_outline_name = get_outline_name(info._outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012)) {
+    if (Nanos::Version::interface_is_at_least("master", 5012)) {        
+        ObjectList<Nodecl::NodeclBase> onto_clause=target_information.get_onto();
+        Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
+        std::string assignedComm="0";
+        std::string assignedRank="-2";
+        if (onto_clause.size()>=1){
+            assignedComm=as_symbol( param_to_args_map.map(onto_clause.at(0).get_symbol()));
+        }
+        if (onto_clause.size()>=2){
+            assignedRank=as_symbol( param_to_args_map.map(onto_clause.at(1).get_symbol()));            
+        }
         ancillary_device_description
-            << comment("MPI device descriptor")
-            << "static nanos_mpi_args_t "
-            << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "_host};"
-            ;
+                << comment("MPI device descriptor")
+                << "static nanos_mpi_args_t "
+                << device_outline_name << "_mpi_args;"
+                << device_outline_name << "_mpi_args.outline = (void(*)(void*))" << device_outline_name << "_host;"
+                << device_outline_name << "_mpi_args._assignedComm = " << assignedComm << ";"
+                << device_outline_name << "_mpi_args._assignedRank = " << assignedRank << ";";
+                
 //        ancillary_device_description
 //                << comment("MPI device descriptor")
 //                << "static nanos_mpi_args_t 
@@ -1796,7 +1809,7 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_mpi_factory, &" << device_outline_name << "_args }";
+    device_descriptor << "{ &nanos_mpi_factory, &" << device_outline_name << "_mpi_args }";
 }
 
 //void DeviceCUDA::do_replacements(
@@ -1878,19 +1891,18 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
             Symbol main  = _root.retrieve_context().get_symbol_from_name("main");            
             if (main.is_valid()){
                 //Symbol sMain=listMain.at(0);
-                main.set_name("__ompss_user_main");
                 //Get filename and pass value to nanox
                 Source filenameSrc;                
                 filenameSrc << "setMpiFilename(\"./";
-                if (CompilationConfiguration::get_current_configuration() != "mic"){
-                    filenameSrc << "mic";
-                }
-                //if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
-                // {
-                    //filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename)  << "\");";
-                //} else {
+//                if (CompilationConfiguration::get_current_configuration() != "mic"){
+//                    filenameSrc << "mic";
+//                }
+                if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+                 {
+                    filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename)  << "\");";
+                } else {
                     filenameSrc << "a.out"  << "\");";
-                //}
+                }
                 Source real_main;
                 real_main << "int _ompss_tmp_main(int argc, char* argv[]) {"
                         << filenameSrc
@@ -1898,7 +1910,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                         << "__ompss_mpi_daemon_main(argc,argv);"
                         << "return 0;"
                         << "} else {"
-                        << "return __ompss_user_main(argc,argv);"
+                        << "return main(argc,argv);"
                         <<"}}"
                         ;
                 
@@ -1908,6 +1920,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 Nodecl::NodeclBase new_ompss_main = _mpiDaemonMain.parse_global(_root);
                 Nodecl::Utils::prepend_to_top_level_nodecl(new_ompss_main);
                 Nodecl::Utils::append_to_top_level_nodecl(new_main);
+                main.set_name("__ompss_user_main");
                 //lRoot.at(lRoot.size()-1).append_sibling(new_main);
                 _root.retrieve_context().get_symbol_from_name("_ompss_tmp_main").set_name("main");
             }

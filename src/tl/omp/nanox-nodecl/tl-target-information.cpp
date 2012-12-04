@@ -44,7 +44,7 @@ namespace TL { namespace Nanox {
         _device_names.append(device_name);
     }
 
-    ObjectList<std::string> TargetInformation::get_device_names()
+    ObjectList<std::string>& TargetInformation::get_device_names()
     {
         return _device_names;
     }
@@ -54,7 +54,7 @@ namespace TL { namespace Nanox {
         _ndrange_exprs.append(ndrange_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase> TargetInformation::get_ndrange() const
+    ObjectList<Nodecl::NodeclBase>& TargetInformation::get_ndrange()
     {
         return _ndrange_exprs;
     }
@@ -64,9 +64,30 @@ namespace TL { namespace Nanox {
         _onto_exprs.append(onto_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase> TargetInformation::get_onto() const
+    ObjectList<Nodecl::NodeclBase>& TargetInformation::get_onto()
     {
         return _onto_exprs;
+    }
+    
+    Nodecl::Utils::SimpleSymbolMap& TargetInformation::get_param_arg_map()
+    {
+        return _param_to_args;
+    }
+
+    void TargetInformation::set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map)
+    {
+        _param_to_args = param_arg_map;
+    }
+    
+    
+    TL::Symbol TargetInformation::get_unpacked_function_symbol() const
+    {
+        return _unpacked_function_symbol;
+    }
+
+    void TargetInformation::set_unpacked_function_symbol(TL::Symbol sym)
+    {
+        _unpacked_function_symbol = sym;
     }
 
 } }

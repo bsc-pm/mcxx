@@ -1219,8 +1219,7 @@ namespace TL { namespace Nanox {
     void DeviceSMP::get_device_descriptor(DeviceDescriptorInfo& info,
             Source &ancillary_device_description,
             Source &device_descriptor,
-            Source &fortran_dynamic_init,
-            TargetInformation& target_information)
+            Source &fortran_dynamic_init)
     {
         std::string outline_name = smp_outline_name(info._outline_name);
         if (!IS_FORTRAN_LANGUAGE)

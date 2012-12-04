@@ -56,6 +56,8 @@ namespace TL
                 ObjectList<std::string> _device_names;
 
                 TL::Symbol _unpacked_function_symbol;
+                
+                Nodecl::Utils::SimpleSymbolMap _param_to_args;
 
 
             public:
@@ -65,23 +67,19 @@ namespace TL
                 ~TargetInformation(){}
 
                 void add_device_name(std::string device_name);
-                ObjectList<std::string> get_device_names();
+                ObjectList<std::string>& get_device_names();
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
-                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+                ObjectList<Nodecl::NodeclBase>& get_ndrange();
                 
                 void append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto);
-                ObjectList<Nodecl::NodeclBase> get_onto() const;
+                ObjectList<Nodecl::NodeclBase>& get_onto();
                 
-                TL::Symbol get_unpacked_function_symbol() const
-                {
-                    return _unpacked_function_symbol;
-                }
-
-                void set_unpacked_function_symbol(TL::Symbol sym)
-                {
-                    _unpacked_function_symbol = sym;
-                }
+                TL::Symbol get_unpacked_function_symbol() const;
+                void set_unpacked_function_symbol(TL::Symbol sym);
+                
+                Nodecl::Utils::SimpleSymbolMap& get_param_arg_map();
+                void set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map);
 
         };
 

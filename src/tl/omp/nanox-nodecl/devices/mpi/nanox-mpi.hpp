@@ -197,7 +197,7 @@ namespace TL
                   void generate_additional_mpi_code(
                           const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,
-                          const TL::ObjectList<Nodecl::NodeclBase>& device_info,
+                          const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
                           const TL::Symbol& struct_args,
                           TL::Source& code_host,
                           TL::Source& code_device_pre,                          
@@ -224,8 +224,7 @@ namespace TL
              virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                      Source &ancillary_device_description,
                      Source &device_descriptor,
-                     Source &fortran_dynamic_init,
-                     TargetInformation& target_information);
+                     Source &fortran_dynamic_init);
 
              bool copy_stuff_to_device_file(Nodecl::List symbols);
              bool allow_mandatory_creation();

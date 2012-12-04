@@ -312,6 +312,8 @@ namespace TL
                 }
         };
 
+        //Symbold::invalid it's theorically used when the outline has no symbol
+        //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
 
@@ -373,8 +375,10 @@ namespace TL
                 implementation_table_t& get_implementation_table();
 
                 TL::Symbol get_unpacked_function_symbol(TL::Symbol function_symbol=Symbol::invalid());
-
                 void set_unpacked_function_symbol(TL::Symbol unpacked_sym,TL::Symbol function_symbol=Symbol::invalid());
+                
+                void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());
+                Nodecl::Utils::SimpleSymbolMap get_param_arg_map(TL::Symbol function_symbol=Symbol::invalid());
 
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
