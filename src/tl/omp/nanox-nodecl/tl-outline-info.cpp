@@ -951,7 +951,7 @@ namespace TL { namespace Nanox {
          }
     }
 
-    OutlineInfo::implementation_table_t OutlineInfo::get_implementation_table()
+    OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;
     }

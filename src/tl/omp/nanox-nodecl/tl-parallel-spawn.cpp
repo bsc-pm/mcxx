@@ -95,7 +95,7 @@ namespace TL { namespace Nanox {
         //Parallel has no implementors,but to keep the same schema than tasks, we build a device_name -> outline_name map
         Source const_wd_info;
         std::multimap<std::string, std::string> devices_and_implementors;
-        TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end(); it++)
         {

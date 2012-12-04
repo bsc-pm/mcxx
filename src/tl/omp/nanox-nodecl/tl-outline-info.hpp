@@ -370,7 +370,7 @@ namespace TL
                  * @param function_symbol
                  */
                 void add_implementation(std::string device_name, TL::Symbol function_symbol);
-                implementation_table_t get_implementation_table();
+                implementation_table_t& get_implementation_table();
 
                 TL::Symbol get_unpacked_function_symbol(TL::Symbol function_symbol=Symbol::invalid());
 
