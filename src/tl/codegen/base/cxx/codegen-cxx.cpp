@@ -4858,6 +4858,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         }
     }
 
+
     std::string decl_specifiers;
     std::string gcc_attributes;
     std::string declarator;
@@ -4893,7 +4894,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         decl_specifiers += "extern ";
     }
 
-
     if (symbol.is_thread())
     {
         decl_specifiers += "__thread ";
@@ -4917,11 +4917,20 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         bit_field = ss.str();
     }
 
+    std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
+
+    if (is_definition)
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+    }
+    else
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    }
     emit_declarations_of_initializer(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
 
     declarator = this->get_declaration(symbol.get_type(),
             symbol.get_scope(),
@@ -4936,16 +4945,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         indent();
 
     file << decl_specifiers << gcc_attributes << declarator << bit_field;
-
-    if (is_definition)
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-    }
-    else
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-    }
-
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
