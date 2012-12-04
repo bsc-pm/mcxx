@@ -2407,22 +2407,25 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = 1;
 
     Nodecl::List init_list = init.as<Nodecl::List>();
-    Nodecl::List::iterator it = init_list.begin();
-    if(!it->is<Nodecl::ObjectInit>())
+    if (!init_list.empty())
     {
-        walk(init);
-    }
-    else
-    {
-        TL::ObjectList<TL::Symbol> object_init_symbols;
-        for(; it != init_list.end(); ++it)
+        Nodecl::List::iterator it = init_list.begin();
+        if(!it->is<Nodecl::ObjectInit>())
         {
-            ERROR_CONDITION(!it->is<Nodecl::ObjectInit>(),
-                    "unexpected node '%s'", ast_print_node_type(it->get_kind()));
-
-            object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
+            walk(init);
         }
-        define_or_declare_variables(object_init_symbols, /* is definition */ true);
+        else
+        {
+            TL::ObjectList<TL::Symbol> object_init_symbols;
+            for(; it != init_list.end(); ++it)
+            {
+                ERROR_CONDITION(!it->is<Nodecl::ObjectInit>(),
+                        "unexpected node '%s'", ast_print_node_type(it->get_kind()));
+
+                object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
+            }
+            define_or_declare_variables(object_init_symbols, /* is definition */ true);
+        }
     }
 
     file << "; ";
