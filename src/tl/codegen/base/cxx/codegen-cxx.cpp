@@ -4762,7 +4762,7 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
     std::string variable_name;
-    if(!has_been_declared)
+    if (!has_been_declared)
     {
         variable_name = symbol.get_name();
     }
@@ -4771,6 +4771,7 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
         variable_name = symbol.get_class_qualification(symbol.get_scope(),
                 /* without_template */ false);
     }
+
     return variable_name;
 }
 
