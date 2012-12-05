@@ -383,7 +383,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment,called_sym);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -405,6 +405,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 arguments_outline_info.add_implementation(*it2, it->first);
                 arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
                 arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
+        }
     }
 
     // This map associates every parameter symbol with its argument expression
@@ -691,7 +692,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             task_environment.is_untied,
             arguments_outline_info,
             &parameters_outline_info);
-    }
 }
 
 
@@ -981,11 +981,12 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment,current_function);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
+    
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
@@ -1017,7 +1018,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment);
+    OutlineInfo new_outline_info(new_environment,adapter_function);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);

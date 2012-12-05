@@ -1428,21 +1428,28 @@ void DeviceMPI::generate_additional_mpi_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
         const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+        const Nodecl::Utils::SimpleSymbolMap& param_to_args_map,
         const TL::Symbol& struct_args,
         TL::Source& code_host,
         TL::Source& code_device_pre,        
         TL::Source& code_device_post) {
     int num_args_devinfo = onto_clause.size();
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
 
-    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    int num_params = parameters_called.size();
+    TL::Type argument_type = ::get_user_defined_type(struct_args.get_internal_symbol());
+    TL::ObjectList<TL::Symbol> parameters_called = argument_type.get_fields();
+    TL::ObjectList<std::string> param_called_names;
+    
+    int num_params = parameters_called.size();    
+    for (int i = 0; i < num_params; ++i) {
+        param_called_names.append(parameters_called.at(i).get_name());
+    }
+    
     TL::ObjectList<std::string> new_dev_info;
     for (int i = 0; i < num_args_devinfo; ++i) {
-        if (parameters_called.contains(onto_clause[i].get_symbol())){
-            new_dev_info.append("args."+onto_clause[i].prettyprint());
+        if (param_called_names.contains(onto_clause[i].get_symbol().get_name())){
+            new_dev_info.append("args."+onto_clause[i].get_symbol().get_name());
         } else {
-            new_dev_info.append(onto_clause[i].prettyprint());            
+            new_dev_info.append(onto_clause[i].get_symbol().get_name());            
         }
     }
     if (new_dev_info.size()==0){
@@ -1456,43 +1463,43 @@ void DeviceMPI::generate_additional_mpi_code(
     Source hostCall;
     Source deviceCall;
 
-    code_host << "MPI_Status __ompss_status; "
+    code_host << "MPI_Status ompss___status; "
             << struct_mpi_create
             << hostCall;
-
+    
     code_device_pre << struct_args.get_name() << " args;"
-            << "MPI_Comm _ompss_parent_comp; "
-            << "MPI_Comm_get_parent( &_ompss_parent_comp ); "
-            << "MPI_Status __ompss_status; "
+            << "MPI_Comm ompss_parent_comp; "
+            << "MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << "MPI_Status ompss___status; "
             << struct_mpi_create
             << deviceCall;
 
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
     
-    struct_mpi_create << "MPI_Datatype __ompss_datatype;"
-            "MPI_Datatype __ompss_typelist[" << num_params << "]= {" << typelist_src << "};"
-            "int __ompss_blocklen[" << num_params << "] = {" << blocklen_src << "};"
-            "MPI_Aint __ompss_displ[" << num_params << "] = {" << displ_src << "};";
+    struct_mpi_create << "MPI_Datatype ompss___datatype;"
+            "MPI_Datatype ompss___typelist[" << num_params << "]= {" << typelist_src << "};"
+            "int ompss___blocklen[" << num_params << "] = {" << blocklen_src << "};"
+            "MPI_Aint ompss___displ[" << num_params << "] = {" << displ_src << "};";
         
-    hostCall << " int __id_func__=" << _currTaskId << ";";
-    hostCall << " nanos_MPI_Send_taskinit(&__id_func__, 1,  ompss_get_mpi_type(\"__mpitype_ompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-    hostCall << " nanos_MPI_Send_datastruct( (void *) &args, 1,  __ompss_datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-    hostCall << " nanos_MPI_Recv_taskend(&__id_func__, 1,  ompss_get_mpi_type(\"__mpitype_ompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&__ompss_status);";
+    hostCall << " int id_func_ompss=" << _currTaskId << ";";
+    hostCall << " nanos_MPI_Send_taskinit(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitypeompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+    hostCall << " nanos_MPI_Send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+    hostCall << " nanos_MPI_Recv_taskend(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitypeompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
-    deviceCall << " nanos_MPI_Recv_datastruct(&args, 1, __ompss_datatype, 0, _ompss_parent_comp, &__ompss_status); ";
+    deviceCall << " nanos_MPI_Recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
     //deviceCall << called_task.get_name() << "(" << parameter_call << ");";
 
     
-    code_device_post << " int _ompss_id_func=" << _currTaskId << ";";
-    code_device_post << " nanos_MPI_Send_taskend(&_ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_short\"), 0, _ompss_parent_comp);";
+    code_device_post << " int ompss_id_func=" << _currTaskId << ";";
+    code_device_post << " nanos_MPI_Send_taskend(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitypeompss_signed_short\"), 0, ompss_parent_comp);";
 
     for (int i = 0; i < num_params; ++i) {
         //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
         std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
         displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
         if (parameters_called[i].get_type().is_pointer()) {
-            typelist_src.append_with_separator("ompss_get_mpi_type(\"__mpitype_ompss_unsigned_long_long\")", ",");
+            typelist_src.append_with_separator("ompss_get_mpi_type(\"__mpitypeompss_unsigned_long_long\")", ",");
 
             blocklen_src.append_with_separator("1", ",");
         } else {
@@ -1507,8 +1514,8 @@ void DeviceMPI::generate_additional_mpi_code(
         
     }
 
-    struct_mpi_create << "MPI_Type_create_struct( " << num_params << ", __ompss_blocklen, __ompss_displ, __ompss_typelist, &__ompss_datatype); ";
-    struct_mpi_create << "MPI_Type_commit(&__ompss_datatype);";
+    struct_mpi_create << "MPI_Type_create_struct( " << num_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+    struct_mpi_create << "MPI_Type_commit(&ompss___datatype);";
 
 
 }
@@ -1667,6 +1674,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         generate_additional_mpi_code(called_task,
                 host_function,
                 info._target_info.get_onto(),
+                info._target_info.get_param_arg_map(),
                 info._arguments_struct,
                 code_host,
                 code_device_pre,
@@ -1754,7 +1762,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
 //    
     // device_outline_name << "_host(" << unpacked_arguments << ");"
-    _mpiDaemonMain << " else if (_ompss_id_func== " << _currTaskId << "){"
+    _mpiDaemonMain << " else if (ompss_id_func== " << _currTaskId << "){"
                 << device_outline_name << "_device();"
                 << "}";
     
@@ -1874,9 +1882,9 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
 
     //Source included_files;
     if (_mpi_task_processed && !CURRENT_CONFIGURATION->do_not_link) {
-        if (CompilationProcess::get_current_file().get_filename(false).find("__ompss_mpiWorker_") == std::string::npos) {
+        if (CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
             // Set the file name 
-            _mpiFilename = "__ompss_mpiWorker_";
+            _mpiFilename = "ompss___mpiWorker_";
             _mpiFilename += CompilationProcess::get_current_file().get_filename(false);
             new_file = true;
             mpiFile.open(_mpiFilename.c_str());
@@ -1902,10 +1910,10 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                     filenameSrc << "a.out"  << "\");";
                 }
                 Source real_main;
-                real_main << "int _ompss_tmp_main(int argc, char* argv[]) {"
+                real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
                         << filenameSrc
                         << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
-                        << "__ompss_mpi_daemon_main(argc,argv);"
+                        << "ompss___mpi_daemon_main(argc,argv);"
                         << "return 0;"
                         << "} else {"
                         << "return main(argc,argv);"
@@ -1915,12 +1923,12 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 //Nodecl::FunctionCode function_code = main.get_function_code().as<Nodecl::FunctionCode>();
                 //std::cout << _root.prettyprint() << "\n"; 
                 Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code()); 
-                Nodecl::NodeclBase new_ompss_main = _mpiDaemonMain.parse_global(_root);
-                Nodecl::Utils::prepend_to_top_level_nodecl(new_ompss_main);
+                Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
+                Nodecl::Utils::prepend_to_top_level_nodecl(newompss_main);
                 Nodecl::Utils::append_to_top_level_nodecl(new_main);
-                main.set_name("__ompss_user_main");
+                main.set_name("ompss___user_main");
                 //lRoot.at(lRoot.size()-1).append_sibling(new_main);
-                _root.retrieve_context().get_symbol_from_name("_ompss_tmp_main").set_name("main");
+                _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
             }
             
 
@@ -1950,17 +1958,17 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
 void DeviceMPI::pre_run(DTO& dto) {
     _root = dto["nodecl"];
     _mpi_task_processed = false;
-    //_mpiDaemonMain <<"    MPI_Datatype dame_int(){	return MPI_INT;}MPI_Datatype ompss_get_mpi_type(__mpitype_ompss_signed_short{	return MPI_SHORT;}MPI_Datatype dame_byte(){return MPI_BYTE;}";
+    //_mpiDaemonMain <<"    MPI_Datatype dame_int(){	return MPI_INT;}MPI_Datatype ompss_get_mpi_type(__mpitypeompss_signed_short{	return MPI_SHORT;}MPI_Datatype dame_byte(){return MPI_BYTE;}";
 
-    _mpiDaemonMain << "int __ompss_mpi_daemon_main(int argc, char* argv[]) { "
+    _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
             << " nanos_MPI_Init(&argc, &argv);	"
-            << " int _ompss_id_func; "
-            << " MPI_Status __ompss_status; "
-            << " MPI_Comm _ompss_parent_comp; "
-            << " MPI_Comm_get_parent( &_ompss_parent_comp ); "
+            << " int ompss_id_func; "
+            << " MPI_Status ompss___status; "
+            << " MPI_Comm ompss_parent_comp; "
+            << " MPI_Comm_get_parent( &ompss_parent_comp ); "
             << " while(1){ "
-            << " nanos_MPI_Recv_taskinit(&_ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_short\"), 0, _ompss_parent_comp, &__ompss_status); "
-            << " if (_ompss_id_func==-1){ "
+            << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitypeompss_signed_short\"), 0, ompss_parent_comp, &ompss___status); "
+            << " if (ompss_id_func==-1){ "
             // << " MPI_Finalize(); "
             << " return 0; "
             << " } ";
@@ -1975,7 +1983,7 @@ void DeviceMPI::run(DTO& dto) {
 }
 
 std::string DeviceMPI::get_ompss_mpi_type(Type type) {
-    std::string result = "ompss_get_mpi_type(\"__mpitype_ompss_";
+    std::string result = "ompss_get_mpi_type(\"__mpitypeompss_";
     if (type.is_char()) {
         result += "char";
     } else if (type.is_signed_short_int()) {

@@ -198,6 +198,7 @@ namespace TL
                           const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,
                           const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                          const Nodecl::Utils::SimpleSymbolMap& param_to_args_map,
                           const TL::Symbol& struct_args,
                           TL::Source& code_host,
                           TL::Source& code_device_pre,                          
