@@ -749,7 +749,8 @@ VECTOR_INTRIN(__builtin_ia32_vec_init_v4hi) \
 VECTOR_INTRIN(__builtin_ia32_vec_init_v8qi) \
 VECTOR_INTRIN(__builtin_ia32_xorpd) \
 VECTOR_INTRIN(__builtin_ia32_xorps) \
-VECTOR_INTRIN(__builtin_ia32_storeupd)
+VECTOR_INTRIN(__builtin_ia32_storeupd) \
+VECTOR_INTRIN(__builtin_ia32_emms)
 
 int main(int, char**)
 {
