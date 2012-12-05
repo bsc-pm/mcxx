@@ -981,10 +981,10 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment,current_function);
+    //OutlineInfo parameters_outline_info(parameters_environment,current_function);
 
     // Fill arguments outline info using parameters
-    OutlineInfo arguments_outline_info;
+    //OutlineInfo arguments_outline_info;
 
     
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
@@ -1003,6 +1003,14 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             // out
             symbol_map,
             save_expressions);
+    // Add a map from the original called task to the adapter function
+    symbol_map.add_map(called_task_function, adapter_function);
+    if (called_task_function.is_from_module())
+    {
+        // If the symbol comes from a module, the environment 
+        // will use the original symbol of the module
+        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
+    }
 
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
@@ -1019,7 +1027,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
     OutlineInfo new_outline_info(new_environment,adapter_function);
-
+    
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
@@ -1038,9 +1046,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
-
-    // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
 
     // And replace everything with a call to the adapter function
     construct.replace(
