@@ -1,7 +1,7 @@
 //
 // Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
-// Compile it with g++ 4.7 -fabi-version=6
+// Compile it with g++-4.7 -fabi-version=6 -mavx
 //
 
 #include <iostream> 
@@ -866,7 +866,8 @@ VECTOR_INTRIN(__builtin_ia32_pcmpestria128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestric128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestrio128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestris128) \
-VECTOR_INTRIN(__builtin_ia32_pcmpestriz128)
+VECTOR_INTRIN(__builtin_ia32_pcmpestriz128) \
+VECTOR_INTRIN(__builtin_ia32_emms)
 
 
 int main(int, char**)
