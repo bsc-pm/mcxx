@@ -27,6 +27,8 @@
 #ifndef TL_LOWER_TASK_COMMON_CPP
 #define TL_LOWER_TASK_COMMON_CPP
 
+namespace TL { namespace Nanox {
+
 struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
@@ -57,5 +59,6 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
+} }
 
 #endif

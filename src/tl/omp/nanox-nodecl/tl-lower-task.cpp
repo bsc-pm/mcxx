@@ -41,29 +41,6 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
-{
-    public:
-        bool is_untied;
-        Nodecl::NodeclBase priority;
-
-        TaskEnvironmentVisitor()
-            : is_untied(false),
-            priority()
-        {
-        }
-
-        void visit(const Nodecl::OpenMP::Priority& priority)
-        {
-            this->priority = priority.get_priority();
-        }
-
-        void visit(const Nodecl::OpenMP::Untied& untied)
-        {
-            this->is_untied = true;
-        }
-};
-
 TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
     //FIXME: The 'construct' parameter is only used to obtain the line and the filename
