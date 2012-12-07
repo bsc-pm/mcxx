@@ -32,10 +32,12 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         bool is_untied;
         Nodecl::NodeclBase priority;
+        Nodecl::NodeclBase if_condition;
 
         TaskEnvironmentVisitor()
             : is_untied(false),
-            priority()
+            priority(),
+            if_condition()
         {
         }
 
@@ -47,6 +49,11 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::OpenMP::Untied& untied)
         {
             this->is_untied = true;
+        }
+
+        void visit(const Nodecl::OpenMP::If& if_condition)
+        {
+            this->if_condition = if_condition.get_condition();
         }
 };
 
