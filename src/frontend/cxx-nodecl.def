@@ -455,6 +455,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*BARRIER_AT_END()
                  | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
+                 | NODECL_OPEN_M_P*TASK_LABEL([label] expression)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
