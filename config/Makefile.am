@@ -48,6 +48,7 @@ CONFIG_FILES =  \
        55.config.omp.ibm \
        55.config.omp.ibm.fortran \
        55.config.omp.nvidia \
+       56.config.omp.mpi \
        00.config.plain \
 	   $(END)
 

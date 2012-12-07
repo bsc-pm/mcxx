@@ -46,6 +46,8 @@ namespace TL
                   Nodecl::List _cuda_file_code;
                   bool _mpi_task_processed;
                   Source _mpiDaemonMain;
+                  Source _sectionCodeHost;
+                  Source _sectionCodeDevice;
                   Nodecl::NodeclBase _root;
                   int _currTaskId;
 
@@ -195,14 +197,12 @@ namespace TL
 
 
                   void generate_additional_mpi_code(
-                          const TL::Symbol& called_task,
-                          const TL::Symbol& unpacked_function,
-                          const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
-                          const Nodecl::Utils::SimpleSymbolMap& param_to_args_map,
-                          const TL::Symbol& struct_args,
-                          TL::Source& code_host,
-                          TL::Source& code_device_pre,                          
-                          TL::Source& code_device_post);
+                    const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                    const TL::Symbol& struct_args,
+                    const std::string& outline_name,
+                    TL::Source& code_host,
+                    TL::Source& code_device_pre,        
+                    TL::Source& code_device_post);
 
 //                  void add_included_cuda_files(FILE* file);                  
                   std::string get_ompss_mpi_type(Type type);
