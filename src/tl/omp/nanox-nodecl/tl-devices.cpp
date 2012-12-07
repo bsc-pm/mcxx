@@ -104,11 +104,6 @@ namespace TL { namespace Nanox {
                 "Enables instrumentation of the device provider if set to '1'",
                 _enable_instrumentation_str,
                 "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
-
-        //     register_parameter("do_not_create_translation_function",
-        //             "Even if the runtime interface supports a translation function, it will not be generated",
-        //             _do_not_create_translation_str,
-        //             "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
     }
 
     void DeviceProvider::get_instrumentation_code(
