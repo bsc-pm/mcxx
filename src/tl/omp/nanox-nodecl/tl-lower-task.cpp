@@ -355,6 +355,7 @@ void LoweringVisitor::emit_async_common(
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase task_label,
         bool is_untied,
 
         OutlineInfo& outline_info,
@@ -457,7 +458,7 @@ void LoweringVisitor::emit_async_common(
             dynamic_size);
 
     // For every device name specified in the 'device' clause, we create its outline function
-    CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
+    CreateOutlineInfo info(outline_name, outline_info, statements, task_label, structure_symbol, called_task);
     for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
             it != device_names.end();
             it++)
@@ -495,6 +496,7 @@ void LoweringVisitor::emit_async_common(
                 implementor_outline_name,
                 outline_info,
                 statements,
+                task_label,
                 structure_symbol,
 				implementor_symbol);
 
@@ -667,6 +669,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             called_task_dummy,
             statements,
             task_environment.priority,
+            task_environment.task_label,
             task_environment.is_untied,
 
             outline_info,

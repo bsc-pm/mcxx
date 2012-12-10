@@ -201,7 +201,9 @@ namespace TL { namespace Nanox {
 
         TL::Symbol called_task_dummy = TL::Symbol::invalid();
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
+        CreateOutlineInfo info(outline_name, outline_info, statements,
+                /* task_label */ Nodecl::NodeclBase::null(),
+                structure_symbol, called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();

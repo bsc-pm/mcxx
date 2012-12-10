@@ -456,6 +456,8 @@ namespace TL
 
                 Nodecl::NodeclBase _priority_clause_expr;
 
+                Nodecl::NodeclBase _task_label;
+
             public:
                 FunctionTaskInfo() : _untied(false) { }
 
@@ -489,6 +491,9 @@ namespace TL
 
                 void set_priority_clause_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_priority_clause_expression() const;
+
+                void set_task_label(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_task_label() const;
 
                 bool get_untied() const;
                 void set_untied(bool b);

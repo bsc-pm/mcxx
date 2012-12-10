@@ -1091,6 +1091,7 @@ namespace TL { namespace Nanox {
                     info._called_task,
                     outline_function,
                     outline_function_body,
+                    info._task_label,
                     original_statements.get_filename(),
                     original_statements.get_line(),
                     instrument_before,
