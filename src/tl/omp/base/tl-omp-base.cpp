@@ -311,6 +311,13 @@ namespace TL { namespace OpenMP {
                         );
                 }
 
+                if (!function_task_info.get_task_label().is_null())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                function_task_info.get_task_label().get_text()));
+                }
+
                 return Nodecl::List::make(result_list);
             }
     };
