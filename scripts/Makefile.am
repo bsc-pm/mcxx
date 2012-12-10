@@ -29,7 +29,7 @@ EXTRA_DIST= \
 
 
 generate_sse.bin : builtins_ia32_sse.cpp
-	g++ -fabi-version=6 -o generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+	g++ -msse4.2 -fabi-version=6 -o generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
 
 generate_sse: generate_sse.bin
 	./generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
