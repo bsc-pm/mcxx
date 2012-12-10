@@ -110,6 +110,7 @@ namespace TL { namespace Nanox {
             const TL::Symbol& called_task,
             const TL::Symbol& outline_function,
             Nodecl::NodeclBase outline_function_body,
+            Nodecl::NodeclBase task_label,
             std::string filename,
             int line,
             Source& instrumentation_before,
@@ -120,30 +121,37 @@ namespace TL { namespace Nanox {
             Source extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
 
-            if (called_task.is_valid())
+            if (task_label.is_null())
             {
-                // It's a function task
-                extended_descr << called_task.get_type().get_declaration(
-                        called_task.get_scope(), called_task.get_qualified_name());
+                if (called_task.is_valid())
+                {
+                    // It's a function task
+                    extended_descr << called_task.get_type().get_declaration(
+                            called_task.get_scope(), called_task.get_qualified_name());
+                }
+                else
+                {
+                    // It's an inline task
+                    std::string function_name =
+                        outline_function.get_type().get_declaration(
+                                outline_function.get_scope(), outline_function.get_qualified_name());
+
+                    // The character '@' will be used as a separator of the
+                    // description. Since the function name may contain one or
+                    // more '@' characters, we should replace them by an other
+                    // special char
+                    for (unsigned int i = 0; i < function_name.length(); i++)
+                    {
+                        if (function_name[i] == '@')
+                            function_name[i] = '#';
+                    }
+
+                    extended_descr << function_name;
+                }
             }
             else
             {
-                // It's an inline task
-                std::string function_name =
-                    outline_function.get_type().get_declaration(
-                            outline_function.get_scope(), outline_function.get_qualified_name());
-
-                // The character '@' will be used as a separator of the
-                // description. Since the function name may contain one or
-                // more '@' characters, we should replace them by an other
-                // special char
-                for (unsigned int i = 0; i < function_name.length(); i++)
-                {
-                    if (function_name[i] == '@')
-                        function_name[i] = '#';
-                }
-
-                extended_descr << function_name;
+                extended_descr = task_label.get_text();
             }
 
             // The description should contains:

@@ -42,10 +42,14 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         // clause
         Nodecl::NodeclBase if_condition;
 
+        // This attribute is used only for instrumentation
+        Nodecl::NodeclBase task_label;
+
         TaskEnvironmentVisitor()
             : is_untied(false),
             priority(),
-            if_condition()
+            if_condition(),
+            task_label()
         {
         }
 
@@ -62,6 +66,11 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::OpenMP::If& if_condition)
         {
             this->if_condition = if_condition.get_condition();
+        }
+
+        void visit(const Nodecl::OpenMP::TaskLabel& task_label)
+        {
+            this->task_label = task_label;
         }
 };
 

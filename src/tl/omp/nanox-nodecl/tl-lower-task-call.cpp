@@ -714,6 +714,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             called_symbol,
             statements,
             task_environment.priority,
+            task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
             &parameters_outline_info);
@@ -1083,6 +1084,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             called_task_function, // Which one we want now?
             new_statements,
             task_environment.priority,
+            task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
             NULL);

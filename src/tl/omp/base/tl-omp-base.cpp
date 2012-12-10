@@ -689,9 +689,9 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
         if (label_clause.is_defined())
         {
-            TL::ObjectList<Nodecl::NodeclBase> expr_list = priority.get_arguments_as_expressions(directive);
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
 
-            if (expr_list.size() != 1)
+            if (str_list.size() != 1)
             {
                 warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
                         directive.get_locus().c_str());
@@ -700,7 +700,7 @@ namespace TL { namespace OpenMP {
             {
                 execution_environment.append(
                         Nodecl::OpenMP::TaskLabel::make(
-                            expr_list[0],
+                            str_list[0],
                             directive.get_filename(),
                             directive.get_line()));
             }
