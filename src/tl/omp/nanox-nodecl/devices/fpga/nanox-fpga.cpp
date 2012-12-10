@@ -888,7 +888,7 @@ void DeviceFPGA::add_hls_pragmas(
      *      #pragma AP resource core=AXI_SLAVE variable=VAR metadata="-bus_bundle AXIlite"
      *
      * Array; create fifo port to be handled by axi stream
-     *      #pragma HLS stream variable=VAR
+     *      #pragma HLS stream variable=VAR <-- NOT NEEDED
      *      #pragma HLS resource core=AXI4Stream variable=VAR
      *      #pragma HLS interface ap_fifo port=VAR
      *
@@ -950,9 +950,6 @@ void DeviceFPGA::add_hls_pragmas(
         else
         {
             //set array/stream pragmas
-            pragma_node = Nodecl::UnknownPragma::make(
-                    "HLS stream variable=" + field_name);
-            stlist.prepend(pragma_node);
             pragma_node = Nodecl::UnknownPragma::make(
                     "HLS resource core=AXI4Stream variable=" + field_name);
             stlist.prepend(pragma_node);
@@ -1074,7 +1071,6 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
         args << in_dec << hls_in;
         //add stream parameter pragma
         pragmas_src
-            << "#pragma HLS stream variable=" << hls_in << "\n"
             << "#pragma HLS resource core=AXI4Stream variable=" << hls_in << "\n"
             << "#pragma HLS interface ap_fifo port=" << hls_in << "\n"
         ;
@@ -1083,7 +1079,6 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     {
         args.append_with_separator(out_dec + hls_out, ",");
         pragmas_src
-            << "#pragma HLS stream variable=" << hls_out << "\n"
             << "#pragma HLS resource core=AXI4Stream variable=" << hls_out << "\n"
             << "#pragma HLS interface ap_fifo port=" << hls_out << "\n"
         ;
