@@ -61,7 +61,30 @@ namespace Nanox
             Source copy_data1)
     {
         Source create_sliced_wd;
-        if (Nanos::Version::interface_is_at_least("master", 5012))
+        // Somebody broke everything here
+        if (Nanos::Version::interface_is_at_least("copies_api", 1000))
+        {
+            create_sliced_wd
+                <<"err = nanos_create_sliced_wd("
+                <<      "&wd, "
+                <<       "1, " /* num_devices */
+                <<      device_descriptor << ", "
+                <<      outline_data_size << ", "
+                <<      alignment << ", "
+                <<      outline_data << ", "
+                <<      "nanos_current_wd(), "
+                <<      current_slicer << ", "
+                <<      "&props, "
+                <<      "&dyn_props, "
+                // Brokeness
+                <<      /* num_copies */ "0,"
+                <<      /* copy_data */ "0, "
+                <<      /* num_dimensions */ "0,"
+                <<      /* dimensions */ "0"
+                << ");"
+                ;
+        }
+        else if (Nanos::Version::interface_is_at_least("master", 5012))
         {
             create_sliced_wd
                 <<"err = nanos_create_sliced_wd("
@@ -148,7 +171,8 @@ namespace Nanox
             Source struct_size,
             Source data,
             Source copy_data,
-            Source priority)
+            Source priority,
+            int num_copies)
      {
          Source create_wd;
          if (Nanos::Version::interface_is_at_least("master", 5014))
@@ -169,9 +193,18 @@ namespace Nanox
              ;
          if (Nanos::Version::interface_is_at_least("copies_api", 1000))
          {
-             create_wd << ", "
-                 << "&nanos_copies_region_buffer"
-                 ;
+             if (num_copies == 0)
+             {
+                 create_wd << ", "
+                     << "(nanos_region_dimension_internal_t**)0"
+                     ;
+             }
+             else
+             {
+                 create_wd << ", "
+                     << "&nanos_copies_region_buffer"
+                     ;
+             }
          }
          create_wd
              <<       ");"
@@ -219,7 +252,8 @@ namespace Nanox
              Source deps,
              Source copy_imm_data,
              Source translation_fun_arg_name,
-             Source priority)
+             Source priority,
+             int num_copies)
      {
          Source create_wd_and_run;
          if (Nanos::Version::interface_is_at_least("master", 5014))
@@ -242,9 +276,18 @@ namespace Nanox
          if (Nanos::Version::interface_is_at_least("copies_api", 1000))
          {
              // What's the point of this?
-             create_wd_and_run
-                 << "nanos_copies_imm_region_buffer, "
-                 ;
+             if (num_copies == 0)
+             {
+                 create_wd_and_run
+                     << "(nanos_region_dimension_internal_t*)0, "
+                     ;
+             }
+             else
+             {
+                 create_wd_and_run
+                     << "nanos_copies_imm_region_buffer, "
+                     ;
+             }
          }
 
          create_wd_and_run

@@ -191,7 +191,10 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data, 
-                /* priority */ Source("0"));
+                /* priority */ Source("0"), /* num_copies */ 0);
+
+        // No copies here
+        copy_data = Source("(nanos_region_dimension_internal_t**)0");
 
         decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
 

@@ -248,10 +248,12 @@ Source TL::Nanox::common_parallel_code(
 
     if ( Nanos::Version::interface_is_at_least("master", 5012))
     {
-        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data, Source("0"));
+        nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data, Source("0"),
+                /* num_copies */ 0);
 
         nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
-                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg, Source("0"));
+                struct_size, imm_data, num_dependences, deps, imm_copy_data, xlate_arg, Source("0"),
+                /* num_copies */ 0);
 
         decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
         modify_tie_to1 << "dyn_props.tie_to = _nanos_threads[_i];";

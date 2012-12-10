@@ -956,11 +956,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if (Nanos::Version::interface_is_at_least("master", 5012))
         {
             nanos_create_wd = OMPTransform::get_nanos_create_wd_compact_code(struct_size, data, copy_data,
-                    props_priority);
+                    props_priority, copy_items.size());
 
             nanos_create_run_wd = OMPTransform::get_nanos_create_and_run_wd_compact_code(
                     struct_size, imm_data, num_dependences, deps, copy_imm_data, translation_fun_arg_name,
-                    props_priority);
+                    props_priority, copy_items.size());
             
             decl_dyn_props_opt << "nanos_wd_dyn_props_t dyn_props = {0};";
             
