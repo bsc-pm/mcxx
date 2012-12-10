@@ -63,14 +63,22 @@ namespace TL
                     SHARING_CAPTURE_ADDRESS,
                 };
 
-                enum Directionality
+                enum DependencyDirectionality
                 {
-                    DIRECTIONALITY_NONE = 0,
-                    DIRECTIONALITY_IN =   1 << 0,
-                    DIRECTIONALITY_OUT =  1 << 1,
-                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_CONCURRENT = 1 << 2,
-                    DIRECTIONALITY_COMMUTATIVE = 1 << 3
+                    DEP_NONE = 0,
+                    DEP_IN =   1 << 0,
+                    DEP_OUT =  1 << 1,
+                    DEP_INOUT = DEP_IN | DEP_OUT,
+                    DEP_CONCURRENT = 1 << 2,
+                    DEP_COMMUTATIVE = 1 << 3
+                };
+                struct DependencyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    DependencyDirectionality directionality;
+
+                    DependencyItem(Nodecl::NodeclBase expr_, DependencyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum CopyDirectionality
@@ -79,6 +87,14 @@ namespace TL
                     COPY_IN,
                     COPY_OUT,
                     COPY_INOUT
+                };
+                struct CopyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    CopyDirectionality directionality;
+
+                    CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum AllocationPolicyFlags
@@ -113,19 +129,17 @@ namespace TL
                 // Reductions
                 OpenMP::UDRInfoItem *_udr_info_item;
 
-                // Dependences
-                Directionality _directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _dependences;
+                TL::ObjectList<DependencyItem> _dependences;
 
-                // -- FIXME ---
-                // Copies
-                CopyDirectionality _copy_directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _copies;
+                TL::ObjectList<CopyItem> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
+
+                // Base symbol of the argument in Fortran
+                TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
             public:
@@ -137,9 +151,8 @@ namespace TL
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _base_address_expression(),
-                    _directionality(),
-                    _copy_directionality(),
                     _allocation_policy_flags(),
+                    _base_symbol_of_argument(),
                     _is_lastprivate()
                 {
                 }
@@ -154,6 +167,11 @@ namespace TL
                 std::string get_field_name() const
                 {
                     return _field_name;
+                }
+
+                void set_field_name(const std::string& field_name)
+                {
+                    _field_name = field_name;
                 }
 
                 // Returns the type used in the outline code
@@ -213,42 +231,22 @@ namespace TL
                     return _allocation_policy_flags;
                 }
 
-                void set_directionality(Directionality directionality)
-                {
-                    _directionality = directionality;
-                }
-
-                CopyDirectionality get_copy_directionality() const
-                {
-                    return _copy_directionality;
-                }
-
-                void set_copy_directionality(CopyDirectionality directionality)
-                {
-                    _copy_directionality = directionality;
-                }
-
-                Directionality get_directionality() const
-                {
-                    return _directionality;
-                }
-
-                TL::ObjectList<Nodecl::NodeclBase>& get_dependences()
+                TL::ObjectList<DependencyItem>& get_dependences()
                 {
                     return _dependences;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_dependences() const
+                const TL::ObjectList<DependencyItem>& get_dependences() const
                 {
                     return _dependences;
                 }
 
-                TL::ObjectList<Nodecl::NodeclBase>& get_copies()
+                TL::ObjectList<CopyItem>& get_copies()
                 {
                     return _copies;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_copies() const
+                const TL::ObjectList<CopyItem>& get_copies() const
                 {
                     return _copies;
                 }
@@ -301,12 +299,28 @@ namespace TL
                 {
                     _is_lastprivate = b;
                 }
+
+                void set_base_symbol_of_argument(TL::Symbol symbol)
+                {
+                    _base_symbol_of_argument = symbol;
+                }
+
+                TL::Symbol get_base_symbol_of_argument() const
+                {
+                    return _base_symbol_of_argument;
+                }
         };
 
         class OutlineInfo
         {
+
+            public:
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
+
+                ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
 
                 // Devices information
                 ObjectList<std::string> _device_names;
@@ -319,8 +333,11 @@ namespace TL
                 OutlineInfo(const OutlineInfo&);
                 OutlineInfo& operator=(const OutlineInfo&);
 
+                implementation_table_t _implementation_table;
             public:
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+
+
+                OutlineInfo(Nodecl::NodeclBase environment);
                 OutlineInfo();
                 ~OutlineInfo();
 
@@ -337,8 +354,16 @@ namespace TL
                     return _data_env_items;
                 }
 
+                ObjectList<OutlineDataItem*> get_fields() const;
+
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+
+                void add_implementation(std::string device_name, TL::Symbol function_symbol);
+                implementation_table_t get_implementation_table();
 
                 TL::Symbol get_unpacked_function_symbol() const
                 {
@@ -362,21 +387,18 @@ namespace TL
             private:
                 OutlineInfo& _outline_info;
                 Scope _sc;
-                bool _is_function_task;
 
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
-                    : _outline_info(outline_info), _sc(sc), _is_function_task(false) { }
-
-                OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc, bool is_function_task)
-                    : _outline_info(outline_info), _sc(sc), _is_function_task(is_function_task) { }
+                    : _outline_info(outline_info), _sc(sc) { }
 
                 void add_private(Symbol sym);
-                void add_shared_opaque(Symbol sym);
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
-                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::Directionality directionality);
-                void add_dependences(Nodecl::List list, OutlineDataItem::Directionality directionality);
+                void add_shared_opaque(Symbol sym);
+                void add_capture_address(Symbol sym, TL::DataReference& data_ref);
+                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
+                void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);

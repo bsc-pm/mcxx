@@ -29,6 +29,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -172,6 +173,20 @@ namespace TL { namespace OpenMP {
                         line,
                         result_list);
 
+                make_dependency_list<Nodecl::OpenMP::Concurrent>(
+                        task_dependences,
+                        OpenMP::DEP_CONCURRENT,
+                        filename,
+                        line,
+                        result_list);
+
+                make_dependency_list<Nodecl::OpenMP::Commutative>(
+                        task_dependences,
+                        OpenMP::DEP_COMMUTATIVE,
+                        filename,
+                        line,
+                        result_list);
+
                 // Make sure the remaining symbols are firstprivate
                 std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
@@ -225,7 +240,7 @@ namespace TL { namespace OpenMP {
                 ObjectList<std::string> device_list = target_info.get_device_list();
                 for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
                 {
-                    devices.append(Nodecl::Text::make(*it, filename, line));
+                    devices.append(Nodecl::Text::make(strtolower(it->c_str()), filename, line));
                 }
 
                 ObjectList<CopyItem> copy_in = target_info.get_copy_in();
@@ -249,11 +264,59 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
+                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+                if (!ndrange_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::NDRange::make(
+                                Nodecl::List::make(ndrange_exprs),
+                                filename, line));
+                }
+
+                ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
+                    function_task_info.get_devices_with_implementation();
+                for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
+                        it != implementation_table.end(); ++it)
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Implements::make(
+                                Nodecl::Text::make(it->first),
+                                Nodecl::Symbol::make(it->second, filename, line),
+                                filename, line));
+                }
+
                 result_list.append(
                         Nodecl::OpenMP::Target::make(
                             Nodecl::List::make(devices),
                             Nodecl::List::make(target_items),
                             filename, line));
+
+                if (function_task_info.get_untied())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Untied::make(filename, line));
+                }
+
+                if (!function_task_info.get_if_clause_conditional_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression())
+                        );
+                }
+
+                if (!function_task_info.get_priority_clause_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::Priority::make(function_task_info.get_priority_clause_expression())
+                        );
+                }
+
+                if (!function_task_info.get_task_label().is_null())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                function_task_info.get_task_label().get_text()));
+                }
 
                 return Nodecl::List::make(result_list);
             }
@@ -629,6 +692,26 @@ namespace TL { namespace OpenMP {
                     directive.get_line())
         );
 
+        // Label task (this is used only for instrumentation)
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_filename(),
+                            directive.get_line()));
+            }
+        }
 
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
@@ -994,7 +1077,7 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
-    void Base::target_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)   { }
     void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
@@ -1004,7 +1087,60 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        Nodecl::Utils::remove_from_enclosing_list(decl);
+        if (decl.get_nested_pragma().is_null())
+        {
+            Nodecl::NodeclBase result;
+            ObjectList<Nodecl::NodeclBase> devices;
+            ObjectList<Nodecl::NodeclBase> symbols;
+
+            int line = decl.get_line();
+            std::string file = decl.get_filename();
+
+            PragmaCustomLine pragma_line = decl.get_pragma_line();
+            PragmaCustomClause device_clause = pragma_line.get_clause("device");
+            if (device_clause.is_defined())
+            {
+                ObjectList<std::string> device_names = device_clause.get_tokenized_arguments();
+                for (ObjectList<std::string>::iterator it = device_names.begin();
+                        it != device_names.end();
+                        ++it)
+                {
+                    devices.append(Nodecl::Text::make(*it, file, line));
+                }
+            }
+
+            ERROR_CONDITION(!decl.has_symbol(),
+                    "%s: expecting a function declaration or definition", decl.get_locus().c_str());
+
+            Symbol sym = decl.get_symbol();
+
+            ERROR_CONDITION(!sym.is_function(),
+                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
+
+            symbols.append(Nodecl::Symbol::make(sym, file, line));
+
+            Nodecl::NodeclBase function_code = sym.get_function_code();
+            if (!function_code.is_null())
+            {
+                result = Nodecl::OpenMP::TargetDefinition::make(
+                        Nodecl::List::make(devices),
+                        Nodecl::List::make(symbols),
+                        file, line);
+            }
+            else
+            {
+                result = Nodecl::OpenMP::TargetDeclaration::make(
+                        Nodecl::List::make(devices),
+                        Nodecl::List::make(symbols),
+                        file, line);
+            }
+
+            decl.replace(result);
+        }
+        else
+        {
+            Nodecl::Utils::remove_from_enclosing_list(decl);
+        }
     }
 
     // SIMD For Statement
@@ -1392,6 +1528,17 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Symbol> symbols;
         data_sharing_env.get_all_symbols(data_attr, symbols);
 
+        // Get the symbols in dependences
+        TL::ObjectList<DependencyItem> all_dependences;
+        data_sharing_env.get_all_dependences(all_dependences);
+        TL::ObjectList<DataReference> dependences_in_symbols
+            = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
+        TL::ObjectList<Symbol> symbols_in_dependences
+            = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
+
+        // Remove all symbols appearing in dependences
+        symbols = symbols.filter(not_in_set(symbols_in_dependences));
+
         if (!symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(filename, line));
@@ -1451,6 +1598,15 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
+
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::NDRange::make(
+                        Nodecl::List::make(ndrange_exprs),
+                        filename, line));
+        }
 
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)

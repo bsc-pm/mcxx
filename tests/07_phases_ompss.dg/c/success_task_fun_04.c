@@ -34,7 +34,7 @@ test_generator=config/mercurium-ompss
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma omp target device(smp_numa) copy_in(*a) copy_out(*b)
+#pragma omp target device(smp) copy_in(*a) copy_out(*b)
 #pragma omp task
 void f(int *a, int *b)
 {

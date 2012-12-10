@@ -8030,7 +8030,7 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
             error_printf("%s: error: argument %d of type '%s' cannot be "
                     "converted to type '%s' of parameter\n",
                     nodecl_get_locus(*arg),
-                    num_parameter,
+                    num_parameter + 1,
                     print_type_str(no_ref(arg_type), p->decl_context),
                     print_type_str(param_type, p->decl_context));
         }
@@ -8051,7 +8051,7 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
             error_printf("%s: error: argument %d of type '%s' cannot be "
                     "converted to type '%s' of parameter\n",
                     nodecl_get_locus(*arg),
-                    num_parameter,
+                    num_parameter + 1,
                     print_type_str(arg_type, p->decl_context),
                     print_type_str(param_type, p->decl_context));
         }
@@ -8130,24 +8130,21 @@ static char check_argument_types_of_call(
         for (i = 0; i < num_elements; i++)
         {
             nodecl_t arg = list[i];
-            
-            // Ellipsis is not to be checked
-            if (i < num_args_to_check) 
-            {
-                type_t* arg_type = nodecl_get_type(arg);
-                type_t* param_type = NULL;
-                if (!function_type_get_lacking_prototype(function_type))
-                {
-                    param_type = function_type_get_parameter_type_num(function_type, i);
-                }
-                else
-                {
-                    param_type = get_signed_int_type();
-                }
 
-                if (!arg_type_is_ok_for_param_type(arg_type, param_type, i, &arg, data))
+            // We do not check unprototyped functions
+            if (!function_type_get_lacking_prototype(function_type))
+            {
+                // Ellipsis is not to be checked
+                if (i < num_args_to_check) 
                 {
-                    no_arg_is_faulty = 0;
+                    type_t* arg_type = nodecl_get_type(arg);
+                    type_t* param_type = NULL;
+                    param_type = function_type_get_parameter_type_num(function_type, i);
+
+                    if (!arg_type_is_ok_for_param_type(arg_type, param_type, i, &arg, data))
+                    {
+                        no_arg_is_faulty = 0;
+                    }
                 }
             }
             *nodecl_output_argument_list = nodecl_append_to_list(*nodecl_output_argument_list,
@@ -9042,22 +9039,21 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 
                 if (!checking_ambiguity())
                 {
-                    warn_printf("%s: warning: unknown function '%s' in call. Assuming '%s'\n",
+                    warn_printf("%s: warning: implicit declaration of function '%s' in call\n",
                             ast_location(advanced_called_expression),
-                            entry->symbol_name,
-                            print_decl_type_str(entry->type_information, decl_context, entry->symbol_name));
+                            entry->symbol_name);
                 }
             }
             else
             {
                 entry = entry_list_head(result);
             }
-            
+
             if (entry->kind != SK_FUNCTION && entry->kind != SK_VARIABLE)
             {
                 nodecl_called = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             }
-            else 
+            else
             {
                 nodecl_called = nodecl_make_symbol(entry, ASTFileName(called_expression), ASTLine(called_expression));
                 nodecl_set_type(nodecl_called, entry->type_information);
@@ -9837,7 +9833,7 @@ static void check_postoperator_user_defined(
     entry_list_free(old_overload_set);
     entry_list_free(operator_overload_set);
 
-    scope_entry_t* conversors[1] = { NULL };
+    scope_entry_t* conversors[2] = { NULL, NULL };
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -9852,7 +9848,9 @@ static void check_postoperator_user_defined(
     entry_list_iterator_free(it);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
-            decl_context, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr), 
+            decl_context, 
+            nodecl_get_filename(postoperated_expr), 
+            nodecl_get_line(postoperated_expr), 
             conversors);
 
     if (overloaded_call == NULL)
@@ -9863,13 +9861,18 @@ static void check_postoperator_user_defined(
                     get_operator_function_name(operator),
                     decl_context,
                     num_arguments, argument_types,
-                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                    nodecl_get_filename(postoperated_expr), 
+                    nodecl_get_line(postoperated_expr));
         }
-        *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+        *nodecl_output = nodecl_make_err_expr(
+                nodecl_get_filename(postoperated_expr), 
+                nodecl_get_line(postoperated_expr));
         return;
     }
 
-    if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)))
+    if (function_has_been_deleted(decl_context, overloaded_call, 
+                nodecl_get_filename(postoperated_expr), 
+                nodecl_get_line(postoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
         return;
@@ -9887,7 +9890,9 @@ static void check_postoperator_user_defined(
         {
             if (conversors[0] != NULL)
             {
-                if (function_has_been_deleted(decl_context, conversors[0], nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)))
+                if (function_has_been_deleted(decl_context, conversors[0], 
+                            nodecl_get_filename(postoperated_expr), 
+                            nodecl_get_line(postoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
                     return;
@@ -9895,11 +9900,16 @@ static void check_postoperator_user_defined(
 
                 postoperated_expr =
                     cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
-                            nodecl_make_list_1(postoperated_expr),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_filename(postoperated_expr), 
+                            nodecl_make_symbol(conversors[0], 
+                                nodecl_get_filename(postoperated_expr), 
                                 nodecl_get_line(postoperated_expr)),
-                            actual_type_of_conversor(conversors[0]), nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                            nodecl_make_list_1(postoperated_expr),
+                            nodecl_make_cxx_function_form_implicit(
+                                nodecl_get_filename(postoperated_expr), 
+                                nodecl_get_line(postoperated_expr)),
+                            actual_type_of_conversor(conversors[0]), 
+                            nodecl_get_filename(postoperated_expr), 
+                            nodecl_get_line(postoperated_expr));
             }
         }
     }
@@ -9916,13 +9926,18 @@ static void check_postoperator_user_defined(
     {
         *nodecl_output =
             cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(overloaded_call, nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    nodecl_make_symbol(overloaded_call, 
+                        nodecl_get_filename(postoperated_expr), 
+                        nodecl_get_line(postoperated_expr)),
                     nodecl_make_list_2(/* 0 */
                         postoperated_expr,
                         const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
-                    nodecl_make_cxx_function_form_unary_postfix(nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr)),
+                    nodecl_make_cxx_function_form_unary_postfix(
+                        nodecl_get_filename(postoperated_expr), 
+                        nodecl_get_line(postoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information),
-                    nodecl_get_filename(postoperated_expr), nodecl_get_line(postoperated_expr));
+                    nodecl_get_filename(postoperated_expr), 
+                    nodecl_get_line(postoperated_expr));
     }
 }
 
@@ -10177,7 +10192,7 @@ static void check_postoperator(AST operator,
             postoperator_result);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
-    
+
     // Only C++ after this point
     check_postoperator_user_defined(operator, 
             postoperated_expr, decl_context, builtins, nodecl_fun, nodecl_output);
@@ -14386,9 +14401,13 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char
     return result;
 }
 
-nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, nodecl_t function_form, type_t* t, const char* filename, int line)
+nodecl_t cxx_nodecl_make_function_call(nodecl_t called,
+        nodecl_t arg_list,
+        nodecl_t function_form,
+        type_t* t,
+        const char* filename, int line)
 {
-    ERROR_CONDITION(!nodecl_is_null(arg_list) 
+    ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
 
     scope_entry_t* called_symbol = nodecl_get_symbol(called);
@@ -14469,33 +14488,36 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, nodec
         {
             ensure_function_is_emitted(called_symbol, nodecl_get_filename(called), nodecl_get_line(called));
 
-            // Default arguments
-            int arg_i = nodecl_list_length(converted_arg_list);
-            if (ignore_this)
+            CXX_LANGUAGE()
             {
-                // Do not count the implicit member
-                arg_i--;
-            }
-            ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
-
-            for(; arg_i < num_parameters; arg_i++)
-            {
-                ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
-                        || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
-                        "Invalid default argument information %d", arg_i);
-
-                // We need to update the default argument
-                nodecl_t new_default_argument = instantiate_expression(
-                        called_symbol->entity_specs.default_argument_info[arg_i]->argument,
-                        called_symbol->decl_context);
-
-                if (nodecl_is_err_expr(new_default_argument))
+                // Default arguments
+                int arg_i = nodecl_list_length(converted_arg_list);
+                if (ignore_this)
                 {
-                    // Best effort
-                    return new_default_argument;
+                    // Do not count the implicit member
+                    arg_i--;
                 }
+                ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
 
-                converted_arg_list = nodecl_append_to_list(converted_arg_list, new_default_argument);
+                for(; arg_i < num_parameters; arg_i++)
+                {
+                    ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
+                            || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
+                            "Invalid default argument information %d", arg_i);
+
+                    // We need to update the default argument
+                    nodecl_t new_default_argument = instantiate_expression(
+                            called_symbol->entity_specs.default_argument_info[arg_i]->argument,
+                            called_symbol->decl_context);
+
+                    if (nodecl_is_err_expr(new_default_argument))
+                    {
+                        // Best effort
+                        return new_default_argument;
+                    }
+
+                    converted_arg_list = nodecl_append_to_list(converted_arg_list, new_default_argument);
+                }
             }
 
             if (called_symbol->entity_specs.is_member

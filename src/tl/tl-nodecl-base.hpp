@@ -573,7 +573,9 @@ namespace Nodecl {
                 return T(nodecl_null());
             }
 
+            TL::ObjectList<NodeclBase> to_object_list();
             static List make(const TL::ObjectList<NodeclBase>& list);
+
 
             static List make(const NodeclBase& item_1);
             static List make(const NodeclBase& item_1, const NodeclBase& item_2);

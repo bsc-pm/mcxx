@@ -5,6 +5,7 @@ tl_cflags= -Wall \
     -I $(top_srcdir)/src/tl/codegen/vector \
     -I $(top_srcdir)/src/tl/codegen/base/cxx \
     -I $(top_srcdir)/src/tl/codegen/base/fortran \
+    -I $(top_srcdir)/src/tl/codegen/gpu/cuda \
     -I $(top_srcdir)/src/tl \
     -I $(top_srcdir)/src/mcxx_tl \
     -I $(top_srcdir)/src/frontend \
@@ -15,6 +16,7 @@ tl_cflags= -Wall \
     -I $(top_builddir)/src/tl/codegen/vector \
     -I $(top_builddir)/src/tl/codegen/base/cxx \
     -I $(top_builddir)/src/tl/codegen/base/fortran \
+    -I $(top_builddir)/src/tl/codegen/gpu/cuda \
     -I $(top_builddir)/src/tl \
     -I $(top_builddir)/src/mcxx_tl \
     -I $(top_builddir)/src/frontend \
@@ -38,5 +40,6 @@ else
 tl_ldflags += \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN \
 	-Wl,-z,origin \
+	--enable-new-dtags \
 	$(END)
 endif

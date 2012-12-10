@@ -28,31 +28,36 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
-
 #include <stdlib.h>
-#include "gpu_basic.cu"
 
-#pragma omp target device (cuda) copy_deps
-#pragma omp task inout (*a)
-void addOne (int *a)
+#pragma omp target device(smp) copy_deps
+#pragma omp task inout(a[0;10])
+void f(int *a)
 {
-#pragma mcc verbatim start
-	addOne_gpu <<<1, 1>>> (a);
-#pragma mcc verbatim end
+    int i;
+    for (i = 0; i < 10; i++)
+        a[i]++;
 }
 
-
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-	int a = 1;
+    int v[10];
 
-	addOne(&a);
+    int i;
+    for (i = 0; i < 10; i++)
+        v[i] = i;
 
-	if (a != 2) abort();
+    f(v);
+#pragma omp taskwait
 
-	return 0;
+    for (i = 0; i < 10; i++)
+    {
+        if (v[i] != (i+1))
+            abort();
+    }
+
+    return 0;
 }

@@ -47,7 +47,7 @@ namespace TL
             { 
                 _data_ref._is_valid = false;
                 _data_ref._error_log = 
-                    tree.get_locus() + ": error: expression not allowed in data-reference\n";
+                    tree.get_locus() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
             }
 
             // Symbol
@@ -79,10 +79,14 @@ namespace TL
 
             virtual void visit(const Nodecl::Dereference& derref)
             {
-                if (derref.get_rhs().is<Nodecl::Reference>())
+                Nodecl::NodeclBase operand = derref.get_rhs();
+                while (operand.is<Nodecl::ParenthesizedExpression>())
+                    operand = operand.as<Nodecl::ParenthesizedExpression>().get_nest();
+
+                if (operand.is<Nodecl::Reference>())
                 {
                     // *&a is like a
-                    walk(derref.get_rhs().as<Nodecl::Reference>().get_rhs());
+                    walk(operand.as<Nodecl::Reference>().get_rhs());
                     return;
                 }
 
@@ -101,14 +105,26 @@ namespace TL
 
             virtual void visit(const Nodecl::Reference& ref)
             {
-                if (ref.get_rhs().is<Nodecl::Dereference>())
+                // In general we do not allow &x but there are some cases that may arise
+                // during internal transformations
+                //
+                Nodecl::NodeclBase rhs = ref.get_rhs();
+                if (rhs.is<Nodecl::Dereference>())
                 {
                     // &*a is like a
                     walk(ref.get_rhs().as<Nodecl::Dereference>().get_rhs());
-                    return;
                 }
-
-                unhandled_node(ref);
+                else if (rhs.is<Nodecl::ArraySubscript>())
+                {
+                    // &(a[e])
+                    // &(a[l:u])
+                    // &(a[l;S])
+                    walk(rhs.as<Nodecl::ArraySubscript>().get_subscripted());
+                }
+                else
+                {
+                    unhandled_node(ref);
+                }
             }
 
             TL::Type extend_array_type_to_regions(const Nodecl::ArraySubscript& array)
@@ -209,6 +225,11 @@ namespace TL
                walk(c.get_nest());
             }
 
+            virtual void visit(const Nodecl::ParenthesizedExpression& p)
+            {
+                walk(p.get_nest());
+            }
+
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());
@@ -253,18 +274,28 @@ namespace TL
                     _data_ref._data_type = t;
                 }
 
-                _data_ref._base_address =
-                    Nodecl::Reference::make(
-                            Nodecl::ArraySubscript::make(
-                                _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                Nodecl::List::make(low_subscripts),
-                                t,
+                if (array.get_subscripted().is<Nodecl::Shaping>())
+                {
+                    // The base address of a shaping expression is itself
+                }
+                else
+                {
+                    ERROR_CONDITION(!_data_ref._base_address.is<Nodecl::Reference>(), 
+                            "Invalid address for the subscripted expression", 0);
+
+                    _data_ref._base_address =
+                        Nodecl::Reference::make(
+                                Nodecl::ArraySubscript::make(
+                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
+                                    Nodecl::List::make(low_subscripts),
+                                    t,
+                                    array.get_filename(),
+                                    array.get_line()
+                                    ),
+                                t.get_pointer_to(),
                                 array.get_filename(),
-                                array.get_line()
-                                ),
-                            t.get_pointer_to(),
-                            array.get_filename(),
-                            array.get_line());
+                                array.get_line());
+                }
             }
 
             virtual void visit(const Nodecl::ClassMemberAccess& member)
@@ -354,6 +385,7 @@ namespace TL
     {
         if (expr.is_null()
                 || expr.is<Nodecl::ErrExpr>()
+                || !expr.get_type().is_valid()
                 || expr.get_type().is_error_type())
         {
             _is_valid = false;
@@ -412,6 +444,252 @@ namespace TL
     Nodecl::NodeclBase DataReference::get_base_address() const
     {
         return _base_address.shallow_copy();
+    }
+
+    namespace
+    {
+        Nodecl::NodeclBase get_index_expression_rec(
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_index,
+
+                TL::ObjectList<Nodecl::NodeclBase>::iterator end_index,
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_size,
+                TL::ObjectList<Nodecl::NodeclBase>::iterator current_lower
+                )
+        {
+            if ((current_index + 1) == end_index)
+            {
+                return Nodecl::Minus::make(
+                            current_index->shallow_copy(),
+                            current_lower->shallow_copy(),
+                            current_index->get_type(),
+                            current_index->get_filename(),
+                            current_index->get_line());
+            }
+            else
+            {
+                Nodecl::NodeclBase next_indexing = get_index_expression_rec(
+                        current_index + 1, end_index,
+                        current_size + 1, current_lower + 1);
+
+                // Horner algorithm
+                Nodecl::NodeclBase result;
+                result = Nodecl::Add::make(
+                        Nodecl::Minus::make(
+                            current_index->shallow_copy(),
+                            current_lower->shallow_copy(),
+                            current_index->get_type(),
+                            current_index->get_filename(),
+                            current_index->get_line()),
+                        Nodecl::Mul::make(
+                            current_size->shallow_copy(),
+                            Nodecl::ParenthesizedExpression::make(
+                                next_indexing,
+                                next_indexing.get_type(),
+                                next_indexing.get_filename(),
+                                next_indexing.get_line()),
+                            current_size->get_type(),
+                            current_size->get_filename(),
+                            current_size->get_line()),
+                        current_index->get_type(),
+                        current_index->get_filename(),
+                        current_index->get_line());
+
+                return result;
+            }
+        }
+
+        Nodecl::NodeclBase get_index_expression(Nodecl::List subscripts, TL::Type subscripted_type)
+        {
+            ObjectList<Nodecl::NodeclBase> reversed_indexes;
+            ObjectList<Nodecl::NodeclBase> reversed_sizes;
+            ObjectList<Nodecl::NodeclBase> reversed_lower_bounds;
+
+            for (Nodecl::List::iterator it = subscripts.begin();
+                    it != subscripts.end();
+                    it++)
+            {
+                if (it->is<Nodecl::Range>())
+                {
+                    reversed_indexes.prepend(it->as<Nodecl::Range>().get_lower());
+                }
+                else
+                {
+                    reversed_indexes.prepend(*it);
+                }
+            }
+
+            TL::Type it_type = subscripted_type;
+            while (it_type.is_array())
+            {
+                Nodecl::NodeclBase size = it_type.array_get_size();
+                reversed_sizes.prepend(size);
+                Nodecl::NodeclBase lower, upper;
+                it_type.array_get_bounds(lower, upper);
+
+                reversed_lower_bounds.prepend(lower);
+
+                it_type = it_type.array_element();
+
+            }
+
+            ERROR_CONDITION(reversed_indexes.size() != reversed_sizes.size(), "Mismatch between indexes and dimensions", 0);
+
+            Nodecl::NodeclBase index_expression = get_index_expression_rec(
+                    reversed_indexes.begin(),
+                    reversed_indexes.end(),
+
+                    reversed_sizes.begin(),
+                    reversed_lower_bounds.begin());
+
+            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+
+            Nodecl::NodeclBase result =
+                Nodecl::Mul::make(
+                        const_value_to_nodecl(const_value_get_signed_int(it_type.get_size())),
+                        Nodecl::ParenthesizedExpression::make(
+                            index_expression,
+                            index_expression.get_type(),
+                            index_expression.get_filename(),
+                            index_expression.get_line()),
+                        index_type,
+                        index_expression.get_filename(),
+                        index_expression.get_line()
+                        );
+
+            return result;
+        }
+    }
+
+    Nodecl::NodeclBase DataReference::get_base_address_as_integer() const
+    {
+        Nodecl::NodeclBase base_address = _base_address;
+
+        if (!base_address.is<Nodecl::Reference>())
+            internal_error("Base address is not an address actually", 0);
+
+        base_address = base_address.as<Nodecl::Reference>().get_rhs();
+
+        if (base_address.is<Nodecl::Symbol>())
+        {
+            return base_address.shallow_copy();
+        }
+        else if (base_address.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript arr_subscript = base_address.as<Nodecl::ArraySubscript>();
+
+            Nodecl::NodeclBase subscripted = arr_subscript.get_subscripted();
+            Nodecl::NodeclBase subscripts = arr_subscript.get_subscripts();
+
+            TL::Type subscripted_type = subscripted.get_type();
+            if (subscripted_type.is_any_reference())
+                subscripted_type = subscripted_type.references_to();
+
+            if (subscripted_type.is_pointer())
+                internal_error("Not yet implemented", 0);
+
+            Nodecl::NodeclBase index_expression = get_index_expression(subscripts.as<Nodecl::List>(), subscripted_type);
+
+            Nodecl::NodeclBase result = Nodecl::Add::make(
+                    subscripted.shallow_copy(),
+                    Nodecl::ParenthesizedExpression::make(
+                        index_expression,
+                        index_expression.get_type(),
+                        index_expression.get_filename(),
+                        index_expression.get_line()),
+                    index_expression.get_type(),
+                    index_expression.get_filename(),
+                    index_expression.get_line()
+                    );
+
+            return result;
+        }
+        else
+        {
+            internal_error("Not yet implemented %s", ast_print_node_type(base_address.get_kind()));
+        }
+    }
+
+    Nodecl::NodeclBase DataReference::get_address_of_symbol_helper(Nodecl::NodeclBase expr) const
+    {
+        if (expr.is<Nodecl::Symbol>())
+        {
+            TL::Symbol sym = expr.as<Nodecl::Symbol>().get_symbol();
+            if (sym.get_type().is_array()
+                    || (sym.get_type().is_any_reference()
+                        && sym.get_type().references_to().is_array()))
+            {
+                return expr.shallow_copy();
+            }
+            else
+            {
+                TL::Type t = expr.get_type();
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                return Nodecl::Reference::make(
+                        expr.shallow_copy(),
+                        t.get_pointer_to(),
+                        expr.get_filename(),
+                        expr.get_line());
+            }
+        }
+        else if (expr.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::NodeclBase subscripted = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+
+            if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                    && (subscripted.get_type().is_pointer()
+                        || (subscripted.get_type().is_any_reference()
+                            && subscripted.get_type().references_to().is_pointer())))
+            {
+                return subscripted.shallow_copy();
+            }
+            else
+            {
+                return get_address_of_symbol_helper(subscripted);
+            }
+        }
+        else if (expr.is<Nodecl::Reference>())
+        {
+            return expr.as<Nodecl::Reference>().get_rhs();
+        }
+        else if (expr.is<Nodecl::Shaping>())
+        {
+            Nodecl::NodeclBase postfix = expr.as<Nodecl::Shaping>().get_postfix();
+
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && (postfix.get_type().is_pointer()
+                        || (postfix.get_type().is_any_reference()
+                            && postfix.get_type().references_to().is_pointer())))
+            {
+                return postfix.shallow_copy();
+            }
+            else
+            {
+                return get_address_of_symbol_helper(postfix);
+            }
+        }
+        else if (expr.is<Nodecl::Dereference>())
+        {
+            return expr.as<Nodecl::Dereference>().get_rhs();
+        }
+        else if (expr.is<Nodecl::ParenthesizedExpression>())
+        {
+            return get_address_of_symbol_helper(expr.as<Nodecl::ParenthesizedExpression>().get_nest());
+        }
+        else
+        {
+            internal_error("Unhandled case '%s'\n", ast_print_node_type(expr.get_kind()));
+        }
+    }
+
+    Nodecl::NodeclBase DataReference::get_address_of_symbol() const
+    {
+        if (!_is_valid)
+            return Nodecl::NodeclBase::null();
+
+        return get_address_of_symbol_helper(*this);
     }
 
     Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const

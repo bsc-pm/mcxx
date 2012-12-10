@@ -2451,7 +2451,7 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int num_elements = 0;
     int *values = NULL;
 
-    const_value_string_unpack(str, &values, &num_elements);
+    const_value_string_unpack_to_int(str, &values, &num_elements);
 
     if (num_elements == 0)
         return nodecl_null();

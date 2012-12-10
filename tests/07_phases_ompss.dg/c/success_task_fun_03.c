@@ -34,14 +34,16 @@ test_generator=config/mercurium-ompss
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma css task inout(a) target device (smp)
+#pragma omp target device (smp)
+#pragma omp task inout(*a) target device (fooo)
 void task1(int *a)
 {
     *a += 2;
 }
 
-#pragma css task inout(a) target device (smp_numa) implements (task1)
-void task1_smp_numa(int *a)
+#pragma omp target device (smp) implements(task1)
+#pragma omp task inout(*a)
+void task1_smp_v2(int *a)
 {
     *a += 2;
 }

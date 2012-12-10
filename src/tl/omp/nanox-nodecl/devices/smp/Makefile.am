@@ -33,6 +33,7 @@ phases_LTLIBRARIES=libtlnanox-smp.la
 
 
 device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../nanos-common \
 			 -I$(srcdir)/../../../core
 
 libtlnanox_smp_la_CFLAGS = $(device_flags)

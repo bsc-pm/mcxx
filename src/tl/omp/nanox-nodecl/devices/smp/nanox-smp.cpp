@@ -45,6 +45,7 @@
 
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
+
 #include <errno.h>
 #include <string.h>
 
@@ -93,6 +94,35 @@ namespace TL { namespace Nanox {
                 if (t.is_named_class())
                 {
                     extra_decl_sym.insert(t.get_symbol());
+                }
+            }
+    };
+
+    struct FortranInternalFunctions : Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            std::set<TL::Symbol> _already_visited;
+        public:
+            TL::ObjectList<Nodecl::NodeclBase> function_codes;
+
+            FortranInternalFunctions()
+                : _already_visited(), function_codes()
+            {
+            }
+
+            virtual void visit(const Nodecl::Symbol& node_sym)
+            {
+                TL::Symbol sym = node_sym.get_symbol();
+
+                if (sym.is_function()
+                        && sym.is_nested_function())
+                {
+                    if (_already_visited.find(sym) == _already_visited.end())
+                    {
+                        _already_visited.insert(sym);
+                        function_codes.append(sym.get_function_code());
+                        walk(sym.get_function_code());
+                    }
                 }
             }
     };
@@ -690,16 +720,18 @@ namespace TL { namespace Nanox {
 
     void DeviceSMP::create_outline(CreateOutlineInfo& info,
             Nodecl::NodeclBase& outline_placeholder,
+            Nodecl::NodeclBase& output_statements,
             Nodecl::Utils::SymbolMap* &symbol_map)
     {
         //Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
+        const Nodecl::NodeclBase& original_statements = info._original_statements;
         OutlineInfo& outline_info = info._outline_info;
-        Nodecl::NodeclBase& original_statements = info._original_statements;
-        TL::Symbol& arguments_struct = info._arguments_struct;
 
-        TL::Symbol current_function = original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
+        output_statements = original_statements;
 
+        TL::Symbol current_function =
+            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -840,7 +872,7 @@ namespace TL { namespace Nanox {
         structure_name.append("args");
         ObjectList<TL::Type> structure_type;
         structure_type.append(
-                TL::Type(get_user_defined_type( arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
+                TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
                 );
 
         TL::Symbol outline_function = new_function_symbol(
@@ -883,12 +915,21 @@ namespace TL { namespace Nanox {
                     current_function,
                     unpacked_function);
 
-            // Replicate internal functions
-            Nodecl::FunctionCode function_code = current_function.get_function_code().as<Nodecl::FunctionCode>();
-            Nodecl::NodeclBase internal_functions = function_code.get_internal_functions();
+            // Now get all the needed internal functions and replicate them in the outline
+            FortranInternalFunctions internal_functions;
+            internal_functions.walk(info._original_statements);
 
-            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(
-                    Nodecl::Utils::deep_copy(internal_functions, unpacked_function.get_related_scope(), *symbol_map));
+            Nodecl::List l;
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_functions.function_codes.begin();
+                    it != internal_functions.function_codes.end();
+                    it++)
+            {
+                l.append(
+                        Nodecl::Utils::deep_copy(*it, unpacked_function.get_related_scope(), *symbol_map)
+                        );
+            }
+
+            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
         }
 
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
@@ -1046,77 +1087,15 @@ namespace TL { namespace Nanox {
 
         if (instrumentation_enabled())
         {
-            Source uf_name_id, uf_name_descr,
-                   uf_location_id, uf_location_descr,
-                   instrument_before_c, instrument_after_c;
-
-            instrument_before_c
-                << "static int nanos_funct_id_init = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
-                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
-                << "nanos_err_t err; "
-                << "if (nanos_funct_id_init == 0)"
-                << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
-                <<               uf_name_id << "," << uf_name_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
-                <<               uf_location_id << "," << uf_location_descr << ", 0);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "nanos_funct_id_init = 1;"
-                << "}"
-                << "nanos_event_t events_before[2];"
-                << "events_before[0].type = NANOS_BURST_START;"
-                << "events_before[0].key = nanos_instr_uf_name_key;"
-                << "events_before[0].value = nanos_instr_uf_name_value;"
-                << "events_before[1].type = NANOS_BURST_START;"
-                << "events_before[1].key = nanos_instr_uf_location_key;"
-                << "events_before[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_before);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
-
-            instrument_after_c
-                << "nanos_event_t events_after[2];"
-                << "events_after[0].type = NANOS_BURST_END;"
-                << "events_after[0].key = nanos_instr_uf_name_key;"
-                << "events_after[0].value = nanos_instr_uf_name_value;"
-                << "events_after[1].type = NANOS_BURST_END;"
-                << "events_after[1].key = nanos_instr_uf_location_key;"
-                << "events_after[1].value = nanos_instr_uf_location_value;"
-                << "err = nanos_instrument_events(2, events_after);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                ;
-
-
-            uf_name_id << uf_location_id;
-            uf_location_id << "\"" << outline_name << ":" << original_statements.get_locus() << "\"";
-
-            uf_name_descr << uf_location_descr;
-            uf_location_descr
-                << "\"Outline from '"
-                << original_statements.get_locus()
-                << "' in '" << outline_function.get_qualified_name() << "'\"";
-
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::C;
-
-            Nodecl::NodeclBase instr_before = instrument_before_c.parse_statement(outline_function_body);
-            Nodecl::NodeclBase instr_after = instrument_after_c.parse_statement(outline_function_body);
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::Current;
-
-            instrument_before << as_statement(instr_before);
-            instrument_after << as_statement(instr_after);
+            get_instrumentation_code(
+                    info._called_task,
+                    outline_function,
+                    outline_function_body,
+                    info._task_label,
+                    original_statements.get_filename(),
+                    original_statements.get_line(),
+                    instrument_before,
+                    instrument_after);
         }
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);

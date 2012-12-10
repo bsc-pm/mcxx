@@ -734,7 +734,7 @@ OPERATOR_TABLE
 
         int length = 0;
         int *bytes = NULL;
-        const_value_string_unpack(v, &bytes, &length);
+        const_value_string_unpack_to_int(v, &bytes, &length);
 
         if (length == 0
                 || (::isprint(bytes[0])))
@@ -2439,6 +2439,20 @@ OPERATOR_TABLE
             walk(nest);
             file << ")";
         }
+        else if (
+                //  T() -> T (*)() (function to pointer)
+                (dest_type.is_pointer()
+                 && source_type.is_function())
+                //  T() -> int (function to integral...)
+                ||(source_type.is_function()
+                    && dest_type.is_integral_type()))
+        {
+            // We need a LOC here
+            file << "LOC(";
+            nest = advance_parenthesized_expression(nest);
+            walk(nest);
+            file << ")";
+        }
         else
         {
             // Best effort: Not a known conversion, ignore it
@@ -3835,7 +3849,7 @@ OPERATOR_TABLE
                 if (it != private_names.begin())
                     file << ", ";
 
-                file << *it;
+                file << get_generic_specifier_str(*it);
             }
             file << std::endl;
         }

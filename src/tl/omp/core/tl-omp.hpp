@@ -253,6 +253,8 @@ namespace TL
                 ObjectList<CopyItem> _copy_out;
                 ObjectList<CopyItem> _copy_inout;
 
+                ObjectList<Nodecl::NodeclBase> _ndrange;
+
                 ObjectList<std::string> _device_list;
 
                 bool _copy_deps;
@@ -267,6 +269,9 @@ namespace TL
                 ObjectList<CopyItem> get_copy_in() const;
                 ObjectList<CopyItem> get_copy_out() const;
                 ObjectList<CopyItem> get_copy_inout() const;
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;
@@ -430,7 +435,8 @@ namespace TL
         class LIBTL_CLASS FunctionTaskInfo
         {
             public:
-                typedef std::map<std::string, Symbol> implementation_table_t;
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 Symbol _sym;
 
@@ -446,8 +452,14 @@ namespace TL
 
                 implementation_table_t get_implementation_table() const;
 
+                bool _untied;
+
+                Nodecl::NodeclBase _priority_clause_expr;
+
+                Nodecl::NodeclBase _task_label;
+
             public:
-                FunctionTaskInfo() { }
+                FunctionTaskInfo() : _untied(false) { }
 
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
@@ -474,9 +486,17 @@ namespace TL
                 RealTimeInfo get_real_time_info();
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
-                bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                void set_priority_clause_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_priority_clause_expression() const;
+
+                void set_task_label(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_task_label() const;
+
+                bool get_untied() const;
+                void set_untied(bool b);
 
                 Symbol get_symbol() const;
 

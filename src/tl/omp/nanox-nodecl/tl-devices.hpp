@@ -87,15 +87,25 @@ namespace TL { namespace Nanox {
     struct CreateOutlineInfo
     {
         const std::string& _outline_name;
+        const Nodecl::NodeclBase &_original_statements;
+        Nodecl::NodeclBase _task_label;
+        const TL::Symbol& _arguments_struct;
+        const TL::Symbol& _called_task; // Only used in CUDA device
         OutlineInfo& _outline_info;
-        Nodecl::NodeclBase& _original_statements;
-        TL::Symbol& _arguments_struct;
 
-        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct)
+
+        CreateOutlineInfo(std::string& outline_name,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase& statements,
+                Nodecl::NodeclBase task_label,
+                TL::Symbol& args_struct,
+                TL::Symbol& called_task)
             : _outline_name(outline_name),
-              _outline_info(outline_info),
-              _original_statements(statements),
-              _arguments_struct(args_struct)
+            _original_statements(statements),
+            _task_label(task_label),
+            _arguments_struct(args_struct),
+            _called_task(called_task),
+            _outline_info(outline_info)
         {
         }
     };
@@ -172,6 +182,7 @@ namespace TL { namespace Nanox {
     //
              virtual void create_outline(CreateOutlineInfo &info,
                      Nodecl::NodeclBase &outline_placeholder,
+                     Nodecl::NodeclBase &output_statements,
                      Nodecl::Utils::SymbolMap* &symbol_map) = 0;
     
     //         virtual void create_outline(
@@ -220,6 +231,26 @@ namespace TL { namespace Nanox {
                      Source &device_descriptor,
                      Source &fortran_dynamic_init) = 0;
 
+
+             void get_instrumentation_code(
+                     const TL::Symbol& called_task,
+                     const TL::Symbol& outline_function,
+                     Nodecl::NodeclBase outline_function_body,
+                     Nodecl::NodeclBase task_label,
+                     std::string filename,
+                     int line,
+                     /* output parameters */
+                     Source& instrumentation_before,
+                     Source& instrumentation_after);
+
+             /*!
+               This function returns true if the current device is a gpu
+               accelerator. Otherwise It returns false.  The gpu devices
+               must redefine this function
+               */
+             virtual bool is_gpu_device() const;
+
+
     //         /*!
     //           This function adds a new function definition to a device. Its
     //           default implementation simply removes the pragma.
@@ -265,6 +296,18 @@ namespace TL { namespace Nanox {
     //         {
     //             return Source();
     //         }
+    //
+             virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
+             {
+                 return false;
+             }
+
+             virtual bool allow_mandatory_creation()
+             {
+                 return false;
+             }
+
+
      };
 
     class DeviceHandler

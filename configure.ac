@@ -477,6 +477,8 @@ if test x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+
+   AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 fi
 
 # Use this if we want to conditionally disable compilation of GPU
@@ -1116,14 +1118,16 @@ AC_CONFIG_FILES([Makefile
            src/tl/vectorizer/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
-           src/tl/codegen/Makefile 
-           src/tl/codegen/common/Makefile 
-           src/tl/codegen/base/Makefile 
-           src/tl/codegen/base/cxx/Makefile 
-           src/tl/codegen/base/fortran/Makefile 
-           src/tl/codegen/vector/Makefile 
-           src/tl/codegen/vector/sse/Makefile 
-           src/tl/omp/Makefile 
+           src/tl/codegen/Makefile
+           src/tl/codegen/common/Makefile
+           src/tl/codegen/base/Makefile
+           src/tl/codegen/base/cxx/Makefile
+           src/tl/codegen/base/fortran/Makefile
+           src/tl/codegen/vector/Makefile
+           src/tl/codegen/vector/sse/Makefile
+           src/tl/codegen/gpu/Makefile
+           src/tl/codegen/gpu/cuda/Makefile
+           src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
            src/tl/omp/profile/Makefile
@@ -1132,6 +1136,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/Makefile
            src/tl/omp/nanox-nodecl/devices/Makefile
            src/tl/omp/nanox-nodecl/devices/smp/Makefile
+           src/tl/omp/nanox-nodecl/devices/cuda/Makefile
+           src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
