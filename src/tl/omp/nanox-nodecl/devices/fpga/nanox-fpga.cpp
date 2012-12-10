@@ -77,7 +77,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
-    OutlineInfo& outline_info = info._outline_info;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& arguments_struct = info._arguments_struct;
     const TL::Symbol& called_task = info._called_task;
@@ -95,7 +94,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const TL::Scope & called_scope = called_task.get_scope();
     Source unpacked_arguments, private_entities;
 
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -209,8 +208,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 //            add_hls_pragmas(tmp_task, outline_info);
 
 
-            ObjectList<OutlineDataItem*> t_data_items = outline_info.get_data_items();
-            Nodecl::NodeclBase wrapper = gen_hls_wrapper(called_task, t_data_items);
+            Nodecl::NodeclBase wrapper = gen_hls_wrapper(called_task, info._data_items);
 
             _fpga_file_code.append(wrapper);
             _fpga_file_code.append(tmp_task);
@@ -228,7 +226,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
             device_outline_name + "_unpacked",
-            outline_info,
+            info._data_items,
             symbol_map);
 
     // The unpacked function must not be static and must have external linkage because
@@ -248,7 +246,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     //Only generate scalar parameter passing when it's necessary
     if (task_has_scalars(data_items))
     {
-        fpga_params = fpga_param_code(outline_info, symbol_map, called_scope);
+        fpga_params = fpga_param_code(info._data_items, symbol_map, called_scope);
     }
 
     Source unpacked_source;
@@ -517,7 +515,7 @@ TL::Symbol DeviceFPGA::new_function_symbol(
 TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
         TL::Symbol current_function,
         const std::string& function_name,
-        OutlineInfo& outline_info,
+        TL::ObjectList<OutlineDataItem*>& data_items,
         Nodecl::Utils::SymbolMap*& out_symbol_map)
 {
     Scope sc = current_function.get_scope();
@@ -534,7 +532,6 @@ TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
 
     TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -788,14 +785,14 @@ void DeviceFPGA::build_empty_body_for_function(
  * We may need to set scalar arguments here, but not transfers
  */
 Source DeviceFPGA::fpga_param_code(
-        OutlineInfo &outline_info,
+        TL::ObjectList<OutlineDataItem*> &data_items,
         Nodecl::Utils::SymbolMap *symbol_map,//we may not need it
         Scope sc
         )
 {
 
     //Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    //TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     Source args_src;
     /*
      * At some point we should have something like a nanox fpga-api so we can call functions
@@ -880,7 +877,8 @@ Source DeviceFPGA::fpga_param_code(
 
 void DeviceFPGA::add_hls_pragmas(
         Nodecl::NodeclBase &task,
-        OutlineInfo &outline_info)
+        TL::ObjectList<OutlineDataItem*> &data_items
+        )
 {
     /*
      * Insert hls pragmas in order to denerate input/output connections
@@ -930,7 +928,7 @@ void DeviceFPGA::add_hls_pragmas(
 
     //since we are using prepend, everything is going to appar in reverse order
     //but this may not be a real issue
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+//    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)

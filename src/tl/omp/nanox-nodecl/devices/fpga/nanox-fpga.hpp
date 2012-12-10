@@ -66,7 +66,7 @@ namespace TL
                 TL::Symbol new_function_symbol_unpacked(
                         TL::Symbol current_function,
                         const std::string& function_name,
-                        OutlineInfo& outline_info,
+                        TL::ObjectList<OutlineDataItem*>& data_items,
                         Nodecl::Utils::SymbolMap*& out_symbol_map);
 
                 void build_empty_body_for_function(
@@ -82,19 +82,18 @@ namespace TL
                         ObjectList<TL::Type> parameter_types);
 
                 TL::Source fpga_param_code(
-                        TL::Nanox::OutlineInfo &,
+                        TL::ObjectList<OutlineDataItem*> &data_items,
                         Nodecl::Utils::SymbolMap *,
                         TL::Scope
                         );
 
                 void add_hls_pragmas(
                         Nodecl::NodeclBase &,
-                        TL::Nanox::OutlineInfo&
+                        TL::ObjectList<TL::Nanox::OutlineDataItem*>&
                         );
 
                 Nodecl::NodeclBase gen_hls_wrapper(
                         const TL::Symbol& func_symbol,
-                        //TL::Nanox::OutlineInfo &
                         TL::ObjectList<TL::Nanox::OutlineDataItem*>&
                         );
                 bool task_has_scalars(TL::ObjectList<OutlineDataItem*> &);
