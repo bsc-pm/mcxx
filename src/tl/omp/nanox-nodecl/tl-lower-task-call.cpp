@@ -708,17 +708,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         arguments_outline_info.add_implementation(it->first, it->second);
     }
 
-    emit_async_common(
-            new_construct,
-            function_symbol,
-            called_symbol,
-            statements,
-            task_environment.priority,
-            task_environment.task_label,
-            task_environment.is_untied,
-            arguments_outline_info,
-            &parameters_outline_info);
-
     // Find the enclosing expression statement
     Nodecl::NodeclBase enclosing_expression_statement = construct.get_parent();
     while (!enclosing_expression_statement.is_null()
@@ -730,6 +719,23 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     ERROR_CONDITION(enclosing_expression_statement.is_null(), "Did not find the enclosing expression statement", 0);
 
     enclosing_expression_statement.replace(new_code);
+
+    if (new_code == new_construct)
+    {
+        // Get the new tree only if it directly the enclosing expression statement
+        new_construct = enclosing_expression_stmt;
+    }
+
+    emit_async_common(
+            new_construct,
+            function_symbol,
+            called_symbol,
+            statements,
+            task_environment.priority,
+            task_environment.task_label,
+            task_environment.is_untied,
+            arguments_outline_info,
+            &parameters_outline_info);
 }
 
 
