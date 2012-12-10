@@ -1,7 +1,7 @@
 //
 // Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
-// Compile it with g++ 4.7 -fabi-version=6
+// Compile it with g++-4.7 -fabi-version=6 -mavx
 //
 
 #include <iostream> 
@@ -876,7 +876,126 @@ VECTOR_INTRIN(__builtin_ia32_vec_set_v4hi) \
 VECTOR_INTRIN(__builtin_ia32_vec_set_v4si) \
 VECTOR_INTRIN(__builtin_ia32_vec_set_v8hi) \
 VECTOR_INTRIN(__builtin_ia32_xorpd) \
-VECTOR_INTRIN(__builtin_ia32_xorps) 
+VECTOR_INTRIN(__builtin_ia32_xorps) \
+VECTOR_INTRIN(__builtin_ia32_storeupd) \
+VECTOR_INTRIN(__builtin_ia32_addsubps) \
+VECTOR_INTRIN(__builtin_ia32_haddps) \
+VECTOR_INTRIN(__builtin_ia32_hsubps) \
+VECTOR_INTRIN(__builtin_ia32_movshdup) \
+VECTOR_INTRIN(__builtin_ia32_movsldup) \
+VECTOR_INTRIN(__builtin_ia32_addsubpd) \
+VECTOR_INTRIN(__builtin_ia32_haddpd) \
+VECTOR_INTRIN(__builtin_ia32_hsubpd) \
+VECTOR_INTRIN(__builtin_ia32_lddqu) \
+VECTOR_INTRIN(__builtin_ia32_phaddw128) \
+VECTOR_INTRIN(__builtin_ia32_phaddd128) \
+VECTOR_INTRIN(__builtin_ia32_phaddsw128) \
+VECTOR_INTRIN(__builtin_ia32_phaddw) \
+VECTOR_INTRIN(__builtin_ia32_phaddd) \
+VECTOR_INTRIN(__builtin_ia32_phaddsw) \
+VECTOR_INTRIN(__builtin_ia32_phsubw128) \
+VECTOR_INTRIN(__builtin_ia32_phsubd128) \
+VECTOR_INTRIN(__builtin_ia32_phsubsw128) \
+VECTOR_INTRIN(__builtin_ia32_phsubw) \
+VECTOR_INTRIN(__builtin_ia32_phsubd) \
+VECTOR_INTRIN(__builtin_ia32_phsubsw) \
+VECTOR_INTRIN(__builtin_ia32_pmaddubsw128) \
+VECTOR_INTRIN(__builtin_ia32_pmaddubsw) \
+VECTOR_INTRIN(__builtin_ia32_pmulhrsw128) \
+VECTOR_INTRIN(__builtin_ia32_pmulhrsw) \
+VECTOR_INTRIN(__builtin_ia32_pshufb128) \
+VECTOR_INTRIN(__builtin_ia32_pshufb) \
+VECTOR_INTRIN(__builtin_ia32_psignb128) \
+VECTOR_INTRIN(__builtin_ia32_psignw128) \
+VECTOR_INTRIN(__builtin_ia32_psignd128) \
+VECTOR_INTRIN(__builtin_ia32_psignb) \
+VECTOR_INTRIN(__builtin_ia32_psignw) \
+VECTOR_INTRIN(__builtin_ia32_psignd) \
+VECTOR_INTRIN(__builtin_ia32_pabsb128) \
+VECTOR_INTRIN(__builtin_ia32_pabsw128) \
+VECTOR_INTRIN(__builtin_ia32_pabsd128) \
+VECTOR_INTRIN(__builtin_ia32_pabsb) \
+VECTOR_INTRIN(__builtin_ia32_pabsw) \
+VECTOR_INTRIN(__builtin_ia32_pabsd) \
+VECTOR_INTRIN(__builtin_ia32_ptestz128) \
+VECTOR_INTRIN(__builtin_ia32_ptestc128) \
+VECTOR_INTRIN(__builtin_ia32_ptestnzc128) \
+VECTOR_INTRIN(__builtin_ia32_pblendvb128) \
+VECTOR_INTRIN(__builtin_ia32_blendvps) \
+VECTOR_INTRIN(__builtin_ia32_blendvpd) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqq) \
+VECTOR_INTRIN(__builtin_ia32_pminsb128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsb128) \
+VECTOR_INTRIN(__builtin_ia32_pminuw128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxuw128) \
+VECTOR_INTRIN(__builtin_ia32_pminsd128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsd128) \
+VECTOR_INTRIN(__builtin_ia32_pminud128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxud128) \
+VECTOR_INTRIN(__builtin_ia32_pmulld128) \
+VECTOR_INTRIN(__builtin_ia32_pmuldq128) \
+VECTOR_INTRIN(__builtin_ia32_phminposuw128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxdq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbw128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxdq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbw128) \
+VECTOR_INTRIN(__builtin_ia32_packusdw128) \
+VECTOR_INTRIN(__builtin_ia32_movntdqa) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtq) \
+VECTOR_INTRIN(__builtin_ia32_crc32qi) \
+VECTOR_INTRIN(__builtin_ia32_crc32hi) \
+VECTOR_INTRIN(__builtin_ia32_crc32si) \
+VECTOR_INTRIN(__builtin_ia32_crc32di) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v4hi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v4hi) \
+VECTOR_INTRIN(__builtin_ia32_pshufw) \
+VECTOR_INTRIN(__builtin_ia32_psrldqi128) \
+VECTOR_INTRIN(__builtin_ia32_pslldqi128) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v8hi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v8hi) \
+VECTOR_INTRIN(__builtin_ia32_pshufhw) \
+VECTOR_INTRIN(__builtin_ia32_pshuflw) \
+VECTOR_INTRIN(__builtin_ia32_pshufd) \
+VECTOR_INTRIN(__builtin_ia32_palignr128) \
+VECTOR_INTRIN(__builtin_ia32_palignr) \
+VECTOR_INTRIN(__builtin_ia32_roundpd) \
+VECTOR_INTRIN(__builtin_ia32_roundsd) \
+VECTOR_INTRIN(__builtin_ia32_roundps) \
+VECTOR_INTRIN(__builtin_ia32_roundss) \
+VECTOR_INTRIN(__builtin_ia32_pblendw128) \
+VECTOR_INTRIN(__builtin_ia32_blendps) \
+VECTOR_INTRIN(__builtin_ia32_blendpd) \
+VECTOR_INTRIN(__builtin_ia32_dpps) \
+VECTOR_INTRIN(__builtin_ia32_dppd) \
+VECTOR_INTRIN(__builtin_ia32_insertps128) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v16qi) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v4si) \
+VECTOR_INTRIN(__builtin_ia32_vec_set_v2di) \
+VECTOR_INTRIN(__builtin_ia32_vec_ext_v16qi) \
+VECTOR_INTRIN(__builtin_ia32_mpsadbw128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistrm128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistri128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestrm128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestri128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistria128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistric128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistrio128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistris128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpistriz128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestria128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestric128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestrio128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestris128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpestriz128) \
+VECTOR_INTRIN(__builtin_ia32_emms)
 
 int main(int, char**)
 {

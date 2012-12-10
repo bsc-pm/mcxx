@@ -158,57 +158,54 @@ namespace TL
                     return _udr_item;
                 }
         };
-        
 
-
-        class LIBTL_CLASS RealTimeInfo  
+        class LIBTL_CLASS RealTimeInfo
         {
-            
             public:
-                
+
                 #define ENUM_OMP_ERROR_EVENT_LIST \
                     ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
                     ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
-                
-                enum omp_error_event_t 
+
+                enum omp_error_event_t
                 {
                    #define ENUM_OMP_ERROR_EVENT(x) x,
                         ENUM_OMP_ERROR_EVENT_LIST
                    #undef ENUM_OMP_ERROR_EVENT
                 };
-                
+
                 #define ENUM_OMP_ERROR_ACTION_LIST \
                     ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
                     ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
                     ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
 
-                
-                enum omp_error_action_t  
+
+                enum omp_error_action_t
                 {
                     #define ENUM_OMP_ERROR_ACTION(x,y) y,
                         ENUM_OMP_ERROR_ACTION_LIST
                     #undef ENUM_OMP_ERROR_ACTION
                 };
-                
+
                 typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
-                
+
             private:
 
                 Nodecl::NodeclBase *_time_deadline;
 
                 Nodecl::NodeclBase *_time_release;
-               
+
                 map_error_behavior_t _map_error_behavior;
-                
+
                 map_error_behavior_t get_map_error_behavior() const;
-            
-            public:      
+
+            public:
                 RealTimeInfo();
-                
+
                 ~RealTimeInfo();
-                
+
                 RealTimeInfo (const RealTimeInfo& rt_copy);
-                
+
                 RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
                 Nodecl::NodeclBase get_time_deadline() const;
@@ -222,11 +219,11 @@ namespace TL
                 void set_time_deadline(Nodecl::NodeclBase exp);
 
                 void set_time_release(Nodecl::NodeclBase exp);
-                
+
                 std::string get_action_error(omp_error_event_t event);
 
                 void add_error_behavior(std::string event, std::string action);
-                 
+
                 void add_error_behavior(std::string action);
 
                 void module_write(ModuleWriter& mw);
@@ -256,6 +253,8 @@ namespace TL
                 ObjectList<CopyItem> _copy_out;
                 ObjectList<CopyItem> _copy_inout;
 
+                ObjectList<Nodecl::NodeclBase> _ndrange;
+
                 ObjectList<std::string> _device_list;
 
                 bool _copy_deps;
@@ -270,6 +269,9 @@ namespace TL
                 ObjectList<CopyItem> get_copy_in() const;
                 ObjectList<CopyItem> get_copy_out() const;
                 ObjectList<CopyItem> get_copy_inout() const;
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;
@@ -433,7 +435,8 @@ namespace TL
         class LIBTL_CLASS FunctionTaskInfo
         {
             public:
-                typedef std::map<std::string, Symbol> implementation_table_t;
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 Symbol _sym;
 
@@ -449,8 +452,12 @@ namespace TL
 
                 implementation_table_t get_implementation_table() const;
 
+                bool _untied;
+
+                Nodecl::NodeclBase _priority_clause_expr;
+
             public:
-                FunctionTaskInfo() { }
+                FunctionTaskInfo() : _untied(false) { }
 
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
@@ -477,9 +484,14 @@ namespace TL
                 RealTimeInfo get_real_time_info();
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
-                bool has_if_clause() const;
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                void set_priority_clause_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_priority_clause_expression() const;
+
+                bool get_untied() const;
+                void set_untied(bool b);
 
                 Symbol get_symbol() const;
 

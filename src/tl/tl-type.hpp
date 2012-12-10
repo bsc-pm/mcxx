@@ -284,6 +284,18 @@ namespace TL
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
             Type get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
+            
+            //! Returns a ranged array to the current type with descriptor
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to_with_region(Nodecl::NodeclBase lower_bound, 
+                    Nodecl::NodeclBase upper_bound, 
+                    Nodecl::NodeclBase region_lower_bound,
+                    Nodecl::NodeclBase region_upper_bound,
+                    Scope scope);
 
             //! Gets a lvalue reference (C++) to the current type
             Type get_lvalue_reference_to();
@@ -743,7 +755,7 @@ namespace TL
             * true, but this function might return true even if 'operator==' returned false.
             * So do not use 'operator==' to check type system equality.
             */
-            bool is_same_type(Type t);
+            bool is_same_type(Type t) const;
 
             /* We should consider to remove this one day */
             friend class Symbol;
@@ -751,14 +763,14 @@ namespace TL
             friend class Scope;
 
             /* Do not use it unless directed to do so */
-            type_t* get_internal_type()
+            type_t* get_internal_type() const
             {
                 return _type_info;
             }
 
             //! Returns what sizeof would yield for this type
             /*! Note that the result of this function depends on the current type environment */
-            unsigned int get_size();
+            unsigned int get_size() const;
 
             //! Returns all the arithmetic types
             /*!  These types include all the integer types and floating types */

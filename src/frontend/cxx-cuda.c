@@ -37,10 +37,10 @@
 #include "cxx-diagnostic.h"
 #include "cxx-codegen.h"
 
-#if 0
+
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
-    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
+    scope_entry_list_t* entry_list = query_name_str(decl_context, name);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
 
     scope_entry_t* entry = entry_list_head(entry_list);
@@ -55,130 +55,23 @@ static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context
 
     return get_user_defined_type(entry);
 }
-#endif
 
 static type_t* cuda_get_dim3_type(void)
 {
-    static type_t* dim3_type = NULL;
-    if (dim3_type == NULL)
-    {
-        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-
-        scope_entry_t* new_class_sym = NULL; 
-        C_LANGUAGE()
-        {
-            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct dim3");
-            insert_alias(global_decl_context.current_scope, new_class_sym, "dim3");
-        }
-        CXX_LANGUAGE()
-        {
-            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
-        }
-        new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
-        decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
-
-        class_type_set_inner_context(new_class_sym->type_information, class_context);
-
-        // struct dim3
-        // {
-        //     unsigned int x, y, z;
-
-        //     __attribute__((host)) __attribute__((device)) dim3(unsigned int vx = 1, unsigned int vy = 1, unsigned int vz = 1) : x(vx), y(vy), z(vz) {}
-        //     __attribute__((host)) __attribute__((device)) dim3(uint3 v) : x(v.x), y(v.y), z(v.z) {}
-        //     __attribute__((host)) __attribute__((device)) operator uint3(void) { uint3 t; t.x = x; t.y = y; t.z = z; return t; }
-        // };
-
-        const char *names[] = { "x", "y", "z", /* sentinel */ NULL };
-
-        int i;
-        for (i = 0; names[i] != NULL; i++)
-        {
-            scope_entry_t* member_sym = new_symbol(class_context, class_context.current_scope, names[i]);
-            member_sym->kind = SK_VARIABLE;
-            member_sym->type_information = get_unsigned_int_type();
-            member_sym->entity_specs.is_member = 1;
-            member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
-
-            class_type_add_member(new_class_sym->type_information, member_sym);
-        }
-
-        // FIXME - We should register the constructors and conversion
-        dim3_type = get_user_defined_type(new_class_sym);
-    }
-    return dim3_type;
+    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    return cuda_get_named_type("dim3", global_decl_context);
 }
 
 static type_t* cuda_get_uint3_type(void)
 {
-    static type_t* uint3_type = NULL;
-    if (uint3_type == NULL)
-    {
-        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-
-        scope_entry_t* new_class_sym = NULL; 
-        C_LANGUAGE()
-        {
-            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct uint3");
-            insert_alias(global_decl_context.current_scope, new_class_sym, "uint3");
-        }
-        CXX_LANGUAGE()
-        {
-            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "uint3");
-        }
-
-        new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
-        decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
-
-        class_type_set_inner_context(new_class_sym->type_information, class_context);
-
-        // struct uint3
-        // {
-        //     unsigned int x, y, z;
-        // };
-
-        const char *names[] = { "x", "y", "z", /* sentinel */ NULL };
-
-        int i;
-        for (i = 0; names[i] != NULL; i++)
-        {
-            scope_entry_t* member_sym = new_symbol(class_context, class_context.current_scope, names[i]);
-            member_sym->kind = SK_VARIABLE;
-            member_sym->type_information = get_unsigned_int_type();
-            member_sym->entity_specs.is_member = 1;
-            member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
-
-            class_type_add_member(new_class_sym->type_information, member_sym);
-        }
-
-
-        uint3_type = get_user_defined_type(new_class_sym);
-    }
-    return uint3_type;
+    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    return cuda_get_named_type("uint3", global_decl_context);
 }
 
 static type_t* cuda_get_cudaStream_t_type(void)
 {
-    static type_t* cudaStream_t_type = NULL;
-    if (cudaStream_t_type == NULL)
-    {
-        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-
-        // typedef struct CUstream_st *cudaStream_t;
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct CUstream_st");
-        new_class_sym->kind = SK_CLASS;
-        new_class_sym->type_information = get_new_class_type(global_decl_context, TT_STRUCT);
-
-        scope_entry_t* new_typedef_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
-        new_typedef_sym->kind = SK_TYPEDEF;
-        new_typedef_sym->type_information = get_pointer_type(get_user_defined_type(new_class_sym));
-
-        cudaStream_t_type = get_user_defined_type(new_typedef_sym);
-    }
-    return cudaStream_t_type;
+    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    return cuda_get_named_type("cudaStream_t", global_decl_context);
 }
 
 void cuda_kernel_symbols_for_function_body(
@@ -268,8 +161,16 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
         C_LANGUAGE()
         {
             standard_conversion_t result;
-            is_convertible = standard_conversion_between_types(&result, 
+            is_convertible = standard_conversion_between_types(&result,
                     orig_type, dest_type);
+
+            if (!is_convertible)
+            {
+                // we mimick C++ behavior
+                is_convertible =
+                    (standard_conversion_between_types(&result, orig_type, get_signed_int_type())
+                     && equivalent_types(no_ref(get_unqualified_type(dest_type)), dim3_type));
+            }
         }
 
         CXX_LANGUAGE()
@@ -426,10 +327,10 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
             nodecl_get_template_parameters(nodecl_postfix);
         nodecl_set_template_parameters(function_form, template_args);
     }
-    
+
     if (is_dependent)
     {
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_make_cuda_kernel_call(
                     nodecl_cuda_kernel_args,
                     nodecl_make_function_call(
@@ -446,17 +347,10 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
         return;
     }
 
-    check_nodecl_cuda_kernel_call(nodecl_postfix, 
-            nodecl_cuda_kernel_args, 
+    check_nodecl_cuda_kernel_call(nodecl_postfix,
+            nodecl_cuda_kernel_args,
             nodecl_argument_list,
             decl_context,
             filename, line,
             nodecl_output);
-}
-
-void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)
-{
-    cuda_get_dim3_type();
-    cuda_get_uint3_type();
-    // cuda_get_cudaStream_t_type();
 }

@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -33,9 +33,9 @@
 
 namespace TL {
 namespace Analysis {
-    
+
     //! This class traverses a Nodecl and creates a new Nodecl renaming the symbols inside
-    //! depending on the renaming map. 
+    //! depending on the renaming map.
     /*!
     * The list may contain:
     * - Zero elements: no renames has been performed
@@ -49,14 +49,14 @@ namespace Analysis {
         std::map<Symbol, Nodecl::NodeclBase> _rename_map;
         const char* _filename;
         int _line;
-        
+
         //! Value stored to recuperate info about the symbol that matches in a rename process
         Symbol _s;
-    
+
         bool _computing_limits;
-        
+
         // *** Auxiliar methods *** //
-        
+
         nodecl_t create_nodecl_list(ObjectList<Nodecl::NodeclBase> list);
 
         template <typename T>
@@ -66,29 +66,29 @@ namespace Analysis {
         Nodecl::NodeclBase create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
                                                             Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
                                                             Nodecl::NodeclBase stride);
-        
+
         template <typename T>
         Nodecl::NodeclBase create_new_binary_node(T& n, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
-        
+
         template <typename T>
         Ret visit_unary(const T& n);
-            
+
     public:
         // *** Constructors *** //
         RenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* _filename, int _line);
         RenamingVisitor(const RenamingVisitor& rename_v);
-    
-        
+
+
         // *** Getters and Setters *** //
         Symbol get_matching_symbol() const;
-        
+
         void set_computing_range_limits(bool computing_limits);
-    
+
         static Nodecl::NodeclBase combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2);
-            
+
         // ************************************************************************************** //
         // ********************************** Visiting methods ********************************** //
-        
+
         Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::AddAssignment& n );
@@ -111,8 +111,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
-        Ret visit( const Nodecl::CompoundStatement& n );
-        Ret visit( const Nodecl::Concat& n );
         Ret visit( const Nodecl::ConditionalExpression& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::Dereference& n );
@@ -121,7 +119,6 @@ namespace Analysis {
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::Equal& n );
         Ret visit( const Nodecl::FloatingLiteral& n );
-        Ret visit( const Nodecl::ForStatement& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
@@ -150,7 +147,7 @@ namespace Analysis {
         Ret visit( const Nodecl::StringLiteral& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
-        
+
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
     };

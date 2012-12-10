@@ -41,7 +41,7 @@ namespace Utils {
 
     ExtendedSymbol::ExtendedSymbol( Nodecl::NodeclBase n )
     {
-        if ( !Nodecl::Utils::nodecl_is_modifiable_lvalue( n ) )
+        if ( !n.is<Nodecl::Symbol>( ) && !Nodecl::Utils::nodecl_is_modifiable_lvalue( n ) )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
             internal_error( "An ExtendedSymbol must contain an l-value, and nodecl '%s' isn't one\n",
@@ -326,9 +326,15 @@ namespace Utils {
             return false;
     }
 
-    bool ExtendedSymbol::operator==(const ExtendedSymbol& es) const
+    ExtendedSymbol& ExtendedSymbol::operator=( const ExtendedSymbol &es )
     {
-        bool equals = Nodecl::Utils::equal_nodecls(_n, es._n);
+        _n = es._n;
+        return *this;
+    }
+
+    bool ExtendedSymbol::operator==( const ExtendedSymbol& es ) const
+    {
+        bool equals = Nodecl::Utils::equal_nodecls( _n, es._n );
         return equals;
     }
 
@@ -336,20 +342,21 @@ namespace Utils {
      *      a < b -> ¬ (b > a)
      *      a == b <=> ¬(a < b) /\ ¬(b < a)
      */
-    bool ExtendedSymbol::operator<(const ExtendedSymbol& es) const
+    bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
-        if (Nodecl::Utils::equal_nodecls(_n, es._n))
+        bool result;
+        if( Nodecl::Utils::equal_nodecls( _n, es._n ) )
         {
-            return false;
+            result = false;
         }
         else
         {
-            AST this_ast = nodecl_get_ast(_n.get_internal_nodecl());
-            AST es_ast = nodecl_get_ast(es._n.get_internal_nodecl());
-            bool less_than = this_ast < es_ast;
-
-            return  less_than;
+            AST this_ast = nodecl_get_ast( _n.get_internal_nodecl( ) );
+            AST es_ast = nodecl_get_ast( es._n.get_internal_nodecl( ) );
+            result = this_ast < es_ast;
         }
+
+        return result;
     }
 
 }

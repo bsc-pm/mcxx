@@ -369,6 +369,10 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 
     nodecl_t nodecl = nodecl_null();
 
+    C_LANGUAGE()
+    {
+        linkage_push("\"C\"", /* is_braced */ 1);
+    }
     CXX_LANGUAGE()
     {
         instantiation_init();
@@ -386,6 +390,11 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 #endif
+
+    C_LANGUAGE()
+    {
+        linkage_pop();
+    }
 
     return nodecl;
 }
@@ -515,19 +524,11 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         // This is reserved for C only
         gcc_sign_in_spu_builtins(decl_context);
-    }
 
-    C_LANGUAGE()
-    {
         if (CURRENT_CONFIGURATION->enable_upc)
         {
             upc_sign_in_builtins(decl_context);
         }
-    }
-
-    if (CURRENT_CONFIGURATION->enable_cuda)
-    {
-        init_cuda_builtins(decl_context);
     }
 
     // Mercurium limit constants
@@ -1494,8 +1495,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     {
         C_LANGUAGE()
         {
-            warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
-                    ast_location(a));
+            if (!checking_ambiguity())
+            {
+                warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
+                        ast_location(a));
+            }
 
             simple_type_info = get_signed_int_type();
         }
@@ -1642,6 +1646,43 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     // int c[10];       <-- We are in this declaration
                     // Update the array type
                     entry->type_information = declarator_type;
+                }
+
+                // Weird case where a non global but extern entity may get the dimension from the global scope...
+                // int c[10];
+                // int f(void)
+                // {
+                //   extern int c[]; // Must behave as 'extern int c[10]'
+                //   return sizeof(c); // OK == sizeof(int[10])
+                // }
+                if (entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope != entry->decl_context.global_scope
+                        && is_array_type(entry->type_information)
+                        && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
+                {
+                    // Perform a query in the global scope
+                    scope_entry_list_t* extern_scope_entry_list = query_in_scope_str(CURRENT_COMPILED_FILE->global_decl_context,
+                            entry->symbol_name);
+
+                    if (extern_scope_entry_list != NULL)
+                    {
+                        scope_entry_t* extern_entry = entry_list_head(extern_scope_entry_list);
+                        if (extern_entry->kind != entry->kind)
+                        {
+                            error_printf("%s: error: extern entity redeclared as a diferent entity kind\n",
+                                   ast_location(declarator));
+                        }
+                        else if (is_array_type(extern_entry->type_information)
+                                && !nodecl_is_null(array_type_get_array_size_expr(extern_entry->type_information)))
+                        {
+                            // Update the array dimension here
+                            entry->type_information = 
+                                get_array_type(array_type_get_element_type(entry->type_information),
+                                        array_type_get_array_size_expr(extern_entry->type_information),
+                                        array_type_get_array_size_expr_context(extern_entry->type_information));
+                        }
+                    }
+                    entry_list_free(extern_scope_entry_list);
                 }
 
                 nodecl_t nodecl_initializer = nodecl_null();
@@ -2038,8 +2079,11 @@ void build_scope_decl_specifier_seq(AST a,
     {
         C_LANGUAGE()
         {
-            warn_printf("%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
-                    ast_location(a));
+            if (!checking_ambiguity())
+            {
+                warn_printf("%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
+                        ast_location(a));
+            }
 
             // Manually add the int tree to make things easier
             ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
@@ -11579,6 +11623,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
+    // Propagate 'do_not_print' attribute to the current member
+    entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
     entry->entity_specs.access = current_access;
     entry->entity_specs.is_defined_inside_class_specifier = 1;
     entry->entity_specs.is_inline = 1;
@@ -12107,6 +12154,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
                                     class_name);
                         }
+
+                        // Propagate 'do_not_print' attribute to the current member
+                        entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
                         entry->entity_specs.is_member = 1;
                         entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;
@@ -12930,9 +12981,24 @@ static void build_scope_for_statement(AST a,
                 /* is_template */ 0, /* is_explicit_instantiation */ 0,
                 &nodecl_loop_init, 
                 /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
-        if (!nodecl_is_null(nodecl_loop_init))
+
+        if (IS_CXX_LANGUAGE)
         {
-            nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
+            if (!nodecl_is_null(nodecl_loop_init))
+            {
+                int num_items = 0, i;
+                nodecl_t* list = nodecl_unpack_list(nodecl_loop_init, &num_items);
+
+                nodecl_loop_init = nodecl_null();
+                for (i = 0; i < num_items; i++)
+                {
+                    if (nodecl_get_kind(list[i]) != NODECL_CXX_DECL
+                            && nodecl_get_kind(list[i]) != NODECL_CXX_DEF)
+                    {
+                        nodecl_loop_init = nodecl_append_to_list(nodecl_loop_init, list[i]);
+                    }
+                }
+            }
         }
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
@@ -12940,7 +13006,7 @@ static void build_scope_for_statement(AST a,
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
         nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
         // Get the expression itself instead of an expression statement
-        nodecl_loop_init = nodecl_get_child(nodecl_loop_init, 0); 
+        nodecl_loop_init = nodecl_make_list_1(nodecl_get_child(nodecl_loop_init, 0));
     }
     else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
     {
@@ -13741,6 +13807,10 @@ static void build_scope_upc_forall_statement(AST a,
 static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
+    if (!nodecl_is_list(*nodecl_output))
+    {
+        *nodecl_output = nodecl_make_list_1(*nodecl_output);
+    }
 }
 
 static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

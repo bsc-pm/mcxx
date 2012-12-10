@@ -120,7 +120,7 @@ namespace Analysis {
                                  std::vector<std::string>& outer_edges,
                                  std::vector<Node*>& outer_nodes,
                                  std::string indent, int& subgraph_id,
-                                 bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                                 bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints both nodes and edges within a pcfg subgraph
                     //! Prints nodes and relations between them in a string in a recursive way.
@@ -136,11 +136,11 @@ namespace Analysis {
                                std::vector<std::string>& outer_edges,
                                std::vector<Node*>& outer_nodes,
                                std::string indent, int& subgraph_id,
-                               bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                               bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
         void get_node_dot_data( Node* node, std::string& graph_data, std::string indent,
-                                bool use_def, bool liveness, bool reaching_defs );
+                                bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
          * If both the source and the target do not have an outer node, then true is returned.
@@ -171,7 +171,7 @@ namespace Analysis {
         /*!
         \param name Name which will identify the graph.
         */
-        ExtensibleGraph( std::string name, Scope sc, PCFGVisitUtils* utils );
+        ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils );
 
         //! Creates a new graph with the same characteristics of the actual graph
 //         ExtensibleGraph* copy( );
@@ -331,7 +331,7 @@ namespace Analysis {
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot( bool use_def, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
 
 
@@ -347,26 +347,26 @@ namespace Analysis {
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
-        Symbol get_function_symbol() const;
+        Symbol get_function_symbol( ) const;
 
         //! Returns the node containing the graph
-        Node* get_graph() const;
+        Node* get_graph( ) const;
 
         //! Returns the list of nodes containing a task which are created within this graph
-        ObjectList<Node*> get_tasks_list() const;
+        ObjectList<Node*> get_tasks_list( ) const;
 
-        ObjectList<Symbol> get_function_parameters() const;
+        ObjectList<Symbol> get_function_parameters( ) const;
 
-        void add_func_call_symbol(Symbol s);
+        void add_func_call_symbol( Symbol s );
 
-        ObjectList<Symbol> get_function_calls() const;
+        ObjectList<Symbol> get_function_calls( ) const;
 
         // *** Consultants *** //
-        static Node* is_for_loop_increment(Node* node);
+        static Node* is_for_loop_increment( Node* node );
 
 
         // *** Printing methods *** //
-        void print_global_vars() const;
+        void print_global_vars( ) const;
 
 
     friend class PCFGVisitor;

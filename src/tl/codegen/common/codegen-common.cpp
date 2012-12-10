@@ -39,24 +39,23 @@ bool CodegenVisitor::is_file_output() const
     return _is_file_output;
 }
 
+void CodegenVisitor::set_is_file_output(bool b)
+{
+    _is_file_output = b;
+}
+
 std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc)
 {
-    bool old_is_file_output = this->_is_file_output;
-    this->_is_file_output = false;
-
     this->push_scope(sc);
     std::string result = this->codegen(n);
     this->pop_scope();
 
-    this->_is_file_output = old_is_file_output;
     return result;
 }
 
 void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
 {
-    bool old_is_file_output = this->_is_file_output;
-    this->_is_file_output = true;
-
+    this->set_is_file_output(true);
     this->push_scope( n.retrieve_context() );
 
     this->codegen_cleanup();
@@ -65,8 +64,7 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     this->pop_scope();
 
     fprintf(f, "%s", str.c_str());
-
-    this->_is_file_output = old_is_file_output;
+    this->set_is_file_output(false);
 }
 
 CodegenVisitor::Ret CodegenVisitor::unhandled_node(const Nodecl::NodeclBase & n)

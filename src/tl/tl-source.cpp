@@ -470,7 +470,9 @@ namespace TL
         source_language_t kept_language;
         switch_language(kept_language);
 
-        std::string mangled_text = subparsing_prefix + "\n" + this->get_source(true);
+        std::string extended_source = "\n" + this->get_source(true);
+
+        std::string mangled_text = subparsing_prefix + extended_source;
 
         prepare_lexer(mangled_text.c_str());
 
@@ -482,7 +484,7 @@ namespace TL
         if (parse_result != 0)
         {
             running_error("Could not parse source\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
+                    format_source(extended_source).c_str());
         }
 
         decl_context_t decl_context = decl_context_map_fun(ref_scope.get_scope().get_decl_context());
@@ -713,6 +715,7 @@ namespace TL
 
     std::string as_expression(const Nodecl::NodeclBase& n)
     {
+        ERROR_CONDITION (n.is_null(), "Cannot create a literal expression from a null node", 0);
         return nodecl_expr_to_source(n.get_internal_nodecl());
     }
 

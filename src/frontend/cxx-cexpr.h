@@ -183,7 +183,8 @@ LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int n
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);
 
-LIBMCXX_EXTERN void const_value_string_unpack(const_value_t* v, int**, int*);
+LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*);
+LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v);
 
 LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
 

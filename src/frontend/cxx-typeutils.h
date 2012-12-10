@@ -721,6 +721,29 @@ LIBMCXX_EXTERN type_t* get_generic_type(int num);
 LIBMCXX_EXTERN char is_generic_type(type_t*);
 LIBMCXX_EXTERN int generic_type_get_num(type_t*);
 
-MCXX_END_DECLS
+LIBMCXX_EXTERN const char* print_gnu_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
 
+LIBMCXX_EXTERN const char* print_intel_sse_avx_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+LIBMCXX_EXTERN const char* print_altivec_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+LIBMCXX_EXTERN const char* print_opencl_vector_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+MCXX_END_DECLS
 #endif // CXX_TYPEUTILS_H

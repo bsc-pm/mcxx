@@ -338,37 +338,64 @@ NANOX_REGIONS=$nanox_regions
 AC_SUBST([NANOX_REGIONS])
 
 dnl SIMD Support
-nanox_sse="no"
-AC_MSG_CHECKING([if SSE 4.1 support is enabled])
-AC_ARG_ENABLE([sse],
-  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        nanox_sse="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            nanox_sse="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
-    then
-       nanox_sse="yes"
-       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
-    else
-       nanox_sse="no"
-       AC_MSG_RESULT([no])
-    fi
-  ]
-)
-NANOX_SSE=$nanox_sse
-AC_SUBST([NANOX_SSE])
+
+AX_EXT
+
+simd_version="no (SSE 4.1 or higher not detected)."
+simd_flags=
+simd_includes=
+
+  if test "$ax_cv_have_sse42_ext" = yes; 
+  then
+        simd_version="SSE4.2"
+        simd_flags="-msse4.2"
+        simd_includes="-msse4.2 -include nmmintrin.h"
+  else if test "$ax_cv_have_sse41_ext" = yes; 
+  then
+        simd_version="SSE4.1"
+        simd_flags="-msse4.1"
+        simd_includes="-msse4.1 -include smmintrin.h"
+  fi
+  fi
+
+AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_version="(SVML not detected)"])
+
+SIMD_FLAGS=$simd_flags
+SIMD_INCLUDES=$simd_includes
+AC_SUBST([SIMD_FLAGS])
+AC_SUBST([SIMD_INCLUDES])
+
+#nanox_sse="no"
+#AC_MSG_CHECKING([if SSE 4.1 support is enabled])
+#AC_ARG_ENABLE([sse],
+#  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
+#  [
+#    if test x$enableval = xyes -o x$enableval = x;
+#    then
+#        nanox_sse="yes"
+#        AC_MSG_RESULT([yes])
+#    else if test x$enableval = xno;
+#         then
+#            AC_MSG_RESULT([no])
+#            nanox_sse="no"
+#         else
+#            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+#         fi
+#    fi
+#  ],
+#  [
+#    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
+#    then
+#       nanox_sse="yes"
+#       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
+#    else
+#       nanox_sse="no"
+#       AC_MSG_RESULT([no])
+#    fi
+#  ]
+#)
+#NANOX_SSE=$nanox_sse
+#AC_SUBST([NANOX_SSE])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -450,6 +477,8 @@ if test x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+
+   AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 fi
 
 # Use this if we want to conditionally disable compilation of GPU
@@ -1080,11 +1109,13 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/Makefile
            src/tl/analysis/common/Makefile
            src/tl/analysis/pcfg/Makefile
-           src/tl/analysis/constants/Makefile
+           src/tl/analysis/use_def/Makefile
+           src/tl/analysis/liveness/Makefile
+           src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
            src/tl/analysis/singleton/Makefile
-           src/tl/analysis/use_def/Makefile
            src/tl/analysis/test_phase/Makefile
+           src/tl/vectorizer/Makefile
            src/tl/hlt/Makefile
            src/tl/manip/Makefile
            src/tl/codegen/Makefile
@@ -1092,6 +1123,10 @@ AC_CONFIG_FILES([Makefile
            src/tl/codegen/base/Makefile
            src/tl/codegen/base/cxx/Makefile
            src/tl/codegen/base/fortran/Makefile
+           src/tl/codegen/vector/Makefile
+           src/tl/codegen/vector/sse/Makefile
+           src/tl/codegen/gpu/Makefile
+           src/tl/codegen/gpu/cuda/Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
@@ -1101,14 +1136,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/Makefile
            src/tl/omp/nanox-nodecl/devices/Makefile
            src/tl/omp/nanox-nodecl/devices/smp/Makefile
-           src/tl/omp/nanox/Makefile
-           src/tl/omp/nanox/devices/Makefile
-           src/tl/omp/nanox/devices/common/Makefile
-           src/tl/omp/nanox/devices/smp/Makefile
-           src/tl/omp/nanox/devices/smp_numa/Makefile
-           src/tl/omp/nanox/devices/smp_ocl/Makefile
-           src/tl/omp/nanox/devices/cuda/Makefile
-           src/tl/omp/nanox/devices/gpu/Makefile
+           src/tl/omp/nanox-nodecl/devices/cuda/Makefile
+           src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1154,6 +1183,7 @@ echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
+echo "   SIMD Support: " $simd_version $simd_math_version
 echo ""
 echo " * Fortran support : yes"
 echo "   SQLite 3 cflags: " $sqlite3_CFLAGS

@@ -49,22 +49,6 @@ namespace TL
         class OutlineDataItem
         {
             public:
-                enum ItemKind
-                {
-                    // Means this item keeps either a value or an
-                    // address to a program entity. It is the only
-                    // item needed to describe the program entity
-                    ITEM_KIND_NORMAL = 0,
-                    // Means this items keeps an address to a program entity
-                    // but this item alone is not enough to describe that
-                    // entity because of additional outline items describing it
-                    // (i.e. ITEM_KIND_DATA_DIMENSION)
-                    ITEM_KIND_DATA_ADDRESS,
-                    // Means this items keeps a value representing a dimension
-                    // of a runtime data. This is for VLAs
-                    ITEM_KIND_DATA_DIMENSION
-                };
-
                 enum Sharing
                 {
                     SHARING_UNDEFINED = 0,
@@ -72,25 +56,29 @@ namespace TL
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
-                    // Used for lastprivate
-                    SHARING_SHARED_PRIVATE,
-                    // Used for firstlastprivate
-                    SHARING_SHARED_CAPTURED_PRIVATE,
-
                     SHARING_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
-                    // the symbol but of the _shared_expression
+                    // the symbol but of the _base_address_expression
+                    // This is used for dependences in function tasks
                     SHARING_CAPTURE_ADDRESS,
                 };
 
-                enum Directionality
+                enum DependencyDirectionality
                 {
-                    DIRECTIONALITY_NONE = 0,
-                    DIRECTIONALITY_IN =   1 << 0,
-                    DIRECTIONALITY_OUT =  1 << 1,
-                    DIRECTIONALITY_INOUT = DIRECTIONALITY_IN | DIRECTIONALITY_OUT,
-                    DIRECTIONALITY_CONCURRENT = 1 << 2,
-                    DIRECTIONALITY_COMMUTATIVE = 1 << 3
+                    DEP_NONE = 0,
+                    DEP_IN =   1 << 0,
+                    DEP_OUT =  1 << 1,
+                    DEP_INOUT = DEP_IN | DEP_OUT,
+                    DEP_CONCURRENT = 1 << 2,
+                    DEP_COMMUTATIVE = 1 << 3
+                };
+                struct DependencyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    DependencyDirectionality directionality;
+
+                    DependencyItem(Nodecl::NodeclBase expr_, DependencyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum CopyDirectionality
@@ -99,6 +87,14 @@ namespace TL
                     COPY_IN,
                     COPY_OUT,
                     COPY_INOUT
+                };
+                struct CopyItem
+                {
+                    Nodecl::NodeclBase expression;
+                    CopyDirectionality directionality;
+
+                    CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
+                        : expression(expr_), directionality(dir_) { }
                 };
 
                 enum AllocationPolicyFlags
@@ -116,8 +112,6 @@ namespace TL
                 };
 
             private:
-                ItemKind _item_kind;
-
                 // Original symbol
                 TL::Symbol _sym;
 
@@ -130,62 +124,37 @@ namespace TL
                 TL::Type _private_type;
 
                 Sharing _sharing;
-                Nodecl::NodeclBase _shared_expression;
+                Nodecl::NodeclBase _base_address_expression;
 
                 // Reductions
                 OpenMP::UDRInfoItem *_udr_info_item;
 
-                // Dependences
-                Directionality _directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _dependences;
+                TL::ObjectList<DependencyItem> _dependences;
 
-                // -- FIXME ---
-                // Copies
-                CopyDirectionality _copy_directionality;
-                TL::ObjectList<Nodecl::NodeclBase> _copies;
+                TL::ObjectList<CopyItem> _copies;
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
+                // Captured value
+                Nodecl::NodeclBase _captured_value;
+
+                // Base symbol of the argument in Fortran
+                TL::Symbol _base_symbol_of_argument;
+
+                bool _is_lastprivate;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
-                    : _item_kind(ITEM_KIND_NORMAL),
-                    _sym(symbol), 
+                    : _sym(symbol), 
                     _field_name(field_name), 
                     _field_type(_sym.get_type()),
                     _in_outline_type(_field_type),
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
-                    _shared_expression(),
-                    _directionality(),
-                    _copy_directionality(),
-                    _allocation_policy_flags()
+                    _base_address_expression(),
+                    _allocation_policy_flags(),
+                    _base_symbol_of_argument(),
+                    _is_lastprivate()
                 {
-                }
-
-                OutlineDataItem(const std::string field_name, TL::Type field_type)
-                    : _item_kind(ITEM_KIND_NORMAL),
-                    _sym(NULL), 
-                    _field_name(field_name), 
-                    _field_type(field_type),
-                    _in_outline_type(_field_type),
-                    _private_type(TL::Type::get_void_type()),
-                    _sharing(),
-                    _shared_expression(),
-                    _udr_info_item(NULL),
-                    _directionality(),
-                    _copy_directionality(),
-                    _allocation_policy_flags()
-                {
-                }
-
-                ItemKind get_item_kind() const
-                {
-                    return _item_kind;
-                }
-
-                void set_item_kind(ItemKind item_kind)
-                {
-                    _item_kind = item_kind;
                 }
 
                 //! Returns the symbol of this item
@@ -198,6 +167,11 @@ namespace TL
                 std::string get_field_name() const
                 {
                     return _field_name;
+                }
+
+                void set_field_name(const std::string& field_name)
+                {
+                    _field_name = field_name;
                 }
 
                 // Returns the type used in the outline code
@@ -257,58 +231,38 @@ namespace TL
                     return _allocation_policy_flags;
                 }
 
-                void set_directionality(Directionality directionality)
-                {
-                    _directionality = directionality;
-                }
-
-                CopyDirectionality get_copy_directionality() const
-                {
-                    return _copy_directionality;
-                }
-
-                void set_copy_directionality(CopyDirectionality directionality)
-                {
-                    _copy_directionality = directionality;
-                }
-
-                Directionality get_directionality() const
-                {
-                    return _directionality;
-                }
-
-                TL::ObjectList<Nodecl::NodeclBase>& get_dependences()
+                TL::ObjectList<DependencyItem>& get_dependences()
                 {
                     return _dependences;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_dependences() const
+                const TL::ObjectList<DependencyItem>& get_dependences() const
                 {
                     return _dependences;
                 }
 
-                TL::ObjectList<Nodecl::NodeclBase>& get_copies()
+                TL::ObjectList<CopyItem>& get_copies()
                 {
                     return _copies;
                 }
 
-                const TL::ObjectList<Nodecl::NodeclBase>& get_copies() const
+                const TL::ObjectList<CopyItem>& get_copies() const
                 {
                     return _copies;
                 }
 
-                void set_shared_expression(Nodecl::NodeclBase shared_expr)
+                void set_base_address_expression(Nodecl::NodeclBase base_address_expr)
                 {
-                    _shared_expression = shared_expr;
+                    _base_address_expression = base_address_expr;
                 }
 
-                Nodecl::NodeclBase get_shared_expression() const
+                Nodecl::NodeclBase get_base_address_expression() const
                 {
                     ERROR_CONDITION(
-                            (_shared_expression.is_null()
+                            (_base_address_expression.is_null()
                             && _sharing == SHARING_CAPTURE_ADDRESS),
                             "Shared expression is missing!", 0);
-                    return _shared_expression;
+                    return _base_address_expression;
                 }
 
                 void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
@@ -325,12 +279,48 @@ namespace TL
                 {
                     return _udr_info_item;
                 }
+
+                void set_captured_value(Nodecl::NodeclBase captured_value)
+                {
+                    _captured_value = captured_value;
+                }
+
+                Nodecl::NodeclBase get_captured_value() const
+                {
+                    return _captured_value;
+                }
+
+                bool get_is_lastprivate() const
+                {
+                    return _is_lastprivate;
+                }
+
+                void set_is_lastprivate(bool b)
+                {
+                    _is_lastprivate = b;
+                }
+
+                void set_base_symbol_of_argument(TL::Symbol symbol)
+                {
+                    _base_symbol_of_argument = symbol;
+                }
+
+                TL::Symbol get_base_symbol_of_argument() const
+                {
+                    return _base_symbol_of_argument;
+                }
         };
 
         class OutlineInfo
         {
+
+            public:
+                typedef std::multimap<std::string, Symbol> implementation_table_t;
+
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
+
+                ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
 
                 // Devices information
                 ObjectList<std::string> _device_names;
@@ -343,8 +333,11 @@ namespace TL
                 OutlineInfo(const OutlineInfo&);
                 OutlineInfo& operator=(const OutlineInfo&);
 
+                implementation_table_t _implementation_table;
             public:
-                OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task = false);
+
+
+                OutlineInfo(Nodecl::NodeclBase environment);
                 OutlineInfo();
                 ~OutlineInfo();
 
@@ -354,17 +347,23 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
+                OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
                 ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
                 }
 
-                OutlineDataItem& prepend_field(const std::string& str, TL::Type t);
-                OutlineDataItem& append_field(const std::string& str, TL::Type t);
+                ObjectList<OutlineDataItem*> get_fields() const;
 
                 void add_device_name(std::string device_name);
                 ObjectList<std::string> get_device_names();
+
+                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
+                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+
+                void add_implementation(std::string device_name, TL::Symbol function_symbol);
+                implementation_table_t get_implementation_table();
 
                 TL::Symbol get_unpacked_function_symbol() const
                 {
@@ -375,6 +374,38 @@ namespace TL
                 {
                     _unpacked_function_symbol = sym;
                 }
+
+                OutlineDataItem& append_field(TL::Symbol sym);
+                OutlineDataItem& prepend_field(TL::Symbol sym);
+
+                // This is needed for VLAs
+                void move_at_end(OutlineDataItem&);
+        };
+
+        class OutlineInfoRegisterEntities
+        {
+            private:
+                OutlineInfo& _outline_info;
+                Scope _sc;
+
+            public:
+                OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
+                    : _outline_info(outline_info), _sc(sc) { }
+
+                void add_private(Symbol sym);
+                void add_shared(Symbol sym);
+                void add_shared_with_private_storage(Symbol sym, bool captured);
+                void add_shared_opaque(Symbol sym);
+                void add_capture_address(Symbol sym, TL::DataReference& data_ref);
+                void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
+                void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);
+                void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
+                void add_capture(Symbol sym);
+                void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
+                void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info);
+
+                TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
+                TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
         };
     }
 }

@@ -100,6 +100,8 @@ internal_subprogram : unknown_pragma
 ;
 module_subprogram : unknown_pragma
 ;
+interface_specification : unknown_pragma
+;
 /*!endif*/
 
 // ****************************

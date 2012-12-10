@@ -54,7 +54,7 @@ namespace TL { namespace Nanox {
             index_sym->line = sections.get_line();
 
             // Make this symbol private
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Private::make(
                         Nodecl::List::make(
                             Nodecl::Symbol::make(index_symbol,
@@ -64,7 +64,7 @@ namespace TL { namespace Nanox {
                         sections.get_line())
                     );
 
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Schedule::make(
                         Nodecl::IntegerLiteral::make(::get_signed_int_type(),
                             const_value_get_signed_int(1),
@@ -90,7 +90,7 @@ namespace TL { namespace Nanox {
                 if (!IS_FORTRAN_LANGUAGE)
                 {
                     // C/C++ needs a break here
-                    current_case_statements.push_back(
+                    current_case_statements.append(
                             Nodecl::BreakStatement::make(Nodecl::NodeclBase::null(),
                                 section.get_filename(), section.get_line()));
                 }
@@ -107,7 +107,7 @@ namespace TL { namespace Nanox {
                             section.get_line()
                             );
 
-                switch_statements.push_back(current_case);
+                switch_statements.append(current_case);
             }
 
             Nodecl::NodeclBase switch_body = switch_statements;

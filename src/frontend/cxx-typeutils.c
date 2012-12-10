@@ -6652,7 +6652,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
 // Vector flavors
 
-static const char* print_gnu_vector_type(
+const char* print_gnu_vector_type(
         decl_context_t decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
@@ -6671,7 +6671,7 @@ static const char* print_gnu_vector_type(
     return c;
 }
 
-static const char* print_intel_sse_avx_vector_type(
+const char* print_intel_sse_avx_vector_type(
         decl_context_t decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
@@ -6746,7 +6746,7 @@ static const char* print_intel_sse_avx_vector_type(
     return c;
 }
 
-static const char* print_altivec_vector_type(
+const char* print_altivec_vector_type(
         decl_context_t decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
@@ -6775,7 +6775,7 @@ static const char* print_altivec_vector_type(
     return c;
 }
 
-static const char* print_opencl_vector_type(
+const char* print_opencl_vector_type(
         decl_context_t decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
@@ -6866,10 +6866,6 @@ static const char* print_opencl_vector_type(
     return c;
 }
 
-// By default the flavor is GNU
-typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
-static print_vector_type_fun print_vector_type = print_gnu_vector_type;
-
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
     VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
@@ -6891,6 +6887,7 @@ const print_vector_type_fun print_vector_type_functions[] = {
 };
 #undef VECTOR_FLAVOR
 
+
 void vector_types_set_flavor(const char* c)
 {
     int i;
@@ -6898,7 +6895,7 @@ void vector_types_set_flavor(const char* c)
     {
         if (strcmp(vector_flavors[i], c) == 0)
         {
-            print_vector_type = print_vector_type_functions[i];
+            CURRENT_CONFIGURATION->print_vector_type = print_vector_type_functions[i];
             break;
         }
     }
@@ -7065,7 +7062,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
             }
         case STK_VECTOR:
             {
-                result = print_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                result = CURRENT_CONFIGURATION->print_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_CLASS :
@@ -8753,7 +8750,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     // C only
-    // T -> T @ref@
     if (IS_C_LANGUAGE
             && is_lvalue_reference_type(dest))
     {
@@ -8762,6 +8758,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_orig = get_unqualified_type(orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
+        // T -> T @ref@
         if (equivalent_types(unqualif_orig, unqualif_ref_dest))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -8771,7 +8768,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             return 1;
         }
+        // void& -> T @ref@
+        else if (is_lvalue_reference_type(orig)
+                && is_void_type(no_ref(orig)))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Mercurium Extension for C: binding a void& to a reference type\n");
+            }
+            return 1;
+        }
     }
+
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
             && is_lvalue_reference_type(dest))
@@ -9167,6 +9176,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+	else if (is_complex_type(orig)
+		&& is_floating_type(dest))
+	{
+	    DEBUG_CODE()
+	    {
+		fprintf(stderr, "SCS: Applying complex to floating conversion\n");
+	    }
+	    (*result).conv[1] = SCI_COMPLEX_TO_FLOAT_CONVERSION;
+	    // Direct conversion, no cv-qualifiers can be involved here
+	    orig = dest;
+	}
     }
 
     // Third kind of conversion
@@ -11065,6 +11085,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
             region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, symbol_map);
             region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, symbol_map);
+            region_stride = nodecl_deep_copy(region_stride, new_decl_context, symbol_map);
 
             result = get_array_type_bounds_with_regions(element_type,
                     lower_bound,

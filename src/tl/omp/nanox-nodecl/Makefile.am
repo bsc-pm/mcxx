@@ -47,7 +47,9 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lowering-visitor.cpp \
 								 tl-lowering-visitor.hpp \
 								 tl-lower-arguments.cpp \
+								 tl-lower-task-common.hpp \
 								 tl-lower-task.cpp \
+								 tl-lower-task-call.cpp \
 								 tl-lower-taskwait.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
@@ -60,6 +62,7 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-critical.cpp \
 								 tl-lower-flush.cpp \
 								 tl-lower-atomic.cpp \
+								 tl-lower-target.cpp \
 								 tl-parallel-spawn.cpp \
 								 tl-loop-spawn.cpp \
 								 tl-reduction-common.cpp \

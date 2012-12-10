@@ -57,10 +57,10 @@ namespace Codegen
             CodegenVisitor();
 
             bool is_file_output() const;
-
-            std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);
+            void set_is_file_output(bool b);
 
             void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
+            std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
@@ -72,9 +72,10 @@ namespace Codegen
 
     class CodegenModuleVisitor : public Nodecl::ModuleVisitor<void>
     {
-        CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
-            : Nodecl::ModuleVisitor<void>(codegen_visitor),
-            file(codegen_visitor->file)
+        public:
+            CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
+                : Nodecl::ModuleVisitor<void>(codegen_visitor),
+                file(codegen_visitor->file)
         {
         }
 

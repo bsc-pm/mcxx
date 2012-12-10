@@ -473,34 +473,30 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->emit_always = 1;
     }
-    // CUDA attributes
-    else if (CURRENT_CONFIGURATION->enable_cuda)
-    {
-        if (strcmp(attribute_name, "global") == 0)
-        {
-            gather_info->cuda.is_global = 1;
-        }
-        else if (strcmp(attribute_name, "device") == 0)
-        {
-            gather_info->cuda.is_device = 1;
-        }
-        else if (strcmp(attribute_name, "host") == 0)
-        {
-            // Do nothing
-            gather_info->cuda.is_host = 1;
-        }
-        else if (strcmp(attribute_name, "shared") == 0)
-        {
-            gather_info->cuda.is_shared = 1;
-        }
-        else if (strcmp(attribute_name, "constant") == 0)
-        {
-            gather_info->cuda.is_constant = 1;
-        }
-    }
     else if (strcmp(attribute_name, "__transparent_union__") == 0 || strcmp(attribute_name, "transparent_union") == 0)
     {
         gather_info->is_transparent_union = 1;
+    }
+    // CUDA attributes
+    else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "global") == 0)
+    {
+        gather_info->cuda.is_global = 1;
+    }
+    else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "device") == 0)
+    {
+        gather_info->cuda.is_device = 1;
+    }
+    else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "host") == 0)
+    {
+        gather_info->cuda.is_host = 1;
+    }
+    else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "shared") == 0)
+    {
+        gather_info->cuda.is_shared = 1;
+    }
+    else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "constant") == 0)
+    {
+        gather_info->cuda.is_constant = 1;
     }
     else
     {

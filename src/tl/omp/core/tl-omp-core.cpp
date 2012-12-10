@@ -129,23 +129,6 @@ namespace TL
             return _openmp_info;
         }
 
-        static void register_directive(const std::string& str)
-        {
-            register_new_directive("omp", str.c_str(), 0, 0);
-        }
-
-        static void register_construct(const std::string& str, bool bound_to_statement = false)
-        {
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                register_new_directive("omp", str.c_str(), 1, bound_to_statement);
-            }
-            else
-            {
-                register_new_directive("omp", str.c_str(), 1, 0);
-            }
-        }
-
         void Core::register_omp_constructs()
         {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -192,6 +175,11 @@ namespace TL
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+        }
+
+        void Core::phase_cleanup(DTO& data_flow)
+        {
+            _already_registered = false;
         }
 
         void Core::get_clause_symbols(
@@ -310,6 +298,35 @@ namespace TL
                 }
         };
 
+        struct NotInRefList : Predicate<DataReference>
+        {
+            ObjectList<DataReference> &_ref_list;
+            NotInRefList(ObjectList<DataReference>& ref_list) : _ref_list(ref_list) { }
+
+            virtual bool do_(Predicate<DataReference>::ArgType t) const
+            {
+                return !_ref_list.contains(t, functor(&DataReference::get_base_symbol));
+            }
+        };
+
+        ObjectList<DataReference> intersect_ref_list(ObjectList<DataReference>& firstprivate,
+                ObjectList<DataReference>& lastprivate)
+        {
+            ObjectList<DataReference> result;
+
+            for (ObjectList<DataReference>::iterator it = firstprivate.begin();
+                    it != firstprivate.end();
+                    it++)
+            {
+                if (lastprivate.contains(*it, functor(&DataReference::get_base_symbol)))
+                {
+                    result.append(*it);
+                }
+            }
+
+            return result;
+        }
+
         void Core::get_data_explicit_attributes(TL::PragmaCustomLine construct, 
                 Nodecl::NodeclBase statements,
                 DataSharingEnvironment& data_sharing)
@@ -327,15 +344,24 @@ namespace TL
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE));
 
             ObjectList<DataReference> firstprivate_references;
-            get_clause_symbols(construct.get_clause("firstprivate"), 
-                    nonlocal_symbols, firstprivate_references);
-            std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
+            get_clause_symbols(construct.get_clause("firstprivate"), nonlocal_symbols, firstprivate_references);
             ObjectList<DataReference> lastprivate_references;
             get_clause_symbols(construct.get_clause("lastprivate"), nonlocal_symbols, lastprivate_references);
-            std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
+
+            ObjectList<DataReference> only_firstprivate_references;
+            ObjectList<DataReference> only_lastprivate_references;
+            ObjectList<DataReference> firstlastprivate_references;
+
+            only_firstprivate_references = firstprivate_references.filter(NotInRefList(lastprivate_references));
+            only_lastprivate_references = firstprivate_references.filter(NotInRefList(firstprivate_references));
+            firstlastprivate_references = intersect_ref_list(lastprivate_references, firstprivate_references);
+
+            std::for_each(only_firstprivate_references.begin(), only_firstprivate_references.end(),
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+            std::for_each(only_lastprivate_references.begin(), only_lastprivate_references.end(),
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_LASTPRIVATE));
+            std::for_each(firstlastprivate_references.begin(), firstlastprivate_references.end(),
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTLASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"), nonlocal_symbols, reduction_references);
@@ -352,30 +378,30 @@ namespace TL
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
 
-            // Internal clauses created by fun-tasks phase
-            ObjectList<DataReference> fp_input_references;
-            get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
-                    /* Allow extended references */ true);
-            std::for_each(fp_input_references.begin(), fp_input_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+            // // Internal clauses created by fun-tasks phase
+            // ObjectList<DataReference> fp_input_references;
+            // get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
+            //         /* Allow extended references */ true);
+            // std::for_each(fp_input_references.begin(), fp_input_references.end(), 
+            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
-            ObjectList<DataReference> fp_output_references;
-            get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
-                    /* Allow extended references */ true);
-            std::for_each(fp_output_references.begin(), fp_output_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+            // ObjectList<DataReference> fp_output_references;
+            // get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
+            //         /* Allow extended references */ true);
+            // std::for_each(fp_output_references.begin(), fp_output_references.end(), 
+            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
-            ObjectList<DataReference> fp_inout_references;
-            get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
-                    /* Allow extended references */ true);
-            std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+            // ObjectList<DataReference> fp_inout_references;
+            // get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
+            //         /* Allow extended references */ true);
+            // std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
+            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
-            ObjectList<DataReference> fp_reduction_references;
-            get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
-                    /* Allow extended references */ true);
-            std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+            // ObjectList<DataReference> fp_reduction_references;
+            // get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
+            //         /* Allow extended references */ true);
+            // std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
+            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
@@ -487,12 +513,14 @@ namespace TL
 
                 scope_t* _scope;
                 SymbolsOfScope _symbols_of_scope_visitor;
+
+                std::set<TL::Symbol> _visited_function;
             public:
                 ObjectList<Nodecl::Symbol> symbols;
 
                 SymbolsUsedInNestedFunctions(Symbol current_function)
                     : _scope(current_function.get_related_scope().get_decl_context().current_scope),
-                      _symbols_of_scope_visitor(_scope, symbols)
+                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(), symbols()
                 {
                 }
 
@@ -505,7 +533,13 @@ namespace TL
                     {
                         Nodecl::NodeclBase body = sym.get_function_code();
 
-                        _symbols_of_scope_visitor.walk(body);
+                        if (_visited_function.find(sym) == _visited_function.end())
+                        {
+                            _symbols_of_scope_visitor.walk(body);
+
+                            _visited_function.insert(sym);
+                            walk(body);
+                        }
                     }
                 }
 
@@ -869,7 +903,22 @@ namespace TL
             if (for_statement.is_omp_valid_loop())
             {
                 Symbol sym  = for_statement.get_induction_variable();
-                data_sharing.set_data_sharing(sym, DS_PRIVATE);
+
+                DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
+                bool is_implicit = (data_sharing.get_data_sharing(sym) & DS_IMPLICIT);
+
+                if (!is_implicit
+                        && sym_data_sharing != DS_UNDEFINED
+                        && sym_data_sharing != DS_PRIVATE
+                        && sym_data_sharing != DS_NONE)
+                {
+                    running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
+                            statement.get_locus().c_str(),
+                            sym.get_name().c_str()
+                            );
+                }
+                // We set it to none, later phases must give this symbol appropiate predetermined private behaviour
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
             }
             else
             {
@@ -993,7 +1042,8 @@ namespace TL
                         DataSharingEnvironment* enclosing = data_sharing.get_enclosing();
 
                         // If it is a global, it will be always shared
-                        if (!(sym.has_namespace_scope()
+                        if (!(sym.has_namespace_scope() // C++
+                                    || sym.is_from_module() // Fortran
                                     || (sym.is_member() && sym.is_static())))
                         {
                             while ((enclosing != NULL) && is_shared)
@@ -1283,6 +1333,16 @@ namespace TL
         {
             _openmp_info->pop_current_data_sharing();
         }
+
+        void Core::simd_handler_pre(TL::PragmaCustomStatement construct) { }
+        void Core::simd_handler_post(TL::PragmaCustomStatement construct) { }
+        void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
+
+        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct) { }
+        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct) { }
+        void Core::simd_for_handler_pre(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_for_handler_post(TL::PragmaCustomDeclaration construct) { }
 
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {

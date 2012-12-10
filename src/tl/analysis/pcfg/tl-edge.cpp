@@ -140,7 +140,7 @@ namespace Analysis {
                 break;
                 case CASE:          {
                                         ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >( _EDGE_LABEL );
-                                        int i = 0;
+                                        unsigned int i = 0;
                                         while( i < labels.size( ) )
                                         {
                                             if( labels[i].is_null( ) )

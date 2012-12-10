@@ -43,6 +43,10 @@ namespace Nodecl
 
         if (n.has_symbol())
         {
+            if (n.is<Nodecl::ObjectInit>())
+            {
+                get_all_symbols_rec(n.get_symbol().get_value(), result);
+            }
             result.insert(n.get_symbol());
         }
 
@@ -133,6 +137,10 @@ namespace Nodecl
         {
             result.append(n.as<Nodecl::Symbol>());
         }
+        else if (n.is<Nodecl::ObjectInit>())
+        {
+            get_all_symbols_occurrences_rec(n.get_symbol().get_value(), result);
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
 
@@ -209,7 +217,7 @@ namespace Nodecl
         }
         else if (n.is<Nodecl::ObjectInit>())
         {
-            get_all_symbols_first_occurrence_rec(n.as<Nodecl::ObjectInit>().get_symbol().get_value(), result);
+            get_all_symbols_first_occurrence_rec(n.get_symbol().get_value(), result);
         }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
@@ -378,7 +386,7 @@ namespace Nodecl
             List l = n.as<List>(); List new_l = List::make(NodeclBase::null());
             for (List::iterator it = l.begin(); it != l.end(); ++it)
             {
-                new_l.push_back(reduce_expression(*it));
+                new_l.append(reduce_expression(*it));
             }
             simplified_expr = new_l;
         }
@@ -766,22 +774,9 @@ namespace Nodecl
 
     void Utils::append_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
-        if (n.is<Nodecl::List>())
-        {
-            Nodecl::List l = n.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin();
-                    it != l.end();
-                    it++)
-            {
-                append_to_top_level_nodecl(*it);
-            }
-        }
-        else
-        {
-            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
-            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
-            list.push_back(n);
-        }
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        list.append(n);
     }
 
     namespace
@@ -869,7 +864,7 @@ namespace Nodecl
         {
             list.insert(last_it, *it);
             // We may have a new last node now
-            last_it = it->get_parent().as<Nodecl::List>().last();
+            last_it = list.last();
         }
     }
 
@@ -899,22 +894,9 @@ namespace Nodecl
 
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
-        if (n.is<Nodecl::List>())
-        {
-            Nodecl::List l = n.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin();
-                    it != l.end();
-                    it++)
-            {
-                prepend_to_top_level_nodecl(*it);
-            }
-        }
-        else
-        {
-            Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
-            Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
-            list.push_front(n);
-        }
+        Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
+        Nodecl::List list = top_level.get_top_level().as<Nodecl::List>();
+        list.prepend(n);
     }
 
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
@@ -1003,7 +985,7 @@ namespace Nodecl
         }
     }
 
-    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    void Utils::prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase items)
     {
         while (!current_location.is_null()
                 && (!current_location.is<Nodecl::List>()
@@ -1012,16 +994,30 @@ namespace Nodecl
             current_location = current_location.get_parent();
         }
 
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
         ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+        ERROR_CONDITION(!current_location.is<Nodecl::List>(), "Thist must be a list", 0);
 
         // This is a list node inside the top level list
         Nodecl::List list = current_location.as<Nodecl::List>();
 
-        Nodecl::List::iterator it = list.last();
-        list.insert(it, n);
+        Nodecl::List::iterator last_it = list.last();
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
     }
 
-    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n)
+    void Utils::append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase items)
     {
         while (!current_location.is_null()
                 && (!current_location.is<Nodecl::List>()
@@ -1030,13 +1026,27 @@ namespace Nodecl
             current_location = current_location.get_parent();
         }
 
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
         ERROR_CONDITION(current_location.is_null(), "This should never be null", 0);
+        ERROR_CONDITION(!current_location.is<Nodecl::List>(), "Thist must be a list", 0);
 
         // This is a list node inside the top level list
         Nodecl::List list = current_location.as<Nodecl::List>();
 
-        Nodecl::List::iterator it = list.last();
-        list.insert(it+1, n);
+        Nodecl::List::iterator last_it = list.last();
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
     }
 
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_of_entity_at_top_level(TL::Symbol symbol)
@@ -1246,7 +1256,7 @@ namespace TL
         else if (lc.is<Nodecl::LoopControl>())
         {
             Nodecl::LoopControl loop_control = lc.as<Nodecl::LoopControl>();
-            Nodecl::NodeclBase init_expr = loop_control.get_init();
+            Nodecl::List init_expr_list = loop_control.get_init().as<Nodecl::List>();
             Nodecl::NodeclBase test_expr = loop_control.get_cond();
             Nodecl::NodeclBase incr_expr = loop_control.get_next();
 
@@ -1258,6 +1268,16 @@ namespace TL
             //   pointer-type _induction_var = lb
 
             _induction_var = TL::Symbol(NULL);
+
+            _induction_variable_in_separate_scope = false;
+
+            if (init_expr_list.size() != 1)
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            Nodecl::NodeclBase init_expr = init_expr_list.front();
 
             // _induction_var = lb
             if (init_expr.is<Nodecl::Assignment>())
@@ -1274,6 +1294,7 @@ namespace TL
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
             {
+                _induction_variable_in_separate_scope = true;
                 _induction_var = init_expr.get_symbol();
 
                 _lower_bound = _induction_var.get_value().shallow_copy();
@@ -1571,6 +1592,11 @@ namespace TL
     TL::Symbol ForStatement::get_induction_variable() const
     {
         return _induction_var;
+    }
+
+    bool ForStatement::induction_variable_in_separate_scope() const
+    {
+        return _induction_variable_in_separate_scope;
     }
 
     Nodecl::NodeclBase ForStatement::get_lower_bound() const

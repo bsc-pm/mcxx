@@ -34,6 +34,7 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
+#include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
 
 #include "codegen-phase.hpp"
@@ -194,6 +195,36 @@ namespace TL
                 decl_context);
 
         return Type(array_to);
+    }
+
+    Type Type::get_array_to_with_region(Nodecl::NodeclBase lower_bound, 
+            Nodecl::NodeclBase upper_bound, 
+            Nodecl::NodeclBase region_lower_bound,
+            Nodecl::NodeclBase region_upper_bound,
+            Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+
+        // Make the range of the region
+        Nodecl::NodeclBase range = Nodecl::Range::make(
+                region_lower_bound,
+                region_upper_bound,
+                const_value_to_nodecl(const_value_get_one(4, 1)),
+                region_lower_bound.get_type(),
+                region_lower_bound.get_filename(),
+                region_lower_bound.get_line());
+
+        type_t* array_to = get_array_type_bounds_with_regions(
+                result_type,
+                lower_bound.get_internal_nodecl(), 
+                upper_bound.get_internal_nodecl(), 
+                decl_context,
+                range.get_internal_nodecl(),
+                decl_context);
+
+        return array_to;
     }
 
     Type Type::get_array_to()
@@ -914,7 +945,7 @@ namespace TL
         return template_type_get_related_symbol(_type_info);
     }
 
-    bool Type::is_same_type(Type t)
+    bool Type::is_same_type(Type t) const
     {
         return equivalent_types(this->_type_info, t._type_info);
     }
@@ -1012,7 +1043,7 @@ namespace TL
         return ::class_type_is_packed(_type_info);
     }
 
-    unsigned int Type::get_size() 
+    unsigned int Type::get_size() const
     {
         unsigned int result;
 

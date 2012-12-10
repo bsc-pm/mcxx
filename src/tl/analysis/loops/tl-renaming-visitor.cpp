@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -36,11 +36,11 @@
 
 namespace TL {
 namespace Analysis {
-    
-    RenamingVisitor::RenamingVisitor(std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, int line)
-        : _rename_map(rename_map), _filename(filename), _line(line), _s(NULL), _computing_limits(false)
+
+    RenamingVisitor::RenamingVisitor( std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, int line )
+        : _rename_map( rename_map ), _filename( filename ), _line( line ), _s( NULL ), _computing_limits( false )
     {}
-    
+
     RenamingVisitor::RenamingVisitor(const RenamingVisitor& rename_v)
     {
         _rename_map = rename_v._rename_map;
@@ -49,36 +49,34 @@ namespace Analysis {
         _s = rename_v._s;
         _computing_limits = rename_v._computing_limits;
     }
-    
+
     Symbol RenamingVisitor::get_matching_symbol() const
     {
         return _s;
     }
-    
+
     void RenamingVisitor::set_computing_range_limits(bool computing_limits)
     {
         _computing_limits = computing_limits;
     }
-    
+
     nodecl_t RenamingVisitor::create_nodecl_list(ObjectList<Nodecl::NodeclBase> list)
     {
         nodecl_t nodecl_l = nodecl_null();
-        for (ObjectList<Nodecl::NodeclBase>::iterator it = list.begin();
-            it != list.end();
-            ++it)
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = list.begin( ); it != list.end(); ++it )
         {
             nodecl_l = nodecl_append_to_list(nodecl_l, it->get_internal_nodecl());
         }
-        
+
         return nodecl_l;
-    }        
-    
+    }
+
     static Nodecl::NodeclBase non_constant_min(Nodecl::Symbol a, Nodecl::NodeclBase b)
     {
         Nodecl::NodeclBase result;
-        
+
         if (b.is<Nodecl::Add>())
-        {    
+        {
             Nodecl::Add add = b.as<Nodecl::Add>();
             Nodecl::NodeclBase lhs = add.get_lhs();
             Nodecl::NodeclBase rhs = add.get_rhs();
@@ -91,7 +89,7 @@ namespace Analysis {
                     if(lhs_const_val < zero)
                         result = b;
                     else
-                        result = a;   
+                        result = a;
                 }
             }
         }
@@ -99,17 +97,17 @@ namespace Analysis {
         {
             result = Nodecl::NodeclBase::null();
         }
-        
+
         return result;
     }
-    
+
     // FIXME We should evaluate the type of both nodes, not just node 'a'
     static Nodecl::NodeclBase min(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
     {
         Nodecl::Calculator calc;
         const_value_t* a_const_val = calc.compute_const_value(a);
         const_value_t* b_const_val = calc.compute_const_value(b);
-        
+
         Nodecl::NodeclBase result;
         if (a_const_val != NULL && b_const_val != NULL)
         {
@@ -125,7 +123,7 @@ namespace Analysis {
             else
             {
                 Nodecl::NodeclBase base(const_value_to_nodecl(a_const_val));
-                internal_error("Unexpected constant value '%s' while computing initial value in a constant expression", 
+                internal_error("Unexpected constant value '%s' while computing initial value in a constant expression",
                                 base.prettyprint().c_str());
             }
         }
@@ -140,17 +138,17 @@ namespace Analysis {
         else
         {
             result = Nodecl::NodeclBase::null();
-        } 
-        
+        }
+
         return result;
     }
-    
+
     static Nodecl::NodeclBase non_constant_max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
     {
         Nodecl::NodeclBase result;
-        
+
         if (b.is<Nodecl::Add>())
-        {    
+        {
             Nodecl::Add add = b.as<Nodecl::Add>();
             Nodecl::NodeclBase lhs = add.get_lhs();
             Nodecl::NodeclBase rhs = add.get_rhs();
@@ -165,7 +163,7 @@ namespace Analysis {
                         result = a;
                     }
                     else
-                        result = b;    
+                        result = b;
                 }
             }
         }
@@ -173,16 +171,16 @@ namespace Analysis {
         {
             result = Nodecl::NodeclBase::null();
         }
-        
+
         return result;
     }
-    
+
     static Nodecl::NodeclBase max(Nodecl::NodeclBase a, Nodecl::NodeclBase b)
     {
         Nodecl::Calculator calc;
         const_value_t* a_const_val = calc.compute_const_value(a);
         const_value_t* b_const_val = calc.compute_const_value(b);
-        
+
         Nodecl::NodeclBase result;
         if (a_const_val != NULL && b_const_val != NULL)
         {
@@ -197,13 +195,13 @@ namespace Analysis {
             }
             else
             {
-                internal_error("Unexpected node type '%s' while computing initial value in a constant expression", 
+                internal_error("Unexpected node type '%s' while computing initial value in a constant expression",
                             ast_print_node_type(a.get_kind()));
             }
         }
         else if (a.is<Nodecl::Symbol>() && b.is<Nodecl::Add>())
         {
-            
+
             result = non_constant_max(a, b);
         }
         else if (a.is<Nodecl::Add>() && b.is<Nodecl::Symbol>())
@@ -213,11 +211,11 @@ namespace Analysis {
         else
         {
             result = Nodecl::NodeclBase::null();
-        }   
-        
+        }
+
         return result;
     }
-    
+
     Nodecl::NodeclBase RenamingVisitor::combine_variable_values(Nodecl::NodeclBase node1, Nodecl::NodeclBase node2)
     {
         if (node1.is<Nodecl::Range>() && node2.is<Nodecl::Range>())
@@ -226,12 +224,12 @@ namespace Analysis {
             Nodecl::NodeclBase lb1 = node1_range.get_lower();
             Nodecl::NodeclBase ub1 = node1_range.get_upper();
             Nodecl::NodeclBase stride1 = node1_range.get_stride();
-            
+
             Nodecl::Range node2_range = node2.as<Nodecl::Range>();
             Nodecl::NodeclBase lb2 = node2_range.get_lower();
             Nodecl::NodeclBase ub2 = node2_range.get_upper();
             Nodecl::NodeclBase stride2 = node2_range.get_stride();
-            
+
             // Mix the strides
             Nodecl::NodeclBase stride;
             if (!stride1.is_null() && !stride2.is_null())
@@ -253,17 +251,17 @@ namespace Analysis {
             else
             {
                 stride = stride2;
-            }        
-        
+            }
+
             // We must keep the smaller LB and the bigger UB
             Nodecl::NodeclBase lb = min(lb1, lb2);
             Nodecl::NodeclBase ub = max(ub1, ub2);
-            
+
             if (lb.is_null() || ub.is_null())
             {
                 return Nodecl::NodeclBase::null();
             }
-        
+
             return Nodecl::Range::make(lb, ub, stride, node1.get_type(), node1.get_filename(), node1.get_line());
         }
         else if (!node1.is<Nodecl::Range>() && !node2.is<Nodecl::Range>())
@@ -284,7 +282,7 @@ namespace Analysis {
                 else if (n2 - n1 == 1)
                 {
                     Nodecl::NodeclBase stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-                    return Nodecl::Range::make(node1, node2, stride, node1.get_type(), node1.get_filename(), node1.get_line()); 
+                    return Nodecl::Range::make(node1, node2, stride, node1.get_type(), node1.get_filename(), node1.get_line());
                 }
                 else
                 {
@@ -299,7 +297,7 @@ namespace Analysis {
         else
         {
             Nodecl::NodeclBase lb, ub, l, stride;
-            
+
             if (node1.is<Nodecl::Range>())
             {
                 Nodecl::Range node1_range = node1.as<Nodecl::Range>();
@@ -316,12 +314,12 @@ namespace Analysis {
                 stride = node2_range.get_stride();
                 l = node1;
             }
-        
+
             if (l.is_constant() && stride.is_constant())
             {
                 int l_val = const_value_cast_to_4(l.get_constant());
                 int stride_val = const_value_cast_to_4(stride.get_constant());
-                
+
                 if (lb.is_constant())
                 {
                     int lb_val = const_value_cast_to_4(lb.get_constant());
@@ -363,12 +361,12 @@ namespace Analysis {
                 {
                     return Nodecl::Range::make(lb, new_max, stride, node1.get_type(), node1.get_filename(), node1.get_line());
                 }
-                
+
                 return Nodecl::NodeclBase::null();
             }
         }
-    }    
-    
+    }
+
     //! Useful to combine expressions as 'i = i + j;' where 'i, j' are induction variables
     template <typename T>
     Nodecl::NodeclBase RenamingVisitor::create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
@@ -376,7 +374,7 @@ namespace Analysis {
                                                                             Nodecl::NodeclBase stride)
     {
         Nodecl::NodeclBase renamed, lb, ub;
-        
+
         if (n.template is<Nodecl::Add>())
         {
             lb = Nodecl::Add::make(lb1, lb2, n.get_type(), _filename, _line);
@@ -543,29 +541,29 @@ namespace Analysis {
             ub = Nodecl::BitwiseShlAssignment::make(ub1, ub2, n.get_type(), _filename, _line);
         }
         else
-        {            
+        {
             internal_error("Unexpected node type '%s' while renaming ranged binary node", ast_print_node_type(n.get_kind()));
         }
-        
+
         // Compute constant values for LB and UB if possible
         Nodecl::NodeclBase reduced_lb = Nodecl::Utils::reduce_expression(lb);
 //             std::cerr << "Reducing LB: " << lb.prettyprint() << "  --> " << reduced_lb.prettyprint() << std::endl;
         Nodecl::NodeclBase reduced_ub = Nodecl::Utils::reduce_expression(ub);
 //             std::cerr << "Reducing UB: " << ub.prettyprint() << "  --> " << reduced_ub.prettyprint() << std::endl;
-        
+
         renamed = Nodecl::Range::make(reduced_lb, reduced_ub, stride, n.get_type(), _filename, _line);
-        
+
         return renamed;
     }
-    
+
     // ************************************************************************************** //
     // ********************************** Visiting methods ********************************** //
-    
+
     template <typename T>
     Nodecl::NodeclBase RenamingVisitor::create_new_binary_node(T& n, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs)
     {
         Nodecl::NodeclBase renamed;
-        
+
         if (n.template is<Nodecl::Add>())
         {
             renamed = Nodecl::Add::make(lhs, rhs, n.get_type(), _filename, _line);
@@ -698,19 +696,19 @@ namespace Analysis {
         {
             internal_error("Unexpected node type '%s' while renaming binary node", ast_print_node_type(n.get_kind()));
         }
-        
+
         return renamed;
     }
-    
+
     template <typename T>
     RenamingVisitor::Ret RenamingVisitor::visit_binary(const T& n)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        
+
         ObjectList<Nodecl::NodeclBase> renamed_lhs = walk(lhs);
         ObjectList<Nodecl::NodeclBase> renamed_rhs = walk(rhs);
-        
+
         Nodecl::NodeclBase renamed;
         if (!renamed_lhs.empty() || !renamed_rhs.empty())
         {
@@ -722,7 +720,7 @@ namespace Analysis {
             {
                 rhs = renamed_rhs[0];
             }
-            
+
             if (lhs.is<Nodecl::Range>() || rhs.is<Nodecl::Range>())
             {
                 Nodecl::NodeclBase lb1, lb2, ub1, ub2, stride1, stride2, stride;
@@ -752,7 +750,7 @@ namespace Analysis {
                     ub2 = rhs;
                     stride2 = Nodecl::NodeclBase::null();
                 }
-                
+
                 // Mix the strides
                 if (!stride1.is_null() && !stride2.is_null())
                 {
@@ -774,30 +772,30 @@ namespace Analysis {
                 {
                     stride = stride2;
                 }
-                
+
                 renamed = create_new_range_from_binary_node(n, lb1, ub1, lb2, ub2, stride);
             }
             else
             {
                 renamed = create_new_binary_node(n, lhs, rhs);
             }
-            
-            return ObjectList<Nodecl::NodeclBase>(1, renamed);            
+
+            return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     template <typename T>
     RenamingVisitor::Ret RenamingVisitor::visit_unary(const T& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         ObjectList<Nodecl::NodeclBase> renamed_rhs = walk(rhs);
-        
+
         if (!renamed_rhs.empty())
         {
             rhs = renamed_rhs[0];
-            
+
             Nodecl::NodeclBase renamed;
             if (n.template is<Nodecl::Predecrement>())
             {
@@ -812,7 +810,7 @@ namespace Analysis {
                 renamed = Nodecl::Preincrement::make(rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Postincrement>())
-            {           
+            {
                 renamed = Nodecl::Postincrement::make(rhs, n.get_type(), _filename, _line);
             }
             else if (n.template is<Nodecl::Plus>())
@@ -839,19 +837,19 @@ namespace Analysis {
             {
                 renamed = Nodecl::Reference::make(rhs, n.get_type(), _filename, _line);
             }
-            
+
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
         Nodecl::NodeclBase unhandled_n = n;
         internal_error("Unhandled node while Renaming '%s' of type '%s'", unhandled_n.prettyprint().c_str(), ast_print_node_type(n.get_kind()));
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Add& n)
     {
         return visit_binary(n);
@@ -861,22 +859,22 @@ namespace Analysis {
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit( const Nodecl::ArithmeticShr& n )
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ArraySubscript& n)
-    {            
+    {
         Nodecl::NodeclBase subscripted = n.get_subscripted();
         Nodecl::NodeclBase subscripts = n.get_subscripts();
-        
+
         ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(subscripted);
         ObjectList<Nodecl::NodeclBase> renamed_subscripts, aux_subscripts;
         if (subscripts.is<Nodecl::List>())
@@ -905,7 +903,7 @@ namespace Analysis {
         {
             renamed_subscripts = walk(subscripts);
         }
-        
+
         if (!renamed_subscripted.empty() || !renamed_subscripts.empty())
         {
             if (!renamed_subscripted.empty())
@@ -916,102 +914,102 @@ namespace Analysis {
             {
                 subscripts = Nodecl::NodeclBase(create_nodecl_list(renamed_subscripts));
             }
-            
+
             Nodecl::NodeclBase renamed = Nodecl::ArraySubscript::make(subscripted, subscripts, n.get_type(), _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Assignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseAnd& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseNot& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseOr& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseShl& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseShr& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseXor& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::BooleanLiteral& n)
     {
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Cast& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         ObjectList<Nodecl::NodeclBase> renamed_rhs = walk(rhs);
-        
+
         if (!renamed_rhs.empty())
         {
             rhs =renamed_rhs[0];
             Nodecl::NodeclBase renamed = Nodecl::Cast::make(rhs, n.get_type(), n.get_text(), _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase member = n.get_member();
-        
+
         ObjectList<Nodecl::NodeclBase> renamed_lhs = walk(lhs);
         ObjectList<Nodecl::NodeclBase> renamed_member = walk(member);
-        
+
         if (!renamed_lhs.empty() || !renamed_member.empty())
         {
             if (!renamed_lhs.empty())
@@ -1022,19 +1020,19 @@ namespace Analysis {
             {
                 member = renamed_member[0];
             }
-            
+
             Nodecl::NodeclBase renamed = Nodecl::ClassMemberAccess::make(lhs, member, n.get_type(), _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ComplexLiteral& n)
     {
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
         Nodecl::NodeclBase cond = n.get_condition();
@@ -1043,7 +1041,7 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> renamed_cond = walk(cond);
         ObjectList<Nodecl::NodeclBase> renamed_true = walk(true_nodecl);
         ObjectList<Nodecl::NodeclBase> renamed_false = walk(false_nodecl);
-        
+
         if (!renamed_cond.empty() || !renamed_true.empty() || !renamed_false.empty())
         {
             if (!renamed_cond.empty())
@@ -1058,72 +1056,72 @@ namespace Analysis {
             {
                 false_nodecl = renamed_false[0];
             }
-            
+
             Nodecl::NodeclBase renamed = Nodecl::ConditionalExpression::make(cond, true_nodecl, false_nodecl, n.get_type(), _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Conversion& n)
     {
         Nodecl::NodeclBase nest = n.get_nest();
         ObjectList<Nodecl::NodeclBase> renamed_nest = walk(nest);
-        
+
         if (!renamed_nest.empty())
         {
             Nodecl::NodeclBase renamed = Nodecl::Conversion::make(renamed_nest[0], n.get_type(), _filename, _line);
-            
+
             return ObjectList<Nodecl::NodeclBase>(1, renamed);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Dereference& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Different& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Div& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::DivAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Equal& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::FloatingLiteral& n)
     {
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit( const Nodecl::FunctionCall& n )
     {
         Nodecl::NodeclBase called = n.get_called( );
         Nodecl::NodeclBase arguments = n.get_arguments( );
         Nodecl::NodeclBase alternate_name = n.get_alternate_name();
         Nodecl::NodeclBase function_form = n.get_function_form( );
-        
+
         ObjectList<Nodecl::NodeclBase> renamed_called = walk( called );
         ObjectList<Nodecl::NodeclBase> renamed_arguments = walk( arguments );
         ObjectList<Nodecl::NodeclBase> renamed_alternate_name = walk( alternate_name );
         ObjectList<Nodecl::NodeclBase> renamed_function_form = walk( function_form );
-        
-        if ( !renamed_called.empty( ) || !renamed_arguments.empty( ) 
+
+        if ( !renamed_called.empty( ) || !renamed_arguments.empty( )
             || !renamed_alternate_name.empty() || !renamed_function_form.empty() )
         {
             if ( !renamed_called.empty())
@@ -1142,126 +1140,126 @@ namespace Analysis {
             {
                 function_form = renamed_function_form[0];
             }
-            
-            Nodecl::NodeclBase renamed = Nodecl::FunctionCall::make( called, arguments, alternate_name, function_form, 
+
+            Nodecl::NodeclBase renamed = Nodecl::FunctionCall::make( called, arguments, alternate_name, function_form,
                                                                      n.get_type(), _filename, _line );
             return ObjectList<Nodecl::NodeclBase>( 1, renamed );
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>( );
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::GreaterThan& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::IntegerLiteral& n)
     {
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::LogicalAnd& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::LogicalNot& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::LogicalOr& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::LowerOrEqualThan& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::LowerThan& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Minus& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Mod& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ModAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Mul& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::MulAssignment& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Neg& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Plus& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Power& n)
     {
         return visit_binary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Postdecrement& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Postincrement& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Predecrement& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Preincrement& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Range& n)
     {
         Nodecl::NodeclBase lower = n.get_lower();
         Nodecl::NodeclBase upper = n.get_upper();
         Nodecl::NodeclBase stride = n.get_stride();
-        
+
         if (_computing_limits)
         {
             if (stride.is_constant())
@@ -1303,30 +1301,30 @@ namespace Analysis {
                 {
                     stride = renamed_stride[0];
                 }
-                
+
                 Nodecl::NodeclBase renamed = Nodecl::Range::make(lower, upper, stride, n.get_type(), _filename, _line);
                 return ObjectList<Nodecl::NodeclBase>(1, renamed);
             }
-        } 
-        
+        }
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Reference& n)
     {
         return visit_unary(n);
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Sizeof& n)
     {   // No evaluation performed in the sizeof expression, so no renaming needed
     return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::StringLiteral& n)
     {
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Symbol& n)
     {
         Nodecl::Symbol s = n.as<Nodecl::Symbol>();
@@ -1336,10 +1334,10 @@ namespace Analysis {
             _s = n.get_symbol();
             return ObjectList<Nodecl::NodeclBase>(1, mapped_value);
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
         Nodecl::NodeclBase called = n.get_called( );
@@ -1348,8 +1346,8 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> renamed_called = walk( called );
         ObjectList<Nodecl::NodeclBase> renamed_arguments = walk( arguments );
         ObjectList<Nodecl::NodeclBase> renamed_function_form = walk( function_form );
-        
-        if ( !renamed_called.empty( ) || !renamed_arguments.empty( ) 
+
+        if ( !renamed_called.empty( ) || !renamed_arguments.empty( )
             || !renamed_function_form.empty() )
         {
             if ( !renamed_called.empty())
@@ -1364,17 +1362,17 @@ namespace Analysis {
             {
                 function_form = renamed_function_form[0];
             }
-            
-            Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make( called, arguments, function_form, 
+
+            Nodecl::NodeclBase renamed = Nodecl::VirtualFunctionCall::make( called, arguments, function_form,
                                                                             n.get_type(), _filename, _line );
             return ObjectList<Nodecl::NodeclBase>( 1, renamed );
         }
-        
+
         return ObjectList<Nodecl::NodeclBase>();
     }
-    
+
     // ******************************** END visiting methods ******************************** //
     // ************************************************************************************** //
-    
+
 }
 }

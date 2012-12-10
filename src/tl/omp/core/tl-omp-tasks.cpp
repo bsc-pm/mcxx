@@ -102,6 +102,16 @@ namespace TL
             return _copy_inout;
         }
 
+        void TargetInfo::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions)
+        {
+            _ndrange.append(expressions);
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_ndrange() const
+        {
+            return _ndrange;
+        }
+
         void TargetInfo::set_copy_deps(bool b)
         {
             _copy_deps = b;
@@ -187,14 +197,14 @@ namespace TL
 
         void FunctionTaskInfo::add_device(const std::string& device_name)
         {
-            _implementation_table[device_name] = Symbol(NULL);
+            _implementation_table.insert(make_pair(device_name,Symbol(NULL)));
         }
 
         void FunctionTaskInfo::add_device_with_implementation(
                 const std::string& device_name,
                 Symbol implementor_symbol)
         {
-            _implementation_table[device_name] = implementor_symbol;
+            _implementation_table.insert(make_pair(device_name, implementor_symbol));
         }
 
         ObjectList<std::string> FunctionTaskInfo::get_all_devices()
@@ -258,6 +268,16 @@ namespace TL
             return _if_clause_cond_expr;
         }
 
+        void FunctionTaskInfo::set_priority_clause_expression(Nodecl::NodeclBase expr)
+        {
+            _priority_clause_expr = expr;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
+        {
+            return _priority_clause_expr;
+        }
+
         FunctionTaskSet::FunctionTaskSet()
         {
         }
@@ -303,6 +323,16 @@ namespace TL
             return _map.find(sym)->second;
         }
 
+        void FunctionTaskInfo::set_untied(bool b)
+        {
+            _untied = b;
+        }
+
+        bool FunctionTaskInfo::get_untied() const
+        {
+            return _untied;
+        }
+
         void FunctionTaskInfo::module_write(ModuleWriter& mw)
         {
             mw.write(_sym);
@@ -311,6 +341,7 @@ namespace TL
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
+            mw.write(_untied);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -321,6 +352,7 @@ namespace TL
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
+            mr.read(_untied);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -405,12 +437,9 @@ namespace TL
         {
             private:
                 DependencyDirection _direction;
-                Nodecl::NodeclBase _ref_tree;
-
             public:
-                FunctionTaskDependencyGenerator(DependencyDirection direction,
-                        Nodecl::NodeclBase ref_tree)
-                    : _direction(direction), _ref_tree(ref_tree)
+                FunctionTaskDependencyGenerator(DependencyDirection direction)
+                    : _direction(direction)
                 {
                 }
 
@@ -426,12 +455,10 @@ namespace TL
         {
             private:
                 CopyDirection _copy_direction;
-                Nodecl::NodeclBase _ref_tree;
 
             public:
-                FunctionCopyItemGenerator(CopyDirection copy_direction,
-                        Nodecl::NodeclBase ref_tree)
-                    : _copy_direction(copy_direction), _ref_tree(ref_tree)
+                FunctionCopyItemGenerator(CopyDirection copy_direction)
+                    : _copy_direction(copy_direction)
                 {
                 }
 
@@ -524,6 +551,40 @@ namespace TL
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
+            TL::Scope scope = construct.retrieve_context();
+
+            Symbol function_sym = construct.get_symbol();
+
+            // In some special cases we need to add the symbol 'this' to the
+            // current class scope. This is needed because in the pragma of a
+            // non-static member function may appear a member of this class.
+            // Example:
+            //
+            //  struct X
+            //  {
+            //      char var[10];
+            //
+            //      #pragma omp task inout(var[i])
+            //      void foo(int i) {}
+            //  };
+            //
+            if (function_sym.is_member()
+                    && !function_sym.is_static())
+            {
+                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
+                if (!this_symbol.is_valid())
+                {
+                    this_symbol = scope.new_symbol("this");
+                    Type pointed_this = function_sym.get_class_type();
+                    Type this_type = pointed_this.get_pointer_to().get_const_type();
+
+                    this_symbol.get_internal_symbol()->type_information = this_type.get_internal_type();
+                    this_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                    this_symbol.get_internal_symbol()->defined = 1;
+                    this_symbol.get_internal_symbol()->do_not_print = 1;
+                }
+            }
+
             PragmaCustomClause input_clause = pragma_line.get_clause("in", 
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
@@ -554,8 +615,6 @@ namespace TL
                 reduction_arguments = reduction_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            Symbol function_sym = construct.get_symbol();
-
             if (!function_sym.is_function())
             {
                 std::cerr << construct.get_locus()
@@ -585,17 +644,13 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
 
 
-            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN,
-                            param_ref_tree)));
+            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
 
-            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT,
-                            param_ref_tree)));
+            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
 
-            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                            param_ref_tree)));
+            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
 
-            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT,
-                            param_ref_tree)));
+            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
 
             dependence_list_check(dependence_list);
 
@@ -607,17 +662,31 @@ namespace TL
             {
                 TargetContext& target_context = _target_context.top();
 
-                ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_IN, param_ref_tree));
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = target_context.copy_in;
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = target_context.copy_out;
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = target_context.copy_inout;
+
+                if (target_context.copy_deps)
+                {
+                    // Honour copy deps
+                    target_ctx_copy_in.append(input_arguments);
+                    target_ctx_copy_out.append(output_arguments);
+                    target_ctx_copy_inout.append(inout_arguments);
+                }
+
+                ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_IN));
                 target_info.append_to_copy_in(copy_in);
 
-                ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                            COPY_DIR_OUT, param_ref_tree));
+                ObjectList<CopyItem> copy_out = target_ctx_copy_out.map(FunctionCopyItemGenerator(
+                            COPY_DIR_OUT));
                 target_info.append_to_copy_out(copy_out);
 
-                ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                            COPY_DIR_INOUT, param_ref_tree));
+                ObjectList<CopyItem> copy_inout = target_ctx_copy_inout.map(FunctionCopyItemGenerator(
+                            COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
+
+                target_info.append_to_ndrange(target_context.ndrange);
 
                 target_info.append_to_device_list(target_context.device_list);
 
@@ -643,15 +712,30 @@ namespace TL
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
             }
 
+            // Support priority clause
+            PragmaCustomClause priority_clause = pragma_line.get_clause("priority");
+            if (priority_clause.is_defined())
+            {
+                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(param_ref_tree);
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'if' requires just one argument\n",
+                            construct.get_locus().c_str());
+                }
+                task_info.set_priority_clause_expression(expr_list[0]);
+            }
+
+            PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
+            task_info.set_untied(untied_clause.is_defined());
+
             std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
 
             FORTRAN_LANGUAGE()
             {
-                TL::Scope sc = construct.retrieve_context();
-                decl_context_t decl_context = sc.get_decl_context();
                 static bool already_nagged = false;
+                decl_context_t decl_context = function_sym.get_scope().get_decl_context();
 
                 if (decl_context.current_scope == decl_context.global_scope)
                 {

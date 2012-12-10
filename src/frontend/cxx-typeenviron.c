@@ -1637,6 +1637,7 @@ void generic_system_v_sizeof(type_t* t)
     internal_error("Language not supported", 0);
 }
 
+#if 0
 struct floating_type_info_tag binary_float_16 =
 { 
     .size_of = 2, 
@@ -1648,6 +1649,7 @@ struct floating_type_info_tag binary_float_16 =
     .emin = -29,
     .emax = +32,
 };
+#endif
 
 
 struct floating_type_info_tag binary_float_32 =
@@ -1964,7 +1966,7 @@ void init_type_environments(void)
     linux_ppc32.sizeof_bool = 1;
     linux_ppc32.alignof_bool = 1;
 
-    linux_ppc32.int_type_of_wchar_t = get_signed_int_type;
+    linux_ppc32.int_type_of_wchar_t = get_signed_long_int_type;
     linux_ppc32.sizeof_wchar_t = 4;
     linux_ppc32.alignof_wchar_t = 4;
 
@@ -2281,7 +2283,6 @@ void init_type_environments(void)
     linux_arm_eabi.sizeof_signed_long_long = 8;
     linux_arm_eabi.alignof_signed_long_long = 8;
 
-    DEFINE_FLOAT_TYPE(linux_arm_eabi, float16, binary_float_16)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_128)

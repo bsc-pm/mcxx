@@ -100,6 +100,63 @@ namespace Analysis {
 
 
     // ******************************************************************************************* //
+    // ******************** Visitor computing the Extensible Symbols modified ******************** //
+
+    //!Visitor to get the l-values contained in a given nodecl that are modified
+    class LIBTL_CLASS AssignedExtSymVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+
+        // ******* Class attributes ******* //
+
+        //! List of extended symbols found during the traversal
+        ObjectList<Utils::ExtendedSymbol> _assigned_ext_syms;
+
+        //! Temporary value used to know whether we are traversing the left-hand side of an assignment
+        bool _is_lhs;
+
+
+        // ******* Private methods ******** //
+
+        void visit_assignment(Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs);
+
+        void visit_xx_crements(Nodecl::NodeclBase n);
+
+    public:
+        //! Constructor
+        AssignedExtSymVisitor( );
+
+        //! Getters and setters
+        ObjectList<Utils::ExtendedSymbol> get_assigned_ext_syms( );
+
+        //! Visiting methods
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::ClassMemberAccess& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::Postdecrement& n );
+        Ret visit( const Nodecl::Postincrement& n );
+        Ret visit( const Nodecl::Predecrement& n );
+        Ret visit( const Nodecl::Preincrement& n );
+        Ret visit( const Nodecl::Symbol& n );
+    };
+
+    // ****************** END visitor computing the Extensible Symbols modified ****************** //
+    // ******************************************************************************************* //
+
+
+
+    // ******************************************************************************************* //
     // ********** Class representing the Lattice Cell of Constant Propagation Algorithm ********** //
 
     enum LatticeValue {

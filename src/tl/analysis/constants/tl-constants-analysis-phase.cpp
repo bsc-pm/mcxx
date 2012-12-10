@@ -65,7 +65,7 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> functions = tlv.get_functions( );
             for( ObjectList<Nodecl::NodeclBase>::iterator it = functions.begin( ); it != functions.end( ); ++it )
             {
-                PCFGVisitor pcfg_visit( Utils::generate_hashed_name( *it ), it->retrieve_context( ) );
+                PCFGVisitor pcfg_visit( Utils::generate_hashed_name( *it ), *it );
                 pcfgs.append( pcfg_visit.parallel_control_flow_graph( *it ) );
             }
 
@@ -84,7 +84,7 @@ namespace Analysis {
             if ( VERBOSE )
                 std::cerr << std::endl << "Building a unique PCFG for the program unit" << std::endl;
 
-            PCFGVisitor pcfg_visit( Utils::generate_hashed_name( main_func ), main_func.retrieve_context( ) );
+            PCFGVisitor pcfg_visit( Utils::generate_hashed_name( main_func ), main_func );
             pcfgs.append( pcfg_visit.parallel_control_flow_graph( main_func ) );
 
             //!Apply Conditional Constant Propagation
