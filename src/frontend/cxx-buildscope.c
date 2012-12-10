@@ -983,6 +983,42 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     entry->type_information = declarator_type;
                 }
 
+                // Weird case where a non global but extern entity may get the dimension from the global scope...
+                // int c[10];
+                // int f(void)
+                // {
+                //   extern int c[]; // Must behave as 'extern int c[10]'
+                //   return sizeof(c); // OK == sizeof(int[10])
+                // }
+                if (entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope != entry->decl_context.global_scope
+                        && is_array_type(entry->type_information)
+                        && array_type_get_array_size_expr(entry->type_information) == NULL)
+                {
+                    // Perform a query in the global scope
+                    scope_entry_list_t* extern_scope_entry_list = query_in_scope_str(CURRENT_COMPILED_FILE->global_decl_context,
+                            entry->symbol_name);
+
+                    if (extern_scope_entry_list != NULL)
+                    {
+                        scope_entry_t* extern_entry = entry_list_head(extern_scope_entry_list);
+                        if (extern_entry->kind != entry->kind)
+                        {
+                            // Something is fishy here. Refrain ourselves from doing anything
+                        }
+                        else if (is_array_type(extern_entry->type_information)
+                                && array_type_get_array_size_expr(extern_entry->type_information))
+                        {
+                            // Update the array dimension here
+                            entry->type_information = 
+                                get_array_type(array_type_get_element_type(entry->type_information),
+                                        array_type_get_array_size_expr(extern_entry->type_information),
+                                        array_type_get_array_size_expr_context(extern_entry->type_information));
+                        }
+                    }
+                    entry_list_free(extern_scope_entry_list);
+                }
+
                 if (initializer != NULL)
                 {
                     DEBUG_CODE()

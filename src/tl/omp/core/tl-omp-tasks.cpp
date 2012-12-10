@@ -144,7 +144,9 @@ namespace TL
             _implementation_table(),
             _target_info(target_info),
             _real_time_info(),
-            _if_clause_cond_expr(NULL)
+            _task_priority(NULL),
+            _if_clause_cond_expr(NULL),
+            _untied(false)
         {
         }
 
@@ -153,6 +155,12 @@ namespace TL
             if(_if_clause_cond_expr != NULL)
             {
                 delete _if_clause_cond_expr;
+                _if_clause_cond_expr = NULL;
+            }
+            if(_task_priority != NULL)
+            {
+                delete _task_priority;
+                _task_priority = NULL;
             }
         }
         
@@ -161,14 +169,18 @@ namespace TL
             _implementation_table(ft_copy._implementation_table), 
             _target_info(ft_copy._target_info), 
             _real_time_info(ft_copy._real_time_info),
-            _has_task_priority(ft_copy._has_task_priority),
-            _task_priority(ft_copy._task_priority),
-            _if_clause_cond_expr(NULL)
+            _task_priority(NULL),
+            _if_clause_cond_expr(NULL),
+            _untied(ft_copy._untied)
         {
             if(ft_copy.has_if_clause()) 
             {
                 _if_clause_cond_expr = 
                     new Expression(ft_copy.get_if_clause_conditional_expression());
+            }
+            if (ft_copy.has_task_priority())
+            {
+                _task_priority = new Expression(ft_copy.get_task_priority());
             }
         }
                 
@@ -183,13 +195,17 @@ namespace TL
                 _target_info = ft_copy.get_target_info();
                 _implementation_table = ft_copy.get_implementation_table();
                 _real_time_info = ft_copy.get_real_time_info();
-                _has_task_priority = ft_copy.get_has_task_priority();
-                _task_priority = ft_copy.get_task_priority();
+                _task_priority = NULL;
                 _if_clause_cond_expr = NULL;
+                _untied = ft_copy._untied;
                 if(ft_copy.has_if_clause()) 
                 {
-                   _if_clause_cond_expr = 
-                       new Expression(ft_copy.get_if_clause_conditional_expression());
+                    _if_clause_cond_expr = 
+                        new Expression(ft_copy.get_if_clause_conditional_expression());
+                }
+                if (ft_copy.has_task_priority())
+                {
+                    _task_priority = new Expression(ft_copy.get_task_priority());
                 }
             }
             return *this;
@@ -280,24 +296,27 @@ namespace TL
             return _real_time_info;
         }
 
-        void FunctionTaskInfo::set_has_task_priority(bool b)
+        bool FunctionTaskInfo::has_task_priority() const
         {
-            _has_task_priority = b;
-        }
-
-        bool FunctionTaskInfo::get_has_task_priority() const
-        {
-            return _has_task_priority;
+            return _task_priority != NULL;
         }
         
-        void FunctionTaskInfo::set_task_priority(int i)
+        void FunctionTaskInfo::set_task_priority(Expression expr)
         {
-            _task_priority = i;
+            if (expr.get_ast().is_valid())
+            {
+                _task_priority = new Expression(expr);
+            }
+            else
+            {
+                delete _task_priority;
+                _task_priority = NULL;
+            }
         }
 
-        int FunctionTaskInfo::get_task_priority() const
+        Expression FunctionTaskInfo::get_task_priority() const
         {
-            return _task_priority;
+            return *_task_priority;
         }
 
         bool FunctionTaskInfo::has_if_clause() const 
@@ -319,7 +338,15 @@ namespace TL
             return (*_if_clause_cond_expr);
         }
 
+        void FunctionTaskInfo::set_untied(bool b)
+        {
+            _untied = b;
+        }
 
+        bool FunctionTaskInfo::get_untied() const
+        {
+            return _untied;
+        }
 
         FunctionTaskSet::FunctionTaskSet()
         {
@@ -551,6 +578,9 @@ namespace TL
                commutative_arguments = commutative_clause.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause untied_clause = construct.get_clause("untied");
+
+
             // Now discover whether this is a function definition or a declaration
             DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
             if (Declaration::predicate(construct.get_declaration()))
@@ -686,17 +716,23 @@ namespace TL
                 Expression cond_expr = Expression(expr_tree, construct.get_scope_link());
                 task_info.set_if_clause_conditional_expression(cond_expr);
             }
+
+            task_info.set_untied(untied_clause.is_defined());
             
             // Support priority clause
-            bool has_priority = false;
             PragmaCustomClause priority_clause = construct.get_clause("priority");
             if (priority_clause.is_defined())
             {
-                has_priority = true;
-                int priority = atoi(priority_clause.get_arguments()[0].c_str());
-                task_info.set_task_priority(priority);
+                ObjectList<std::string> expr_list = priority_clause.get_arguments();
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'priority' requires just one argument\n",
+                            construct.get_ast().get_locus().c_str());
+                }
+                TL::AST_t expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
+                Expression task_priority = Expression(expr_tree, construct.get_scope_link());
+                task_info.set_task_priority(task_priority);
             }
-            task_info.set_has_task_priority(has_priority);
 
             std::string devices("");
             if (!target_info.get_device_list().empty())
@@ -728,6 +764,10 @@ namespace TL
 
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
+
+            // We do this to silence the compiler complaining about priority clause not being used
+            // (it IS used but too late for the checks)
+            PragmaCustomClause priority_clause = construct.get_clause("priority");
 
             get_data_explicit_attributes(construct, data_sharing);
 

@@ -339,6 +339,9 @@ namespace TL
                 
                 void set_real_time_info(const RealTimeInfo & rt_info);
                 RealTimeInfo get_real_time_info();
+
+                // This function is deprecated, do not use it
+                void add_copy_if_not_repeated(const CopyItem& copy_item);
         };
 
         class LIBTL_CLASS Info : public Object
@@ -433,15 +436,15 @@ namespace TL
                 
                 RealTimeInfo _real_time_info;
 
-                bool _has_task_priority;
-
-                int _task_priority;
-
                 Expression *_if_clause_cond_expr;
+
+                Expression *_task_priority;
 
                 Symbol get_symbol() const;
 
                 implementation_table_t get_implementation_table() const;
+
+                bool _untied;
 
             public:
                 FunctionTaskInfo(Symbol sym,
@@ -476,17 +479,17 @@ namespace TL
 
                 RealTimeInfo get_real_time_info() const;
 
-                void set_has_task_priority(bool b);
-
-                bool get_has_task_priority() const;
+                bool has_task_priority() const;
                 
-                void set_task_priority(int i);
-
-                int get_task_priority() const;
+                void set_task_priority(Expression expr);
+                Expression get_task_priority() const;
 
                 bool has_if_clause() const;
 
                 void set_if_clause_conditional_expression(Expression expr);
+
+                void set_untied(bool b);
+                bool get_untied() const;
                 
                 Expression get_if_clause_conditional_expression() const;
         };

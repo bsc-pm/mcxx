@@ -2,10 +2,10 @@
 [mf95]
 language = Fortran
 options =
-preprocessor_name = gfortran
+preprocessor_name = @GFORTRAN@
 preprocessor_options = -cpp -E
-compiler_name = gfortran
+compiler_name = @GFORTRAN@
 compiler_options =
-linker_name = gfortran
+linker_name = @GFORTRAN@
 linker_options =
 {openmp} compiler_phase = libtlomp-core.so

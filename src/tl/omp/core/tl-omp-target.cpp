@@ -276,7 +276,10 @@ namespace TL
         static void add_copy_items(PragmaCustomConstruct construct, 
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<std::string>& list,
-                CopyDirection copy_direction)
+                CopyDirection copy_direction,
+
+                // Legacy flag
+                bool do_not_add_repeated)
         {
             for (ObjectList<std::string>::const_iterator it = list.begin();
                     it != list.end();
@@ -353,7 +356,15 @@ namespace TL
                 }
 
                 CopyItem copy_item(expr, copy_direction);
-                data_sharing.add_copy(copy_item);
+                if (!do_not_add_repeated)
+                {
+                    data_sharing.add_copy(copy_item);
+                }
+                else
+                {
+                    // Legacy case. To extinguish
+                    data_sharing.add_copy_if_not_repeated(copy_item);
+                }
             }
         }
 
@@ -368,13 +379,19 @@ namespace TL
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_in,
-                    COPY_DIR_IN);
+                    COPY_DIR_IN,
+                    _do_not_repeat_copies_for_same_symbol
+                    );
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
-                    COPY_DIR_OUT);
+                    COPY_DIR_OUT,
+                    _do_not_repeat_copies_for_same_symbol
+                    );
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_inout,
-                    COPY_DIR_INOUT);
+                    COPY_DIR_INOUT,
+                    _do_not_repeat_copies_for_same_symbol
+                    );
 
             for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                     it != target_ctx.device_list.end();
@@ -423,15 +440,21 @@ namespace TL
                 add_copy_items(construct, 
                         data_sharing,
                         dep_list_in,
-                        COPY_DIR_IN);
+                        COPY_DIR_IN,
+                        _do_not_repeat_copies_for_same_symbol
+                        );
                 add_copy_items(construct, 
                         data_sharing,
                         dep_list_out,
-                        COPY_DIR_OUT);
+                        COPY_DIR_OUT,
+                        _do_not_repeat_copies_for_same_symbol
+                        );
                 add_copy_items(construct, 
                         data_sharing,
                         dep_list_inout,
-                        COPY_DIR_INOUT);
+                        COPY_DIR_INOUT,
+                        _do_not_repeat_copies_for_same_symbol
+                        );
             }
 
             ObjectList<CopyItem> all_copies;
@@ -467,7 +490,8 @@ namespace TL
 			}
 		    add_copy_items(construct, data_sharing,
 		            shared_to_inout,
-		            COPY_DIR_INOUT);
+		            COPY_DIR_INOUT,
+                    _do_not_repeat_copies_for_same_symbol);
         }
     }
 }

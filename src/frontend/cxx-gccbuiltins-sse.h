@@ -4716,3 +4716,12 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
 ;
 sym___builtin_ia32_storeupd->entity_specs.is_builtin = 1;
 }
+{
+scope_entry_t* sym___builtin_ia32_emms = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_emms");
+sym___builtin_ia32_emms->kind = SK_FUNCTION;sym___builtin_ia32_emms->do_not_print = 1;
+sym___builtin_ia32_emms->type_information = ({type_t* return_type = get_void_type();
+get_new_function_type(return_type, 0, 0);
+})
+;
+sym___builtin_ia32_emms->entity_specs.is_builtin = 1;
+}

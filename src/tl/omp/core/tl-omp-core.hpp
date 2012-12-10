@@ -62,7 +62,12 @@ namespace TL
                 bool _new_udr;
                 int _udr_counter;
                 void parse_new_udr(const std::string& str);
+
                 static bool _show_warnings;
+
+                std::string _do_not_repeat_copies_for_same_symbol_str;
+                bool _do_not_repeat_copies_for_same_symbol;
+                void parse_do_not_repeat_copies(const std::string& str);
 
                 void register_omp_constructs();
 
@@ -134,6 +139,7 @@ namespace TL
 
                 virtual void run(TL::DTO& dto);
                 virtual void pre_run(TL::DTO& dto);
+                virtual void phase_cleanup(DTO& data_flow);
 
                 virtual ~Core() { }
         };

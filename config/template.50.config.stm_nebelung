@@ -1,11 +1,11 @@
 [stmcxx]
 language = C++
 options = 
-preprocessor_name = g++
+preprocessor_name = @G++@
 preprocessor_options = -E -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.h -include omp.h -include intone.h @NEBELUNG_INCLUDES@ 
-compiler_name = g++
+compiler_name = @G++@
 compiler_options = 
-linker_name = g++
+linker_name = @G++@
 linker_options = -L@NANOS_LIBS@ -lnthreads-pfm -Wl,@RPATH_PARAMETER@,@NANOS_LIBS@ @NEBELUNG_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlstmfunc.so

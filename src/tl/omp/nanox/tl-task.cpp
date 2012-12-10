@@ -411,7 +411,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source num_copies, num_copies_dimensions;
 
-    ObjectList<OpenMP::CopyItem> copy_items = data_environ_info.get_copy_items();
+    // Remove repeated copies to the same base symbol. The use must take care of
+    // arranging them in a sensible way
+    ObjectList<OpenMP::CopyItem> copy_items;
+    copy_items.insert(data_environ_info.get_copy_items());
 
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
