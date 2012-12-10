@@ -77,6 +77,12 @@ namespace TL
             {
                 target_ctx.ndrange = ndrange.get_arguments_as_expressions(scope);
             }
+            
+            PragmaCustomClause onto = pragma_line.get_clause("onto");
+            if (onto.is_defined())
+            {
+                target_ctx.onto = onto.get_arguments_as_expressions(scope);
+            }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             if (copy_deps.is_defined())
@@ -355,6 +361,7 @@ namespace TL
                 return;
 
             TargetInfo target_info;
+            target_info.set_target_symbol(construct.get_symbol());
             TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing,
@@ -373,6 +380,7 @@ namespace TL
                     target_info);
 
             target_info.append_to_ndrange(target_ctx.ndrange);
+            target_info.append_to_onto(target_ctx.onto);
             target_info.append_to_device_list(target_ctx.device_list);
 
             // Set data sharings for referenced entities in copies

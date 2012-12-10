@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,51 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=. devices
 
-include ../../Makefile.phases
-
-phases_LTLIBRARIES = libtlnanox-lowering.la
-
-libtlnanox_lowering_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
-libtlnanox_lowering_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../nanos-common -I$(srcdir)/../core -I @NANOX_INCLUDES@
-
-libtlnanox_lowering_la_LIBADD = $(tl_libadd) \
-								../core/libtlomp-core.la \
-								../nanos-common/libtlnanos-version.la
-libtlnanox_lowering_la_LDFLAGS = $(tl_ldflags)
+include ../../../../Makefile.phases
 
 END=
 
-libtlnanox_lowering_la_SOURCES = \
-								 tl-nanox-nodecl.cpp \
-								 tl-nanox-nodecl.hpp \
-								 tl-nanox-nodecl-prerun.cpp \
-								 tl-lowering-visitor.cpp \
-								 tl-lowering-visitor.hpp \
-								 tl-lower-arguments.cpp \
-								 tl-lower-task-common.hpp \
-								 tl-lower-task.cpp \
-								 tl-lower-task-call.cpp \
-								 tl-lower-taskwait.cpp \
-								 tl-outline-info.hpp \
-								 tl-outline-info.cpp \
-								 tl-lower-single.cpp \
-								 tl-lower-master.cpp \
-								 tl-lower-barrier.cpp \
-								 tl-lower-parallel.cpp \
-								 tl-lower-for.cpp \
-								 tl-lower-sections.cpp \
-								 tl-lower-critical.cpp \
-								 tl-lower-flush.cpp \
-								 tl-lower-atomic.cpp \
-								 tl-lower-target.cpp \
-								 tl-parallel-spawn.cpp \
-								 tl-loop-spawn.cpp \
-								 tl-reduction-common.cpp \
-								 tl-nanox-ptr.cpp \
-								 tl-devices.cpp \
-								 tl-devices.hpp \
-								 tl-target-information.cpp \
-								 tl-target-information.hpp \
-								 $(END)
+phases_LTLIBRARIES=libtlnanox-mpi.la
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+			 -I$(srcdir)/../../../nanos-common \
+			 -I$(srcdir)/../../../core
+
+libtlnanox_mpi_la_CFLAGS = $(device_flags)
+libtlnanox_mpi_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_mpi_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_mpi_la_SOURCES = \
+       nanox-mpi.hpp \
+       nanox-mpi.cpp \
+       $(END)

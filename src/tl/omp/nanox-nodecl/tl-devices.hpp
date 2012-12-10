@@ -33,6 +33,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-source.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-target-information.hpp"
 //#include "tl-data-env.hpp"
 
 namespace TL { namespace Nanox {
@@ -80,25 +81,28 @@ namespace TL { namespace Nanox {
     struct DeviceDescriptorInfo
     {
         const std::string& _outline_name;
-        DeviceDescriptorInfo(std::string outline_name) : _outline_name(outline_name) { }
+        TargetInformation& _target_info;
+        DeviceDescriptorInfo(std::string outline_name,TargetInformation& target_info) : _outline_name(outline_name), _target_info(target_info) { }
     };
 
     // This DTO stores information used in 'create_outline' function
     struct CreateOutlineInfo
     {
         const std::string& _outline_name;
+        ObjectList<OutlineDataItem*> _data_items;
+        TargetInformation& _target_info;
         const Nodecl::NodeclBase& _original_statements;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task; // Only used in CUDA device
-        OutlineInfo& _outline_info;
+ 
 
-
-        CreateOutlineInfo(std::string& outline_name, OutlineInfo& outline_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
+        CreateOutlineInfo(std::string& outline_name, ObjectList<OutlineDataItem*> data_items, TargetInformation& target_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
             : _outline_name(outline_name),
+            _data_items(data_items),
+            _target_info(target_info),
             _original_statements(statements),
             _arguments_struct(args_struct),
-            _called_task(called_task),
-            _outline_info(outline_info)
+            _called_task(called_task)
         {
         }
     };

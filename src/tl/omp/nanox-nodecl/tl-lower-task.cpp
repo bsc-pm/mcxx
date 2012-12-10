@@ -180,13 +180,10 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
 
 Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
-        const std::string& outline_name,
         bool is_untied,
         bool mandatory_creation,
-        int num_copies,
-        int num_copies_dimensions,
-        const ObjectList<std::string>& device_names,
-        const std::multimap<std::string, std::string>& devices_and_implementors,
+        OutlineInfo& outline_info,
+        std::multimap<std::string, std::string>& devices_and_implementors,
         Nodecl::NodeclBase construct)
 {
     // Static stuff
@@ -198,8 +195,14 @@ Source LoweringVisitor::fill_const_wd_info(
     //     size_t num_devices;
     //     size_t num_dimensions; // copies_api >= 1000
     // } nanos_const_wd_definition_t;
+    // MultiMap with every implementation of the current function task
+    
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    int num_copies=/* num_copies */ count_copies(outline_info);
+    int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
+    OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_devices = device_names.size() + devices_and_implementors.size();
+    int num_devices = devices_and_implementors.size();
     TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
 
     Source alignment, props_init;
@@ -254,53 +257,56 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
-    // For every device name specified in the 'device' clause, we should get
-    // its device descriptor
-    DeviceDescriptorInfo info(outline_name);
-    DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    for (ObjectList<std::string>::const_iterator it = device_names.begin();
-            it != device_names.end();
-            ++it)
+//    // For every device name specified in the 'device' clause, we should get
+//    // its device descriptor
+//    DeviceDescriptorInfo info(outline_name);
+//    for (ObjectList<std::string>::const_iterator it = device_names.begin();
+//            it != device_names.end();
+//            ++it)
+//    {
+//        Source ancillary_device_description, device_description, aux_fortran_init;
+//
+//        if (it != device_names.begin())
+//            device_descriptions <<  ", ";
+//
+//        std::string device_name = *it;
+//        DeviceProvider* device = device_handler.get_device(device_name);
+//        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+//
+//        device->get_device_descriptor(
+//                info,
+//                ancillary_device_description,
+//                device_description,
+//                aux_fortran_init);
+//
+//        device_descriptions << device_description;
+//        ancillary_device_descriptions << ancillary_device_description;
+//        opt_fortran_dynamic_init << aux_fortran_init;
+//    }
+
+    // For every existant implementation (including the one which defines the task),
+    // we should get its device descriptor information.
+    // Note that in this case we use the implementor outline name as outline name    
+    OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
+    std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices=implementation_table_it->second.get_device_names().size();
+    while (devices_and_implementors_it != devices_and_implementors.end())
     {
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
         Source ancillary_device_description, device_description, aux_fortran_init;
 
-        if (it != device_names.begin())
-            device_descriptions <<  ", ";
+        if (devices_and_implementors_it!=devices_and_implementors.begin()) device_descriptions <<  ", ";
 
-        std::string device_name = *it;
+        std::string device_name = devices_and_implementors_it->first;
+        std::string implementor_outline_name = devices_and_implementors_it->second;
+
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        device->get_device_descriptor(
-                info,
-                ancillary_device_description,
-                device_description,
-                aux_fortran_init);
-
-        device_descriptions << device_description;
-        ancillary_device_descriptions << ancillary_device_description;
-        opt_fortran_dynamic_init << aux_fortran_init;
-    }
-
-    // The current function task may have additional implementations. For every
-    // existant implementation, we should get its device descriptor information.
-    // Note that in this case we use the implementor outline name as outline name
-    for (std::multimap<std::string, std::string>::const_iterator it =
-            devices_and_implementors.begin();
-            it != devices_and_implementors.end();
-            ++it)
-    {
-        Source ancillary_device_description, device_description, aux_fortran_init;
-
-        device_descriptions <<  ", ";
-
-        std::string device_name = it->first;
-        std::string implementor_outline_name = it->second;
-
-        DeviceProvider* device = device_handler.get_device(device_name);
-        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
-
-        DeviceDescriptorInfo info_implementor(implementor_outline_name);
+        DeviceDescriptorInfo info_implementor(implementor_outline_name,implementation_table_it->second);
         device->get_device_descriptor(
                 info_implementor,
                 ancillary_device_description,
@@ -310,6 +316,9 @@ Source LoweringVisitor::fill_const_wd_info(
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;
         opt_fortran_dynamic_init << aux_fortran_init;
+        
+        devices_and_implementors_it++;
+        n_devices--;
     }
 
     return result;
@@ -416,30 +425,37 @@ void LoweringVisitor::emit_async_common(
     struct_arg_type_name << structure_symbol.get_name();
 
     // List of device names
-    TL::ObjectList<std::string> device_names = outline_info.get_device_names();
 
     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
+    
     std::multimap<std::string, std::string> devices_and_implementors;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
     {
-        devices_and_implementors.insert(
-                make_pair(
-                    it->first, /* device name */
-                    get_outline_name(it->second))); /*implementor outline name */
+        ObjectList<std::string> devices=it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                    it2 != devices.end();
+                    ++it2)
+        {
+            devices_and_implementors.insert(
+                    make_pair(
+                        *it2, /* device name */
+                        get_outline_name(it->first))); /*implementor outline name */
+        }
     }
+
 
     // Disallow GPU tasks to be executed at the time they are created
     bool mandatory_creation = false;
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
-            it != device_names.end() && !mandatory_creation;
+    for ( std::multimap<std::string, std::string>::iterator it = devices_and_implementors.begin();
+            it != devices_and_implementors.end() && !mandatory_creation;
             it++)
     {
-        std::string device_name = *it;
+        std::string device_name = it->first;
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
         mandatory_creation = device->allow_mandatory_creation();
@@ -447,12 +463,9 @@ void LoweringVisitor::emit_async_common(
 
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
-            outline_name,
             is_untied,
             mandatory_creation,
-            /* num_copies */ count_copies(outline_info),
-            /* num_copies_dimensions */ count_copies_dimensions(outline_info),
-            device_names,
+            outline_info,
             devices_and_implementors,
             construct);
 
@@ -479,46 +492,53 @@ void LoweringVisitor::emit_async_common(
             dynamic_size);
 
     // For every device name specified in the 'device' clause, we create its outline function
-    CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task);
-    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
-            it != device_names.end();
-            it++)
-    {
-        std::string device_name = *it;
-        DeviceProvider* device = device_handler.get_device(device_name);
+//    CreateOutlineInfo info(outline_name, outline_info.get_data_items(),outline_info.get_implementation_table()[function_symbol], statements, structure_symbol, called_task);
+//    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+//            it != device_names.end();
+//            it++)
+//    {
+//        std::string device_name = *it;
+//        DeviceProvider* device = device_handler.get_device(device_name);
+//
+//        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
+//
+//        Nodecl::NodeclBase outline_placeholder, output_statements;
+//        Nodecl::Utils::SymbolMap *symbol_map = NULL;
+//        device->create_outline(info, outline_placeholder, output_statements, symbol_map);
+//
+//        Nodecl::NodeclBase outline_statements_code =
+//            Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
+//        delete symbol_map;
+//
+//        outline_placeholder.replace(outline_statements_code);
+//    }
 
-        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
-
-        Nodecl::NodeclBase outline_placeholder, output_statements;
-        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-        device->create_outline(info, outline_placeholder, output_statements, symbol_map);
-
-        Nodecl::NodeclBase outline_statements_code =
-            Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-        delete symbol_map;
-
-        outline_placeholder.replace(outline_statements_code);
-    }
-
-    // The current function task may have additional implementations. For every
-    // existant implementation, we should create its outline function.
+    
+    // For every existant implementation (including the one which defines the task),
+    // we should create its outline function.
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices=implementation_table_it->second.get_device_names().size();    
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
+        if (n_devices<1){
+                implementation_table_it++;
+                n_devices=implementation_table_it->second.get_device_names().size();
+        }
         std::string device_name = devices_and_implementors_it->first;
         std::string implementor_outline_name = devices_and_implementors_it->second;
-        TL::Symbol implementor_symbol = implementation_table_it->second;
+        TL::Symbol implementor_symbol = implementation_table_it->first;
 
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
         CreateOutlineInfo info_implementor(
                 implementor_outline_name,
-                outline_info,
+                outline_info.get_data_items(),
+                implementation_table_it->second,
                 statements,
                 structure_symbol,
-				implementor_symbol);
+		implementor_symbol);
 
         Nodecl::NodeclBase outline_placeholder, output_statements;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
@@ -529,22 +549,28 @@ void LoweringVisitor::emit_async_common(
         // function specified in the 'implements' clause. For this reason, we
         // copy the tree and we replace the function task symbol with the
         // implementor symbol
-        Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-        symbol_map_copy_statements.add_map(called_task, implementor_symbol);
-
-        Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
+        Nodecl::NodeclBase outline_statements_code;
+        if (current_function.is_valid() && current_function!=implementor_symbol){
+            Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
+            symbol_map_copy_statements.add_map(current_function, implementor_symbol);
+            
+            Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
                 output_statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
+            outline_statements_code =
+                Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
+        } else {            
+            outline_statements_code =
+                Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
+        }
 
-        Nodecl::NodeclBase outline_statements_code =
-            Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
         delete symbol_map;
 
         outline_placeholder.replace(outline_statements_code);
 
-        devices_and_implementors_it++;
-        implementation_table_it++;
+        devices_and_implementors_it++;        
+        n_devices--;
     }
 
 
@@ -677,11 +703,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
+    
+    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-    OutlineInfo outline_info(environment);
+    OutlineInfo outline_info(environment,function_symbol);
 
     Symbol called_task_dummy = Symbol::invalid();
-    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     emit_async_common(
             construct,
@@ -981,31 +1008,16 @@ void LoweringVisitor::fill_arguments(
                         }
                         else
                         {
-                            Source lbound_specifier;
-                            if (t.is_array())
-                            {
-                                lbound_specifier << "(";
-
-                                int i, N = t.get_num_dimensions();
-                                for (i = 1; i <= N; i++)
-                                {
-                                    if (i > 1)
-                                    {
-                                        lbound_specifier << ", ";
-                                    }
-                                    lbound_specifier << "LBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << i << ")";
-                                }
-
-                                lbound_specifier << ")";
-                            }
+                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                    ctr.retrieve_context());
 
                             fill_outline_arguments <<
                                 "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
+                                << (*it)->get_symbol().get_name() << ") \n"
                                 ;
                             fill_immediate_arguments <<
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
+                                << (*it)->get_symbol().get_name() << ") \n"
                                 ;
                         }
 

@@ -2407,22 +2407,25 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = 1;
 
     Nodecl::List init_list = init.as<Nodecl::List>();
-    Nodecl::List::iterator it = init_list.begin();
-    if(!it->is<Nodecl::ObjectInit>())
+    if (!init_list.empty())
     {
-        walk(init);
-    }
-    else
-    {
-        TL::ObjectList<TL::Symbol> object_init_symbols;
-        for(; it != init_list.end(); ++it)
+        Nodecl::List::iterator it = init_list.begin();
+        if(!it->is<Nodecl::ObjectInit>())
         {
-            ERROR_CONDITION(!it->is<Nodecl::ObjectInit>(),
-                    "unexpected node '%s'", ast_print_node_type(it->get_kind()));
-
-            object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
+            walk(init);
         }
-        define_or_declare_variables(object_init_symbols, /* is definition */ true);
+        else
+        {
+            TL::ObjectList<TL::Symbol> object_init_symbols;
+            for(; it != init_list.end(); ++it)
+            {
+                ERROR_CONDITION(!it->is<Nodecl::ObjectInit>(),
+                        "unexpected node '%s'", ast_print_node_type(it->get_kind()));
+
+                object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
+            }
+            define_or_declare_variables(object_init_symbols, /* is definition */ true);
+        }
     }
 
     file << "; ";
@@ -4759,7 +4762,7 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
     std::string variable_name;
-    if(!has_been_declared)
+    if (!has_been_declared)
     {
         variable_name = symbol.get_name();
     }
@@ -4768,6 +4771,7 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
         variable_name = symbol.get_class_qualification(symbol.get_scope(),
                 /* without_template */ false);
     }
+
     return variable_name;
 }
 
@@ -4854,6 +4858,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         }
     }
 
+
     std::string decl_specifiers;
     std::string gcc_attributes;
     std::string declarator;
@@ -4889,7 +4894,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         decl_specifiers += "extern ";
     }
 
-
     if (symbol.is_thread())
     {
         decl_specifiers += "__thread ";
@@ -4913,11 +4917,20 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         bit_field = ss.str();
     }
 
+    std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
+
+    if (is_definition)
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+    }
+    else
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    }
     emit_declarations_of_initializer(symbol);
 
     move_to_namespace_of_symbol(symbol);
 
-    std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
 
     declarator = this->get_declaration(symbol.get_type(),
             symbol.get_scope(),
@@ -4932,16 +4945,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         indent();
 
     file << decl_specifiers << gcc_attributes << declarator << bit_field;
-
-    if (is_definition)
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-    }
-    else
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-    }
-
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 

@@ -53,11 +53,12 @@ namespace TL { namespace Nanox {
         // Get the new statements
         statements = construct.get_statements();
 
-        OutlineInfo outline_info(environment);
+        Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
+        
+        OutlineInfo outline_info(environment,function_symbol);
 
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
         std::string outline_name = get_outline_name(function_symbol);
 
         Source outline_source, reduction_code, reduction_initialization;
@@ -82,12 +83,17 @@ namespace TL { namespace Nanox {
         // Outline
 
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
-
-        TL::Symbol called_task_dummy = TL::Symbol::invalid();
-        CreateOutlineInfo info(outline_name, outline_info, statements, structure_symbol, called_task_dummy);
+        
+        OutlineInfo::implementation_table_t implementation_table =outline_info.get_implementation_table();
+        OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(function_symbol);
+        ERROR_CONDITION(implementation_it == implementation_table.end(), 
+                "No information from the implementation table", 0)
+        
+        TL::Symbol called_task_dummy;
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), implementation_it->second, statements, structure_symbol, called_task_dummy);
 
         // List of device names
-        TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names(function_symbol);
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
                 it++)
