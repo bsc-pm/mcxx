@@ -49,6 +49,7 @@
 
 #include <errno.h>
 #include "cxx-driver-utils.h"
+#include "cxx-graphviz.h"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -446,7 +447,7 @@ void DeviceMPI::generate_additional_mpi_code(
             "MPI_Aint ompss___displ[" << num_params << "] = {" << displ_src << "};";
     
     const std::string& device_outline_name = get_outline_name(outline_name);
-    hostCall << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void(*)(void*))" << device_outline_name << "_host)" << ";";
+    hostCall << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
     hostCall << " nanos_MPI_Send_taskinit(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
     hostCall << " nanos_MPI_Send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
     hostCall << " nanos_MPI_Recv_taskend(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
@@ -503,13 +504,23 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for MPI devices is not supported yet\n", 0);
+    
 
-    _mpi_task_processed = true;
-    // Unpack DTO
+    // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     //OutlineInfo& outline_info = info._outline_info;
+    
+    //At first time we process a task, declare a function
+    if (!_mpi_task_processed){
+        _mpi_task_processed = true;
+        Source search_function;
+        search_function << "typedef float(*ptrToFunc)(float, float);";
+        search_function << "extern int ompss_mpi_get_function_index_host(void* func);";
+        Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, search_function_tree);
+    }
 
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
@@ -669,7 +680,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
 
 
     // Add the unpacked function to the file
-    Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
 
     // Add a declaration of the unpacked function symbol in the original source
     if (IS_CXX_LANGUAGE) {
@@ -700,7 +711,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             << "}"
             ;
 
-    //std::cout << code_host.get_source(true) << "\n";
+    //Rstd::cout << code_host.get_source(true) << "\n";
     Nodecl::NodeclBase new_host_body = host_src.parse_statement(host_function_body);
     host_function_body.replace(new_host_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, host_function_code);
@@ -760,9 +771,9 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
                 << device_outline_name << "_mpi_args._assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_mpi_args._assignedRank = " << assignedRank << ";";
         
-        _sectionCodeHost.append_with_separator("(void(*)(void*))" + device_outline_name + "_host",",");
+        _sectionCodeHost.append_with_separator("(void*)" + device_outline_name + "_host",",");
         
-        _sectionCodeDevice.append_with_separator("(void(*)(void*))" + device_outline_name + "_device",",");
+        _sectionCodeDevice.append_with_separator("(void(*)())" + device_outline_name + "_device",",");
 
     } else {
         internal_error("Unsupported Nanos version.", 0);
@@ -782,8 +793,22 @@ bool DeviceMPI::copy_stuff_to_device_file(Nodecl::List symbols) {
 }
 
 void DeviceMPI::phase_cleanup(DTO& data_flow) {
-    _mpiDaemonMain << "}"; //END WHILE (daemon)
-    _mpiDaemonMain << "}"; //END main
+    Source _mpiDaemonMain;
+    _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
+            << " nanos_MPI_Init(&argc, &argv);	"
+            << " int ompss_id_func; "
+            << " MPI_Status ompss___status; "
+            << " MPI_Comm ompss_parent_comp; "
+            << " MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << " while(1){ "
+            << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp, &ompss___status); "
+            << " if (ompss_id_func==-1){ "
+            // << " MPI_Finalize(); "
+            << " return 0; "
+            << " } else { "
+            << " void (* function_pointer)()=(void (*)()) ompss_mpi_func_pointers_dev[ompss_id_func];"
+            << " function_pointer();"
+            << "  }}}"; //END main
 
     // Check if the file has already been created (and written)
     std::ofstream mpiFile;
@@ -791,28 +816,21 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     bool new_file = false;
 
     //if (_mpi_task_processed) {
+        
+        //In the host function void* are OK, they'll identify functions
         Source functions_section;
         functions_section << "void (*ompss_mpi_func_pointers_host[]) __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_host\"))) = { "
                 << _sectionCodeHost
                 << "}; ";
-        
-        functions_section << "void (*ompss_mpi_func_pointers_dev[]) __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
+        //In device functions, store a real function pointer so we can call it correctly regardless of the architecture
+        functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
-        Nodecl::Utils::prepend_to_top_level_nodecl(functions_section_tree);
+        Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         
         //Source included_files;
-        if (!CURRENT_CONFIGURATION->do_not_link) {       
-            //This function search for it's index in the pointer arrays
-            //so we can pass it to the device array, we only add it on main
-            Source search_function;
-            //There can't be errors here, sooner or later we'll find the pointer
-            search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){"
-                            "int i=0;"
-                            "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
-                            "return i;"
-                            "}";      
+        if (!CURRENT_CONFIGURATION->do_not_link) {
             if (CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
                 // Set the file name 
                 _mpiFilename = "ompss___mpiWorker_";
@@ -848,19 +866,30 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                             << "}}"
                             ;
 
-                    Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());
                     Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
-                    Nodecl::Utils::prepend_to_top_level_nodecl(newompss_main);
+                    Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());
+                    Nodecl::Utils::append_to_top_level_nodecl(newompss_main);
                     Nodecl::Utils::append_to_top_level_nodecl(new_main);
                     main.set_name("ompss___user_main");
                     //lRoot.at(lRoot.size()-1).append_sibling(new_main);
                     _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
                 }          
 
-
+       
+                //This function search for it's index in the pointer arrays
+                //so we can pass it to the device array, we only add it on main
+                Source search_function;
+                //There can't be errors here, sooner or later we'll find the pointer
+                search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){"
+                                "int i=0;"
+                                "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
+                                "return i;"
+                                "}";      
+                
                 Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
-                Nodecl::Utils::prepend_to_top_level_nodecl(search_function_tree);
-
+                Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
+                //ast_dump_graphviz(nodecl_get_ast(search_function_tree.get_internal_nodecl()),stderr);
+//                
                 //Add a copy of current file for MIC
                 const std::string configuration_name = "mic";
                 //CompilationProcess::add_file(_mpiFilename, configuration_name, new_file);
@@ -872,26 +901,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
 
 void DeviceMPI::pre_run(DTO& dto) {
     _root = dto["nodecl"];
-    Source search_function;
-    search_function << "extern int ompss_mpi_get_function_index_host(void * funct_p);";
-    Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
-    Nodecl::Utils::prepend_to_top_level_nodecl(search_function_tree);
     _mpi_task_processed = false;
-    _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
-            << " nanos_MPI_Init(&argc, &argv);	"
-            << " int ompss_id_func; "
-            << " MPI_Status ompss___status; "
-            << " MPI_Comm ompss_parent_comp; "
-            << " MPI_Comm_get_parent( &ompss_parent_comp ); "
-            << " while(1){ "
-            << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp, &ompss___status); "
-            << " if (ompss_id_func==-1){ "
-            // << " MPI_Finalize(); "
-            << " return 0; "
-            << " } else { "
-            << " void (* function_pointer)()=ompss_mpi_func_pointers_dev[ompss_id_func];"
-            << " function_pointer();"
-            << "  } ";
 }
 
 void DeviceMPI::run(DTO& dto) {

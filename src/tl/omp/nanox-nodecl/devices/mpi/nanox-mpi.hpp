@@ -45,7 +45,6 @@ namespace TL
 
                   Nodecl::List _cuda_file_code;
                   bool _mpi_task_processed;
-                  Source _mpiDaemonMain;
                   Source _sectionCodeHost;
                   Source _sectionCodeDevice;
                   Nodecl::NodeclBase _root;
