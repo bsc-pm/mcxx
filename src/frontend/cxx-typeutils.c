@@ -108,10 +108,11 @@ enum simple_type_kind_tag
     STK_TEMPLATE_DEPENDENT_TYPE, // 
     // Mercurium extensions
     STK_VECTOR,
+    STK_MASK,
     // GCC Extensions
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
-    STK_TYPE_DEP_EXPR, // [9]
+    STK_TYPE_DEP_EXPR,
 } simple_type_kind_t;
 
 // Information of enums
@@ -11231,4 +11232,46 @@ int generic_type_get_num(type_t* t)
     }
 
     return -1;
+}
+
+type_t* get_mask_type(unsigned int mask_size)
+{
+    static rb_red_blk_tree *_mask_hash = NULL;
+
+    if (_mask_hash == NULL)
+    {
+        _mask_hash = rb_tree_create(uint_comp, null_dtor, null_dtor);
+    }
+
+    type_t* result = (type_t*)rb_tree_query_uint(_mask_hash, mask_size);
+
+    if (result == NULL)
+    {
+        result = get_simple_type();
+        result->type->kind = STK_MASK;
+        result->type->vector_size = mask_size;
+
+        int *k = counted_calloc(sizeof(int), 1, &_bytes_due_to_type_system);
+        *k = mask_size;
+
+        rb_tree_insert(_mask_hash, k, result);
+    }
+
+    return result;
+}
+
+char is_mask_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_MASK);
+}
+
+unsigned int mask_type_get_num_bits(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t), "This is not a mask type", 0);
+
+    return t->type->vector_size;
 }
