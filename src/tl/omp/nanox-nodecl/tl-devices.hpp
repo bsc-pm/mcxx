@@ -92,17 +92,25 @@ namespace TL { namespace Nanox {
         ObjectList<OutlineDataItem*> _data_items;
         TargetInformation& _target_info;
         const Nodecl::NodeclBase& _original_statements;
+        Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task; // Only used in CUDA device
- 
 
-        CreateOutlineInfo(std::string& outline_name, ObjectList<OutlineDataItem*> data_items, TargetInformation& target_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
-            : _outline_name(outline_name),
-            _data_items(data_items),
-            _target_info(target_info),
-            _original_statements(statements),
-            _arguments_struct(args_struct),
-            _called_task(called_task)
+        CreateOutlineInfo(std::string& outline_name,
+                ObjectList<OutlineDataItem*> data_items,
+                TargetInformation& target_info,
+                Nodecl::NodeclBase& statements,
+                Nodecl::NodeclBase task_label,
+                TL::Symbol& args_struct,
+                TL::Symbol& called_task)
+            :
+                _outline_name(outline_name),
+                _data_items(data_items),
+                _target_info(target_info),
+                _original_statements(statements),
+                _task_label(task_label),
+                _arguments_struct(args_struct),
+                _called_task(called_task)
         {
         }
     };
@@ -233,6 +241,7 @@ namespace TL { namespace Nanox {
                      const TL::Symbol& called_task,
                      const TL::Symbol& outline_function,
                      Nodecl::NodeclBase outline_function_body,
+                     Nodecl::NodeclBase task_label,
                      std::string filename,
                      int line,
                      /* output parameters */

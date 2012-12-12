@@ -27,15 +27,29 @@
 #ifndef TL_LOWER_TASK_COMMON_CPP
 #define TL_LOWER_TASK_COMMON_CPP
 
+namespace TL { namespace Nanox {
+
 struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
+        // These attributes apply for all kinds of tasks (inline task and
+        // function tasks)
         bool is_untied;
         Nodecl::NodeclBase priority;
 
+        // This attribute only for function task. Inline tasks will never have
+        // a node here because tl-omp-base.cpp has already lowered the 'if'
+        // clause
+        Nodecl::NodeclBase if_condition;
+
+        // This attribute is used only for instrumentation
+        Nodecl::NodeclBase task_label;
+
         TaskEnvironmentVisitor()
             : is_untied(false),
-            priority()
+            priority(),
+            if_condition(),
+            task_label()
         {
         }
 
@@ -48,7 +62,18 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
             this->is_untied = true;
         }
+
+        void visit(const Nodecl::OpenMP::If& if_condition)
+        {
+            this->if_condition = if_condition.get_condition();
+        }
+
+        void visit(const Nodecl::OpenMP::TaskLabel& task_label)
+        {
+            this->task_label = task_label;
+        }
 };
 
+} }
 
 #endif

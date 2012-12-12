@@ -322,6 +322,13 @@ namespace TL { namespace OpenMP {
                         );
                 }
 
+                if (!function_task_info.get_task_label().is_null())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                function_task_info.get_task_label().get_text()));
+                }
+
                 return Nodecl::List::make(result_list);
             }
     };
@@ -696,6 +703,26 @@ namespace TL { namespace OpenMP {
                     directive.get_line())
         );
 
+        // Label task (this is used only for instrumentation)
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_filename(),
+                            directive.get_line()));
+            }
+        }
 
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,

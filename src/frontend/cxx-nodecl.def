@@ -247,6 +247,10 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt module(vector)
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
+                  | mask-expressions
+
+
+mask-expressions : NODECL_MASK_LITERAL() const-value
 
 # This is only for dependent parts of C++. These nodecls exist because
 # usual nodecls may not retain enough semantic information for a successful
@@ -453,6 +457,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*BARRIER_AT_END()
                  | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
+                 | NODECL_OPEN_M_P*TASK_LABEL() text
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)

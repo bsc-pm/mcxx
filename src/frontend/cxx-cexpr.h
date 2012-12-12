@@ -209,6 +209,12 @@ LIBMCXX_EXTERN const_value_t* const_value_round(const_value_t* val, int num_byte
 
 LIBMCXX_EXTERN type_t* const_value_get_struct_type(const_value_t* v);
 
+LIBMCXX_EXTERN const_value_t* const_value_get_mask(cvalue_uint_t value, unsigned int num_bits);
+LIBMCXX_EXTERN char const_value_is_mask(const_value_t* v);
+LIBMCXX_EXTERN unsigned int const_value_mask_get_num_bits(const_value_t* v);
+LIBMCXX_EXTERN cvalue_uint_t const_value_mask_get_value(const_value_t* v);
+
+
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \
 

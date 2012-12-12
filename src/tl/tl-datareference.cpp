@@ -274,6 +274,14 @@ namespace TL
                     _data_ref._data_type = t;
                 }
 
+                // The base address type must be a pointer to the element, not
+                // to the range of the array
+                TL::Type scalar_type = t;
+                while (scalar_type.is_array()) 
+                {
+                    scalar_type = scalar_type.array_element();
+                }
+
                 if (array.get_subscripted().is<Nodecl::Shaping>())
                 {
                     // The base address of a shaping expression is itself
@@ -288,11 +296,11 @@ namespace TL
                                 Nodecl::ArraySubscript::make(
                                     _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
                                     Nodecl::List::make(low_subscripts),
-                                    t,
+                                    scalar_type,
                                     array.get_filename(),
                                     array.get_line()
                                     ),
-                                t.get_pointer_to(),
+                                scalar_type.get_pointer_to(),
                                 array.get_filename(),
                                 array.get_line());
                 }

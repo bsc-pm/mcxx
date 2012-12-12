@@ -29,6 +29,7 @@
 #include "tl-omp-core.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL
 {
@@ -298,6 +299,16 @@ namespace TL
             return _priority_clause_expr;
         }
 
+        void FunctionTaskInfo::set_task_label(Nodecl::NodeclBase task_label)
+        {
+            _task_label = task_label;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_task_label() const
+        {
+            return _task_label;
+        }
+
         FunctionTaskSet::FunctionTaskSet()
         {
         }
@@ -362,6 +373,7 @@ namespace TL
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
             mw.write(_untied);
+            mw.write(_task_label);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -373,6 +385,7 @@ namespace TL
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
             mr.read(_untied);
+            mr.read(_task_label);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -749,6 +762,24 @@ namespace TL
 
             PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
             task_info.set_untied(untied_clause.is_defined());
+
+            PragmaCustomClause label_clause = pragma_line.get_clause("label");
+            if (label_clause.is_defined())
+            {
+                TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+                if (str_list.size() != 1)
+                {
+                    warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                            construct.get_locus().c_str());
+                }
+                else
+                {
+                    task_info.set_task_label(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                str_list[0]));
+                }
+            }
 
             std::cerr << construct.get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
