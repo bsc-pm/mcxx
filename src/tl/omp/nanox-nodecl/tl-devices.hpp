@@ -293,10 +293,21 @@ namespace TL { namespace Nanox {
     //             return Source();
     //         }
     //
-             virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
-             {
-                 return false;
-             }
+
+
+             /*!
+               This function is called when pragma omp target device(...) is
+               used alone (without a pragma omp task)
+
+               Example:
+                    #pragma omp target device(cuda)
+                    void foo()
+                    {
+                    }
+
+            */
+             virtual void copy_stuff_to_device_file(
+                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) = 0;
 
              virtual bool allow_mandatory_creation()
              {

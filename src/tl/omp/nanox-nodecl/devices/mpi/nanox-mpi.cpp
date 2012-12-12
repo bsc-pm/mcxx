@@ -1854,7 +1854,7 @@ bool DeviceMPI::allow_mandatory_creation() {
     return true;
 }
 
-bool DeviceMPI::copy_stuff_to_device_file(Nodecl::List symbols) {
+void DeviceMPI::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) {
     //    for (Nodecl::List::iterator it = symbols.begin();
     //            it != symbols.end();
     //            ++it)
@@ -1868,7 +1868,6 @@ bool DeviceMPI::copy_stuff_to_device_file(Nodecl::List symbols) {
     //                        sym.get_scope()));
     //        }
     //    }
-    return true;
 }
 
 void DeviceMPI::phase_cleanup(DTO& data_flow) {

@@ -1256,6 +1256,12 @@ namespace TL { namespace Nanox {
         }
     }
 
+    void DeviceSMP::copy_stuff_to_device_file(
+            const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
+    {
+        // This function is expressly empty
+    }
+
     void DeviceSMP::phase_cleanup(DTO& data_flow)
     {
         if (_extra_c_code.is_null())
