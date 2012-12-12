@@ -424,9 +424,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
-# target declaration/definition
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
-                   | NODECL_OPEN_M_P*TARGET_DEFINITION([devices] text-seq, [symbols] name-seq)
 
 expression : task-call
 

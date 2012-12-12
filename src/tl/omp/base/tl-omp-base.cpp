@@ -1106,10 +1106,6 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase function_code = sym.get_function_code();
             if (!function_code.is_null())
             {
-                result = Nodecl::OpenMP::TargetDefinition::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
             }
             else
             {

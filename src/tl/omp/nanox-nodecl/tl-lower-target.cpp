@@ -34,42 +34,16 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::remove_from_enclosing_list(construct);
         }
 
-        void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDefinition& construct)
-        {
-            bool remove_symbols = false;
-            DeviceHandler device_handler = DeviceHandler::get_device_handler();
-            Nodecl::List symbols = construct.get_symbols().as<Nodecl::List>();
-            Nodecl::List devices = construct.get_devices().as<Nodecl::List>();
-            for (Nodecl::List::iterator it = devices.begin(); it != devices.end(); ++it)
-            {
-                Nodecl::Text device_name = (*it).as<Nodecl::Text>();
 
-                DeviceProvider* device = device_handler.get_device(device_name.get_text());
 
-                ERROR_CONDITION(device == NULL,
-                        "%s: device '%s' has not been loaded",
-                        construct.get_locus().c_str(),
-                        device_name.get_text().c_str());
 
-                bool result = device->copy_stuff_to_device_file(symbols);
-                remove_symbols = remove_symbols || result;
             }
-
-            if (remove_symbols)
             {
-                for (Nodecl::List::iterator it = symbols.begin(); it != symbols.end(); ++it)
                 {
-                    Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
-                    if (sym.is_function()
-                            && !sym.get_function_code().is_null())
-                    {
-                        Nodecl::Utils::remove_from_enclosing_list(sym.get_function_code());
-                    }
 
                 }
             }
 
-            Nodecl::Utils::remove_from_enclosing_list(construct);
         }
 
 } }
