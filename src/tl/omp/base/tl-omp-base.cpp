@@ -1097,23 +1097,12 @@ namespace TL { namespace OpenMP {
                     "%s: expecting a function declaration or definition", decl.get_locus().c_str());
 
             Symbol sym = decl.get_symbol();
-
-            ERROR_CONDITION(!sym.is_function(),
-                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
-
             symbols.append(Nodecl::Symbol::make(sym, file, line));
 
-            Nodecl::NodeclBase function_code = sym.get_function_code();
-            if (!function_code.is_null())
-            {
-            }
-            else
-            {
-                result = Nodecl::OpenMP::TargetDeclaration::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
+            result = Nodecl::OpenMP::TargetDeclaration::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(symbols),
+                    file, line);
 
             decl.replace(result);
         }
