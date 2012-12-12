@@ -247,6 +247,10 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt module(vector)
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
+                  | mask-expressions
+
+
+mask-expressions : NODECL_MASK_LITERAL() const-value
 
 # This is only for dependent parts of C++. These nodecls exist because
 # usual nodecls may not retain enough semantic information for a successful

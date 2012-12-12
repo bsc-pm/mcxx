@@ -1505,21 +1505,23 @@ void LoweringVisitor::fill_copies(
             copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
             copy_imm_arg << "(nanos_copy_data_t*)0, (nanos_region_dimension_internal_t*)0";
         }
-
-        fill_copies_region(ctr,
-                outline_info,
-                num_copies,
-                num_copies_dimensions,
-                copy_ol_decl,
-                copy_ol_arg,
-                copy_ol_setup,
-                copy_imm_arg,
-                copy_imm_setup);
-        emit_translation_function_region(ctr,
-                outline_info,
-                parameter_outline_info,
-                structure_symbol,
-                xlate_function_name);
+        else
+        {
+            fill_copies_region(ctr,
+                    outline_info,
+                    num_copies,
+                    num_copies_dimensions,
+                    copy_ol_decl,
+                    copy_ol_arg,
+                    copy_ol_setup,
+                    copy_imm_arg,
+                    copy_imm_setup);
+            emit_translation_function_region(ctr,
+                    outline_info,
+                    parameter_outline_info,
+                    structure_symbol,
+                    xlate_function_name);
+        }
     }
     else
     {

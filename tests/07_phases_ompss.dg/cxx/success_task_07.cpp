@@ -24,14 +24,42 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_SYMBOL_FWD_HPP
-#define TL_SYMBOL_FWD_HPP
 
-namespace TL
+
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include <stdlib.h>
+
+/* test.cpp */
+void foo(int* a, int n)
 {
-    class Symbol;
-    class GCCAttribute;
-    class MSAttribute;
+#pragma omp task inout(a[0;n])
+    {
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            a[i]++;
+        }
+    }
+#pragma omp taskwait
 }
 
-#endif // TL_SYMBOL_FWD_HPP
+int main(int argc, char *argv[])
+{
+    const int t[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+    int x[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    int *ptr = x;
+
+    foo(ptr, 10);
+
+    int i;
+    for (i = 0; i < 10; i++)
+    {
+        if (x[i] != t[i])
+            abort();
+    }
+}
