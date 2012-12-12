@@ -995,33 +995,40 @@ static void get_inout_decl(ObjectList<OutlineDataItem*>& data_items, std::string
 
 static int get_copy_elements(Nodecl::NodeclBase expr)
 {
+    int elems;
     DataReference datareference(expr);
     if (!datareference.is_valid())
     {
         internal_error("invalid data reference (%s)", datareference.get_locus().c_str());
     }
     Type type = datareference.get_data_type();
-    if (!type.is_array() || !type.array_is_region())
+
+    if (type.array_is_region()) //it's a region
+    {
+        Nodecl::NodeclBase cp_size = type.array_get_region_size();
+        if (!cp_size.is_constant())
+        {
+            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s; %s)",
+                    datareference.get_locus().c_str(), cp_size.prettyprint().c_str());
+        }
+        elems = const_value_cast_to_4(cp_size.get_constant());
+    }
+    else if (type.is_array()) //it's a shape
+    {
+        Nodecl::NodeclBase lower, upper;
+        type.array_get_bounds(lower, upper);
+        if (!lower.is_constant() || !upper.is_constant())
+        {
+            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
+                    datareference.get_locus().c_str());
+        }
+        elems = const_value_cast_to_4(upper.get_constant()) - const_value_cast_to_4(lower.get_constant()) + 1;
+    }
+    else //it's a trap!
     {
         internal_error("Data copies must be an array region expression (%d)", datareference.get_locus().c_str());
     }
-    const Nodecl::NodeclBase &cp_size = type.array_get_region_size();
-    if (!cp_size.is_constant())
-    {
-        internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
-                datareference.get_locus().c_str());
-    }
-/*
-    std::cerr 
-        << "is array: " << type.is_array() << std::endl
-        << "has size: " << type.array_has_size() << std::endl
-        << "size:     " << type.array_get_size().prettyprint() << std::endl
-        << "region:   " << type.array_is_region() << std::endl
-        << "reg size: " << type.array_get_region_size().prettyprint() << std::endl
-    ;
-*/
-    return const_value_cast_to_4(cp_size.get_constant());
-
+    return elems;
 }
 
 
