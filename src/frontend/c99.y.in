@@ -739,6 +739,7 @@ nontype_specifier : nontype_specifier_without_attribute
 {
 	$$ = $1;
 }
+;
 
 nontype_specifier_without_attribute : storage_class_specifier
 {
