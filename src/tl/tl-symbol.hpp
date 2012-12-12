@@ -497,6 +497,9 @@ namespace TL
             //! States whether this symbol has gcc attributes
             bool has_gcc_attributes() const;
 
+            //! States whether this symbol has ms attributes
+            bool has_ms_attributes() const;
+
             //! Special symbol for using A::x inside classes
             bool is_using_symbol() const;
 
@@ -659,6 +662,9 @@ namespace TL
             //! Returns the gcc attributes of this symbol
             ObjectList<GCCAttribute> get_gcc_attributes() const;
 
+            //! Returns the ms attributes of this symbol
+            ObjectList<MSAttribute> get_ms_attributes() const;
+
             //! __asm__ specifier
             /*!
              * The tree related to the __asm__ specifier. This is a GCC extension
@@ -697,6 +703,17 @@ namespace TL
             gather_gcc_attribute_t _attr;
         public:
             GCCAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
+
+            std::string get_attribute_name() const;
+            Nodecl::List get_expression_list() const;
+    };
+
+    class LIBTL_CLASS MSAttribute
+    {
+        private:
+            gather_gcc_attribute_t _attr;
+        public:
+            MSAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;

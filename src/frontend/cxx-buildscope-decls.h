@@ -114,6 +114,10 @@ struct gather_decl_spec_tag {
     int num_gcc_attributes;
     gather_gcc_attribute_t gcc_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 
+    // __declspec info
+    int num_ms_attributes;
+    gather_gcc_attribute_t ms_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+
     // UPC info
     struct
     {

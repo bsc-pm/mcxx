@@ -162,6 +162,8 @@ libmcxx_la_SOURCES = \
   cxx-gccbuiltins.c \
   cxx-gccspubuiltins.h \
   cxx-gccspubuiltins.c \
+  cxx-mssupport.h \
+  cxx-mssupport.c \
   cxx-pragma.h \
   cxx-pragma.c \
   cxx-upc.c \

@@ -458,6 +458,8 @@ namespace Codegen
             std::string gcc_attributes_to_str(TL::Symbol);
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
+            std::string ms_attributes_to_str(TL::Symbol);
+
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
             void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
