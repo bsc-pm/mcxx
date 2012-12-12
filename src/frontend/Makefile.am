@@ -226,6 +226,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
+AST_NODE_TYPE_FILES += cxx-asttype-ms.def
 AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
 # Generated
 AST_NODE_TYPE_FILES_GEN = 
@@ -254,6 +255,7 @@ ADDITIONAL_GRAMMARS += cxx-placeholders.y
 ADDITIONAL_GRAMMARS += c99-upc.y
 ADDITIONAL_GRAMMARS += cxx-cuda.y
 ADDITIONAL_GRAMMARS += cxx-xl.y
+ADDITIONAL_GRAMMARS += cxx-ms.y
 ADDITIONAL_GRAMMARS += cxx-extensions.y
 ADDITIONAL_GRAMMARS += cxx-fortran-compat.y
 

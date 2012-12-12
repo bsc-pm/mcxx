@@ -506,6 +506,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-xl.y*/
+/*!include cxx-ms.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %type<ast> subparsing
@@ -5248,6 +5249,7 @@ right_bracket_token : '>'
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-xl.y*/
+/*!include cxx-ms.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%
