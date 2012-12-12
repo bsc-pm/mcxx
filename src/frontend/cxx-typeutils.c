@@ -6902,6 +6902,43 @@ void vector_types_set_flavor(const char* c)
     }
 }
 
+const char* print_mask_type_intel(
+        decl_context_t decl_context UNUSED_PARAMETER,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
+        void* print_symbol_data UNUSED_PARAMETER)
+{
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    const char* result = NULL;
+
+    switch (num_bits)
+    {
+        // We only support Intel MIC mask at the moment:
+        case 16:
+            {
+                result = "__mmask16";
+                break;
+            }
+        default:
+            {
+                uniquestr_sprintf(&result, "<<intel-vector-mask-%d>>", num_bits);
+                break;
+            }
+    }
+
+    return result;
+}
+
+const char* print_mask_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    // Do we want to make a flavor of these?
+    return print_mask_type_intel(decl_context, t, print_symbol_fun, print_symbol_data);
+}
 
 // Returns a string with the name of this simple type
 static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context, 
@@ -7064,6 +7101,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
         case STK_VECTOR:
             {
                 result = CURRENT_CONFIGURATION->print_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                break;
+            }
+        case STK_MASK:
+            {
+                result = print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_CLASS :
