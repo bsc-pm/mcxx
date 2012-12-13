@@ -432,8 +432,7 @@ void DeviceMPI::generate_additional_mpi_code(
             << hostCall;
     
     code_device_pre << struct_args.get_name() << " args;"
-            << "MPI_Comm ompss_parent_comp; "
-            << "MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << "MPI_Comm ompss_parent_comp=nanos_MPI_Get_parent(); "
             << "MPI_Status ompss___status; "
             << struct_mpi_create
             << deviceCall;
@@ -798,12 +797,11 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
             << " nanos_MPI_Init(&argc, &argv);	"
             << " int ompss_id_func; "
             << " MPI_Status ompss___status; "
-            << " MPI_Comm ompss_parent_comp; "
-            << " MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << " MPI_Comm ompss_parent_comp=nanos_MPI_Get_parent(); "
             << " while(1){ "
             << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp, &ompss___status); "
             << " if (ompss_id_func==-1){ "
-            // << " MPI_Finalize(); "
+            << " MPI_Finalize(); "
             << " return 0; "
             << " } else { "
             << " void (* function_pointer)()=(void (*)()) ompss_mpi_func_pointers_dev[ompss_id_func];"
@@ -830,71 +828,56 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         
         //Source included_files;
-        if (!CURRENT_CONFIGURATION->do_not_link) {
-            if (CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
+        if (0 && CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
                 // Set the file name 
                 _mpiFilename = "ompss___mpiWorker_";
                 _mpiFilename += CompilationProcess::get_current_file().get_filename(false);
                 new_file = true;
                 mpiFile.open(_mpiFilename.c_str());
                 std::ifstream streamFile(CompilationProcess::get_current_file().get_filename(true).c_str());
-
                 mpiFile << streamFile.rdbuf();
                 // Remove the intermediate source file
                 mark_file_for_cleanup(_mpiFilename.c_str());
-
-                Symbol main = _root.retrieve_context().get_symbol_from_name("main");
-                if (main.is_valid()) {
-                    Source filenameSrc;
-                    filenameSrc << "setMpiFilename(\"./";
-                    //                if (CompilationConfiguration::get_current_configuration() != "mic"){
-                    //                    filenameSrc << "mic";
-                    //                }
-                    if (CURRENT_CONFIGURATION->linked_output_filename != NULL) {
-                        filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename) << "\");";
-                    } else {
-                        filenameSrc << "a.out" << "\");";
-                    }
-                    Source real_main;
-                    real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
-                            << filenameSrc
-                            << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
-                            << "ompss___mpi_daemon_main(argc,argv);"
-                            << "return 0;"
-                            << "} else {"
-                            << "return main(argc,argv);"
-                            << "}}"
-                            ;
-
-                    Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
-                    Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());
-                    Nodecl::Utils::append_to_top_level_nodecl(newompss_main);
-                    Nodecl::Utils::append_to_top_level_nodecl(new_main);
-                    main.set_name("ompss___user_main");
-                    //lRoot.at(lRoot.size()-1).append_sibling(new_main);
-                    _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
-                }          
-
-       
-                //This function search for it's index in the pointer arrays
-                //so we can pass it to the device array, we only add it on main
-                Source search_function;
-                //There can't be errors here, sooner or later we'll find the pointer
-                search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){"
-                                "int i=0;"
-                                "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
-                                "return i;"
-                                "}";      
-                
-                Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
-                Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
-                //ast_dump_graphviz(nodecl_get_ast(search_function_tree.get_internal_nodecl()),stderr);
-//                
                 //Add a copy of current file for MIC
                 const std::string configuration_name = "mic";
                 //CompilationProcess::add_file(_mpiFilename, configuration_name, new_file);
                 mpiFile.close();
-            }
+        }
+
+        Symbol main = _root.retrieve_context().get_symbol_from_name("main");
+        if (main.is_valid()) {
+            Source real_main;
+            real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
+                    << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
+                    << "ompss___mpi_daemon_main(argc,argv);"
+                    << "return 0;"
+                    << "} else {"
+                    << "return main(argc,argv);"
+                    << "}}"
+                    ;
+
+            Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
+            Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());
+            Nodecl::Utils::append_to_top_level_nodecl(newompss_main);
+            Nodecl::Utils::append_to_top_level_nodecl(new_main); 
+            main.set_name("ompss___user_main");
+            //lRoot.at(lRoot.size()-1).append_sibling(new_main);
+            _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
+
+
+            //This function search for it's index in the pointer arrays
+            //so we can pass it to the device array, we only add it on main
+            Source search_function;
+            //There can't be errors here, sooner or later we'll find the pointer
+            search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){"
+                            "int i=0;"
+                            "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
+                            "return i;"
+                            "}";      
+
+            Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
+            Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
+            //ast_dump_graphviz(nodecl_get_ast(search_function_tree.get_internal_nodecl()),stderr);
         }
     //}
 }
