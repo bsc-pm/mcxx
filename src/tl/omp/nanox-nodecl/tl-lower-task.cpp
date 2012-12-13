@@ -489,6 +489,12 @@ void LoweringVisitor::emit_async_common(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
+        // The symbol 'real_called_task' will be invalid if the current task is
+        // a inline task. Otherwise, It will be the implementor symbol
+        TL::Symbol real_called_task =
+                (called_task.is_valid()) ?
+                    implementor_symbol : TL::Symbol::invalid();
+
         CreateOutlineInfo info_implementor(
                 implementor_outline_name,
                 outline_info.get_data_items(),
@@ -496,7 +502,7 @@ void LoweringVisitor::emit_async_common(
                 statements,
                 task_label,
                 structure_symbol,
-		implementor_symbol);
+                real_called_task);
 
         Nodecl::NodeclBase outline_placeholder, output_statements;
         Nodecl::Utils::SymbolMap *symbol_map = NULL;
@@ -508,7 +514,8 @@ void LoweringVisitor::emit_async_common(
         // copy the tree and we replace the function task symbol with the
         // implementor symbol
         Nodecl::NodeclBase outline_statements_code;
-        if (current_function.is_valid() && current_function!=implementor_symbol)
+        if (current_function.is_valid()
+                && current_function != implementor_symbol)
         {
             Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
             symbol_map_copy_statements.add_map(current_function, implementor_symbol);
