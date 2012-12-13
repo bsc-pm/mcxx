@@ -322,6 +322,13 @@ namespace TL { namespace OpenMP {
                         );
                 }
 
+                if (!function_task_info.get_task_label().is_null())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                function_task_info.get_task_label().get_text()));
+                }
+
                 return Nodecl::List::make(result_list);
             }
     };
@@ -696,6 +703,26 @@ namespace TL { namespace OpenMP {
                     directive.get_line())
         );
 
+        // Label task (this is used only for instrumentation)
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_filename(),
+                            directive.get_line()));
+            }
+        }
 
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
@@ -1097,27 +1124,12 @@ namespace TL { namespace OpenMP {
                     "%s: expecting a function declaration or definition", decl.get_locus().c_str());
 
             Symbol sym = decl.get_symbol();
-
-            ERROR_CONDITION(!sym.is_function(),
-                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
-
             symbols.append(Nodecl::Symbol::make(sym, file, line));
 
-            Nodecl::NodeclBase function_code = sym.get_function_code();
-            if (!function_code.is_null())
-            {
-                result = Nodecl::OpenMP::TargetDefinition::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
-            else
-            {
-                result = Nodecl::OpenMP::TargetDeclaration::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
+            result = Nodecl::OpenMP::TargetDeclaration::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(symbols),
+                    file, line);
 
             decl.replace(result);
         }

@@ -56,6 +56,9 @@ namespace TL
                         Source &ancillary_device_description,
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
+
+                virtual void copy_stuff_to_device_file(
+                        const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
         };
     }
 

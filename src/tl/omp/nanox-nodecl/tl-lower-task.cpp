@@ -41,29 +41,6 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
-{
-    public:
-        bool is_untied;
-        Nodecl::NodeclBase priority;
-
-        TaskEnvironmentVisitor()
-            : is_untied(false),
-            priority()
-        {
-        }
-
-        void visit(const Nodecl::OpenMP::Priority& priority)
-        {
-            this->priority = priority.get_priority();
-        }
-
-        void visit(const Nodecl::OpenMP::Untied& untied)
-        {
-            this->is_untied = true;
-        }
-};
-
 TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
 {
     std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
@@ -386,6 +363,7 @@ void LoweringVisitor::emit_async_common(
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase task_label,
         bool is_untied,
 
         OutlineInfo& outline_info,
@@ -491,37 +469,15 @@ void LoweringVisitor::emit_async_common(
             immediate_decl,
             dynamic_size);
 
-    // For every device name specified in the 'device' clause, we create its outline function
-//    CreateOutlineInfo info(outline_name, outline_info.get_data_items(),outline_info.get_implementation_table()[function_symbol], statements, structure_symbol, called_task);
-//    for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
-//            it != device_names.end();
-//            it++)
-//    {
-//        std::string device_name = *it;
-//        DeviceProvider* device = device_handler.get_device(device_name);
-//
-//        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
-//
-//        Nodecl::NodeclBase outline_placeholder, output_statements;
-//        Nodecl::Utils::SymbolMap *symbol_map = NULL;
-//        device->create_outline(info, outline_placeholder, output_statements, symbol_map);
-//
-//        Nodecl::NodeclBase outline_statements_code =
-//            Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-//        delete symbol_map;
-//
-//        outline_placeholder.replace(outline_statements_code);
-//    }
-
-    
     // For every existant implementation (including the one which defines the task),
     // we should create its outline function.
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
-    int n_devices=implementation_table_it->second.get_device_names().size();    
+    int n_devices=implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
-        if (n_devices<1){
+        if ( n_devices < 1)
+        {
                 implementation_table_it++;
                 n_devices=implementation_table_it->second.get_device_names().size();
         }
@@ -537,6 +493,7 @@ void LoweringVisitor::emit_async_common(
                 outline_info.get_data_items(),
                 implementation_table_it->second,
                 statements,
+                task_label,
                 structure_symbol,
 		implementor_symbol);
 
@@ -550,17 +507,20 @@ void LoweringVisitor::emit_async_common(
         // copy the tree and we replace the function task symbol with the
         // implementor symbol
         Nodecl::NodeclBase outline_statements_code;
-        if (current_function.is_valid() && current_function!=implementor_symbol){
+        if (current_function.is_valid() && current_function!=implementor_symbol)
+        {
             Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
             symbol_map_copy_statements.add_map(current_function, implementor_symbol);
-            
+
             Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
                 output_statements,
                 implementor_symbol.get_related_scope(),
                 symbol_map_copy_statements);
             outline_statements_code =
                 Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
-        } else {            
+        }
+        else
+        {
             outline_statements_code =
                 Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
         }
@@ -569,7 +529,7 @@ void LoweringVisitor::emit_async_common(
 
         outline_placeholder.replace(outline_statements_code);
 
-        devices_and_implementors_it++;        
+        devices_and_implementors_it++;
         n_devices--;
     }
 
@@ -713,10 +673,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     emit_async_common(
             construct,
             function_symbol,
-            called_task_dummy, 
-            statements, 
-            task_environment.priority, 
-            task_environment.is_untied, 
+            called_task_dummy,
+            statements,
+            task_environment.priority,
+            task_environment.task_label,
+            task_environment.is_untied,
 
             outline_info,
             /* parameter_outline_info */ NULL);
@@ -1536,21 +1497,23 @@ void LoweringVisitor::fill_copies(
             copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
             copy_imm_arg << "(nanos_copy_data_t*)0, (nanos_region_dimension_internal_t*)0";
         }
-
-        fill_copies_region(ctr,
-                outline_info,
-                num_copies,
-                num_copies_dimensions,
-                copy_ol_decl,
-                copy_ol_arg,
-                copy_ol_setup,
-                copy_imm_arg,
-                copy_imm_setup);
-        emit_translation_function_region(ctr,
-                outline_info,
-                parameter_outline_info,
-                structure_symbol,
-                xlate_function_name);
+        else
+        {
+            fill_copies_region(ctr,
+                    outline_info,
+                    num_copies,
+                    num_copies_dimensions,
+                    copy_ol_decl,
+                    copy_ol_arg,
+                    copy_ol_setup,
+                    copy_imm_arg,
+                    copy_imm_setup);
+            emit_translation_function_region(ctr,
+                    outline_info,
+                    parameter_outline_info,
+                    structure_symbol,
+                    xlate_function_name);
+        }
     }
     else
     {
