@@ -787,8 +787,21 @@ bool DeviceMPI::allow_mandatory_creation() {
     return true;
 }
 
-bool DeviceMPI::copy_stuff_to_device_file(Nodecl::List symbols) {
-    return true;
+
+void DeviceMPI::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) {
+    //    for (Nodecl::List::iterator it = symbols.begin();
+    //            it != symbols.end();
+    //            ++it)
+    //    {
+    //        Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
+    //        if (sym.is_function()
+    //                && !sym.get_function_code().is_null())
+    //        {
+    //            _cuda_file_code.append(Nodecl::Utils::deep_copy(
+    //                        sym.get_function_code(),
+    //                        sym.get_scope()));
+    //        }
+    //    }
 }
 
 void DeviceMPI::phase_cleanup(DTO& data_flow) {

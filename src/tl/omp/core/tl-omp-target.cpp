@@ -182,19 +182,6 @@ namespace TL
                     }
                 }
             }
-            else
-            {
-                Symbol function_sym = ctr.get_symbol();
-                if (!function_sym.is_function())
-                {
-                    std::cerr << ctr.get_locus() 
-                        << ": warning: '#pragma omp target' must "
-                        "precede a single function declaration or a function definition"
-                        << std::endl;
-                    std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
-                    return;
-                }
-            }
 
             _target_context.push(target_ctx);
         }

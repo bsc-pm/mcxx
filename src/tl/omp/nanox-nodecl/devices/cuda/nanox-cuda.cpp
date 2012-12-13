@@ -1621,7 +1621,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
-    //OutlineInfo& outline_info = info._outline_info;
 
     output_statements = original_statements;
 
@@ -1837,6 +1836,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 info._called_task,
                 outline_function,
                 outline_function_body,
+                info._task_label,
                 original_statements.get_filename(),
                 original_statements.get_line(),
                 instrument_before,
@@ -2488,22 +2488,14 @@ bool DeviceCUDA::allow_mandatory_creation()
     return true;
 }
 
-bool DeviceCUDA::copy_stuff_to_device_file(Nodecl::List symbols)
+void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
 {
-    for (Nodecl::List::iterator it = symbols.begin();
-            it != symbols.end();
+    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
+            it != stuff_to_be_copied.end();
             ++it)
     {
-        Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
-        if (sym.is_function()
-                && !sym.get_function_code().is_null())
-        {
-            _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                        sym.get_function_code(),
-                        sym.get_scope()));
-        }
+        _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
     }
-    return true;
 }
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)

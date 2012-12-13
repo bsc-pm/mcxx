@@ -679,16 +679,69 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
 
-    construct.as<Nodecl::OpenMP::Task>().set_statements(statements);
+    Nodecl::NodeclBase new_construct, new_code;
+    new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+
+    if (!task_environment.if_condition.is_null())
+    {
+        Nodecl::NodeclBase expr_direct_call_to_function = 
+            Nodecl::ExpressionStatement::make(
+                    function_call.shallow_copy(),
+                    function_call.get_filename(),
+                    function_call.get_line());
+
+        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
+
+        Nodecl::NodeclBase if_then_else_statement = 
+            Nodecl::IfElseStatement::make(
+                    updated_if_condition,
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(new_construct),
+                            Nodecl::NodeclBase::null(),
+                            function_call.get_filename(),
+                            function_call.get_line())),
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(expr_direct_call_to_function),
+                            Nodecl::NodeclBase::null(),
+                            function_call.get_filename(),
+                            function_call.get_line())));
+
+        new_code = if_then_else_statement;
+    }
+    else
+    {
+        new_code = new_construct;
+    }
 
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
+    // Find the enclosing expression statement
+    Nodecl::NodeclBase enclosing_expression_statement = construct.get_parent();
+    while (!enclosing_expression_statement.is_null()
+            && !enclosing_expression_statement.is<Nodecl::ExpressionStatement>())
+    {
+        enclosing_expression_statement = enclosing_expression_statement.get_parent();
+    }
+
+    ERROR_CONDITION(enclosing_expression_statement.is_null(), "Did not find the enclosing expression statement", 0);
+
+    enclosing_expression_statement.replace(new_code);
+
+    if (new_code == new_construct)
+    {
+        // Get the new tree only if it directly the enclosing expression statement
+        new_construct = enclosing_expression_stmt;
+    }
+
     emit_async_common(
-            construct,
+            new_construct,
             function_symbol,
             called_symbol,
             statements,
             task_environment.priority,
+            task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
             &parameters_outline_info);
@@ -924,7 +977,7 @@ static Nodecl::NodeclBase fill_adapter_function(
     Nodecl::NodeclBase argument_seq = Nodecl::List::make(argument_list);
 
     // Create the call
-    Nodecl::NodeclBase call_to_adapter =
+    Nodecl::NodeclBase call_to_original =
         Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(function_ref,
                     argument_seq,
@@ -932,7 +985,7 @@ static Nodecl::NodeclBase fill_adapter_function(
                     /* function form */ Nodecl::NodeclBase::null(),
                 TL::Type::get_void_type()));
 
-    statements_of_task_list.append(call_to_adapter);
+    statements_of_task_list.append(call_to_original);
 
     statements_of_task_seq = Nodecl::List::make(statements_of_task_list);
 
@@ -941,10 +994,25 @@ static Nodecl::NodeclBase fill_adapter_function(
             TL::Scope(CURRENT_COMPILED_FILE->global_decl_context),
             symbol_map);
 
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(new_environment);
+
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    statements_of_function.append(task_construct);
+    if (!task_environment.if_condition.is_null())
+    {
+        Nodecl::NodeclBase if_else = Nodecl::IfElseStatement::make(
+                task_environment.if_condition.shallow_copy(),
+                Nodecl::List::make(task_construct),
+                Nodecl::List::make(call_to_original.shallow_copy()));
+
+        statements_of_function.append(if_else);
+    }
+    else
+    {
+        statements_of_function.append(task_construct);
+    }
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
@@ -1027,7 +1095,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
     OutlineInfo new_outline_info(new_environment,adapter_function);
-    
+
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
@@ -1039,6 +1107,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             called_task_function, // Which one we want now?
             new_statements,
             task_environment.priority,
+            task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
             NULL);
@@ -1046,6 +1115,9 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
+
+    // Add a map from the original called task to the adapter function
+    symbol_map.add_map(called_task_function, adapter_function);
 
     // And replace everything with a call to the adapter function
     construct.replace(

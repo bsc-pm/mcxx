@@ -53,7 +53,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
         virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
-        virtual void visit(const Nodecl::OpenMP::TargetDefinition& construct);
 
     private:
 
@@ -72,6 +71,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info);

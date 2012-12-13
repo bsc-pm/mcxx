@@ -92,17 +92,25 @@ namespace TL { namespace Nanox {
         ObjectList<OutlineDataItem*> _data_items;
         TargetInformation& _target_info;
         const Nodecl::NodeclBase& _original_statements;
+        Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task; // Only used in CUDA device
- 
 
-        CreateOutlineInfo(std::string& outline_name, ObjectList<OutlineDataItem*> data_items, TargetInformation& target_info, Nodecl::NodeclBase& statements, TL::Symbol& args_struct, TL::Symbol& called_task)
-            : _outline_name(outline_name),
-            _data_items(data_items),
-            _target_info(target_info),
-            _original_statements(statements),
-            _arguments_struct(args_struct),
-            _called_task(called_task)
+        CreateOutlineInfo(std::string& outline_name,
+                ObjectList<OutlineDataItem*> data_items,
+                TargetInformation& target_info,
+                Nodecl::NodeclBase& statements,
+                Nodecl::NodeclBase task_label,
+                TL::Symbol& args_struct,
+                TL::Symbol& called_task)
+            :
+                _outline_name(outline_name),
+                _data_items(data_items),
+                _target_info(target_info),
+                _original_statements(statements),
+                _task_label(task_label),
+                _arguments_struct(args_struct),
+                _called_task(called_task)
         {
         }
     };
@@ -233,6 +241,7 @@ namespace TL { namespace Nanox {
                      const TL::Symbol& called_task,
                      const TL::Symbol& outline_function,
                      Nodecl::NodeclBase outline_function_body,
+                     Nodecl::NodeclBase task_label,
                      std::string filename,
                      int line,
                      /* output parameters */
@@ -293,10 +302,21 @@ namespace TL { namespace Nanox {
     //             return Source();
     //         }
     //
-             virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
-             {
-                 return false;
-             }
+
+
+             /*!
+               This function is called when pragma omp target device(...) is
+               used alone (without a pragma omp task)
+
+               Example:
+                    #pragma omp target device(cuda)
+                    void foo()
+                    {
+                    }
+
+            */
+             virtual void copy_stuff_to_device_file(
+                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) = 0;
 
              virtual bool allow_mandatory_creation()
              {

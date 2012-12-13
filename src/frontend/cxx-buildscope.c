@@ -48,6 +48,7 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-mssupport.h"
 #include "cxx-nodecl-output.h"
 #include "cxx-overload.h"
 #include "cxx-upc.h"
@@ -1585,6 +1586,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+            keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
             // Only variables can be initialized
             if (initializer != NULL)
@@ -2218,6 +2220,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // Do nothing at the moment
             break;
             // Unknown node
+        case AST_MS_DECLSPEC:
+            // __declspec(X)
+            // __declspec(X(Y0, Y1, ...))
+            gather_ms_declspec(a, gather_info, decl_context);
+            break;
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
             break;
@@ -2972,7 +2979,18 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     if (gcc_attributes != NULL)
     {
-        gather_gcc_attribute_list(gcc_attributes, &class_gather_info, decl_context);
+        if (ASTType(a) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
+        {
+            gather_gcc_attribute_list(gcc_attributes, &class_gather_info, decl_context);
+        }
+        else if (ASTType(a) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
+        {
+            gather_ms_declspec_list(gcc_attributes, &class_gather_info, decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     scope_entry_list_t* result_list = NULL;
@@ -5968,7 +5986,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     if (attribute_list != NULL)
     {
-        gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
+        if (ASTType(class_head) == AST_GCC_CLASS_HEAD_SPEC)
+        {
+            gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
+        }
+        else if (ASTType(class_head) == AST_MS_CLASS_HEAD_SPEC)
+        {
+            gather_ms_declspec_list(attribute_list, gather_info, decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     enum type_tag_t class_kind = TT_INVALID;
@@ -6583,6 +6612,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     class_entry->entity_specs.is_instantiable = 1;
 
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
+    keep_ms_declspecs_in_symbol(class_entry, gather_info);
 
     CXX_LANGUAGE()
     {
@@ -7338,6 +7368,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &param_decl_gather_info);
+            keep_ms_declspecs_in_symbol(entry, &param_decl_gather_info);
 
             // Now normalize the types
 
@@ -10198,6 +10229,7 @@ static void build_scope_namespace_definition(AST a,
 
         // Copy the gcc attributes
         keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
 
         entry_list_free(list);
 
@@ -10374,6 +10406,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 // Copy gcc attributes
                 keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+                keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
                 int parameter_position = -1;
 
@@ -10498,6 +10531,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     set(a, entry, decl_context);
 }
@@ -10766,6 +10800,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     if (declared_symbols != NULL)
     {
@@ -11676,6 +11711,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
@@ -11766,6 +11802,7 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 }
 
 void build_scope_friend_declarator(decl_context_t decl_context, 
@@ -11902,16 +11939,23 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             // class A; (no declarator)
                             || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
                                     // class __attribute__((foo)) A; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC) 
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC
+                                    // class __declspec(X) A; (no declarator)
+                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
                                 && (member_init_declarator_list == NULL))
                             // enum E { } [x];
                             || ASTType(type_specifier) == AST_ENUM_SPECIFIER
                             // enum __attribute__((foo)) E { } [x];
                             || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
+                            // enum __declspec(D) E { } [x];
+                            || ASTType(type_specifier) == AST_MS_ENUM_SPECIFIER
                             // enum E; (no declarator)
                             || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
                                     // enum  __attribute__((foo)) E; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC) 
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC
+                                    // enum  __declspec(X) E; (no declarator)
+                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_ENUM_SPEC
+                                    )
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
@@ -12277,6 +12321,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
 
                         keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+                        keep_ms_declspecs_in_symbol(entry, &current_gather_info);
                         break;
                     }
                 default :
@@ -12822,6 +12867,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         }
 
         keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
     }
     else
     {
@@ -13324,6 +13370,7 @@ static void build_scope_try_block(AST a,
                     exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
 
                     keep_gcc_attributes_in_symbol(entry, &gather_info);
+                    keep_ms_declspecs_in_symbol(entry, &gather_info);
                 }
             }
 
@@ -13508,14 +13555,14 @@ static void finish_pragma_declaration(
         int line,
         nodecl_t *nodecl_output)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text, 
+    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
     //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" : 
-    //         (nodecl_is_list(nodecl_decl) ? 
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) : 
+    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
+    //         (nodecl_is_list(nodecl_decl) ?
+    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
     //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
-    
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) && 
+
+    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
             entry_list_size(declared_symbols) != 0, "This should not happen", 0);
 
     if (entry_list_size(declared_symbols) > 0)
@@ -13554,7 +13601,7 @@ static void finish_pragma_declaration(
 
         for (i = 0; i < num_items; i++)
         {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
                     "Invalid node in nodecl_pragma_output", 0);
 
             nodecl_t pragma_context = nodecl_get_child(list[i], 2);
@@ -13580,8 +13627,8 @@ static void finish_pragma_declaration(
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
 }
 
-static void build_scope_pragma_custom_construct_declaration(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_pragma_custom_construct_declaration(AST a,
+        decl_context_t decl_context,
         nodecl_t *nodecl_output)
 {
     scope_entry_list_t* declared_symbols = NULL;
@@ -13597,15 +13644,15 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
+    common_build_scope_pragma_custom_declaration(a, decl_context,
             &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma, 
+            build_scope_declaration_pragma,
             &info);
 
     pragma_nesting--;
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
-    finish_pragma_declaration(declared_symbols, 
+    finish_pragma_declaration(declared_symbols,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_decl,

@@ -1091,6 +1091,7 @@ namespace TL { namespace Nanox {
                     info._called_task,
                     outline_function,
                     outline_function_body,
+                    info._task_label,
                     original_statements.get_filename(),
                     original_statements.get_line(),
                     instrument_before,
@@ -1254,6 +1255,12 @@ namespace TL { namespace Nanox {
                 << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_args;"
                 ;
         }
+    }
+
+    void DeviceSMP::copy_stuff_to_device_file(
+            const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
+    {
+        // This function is expressly empty
     }
 
     void DeviceSMP::phase_cleanup(DTO& data_flow)

@@ -207,6 +207,8 @@ LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector
 
 LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
 
+LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size);
+
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
@@ -410,6 +412,9 @@ LIBMCXX_EXTERN char is_volatile_qualified(cv_qualifier_t cv);
 LIBMCXX_EXTERN char is_restrict_qualified(cv_qualifier_t cv);
 
 LIBMCXX_EXTERN char is_computed_function_type(type_t* t);
+
+LIBMCXX_EXTERN char is_mask_type(type_t* t);
+LIBMCXX_EXTERN unsigned int mask_type_get_num_bits(type_t* t);
 
 LIBMCXX_EXTERN int get_sizeof_type(type_t* t);
 
