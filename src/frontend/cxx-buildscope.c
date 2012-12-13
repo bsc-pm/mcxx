@@ -1870,9 +1870,10 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
             // Reason: this attributes refer to declarator_list
-            if (ASTType(spec) == AST_GCC_ATTRIBUTE)
-                continue;
-            gather_decl_spec_information(spec, gather_info, decl_context);
+            if (ASTType(spec) != AST_GCC_ATTRIBUTE)
+            {
+                gather_decl_spec_information(spec, gather_info, decl_context);
+            }
         }
     }
 
@@ -1986,14 +1987,19 @@ void build_scope_decl_specifier_seq(AST a,
             for_each_element(list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) != AST_GCC_ATTRIBUTE)
-                    continue;
-                gather_decl_spec_information(spec, gather_info, decl_context);
+                if (ASTType(spec) == AST_GCC_ATTRIBUTE)
+                {
+                    gather_decl_spec_information(spec, gather_info, decl_context);
+                }
             }
         }
 
-        // Now update the type_spec with type information that was caught in the decl_specifier_seq
-        // First "long"/"short"
+        // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->is_short = local_gather_info.is_short;
+        gather_info->is_long = local_gather_info.is_long;
+        gather_info->is_unsigned = local_gather_info.is_unsigned;
+        gather_info->is_signed = local_gather_info.is_signed;
+
         if (gather_info->is_short)
         {
             if (*type_info == get_signed_int_type())
