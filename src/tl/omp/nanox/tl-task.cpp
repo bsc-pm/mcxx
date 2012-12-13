@@ -674,7 +674,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     Source base_address;
 
                     TL::Symbol base_symbol = copy_expr.get_base_symbol();
-                    base_address << copy_expr.get_address();
+                    if (copy_expr.is_id_expression())
+                    {
+                        base_address << copy_expr.get_address();
+                    }
+                    else
+                    {
+                        base_address << base_symbol.get_qualified_name();
+                    }
 
                     std::string base_type_name = copy_base_type.get_declaration(data_ref.get_scope(), "");
 
