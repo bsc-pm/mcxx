@@ -13659,24 +13659,40 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     if (is_array_section_size)
     {
         // L;U:S -> L: (U + L) - 1:S
-        nodecl_upper = 
-            nodecl_make_minus(
-                    nodecl_make_add(
-                        nodecl_shallow_copy(nodecl_upper), nodecl_shallow_copy(nodecl_lower),
-                        get_signed_int_type(), 
-                        nodecl_get_filename(nodecl_upper), 
-                        nodecl_get_line(nodecl_upper)),
-                    nodecl_make_integer_literal(
+        if (nodecl_is_constant(nodecl_lower)
+                && nodecl_is_constant(nodecl_upper))
+        {
+            const_value_t* cval_lower = nodecl_get_constant(nodecl_lower);
+            const_value_t* cval_upper = nodecl_get_constant(nodecl_upper);
+
+            nodecl_upper =
+                const_value_to_nodecl(
+                        const_value_sub( // (U +L) - 1
+                            const_value_add( // U + L
+                                cval_upper, // U
+                                cval_lower),// L
+                            const_value_get_one(/* num_bytes */ 4, /* signed */ 1)));
+        }
+        else
+        {
+            nodecl_upper =
+                nodecl_make_minus(
+                        nodecl_make_add(
+                            nodecl_shallow_copy(nodecl_upper), nodecl_shallow_copy(nodecl_lower),
+                            get_signed_int_type(),
+                            nodecl_get_filename(nodecl_upper),
+                            nodecl_get_line(nodecl_upper)),
+                        nodecl_make_integer_literal(
+                            get_signed_int_type(),
+                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                            nodecl_get_filename(nodecl_upper),
+                            nodecl_get_line(nodecl_upper)),
                         get_signed_int_type(),
-                        const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                        nodecl_get_filename(nodecl_upper), 
-                        nodecl_get_line(nodecl_upper)),
-                    get_signed_int_type(),
-                    nodecl_get_filename(nodecl_upper),
-                    nodecl_get_line(nodecl_upper));
+                        nodecl_get_filename(nodecl_upper),
+                        nodecl_get_line(nodecl_upper));
+        }
     }
 
-    // FIXME - Properly compute the integer value of the expressions
     nodecl_t nodecl_range = nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, 
             get_signed_int_type(), filename, line);
 

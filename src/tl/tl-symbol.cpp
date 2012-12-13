@@ -780,12 +780,37 @@ namespace TL
         return result;
     }
 
+    bool Symbol::has_ms_attributes() const
+    {
+        return (_symbol->entity_specs.num_ms_attributes > 0);
+    }
+
+    ObjectList<MSAttribute> Symbol::get_ms_attributes() const
+    {
+        ObjectList<MSAttribute> result;
+        for (int i = 0; i < _symbol->entity_specs.num_ms_attributes; i++)
+        {
+            result.append(_symbol->entity_specs.ms_attributes[i]);
+        }
+        return result;
+    }
+
     std::string GCCAttribute::get_attribute_name() const
     {
         return _attr.attribute_name;
     }
 
     Nodecl::List GCCAttribute::get_expression_list() const
+    {
+        return Nodecl::List(_attr.expression_list);
+    }
+
+    std::string MSAttribute::get_attribute_name() const
+    {
+        return _attr.attribute_name;
+    }
+
+    Nodecl::List MSAttribute::get_expression_list() const
     {
         return Nodecl::List(_attr.expression_list);
     }

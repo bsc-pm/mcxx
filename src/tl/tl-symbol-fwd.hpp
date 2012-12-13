@@ -31,6 +31,7 @@ namespace TL
 {
     class Symbol;
     class GCCAttribute;
+    class MSAttribute;
 }
 
 #endif // TL_SYMBOL_FWD_HPP

@@ -3719,7 +3719,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol);
+        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             // The symbol is called 'struct/union X' in C. We should ignore the
@@ -3838,7 +3838,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol);
+        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             file << " " << qualified_name;
@@ -6709,6 +6709,48 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             file.seekp(0, std::ios_base::end);
 
             result += ")))";
+        }
+        attributes_counter++;
+    }
+    return result;
+}
+
+std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
+{
+    std::string result;
+    TL::ObjectList<TL::MSAttribute> ms_attr_list = symbol.get_ms_attributes();
+    int attributes_counter = 0;
+
+    for (TL::ObjectList<TL::MSAttribute>::iterator it = ms_attr_list.begin();
+            it != ms_attr_list.end();
+            it++)
+    {
+        if (attributes_counter > 0)
+            result += " ";
+
+        if (it->get_expression_list().is_null())
+        {
+            result += "__declspec(" + it->get_attribute_name() + ")";
+        }
+        else
+        {
+            result += "__declspec(" + it->get_attribute_name() + "(";
+
+            std::string old_str = file.str();
+
+            file.clear();
+            file.str("");
+
+            walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
+            result += file.str();
+
+            file.clear();
+            file.str(old_str);
+            // Go to the end of the stream...
+            file.seekp(0, std::ios_base::end);
+
+            result += "))";
         }
         attributes_counter++;
     }

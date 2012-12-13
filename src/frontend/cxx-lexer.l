@@ -1019,6 +1019,7 @@ type {
 "__restrict__" { parse_token_text(); return RESTRICT; }
 "__const" { parse_token_text(); return TOKEN_CONST; }
 "__const__" { parse_token_text(); return TOKEN_CONST; }
+"__declspec" { parse_token_text(); return TOKEN_DECLSPEC; }
 "__attribute" { parse_token_text(); return ATTRIBUTE; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
