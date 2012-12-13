@@ -127,6 +127,16 @@ static lexer_keyword_t cuda_keywords[] =
     { NULL, 0 }
 };
 
+static lexer_keyword_t ms_builtin_types[] =
+{
+    {"__int8" ,  MS_INT8},
+    {"__int16" , MS_INT16},
+    {"__int32" , MS_INT32},
+    {"__int64" , MS_INT64},
+    // Sentinel
+    { NULL, 0 }
+};
+
 static int yywrap(void);
 
 static void parse_token_text(void);
@@ -1082,6 +1092,13 @@ type {
 "__constant__" |
 "__shared__" {
     return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
+}
+
+"__int8" |
+"__int16" |
+"__int32" |
+"__int64" {
+    return lookup_keyword_in_table(ms_builtin_types, yytext, CURRENT_CONFIGURATION->enable_ms_builtin_types);
 }
 
  /* Special tokens for subparsing */

@@ -2522,6 +2522,45 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 *simple_type_info = declarator_type;
                 break;
             }
+            // Microsoft builtin types
+        case AST_MS_INT8:
+            {
+                // Behaves like a char
+                *simple_type_info = get_char_type();
+                break;
+            }
+        case AST_MS_INT16:
+            {
+                // Behaves like a short
+                *simple_type_info = get_signed_int_type();
+                gather_info->is_short = 1;
+                break;
+            }
+        case AST_MS_INT32:
+            {
+                // Behaves like int
+                *simple_type_info = get_signed_int_type();
+                break;
+            }
+        case AST_MS_INT64:
+            {
+                // May be long int or long long int depending on the environment
+                *simple_type_info = get_signed_int_type();
+
+                if (type_get_size(get_signed_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 1;
+                }
+                else if (type_get_size(get_signed_long_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 2;
+                }
+                else
+                {
+                    running_error("%s: error: __int64 not supported\n", ast_location(a));
+                }
+                break;
+            }
             // Mercurium internal mechanism
         case AST_TYPE_LITERAL_REF:
             {

@@ -418,6 +418,10 @@ typedef struct compilation_configuration_tag
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;
 
+    // Enable MS builtin types
+    // __int8, __int16, __int32 and __int64
+    char enable_ms_builtin_types;
+
     // Enable explicit instantiation
     char explicit_instantiation;
 
