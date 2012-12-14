@@ -168,7 +168,9 @@ namespace TL { namespace Nanox {
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, (nanos_wd_t*)0, replicate,"
-        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
+        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0,"
+        <<                                           "0, (nanos_region_dimension_internal_t**)0"
+        <<                                           ");"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             statement_placeholder(fill_outline_arguments_tree)
