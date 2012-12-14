@@ -6718,8 +6718,16 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
 
             // This nodecl is needed only for choose_int_type_from_kind
             nodecl_t nodecl_sym = nodecl_make_symbol(pointer_entry, ASTFileName(a), ASTLine(a));
+
+            char needs_reference = symbol_is_parameter_of_function(pointer_entry, decl_context.current_scope->related_entry);
+
             pointer_entry->type_information = choose_int_type_from_kind(nodecl_sym, 
                     CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
+
+            if (needs_reference)
+            {
+                pointer_entry->type_information = get_lvalue_reference_type(pointer_entry->type_information);
+            }
         }
         else if (pointer_entry->kind == SK_VARIABLE)
         {
