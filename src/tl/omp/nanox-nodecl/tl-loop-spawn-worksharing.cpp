@@ -33,7 +33,7 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::loop_spawn(OutlineInfo& outline_info,
+    void LoweringVisitor::loop_spawn_worksharing(OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::List distribute_environment,
             Nodecl::List ranges,

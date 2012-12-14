@@ -237,7 +237,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& outline_placeholder2
                 );
 
-        void loop_spawn(
+        void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
+
+        void loop_spawn_worksharing(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::List distribute_environment,
