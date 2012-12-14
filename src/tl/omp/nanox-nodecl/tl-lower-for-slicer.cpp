@@ -35,7 +35,7 @@
 
 namespace TL { namespace Nanox {
 
-    Source LoweringVisitor::get_loop_distribution_source_worksharing(
+    Source LoweringVisitor::get_loop_distribution_source_slicer(
             const Nodecl::OpenMP::For &construct,
             Nodecl::List& distribute_environment,
             Nodecl::List& ranges,
@@ -44,8 +44,12 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2)
     {
-        Source for_code, reduction_code, lastprivate_code, reduction_initialization, barrier_code;
-        if (ranges.size() == 1)
+        Source for_code, reduction_code, lastprivate_code, reduction_initialization, step_initialization;
+        if (ranges.size() > 1)
+        {
+            internal_error("Collapsed ranges not implemented yet", 0);
+        }
+        else if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
 
@@ -62,27 +66,22 @@ namespace TL { namespace Nanox {
 
                 Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
 
-                for_code
-                    << "while (nanos_item_loop.execute)"
-                    << "{"
-                    ;
-
                 if (const_value_is_positive(cval))
                 {
 
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                        << ind_var.get_name() << " <= nanos_item_loop.upper;"
-                        << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
+                        << "for (" << ind_var.get_name() << " = nanos_lower;"
+                        << ind_var.get_name() << " <= nanos_upper;"
+                        << ind_var.get_name() << " += " << as_expression(cval_nodecl) << ")"
                         << "{"
                         ;
                 }
                 else
                 {
                     for_code
-                        << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                        << ind_var.get_name() << " >= nanos_item_loop.upper;"
-                        << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
+                        << "for (" << ind_var.get_name() << " = nanos_lower;"
+                        << ind_var.get_name() << " >= nanos_upper;"
+                        << ind_var.get_name() << " += " << as_expression(cval_nodecl) << ")"
                         << "{"
                         ;
                 }
@@ -90,52 +89,38 @@ namespace TL { namespace Nanox {
                 for_code
                     << statement_placeholder(placeholder1)
                     << "}"
-                    ;
-
-                for_code
                     << lastprivate_code
-                    << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
-                    << "}"
                     ;
             }
             else
             {
+                step_initialization
+                    << "int nanos_step = " << slicer_descriptor.get_name() << ".step;"
+                    ;
                 for_code
                     << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
-                    <<   "while (nanos_item_loop.execute)"
-                    <<   "{"
-                    <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                    <<         ind_var.get_name() << " <= nanos_item_loop.upper;"
+                    <<       "for (" << ind_var.get_name() << " = nanos_lower;"
+                    <<         ind_var.get_name() << " <= nanos_upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
                     <<       "{"
                     <<       statement_placeholder(placeholder1)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
-                    <<   "}"
                     << "}"
                     << "else"
                     << "{"
-                    <<   "while (nanos_item_loop.execute)"
-                    <<   "{"
-                    <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
-                    <<         ind_var.get_name() << " >= nanos_item_loop.upper;"
+                    <<       "for (" << ind_var.get_name() << " = nanos_lower;"
+                    <<         ind_var.get_name() << " >= nanos_upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
                     <<       "{"
                     <<          statement_placeholder(placeholder2)
                     <<       "}"
                     <<       lastprivate_code
-                    <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
-                    <<   "}"
                     << "}"
                     ;
             }
-        }
-        else if (ranges.size() > 1)
-        {
-            internal_error("Collapsed ranges not implemented yet", 0);
         }
         else
         {
@@ -146,31 +131,22 @@ namespace TL { namespace Nanox {
         distribute_loop_source
             << "{"
             << reduction_initialization
-            << "nanos_ws_item_loop_t nanos_item_loop;"
-            << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
-            << "if (err != NANOS_OK)"
-            <<     "nanos_handle_error(err);"
+            << "int nanos_lower = " << slicer_descriptor.get_name() << ".lower;"
+            << "int nanos_upper = " << slicer_descriptor.get_name() << ".upper;"
+            << step_initialization
             << for_code
             << reduction_code
             << "}"
-            << barrier_code
             ;
 
         reduction_initialization << reduction_initialization_code(outline_info, construct);
         reduction_code << perform_partial_reduction(outline_info);
         lastprivate_code << update_lastprivates(outline_info);
 
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
-        {
-            barrier_code
-                << full_barrier_source();
-        }
-
         return distribute_loop_source;
     }
 
-    void LoweringVisitor::distribute_loop_with_outline_worksharing(
+    void LoweringVisitor::distribute_loop_with_outline_slicer(
            const Nodecl::OpenMP::For& construct,
            Nodecl::List& distribute_environment,
            Nodecl::List& ranges,
@@ -222,8 +198,6 @@ namespace TL { namespace Nanox {
 
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
-                << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
                 << outline_distribute_loop_source
                 ;
 
@@ -255,10 +229,10 @@ namespace TL { namespace Nanox {
             symbol_map = NULL;
         }
 
-        loop_spawn_worksharing(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, slicer_descriptor);
+        loop_spawn_slicer(outline_info, construct, distribute_environment, ranges, outline_name, structure_symbol, slicer_descriptor);
     }
 
-    void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
+    void LoweringVisitor::lower_for_slicer(const Nodecl::OpenMP::For& construct)
     {
         Nodecl::List ranges = construct.get_ranges().as<Nodecl::List>();
 
@@ -272,17 +246,16 @@ namespace TL { namespace Nanox {
         statements = construct.get_statements();
 
         // Slicer descriptor
-        TL::Symbol nanos_ws_desc_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
-        ERROR_CONDITION(nanos_ws_desc_t_sym.is_invalid(), "Invalid symbol", 0);
+        TL::Symbol nanos_slicer_loop_info_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_loop_info_t");
+        ERROR_CONDITION(nanos_slicer_loop_info_t_sym.is_invalid(), "Invalid symbol", 0);
 
-        TL::Type nanos_ws_desc_type = ::get_user_defined_type(nanos_ws_desc_t_sym.get_internal_symbol());
-        nanos_ws_desc_type = nanos_ws_desc_type.get_pointer_to();
+        TL::Type nanos_slicer_desc_type = ::get_user_defined_type(nanos_slicer_loop_info_t_sym.get_internal_symbol());
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-slicer-descriptor");
         std::stringstream ss;
         ss << "wsd_" << (int)arg_counter++;
 
-        // Create a detached symbol. Will put in a scope later, in loop_spawn
+        // Create a detached symbol. Will put in a scope later, in loop_spawn_slicer
         scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::calloc(1, sizeof(*slicer_descriptor_internal));
         // This is a transient scope but it will be changed before inserting the symbol
         // to its final scope
@@ -291,14 +264,14 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->symbol_name = ::uniquestr(ss.str().c_str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
         slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
-        slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
+        slicer_descriptor.get_internal_symbol()->type_information = nanos_slicer_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
 
         OutlineInfo outline_info(environment);
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
-        Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
+        Source outline_distribute_loop_source = get_loop_distribution_source_slicer(construct,
                 distribute_environment,
                 ranges,
                 outline_info,
@@ -306,7 +279,7 @@ namespace TL { namespace Nanox {
                 outline_placeholder1,
                 outline_placeholder2);
 
-        distribute_loop_with_outline_worksharing(construct,
+        distribute_loop_with_outline_slicer(construct,
                 distribute_environment, ranges,
                 outline_info,
                 statements,

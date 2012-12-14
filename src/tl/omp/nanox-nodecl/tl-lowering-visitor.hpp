@@ -214,7 +214,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
-        Source get_loop_distribution_source(
+        Source get_loop_distribution_source_worksharing(
                 const Nodecl::OpenMP::For &construct,
                 Nodecl::List& distribute_environment,
                 Nodecl::List& ranges,
@@ -222,8 +222,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2);
-
-        void distribute_loop_with_outline(
+        void distribute_loop_with_outline_worksharing(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
                 Nodecl::List& ranges,
@@ -236,10 +235,39 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2
                 );
-
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
-
         void loop_spawn_worksharing(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase construct,
+                Nodecl::List distribute_environment,
+                Nodecl::List ranges,
+                const std::string& outline_name,
+                TL::Symbol structure_symbol,
+                TL::Symbol slicer_descriptor);
+
+        Source get_loop_distribution_source_slicer(
+                const Nodecl::OpenMP::For &construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                TL::Symbol slicer_descriptor,
+                Nodecl::NodeclBase &placeholder1,
+                Nodecl::NodeclBase &placeholder2);
+        void distribute_loop_with_outline_slicer(
+                const Nodecl::OpenMP::For& construct,
+                Nodecl::List& distribute_environment,
+                Nodecl::List& ranges,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase& statements,
+                TL::Symbol slicer_descriptor,
+                Source &outline_distribute_loop_source,
+                // Loop (in the outline distributed code)
+                Nodecl::NodeclBase& outline_placeholder1,
+                // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
+                Nodecl::NodeclBase& outline_placeholder2
+                );
+        void lower_for_slicer(const Nodecl::OpenMP::For& construct);
+        void loop_spawn_slicer(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::List distribute_environment,

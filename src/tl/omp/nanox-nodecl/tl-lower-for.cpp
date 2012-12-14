@@ -38,6 +38,52 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
     {
         lower_for_worksharing(construct);
+
+    Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info)
+    {
+        Source lastprivate_updates;
+
+        TL::ObjectList<OutlineDataItem*> outline_data_items = outline_info.get_data_items();
+
+        int num_items = 0;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = outline_data_items.begin();
+                it != outline_data_items.end();
+                it++)
+        {
+            if ((*it)->get_is_lastprivate())
+            {
+                if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        && (*it)->get_private_type().is_array())
+                {
+                    lastprivate_updates
+                        << "__builtin_memcpy(" << (*it)->get_symbol().get_name() << "_addr, " 
+                        << (*it)->get_symbol().get_name() << ", "
+                        << "sizeof(" << as_type((*it)->get_private_type()) << "));"
+                        ;
+                }
+                else
+                {
+                    lastprivate_updates
+                        << "*(" << (*it)->get_symbol().get_name() << "_addr) = " << (*it)->get_symbol().get_name() << ";"
+                        ;
+                }
+                num_items++;
+            }
+        }
+
+        Source lastprivate_code;
+
+        if (num_items > 0)
+        {
+            lastprivate_code
+                << "if (nanos_item_loop.last)"
+                << "{"
+                <<     lastprivate_updates
+                << "}"
+                ;
+        }
+
+        return lastprivate_code;
     }
 
 } }
