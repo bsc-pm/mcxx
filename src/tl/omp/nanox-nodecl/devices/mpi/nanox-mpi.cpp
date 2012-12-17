@@ -819,7 +819,8 @@ static unsigned hash_str(const char* s)
      h = (h * 54059) ^ (s[0] * 76963);
      s++;
    }
-   return h; // or return h % C;
+   //Make sure this number is bigger than MASK_TASK_NUMBER (not sure if needed)
+   return h+MASK_TASK_NUMBER+5;
 }
 
 
@@ -855,7 +856,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     Symbol main = _root.retrieve_context().get_symbol_from_name("main");
     if (_mpi_task_processed || main.is_valid()) {
         Source functions_section;                 
-        functions_section << "short (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
+        functions_section << "int (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
                 << MASK_TASK_NUMBER
                 << "}; ";
         functions_section << "unsigned int(ompss_mpi_filenames[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_names\"))) = { "
