@@ -28,10 +28,13 @@
 #ifndef NANOX_MPI_HPP
 #define NANOX_MPI_HPP
 
+
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
 
+//This two vars MUST keep same value than the ones existing at NANOX
 #define TAG_MAIN_OMPSS "__ompss_mpi_daemon" 
+#define MASK_TASK_NUMBER 989
 
 namespace TL
 {
@@ -48,7 +51,7 @@ namespace TL
                   Source _sectionCodeHost;
                   Source _sectionCodeDevice;
                   Nodecl::NodeclBase _root;
-                  int _currTaskId;
+                  unsigned int _currTaskId;
 
 //                std::string _cudaFilename;
 //                std::string _cudaHeaderFilename;

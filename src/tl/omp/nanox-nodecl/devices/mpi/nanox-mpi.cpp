@@ -432,7 +432,8 @@ void DeviceMPI::generate_additional_mpi_code(
             << hostCall;
     
     code_device_pre << struct_args.get_name() << " args;"
-            << "MPI_Comm ompss_parent_comp=nanos_MPI_Get_parent(); "
+            << "MPI_Comm ompss_parent_comp; "            
+            << "MPI_Comm_get_parent(&ompss_parent_comp);"
             << "MPI_Status ompss___status; "
             << struct_mpi_create
             << deviceCall;
@@ -804,13 +805,36 @@ void DeviceMPI::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBas
     //    }
 }
 
+static std::ifstream::pos_type get_filesize(const char* filename)
+{
+    std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
+    in.seekg(0, std::ifstream::end);
+    return in.tellg(); 
+}
+
+static unsigned hash_str(const char* s)
+{
+   unsigned h = 31 /* also prime */;
+   while (*s) {
+     h = (h * 54059) ^ (s[0] * 76963);
+     s++;
+   }
+   return h; // or return h % C;
+}
+
+
 void DeviceMPI::phase_cleanup(DTO& data_flow) {
+    std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();        
+    original_filename =original_filename.substr(0, original_filename.find("."));
     Source _mpiDaemonMain;
     _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
             << " nanos_MPI_Init(&argc, &argv);	"
+            << "nanos_sync_dev_pointers(ompss_mpi_masks, "<< MASK_TASK_NUMBER << ", ompss_mpi_filenames, ompss_mpi_file_sizes,"
+            << "ompss_mpi_file_ntasks,ompss_mpi_func_pointers_dev,ompss_mpi_func_pointers_dev_tmp);"
             << " int ompss_id_func; "
             << " MPI_Status ompss___status; "
-            << " MPI_Comm ompss_parent_comp=nanos_MPI_Get_parent(); "
+            << " MPI_Comm ompss_parent_comp; "
+            << " MPI_Comm_get_parent(&ompss_parent_comp);"
             << " while(1){ "
             << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp, &ompss___status); "
             << " if (ompss_id_func==-1){ "
@@ -822,45 +846,62 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
             << "  }}}"; //END main
 
     // Check if the file has already been created (and written)
-    std::ofstream mpiFile;
-    std::string _mpiFilename;
-    bool new_file = false;
-
+    //std::ofstream mpiFile;
+    //std::string _mpiFilename;
+    //bool new_file = false;
+    
     //if (_mpi_task_processed) {
-        
         //In the host function void* are OK, they'll identify functions
-        Source functions_section;
+        Source functions_section;                 
+        functions_section << "short (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
+                << MASK_TASK_NUMBER
+                << "}; ";
+        functions_section << "unsigned int(ompss_mpi_filenames[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_names\"))) = { "
+                << hash_str(TL::CompilationProcess::get_current_file().get_filename().c_str())
+                << "}; ";
+        functions_section << "unsigned int (ompss_mpi_file_sizes[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_sizes\"))) = { "
+                << get_filesize(TL::CompilationProcess::get_current_file().get_filename().c_str()) << _currTaskId
+                << "}; ";
+        functions_section << "unsigned int (ompss_mpi_file_ntasks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_mpi_file_n_tasks\"))) = { "
+                << _currTaskId
+                << "}; ";
         functions_section << "void (*ompss_mpi_func_pointers_host[]) __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_host\"))) = { "
                 << _sectionCodeHost
                 << "}; ";
+                //<<"extern void(*__datahost_start[]);";
         //In device functions, store a real function pointer so we can call it correctly regardless of the architecture
         functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
+        functions_section << "void (*ompss_mpi_func_pointers_dev_tmp[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_tmp\"))) = { "
+                << _sectionCodeDevice
+                << "}; ";
+                //<<"extern void(*__datadev_start[]);";
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
         Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         
         //Source included_files;
-        if (0 && CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
-                // Set the file name 
-                _mpiFilename = "ompss___mpiWorker_";
-                _mpiFilename += CompilationProcess::get_current_file().get_filename(false);
-                new_file = true;
-                mpiFile.open(_mpiFilename.c_str());
-                std::ifstream streamFile(CompilationProcess::get_current_file().get_filename(true).c_str());
-                mpiFile << streamFile.rdbuf();
-                // Remove the intermediate source file
-                mark_file_for_cleanup(_mpiFilename.c_str());
-                //Add a copy of current file for MIC
-                const std::string configuration_name = "mic";
-                //CompilationProcess::add_file(_mpiFilename, configuration_name, new_file);
-                mpiFile.close();
-        }
+//        if (0 && CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
+//                // Set the file name 
+//                _mpiFilename = "ompss___mpiWorker_";
+//                _mpiFilename += CompilationProcess::get_current_file().get_filename(false);
+//                new_file = true;
+//                mpiFile.open(_mpiFilename.c_str());
+//                std::ifstream streamFile(CompilationProcess::get_current_file().get_filename(true).c_str());
+//                mpiFile << streamFile.rdbuf();
+//                // Remove the intermediate source file
+//                mark_file_for_cleanup(_mpiFilename.c_str());
+//                //Add a copy of current file for MIC
+//                const std::string configuration_name = "mic";
+//                //CompilationProcess::add_file(_mpiFilename, configuration_name, new_file);
+//                mpiFile.close();
+//        }
 
         Symbol main = _root.retrieve_context().get_symbol_from_name("main");
         if (main.is_valid()) {
             Source real_main;
             real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
+                    << "nanos_set_MPI_control_pointers(ompss_mpi_masks, "<< MASK_TASK_NUMBER << ", ompss_mpi_filenames, ompss_mpi_file_sizes);"
                     << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
                     << "ompss___mpi_daemon_main(argc,argv);"
                     << "return 0;"
@@ -886,7 +927,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                             "int i=0;"
                             "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
                             "return i;"
-                            "}";      
+                            "}";       
 
             Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
             Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
