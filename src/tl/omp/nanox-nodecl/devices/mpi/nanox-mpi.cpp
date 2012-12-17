@@ -830,7 +830,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
             << " nanos_MPI_Init(&argc, &argv);	"
             << "nanos_sync_dev_pointers(ompss_mpi_masks, "<< MASK_TASK_NUMBER << ", ompss_mpi_filenames, ompss_mpi_file_sizes,"
-            << "ompss_mpi_file_ntasks,ompss_mpi_func_pointers_dev,ompss_mpi_func_pointers_dev_tmp);"
+            << "ompss_mpi_file_ntasks,ompss_mpi_func_pointers_dev);"
             << " int ompss_id_func; "
             << " MPI_Status ompss___status; "
             << " MPI_Comm ompss_parent_comp; "
@@ -852,6 +852,8 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     
     //if (_mpi_task_processed) {
         //In the host function void* are OK, they'll identify functions
+    Symbol main = _root.retrieve_context().get_symbol_from_name("main");
+    if (_mpi_task_processed || main.is_valid()) {
         Source functions_section;                 
         functions_section << "short (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
                 << MASK_TASK_NUMBER
@@ -873,12 +875,10 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
-        functions_section << "void (*ompss_mpi_func_pointers_dev_tmp[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_tmp\"))) = { "
-                << _sectionCodeDevice
-                << "}; ";
                 //<<"extern void(*__datadev_start[]);";
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
         Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
+    }
         
         //Source included_files;
 //        if (0 && CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
@@ -897,7 +897,6 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
 //                mpiFile.close();
 //        }
 
-        Symbol main = _root.retrieve_context().get_symbol_from_name("main");
         if (main.is_valid()) {
             Source real_main;
             real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
