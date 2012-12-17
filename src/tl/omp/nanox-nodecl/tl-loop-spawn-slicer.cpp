@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
                 immediate_decl,
                 dynamic_size);
 
-        Nodecl::NodeclBase fill_outline_arguments_tree;
+        Nodecl::NodeclBase fill_outline_arguments_tree, fill_slicer_descriptor_tree;
         Source fill_outline_arguments;
 
         Source fill_immediate_arguments;
@@ -123,10 +123,7 @@ namespace TL { namespace Nanox {
         <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &nanos_dyn_props,"
         <<            "0, 0, 0, 0);"
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<     "ol_args->" << slicer_descriptor.get_name() << ".lower = " << as_expression(lower) << ";"
-        <<     "ol_args->" << slicer_descriptor.get_name() << ".upper = " << as_expression(upper) << ";"
-        <<     "ol_args->" << slicer_descriptor.get_name() << ".step = " << as_expression(step) << ";"
-        <<     "ol_args->" << slicer_descriptor.get_name() << ".chunk = nanos_chunk;"
+        <<     statement_placeholder(fill_slicer_descriptor_tree)
         <<     statement_placeholder(fill_outline_arguments_tree)
         <<     "err = nanos_submit(nanos_wd_, 0, 0, 0);"
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -162,6 +159,18 @@ namespace TL { namespace Nanox {
             fill_outline_arguments_tree.retrieve_context().get_decl_context();
         ::insert_entry(fill_outline_arguments_tree.retrieve_context().get_decl_context().current_scope,
                 slicer_descriptor.get_internal_symbol());
+
+        Source fill_slicer_descriptor_src;
+        fill_slicer_descriptor_src
+            << slicer_descriptor.get_name() << ".lower = " << as_expression(lower) << ";"
+            << slicer_descriptor.get_name() << ".upper = " << as_expression(upper) << ";"
+            << slicer_descriptor.get_name() << ".step = " << as_expression(step) << ";"
+            << slicer_descriptor.get_name() << ".chunk = nanos_chunk;"
+            ;
+
+        Nodecl::NodeclBase fill_slicer_descriptor_new_tree = fill_slicer_descriptor_src.parse_statement(fill_slicer_descriptor_tree);
+        fill_slicer_descriptor_tree.replace(fill_slicer_descriptor_new_tree);
+
 
         if (!fill_outline_arguments.empty())
         {
