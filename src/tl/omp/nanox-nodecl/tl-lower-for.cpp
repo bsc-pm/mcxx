@@ -37,7 +37,9 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
     {
+        // lower_for_slicer(construct);
         lower_for_worksharing(construct);
+    }
 
     Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info)
     {
