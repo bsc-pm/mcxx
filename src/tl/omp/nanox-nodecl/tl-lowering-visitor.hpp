@@ -59,7 +59,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Lowering* _lowering;
 
-        // this map is used to avoid repeat the definitions of the structure
+        // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
         std::map<int, Symbol> _declared_const_wd_type_map;
 

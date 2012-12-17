@@ -37,8 +37,49 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
     {
-        // lower_for_slicer(construct);
-        lower_for_worksharing(construct);
+        Nodecl::List distribute_environment = construct.get_environment().as<Nodecl::List>();
+        Nodecl::OpenMP::Schedule schedule = distribute_environment.find_first<Nodecl::OpenMP::Schedule>();
+        ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
+
+        std::string schedule_name = schedule.get_text();
+
+        std::string ompss_prefix = "ompss_";
+        bool is_ompss_schedule = (schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix);
+
+        if (_lowering->in_ompss_mode() != is_ompss_schedule)
+        {
+            if (_lowering->in_ompss_mode())
+            {
+                std::string fixed_schedule = "ompss_" + schedule_name;
+                schedule.set_text(fixed_schedule);
+
+                std::cerr
+                    << construct.get_locus()
+                    << ": warning: schedule(" << schedule_name
+                    << ") is not allowed in OmpSs mode. Assuming schedule(" << fixed_schedule << ")" << std::endl
+                    ;
+            }
+            else
+            {
+                std::string fixed_schedule = schedule_name.substr(ompss_prefix.size());
+                schedule.set_text(fixed_schedule);
+
+                std::cerr
+                    << construct.get_locus()
+                    << ": warning: schedule(" << schedule_name
+                    << ") is not allowed in OpenMP mode. Assuming schedule(" << fixed_schedule << ")" << std::endl
+                    ;
+            }
+        }
+
+        if (_lowering->in_ompss_mode())
+        {
+            lower_for_slicer(construct);
+        }
+        else
+        {
+            lower_for_worksharing(construct);
+        }
     }
 
     Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info)

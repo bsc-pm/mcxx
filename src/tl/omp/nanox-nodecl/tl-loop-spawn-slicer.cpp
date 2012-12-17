@@ -77,13 +77,19 @@ namespace TL { namespace Nanox {
 
         Source schedule_setup;
 
+        std::string schedule_name = schedule.get_text();
+
+        std::string ompss_prefix = "ompss_";
+        ERROR_CONDITION((schedule_name.substr(0, ompss_prefix.size()) != ompss_prefix), "Wrong schedule name", 0);
+
+        schedule_name = schedule_name.substr(ompss_prefix.size());
+
+        std::string slicer_name = schedule_name + "_for";
+
         schedule_setup
-#warning FIXME get the proper slicer - check if runtime
-            << "nanos_slicer_t nanos_slicer; nanos_slicer = nanos_find_slicer(\"" << schedule.get_text() << "_for\");"
+            << "nanos_slicer_t nanos_slicer; nanos_slicer = nanos_find_slicer(\"" << slicer_name << "\");"
             << "if (nanos_slicer == 0) nanos_handle_error(NANOS_UNIMPLEMENTED);"
-#warning FIXME - Get the proper chunk
-            // << "int nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"
-            << "int nanos_chunk = 1;"
+            << "int nanos_chunk = " << (!schedule.get_chunk().is_null() ? as_expression(schedule.get_chunk()) : "1") << ";"
             ;
 
         std::multimap<std::string, std::string> dummy_multimap;
@@ -99,7 +105,7 @@ namespace TL { namespace Nanox {
                     /* only used in task calls */ dummy_multimap,
                     construct);
 
-        Source spawn_code;
+        Source spawn_code, barrier_code;
         spawn_code
         << "{"
         <<     "nanos_err_t err;"
@@ -124,8 +130,18 @@ namespace TL { namespace Nanox {
         <<     statement_placeholder(fill_outline_arguments_tree)
         <<     "err = nanos_submit(nanos_wd_, 0, 0, 0);"
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<     barrier_code
         << "}"
         ;
+
+
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        {
+            barrier_code 
+                << "err = nanos_wg_wait_completion(nanos_current_wd(), 0);"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                ;
+        }
 
         fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
 

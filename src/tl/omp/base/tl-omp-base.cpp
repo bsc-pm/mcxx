@@ -930,11 +930,20 @@ namespace TL { namespace OpenMP {
                 internal_error("Invalid values in schedule clause", 0);
             }
 
-            if (schedule == "static"
-                    || schedule == "dynamic"
-                    || schedule == "guided"
-                    || schedule == "runtime"
-                    || schedule == "auto")
+            std::string checked_schedule_name = schedule;
+
+            // Allow OpenMP schedules be prefixed with ompss_
+            std::string ompss_prefix = "ompss_";
+            if (checked_schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix)
+            {
+                checked_schedule_name = checked_schedule_name.substr(ompss_prefix.size());
+            }
+
+            if (checked_schedule_name == "static"
+                    || checked_schedule_name == "dynamic"
+                    || checked_schedule_name == "guided"
+                    || checked_schedule_name == "runtime"
+                    || checked_schedule_name == "auto")
             {
                 execution_environment.append(
                         Nodecl::OpenMP::Schedule::make(
