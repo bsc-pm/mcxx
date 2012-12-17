@@ -168,7 +168,16 @@ namespace TL { namespace Nanox {
             << slicer_descriptor.get_name() << ".chunk = nanos_chunk;"
             ;
 
+        FORTRAN_LANGUAGE()
+        {
+            // Parse in C
+            Source::source_language = SourceLanguage::C;
+        }
         Nodecl::NodeclBase fill_slicer_descriptor_new_tree = fill_slicer_descriptor_src.parse_statement(fill_slicer_descriptor_tree);
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
         fill_slicer_descriptor_tree.replace(fill_slicer_descriptor_new_tree);
 
 
