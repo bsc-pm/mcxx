@@ -24,14 +24,32 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_SYMBOL_FWD_HPP
-#define TL_SYMBOL_FWD_HPP
 
-namespace TL
+
+/*
+<testinfo>
+test_generator=config/mercurium-cuda
+compile_versions=cuda_omp
+</testinfo>
+*/
+
+#include <stdlib.h>
+
+__global__ void addOne_gpu(int *a);
+
+int main (int argc, char *argv[])
 {
-    class Symbol;
-    class GCCAttribute;
-    class MSAttribute;
-}
+    int a = 1;
 
-#endif // TL_SYMBOL_FWD_HPP
+#pragma omp target device (cuda) copy_deps
+#pragma omp task inout (a)
+    {
+        dim3 var;
+        var.x = 1;
+        var.y = 1;
+        var.z = 1;
+        addOne_gpu <<<1, 2>>> (&a);
+    }
+    if (a != 2) abort();
+    return 0;
+}

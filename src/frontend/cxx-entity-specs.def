@@ -113,6 +113,7 @@ integer|all|bitfield_first|Significance order of the first bit of this bitfield
 integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
 typeof(_size_t)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
 array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
+array(typeof(gather_gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|fortran|bind_info|Information of a BIND(lang, X)
