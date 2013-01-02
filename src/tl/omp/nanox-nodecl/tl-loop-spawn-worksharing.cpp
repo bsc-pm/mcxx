@@ -108,26 +108,28 @@ namespace TL { namespace Nanox {
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
-        
-        //Loop has no implementors,but to keep the same schema than tasks, we build a device_name -> outline_name map
+
+        // Loop has no implementors,but to keep the same schema than tasks, we
+        // build a device_name -> outline_name map
         std::multimap<std::string, std::string> devices_and_implementors;
-        TL::ObjectList<std::string> device_names = outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
+        TL::ObjectList<std::string> device_names =
+            outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end(); it++)
         {
             devices_and_implementors.insert(
-                        make_pair(
-                            *it, /* device name */
-                            outline_name)); /*implementor outline name */
+                    make_pair(
+                        /* device name */ *it,
+                        /*implementor outline name */ outline_name));
         }
-        
+
         Source const_wd_info;
         const_wd_info
             << fill_const_wd_info(struct_arg_type_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
                     outline_info,
-                    devices_and_implementors,                    
+                    devices_and_implementors,
                     construct);
 
         Source dependence_type;
