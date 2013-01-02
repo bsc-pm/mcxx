@@ -235,36 +235,9 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
-//    // For every device name specified in the 'device' clause, we should get
-//    // its device descriptor
-//    DeviceDescriptorInfo info(outline_name);
-//    for (ObjectList<std::string>::const_iterator it = device_names.begin();
-//            it != device_names.end();
-//            ++it)
-//    {
-//        Source ancillary_device_description, device_description, aux_fortran_init;
-//
-//        if (it != device_names.begin())
-//            device_descriptions <<  ", ";
-//
-//        std::string device_name = *it;
-//        DeviceProvider* device = device_handler.get_device(device_name);
-//        ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
-//
-//        device->get_device_descriptor(
-//                info,
-//                ancillary_device_description,
-//                device_description,
-//                aux_fortran_init);
-//
-//        device_descriptions << device_description;
-//        ancillary_device_descriptions << ancillary_device_description;
-//        opt_fortran_dynamic_init << aux_fortran_init;
-//    }
-
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
-    // Note that in this case we use the implementor outline name as outline name    
+    // Note that in this case we use the implementor outline name as outline name
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
     int n_devices=implementation_table_it->second.get_device_names().size();
@@ -294,7 +267,7 @@ Source LoweringVisitor::fill_const_wd_info(
         device_descriptions << device_description;
         ancillary_device_descriptions << ancillary_device_description;
         opt_fortran_dynamic_init << aux_fortran_init;
-        
+
         devices_and_implementors_it++;
         n_devices--;
     }
