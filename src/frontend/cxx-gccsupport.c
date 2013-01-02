@@ -194,6 +194,27 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             }
         }
     }
+    else if (strcmp(attribute_name, "aligned") == 0
+            || strcmp(attribute_name, "__aligned__") == 0)
+    {
+        if (expression_list != NULL)
+        {
+            if (ASTSon0(expression_list) != NULL)
+            {
+                running_error("%s: error: attribute 'aligned' only allows zero or one argument",
+                        ast_location(expression_list));
+            }
+
+            // Evaluate the expression
+            AST argument = ASTSon1(expression_list);
+            if (!check_for_expression(argument, decl_context))
+            {
+                running_error("%s: Invalid expression '%s'\n",
+                        ast_location(expression_list),
+                        prettyprint_in_buffer(argument));
+            }
+        }
+    }
     else if (strcmp(attribute_name, "mode") == 0
             || strcmp(attribute_name, "__mode__") == 0)
     {
