@@ -24,6 +24,7 @@ linker_options = -Xlinker --add-needed
 {svml} linker_options = -lsvml
 {ffast-math} options = --variable=ffast_math_enabled:1
 {ffast-math} compiler_options = -ffast-math
+{ompss} options = --variable=ompss_mode:1
 #{acml} linker_options = -lacml_mv
 linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance

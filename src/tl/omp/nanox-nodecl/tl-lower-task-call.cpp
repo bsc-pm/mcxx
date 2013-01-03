@@ -415,6 +415,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
     Scope sc = construct.retrieve_context();
+    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
+
     TL::ObjectList<TL::Symbol> new_arguments;
 
     Source initializations_src;
@@ -433,7 +435,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         std::stringstream ss;
         ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
         arg_counter++;
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
@@ -468,7 +470,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_line()));
     }
 
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
+    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
 
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     //Map so the device provider can translate between parameters and arguments
@@ -495,7 +497,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // Create a new variable holding the value of the argument
         std::stringstream ss;
         ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
         arg_counter++;
 
         // FIXME - Wrap this sort of things
@@ -575,10 +577,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
     ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
 
+    Nodecl::NodeclBase initializations_tree;
     if (!initializations_src.empty())
     {
-        Nodecl::NodeclBase assignments_tree = initializations_src.parse_statement(sc);
-        Nodecl::Utils::prepend_items_before(enclosing_expression_stmt, assignments_tree);
+        initializations_tree = initializations_src.parse_statement(new_block_context_sc);
     }
 
     // Now fix again arguments of the outline
@@ -715,6 +717,17 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
+    Nodecl::List code_plus_initializations;
+    code_plus_initializations.append(initializations_tree);
+    code_plus_initializations.append(new_code);
+
+    new_code = Nodecl::Context::make(
+            Nodecl::List::make(
+                Nodecl::CompoundStatement::make(
+                    code_plus_initializations,
+                    Nodecl::NodeclBase::null())),
+            new_block_context_sc.get_decl_context());
+
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     // Find the enclosing expression statement
@@ -728,12 +741,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     ERROR_CONDITION(enclosing_expression_statement.is_null(), "Did not find the enclosing expression statement", 0);
 
     enclosing_expression_statement.replace(new_code);
-
-    if (new_code == new_construct)
-    {
-        // Get the new tree only if it directly the enclosing expression statement
-        new_construct = enclosing_expression_stmt;
-    }
 
     emit_async_common(
             new_construct,

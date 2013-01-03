@@ -1870,9 +1870,10 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
             // Reason: this attributes refer to declarator_list
-            if (ASTType(spec) == AST_GCC_ATTRIBUTE)
-                continue;
-            gather_decl_spec_information(spec, gather_info, decl_context);
+            if (ASTType(spec) != AST_GCC_ATTRIBUTE)
+            {
+                gather_decl_spec_information(spec, gather_info, decl_context);
+            }
         }
     }
 
@@ -1986,14 +1987,19 @@ void build_scope_decl_specifier_seq(AST a,
             for_each_element(list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) != AST_GCC_ATTRIBUTE)
-                    continue;
-                gather_decl_spec_information(spec, gather_info, decl_context);
+                if (ASTType(spec) == AST_GCC_ATTRIBUTE)
+                {
+                    gather_decl_spec_information(spec, gather_info, decl_context);
+                }
             }
         }
 
-        // Now update the type_spec with type information that was caught in the decl_specifier_seq
-        // First "long"/"short"
+        // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->is_short = local_gather_info.is_short;
+        gather_info->is_long = local_gather_info.is_long;
+        gather_info->is_unsigned = local_gather_info.is_unsigned;
+        gather_info->is_signed = local_gather_info.is_signed;
+
         if (gather_info->is_short)
         {
             if (*type_info == get_signed_int_type())
@@ -2514,6 +2520,45 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         decl_context, abstract_decl, nodecl_output);
 
                 *simple_type_info = declarator_type;
+                break;
+            }
+            // Microsoft builtin types
+        case AST_MS_INT8:
+            {
+                // Behaves like a char
+                *simple_type_info = get_char_type();
+                break;
+            }
+        case AST_MS_INT16:
+            {
+                // Behaves like a short
+                *simple_type_info = get_signed_int_type();
+                gather_info->is_short = 1;
+                break;
+            }
+        case AST_MS_INT32:
+            {
+                // Behaves like int
+                *simple_type_info = get_signed_int_type();
+                break;
+            }
+        case AST_MS_INT64:
+            {
+                // May be long int or long long int depending on the environment
+                *simple_type_info = get_signed_int_type();
+
+                if (type_get_size(get_signed_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 1;
+                }
+                else if (type_get_size(get_signed_long_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 2;
+                }
+                else
+                {
+                    running_error("%s: error: __int64 not supported\n", ast_location(a));
+                }
                 break;
             }
             // Mercurium internal mechanism
