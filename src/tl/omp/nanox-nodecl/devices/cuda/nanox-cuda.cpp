@@ -1609,6 +1609,61 @@ void DeviceCUDA::generate_ndrange_kernel_call(
     output_statements = expression_stmt;
 }
 
+// This visitor completes the configuration of every cuda function task
+class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    public:
+        void visit(const Nodecl::CudaKernelCall& node)
+        {
+            Nodecl::List kernel_config = node.get_kernel_config().as<Nodecl::List>();
+
+            ERROR_CONDITION(kernel_config.size() < 2
+                    || kernel_config.size() > 4,
+                    "A kernel call configuration must have between 2 and 4 parameters", 0);
+
+            if (kernel_config.size() == 2
+                    || kernel_config.size() == 3)
+            {
+                // We should complete the kernel configuration
+                if (kernel_config.size() == 2)
+                {
+                    // Append to the kernel configuration the size of shared memory (0, in this case)
+                    kernel_config.append(
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
+                                node.get_filename(),
+                                node.get_line()));
+                }
+
+                Symbol exec_stream =
+                    node.retrieve_context().get_symbol_from_name("nanos_get_kernel_execution_stream");
+
+                ERROR_CONDITION(!exec_stream.is_valid(), "Unreachable code", 0);
+
+                // Append to the kernel configuration the stream
+                kernel_config.append(
+                        Nodecl::FunctionCall::make(
+                            Nodecl::Symbol::make(
+                                exec_stream,
+                                node.get_filename(),
+                                node.get_line()),
+                            /* arguments */ nodecl_null(),
+                            /* alternate_name */ nodecl_null(),
+                            /* function_form */ nodecl_null(),
+                            TL::Type::get_void_type(),
+                            node.get_filename(),
+                            node.get_line()));
+            }
+        }
+};
+
+void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
+{
+    UpdateKernelConfigsVisitor update_kernel_visitor;
+    update_kernel_visitor.walk(task_code);
+}
+
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
@@ -1620,11 +1675,14 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
+
+    // This symbol is only valid for function tasks
     const TL::Symbol& called_task = info._called_task;
+    bool is_function_task = called_task.is_valid();
 
     output_statements = original_statements;
 
-    ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
+    ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
     TL::Symbol current_function =
@@ -1715,8 +1773,19 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         }
     }
 
-    // Add the user function to the intermediate file
-    if (called_task.is_valid()
+
+    // Update the kernel configurations of every cuda function call of the current task
+    Nodecl::NodeclBase task_code =
+        (is_function_task) ? called_task.get_function_code() : output_statements;
+    if (!task_code.is_null())
+    {
+        update_all_kernel_configurations(task_code);
+    }
+
+    // Add the user function to the intermediate file if It is a function task
+    // (This action must be done always after the update of the kernel configurations
+    // because the code of the user function may be changed if It contains one or more cuda function calls)
+    if (is_function_task
             && !called_task.get_function_code().is_null())
     {
         _cuda_file_code.append(Nodecl::Utils::deep_copy(
@@ -1736,7 +1805,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             symbol_map);
 
     Source ndrange_code;
-    if (called_task.is_valid()
+    if (is_function_task
             && info._target_info.get_ndrange().size() > 0)
     {
         generate_ndrange_additional_code(called_task,
@@ -1746,8 +1815,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source and but It is defined
-    // in cudacc_filename.cu
+    // this function is called from the original source but It is defined in cudacc_filename.cu
     unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
     if (IS_C_LANGUAGE)
     {
@@ -1772,7 +1840,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
 
-    if (called_task.is_valid()
+    if (is_function_task
             && info._target_info.get_ndrange().size() > 0)
     {
         generate_ndrange_kernel_call(
