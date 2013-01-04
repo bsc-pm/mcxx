@@ -237,6 +237,31 @@ void gather_one_gcc_attribute(const char* attribute_name,
             }
         }
     }
+    else if (strcmp(attribute_name, "aligned") == 0
+            || strcmp(attribute_name, "__aligned__") == 0)
+    {
+        if (expression_list != NULL)
+        {
+            if (ASTSon0(expression_list) != NULL)
+            {
+                running_error("%s: error: attribute 'aligned' only allows one argument",
+                        ast_location(expression_list));
+            }
+
+            // Evaluate the expression
+            nodecl_t nodecl_dummy;
+            AST argument = ASTSon1(expression_list);
+            if (!check_expression(argument, decl_context, &nodecl_dummy))
+            {
+                running_error("%s: Invalid expression '%s'\n",
+                        ast_location(expression_list),
+                        prettyprint_in_buffer(argument));
+            }
+
+            nodecl_expression_list =
+                nodecl_make_list_1(nodecl_make_text(prettyprint_in_buffer(argument), ASTFileName(argument), ASTLine(argument)));
+        }
+    }
     else if (strcmp(attribute_name, "mode") == 0
             || strcmp(attribute_name, "__mode__") == 0)
     {
@@ -507,7 +532,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
             for_each_element(expression_list, it)
             {
                 AST expr = ASTSon1(it);
-                nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list, 
+
+                nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list,
                         nodecl_make_text(prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
             }
         }
