@@ -47,10 +47,15 @@ namespace TL { namespace Nanox {
                 _openmp_dry_run,
                 "0");
 
-    register_parameter("weaks_as_statics",
-            "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
-            _static_weak_symbols_str,
-            "0").connect(functor(&Lowering::set_weaks_as_statics, *this));
+        register_parameter("weaks_as_statics",
+                "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
+                _static_weak_symbols_str,
+                "0").connect(functor(&Lowering::set_weaks_as_statics, *this));
+
+        register_parameter("ompss_mode",
+                "Enables OmpSs semantics instead of OpenMP semantics",
+                _ompss_mode_str,
+                "0").connect(functor(&Lowering::set_ompss_mode, *this));
     }
 
     void Lowering::run(DTO& dto)
@@ -80,6 +85,16 @@ namespace TL { namespace Nanox {
     void Lowering::set_weaks_as_statics(const std::string& str)
     {
         parse_boolean_option("set_weaks_as_statics", str, _static_weak_symbols, "Assuming false.");
+    }
+
+    void Lowering::set_ompss_mode(const std::string& str)
+    {
+        parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
+    }
+
+    bool Lowering::in_ompss_mode() const
+    {
+        return _ompss_mode;
     }
 
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)

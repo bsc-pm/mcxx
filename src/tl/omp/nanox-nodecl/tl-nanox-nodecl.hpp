@@ -44,6 +44,7 @@ namespace TL { namespace Nanox {
 
             Nodecl::List& get_extra_c_code();
 
+            bool in_ompss_mode() const;
         private:
             Nodecl::List _extra_c_code;
 
@@ -53,6 +54,10 @@ namespace TL { namespace Nanox {
             std::string _static_weak_symbols_str;
             bool _static_weak_symbols;
             void set_weaks_as_statics(const std::string& str);
+
+            std::string _ompss_mode_str;
+            bool _ompss_mode;
+            void set_ompss_mode(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);
