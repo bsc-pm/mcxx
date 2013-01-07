@@ -2221,6 +2221,19 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_CUDA_CONSTANT:
             gather_info->cuda.is_constant = 1;
+            break;                     
+            // OPENCL stuff
+        case AST_OPENCL_KERNEL:
+            gather_info->opencl.is_kernel = 1;
+            break;
+        case AST_OPENCL_GLOBAL:
+            gather_info->opencl.is_global = 1;
+            break;
+        case AST_OPENCL_LOCAL:
+            gather_info->opencl.is_local = 1;
+            break;
+        case AST_OPENCL_CONSTANT:
+            gather_info->opencl.is_constant = 1;
             break;
         case AST_XL_BUILTIN_SPEC :
             // Do nothing at the moment

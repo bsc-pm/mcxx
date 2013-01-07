@@ -522,6 +522,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
+    std::cout << "entro\n\n";
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for OpenCL devices is not supported yet\n", 0);
 
