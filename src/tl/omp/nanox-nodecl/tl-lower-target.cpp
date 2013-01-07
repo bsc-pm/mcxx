@@ -29,12 +29,67 @@
 
 namespace TL { namespace Nanox {
 
+    // This Auxiliar visitor is used to traverse the tree and remove from it every
+    // declaration or definition of any symbol contained in the '_symbols_to_be_removed' set.
+    // Currently, we are handling the following kind of nodes:
+    // - Nodecl::FunctionCode
+    // - Nodecl::ObjectInit
+    // - Nodecl::CxxDecl
+    // - Nodecl::CxxDef
+    //
+    class RemoveCopiedStuffVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            const ObjectList<Symbol> & _symbols_to_be_removed;
+
+        public:
+            RemoveCopiedStuffVisitor(const ObjectList<Symbol> & symbols)
+                : _symbols_to_be_removed(symbols)
+            {
+            }
+
+            void visit(const Nodecl::FunctionCode& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+
+            void visit(const Nodecl::ObjectInit& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+
+            void visit(const Nodecl::CxxDecl& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+
+            void visit(const Nodecl::CxxDef& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+    };
+
     void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDeclaration& construct)
     {
 
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
         Nodecl::List symbols = construct.get_symbols().as<Nodecl::List>();
         Nodecl::List devices = construct.get_devices().as<Nodecl::List>();
+
+        // This set stores the symbols declared/defined by this TargetDeclaration
+        TL::ObjectList<Symbol> list_of_symbols;
 
         // Declarations/Definitions to be copied
         TL::ObjectList<Nodecl::NodeclBase> declarations;
@@ -77,6 +132,8 @@ namespace TL { namespace Nanox {
                                 construct.get_line()));
                 }
             }
+
+            list_of_symbols.append(symbol);
         }
 
         bool using_device_smp = false;
@@ -97,23 +154,15 @@ namespace TL { namespace Nanox {
 
          if (!using_device_smp)
          {
-             for (Nodecl::List::iterator it = symbols.begin(); it != symbols.end(); ++it)
-             {
-                 Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
-
-                 if (sym.is_function()
-                         && !sym.get_function_code().is_null())
-                 {
-
-                     Nodecl::Utils::remove_from_enclosing_list(sym.get_function_code());
-                 }
-                 else if (!sym.get_value().is_null())
-                 {
-                     Nodecl::Utils::remove_from_enclosing_list(sym.get_value());
-                 }
-             }
+             // If this target declaration does not use the 'smp' device, we
+             // should remove the symbols declared or defined by this target
+             // declaration from the original source
+             RemoveCopiedStuffVisitor remove_visitor(list_of_symbols);
+             remove_visitor.walk(CURRENT_COMPILED_FILE->nodecl);
          }
 
+        // Finally, we can remove the pragma
         Nodecl::Utils::remove_from_enclosing_list(construct);
     }
+
 } }

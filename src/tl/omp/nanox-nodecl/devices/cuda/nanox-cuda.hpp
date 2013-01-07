@@ -186,6 +186,7 @@ namespace TL
 //                void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
 //                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
 //                        ScopeLink &sl);
+                void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
 
                   void generate_ndrange_additional_code(
