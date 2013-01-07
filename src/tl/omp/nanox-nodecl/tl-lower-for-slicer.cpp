@@ -272,8 +272,8 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->type_information = nanos_slicer_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
-
-        OutlineInfo outline_info(environment);
+        TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+        OutlineInfo outline_info(environment, enclosing_function);
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
         Source outline_distribute_loop_source = get_loop_distribution_source_slicer(construct,
