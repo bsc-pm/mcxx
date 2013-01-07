@@ -249,11 +249,13 @@ namespace TL
         class LIBTL_CLASS TargetInfo
         {
             private:
+                Symbol _target_symbol;
                 ObjectList<CopyItem> _copy_in;
                 ObjectList<CopyItem> _copy_out;
                 ObjectList<CopyItem> _copy_inout;
 
                 ObjectList<Nodecl::NodeclBase> _ndrange;
+                ObjectList<Nodecl::NodeclBase> _onto;
 
                 ObjectList<std::string> _device_list;
 
@@ -273,8 +275,14 @@ namespace TL
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
                 ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
+                void append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions);
+                ObjectList<Nodecl::NodeclBase> get_onto() const;
+
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;
+                
+                void set_target_symbol(Symbol funct_symbol);
+                Symbol get_target_symbol() const;
 
                 void append_to_device_list(const ObjectList<std::string>& device_list);
 

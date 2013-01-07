@@ -428,9 +428,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
-# target declaration/definition
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
-                   | NODECL_OPEN_M_P*TARGET_DEFINITION([devices] text-seq, [symbols] name-seq)
 
 expression : task-call
 
@@ -464,7 +462,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
-                 | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq)
+                 | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq, [function_name]name)
+                 | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 
 reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)

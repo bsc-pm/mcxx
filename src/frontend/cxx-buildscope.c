@@ -13600,14 +13600,14 @@ static void finish_pragma_declaration(
         int line,
         nodecl_t *nodecl_output)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text, 
+    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
     //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" : 
-    //         (nodecl_is_list(nodecl_decl) ? 
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) : 
+    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
+    //         (nodecl_is_list(nodecl_decl) ?
+    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
     //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
-    
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) && 
+
+    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
             entry_list_size(declared_symbols) != 0, "This should not happen", 0);
 
     if (entry_list_size(declared_symbols) > 0)
@@ -13646,7 +13646,7 @@ static void finish_pragma_declaration(
 
         for (i = 0; i < num_items; i++)
         {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
                     "Invalid node in nodecl_pragma_output", 0);
 
             nodecl_t pragma_context = nodecl_get_child(list[i], 2);
@@ -13672,8 +13672,8 @@ static void finish_pragma_declaration(
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
 }
 
-static void build_scope_pragma_custom_construct_declaration(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_pragma_custom_construct_declaration(AST a,
+        decl_context_t decl_context,
         nodecl_t *nodecl_output)
 {
     scope_entry_list_t* declared_symbols = NULL;
@@ -13689,15 +13689,15 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
+    common_build_scope_pragma_custom_declaration(a, decl_context,
             &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma, 
+            build_scope_declaration_pragma,
             &info);
 
     pragma_nesting--;
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
-    finish_pragma_declaration(declared_symbols, 
+    finish_pragma_declaration(declared_symbols,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_decl,

@@ -30,3 +30,10 @@ config.h.in~
 Makefile
 .deps/
 .libs/
+nbproject
+/src/tl/tl-nodecl.cpp
+/src/tl/tl-nodecl.hpp
+/src/tl/tl-nodecl-visitor.cpp
+/src/tl/tl-nodecl-fwd.hpp
+/src/tl/tl-nodecl-visitor.hpp
+/src/tl/tl-lexer-tokens.hpp

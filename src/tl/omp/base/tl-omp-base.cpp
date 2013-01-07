@@ -269,7 +269,18 @@ namespace TL { namespace OpenMP {
                 {
                     target_items.append(
                             Nodecl::OpenMP::NDRange::make(
-                                Nodecl::List::make(ndrange_exprs),
+                                Nodecl::List::make(ndrange_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+                
+                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+                if (!onto_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Onto::make(
+                                Nodecl::List::make(onto_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
 
@@ -1122,27 +1133,12 @@ namespace TL { namespace OpenMP {
                     "%s: expecting a function declaration or definition", decl.get_locus().c_str());
 
             Symbol sym = decl.get_symbol();
-
-            ERROR_CONDITION(!sym.is_function(),
-                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
-
             symbols.append(Nodecl::Symbol::make(sym, file, line));
 
-            Nodecl::NodeclBase function_code = sym.get_function_code();
-            if (!function_code.is_null())
-            {
-                result = Nodecl::OpenMP::TargetDefinition::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
-            else
-            {
-                result = Nodecl::OpenMP::TargetDeclaration::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
+            result = Nodecl::OpenMP::TargetDeclaration::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(symbols),
+                    file, line);
 
             decl.replace(result);
         }
@@ -1614,9 +1610,20 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
-
+        
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        if (!onto_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
+                    
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {

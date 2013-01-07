@@ -177,9 +177,14 @@ namespace TL { namespace Nanox {
 
         TL::Symbol called_task_dummy = TL::Symbol::invalid();
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-        CreateOutlineInfo info(outline_name, outline_info, statements,
-                /* task_label */ Nodecl::NodeclBase::null(),
-                structure_symbol, called_task_dummy);
+
+        OutlineInfo::implementation_table_t implementation_table =outline_info.get_implementation_table();
+        OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(function_symbol);
+        ERROR_CONDITION(implementation_it == implementation_table.end(),
+                "No information from the implementation table", 0)
+
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), implementation_it->second, statements,
+                /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names();
