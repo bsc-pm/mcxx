@@ -184,9 +184,9 @@ namespace TL { namespace Nanox {
            Nodecl::NodeclBase& outline_placeholder2
            )
     {
-        Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
+        Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
-        std::string outline_name = get_outline_name(function_symbol);
+        std::string outline_name = get_outline_name(enclosing_function);
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -203,7 +203,7 @@ namespace TL { namespace Nanox {
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
         OutlineInfo::implementation_table_t implementation_table =outline_info.get_implementation_table();
-        OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(function_symbol);
+        OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(enclosing_function);
         ERROR_CONDITION(implementation_it == implementation_table.end(),
                 "No information from the implementation table", 0)
 
@@ -211,7 +211,7 @@ namespace TL { namespace Nanox {
                 /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names
-        TL::ObjectList<std::string> device_names = outline_info.get_device_names();
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names(enclosing_function);
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
                 it++)
@@ -299,8 +299,8 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
-
-        OutlineInfo outline_info(environment);
+        TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+        OutlineInfo outline_info(environment, enclosing_function);
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
