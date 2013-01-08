@@ -1051,7 +1051,6 @@ namespace TL { namespace Nanox {
                 ;
 
             outline_function_addr << "LOC(" << unpacked_function.get_name() << ")";
-            std::cout << "gñe " << unpacked_arguments.get_source(false) << "\n";
             if (!unpacked_arguments.empty())
             {
                 outline_function_addr << ", ";
