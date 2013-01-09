@@ -1789,7 +1789,7 @@ namespace TL { namespace OpenMP {
                 OpenMP::COPY_DIR_INOUT,
                 filename, line,
                 target_items);
-
+        
         result_list.append(
                 Nodecl::OpenMP::Target::make(
                     Nodecl::List::make(devices),

@@ -361,10 +361,10 @@ namespace TL
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
+                ObjectList<Nodecl::NodeclBase>& get_ndrange(TL::Symbol function_symbol);
                                 
                 void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
-                ObjectList<Nodecl::NodeclBase> get_onto(TL::Symbol function_symbol);
+                ObjectList<Nodecl::NodeclBase>& get_onto(TL::Symbol function_symbol);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol
