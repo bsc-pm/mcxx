@@ -73,7 +73,8 @@ typedef enum const_value_kind_tag
     CVK_STRUCT,
     CVK_VECTOR,
     CVK_STRING,
-    CVK_RANGE
+    CVK_RANGE,
+    CVK_MASK
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -1353,8 +1354,8 @@ const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_
     }
     else
     {
-        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
 #ifdef HAVE_QUADMATH_H
+        const floating_type_info_t* floating_info = floating_type_get_info(floating_type);
         if (floating_info->bits == 128)
         {
             return const_value_cast_to_float128_value(val);
@@ -2968,7 +2969,7 @@ static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value
     internal_error("Not yet implemented", 0);
 }
 
-void const_value_string_unpack(const_value_t* v, int **values, int *num_elements)
+void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_elements)
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
@@ -2982,6 +2983,22 @@ void const_value_string_unpack(const_value_t* v, int **values, int *num_elements
 
     *num_elements = nels;
     *values = result;
+}
+
+const char *const_value_string_unpack_to_string(const_value_t* v)
+{
+    int *values = NULL, num_elements = 0;
+    const_value_string_unpack_to_int(v, &values, &num_elements);
+
+    char str[num_elements + 1];
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        str[i] = (char)values[i];
+    }
+    str[num_elements] = '\0';
+
+    return uniquestr(str);
 }
 
 const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
@@ -3083,6 +3100,43 @@ const_value_t* const_value_sqrt(const_value_t* val)
 size_t const_value_get_raw_data_size(void)
 {
     return sizeof(const_value_t);
+}
+
+const_value_t* const_value_get_mask(cvalue_uint_t value, unsigned int num_bits)
+{
+    const_value_t* result = calloc(1, sizeof(*result));
+
+    result->kind = CVK_MASK;
+    result->num_bytes = num_bits / 8;
+    result->value.i = value;
+
+    return result;
+}
+
+char const_value_is_mask(const_value_t* v)
+{
+    return (v != NULL && v->kind == CVK_MASK);
+}
+
+unsigned int const_value_mask_get_num_bits(const_value_t* v)
+{
+    ERROR_CONDITION(!const_value_is_mask(v), "This const value is not a mask", 0);
+
+    return v->num_bytes * 8;
+}
+
+unsigned int const_value_mask_get_num_bytes(const_value_t* v)
+{
+    ERROR_CONDITION(!const_value_is_mask(v), "This const value is not a mask", 0);
+
+    return v->num_bytes;
+}
+
+cvalue_uint_t const_value_mask_get_value(const_value_t* v)
+{
+    ERROR_CONDITION(!const_value_is_mask(v), "This const value is not a mask", 0);
+
+    return v->value.i;
 }
 
 // Only build simple types using this routine

@@ -1851,7 +1851,9 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.", n.get_pragma_line( ).prettyprint( ).c_str( ) );
+            WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+                             codegen_to_str( pragma_line,
+                                             nodecl_retrieve_context( pragma_line ) ) );
             return ObjectList<Node*>( );
         }
     }

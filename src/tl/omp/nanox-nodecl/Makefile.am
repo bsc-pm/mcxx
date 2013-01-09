@@ -47,7 +47,9 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lowering-visitor.cpp \
 								 tl-lowering-visitor.hpp \
 								 tl-lower-arguments.cpp \
+								 tl-lower-task-common.hpp \
 								 tl-lower-task.cpp \
+								 tl-lower-task-call.cpp \
 								 tl-lower-taskwait.cpp \
 								 tl-outline-info.hpp \
 								 tl-outline-info.cpp \
@@ -56,14 +58,20 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-barrier.cpp \
 								 tl-lower-parallel.cpp \
 								 tl-lower-for.cpp \
+								 tl-lower-for-worksharing.cpp \
+								 tl-lower-for-slicer.cpp \
 								 tl-lower-sections.cpp \
 								 tl-lower-critical.cpp \
 								 tl-lower-flush.cpp \
 								 tl-lower-atomic.cpp \
+								 tl-lower-target.cpp \
 								 tl-parallel-spawn.cpp \
-								 tl-loop-spawn.cpp \
+								 tl-loop-spawn-worksharing.cpp \
+								 tl-loop-spawn-slicer.cpp \
 								 tl-reduction-common.cpp \
 								 tl-nanox-ptr.cpp \
 								 tl-devices.cpp \
 								 tl-devices.hpp \
+								 tl-target-information.cpp \
+								 tl-target-information.hpp \
 								 $(END)

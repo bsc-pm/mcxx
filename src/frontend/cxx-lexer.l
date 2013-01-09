@@ -127,6 +127,16 @@ static lexer_keyword_t cuda_keywords[] =
     { NULL, 0 }
 };
 
+static lexer_keyword_t ms_builtin_types[] =
+{
+    {"__int8" ,  MS_INT8},
+    {"__int16" , MS_INT16},
+    {"__int32" , MS_INT32},
+    {"__int64" , MS_INT64},
+    // Sentinel
+    { NULL, 0 }
+};
+
 static int yywrap(void);
 
 static void parse_token_text(void);
@@ -346,9 +356,8 @@ type {
 	char matched = 0;
 
 	// Ignore gcc and ident
-    if (!matched 
-            && ((strcasecmp(yytext, "gcc") == 0)
-                || (strcasecmp(yytext, "ident") == 0)))
+    if ((strcasecmp(yytext, "gcc") == 0)
+                || (strcasecmp(yytext, "ident") == 0))
 	{
         // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
@@ -377,7 +386,6 @@ type {
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
 			yymore();
-			matched = 1;
 		}
 		else
 		{
@@ -395,6 +403,22 @@ type {
 [^\n]* {
 	parse_token_text();
 	BEGIN(preprocess);
+	return UNKNOWN_PRAGMA;
+}
+
+[\n] {
+
+    // Degenerate case. Our yytext is now "unknownpragma\n". We do not want the "\n"
+    int len = strlen(yytext);
+    char c[len + 1];
+    strncpy(c, yytext, len);
+    c[len] = '\0';
+    ERROR_CONDITION(c[len - 1] != '\n', "There should be a newline here", 0);
+    c[len-1] = '\0';
+
+	parse_token_text_str(c);
+
+	BEGIN(INITIAL);
 	return UNKNOWN_PRAGMA;
 }
 
@@ -1005,6 +1029,7 @@ type {
 "__restrict__" { parse_token_text(); return RESTRICT; }
 "__const" { parse_token_text(); return TOKEN_CONST; }
 "__const__" { parse_token_text(); return TOKEN_CONST; }
+"__declspec" { parse_token_text(); return TOKEN_DECLSPEC; }
 "__attribute" { parse_token_text(); return ATTRIBUTE; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
@@ -1067,6 +1092,13 @@ type {
 "__constant__" |
 "__shared__" {
     return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
+}
+
+"__int8" |
+"__int16" |
+"__int32" |
+"__int64" {
+    return lookup_keyword_in_table(ms_builtin_types, yytext, CURRENT_CONFIGURATION->enable_ms_builtin_types);
 }
 
  /* Special tokens for subparsing */
@@ -1433,7 +1465,8 @@ static void register_new_directive_inner(pragma_directive_set_t* pragma_directiv
             kind);
 }
 
-void register_new_directive(const char* prefix, const char* directive, char is_construct, char bound_to_single_stmt)
+void register_new_directive(compilation_configuration_t* configuration, 
+        const char* prefix, const char* directive, char is_construct, char bound_to_single_stmt)
 {
     pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
 
@@ -1444,11 +1477,11 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
     }
 
     int i;
-    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    for (i = 0; i < configuration->num_pragma_custom_prefix; i++)
     {
-        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
+        if (strcmp(configuration->pragma_custom_prefix[i], prefix) == 0)
         {
-            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
+            pragma_directive_set_t* pragma_directive_set = configuration->pragma_custom_prefix_info[i];
 
             int j;
             for (j = 0; j < pragma_directive_set->num_directives; j++)

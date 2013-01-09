@@ -30,6 +30,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "string_utils.h"
+#include "tl-compilerpipeline.hpp"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
@@ -1118,7 +1119,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
                 && step.is_constant())
         {
             std::string rel_op = " <= ";
-            bool is_positive = 0;
             const_value_t* v = step.get_constant();
             if (const_value_is_negative(v))
             {
@@ -1200,6 +1200,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
         Nodecl::NodeclBase actual_arg = *arg_it;
 
+
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
 
@@ -1208,16 +1209,21 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
         if (type_it != type_end
                 && type_it->is_valid())
         {
+            while (actual_arg.is<Nodecl::Conversion>())
+            {
+                actual_arg = actual_arg.as<Nodecl::Conversion>().get_nest();
+            }
+
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
-            bool arg_is_ref = is_non_language_reference_variable(*arg_it);
+            bool arg_is_ref = is_non_language_reference_variable(actual_arg);
 
             if (param_is_ref && !arg_is_ref)
             {
-                if (arg_it->template is<Nodecl::Dereference>())
+                if (actual_arg.is<Nodecl::Dereference>())
                 {
                     // Consider this case                 [ Emitted C ]
-                    // void f(int &s, int (&v)[10])    -> void f(int* const s, int * const v)
+                    // void f(int (&v)[10])    ->         void f(int * const v)
                     // {
                     // }
                     //
@@ -1230,12 +1236,12 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
                     // Note that "*k" has type "int[10]" but then it gets converted into "int*"
                     // conversely "k" is just "int(*)[10]" but this cannot be converted into "int*"
                     bool is_array_argument =
-                        (arg_it->get_type().is_array()
-                         || (arg_it->get_type().is_any_reference()
-                             && arg_it->get_type().references_to().is_array()));
+                        (actual_arg.get_type().is_array()
+                         || (actual_arg.get_type().is_any_reference()
+                             && actual_arg.get_type().references_to().is_array()));
                     if (!is_array_argument)
                     {
-                        actual_arg = arg_it->template as<Nodecl::Dereference>().get_rhs();
+                        actual_arg = actual_arg.as<Nodecl::Dereference>().get_rhs();
                     }
                 }
                 else
@@ -1683,6 +1689,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
+// Bug in GCC 4.4
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::FunctionCall>(const Nodecl::FunctionCall& node, bool is_virtual_call);
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node, bool is_virtual_call);
+
 CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 {
     // We are going to generate dependent code
@@ -1714,11 +1724,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     // Two return cases for C++:
     //  - The symbol is defined inside a certain class and we are not defining this class yet
     //  - The symbol is not defined inside a class and, currently, we are defining one or more
-    if (IS_CXX_LANGUAGE &&
-            (symbol.is_defined_inside_class() &&
-             (state.classes_being_defined.empty() ||
-              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
-             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+    if (IS_CXX_LANGUAGE
+            && ((symbol.is_defined_inside_class()
+                    && (state.classes_being_defined.empty()
+                        || state.classes_being_defined.back() != symbol.get_class_type().get_symbol()))
+                || (!symbol.is_defined_inside_class()
+                    && !state.classes_being_defined.empty())))
         return;
 
     TL::Type symbol_type = symbol.get_type();
@@ -1943,11 +1954,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     // Two return cases for C++:
     //  - The symbol is defined inside a certain class and we are not defining this class yet
     //  - The symbol is not defined inside a class and, currently, we are defining one or more
-    if (IS_CXX_LANGUAGE &&
-            (symbol.is_defined_inside_class() &&
-             (state.classes_being_defined.empty() ||
-              state.classes_being_defined.back() != symbol.get_class_type().get_symbol()) ||
-             (!symbol.is_defined_inside_class() && !state.classes_being_defined.empty())))
+    if (IS_CXX_LANGUAGE
+            && ((symbol.is_defined_inside_class()
+                    && (state.classes_being_defined.empty()
+                        || state.classes_being_defined.back() != symbol.get_class_type().get_symbol()))
+                || (!symbol.is_defined_inside_class()
+                    && !state.classes_being_defined.empty())))
         return;
 
     TL::Type symbol_type = symbol.get_type();
@@ -2130,7 +2142,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || cuda_emit_always_extern_linkage())
     {
         requires_extern_linkage = (!symbol.is_member()
                 && symbol.has_nondefault_linkage());
@@ -2177,7 +2190,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     this->walk(context);
 
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || cuda_emit_always_extern_linkage())
     {
         if (requires_extern_linkage)
         {
@@ -2392,7 +2406,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     int old = state.in_condition;
     state.in_condition = 1;
 
-    walk(init);
+    Nodecl::List init_list = init.as<Nodecl::List>();
+    if (!init_list.empty())
+    {
+        Nodecl::List::iterator it = init_list.begin();
+        if(!it->is<Nodecl::ObjectInit>())
+        {
+            walk(init);
+        }
+        else
+        {
+            TL::ObjectList<TL::Symbol> object_init_symbols;
+            for(; it != init_list.end(); ++it)
+            {
+                ERROR_CONDITION(!it->is<Nodecl::ObjectInit>(),
+                        "unexpected node '%s'", ast_print_node_type(it->get_kind()));
+
+                object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
+            }
+            define_or_declare_variables(object_init_symbols, /* is definition */ true);
+        }
+    }
+
     file << "; ";
 
     Nodecl::NodeclBase old_condition_top = state.condition_top;
@@ -2747,8 +2782,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     walk(lb_expr);
     file << ":";
     walk(ub_expr);
-    file << ":";
-    walk(step_expr);
+
+    // Do not emit stride 1 because it looks weird in C
+    if (!step_expr.is_constant()
+            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
+    {
+        file << ":";
+        walk(step_expr);
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
@@ -2799,7 +2840,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     int *bytes = NULL;
     int length = 0;
-    const_value_string_unpack(v, &bytes, &length);
+    const_value_string_unpack_to_int(v, &bytes, &length);
 
     type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
     char is_wchar = !is_unsigned_char_type(element_type)
@@ -2833,9 +2874,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     else if (IS_CXX03_LANGUAGE)
     {
         if ((items.empty()
-                    || (items.size() == 1)
+                    || ((items.size() == 1)
                 && (type.is_named()
-                    || type.no_ref().is_builtin()))
+                    || type.no_ref().is_builtin())))
                 && !(type.is_class()
                     && type.is_aggregate()))
         {
@@ -3150,6 +3191,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
 }
+
+// Bug in GCC 4.4
+template CxxBase::Ret CxxBase::visit_function_call<Nodecl::VirtualFunctionCall>(const Nodecl::VirtualFunctionCall& node, bool is_virtual_call);
 
 CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
 {
@@ -3639,19 +3683,6 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
     return result;
 }
 
-static bool is_member_type(TL::Symbol s)
-{
-    return s.is_enum()
-        || s.is_class()
-        || s.is_typedef();
-}
-
-static bool is_member_nontype(TL::Symbol t)
-{
-    return !is_member_type(t);
-}
-
-
 void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
         int level,
@@ -3688,7 +3719,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol);
+        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             // The symbol is called 'struct/union X' in C. We should ignore the
@@ -3701,7 +3732,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         file << "{\n";
     }
 
-    char is_dependent_class = 0;
     TL::Type symbol_type = symbol.get_type();
 
     ERROR_CONDITION(::is_incomplete_type(symbol_type.get_internal_type()), "An incomplete class cannot be defined", 0);
@@ -3726,12 +3756,6 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             if (primary_symbol == symbol)
             {
                 is_primary_template = 1;
-            }
-
-            if (!symbol_type.class_type_is_complete_independent()
-                    && !symbol_type.class_type_is_incomplete_independent())
-            {
-                is_dependent_class = 1;
             }
         }
 
@@ -3814,7 +3838,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol);
+        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             file << " " << qualified_name;
@@ -4191,8 +4215,7 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 {
     ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
 
-    bool is_template_friend_declaration = false,
-         is_primary_template = false;
+    bool is_template_friend_declaration = false;
 
     if (friend_symbol.is_template())
     {
@@ -4235,7 +4258,6 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 
         if (friend_type.is_dependent())
         {
-            is_primary_template = (friend_symbol == primary_symbol);
             TL::TemplateParameters template_parameters =
                 friend_symbol.get_scope().get_template_parameters();
 
@@ -4586,167 +4608,28 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
     }
 }
 
-void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
+void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition)
 {
-    ERROR_CONDITION(!symbol.is_variable(), "must be a variable", 0);
-
-    // Builtins, anonymous unions and non-user declared varibles are not printed
-    if ((symbol.is_builtin()
-                || (symbol.get_type().is_named_class()
-                    && symbol.get_type().get_symbol().is_anonymous_union())))
-    {
-        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-        return;
-    }
-
-    // Generate the template headers if needed
-    CXX_LANGUAGE()
-    {
-        if (symbol.is_member()
-                && !symbol.is_defined_inside_class()
-                && state.classes_being_defined.empty())
-        {
-            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
-        }
-    }
-
-    // Generate the variable declaration/definition
-    bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
-            || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
-
-    std::string decl_specifiers;
-    std::string gcc_attributes;
-    std::string declarator;
-    std::string bit_field;
-
-    bool requires_extern_linkage = false;
-    CXX_LANGUAGE()
-    {
-        requires_extern_linkage = (!symbol.is_member()
-                && symbol.has_nondefault_linkage());
-
-        if (requires_extern_linkage)
-        {
-            file << "extern " + symbol.get_linkage() + "\n";
-            indent();
-            file << "{\n";
-
-            inc_indent();
-        }
-    }
-
-    if (symbol.is_static()
-            && (!symbol.is_member()
-                || (!state.classes_being_defined.empty()
-                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
-    {
-        decl_specifiers += "static ";
-    }
-
-    else if (symbol.is_extern() || !is_definition)
-    {
-        decl_specifiers += "extern ";
-    }
-
-    // If this not a member, or if it is, is nonstatic, then it has already been defined
-    if (!symbol.is_member() || !symbol.is_static())
-    {
-        if (is_definition)
-        {
-            set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
-        }
-        else
-        {
-            set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
-        }
-    }
-
-    if (symbol.is_thread())
-    {
-        decl_specifiers += "__thread ";
-    }
-    if (symbol.is_mutable())
-    {
-        decl_specifiers += "mutable ";
-    }
-    if (symbol.is_register())
-    {
-        decl_specifiers += "register ";
-    }
-    if (symbol.is_bitfield())
-    {
-        unsigned int bits_of_bitfield =  const_value_cast_to_4(
-                nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
-
-        std::stringstream ss;
-        ss << ":" << bits_of_bitfield;
-
-        bit_field = ss.str();
-    }
-
-    std::string variable_name;
-    if(!has_been_declared)
-    {
-        variable_name = symbol.get_name();
-    }
-    else
-    {
-        variable_name = symbol.get_class_qualification(symbol.get_scope(),
-                /* without_template */ false);
-    }
-
-    declarator = this->get_declaration(symbol.get_type(),
-            symbol.get_scope(),
-            variable_name);
-
     // Emit the initializer for nonmembers and nonstatic members in
     // non member declarations or member declarations if they have
     // integral or enum type
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || (symbol.is_static()
-                    && (!state.in_member_declaration
-                        || (symbol.get_type().is_integral_type()
-                            || symbol.get_type().is_enum())
-                        && symbol.get_type().is_const())
+                || ((symbol.is_static()
+                        && (!state.in_member_declaration
+                            || ((symbol.get_type().is_integral_type()
+                                    || symbol.get_type().is_enum())
+                                && symbol.get_type().is_const())))
                     || symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
-        if (symbol.is_member()
-                // FIXME -> || !is_local_symbol_but_local_class(symbol))
-            || (!symbol.get_scope().is_block_scope()
-                    && !symbol.get_scope().is_function_scope()))
-                    {
-                        // This is a member or nonlocal symbol
-                        define_nonnested_entities_in_trees(symbol.get_value());
-                    }
-        else
-        {
-            // This is a local symbol
-            define_local_entities_in_trees(symbol.get_value());
-        }
     }
-
-    if (symbol.has_gcc_attributes())
-    {
-        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
-    }
-    move_to_namespace_of_symbol(symbol);
-    indent();
-    file << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     // Initializer
     if (emit_initializer)
     {
         push_scope(symbol.get_scope());
-
-        char equal_is_needed = 0;
-        C_LANGUAGE()
-        {
-            equal_is_needed = 1;
-        }
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
@@ -4870,13 +4753,208 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         }
         pop_scope();
     }
+}
+
+
+std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& symbol)
+{
+    bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
+            || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
+
+    std::string variable_name;
+    if (!has_been_declared)
+    {
+        variable_name = symbol.get_name();
+    }
+    else
+    {
+        variable_name = symbol.get_class_qualification(symbol.get_scope(),
+                /* without_template */ false);
+    }
+
+    return variable_name;
+}
+
+void CxxBase::emit_declarations_of_initializer(TL::Symbol symbol)
+{
+    if (!symbol.get_value().is_null()
+            && (!symbol.is_member()
+                || ((symbol.is_static()
+                        && (!state.in_member_declaration
+                            || ((symbol.get_type().is_integral_type()
+                                    || symbol.get_type().is_enum())
+                                && symbol.get_type().is_const())))
+                    || symbol.is_defined_inside_class())))
+    {
+        if (symbol.is_member()
+                // FIXME -> || !is_local_symbol_but_local_class(symbol))
+            || (!symbol.get_scope().is_block_scope()
+                    && !symbol.get_scope().is_function_scope()))
+                    {
+                        // This is a member or nonlocal symbol
+                        define_nonnested_entities_in_trees(symbol.get_value());
+                    }
+        else
+        {
+            // This is a local symbol
+            define_local_entities_in_trees(symbol.get_value());
+        }
+    }
+}
+
+void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition)
+{
+    codegen_status_t codegen_status =
+        (is_definition) ? CODEGEN_STATUS_DEFINED : CODEGEN_STATUS_DECLARED;
+
+    for (TL::ObjectList<TL::Symbol>::iterator it = symbols.begin();
+            it != symbols.end();
+            it++)
+    {
+        TL::Symbol &symbol (*it);
+        emit_declarations_of_initializer(symbol);
+    }
+
+    define_or_declare_variable(symbols[0], is_definition);
+    // We ignore the first symbol as it has been already declared
+    for (TL::ObjectList<TL::Symbol>::iterator it = (symbols.begin() + 1);
+            it != symbols.end();
+            it++)
+    {
+        TL::Symbol &symbol (*it);
+        std::string variable_name =
+            define_or_declare_variable_get_name_variable(symbol);
+
+        set_codegen_status(symbol, codegen_status);
+
+        file <<  ", " << variable_name;
+
+        define_or_declare_variable_emit_initializer(symbol, is_definition);
+    }
+}
+
+void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
+{
+    ERROR_CONDITION(!symbol.is_variable(), "must be a variable", 0);
+
+    // Builtins, anonymous unions and non-user declared varibles are not printed
+    if ((symbol.is_builtin()
+                || (symbol.get_type().is_named_class()
+                    && symbol.get_type().get_symbol().is_anonymous_union())))
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+        return;
+    }
+
+    // Generate the template headers if needed
+    CXX_LANGUAGE()
+    {
+        if (symbol.is_member()
+                && !symbol.is_defined_inside_class()
+                && state.classes_being_defined.empty())
+        {
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            codegen_template_headers_all_levels(template_parameters, false);
+        }
+    }
+
+
+    std::string decl_specifiers;
+    std::string gcc_attributes;
+    std::string declarator;
+    std::string bit_field;
+
+    bool requires_extern_linkage = false;
+    if (IS_CXX_LANGUAGE
+            || cuda_emit_always_extern_linkage())
+    {
+        requires_extern_linkage = (!symbol.is_member()
+                && symbol.has_nondefault_linkage());
+
+        if (requires_extern_linkage)
+        {
+            file << "extern " + symbol.get_linkage() + "\n";
+            indent();
+            file << "{\n";
+
+            inc_indent();
+        }
+    }
+
+    if (symbol.is_static()
+            && (!symbol.is_member()
+                || (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
+    {
+        decl_specifiers += "static ";
+    }
+
+    else if (symbol.is_extern() || !is_definition)
+    {
+        decl_specifiers += "extern ";
+    }
+
+    if (symbol.is_thread())
+    {
+        decl_specifiers += "__thread ";
+    }
+    if (symbol.is_mutable())
+    {
+        decl_specifiers += "mutable ";
+    }
+    if (symbol.is_register())
+    {
+        decl_specifiers += "register ";
+    }
+    if (symbol.is_bitfield())
+    {
+        unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                nodecl_get_constant(symbol.get_bitfield_size().get_internal_nodecl()));
+
+        std::stringstream ss;
+        ss << ":" << bits_of_bitfield;
+
+        bit_field = ss.str();
+    }
+
+    std::string variable_name = define_or_declare_variable_get_name_variable(symbol);
+
+    if (is_definition)
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+    }
+    else
+    {
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    }
+    emit_declarations_of_initializer(symbol);
+
+    move_to_namespace_of_symbol(symbol);
+
+
+    declarator = this->get_declaration(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    if (!state.in_condition)
+        indent();
+
+    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+
+    define_or_declare_variable_emit_initializer(symbol, is_definition);
 
     if (!state.in_condition)
     {
         file << ";\n";
     }
 
-    CXX_LANGUAGE()
+    if (IS_CXX_LANGUAGE
+            || cuda_emit_always_extern_linkage())
     {
         if (requires_extern_linkage)
         {
@@ -5261,7 +5339,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         char is_primary_template = 0;
         bool requires_extern_linkage = false;
-        CXX_LANGUAGE()
+        if (IS_CXX_LANGUAGE
+                || cuda_emit_always_extern_linkage())
         {
             move_to_namespace_of_symbol(symbol);
 
@@ -5276,7 +5355,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
                 inc_indent();
             }
+        }
 
+        CXX_LANGUAGE()
+        {
             if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
@@ -5427,7 +5509,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         indent();
         file << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
 
-        CXX_LANGUAGE()
+        if (IS_CXX_LANGUAGE
+                || cuda_emit_always_extern_linkage())
         {
             if (requires_extern_linkage)
             {
@@ -6585,13 +6668,23 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 {
     std::string result;
     TL::ObjectList<TL::GCCAttribute> gcc_attr_list = symbol.get_gcc_attributes();
-    int i = 0;
+    int attributes_counter = 0;
+    bool print_cuda_attributes = cuda_print_special_attributes();
+
     for (TL::ObjectList<TL::GCCAttribute>::iterator it = gcc_attr_list.begin();
             it != gcc_attr_list.end();
-            it++, i++)
+            it++)
     {
-        if (i > 0)
+        if (attributes_counter > 0)
             result += " ";
+
+        if (!print_cuda_attributes
+                && (it->get_attribute_name() == "host"
+                    || it->get_attribute_name() == "device"
+                    || it->get_attribute_name() == "shared"
+                    || it->get_attribute_name() == "constant"
+                    || it->get_attribute_name() == "global"))
+             continue;
 
         if (it->get_expression_list().is_null())
         {
@@ -6617,8 +6710,50 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
 
             result += ")))";
         }
+        attributes_counter++;
     }
+    return result;
+}
 
+std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
+{
+    std::string result;
+    TL::ObjectList<TL::MSAttribute> ms_attr_list = symbol.get_ms_attributes();
+    int attributes_counter = 0;
+
+    for (TL::ObjectList<TL::MSAttribute>::iterator it = ms_attr_list.begin();
+            it != ms_attr_list.end();
+            it++)
+    {
+        if (attributes_counter > 0)
+            result += " ";
+
+        if (it->get_expression_list().is_null())
+        {
+            result += "__declspec(" + it->get_attribute_name() + ")";
+        }
+        else
+        {
+            result += "__declspec(" + it->get_attribute_name() + "(";
+
+            std::string old_str = file.str();
+
+            file.clear();
+            file.str("");
+
+            walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
+            result += file.str();
+
+            file.clear();
+            file.str(old_str);
+            // Go to the end of the stream...
+            file.seekp(0, std::ios_base::end);
+
+            result += "))";
+        }
+        attributes_counter++;
+    }
     return result;
 }
 
@@ -7027,6 +7162,16 @@ TL::Type CxxBase::fix_references(TL::Type t)
         // Anything else must be left untouched
         return t;
     }
+}
+
+bool CxxBase::cuda_print_special_attributes()
+{
+    return false;
+}
+
+bool CxxBase::cuda_emit_always_extern_linkage()
+{
+    return false;
 }
 
 } // Codegen

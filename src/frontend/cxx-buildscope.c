@@ -48,6 +48,7 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-mssupport.h"
 #include "cxx-nodecl-output.h"
 #include "cxx-overload.h"
 #include "cxx-upc.h"
@@ -369,6 +370,10 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 
     nodecl_t nodecl = nodecl_null();
 
+    C_LANGUAGE()
+    {
+        linkage_push("\"C\"", /* is_braced */ 1);
+    }
     CXX_LANGUAGE()
     {
         instantiation_init();
@@ -386,6 +391,11 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 #endif
+
+    C_LANGUAGE()
+    {
+        linkage_pop();
+    }
 
     return nodecl;
 }
@@ -515,19 +525,11 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         // This is reserved for C only
         gcc_sign_in_spu_builtins(decl_context);
-    }
 
-    C_LANGUAGE()
-    {
         if (CURRENT_CONFIGURATION->enable_upc)
         {
             upc_sign_in_builtins(decl_context);
         }
-    }
-
-    if (CURRENT_CONFIGURATION->enable_cuda)
-    {
-        init_cuda_builtins(decl_context);
     }
 
     // Mercurium limit constants
@@ -1584,6 +1586,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+            keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
             // Only variables can be initialized
             if (initializer != NULL)
@@ -1645,6 +1648,43 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     // int c[10];       <-- We are in this declaration
                     // Update the array type
                     entry->type_information = declarator_type;
+                }
+
+                // Weird case where a non global but extern entity may get the dimension from the global scope...
+                // int c[10];
+                // int f(void)
+                // {
+                //   extern int c[]; // Must behave as 'extern int c[10]'
+                //   return sizeof(c); // OK == sizeof(int[10])
+                // }
+                if (entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope != entry->decl_context.global_scope
+                        && is_array_type(entry->type_information)
+                        && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
+                {
+                    // Perform a query in the global scope
+                    scope_entry_list_t* extern_scope_entry_list = query_in_scope_str(CURRENT_COMPILED_FILE->global_decl_context,
+                            entry->symbol_name);
+
+                    if (extern_scope_entry_list != NULL)
+                    {
+                        scope_entry_t* extern_entry = entry_list_head(extern_scope_entry_list);
+                        if (extern_entry->kind != entry->kind)
+                        {
+                            error_printf("%s: error: extern entity redeclared as a diferent entity kind\n",
+                                   ast_location(declarator));
+                        }
+                        else if (is_array_type(extern_entry->type_information)
+                                && !nodecl_is_null(array_type_get_array_size_expr(extern_entry->type_information)))
+                        {
+                            // Update the array dimension here
+                            entry->type_information = 
+                                get_array_type(array_type_get_element_type(entry->type_information),
+                                        array_type_get_array_size_expr(extern_entry->type_information),
+                                        array_type_get_array_size_expr_context(extern_entry->type_information));
+                        }
+                    }
+                    entry_list_free(extern_scope_entry_list);
                 }
 
                 nodecl_t nodecl_initializer = nodecl_null();
@@ -1830,9 +1870,10 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
             // Reason: this attributes refer to declarator_list
-            if (ASTType(spec) == AST_GCC_ATTRIBUTE)
-                continue;
-            gather_decl_spec_information(spec, gather_info, decl_context);
+            if (ASTType(spec) != AST_GCC_ATTRIBUTE)
+            {
+                gather_decl_spec_information(spec, gather_info, decl_context);
+            }
         }
     }
 
@@ -1946,14 +1987,19 @@ void build_scope_decl_specifier_seq(AST a,
             for_each_element(list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) != AST_GCC_ATTRIBUTE)
-                    continue;
-                gather_decl_spec_information(spec, gather_info, decl_context);
+                if (ASTType(spec) == AST_GCC_ATTRIBUTE)
+                {
+                    gather_decl_spec_information(spec, gather_info, decl_context);
+                }
             }
         }
 
-        // Now update the type_spec with type information that was caught in the decl_specifier_seq
-        // First "long"/"short"
+        // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->is_short = local_gather_info.is_short;
+        gather_info->is_long = local_gather_info.is_long;
+        gather_info->is_unsigned = local_gather_info.is_unsigned;
+        gather_info->is_signed = local_gather_info.is_signed;
+
         if (gather_info->is_short)
         {
             if (*type_info == get_signed_int_type())
@@ -2180,6 +2226,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // Do nothing at the moment
             break;
             // Unknown node
+        case AST_MS_DECLSPEC:
+            // __declspec(X)
+            // __declspec(X(Y0, Y1, ...))
+            gather_ms_declspec(a, gather_info, decl_context);
+            break;
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
             break;
@@ -2469,6 +2520,45 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         decl_context, abstract_decl, nodecl_output);
 
                 *simple_type_info = declarator_type;
+                break;
+            }
+            // Microsoft builtin types
+        case AST_MS_INT8:
+            {
+                // Behaves like a char
+                *simple_type_info = get_char_type();
+                break;
+            }
+        case AST_MS_INT16:
+            {
+                // Behaves like a short
+                *simple_type_info = get_signed_int_type();
+                gather_info->is_short = 1;
+                break;
+            }
+        case AST_MS_INT32:
+            {
+                // Behaves like int
+                *simple_type_info = get_signed_int_type();
+                break;
+            }
+        case AST_MS_INT64:
+            {
+                // May be long int or long long int depending on the environment
+                *simple_type_info = get_signed_int_type();
+
+                if (type_get_size(get_signed_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 1;
+                }
+                else if (type_get_size(get_signed_long_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 2;
+                }
+                else
+                {
+                    running_error("%s: error: __int64 not supported\n", ast_location(a));
+                }
                 break;
             }
             // Mercurium internal mechanism
@@ -2934,7 +3024,18 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     if (gcc_attributes != NULL)
     {
-        gather_gcc_attribute_list(gcc_attributes, &class_gather_info, decl_context);
+        if (ASTType(a) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
+        {
+            gather_gcc_attribute_list(gcc_attributes, &class_gather_info, decl_context);
+        }
+        else if (ASTType(a) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
+        {
+            gather_ms_declspec_list(gcc_attributes, &class_gather_info, decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     scope_entry_list_t* result_list = NULL;
@@ -5930,7 +6031,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     if (attribute_list != NULL)
     {
-        gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
+        if (ASTType(class_head) == AST_GCC_CLASS_HEAD_SPEC)
+        {
+            gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
+        }
+        else if (ASTType(class_head) == AST_MS_CLASS_HEAD_SPEC)
+        {
+            gather_ms_declspec_list(attribute_list, gather_info, decl_context);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     enum type_tag_t class_kind = TT_INVALID;
@@ -6545,6 +6657,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     class_entry->entity_specs.is_instantiable = 1;
 
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
+    keep_ms_declspecs_in_symbol(class_entry, gather_info);
 
     CXX_LANGUAGE()
     {
@@ -7300,6 +7413,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &param_decl_gather_info);
+            keep_ms_declspecs_in_symbol(entry, &param_decl_gather_info);
 
             // Now normalize the types
 
@@ -10160,6 +10274,7 @@ static void build_scope_namespace_definition(AST a,
 
         // Copy the gcc attributes
         keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
 
         entry_list_free(list);
 
@@ -10336,6 +10451,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 // Copy gcc attributes
                 keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+                keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
                 int parameter_position = -1;
 
@@ -10460,6 +10576,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     set(a, entry, decl_context);
 }
@@ -10728,6 +10845,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     if (declared_symbols != NULL)
     {
@@ -11585,6 +11703,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
+    // Propagate 'do_not_print' attribute to the current member
+    entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
     entry->entity_specs.access = current_access;
     entry->entity_specs.is_defined_inside_class_specifier = 1;
     entry->entity_specs.is_inline = 1;
@@ -11635,6 +11756,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
@@ -11725,6 +11847,7 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
+    keep_ms_declspecs_in_symbol(entry, &gather_info);
 }
 
 void build_scope_friend_declarator(decl_context_t decl_context, 
@@ -11861,16 +11984,23 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             // class A; (no declarator)
                             || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
                                     // class __attribute__((foo)) A; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC) 
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC
+                                    // class __declspec(X) A; (no declarator)
+                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
                                 && (member_init_declarator_list == NULL))
                             // enum E { } [x];
                             || ASTType(type_specifier) == AST_ENUM_SPECIFIER
                             // enum __attribute__((foo)) E { } [x];
                             || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
+                            // enum __declspec(D) E { } [x];
+                            || ASTType(type_specifier) == AST_MS_ENUM_SPECIFIER
                             // enum E; (no declarator)
                             || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
                                     // enum  __attribute__((foo)) E; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC) 
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC
+                                    // enum  __declspec(X) E; (no declarator)
+                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_ENUM_SPEC
+                                    )
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
@@ -12113,6 +12243,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
                                     class_name);
                         }
+
+                        // Propagate 'do_not_print' attribute to the current member
+                        entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
                         entry->entity_specs.is_member = 1;
                         entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;
@@ -12232,6 +12366,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
 
                         keep_gcc_attributes_in_symbol(entry, &current_gather_info);
+                        keep_ms_declspecs_in_symbol(entry, &current_gather_info);
                         break;
                     }
                 default :
@@ -12777,6 +12912,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         }
 
         keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
     }
     else
     {
@@ -12936,9 +13072,24 @@ static void build_scope_for_statement(AST a,
                 /* is_template */ 0, /* is_explicit_instantiation */ 0,
                 &nodecl_loop_init, 
                 /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
-        if (!nodecl_is_null(nodecl_loop_init))
+
+        if (IS_CXX_LANGUAGE)
         {
-            nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
+            if (!nodecl_is_null(nodecl_loop_init))
+            {
+                int num_items = 0, i;
+                nodecl_t* list = nodecl_unpack_list(nodecl_loop_init, &num_items);
+
+                nodecl_loop_init = nodecl_null();
+                for (i = 0; i < num_items; i++)
+                {
+                    if (nodecl_get_kind(list[i]) != NODECL_CXX_DECL
+                            && nodecl_get_kind(list[i]) != NODECL_CXX_DEF)
+                    {
+                        nodecl_loop_init = nodecl_append_to_list(nodecl_loop_init, list[i]);
+                    }
+                }
+            }
         }
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
@@ -12946,7 +13097,7 @@ static void build_scope_for_statement(AST a,
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
         nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
         // Get the expression itself instead of an expression statement
-        nodecl_loop_init = nodecl_get_child(nodecl_loop_init, 0); 
+        nodecl_loop_init = nodecl_make_list_1(nodecl_get_child(nodecl_loop_init, 0));
     }
     else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
     {
@@ -13264,6 +13415,7 @@ static void build_scope_try_block(AST a,
                     exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
 
                     keep_gcc_attributes_in_symbol(entry, &gather_info);
+                    keep_ms_declspecs_in_symbol(entry, &gather_info);
                 }
             }
 
@@ -13448,14 +13600,14 @@ static void finish_pragma_declaration(
         int line,
         nodecl_t *nodecl_output)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text, 
+    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
     //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" : 
-    //         (nodecl_is_list(nodecl_decl) ? 
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) : 
+    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
+    //         (nodecl_is_list(nodecl_decl) ?
+    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
     //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
-    
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) && 
+
+    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
             entry_list_size(declared_symbols) != 0, "This should not happen", 0);
 
     if (entry_list_size(declared_symbols) > 0)
@@ -13494,7 +13646,7 @@ static void finish_pragma_declaration(
 
         for (i = 0; i < num_items; i++)
         {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
                     "Invalid node in nodecl_pragma_output", 0);
 
             nodecl_t pragma_context = nodecl_get_child(list[i], 2);
@@ -13520,8 +13672,8 @@ static void finish_pragma_declaration(
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
 }
 
-static void build_scope_pragma_custom_construct_declaration(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_pragma_custom_construct_declaration(AST a,
+        decl_context_t decl_context,
         nodecl_t *nodecl_output)
 {
     scope_entry_list_t* declared_symbols = NULL;
@@ -13537,15 +13689,15 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
+    common_build_scope_pragma_custom_declaration(a, decl_context,
             &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma, 
+            build_scope_declaration_pragma,
             &info);
 
     pragma_nesting--;
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
-    finish_pragma_declaration(declared_symbols, 
+    finish_pragma_declaration(declared_symbols,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_decl,
@@ -13747,6 +13899,10 @@ static void build_scope_upc_forall_statement(AST a,
 static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
+    if (!nodecl_is_list(*nodecl_output))
+    {
+        *nodecl_output = nodecl_make_list_1(*nodecl_output);
+    }
 }
 
 static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

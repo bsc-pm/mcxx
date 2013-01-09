@@ -36,7 +36,8 @@ void fortran_init_intrinsics(decl_context_t decl_context);
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
         const char** actual_arguments_keywords, 
         nodecl_t* nodecl_actual_arguments,
-        int num_actual_arguments);
+        int num_actual_arguments,
+        char is_call);
 
 void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         const char** actual_arguments_keywords,
@@ -45,6 +46,8 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         nodecl_t* nodecl_simplified,
         const char* filename,
         int line);
+
+decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context);
 
 MCXX_END_DECLS
 

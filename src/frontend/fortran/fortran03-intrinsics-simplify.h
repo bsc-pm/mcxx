@@ -506,7 +506,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
 
             int rank = fortran_get_rank_of_type(t);
 
-            if ((rank - dim_) <= 0)
+            if ((rank - dim_) < 0)
                 return nodecl_null();
 
             int i;
@@ -2451,7 +2451,7 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int num_elements = 0;
     int *values = NULL;
 
-    const_value_string_unpack(str, &values, &num_elements);
+    const_value_string_unpack_to_int(str, &values, &num_elements);
 
     if (num_elements == 0)
         return nodecl_null();
@@ -2510,4 +2510,24 @@ static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     }
 
     return result;
+}
+
+static nodecl_t simplify_mcc_loc(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+
+    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
+    {
+        arg = nodecl_get_child(arg, 0);
+    }
+
+    return nodecl_make_dereference(
+            nodecl_make_reference(
+                nodecl_shallow_copy(arg),
+                get_pointer_type(get_void_type()),
+                nodecl_get_filename(arguments[0]),
+                nodecl_get_line(arguments[0])),
+            get_lvalue_reference_type(get_void_type()),
+            nodecl_get_filename(arguments[0]),
+            nodecl_get_line(arguments[0]));
 }

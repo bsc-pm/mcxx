@@ -47,7 +47,7 @@ namespace TL
 
                 virtual void visit(const Nodecl::FunctionCode& function_code);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
         };
     }
 }

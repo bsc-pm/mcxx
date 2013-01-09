@@ -161,7 +161,7 @@ namespace Analysis {
             current->set_visited( true );
             if( current->is_exit_node( ) )
             {
-                return false;
+                return NULL;
             }
             else if( current->is_graph_node( ) )
             {

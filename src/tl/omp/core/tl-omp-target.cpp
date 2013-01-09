@@ -34,7 +34,9 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx)
+        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
+                TargetContext& target_ctx,
+                TL::Scope scope)
         {
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
@@ -55,19 +57,31 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions();
+                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions();
+                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions();
+                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
+            }
+
+            PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");
+            if (ndrange.is_defined())
+            {
+                target_ctx.ndrange = ndrange.get_arguments_as_expressions(scope);
+            }
+            
+            PragmaCustomClause onto = pragma_line.get_clause("onto");
+            if (onto.is_defined())
+            {
+                target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
@@ -79,7 +93,7 @@ namespace TL
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions();
+                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions(scope);
 
                 if (implements_list.size() != 1)
                 {
@@ -122,7 +136,8 @@ namespace TL
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
-            common_target_handler_pre(pragma_line, target_ctx);
+            common_target_handler_pre(pragma_line, target_ctx,
+                    ctr.get_context_of_parameters().retrieve_context());
 
             if (target_ctx.has_implements)
             {
@@ -167,19 +182,7 @@ namespace TL
                     }
                 }
             }
-            else
-            {
-                Symbol function_sym = ctr.get_symbol();
-                if (!function_sym.is_function())
-                {
-                    std::cerr << ctr.get_locus() 
-                        << ": warning: '#pragma omp target' must "
-                        "precede a single function declaration or a function definition"
-                        << std::endl;
-                    std::cerr << ctr.get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
-                    return;
-                }
-            }
+
             _target_context.push(target_ctx);
         }
 
@@ -221,7 +224,7 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line, target_ctx);
+            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context());
 
             _target_context.push(target_ctx);
         }
@@ -337,12 +340,15 @@ namespace TL
             }
         }
 
+        // This function is invoked only for inline tasks (and some other
+        // constructs though target info is unused for them)
         void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
         {
             if (_target_context.empty())
                 return;
 
             TargetInfo target_info;
+            target_info.set_target_symbol(construct.get_symbol());
             TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing,
@@ -360,6 +366,8 @@ namespace TL
                     COPY_DIR_INOUT,
                     target_info);
 
+            target_info.append_to_ndrange(target_ctx.ndrange);
+            target_info.append_to_onto(target_ctx.onto);
             target_info.append_to_device_list(target_ctx.device_list);
 
             // Set data sharings for referenced entities in copies
@@ -448,8 +456,11 @@ namespace TL
                             << std::endl;
                     // }
 
+                    Nodecl::Symbol new_symbol_ref =
+                        Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line());
+                    new_symbol_ref.set_type(io_it->get_type().get_lvalue_reference_to());
                     shared_to_inout.append(
-                            Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line())
+                            new_symbol_ref
                             );
                 }
 			}

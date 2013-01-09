@@ -202,6 +202,8 @@ namespace Codegen
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 
+            void set_emit_always_extern_linkage(bool emit);
+
         private:
 
             // State
@@ -282,6 +284,9 @@ namespace Codegen
 
             std::vector<TL::Scope> _scope_stack;
 
+            // States whether we should emit the extern linkage
+            bool _emit_always_extern_linkage;
+
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
             bool symbol_or_its_bases_are_nested_in_defined_classes(TL::Symbol symbol);
@@ -305,16 +310,10 @@ namespace Codegen
 
             void define_or_declare_variable(TL::Symbol,
                     bool is_definition);
+            std::string define_or_declare_variable_get_name_variable(TL::Symbol& symbol);
+            void define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition);
 
-            void do_define_symbol(TL::Symbol symbol,
-                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
-                    TL::Scope* scope = NULL);
-
-            void do_declare_symbol(TL::Symbol symbol,
-                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
-                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
-                    TL::Scope* scope = NULL);
+            void define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition);
 
             void define_generic_entities(Nodecl::NodeclBase node,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
@@ -378,8 +377,6 @@ namespace Codegen
                     void (CxxBase::*def_sym_fun)(TL::Symbol));
 
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
-            void set_codegen_status(TL::Symbol sym, codegen_status_t status);
-            codegen_status_t get_codegen_status(TL::Symbol sym);
 
             void codegen_fill_namespace_list_rec(
                     scope_entry_t* namespace_sym, 
@@ -397,7 +394,6 @@ namespace Codegen
             int get_indent_level();
             void set_indent_level(int);
 
-            void walk_list(const Nodecl::List&, const std::string& separator);
             void walk_expression_list(const Nodecl::List&);
 
             template <typename Iterator>
@@ -462,6 +458,8 @@ namespace Codegen
             std::string gcc_attributes_to_str(TL::Symbol);
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
+            std::string ms_attributes_to_str(TL::Symbol);
+
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
 
             void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
@@ -496,6 +494,29 @@ namespace Codegen
                     Nodecl::NodeclBase statement,
                     const std::string& rel_op);
 
+            void emit_declarations_of_initializer(TL::Symbol symbol);
+
+        protected:
+            // Needed by codegen of cuda
+            void walk_list(const Nodecl::List&, const std::string& separator);
+
+            virtual void do_define_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
+
+            virtual void do_declare_symbol(TL::Symbol symbol,
+                    void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
+                    void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
+                    TL::Scope* scope = NULL);
+
+            void set_codegen_status(TL::Symbol sym, codegen_status_t status);
+
+            codegen_status_t get_codegen_status(TL::Symbol sym);
+
+            virtual bool cuda_print_special_attributes();
+
+            virtual bool cuda_emit_always_extern_linkage();
     };
 }
 

@@ -57,9 +57,9 @@ namespace TL { namespace Nanox {
                 immediate_decl,
                 dynamic_size);
 
-        Source translation_fun_arg_name;
+        Source translation_fun_arg_name, xlate_function_name;
 
-        translation_fun_arg_name << "(void(*)(void*, void*))0";
+        translation_fun_arg_name << "(nanos_translate_args_t)0";
 
         Source copy_ol_decl,
                copy_ol_arg, 
@@ -92,12 +92,24 @@ namespace TL { namespace Nanox {
             <<       translation_fun_arg_name << ");"
             ;
 
+        //Parallel has no implementors,but to keep the same schema than tasks, we build a device_name -> outline_name map
         Source const_wd_info;
+        std::multimap<std::string, std::string> devices_and_implementors;
+        TL::ObjectList<std::string> device_names = outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
+        for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+                it != device_names.end(); it++)
+        {
+            devices_and_implementors.insert(
+                        make_pair(
+                            *it, /* device name */
+                            outline_name)); /*implementor outline name */
+        }
+        
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
-                outline_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
-                outline_info.get_device_names(),
+                outline_info,
+                devices_and_implementors,
                 construct);
 
         Source num_threads;
@@ -173,13 +185,19 @@ namespace TL { namespace Nanox {
         // Fill dependences for outline
         num_dependences << count_dependences(outline_info);
 
+        int num_copies = 0;
         fill_copies(construct,
                 outline_info,
+                /* parameter_outline_info */ NULL,
+                structure_symbol,
+
+                num_copies,
                 copy_ol_decl,
                 copy_ol_arg,
                 copy_ol_setup,
                 copy_imm_arg,
-                copy_imm_setup);
+                copy_imm_setup,
+                xlate_function_name);
 
         fill_dependences(construct, 
                 outline_info, 

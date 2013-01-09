@@ -29,6 +29,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -73,7 +74,7 @@ namespace TL { namespace OpenMP {
             if (it->get_kind() != kind)
                 continue;
 
-            data_ref_list.append(it->get_copy_expression());
+            data_ref_list.append(it->get_copy_expression().shallow_copy());
         }
 
         if (!data_ref_list.empty())
@@ -172,6 +173,20 @@ namespace TL { namespace OpenMP {
                         line,
                         result_list);
 
+                make_dependency_list<Nodecl::OpenMP::Concurrent>(
+                        task_dependences,
+                        OpenMP::DEP_CONCURRENT,
+                        filename,
+                        line,
+                        result_list);
+
+                make_dependency_list<Nodecl::OpenMP::Commutative>(
+                        task_dependences,
+                        OpenMP::DEP_COMMUTATIVE,
+                        filename,
+                        line,
+                        result_list);
+
                 // Make sure the remaining symbols are firstprivate
                 std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
@@ -197,7 +212,7 @@ namespace TL { namespace OpenMP {
                         it != parameters.end();
                         it++, i++)
                 {
-                    ERROR_CONDITION(i >= has_dep.size(), "Mismatch between parameters and related symbols", 0);
+                    ERROR_CONDITION(i >= (signed int)has_dep.size(), "Mismatch between parameters and related symbols", 0);
                     if (!has_dep[i])
                     {
                         Nodecl::Symbol symbol_ref =
@@ -225,7 +240,7 @@ namespace TL { namespace OpenMP {
                 ObjectList<std::string> device_list = target_info.get_device_list();
                 for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
                 {
-                    devices.append(Nodecl::Text::make(*it, filename, line));
+                    devices.append(Nodecl::Text::make(strtolower(it->c_str()), filename, line));
                 }
 
                 ObjectList<CopyItem> copy_in = target_info.get_copy_in();
@@ -249,11 +264,70 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
+                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+                if (!ndrange_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::NDRange::make(
+                                Nodecl::List::make(ndrange_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+                
+                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+                if (!onto_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Onto::make(
+                                Nodecl::List::make(onto_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+
+                ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
+                    function_task_info.get_devices_with_implementation();
+                for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
+                        it != implementation_table.end(); ++it)
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Implements::make(
+                                Nodecl::Text::make(it->first),
+                                Nodecl::Symbol::make(it->second, filename, line),
+                                filename, line));
+                }
+
                 result_list.append(
                         Nodecl::OpenMP::Target::make(
                             Nodecl::List::make(devices),
                             Nodecl::List::make(target_items),
                             filename, line));
+
+                if (function_task_info.get_untied())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Untied::make(filename, line));
+                }
+
+                if (!function_task_info.get_if_clause_conditional_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression())
+                        );
+                }
+
+                if (!function_task_info.get_priority_clause_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::Priority::make(function_task_info.get_priority_clause_expression())
+                        );
+                }
+
+                if (!function_task_info.get_task_label().is_null())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::TaskLabel::make(
+                                function_task_info.get_task_label().get_text()));
+                }
 
                 return Nodecl::List::make(result_list);
             }
@@ -591,7 +665,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause untied = pragma_line.get_clause("untied");
         if (untied.is_defined())
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Untied::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -609,7 +683,7 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                execution_environment.push_back(
+                execution_environment.append(
                         Nodecl::OpenMP::Priority::make(
                             expr_list[0],
                             directive.get_filename(),
@@ -618,17 +692,37 @@ namespace TL { namespace OpenMP {
         }
 
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
         );
 
+        // Label task (this is used only for instrumentation)
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                        directive.get_locus().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_filename(),
+                            directive.get_line()));
+            }
+        }
 
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
@@ -663,12 +757,12 @@ namespace TL { namespace OpenMP {
 
         // Since the parallel construct implies a barrier at its end,
         // there is no need of adding a flush at end, because the barrier implies also a flush
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -696,20 +790,20 @@ namespace TL { namespace OpenMP {
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
 
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
         }
 
         Nodecl::List code;
-        code.push_back(
+        code.append(
                 Nodecl::OpenMP::Single::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
@@ -751,12 +845,12 @@ namespace TL { namespace OpenMP {
         // Set the implicit OpenMP flush / barrier nodes to the environment
         if (barrier_at_end)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -764,7 +858,7 @@ namespace TL { namespace OpenMP {
 
         if (is_combined_worksharing)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -786,7 +880,7 @@ namespace TL { namespace OpenMP {
 
             Nodecl::PragmaCustomStatement p = it->as<Nodecl::PragmaCustomStatement>();
 
-            section_list.push_back(
+            section_list.append(
                     Nodecl::OpenMP::Section::make(
                         p.get_statements().shallow_copy(),
                         p.get_filename(),
@@ -847,13 +941,22 @@ namespace TL { namespace OpenMP {
                 internal_error("Invalid values in schedule clause", 0);
             }
 
-            if (schedule == "static"
-                    || schedule == "dynamic"
-                    || schedule == "guided"
-                    || schedule == "runtime"
-                    || schedule == "auto")
+            std::string checked_schedule_name = schedule;
+
+            // Allow OpenMP schedules be prefixed with ompss_
+            std::string ompss_prefix = "ompss_";
+            if (checked_schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix)
             {
-                execution_environment.push_back(
+                checked_schedule_name = checked_schedule_name.substr(ompss_prefix.size());
+            }
+
+            if (checked_schedule_name == "static"
+                    || checked_schedule_name == "dynamic"
+                    || checked_schedule_name == "guided"
+                    || checked_schedule_name == "runtime"
+                    || checked_schedule_name == "auto")
+            {
+                execution_environment.append(
                         Nodecl::OpenMP::Schedule::make(
                             chunk,
                             schedule,
@@ -869,7 +972,7 @@ namespace TL { namespace OpenMP {
         else
         {
             // def-sched-var is STATIC in our implementation
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::Schedule::make(
                         ::const_value_to_nodecl(const_value_get_signed_int(0)),
                         "static",
@@ -879,13 +982,13 @@ namespace TL { namespace OpenMP {
 
         if (barrier_at_end)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_filename(),
                         directive.get_line())
             );
 
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -893,7 +996,7 @@ namespace TL { namespace OpenMP {
 
         if (is_combined_worksharing)
         {
-            execution_environment.push_back(
+            execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
                         directive.get_filename(),
                         directive.get_line()));
@@ -961,12 +1064,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -994,7 +1097,7 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
-    void Base::target_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)   { }
     void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
@@ -1004,7 +1107,45 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        Nodecl::Utils::remove_from_enclosing_list(decl);
+        if (decl.get_nested_pragma().is_null())
+        {
+            Nodecl::NodeclBase result;
+            ObjectList<Nodecl::NodeclBase> devices;
+            ObjectList<Nodecl::NodeclBase> symbols;
+
+            int line = decl.get_line();
+            std::string file = decl.get_filename();
+
+            PragmaCustomLine pragma_line = decl.get_pragma_line();
+            PragmaCustomClause device_clause = pragma_line.get_clause("device");
+            if (device_clause.is_defined())
+            {
+                ObjectList<std::string> device_names = device_clause.get_tokenized_arguments();
+                for (ObjectList<std::string>::iterator it = device_names.begin();
+                        it != device_names.end();
+                        ++it)
+                {
+                    devices.append(Nodecl::Text::make(*it, file, line));
+                }
+            }
+
+            ERROR_CONDITION(!decl.has_symbol(),
+                    "%s: expecting a function declaration or definition", decl.get_locus().c_str());
+
+            Symbol sym = decl.get_symbol();
+            symbols.append(Nodecl::Symbol::make(sym, file, line));
+
+            result = Nodecl::OpenMP::TargetDeclaration::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(symbols),
+                    file, line);
+
+            decl.replace(result);
+        }
+        else
+        {
+            Nodecl::Utils::remove_from_enclosing_list(decl);
+        }
     }
 
     // SIMD For Statement
@@ -1165,7 +1306,6 @@ namespace TL { namespace OpenMP {
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
@@ -1232,12 +1372,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -1285,12 +1425,12 @@ namespace TL { namespace OpenMP {
         }
 
         // Set implicit flushes at the entry and exit of the combined worksharing
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
                     directive.get_line())
         );
-        execution_environment.push_back(
+        execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_filename(),
                     directive.get_line())
@@ -1393,6 +1533,17 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Symbol> symbols;
         data_sharing_env.get_all_symbols(data_attr, symbols);
 
+        // Get the symbols in dependences
+        TL::ObjectList<DependencyItem> all_dependences;
+        data_sharing_env.get_all_dependences(all_dependences);
+        TL::ObjectList<DataReference> dependences_in_symbols
+            = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
+        TL::ObjectList<Symbol> symbols_in_dependences
+            = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
+
+        // Remove all symbols appearing in dependences
+        symbols = symbols.filter(not_in_set(symbols_in_dependences));
+
         if (!symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(filename, line));
@@ -1403,7 +1554,7 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        int line = line;
+        int line = pragma_line.get_line();
         std::string filename = pragma_line.get_filename();
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
@@ -1453,6 +1604,26 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
 
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::NDRange::make(
+                        Nodecl::List::make(ndrange_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
+        
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        if (!onto_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
+                    
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
@@ -1573,6 +1744,16 @@ namespace TL { namespace OpenMP {
 
         make_dependency_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
+                filename, line,
+                result_list);
+
+        make_dependency_list<Nodecl::OpenMP::Concurrent>(
+                dependences, OpenMP::DEP_CONCURRENT,
+                filename, line,
+                result_list);
+
+        make_dependency_list<Nodecl::OpenMP::Commutative>(
+                dependences, OpenMP::DEP_COMMUTATIVE,
                 filename, line,
                 result_list);
 

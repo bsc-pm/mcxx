@@ -28,8 +28,13 @@
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-datareference.hpp"
+#include "tl-counters.hpp"
+#include "tl-predicateutils.hpp"
 #include "codegen-phase.hpp"
 #include "cxx-diagnostic.h"
+#include "cxx-exprtype.h"
+#include "fortran03-typeutils.h"
+#include "tl-target-information.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -61,6 +66,13 @@ namespace TL { namespace Nanox {
 
     OutlineDataItem& OutlineInfo::get_entity_for_symbol(TL::Symbol sym)
     {
+        bool dummy;
+        return get_entity_for_symbol(sym, dummy);
+    }
+
+    OutlineDataItem& OutlineInfo::get_entity_for_symbol(TL::Symbol sym, bool &is_new)
+    {
+        is_new = false;
         for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
                 it++)
@@ -71,85 +83,563 @@ namespace TL { namespace Nanox {
 
         std::string field_name = get_field_name(sym.get_name());
         OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
+        is_new = true;
 
         _data_env_items.append(env_item);
         return (*_data_env_items.back());
     }
 
-    class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>
+    void OutlineInfoRegisterEntities::add_shared_opaque(Symbol sym)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_lvalue_reference_to();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_shared(Symbol sym)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        if (IS_CXX_LANGUAGE
+                && sym.get_name() == "this")
+        {
+            outline_info.set_field_type(t.get_unqualified_type());
+            outline_info.set_in_outline_type(t.get_unqualified_type());
+        }
+        else
+        {
+            outline_info.set_field_type(t.get_pointer_to());
+
+            if (is_new)
+            {
+                TL::Type in_outline_type = t.get_lvalue_reference_to();
+                in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+                outline_info.set_in_outline_type(in_outline_type);
+
+                _outline_info.move_at_end(outline_info);
+            }
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_capture_address(Symbol sym, TL::DataReference& data_ref)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+        outline_info.set_base_address_expression(data_ref.get_base_address());
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        if (t.is_array())
+        {
+            t = t.array_element().get_pointer_to();
+        }
+
+        outline_info.set_field_type(t.get_unqualified_type());
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_private(Symbol sym)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = add_extra_dimensions(sym, t, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+
+        outline_info.set_private_type(t);
+        outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
+
+    }
+
+    void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
+    {
+        if (captured)
+        {
+            this->add_capture(sym);
+        }
+        else
+        {
+            this->add_private(sym);
+        }
+
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+        outline_info.set_is_lastprivate(true);
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        outline_info.set_private_type(t);
+
+        // Add a new symbol just to hold the address
+        TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+        new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, "", 0);
+        sym_ref.set_type(t.get_lvalue_reference_to());
+
+        this->add_capture_with_value(
+                new_addr_symbol,
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), "", 0));
+    }
+
+    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
+    {
+        return add_extra_dimensions(sym, t, NULL);
+    }
+
+    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
+            OutlineDataItem* outline_data_item)
+    {
+        if (t.is_array())
+        {
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+            {
+                Nodecl::NodeclBase array_size = t.array_get_size();
+
+                if (array_size.is<Nodecl::Symbol>()
+                        && array_size.get_symbol().is_saved_expression())
+                {
+                    this->add_capture(array_size.get_symbol());
+
+                    if (outline_data_item != NULL)
+                    {
+                        if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+                        {
+                            outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                        }
+                        else
+                        {
+                            outline_data_item->set_field_type(TL::Type::get_void_type().get_pointer_to());
+                        }
+                    }
+                }
+
+                t = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+
+                return t.get_array_to(array_size, _sc);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase lower, upper;
+
+                t.array_get_bounds(lower, upper);
+
+                Nodecl::NodeclBase result_lower, result_upper;
+
+                bool make_allocatable = false;
+
+                // If the symbol is a shared allocatable we want the original type
+                if (sym.is_allocatable()
+                        && outline_data_item != NULL
+                        && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED))
+                    return t;
+
+                if (lower.is_null())
+                {
+                    if (t.array_requires_descriptor()
+                            && sym.is_parameter()
+                            && !sym.is_allocatable()
+                            && !(sym.get_type().is_pointer()
+                                || (sym.get_type().is_any_reference()
+                                    && sym.get_type().references_to().is_pointer())))
+                    {
+                        // This is an assumed shape, the lower is actually one
+                        result_lower = const_value_to_nodecl(const_value_get_one(4, 1));
+                    }
+                    else if (sym.get_type().is_pointer()
+                            || (sym.get_type().is_any_reference()
+                                && sym.get_type().references_to().is_pointer())
+                            || sym.is_allocatable())
+                    {
+
+                        Counter& counter = CounterManager::get_counter("array-lower-boundaries");
+                        std::stringstream ss;
+                        ss << "mcc_lower_bound_" << (int)counter++;
+
+                        // This is a deferred shape, create a symbol
+                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                        int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                        TL::Type sym_type = sym.get_type();
+                        if (!sym_type.is_any_reference()) sym_type = sym_type.get_lvalue_reference_to();
+                        symbol_ref.set_type(sym_type);
+
+                        Source lbound_src;
+                        lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                        Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
+
+                        this->add_capture_with_value(bound_sym, lbound_tree);
+
+                        result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
+                        result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
+
+                        make_allocatable = true;
+                    }
+                }
+                else if (lower.is<Nodecl::Symbol>()
+                        && lower.get_symbol().is_saved_expression())
+                {
+                    this->add_capture(lower.get_symbol());
+                    result_lower = lower;
+
+                    make_allocatable = true;
+                }
+                else
+                {
+                    ERROR_CONDITION(!lower.is_constant(), "This should be constant", 0);
+                    // This should be constant
+                    result_lower = lower;
+                }
+
+                if (upper.is_null())
+                {
+                    if (t.array_requires_descriptor())
+                    {
+                        // This is an assumed shape or deferred shape
+                        Counter& counter = CounterManager::get_counter("array-upper-boundaries");
+                        std::stringstream ss;
+                        ss << "mcc_upper_bound_" << (int)counter++;
+
+                        // This is a deferred shape, create a symbol
+                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                        int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                        TL::Type sym_type = sym.get_type();
+                        if (!sym_type.is_any_reference()) sym_type = sym_type.get_lvalue_reference_to();
+                        symbol_ref.set_type(sym_type);
+
+                        Source ubound_src;
+                        ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                        Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
+
+                        this->add_capture_with_value(bound_sym, ubound_tree);
+
+                        result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
+                        result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
+
+                        make_allocatable = true;
+                    }
+                    else
+                    {
+                        // This is an assumed size array, result_upper must remain null
+                        if (outline_data_item != NULL)
+                        {
+                            // FIXME - We should check this earlier. In OpenMP::Core
+                            if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+                            {
+                                error_printf("%s:%d: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
+                                        sym.get_filename().c_str(),
+                                        sym.get_line(),
+                                        sym.get_name().c_str());
+                            }
+                        }
+                    }
+                }
+                else if (upper.is<Nodecl::Symbol>()
+                        && upper.get_symbol().is_saved_expression())
+                {
+                    this->add_capture(upper.get_symbol());
+                    result_upper = upper;
+
+                    make_allocatable = true;
+                }
+                else
+                {
+                    ERROR_CONDITION(!upper.is_constant(), "This should be constant", 0);
+                    // This should be constant
+                    result_upper = upper;
+                }
+
+                TL::Type res = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+                if (make_allocatable)
+                {
+                    res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
+                }
+                else
+                {
+                    res = res.get_array_to(result_lower, result_upper, _sc);
+                }
+
+                if (make_allocatable
+                        && outline_data_item != NULL)
+                {
+                    if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+                    {
+                        outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                        outline_data_item->set_field_type(
+                                ::fortran_get_n_ranked_type_with_descriptor(
+                                    ::fortran_get_rank0_type(t.get_internal_type()),
+                                    ::fortran_get_rank_of_type(t.get_internal_type()), _sc.get_decl_context()));
+                    }
+                }
+
+                return res;
+            }
+        }
+        else if (t.is_pointer())
+        {
+            TL::Type res = add_extra_dimensions(sym, t.points_to(), outline_data_item);
+            return res.get_pointer_to();
+        }
+        else if (t.is_lvalue_reference())
+        {
+            TL::Type res = add_extra_dimensions(sym, t.references_to(), outline_data_item);
+            return res.get_lvalue_reference_to();
+        }
+        else if (t.is_function())
+        {
+            // Not handled
+            return t;
+        }
+        else if (t.is_class())
+        {
+            // FIXME - Classes may have "VLA" components
+            return t;
+        }
+        return t;
+    }
+
+    void OutlineInfoRegisterEntities::add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality)
+    {
+        TL::DataReference data_ref(node);
+        if (data_ref.is_valid())
+        {
+            TL::Symbol sym = data_ref.get_base_symbol();
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                add_shared_opaque(sym);
+            }
+            else if (data_ref.is<Nodecl::Symbol>())
+            {
+                add_shared(sym);
+            }
+            else
+            {
+                add_capture_address(sym, data_ref);
+            }
+
+            OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+            outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, directionality));
+        }
+        else
+        {
+            internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                    node.get_locus().c_str(),
+                    Codegen::get_current().codegen_to_str(node, node.retrieve_context()).c_str()
+                    );
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality)
+    {
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            add_dependence(*it, directionality);
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality)
+    {
+        for (Nodecl::List::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            TL::DataReference data_ref(*it);
+            if (data_ref.is_valid())
+            {
+                TL::Symbol sym = data_ref.get_base_symbol();
+
+                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                outline_info.get_copies().append(OutlineDataItem::CopyItem(data_ref, copy_directionality));
+            }
+            else
+            {
+                internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                        it->get_locus().c_str(),
+                        Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
+                        );
+            }
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_capture(Symbol sym)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+        
+        outline_info.set_field_type(t.get_unqualified_type());
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_lvalue_reference_to();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            if ((outline_info.get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                    == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+            {
+                // ALLOCATABLEs must be handled with care
+                outline_info.set_in_outline_type(outline_info.get_field_type().get_lvalue_reference_to());
+            }
+            else
+            {
+                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
+            }
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_lvalue_reference_to();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+
+        outline_info.set_field_type(t);
+        outline_info.set_captured_value(expr);
+    }
+
+    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
+        outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
+        outline_info.set_reduction_info(&udr_info);
+
+        TL::Type t = symbol.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
+        }
+        else
+        {
+            outline_info.set_field_type(t.get_pointer_to());
+        }
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_lvalue_reference_to();
+            in_outline_type = add_extra_dimensions(symbol, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+
+        outline_info.set_private_type(t);
+    }
+
+    class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
     {
         private:
             OutlineInfo& _outline_info;
-            bool _is_function_task;
         public:
-            OutlineInfoSetupVisitor(OutlineInfo& outline_info, bool is_function_task)
-                : _outline_info(outline_info), _is_function_task(is_function_task)
+            OutlineInfoSetupVisitor(OutlineInfo& outline_info, TL::Scope sc)
+                : OutlineInfoRegisterEntities(outline_info, sc),
+                _outline_info(outline_info)
             {
-            }
-
-            void add_shared_opaque(Symbol sym)
-            {
-                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-
-                Type t = sym.get_type();
-                if (t.is_any_reference())
-                {
-                    t = t.references_to();
-                }
-
-                outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
-            }
-
-            void add_shared(Symbol sym)
-            {
-                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-
-                Type t = sym.get_type();
-                if (t.is_any_reference())
-                {
-                    t = t.references_to();
-                }
-
-                if (IS_CXX_LANGUAGE
-                        && sym.get_name() == "this")
-                {
-                    outline_info.set_field_type(t.get_unqualified_type());
-                    outline_info.set_in_outline_type(t.get_unqualified_type());
-                }
-                else
-                {
-                    outline_info.set_field_type(t.get_pointer_to());
-                    outline_info.set_in_outline_type(t.get_lvalue_reference_to());
-                }
-            }
-
-            void add_shared_with_private_storage(Symbol sym, bool captured)
-            {
-                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                if (captured)
-                {
-                    outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_CAPTURED_PRIVATE);
-                }
-                else
-                {
-                    outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_PRIVATE);
-                }
-
-                Type t = sym.get_type();
-                if (t.is_any_reference())
-                {
-                    t = t.references_to();
-                }
-
-                outline_info.set_field_type(t.get_pointer_to());
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
-                outline_info.set_private_type(t);
             }
 
             void visit(const Nodecl::OpenMP::Auto& shared)
@@ -160,7 +650,7 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n", 
+                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
                             it->get_locus().c_str(),
                             sym.get_name().c_str());
                 }
@@ -190,106 +680,30 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void add_dependence(Nodecl::List list, OutlineDataItem::Directionality directionality)
-            {
-                for (Nodecl::List::iterator it = list.begin();
-                        it != list.end();
-                        it++)
-                {
-                    TL::DataReference data_ref(*it);
-                    if (data_ref.is_valid())
-                    {
-                        TL::Symbol sym = data_ref.get_base_symbol();
-                        if (!_is_function_task)
-                        {
-                            // If we are in an inline task, dependences are
-                            // truly shared...
-                            if (IS_FORTRAN_LANGUAGE)
-                            {
-                                add_shared_opaque(sym);
-                            }
-                            else
-                            {
-                                add_shared(sym);
-                            }
-                        }
-                        else
-                        {
-                            // ... but in function tasks, dependences have just
-                            // their addresses captured
-                            add_capture(sym);
-                        }
-
-                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-                        outline_info.set_directionality(
-                                OutlineDataItem::Directionality(directionality | outline_info.get_directionality())
-                                );
-
-                        outline_info.get_dependences().append(data_ref);
-                    }
-                    else
-                    {
-                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
-                                it->get_locus().c_str(),
-                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
-                                );
-                    }
-                }
-            }
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
-                add_dependence(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_IN);
+                add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
-                add_dependence(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_OUT);
+                add_dependences(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DEP_OUT);
             }
 
             void visit(const Nodecl::OpenMP::DepInout& dep_inout)
             {
-                add_dependence(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DIRECTIONALITY_INOUT);
+                add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
             }
 
-            void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality)
+            void visit(const Nodecl::OpenMP::Concurrent& concurrent)
             {
-                for (Nodecl::List::iterator it = list.begin();
-                        it != list.end();
-                        it++)
-                {
-                    TL::DataReference data_ref(*it);
-                    if (data_ref.is_valid())
-                    {
-                        TL::Symbol sym = data_ref.get_base_symbol();
-                        if (!_is_function_task)
-                        {
-                            // If we are in an inline task, dependences are
-                            // truly shared...
-                            add_shared(sym);
-                        }
-                        else
-                        {
-                            // ... but in function tasks, dependences have just
-                            // their addresses captured
-                            add_capture(sym);
-                        }
+                add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
+            }
 
-                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-                        outline_info.set_copy_directionality(
-                                OutlineDataItem::CopyDirectionality(copy_directionality | outline_info.get_copy_directionality())
-                                );
-
-                        outline_info.get_copies().append(data_ref);
-                    }
-                    else
-                    {
-                        internal_error("%s: data reference '%s' must be valid at this point!\n", 
-                                it->get_locus().c_str(),
-                                Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
-                                );
-                    }
-                }
+            void visit(const Nodecl::OpenMP::Commutative& commutative)
+            {
+                add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
             void visit(const Nodecl::OpenMP::CopyIn& copy_in)
@@ -307,20 +721,21 @@ namespace TL { namespace Nanox {
                 add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
 
-            void add_capture(Symbol sym)
+            void visit(const Nodecl::OpenMP::Implements& implements)
             {
-                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+                _outline_info.add_implementation(
+                        implements.get_device().as<Nodecl::Text>().get_text(),
+                        implements.get_function_name().as<Nodecl::Symbol>().get_symbol());
+            }
 
-                outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
-
-                Type t = sym.get_type();
-                if (t.is_any_reference())
-                {
-                    t = t.references_to();
-                }
-
-                outline_info.set_field_type(t);
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
+            void visit(const Nodecl::OpenMP::NDRange& ndrange)
+            {
+                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+            }
+            
+            void visit(const Nodecl::OpenMP::Onto& onto)
+            {
+                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
@@ -367,43 +782,14 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-                    outline_info.set_in_outline_type(sym.get_type());
-                    outline_info.set_private_type(sym.get_type());
-
-                    outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
+                    add_private(sym);
 
                     if (sym.is_allocatable())
                     {
-                        error_printf("%s: error: ALLOCATABLE arrays are not supported\n",
+                        error_printf("%s: error: setting a PRIVATE data-sharing to ALLOCATABLE arrays are not supported\n",
                                 private_.get_locus().c_str());
                     }
                 }
-            }
-
-            void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
-            {
-                OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-                outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
-                outline_info.set_reduction_info(&udr_info);
-
-                TL::Type t = symbol.get_type();
-                if (t.is_any_reference())
-                {
-                    t = t.references_to();
-                }
-
-                if (IS_FORTRAN_LANGUAGE)
-                {
-                    outline_info.set_field_type(TL::Type::get_void_type().get_pointer_to());
-                }
-                else
-                {
-                    outline_info.set_field_type(t.get_pointer_to());
-                }
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
-                outline_info.set_private_type(t);
             }
 
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)
@@ -419,14 +805,16 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::Target& target)
             {
                 Nodecl::List devices = target.get_devices().as<Nodecl::List>();
+                
 
                 for (Nodecl::List::iterator it = devices.begin();
                         it != devices.end();
                         it++)
                 {
                     std::string current_device = it->as<Nodecl::Text>().get_text();
-                    _outline_info.add_device_name(current_device);
+                    _outline_info.add_device_name(current_device,_outline_info.get_funct_symbol());
                 }
+                walk(target.get_items());
             }
     };
 
@@ -442,39 +830,156 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, bool is_function_task)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol)
         : _data_env_items()
     {
-        OutlineInfoSetupVisitor setup_visitor(*this, is_function_task);
+        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        if (!environment.is_null())
+        {
+            sc = environment.retrieve_context();
+        }
+        //Add one targetInfo, main task
+       if (funct_symbol==NULL) funct_symbol=Symbol::invalid();
+        TargetInformation ti;
+        _implementation_table.insert(std::make_pair(funct_symbol, ti));
+        _funct_symbol=funct_symbol;
+        OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
     }
 
-    OutlineDataItem& OutlineInfo::prepend_field(const std::string& str, TL::Type t)
+    OutlineDataItem& OutlineInfo::prepend_field(TL::Symbol sym)
     {
-        std::string field_name = get_field_name(str);
-        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
+        std::string field_name = get_field_name(sym.get_name());
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
 
         _data_env_items.std::vector<OutlineDataItem*>::insert(_data_env_items.begin(), env_item);
         return *(_data_env_items.front());
     }
 
-    OutlineDataItem& OutlineInfo::append_field(const std::string& str, TL::Type t)
+    OutlineDataItem& OutlineInfo::append_field(TL::Symbol sym)
     {
-        std::string field_name = get_field_name(str);
-        OutlineDataItem* env_item = new OutlineDataItem(field_name, t);
+        std::string field_name = get_field_name(sym.get_name());
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
     }
 
-    void OutlineInfo::add_device_name(std::string device_name)
+    void OutlineInfo::move_at_end(OutlineDataItem& item)
     {
-        _device_names.append(device_name);
+        TL::ObjectList<OutlineDataItem*> new_list;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            if (*it != &item)
+            {
+                new_list.append(*it);
+            }
+        }
+        new_list.append(&item);
+
+        std::swap(_data_env_items, new_list);
     }
 
-    ObjectList<std::string> OutlineInfo::get_device_names()
+    void OutlineInfo::add_device_name(std::string device_name,TL::Symbol function_symbol)
     {
-        return _device_names;
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
+       _implementation_table[function_symbol].add_device_name(device_name);   
     }
 
+    ObjectList<std::string> OutlineInfo::get_device_names(TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       return _implementation_table[function_symbol].get_device_names();   
+    }
+
+    void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);       
+    }
+
+    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       return _implementation_table[function_symbol].get_ndrange();   
+    }
+    
+    void OutlineInfo::append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto_exprs)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       _implementation_table[function_symbol].append_to_onto(onto_exprs);       
+    }
+
+    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       return _implementation_table[function_symbol].get_onto();   
+    }
+        
+    TL::Symbol OutlineInfo::get_unpacked_function_symbol(TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        return _implementation_table[function_symbol].get_unpacked_function_symbol();
+    }
+
+    void OutlineInfo::set_unpacked_function_symbol(TL::Symbol unpacked_sym,TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        _implementation_table[function_symbol].set_unpacked_function_symbol(unpacked_sym);
+    }
+    
+    Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        return _implementation_table[function_symbol].get_param_arg_map();
+    }
+
+    void OutlineInfo::set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
+    }
+
+    void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
+    {
+        if (function_symbol==NULL) function_symbol=Symbol::invalid();
+        //if no impl present, we add it, otherwise just add a device
+         if(_implementation_table.count(function_symbol)==0){
+             TargetInformation ti;
+             ti.add_device_name(device_name);
+             _implementation_table.insert(std::make_pair(function_symbol, ti));
+         } else {
+             add_device_name(device_name,function_symbol);
+         }
+    }
+
+    OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
+    {
+        return _implementation_table;
+    }
+
+    namespace
+    {
+        bool is_not_private(OutlineDataItem* it)
+        {
+            return it->get_sharing() != OutlineDataItem::SHARING_PRIVATE;
+        }
+    }
+
+    ObjectList<OutlineDataItem*> OutlineInfo::get_fields() const
+    {
+        return _data_env_items.filter(predicate(is_not_private));
+    }
 } }

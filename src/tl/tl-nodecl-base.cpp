@@ -106,6 +106,16 @@ namespace Nodecl
         }
     }
 
+    TL::ObjectList<NodeclBase> List::to_object_list()
+    {
+        TL::ObjectList<NodeclBase> result;
+        for (List::iterator it = this->begin(); it != this->end(); ++it)
+        {
+            result.append(*it);
+        }
+        return result;
+    }
+
     List List::make(const TL::ObjectList<NodeclBase>& list)
     {
         if (list.empty())

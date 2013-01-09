@@ -18,9 +18,12 @@ PROGRAM bsc_cg
 !$OMP SHARED   (jj, cc)
       DO ii = 1, 10
 #ifdef _OPENMP
+!$OMP CRITICAL
          cc = cc + jj
+!$OMP END CRITICAL
 #endif
      ENDDO
+
      write (*,*) cc
 
      if (CC /= 20) THEN

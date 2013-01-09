@@ -108,10 +108,11 @@ enum simple_type_kind_tag
     STK_TEMPLATE_DEPENDENT_TYPE, // 
     // Mercurium extensions
     STK_VECTOR,
+    STK_MASK,
     // GCC Extensions
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
-    STK_TYPE_DEP_EXPR, // [9]
+    STK_TYPE_DEP_EXPR,
 } simple_type_kind_t;
 
 // Information of enums
@@ -6901,6 +6902,43 @@ void vector_types_set_flavor(const char* c)
     }
 }
 
+const char* print_mask_type_intel(
+        decl_context_t decl_context UNUSED_PARAMETER,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
+        void* print_symbol_data UNUSED_PARAMETER)
+{
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    const char* result = NULL;
+
+    switch (num_bits)
+    {
+        // We only support Intel MIC mask at the moment:
+        case 16:
+            {
+                result = "__mmask16";
+                break;
+            }
+        default:
+            {
+                uniquestr_sprintf(&result, "<<intel-vector-mask-%d>>", num_bits);
+                break;
+            }
+    }
+
+    return result;
+}
+
+const char* print_mask_type(
+        decl_context_t decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    // Do we want to make a flavor of these?
+    return print_mask_type_intel(decl_context, t, print_symbol_fun, print_symbol_data);
+}
 
 // Returns a string with the name of this simple type
 static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context, 
@@ -7063,6 +7101,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
         case STK_VECTOR:
             {
                 result = CURRENT_CONFIGURATION->print_vector_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                break;
+            }
+        case STK_MASK:
+            {
+                result = print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
                 break;
             }
         case STK_CLASS :
@@ -8060,7 +8103,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                         break;
                     case BT_UNKNOWN :
                     default :
-                        result = strappend(result, "¿¿¿unknown builtin type???");
+                        result = strappend(result, "ï¿½ï¿½ï¿½unknown builtin type???");
                         break;
                 }
                 break;
@@ -8750,7 +8793,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     // C only
-    // T -> T @ref@
     if (IS_C_LANGUAGE
             && is_lvalue_reference_type(dest))
     {
@@ -8759,6 +8801,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_orig = get_unqualified_type(orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
+        // T -> T @ref@
         if (equivalent_types(unqualif_orig, unqualif_ref_dest))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -8768,7 +8811,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             return 1;
         }
+        // void& -> T @ref@
+        else if (is_lvalue_reference_type(orig)
+                && is_void_type(no_ref(orig)))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Mercurium Extension for C: binding a void& to a reference type\n");
+            }
+            return 1;
+        }
     }
+
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
             && is_lvalue_reference_type(dest))
@@ -9164,6 +9219,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+	else if (is_complex_type(orig)
+		&& is_floating_type(dest))
+	{
+	    DEBUG_CODE()
+	    {
+		fprintf(stderr, "SCS: Applying complex to floating conversion\n");
+	    }
+	    (*result).conv[1] = SCI_COMPLEX_TO_FLOAT_CONVERSION;
+	    // Direct conversion, no cv-qualifiers can be involved here
+	    orig = dest;
+	}
     }
 
     // Third kind of conversion
@@ -11062,6 +11128,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
             region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, symbol_map);
             region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, symbol_map);
+            region_stride = nodecl_deep_copy(region_stride, new_decl_context, symbol_map);
 
             result = get_array_type_bounds_with_regions(element_type,
                     lower_bound,
@@ -11207,4 +11274,46 @@ int generic_type_get_num(type_t* t)
     }
 
     return -1;
+}
+
+type_t* get_mask_type(unsigned int mask_size)
+{
+    static rb_red_blk_tree *_mask_hash = NULL;
+
+    if (_mask_hash == NULL)
+    {
+        _mask_hash = rb_tree_create(uint_comp, null_dtor, null_dtor);
+    }
+
+    type_t* result = (type_t*)rb_tree_query_uint(_mask_hash, mask_size);
+
+    if (result == NULL)
+    {
+        result = get_simple_type();
+        result->type->kind = STK_MASK;
+        result->type->vector_size = mask_size;
+
+        int *k = counted_calloc(sizeof(int), 1, &_bytes_due_to_type_system);
+        *k = mask_size;
+
+        rb_tree_insert(_mask_hash, k, result);
+    }
+
+    return result;
+}
+
+char is_mask_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_MASK);
+}
+
+unsigned int mask_type_get_num_bits(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t), "This is not a mask type", 0);
+
+    return t->type->vector_size;
 }

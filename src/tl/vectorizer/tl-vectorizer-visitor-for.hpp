@@ -53,7 +53,7 @@ namespace TL
 
                 virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
 
-                NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
@@ -66,7 +66,7 @@ namespace TL
 
                 void visit(const Nodecl::NodeclBase& loop_header);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
@@ -74,7 +74,7 @@ namespace TL
             public:
                 VectorizerVisitorLoopInit();
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
  
         class VectorizerVisitorLoopCond : public Nodecl::NodeclVisitor<void>
@@ -85,7 +85,7 @@ namespace TL
             public:
                 VectorizerVisitorLoopCond(const unsigned int vector_length);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
  
         class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
@@ -96,7 +96,7 @@ namespace TL
             public:
                 VectorizerVisitorLoopNext(const unsigned int vector_length);
 
-                NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n); 
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }
 }

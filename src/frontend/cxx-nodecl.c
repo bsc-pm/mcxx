@@ -167,8 +167,15 @@ void nodecl_set_type(nodecl_t t, type_t* type)
     nodecl_expr_set_type(t.tree, type);
 }
 
-// Implemented in cxx-nodecl-shallow-copy.c
-// nodecl_t nodecl_shallow_copy(nodecl_t t);
+// nodecl_t nodecl_shallow_copy(nodecl_t t)
+// {
+//    Implemented in cxx-nodecl-shallow-copy.c
+// }
+
+nodecl_t nodecl_duplicate(nodecl_t t)
+{
+    return _nodecl_wrap(ast_duplicate_one_node(nodecl_get_ast(t)));
+}
 
 char nodecl_is_constant(nodecl_t t)
 {

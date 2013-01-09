@@ -82,7 +82,6 @@ bool|fortran|is_intrinsic_function|This symbol is an INTRINSIC FUNCTION
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE
 bool|fortran|is_entry|This symbol is an ENTRY
 bool|fortran|is_renamed|States that this symbol has been USEd with a rename
-bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
@@ -114,8 +113,9 @@ integer|all|bitfield_first|Significance order of the first bit of this bitfield
 integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
 typeof(_size_t)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
 array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
+array(typeof(gather_gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
-nodecl|fortran|bind_c_name|Name for a BIND(C) attribute
+nodecl|fortran|bind_info|Information of a BIND(lang, X)
 nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function

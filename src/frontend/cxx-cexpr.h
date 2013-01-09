@@ -183,7 +183,8 @@ LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int n
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);
 
-LIBMCXX_EXTERN void const_value_string_unpack(const_value_t* v, int**, int*);
+LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*);
+LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v);
 
 LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
 
@@ -207,6 +208,12 @@ LIBMCXX_EXTERN const_value_t* const_value_round_to_nearest_bytes(const_value_t* 
 LIBMCXX_EXTERN const_value_t* const_value_round(const_value_t* val, int num_bytes, int rounding_mode);
 
 LIBMCXX_EXTERN type_t* const_value_get_struct_type(const_value_t* v);
+
+LIBMCXX_EXTERN const_value_t* const_value_get_mask(cvalue_uint_t value, unsigned int num_bits);
+LIBMCXX_EXTERN char const_value_is_mask(const_value_t* v);
+LIBMCXX_EXTERN unsigned int const_value_mask_get_num_bits(const_value_t* v);
+LIBMCXX_EXTERN cvalue_uint_t const_value_mask_get_value(const_value_t* v);
+
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -46,13 +47,13 @@ namespace TL { namespace Nanox {
 
     DeviceProvider::DeviceProvider(const std::string& device_name)
         : _device_name(device_name),
-          _enable_instrumentation(false),
-          _enable_instrumentation_str("")
+        _enable_instrumentation(false),
+        _enable_instrumentation_str("")
     {
-             DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-             device_handler.register_device(device_name, this);
+        DeviceHandler &device_handler(DeviceHandler::get_device_handler());
+        device_handler.register_device(device_name, this);
 
-             common_constructor_code();
+        common_constructor_code();
     }
 
     DeviceProvider* DeviceHandler::get_device(const std::string& str)
@@ -79,10 +80,10 @@ namespace TL { namespace Nanox {
                 /* Error message */  "Instrumentation disabled");
     }
 
-     bool DeviceProvider::instrumentation_enabled()
-     {
-         return _enable_instrumentation;
-     }
+    bool DeviceProvider::instrumentation_enabled()
+    {
+        return _enable_instrumentation;
+    }
     //
     //
     // bool DeviceProvider::do_not_create_translation_function()
@@ -97,17 +98,135 @@ namespace TL { namespace Nanox {
     // }
     // 
 
-     void DeviceProvider::common_constructor_code()
-     {
-         register_parameter("instrument",
-                 "Enables instrumentation of the device provider if set to '1'",
-                 _enable_instrumentation_str,
-                 "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+    void DeviceProvider::common_constructor_code()
+    {
+        register_parameter("instrument",
+                "Enables instrumentation of the device provider if set to '1'",
+                _enable_instrumentation_str,
+                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+    }
 
-         //     register_parameter("do_not_create_translation_function",
-         //             "Even if the runtime interface supports a translation function, it will not be generated",
-         //             _do_not_create_translation_str,
-         //             "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
-     }
+    void DeviceProvider::get_instrumentation_code(
+            const TL::Symbol& called_task,
+            const TL::Symbol& outline_function,
+            Nodecl::NodeclBase outline_function_body,
+            Nodecl::NodeclBase task_label,
+            std::string filename,
+            int line,
+            Source& instrumentation_before,
+            Source& instrumentation_after)
+    {
+        if (Nanos::Version::interface_is_at_least("master", 5019))
+        {
+            Source extended_descr, extra_cast, instrument_before_c,
+            instrument_after_c, function_name_instr;
+
+            if (task_label.is_null())
+            {
+                if (called_task.is_valid())
+                {
+                    // It's a function task
+                    extended_descr << called_task.get_type().get_declaration(
+                            called_task.get_scope(), called_task.get_qualified_name());
+                }
+                else
+                {
+                    // It's an inline task
+                    std::string function_name =
+                        outline_function.get_type().get_declaration(
+                                outline_function.get_scope(), outline_function.get_qualified_name());
+
+                    // The character '@' will be used as a separator of the
+                    // description. Since the function name may contain one or
+                    // more '@' characters, we should replace them by an other
+                    // special char
+                    for (unsigned int i = 0; i < function_name.length(); i++)
+                    {
+                        if (function_name[i] == '@')
+                            function_name[i] = '#';
+                    }
+
+                    extended_descr << function_name;
+                }
+            }
+            else
+            {
+                extended_descr = task_label.get_text();
+            }
+
+            // The description should contains:
+            //  - FUNC_DECL: The declaration of the function. The function name shall be qualified
+            //  - FILE: The filename
+            //  - LINE: The line number
+            //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
+            extended_descr << "@" << filename << "@" << line;
+
+            // GCC complains if you convert a pointer to an integer of different
+            // size. Since we target a unsigned long long, in architectures of 32
+            // bits we first cast to an unsigned int
+            if (CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer == 4)
+            {
+                extra_cast << "(unsigned int)";
+            }
+
+            // FIXME: We may need an additional cast here (GCC bug solved in 4.5)
+            function_name_instr << as_symbol(outline_function);
+
+            instrument_before_c
+                << "static int nanos_funct_id_init = 0;"
+                << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                << "nanos_err_t err;"
+                << "if (nanos_funct_id_init == 0)"
+                << "{"
+                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
+                <<               " \"user-funct-location\", \"" << outline_function.get_name() << "\", \"" << extended_descr << "\", 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "nanos_funct_id_init = 1;"
+                << "}"
+                << "nanos_event_t event;"
+                << "event.type = NANOS_BURST_START;"
+                << "event.key = nanos_instr_uf_location_key;"
+                << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+                << "err = nanos_instrument_events(1, &event);"
+                ;
+
+            if (is_gpu_device())
+            {
+                instrument_after_c << "err = nanos_instrument_close_user_fun_event();";
+            }
+            else
+            {
+                instrument_after_c
+                    << "event.type = NANOS_BURST_END;"
+                    << "event.key = nanos_instr_uf_location_key;"
+                    << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+                    << "err = nanos_instrument_events(1, &event);"
+                    ;
+            }
+
+            if (IS_FORTRAN_LANGUAGE)
+                Source::source_language = SourceLanguage::C;
+
+            Nodecl::NodeclBase instr_before = instrument_before_c.parse_statement(outline_function_body);
+            Nodecl::NodeclBase instr_after = instrument_after_c.parse_statement(outline_function_body);
+
+            if (IS_FORTRAN_LANGUAGE)
+                Source::source_language = SourceLanguage::Current;
+
+            instrumentation_before << as_statement(instr_before);
+            instrumentation_after << as_statement(instr_after);
+        }
+        else
+        {
+            internal_error("Unsupported nanox version for instrumentation", 0);
+        }
+    }
+
+    bool DeviceProvider::is_gpu_device() const
+    {
+        return false;
+    }
 
 } }

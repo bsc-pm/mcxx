@@ -242,13 +242,13 @@ namespace Codegen
             set_codegen_status(current_module, CODEGEN_STATUS_DEFINED);
 
             push_declaring_entity(current_module);
+            push_declaration_status();
+            clear_renames();
 
             TL::ObjectList<Nodecl::NodeclBase> &nodes_before_contains = it->nodes_before_contains;
             TL::ObjectList<Nodecl::NodeclBase> &nodes_after_contains = it->nodes_after_contains;
 
             codegen_module_header(current_module, nodes_before_contains, nodes_after_contains);
-
-            clear_renames();
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = it->nodes_after_contains.begin();
                     it2 != it->nodes_after_contains.end();
@@ -260,15 +260,12 @@ namespace Codegen
                 clear_renames();
 
                 walk(node);
-
                 pop_declaration_status();
             }
 
             codegen_module_footer(current_module);
 
-            clear_codegen_status();
-            clear_renames();
-
+            pop_declaration_status();
             pop_declaring_entity();
         }
 
@@ -277,8 +274,6 @@ namespace Codegen
 
     static std::string get_generic_specifier_str(const std::string& c)
     {
-        const char* const op_prefix = ".operator.";
-
         if (c == ".operator.=")
         {
             return "ASSIGNMENT(=)";
@@ -287,10 +282,9 @@ namespace Codegen
         {
             return "OPERATOR(" + c.substr(strlen(".operator."), std::string::npos) + ")";
         }
-        else 
-            return c;
+        else return c;
     }
-    
+
     void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
             bool lacks_result)
     {
@@ -372,7 +366,7 @@ namespace Codegen
                 {
                     if (it->get_type().basic_type().is_class())
                     {
-                        declare_symbol(it->get_type().basic_type().get_symbol(), 
+                        declare_symbol(it->get_type().basic_type().get_symbol(),
                                 it->get_type().basic_type().get_symbol().get_scope());
                     }
                 }
@@ -385,7 +379,7 @@ namespace Codegen
         {
             walk(data_symbol.get_value());
         }
-        
+
         // Could we improve the name of this function?
         TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
@@ -475,6 +469,7 @@ namespace Codegen
         _external_symbols.clear();
 
         push_declaring_entity(entry);
+        push_declaration_status();
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
@@ -512,9 +507,7 @@ namespace Codegen
             internal_error("Unexpected symbol kind %s", symbol_kind_name(entry.get_internal_symbol()));
         }
 
-        clear_codegen_status();
-        clear_renames();
-
+        pop_declaration_status();
         pop_declaring_entity();
     }
 
@@ -741,7 +734,7 @@ OPERATOR_TABLE
 
         int length = 0;
         int *bytes = NULL;
-        const_value_string_unpack(v, &bytes, &length);
+        const_value_string_unpack_to_int(v, &bytes, &length);
 
         if (length == 0
                 || (::isprint(bytes[0])))
@@ -1360,7 +1353,7 @@ OPERATOR_TABLE
                     file << keyword_symbol.get_name() << " = ";
                 }
             }
-            else if (pos < parameter_types.size())
+            else if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -2446,6 +2439,20 @@ OPERATOR_TABLE
             walk(nest);
             file << ")";
         }
+        else if (
+                //  T() -> T (*)() (function to pointer)
+                (dest_type.is_pointer()
+                 && source_type.is_function())
+                //  T() -> int (function to integral...)
+                ||(source_type.is_function()
+                    && dest_type.is_integral_type()))
+        {
+            // We need a LOC here
+            file << "LOC(";
+            nest = advance_parenthesized_expression(nest);
+            walk(nest);
+            file << ")";
+        }
         else
         {
             // Best effort: Not a known conversion, ignore it
@@ -2503,7 +2510,12 @@ OPERATOR_TABLE
 
     bool FortranBase::name_has_already_been_used(std::string str)
     {
-        return (_name_set.find(str) != _name_set.end());
+        if (_name_set_stack.empty())
+            return false;
+
+        name_set_t &last = _name_set_stack.back();
+
+        return (last.find(str) != last.end());
     }
 
     bool FortranBase::name_has_already_been_used(TL::Symbol sym)
@@ -2513,9 +2525,18 @@ OPERATOR_TABLE
 
     std::string FortranBase::rename(TL::Symbol sym)
     {
+        if (_name_set_stack.empty())
+            return sym.get_name();
+
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+                "Mismatch between rename map stack and name set stack", 0);
+
+        name_set_t& name_set = _name_set_stack.back();
+        rename_map_t& rename_map = _rename_map_stack.back();
+
         static int prefix = 0;
 
-        rename_map_t::iterator it = _rename_map.find(sym);
+        rename_map_t::iterator it = rename_map.find(sym);
 
         std::string result;
 
@@ -2528,7 +2549,7 @@ OPERATOR_TABLE
         }
         else
         {
-            if (it == _rename_map.end())
+            if (it == rename_map.end())
             {
                 std::stringstream ss;
 
@@ -2541,8 +2562,8 @@ OPERATOR_TABLE
                     ss << sym.get_name() << "_" << prefix;
                     prefix++;
                 }
-                _name_set.insert(ss.str());
-                _rename_map[sym] = ss.str();
+                name_set.insert(ss.str());
+                rename_map[sym] = ss.str();
 
                 result = ss.str();
             }
@@ -2768,9 +2789,8 @@ OPERATOR_TABLE
         }
         bool lacks_result = false;
 
-        push_declaration_status();
-
         // In an interface we have to forget everything...
+        push_declaration_status();
         clear_codegen_status();
         clear_renames();
 
@@ -3005,7 +3025,7 @@ OPERATOR_TABLE
         // Unless
         // a) the entity is in the global scope
         if (!ok_to_declare
-                && (entry_context.current_scope == entry_context.global_scope))
+                && entry_context.current_scope == entry_context.global_scope)
         {
             ok_to_declare = true;
         }
@@ -3017,7 +3037,7 @@ OPERATOR_TABLE
         {
             ok_to_declare = true;
         }
-        
+
         // c) the entity is an ENTRY alternate-name which is also a module procedure
         if (!ok_to_declare
                 && entry.is_function()
@@ -3311,7 +3331,6 @@ OPERATOR_TABLE
                     it != related_symbols.end();
                     it++)
             {
-                TL::Symbol &member(*it);
                 if (it != related_symbols.begin())
                     file << ", ";
 
@@ -3570,8 +3589,11 @@ OPERATOR_TABLE
             }
             
             // Keep the rename info
-            name_set_t old_name_set = _name_set;
-            rename_map_t old_rename_map = _rename_map;
+            name_set_t old_name_set;
+            rename_map_t old_rename_map;
+
+            if (!_name_set_stack.empty()) old_name_set = _name_set_stack.back();
+            if (!_rename_map_stack.empty()) old_rename_map = _rename_map_stack.back();
 
             clear_renames();
 
@@ -3687,8 +3709,8 @@ OPERATOR_TABLE
             file << "END TYPE " << real_name << "\n";
             
             // And restore it after the internal function has been emitted
-            _name_set = old_name_set;
-            _rename_map = old_rename_map;
+            if (!_name_set_stack.empty()) _name_set_stack.back() = old_name_set;
+            if (!_rename_map_stack.empty()) _rename_map_stack.back() = old_rename_map;
         }
         else if (entry.is_label())
         {
@@ -3827,7 +3849,7 @@ OPERATOR_TABLE
                 if (it != private_names.begin())
                     file << ", ";
 
-                file << *it;
+                file << get_generic_specifier_str(*it);
             }
             file << std::endl;
         }
@@ -3846,7 +3868,7 @@ OPERATOR_TABLE
                 it++)
         {
             Nodecl::NodeclBase& node(*it);
-            declare_global_entities(node);
+            declare_module_level_entities(node);
         }
 
         // EQUIVALENCE
@@ -3911,7 +3933,7 @@ OPERATOR_TABLE
         declare_symbols_from_modules_rec(node, sc, use_stmt_info);
     }
 
-    void FortranBase::do_declare_global_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
+    void FortranBase::do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
     {
          decl_context_t decl_context = entry.get_scope().get_decl_context();
 
@@ -3925,7 +3947,7 @@ OPERATOR_TABLE
 
         if (decl_context.current_scope == decl_context.global_scope)
         {
-            declare_symbol(entry, entry.get_scope());
+            // We do not emit global stuff at the module level
         }
         else
         {
@@ -3942,8 +3964,8 @@ OPERATOR_TABLE
                 {
                     TL::Symbol &member(*it);
 
-                    do_declare_global_entities(member, node, data);
-                    declare_global_entities(member.get_value());
+                    do_declare_module_level_entities(member, node, data);
+                    declare_module_level_entities(member.get_value());
                 }
             }
             else if (entry.is_variable())
@@ -3962,21 +3984,21 @@ OPERATOR_TABLE
                     entry_type.array_get_bounds(lower, upper);
                     if (!lower.is_null())
                     {
-                        declare_global_entities(lower);
+                        declare_module_level_entities(lower);
                         if (lower.is<Nodecl::Symbol>()
                                 && lower.get_symbol().is_saved_expression())
                         {
-                            declare_global_entities(lower.get_symbol().get_value());
+                            declare_module_level_entities(lower.get_symbol().get_value());
                         }
                     }
 
                     if (!upper.is_null())
                     {
-                        declare_global_entities(upper);
+                        declare_module_level_entities(upper);
                         if (upper.is<Nodecl::Symbol>()
                                 && upper.get_symbol().is_saved_expression())
                         {
-                            declare_global_entities(upper.get_symbol().get_value());
+                            declare_module_level_entities(upper.get_symbol().get_value());
                         }
                     }
 
@@ -3988,29 +4010,27 @@ OPERATOR_TABLE
                 if (entry_type.is_named_class())
                 {
                     TL::Symbol class_entry = entry_type.get_symbol();
-                    do_declare_global_entities(class_entry, node, data);
+                    do_declare_module_level_entities(class_entry, node, data);
                 }
             }
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
                 {
-                    do_declare_global_entities(*it, node, data);
+                    do_declare_module_level_entities(*it, node, data);
                 }
             }
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
                 {
-                    do_declare_global_entities(*it, node, data);
+                    do_declare_module_level_entities(*it, node, data);
                 }
             }
         }
@@ -4018,9 +4038,9 @@ OPERATOR_TABLE
         being_checked.erase(entry);
     }
 
-    void FortranBase::declare_global_entities(Nodecl::NodeclBase node)
+    void FortranBase::declare_module_level_entities(Nodecl::NodeclBase node)
     {
-        traverse_looking_for_symbols(node, &FortranBase::do_declare_global_entities, NULL);
+        traverse_looking_for_symbols(node, &FortranBase::do_declare_module_level_entities, NULL);
     }
 
     void FortranBase::codegen_blockdata_header(TL::Symbol entry)
@@ -4270,7 +4290,6 @@ OPERATOR_TABLE
             else if (entry.is_fortran_namelist())
             {
                 TL::ObjectList<TL::Symbol> symbols_in_namelist = entry.get_related_symbols();
-                int num_symbols = symbols_in_namelist.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = symbols_in_namelist.begin(); 
                         it != symbols_in_namelist.end();
                         it++)
@@ -4281,7 +4300,6 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
-                int num_symbols = specific_interfaces.size();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
                         it++)
@@ -5027,8 +5045,8 @@ OPERATOR_TABLE
 
     void FortranBase::clear_renames()
     {
-        _name_set.clear();
-        _rename_map.clear();
+        if (!_name_set_stack.empty()) _name_set_stack.back().clear();
+        if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
@@ -5171,6 +5189,7 @@ OPERATOR_TABLE
 
     std::string FortranBase::emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc)
     {
+        push_declaration_status();
         clear_codegen_status();
         clear_renames();
 
@@ -5197,10 +5216,8 @@ OPERATOR_TABLE
         file.clear();
         file.str("");
 
+        pop_declaration_status();
         pop_declaring_entity();
-
-        clear_codegen_status();
-        clear_renames();
 
         return result;
     }
@@ -5223,8 +5240,21 @@ OPERATOR_TABLE
     {
         // Keep the codegen map
         _codegen_status_stack.push_back(_codegen_status);
-        _name_set_stack.push_back(_name_set);
-        _rename_map_stack.push_back(_rename_map);
+
+        ERROR_CONDITION(_name_set_stack.empty()
+                != _rename_map_stack.empty(),
+                "Unbalanced push/pop declaration status", 0);
+
+        // We propagate name sets
+        if (_name_set_stack.empty())
+            _name_set_stack.push_back(name_set_t());
+        else
+            _name_set_stack.push_back(_name_set_stack.back());
+
+        if (_rename_map_stack.empty())
+            _rename_map_stack.push_back(rename_map_t());
+        else
+            _rename_map_stack.push_back(_rename_map_stack.back());
     }
 
     void FortranBase::pop_declaration_status()
@@ -5232,10 +5262,11 @@ OPERATOR_TABLE
         _codegen_status = _codegen_status_stack.back();
         _codegen_status_stack.pop_back();
 
-        _name_set = _name_set_stack.back();
-        _name_set_stack.pop_back();
+        ERROR_CONDITION(_name_set_stack.empty()
+                != _rename_map_stack.empty(),
+                "Unbalanced push/pop declaration status", 0);
 
-        _rename_map = _rename_map_stack.back();
+        _name_set_stack.pop_back();
         _rename_map_stack.pop_back();
     }
 

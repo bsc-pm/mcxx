@@ -1,0 +1,183 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
+
+
+#include <string.h>
+#include <ctype.h>
+
+#include "cxx-mssupport.h"
+#include "cxx-ast.h"
+#include "cxx-prettyprint.h"
+#include "cxx-scope.h"
+#include "cxx-buildscope.h"
+#include "cxx-utils.h"
+#include "cxx-cexpr.h"
+#include "cxx-typeutils.h"
+#include "cxx-ambiguity.h"
+#include "cxx-exprtype.h"
+#include "cxx-tltype.h"
+#include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
+
+static void gather_ms_declspec_item(AST a,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
+
+    const char* declspec_name = ASTText(a);
+    ERROR_CONDITION(declspec_name == NULL, "Invalide node", 0);
+
+    if (strcmp(declspec_name, "align") == 0)
+    {
+        AST expr_list = ASTSon0(a);
+        int num_items = 0;
+        if (expr_list != NULL)
+        {
+            AST it = NULL;
+            for_each_element(expr_list, it)
+            {
+                num_items++;
+            }
+        }
+
+        if (num_items == 1)
+        {
+            AST align_expr = ASTSon1(ast_list_head(expr_list));
+
+            nodecl_t nodecl_align_expr = nodecl_null();
+            check_expression(align_expr, decl_context, &nodecl_align_expr);
+
+            if (nodecl_is_err_expr(nodecl_align_expr))
+                return;
+
+            ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
+                    "Too many __declspecs in this symbol", 0);
+
+            gather_info->ms_attributes[gather_info->num_ms_attributes].attribute_name = declspec_name;
+            gather_info->ms_attributes[gather_info->num_ms_attributes].expression_list =
+                nodecl_make_list_1(nodecl_align_expr);
+            gather_info->num_ms_attributes++;
+        }
+        else if (num_items == 2)
+        {
+            warn_printf("%s: warning: ignoring unsupported form of __declspec(align) specifier\n", ast_location(a));
+        }
+        else
+        {
+            warn_printf("%s: warnign: ignoring malformed __declspec(align) specifier\n", ast_location(a));
+        }
+    }
+    else if (strcmp(declspec_name, "intrin_type") == 0)
+    {
+            ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
+                    "Too many __declspecs in this symbol", 0);
+
+            gather_info->ms_attributes[gather_info->num_ms_attributes].attribute_name = declspec_name;
+            gather_info->ms_attributes[gather_info->num_ms_attributes].expression_list = nodecl_null();
+            gather_info->num_ms_attributes++;
+    }
+    else
+    {
+        warn_printf("%s: warning: ignoring unhandled __declspec(%s)\n", ast_location(a), declspec_name);
+    }
+}
+
+void gather_ms_declspec(AST a,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC, "Invalid node", 0);
+    AST list = ASTSon0(a), it = NULL;
+
+    for_each_element(list, it)
+    {
+        gather_ms_declspec_item(ASTSon1(it), gather_info, decl_context);
+    }
+}
+
+void gather_ms_declspec_list(AST a,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Node must be a list", 0);
+
+    AST list = a, it = NULL;
+    for_each_element(list, it)
+    {
+        gather_ms_declspec(ASTSon1(it), gather_info, decl_context);
+    }
+}
+
+// This one is similar to keep_gcc_attributes_in_symbol
+void keep_ms_declspecs_in_symbol(
+        scope_entry_t* entry,
+        gather_decl_spec_t* gather_info)
+{
+    if (entry->entity_specs.num_ms_attributes == 0)
+    {
+        entry->entity_specs.num_ms_attributes = gather_info->num_ms_attributes;
+        entry->entity_specs.ms_attributes = calloc(
+                entry->entity_specs.num_ms_attributes,
+                sizeof(*entry->entity_specs.ms_attributes));
+        memcpy(entry->entity_specs.ms_attributes,
+                gather_info->ms_attributes,
+                entry->entity_specs.num_ms_attributes * sizeof(*entry->entity_specs.ms_attributes));
+    }
+    else
+    {
+        // Combine them
+        int i;
+        for (i = 0; i < gather_info->num_ms_attributes; i++)
+        {
+            char found = 0;
+            int j;
+            for (j = 0; j < entry->entity_specs.num_ms_attributes && !found; j++)
+            {
+                found = (strcmp(entry->entity_specs.ms_attributes[j].attribute_name,
+                            gather_info->ms_attributes[i].attribute_name) == 0);
+            }
+
+            if (found)
+            {
+                // Update with the freshest value
+                entry->entity_specs.ms_attributes[j-1].expression_list
+                    = gather_info->ms_attributes[i].expression_list;
+            }
+            else
+            {
+                entry->entity_specs.num_ms_attributes++;
+
+                entry->entity_specs.ms_attributes = realloc(entry->entity_specs.ms_attributes,
+                        sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
+                entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
+                    gather_info->ms_attributes[i];
+            }
+        }
+    }
+}
