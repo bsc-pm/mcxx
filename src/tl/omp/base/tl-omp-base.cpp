@@ -74,7 +74,7 @@ namespace TL { namespace OpenMP {
             if (it->get_kind() != kind)
                 continue;
 
-            data_ref_list.append(it->get_copy_expression());
+            data_ref_list.append(it->get_copy_expression().shallow_copy());
         }
 
         if (!data_ref_list.empty())

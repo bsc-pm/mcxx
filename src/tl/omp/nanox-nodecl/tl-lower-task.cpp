@@ -949,16 +949,31 @@ void LoweringVisitor::fill_arguments(
                         }
                         else
                         {
-                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
-                                    ctr.retrieve_context());
+                            Source lbound_specifier;
+                            if (t.is_array())
+                            {
+                                lbound_specifier << "(";
+
+                                int i, N = t.get_num_dimensions();
+                                for (i = 1; i <= N; i++)
+                                {
+                                    if (i > 1)
+                                    {
+                                        lbound_specifier << ", ";
+                                    }
+                                    lbound_specifier << "LBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << i << ")";
+                                }
+
+                                lbound_specifier << ")";
+                            }
 
                             fill_outline_arguments <<
                                 "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << ") \n"
+                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
                             fill_immediate_arguments <<
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
-                                << (*it)->get_symbol().get_name() << ") \n"
+                                << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
                         }
 
