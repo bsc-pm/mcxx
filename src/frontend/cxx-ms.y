@@ -2,6 +2,11 @@
 
 %token<token_atrib> TOKEN_DECLSPEC "__declspec"
 
+%token<token_atrib> MS_INT8 "__int8"
+%token<token_atrib> MS_INT16 "__int16"
+%token<token_atrib> MS_INT32 "__int32"
+%token<token_atrib> MS_INT64 "__int64"
+
 %type<ast> declspec_specifier
 %type<ast> declspec_specifier_seq
 %type<ast> extended_decl_modifier_list
@@ -139,6 +144,24 @@ enum_specifier : ENUM declspec_specifier_seq IDENTIFIER '{' enumeration_list '}'
 | ENUM declspec_specifier_seq '{' '}'
 {
 	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+}
+;
+
+builtin_types : MS_INT8
+{
+    $$ = ASTLeaf(AST_MS_INT8, $1.token_file, $1.token_line, NULL);
+}
+| MS_INT16
+{
+    $$ = ASTLeaf(AST_MS_INT16, $1.token_file, $1.token_line, NULL);
+}
+| MS_INT32
+{
+    $$ = ASTLeaf(AST_MS_INT32, $1.token_file, $1.token_line, NULL);
+}
+| MS_INT64
+{
+    $$ = ASTLeaf(AST_MS_INT64, $1.token_file, $1.token_line, NULL);
 }
 ;
 

@@ -24,47 +24,32 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOX_NODECL_HPP
-#define TL_NANOX_NODECL_HPP
 
-#include "tl-compilerphase.hpp"
-#include "tl-nodecl.hpp"
 
-namespace TL { namespace Nanox {
+/*
+<testinfo>
+test_generator=config/mercurium-cuda
+compile_versions=cuda_omp
+</testinfo>
+*/
 
-    class Lowering : public TL::CompilerPhase
+#include <stdlib.h>
+
+__global__ void addOne_gpu(int *a);
+
+int main (int argc, char *argv[])
+{
+    int a = 1;
+
+#pragma omp target device (cuda) copy_deps
+#pragma omp task inout (a)
     {
-        public:
-            Lowering();
-
-            virtual void phase_cleanup(DTO& data_flow);
-
-            virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto);
-
-            Nodecl::List& get_extra_c_code();
-
-            bool in_ompss_mode() const;
-        private:
-            Nodecl::List _extra_c_code;
-
-            FILE* _ancillary_file;
-            FILE* get_ancillary_file();
-
-            std::string _static_weak_symbols_str;
-            bool _static_weak_symbols;
-            void set_weaks_as_statics(const std::string& str);
-
-            std::string _ompss_mode_str;
-            bool _ompss_mode;
-            void set_ompss_mode(const std::string& str);
-
-            void finalize_phase(Nodecl::NodeclBase global_node);
-            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
-
-            std::string _openmp_dry_run;
-    };
-
-} }
-
-#endif // TL_NANOX_NODECL_HPP
+        dim3 var;
+        var.x = 1;
+        var.y = 1;
+        var.z = 1;
+        addOne_gpu <<<1, 2>>> (&a);
+    }
+    if (a != 2) abort();
+    return 0;
+}

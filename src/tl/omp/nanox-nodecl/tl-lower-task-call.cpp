@@ -383,7 +383,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    OutlineInfo parameters_outline_info(parameters_environment,called_sym);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -391,17 +391,22 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-    // Copy device information from parameters_outline_info to arguments_outline_info
-    TL::ObjectList<std::string> _device_names = parameters_outline_info.get_device_names();
-    for (TL::ObjectList<std::string>::const_iterator it = _device_names.begin();
-            it != _device_names.end();
-            it++)
+    //Copy target info table from parameter_outline_info to arguments_outline_info
+    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
     {
-        arguments_outline_info.add_device_name(*it);
+        ObjectList<std::string> devices=it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end();
+                ++it2)
+        {
+                arguments_outline_info.add_implementation(*it2, it->first);
+                arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
+                arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
+        }
     }
-
-    // Copy ndrange information from parameters_outline_info to arguments_outline_info
-    arguments_outline_info.append_to_ndrange(parameters_outline_info.get_ndrange());
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -410,6 +415,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
     Scope sc = construct.retrieve_context();
+    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
+
     TL::ObjectList<TL::Symbol> new_arguments;
 
     Source initializations_src;
@@ -428,7 +435,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         std::stringstream ss;
         ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
         arg_counter++;
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
@@ -463,9 +470,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_line()));
     }
 
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, sc);
+    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
 
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
+    //Map so the device provider can translate between parameters and arguments
+    Nodecl::Utils::SimpleSymbolMap param_to_args_map;
 
     // First register all symbols
     for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
@@ -488,7 +497,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // Create a new variable holding the value of the argument
         std::stringstream ss;
         ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = sc.new_symbol(ss.str());
+        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
         arg_counter++;
 
         // FIXME - Wrap this sort of things
@@ -530,7 +539,18 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         sym_ref.set_type(t);
 
         outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+        param_to_args_map.add_map(it->first,new_symbol);
     }
+    
+    //Add this map to target information, so DeviceProviders can translate 
+    //Clauses in case it's needed, now we only add the same for every task, but in a future?
+    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();    
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it) {
+       arguments_outline_info.set_param_arg_map(param_to_args_map,it->first);
+    }
+    
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
@@ -557,10 +577,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
     ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
 
+    Nodecl::NodeclBase initializations_tree;
     if (!initializations_src.empty())
     {
-        Nodecl::NodeclBase assignments_tree = initializations_src.parse_statement(sc);
-        Nodecl::Utils::prepend_items_before(enclosing_expression_stmt, assignments_tree);
+        initializations_tree = initializations_src.parse_statement(new_block_context_sc);
     }
 
     // Now fix again arguments of the outline
@@ -697,16 +717,18 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
-    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
+    Nodecl::List code_plus_initializations;
+    code_plus_initializations.append(initializations_tree);
+    code_plus_initializations.append(new_code);
 
-    // Copy implementation table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        arguments_outline_info.add_implementation(it->first, it->second);
-    }
+    new_code = Nodecl::Context::make(
+            Nodecl::List::make(
+                Nodecl::CompoundStatement::make(
+                    code_plus_initializations,
+                    Nodecl::NodeclBase::null())),
+            new_block_context_sc.get_decl_context());
+
+    Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     // Find the enclosing expression statement
     Nodecl::NodeclBase enclosing_expression_statement = construct.get_parent();
@@ -719,12 +741,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     ERROR_CONDITION(enclosing_expression_statement.is_null(), "Did not find the enclosing expression statement", 0);
 
     enclosing_expression_statement.replace(new_code);
-
-    if (new_code == new_construct)
-    {
-        // Get the new tree only if it directly the enclosing expression statement
-        new_construct = enclosing_expression_stmt;
-    }
 
     emit_async_common(
             new_construct,
@@ -755,7 +771,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
 static void handle_save_expressions(decl_context_t function_context,
         TL::Type t,
-
         // Out
         Nodecl::Utils::SimpleSymbolMap& symbol_map,
         TL::ObjectList<TL::Symbol> &save_expressions)
@@ -1041,11 +1056,12 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment);
+    //OutlineInfo parameters_outline_info(parameters_environment,current_function);
 
     // Fill arguments outline info using parameters
-    OutlineInfo arguments_outline_info;
+    //OutlineInfo arguments_outline_info;
 
+    
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
@@ -1062,6 +1078,14 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             // out
             symbol_map,
             save_expressions);
+    // Add a map from the original called task to the adapter function
+    symbol_map.add_map(called_task_function, adapter_function);
+    if (called_task_function.is_from_module())
+    {
+        // If the symbol comes from a module, the environment 
+        // will use the original symbol of the module
+        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
+    }
 
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
@@ -1077,7 +1101,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment);
+    OutlineInfo new_outline_info(new_environment,adapter_function);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
@@ -1094,6 +1118,10 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             task_environment.is_untied,
             new_outline_info,
             NULL);
+
+    // Now call the adapter function instead of the original
+    Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
+    adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
 
     // Add a map from the original called task to the adapter function
     symbol_map.add_map(called_task_function, adapter_function);

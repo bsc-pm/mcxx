@@ -29,47 +29,140 @@
 
 namespace TL { namespace Nanox {
 
-        void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDeclaration& construct)
-        {
-            Nodecl::Utils::remove_from_enclosing_list(construct);
-        }
+    // This Auxiliar visitor is used to traverse the tree and remove from it every
+    // declaration or definition of any symbol contained in the '_symbols_to_be_removed' set.
+    // Currently, we are handling the following kind of nodes:
+    // - Nodecl::FunctionCode
+    // - Nodecl::ObjectInit
+    // - Nodecl::CxxDecl
+    // - Nodecl::CxxDef
+    //
+    class RemoveCopiedStuffVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            const ObjectList<Symbol> & _symbols_to_be_removed;
 
-        void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDefinition& construct)
-        {
-            bool remove_symbols = false;
-            DeviceHandler device_handler = DeviceHandler::get_device_handler();
-            Nodecl::List symbols = construct.get_symbols().as<Nodecl::List>();
-            Nodecl::List devices = construct.get_devices().as<Nodecl::List>();
-            for (Nodecl::List::iterator it = devices.begin(); it != devices.end(); ++it)
+        public:
+            RemoveCopiedStuffVisitor(const ObjectList<Symbol> & symbols)
+                : _symbols_to_be_removed(symbols)
             {
-                Nodecl::Text device_name = (*it).as<Nodecl::Text>();
-
-                DeviceProvider* device = device_handler.get_device(device_name.get_text());
-
-                ERROR_CONDITION(device == NULL,
-                        "%s: device '%s' has not been loaded",
-                        construct.get_locus().c_str(),
-                        device_name.get_text().c_str());
-
-                bool result = device->copy_stuff_to_device_file(symbols);
-                remove_symbols = remove_symbols || result;
             }
 
-            if (remove_symbols)
+            void visit(const Nodecl::FunctionCode& node)
             {
-                for (Nodecl::List::iterator it = symbols.begin(); it != symbols.end(); ++it)
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
                 {
-                    Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
-                    if (sym.is_function()
-                            && !sym.get_function_code().is_null())
-                    {
-                        Nodecl::Utils::remove_from_enclosing_list(sym.get_function_code());
-                    }
-
+                    Nodecl::Utils::remove_from_enclosing_list(node);
                 }
             }
 
-            Nodecl::Utils::remove_from_enclosing_list(construct);
+            void visit(const Nodecl::ObjectInit& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+
+            void visit(const Nodecl::CxxDecl& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+
+            void visit(const Nodecl::CxxDef& node)
+            {
+                if (_symbols_to_be_removed.contains(node.get_symbol()))
+                {
+                    Nodecl::Utils::remove_from_enclosing_list(node);
+                }
+            }
+    };
+
+    void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDeclaration& construct)
+    {
+
+        DeviceHandler device_handler = DeviceHandler::get_device_handler();
+        Nodecl::List symbols = construct.get_symbols().as<Nodecl::List>();
+        Nodecl::List devices = construct.get_devices().as<Nodecl::List>();
+
+        // This set stores the symbols declared/defined by this TargetDeclaration
+        TL::ObjectList<Symbol> list_of_symbols;
+
+        // Declarations/Definitions to be copied
+        TL::ObjectList<Nodecl::NodeclBase> declarations;
+        for (Nodecl::List::iterator it = symbols.begin(); it != symbols.end(); ++it)
+        {
+            Symbol symbol = it->as<Nodecl::Symbol>().get_symbol();
+
+            // Best effort!
+            if (symbol.is_function()
+                    && !symbol.get_function_code().is_null())
+            {
+                declarations.append(symbol.get_function_code());
+            }
+            else if (symbol.is_variable())
+            {
+                declarations.append(
+                        Nodecl::ObjectInit::make(
+                            symbol,
+                            construct.get_filename(),
+                            construct.get_line()));
+            }
+            else
+            {
+                if (symbol.is_defined())
+                {
+                    declarations.append(
+                            Nodecl::CxxDef::make(
+                                /* optative context */ nodecl_null(),
+                                symbol,
+                                construct.get_filename(),
+                                construct.get_line()));
+                }
+                else
+                {
+                    declarations.append(
+                            Nodecl::CxxDecl::make(
+                                /* optative context */ nodecl_null(),
+                                symbol,
+                                construct.get_filename(),
+                                construct.get_line()));
+                }
+            }
+
+            list_of_symbols.append(symbol);
         }
+
+        bool using_device_smp = false;
+        for (Nodecl::List::iterator it = devices.begin(); it != devices.end(); ++it)
+        {
+            Nodecl::Text device_name = (*it).as<Nodecl::Text>();
+            using_device_smp = using_device_smp || device_name.get_text() == "smp";
+
+            DeviceProvider* device = device_handler.get_device(device_name.get_text());
+
+            ERROR_CONDITION(device == NULL,
+                    "%s: device '%s' has not been loaded",
+                    construct.get_locus().c_str(),
+                    device_name.get_text().c_str());
+
+            device->copy_stuff_to_device_file(declarations);
+        }
+
+         if (!using_device_smp)
+         {
+             // If this target declaration does not use the 'smp' device, we
+             // should remove the symbols declared or defined by this target
+             // declaration from the original source
+             RemoveCopiedStuffVisitor remove_visitor(list_of_symbols);
+             remove_visitor.walk(CURRENT_COMPILED_FILE->nodecl);
+         }
+
+        // Finally, we can remove the pragma
+        Nodecl::Utils::remove_from_enclosing_list(construct);
+    }
 
 } }

@@ -33,6 +33,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-source.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-target-information.hpp"
 //#include "tl-data-env.hpp"
 
 namespace TL { namespace Nanox {
@@ -80,32 +81,36 @@ namespace TL { namespace Nanox {
     struct DeviceDescriptorInfo
     {
         const std::string& _outline_name;
-        DeviceDescriptorInfo(std::string outline_name) : _outline_name(outline_name) { }
+        TargetInformation& _target_info;
+        DeviceDescriptorInfo(std::string outline_name,TargetInformation& target_info) : _outline_name(outline_name), _target_info(target_info) { }
     };
 
     // This DTO stores information used in 'create_outline' function
     struct CreateOutlineInfo
     {
         const std::string& _outline_name;
-        const Nodecl::NodeclBase &_original_statements;
+        ObjectList<OutlineDataItem*> _data_items;
+        TargetInformation& _target_info;
+        const Nodecl::NodeclBase& _original_statements;
         Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task; // Only used in CUDA device
-        OutlineInfo& _outline_info;
-
 
         CreateOutlineInfo(std::string& outline_name,
-                OutlineInfo& outline_info,
+                ObjectList<OutlineDataItem*> data_items,
+                TargetInformation& target_info,
                 Nodecl::NodeclBase& statements,
                 Nodecl::NodeclBase task_label,
                 TL::Symbol& args_struct,
                 TL::Symbol& called_task)
-            : _outline_name(outline_name),
-            _original_statements(statements),
-            _task_label(task_label),
-            _arguments_struct(args_struct),
-            _called_task(called_task),
-            _outline_info(outline_info)
+            :
+                _outline_name(outline_name),
+                _data_items(data_items),
+                _target_info(target_info),
+                _original_statements(statements),
+                _task_label(task_label),
+                _arguments_struct(args_struct),
+                _called_task(called_task)
         {
         }
     };
@@ -297,10 +302,21 @@ namespace TL { namespace Nanox {
     //             return Source();
     //         }
     //
-             virtual bool copy_stuff_to_device_file(Nodecl::List symbols)
-             {
-                 return false;
-             }
+
+
+             /*!
+               This function is called when pragma omp target device(...) is
+               used alone (without a pragma omp task)
+
+               Example:
+                    #pragma omp target device(cuda)
+                    void foo()
+                    {
+                    }
+
+            */
+             virtual void copy_stuff_to_device_file(
+                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) = 0;
 
              virtual bool allow_mandatory_creation()
              {

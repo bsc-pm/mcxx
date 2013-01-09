@@ -25,11 +25,13 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef NANOX_CUDA_HPP
-#define NANOX_CUDA_HPP
+#ifndef NANOX_MPI_HPP
+#define NANOX_MPI_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
+
+#define TAG_MAIN_OMPSS "__ompss_mpi_daemon" 
 
 namespace TL
 {
@@ -37,11 +39,15 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceCUDA : public DeviceProvider
+        class DeviceMPI : public DeviceProvider
         {
             private:
 
                   Nodecl::List _cuda_file_code;
+                  bool _mpi_task_processed;
+                  Source _mpiDaemonMain;
+                  Nodecl::NodeclBase _root;
+                  int _currTaskId;
 
 //                std::string _cudaFilename;
 //                std::string _cudaHeaderFilename;
@@ -186,30 +192,30 @@ namespace TL
 //                void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
 //                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
 //                        ScopeLink &sl);
-                void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
 
-                  void generate_ndrange_additional_code(
+                  void generate_additional_mpi_code(
                           const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,
-                          const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-                          TL::Source& code_ndrange);
+                          const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                          const Nodecl::Utils::SimpleSymbolMap& param_to_args_map,
+                          const TL::Symbol& struct_args,
+                          TL::Source& code_host,
+                          TL::Source& code_device_pre,                          
+                          TL::Source& code_device_post);
 
-                  void generate_ndrange_kernel_call(
-                          const TL::Scope& scope,
-                          const Nodecl::NodeclBase& original_statements,
-                          Nodecl::NodeclBase& output_statements);
-
-                  void add_included_cuda_files(FILE* file);
+//                  void add_included_cuda_files(FILE* file);                  
+                  std::string get_ompss_mpi_type(Type type);
+                  
             public:
 
                 // This phase does nothing
                 virtual void pre_run(DTO& dto);
                 virtual void run(DTO& dto);
 
-                DeviceCUDA();
+                DeviceMPI();
 
-                virtual ~DeviceCUDA() { }
+                virtual ~DeviceMPI() { }
 
              virtual void create_outline(CreateOutlineInfo &info,
                      Nodecl::NodeclBase &outline_placeholder,
@@ -221,12 +227,11 @@ namespace TL
                      Source &device_descriptor,
                      Source &fortran_dynamic_init);
 
-            virtual void copy_stuff_to_device_file(
-                    const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
+             virtual void copy_stuff_to_device_file(
+                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
              bool allow_mandatory_creation();
 
-             virtual bool is_gpu_device() const;
               //  virtual void create_outline(
               //          const std::string& task_name,
               //          const std::string& struct_typename,

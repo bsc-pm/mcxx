@@ -112,6 +112,16 @@ namespace TL
         {
             return _ndrange;
         }
+        
+        void TargetInfo::append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions)
+        {
+            _onto.append(expressions);
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_onto() const
+        {
+            return _onto;
+        }
 
         void TargetInfo::set_copy_deps(bool b)
         {
@@ -136,6 +146,16 @@ namespace TL
                 _device_list.append("smp");
             }
             return _device_list;
+        }
+        
+        void TargetInfo::set_target_symbol(Symbol funct_symbol)
+        {
+            _target_symbol=funct_symbol;
+        }
+        
+        Symbol TargetInfo::get_target_symbol() const
+        {
+            return _target_symbol;
         }
 
         void TargetInfo::module_write(ModuleWriter& mw)
@@ -673,6 +693,7 @@ namespace TL
             TargetInfo target_info;
             if (!_target_context.empty())
             {
+                target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
 
                 TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = target_context.copy_in;
@@ -700,6 +721,7 @@ namespace TL
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.append_to_ndrange(target_context.ndrange);
+                target_info.append_to_onto(target_context.onto);
 
                 target_info.append_to_device_list(target_context.device_list);
 

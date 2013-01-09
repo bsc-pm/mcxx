@@ -24,47 +24,16 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOX_NODECL_HPP
-#define TL_NANOX_NODECL_HPP
 
-#include "tl-compilerphase.hpp"
-#include "tl-nodecl.hpp"
 
-namespace TL { namespace Nanox {
-
-    class Lowering : public TL::CompilerPhase
-    {
-        public:
-            Lowering();
-
-            virtual void phase_cleanup(DTO& data_flow);
-
-            virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto);
-
-            Nodecl::List& get_extra_c_code();
-
-            bool in_ompss_mode() const;
-        private:
-            Nodecl::List _extra_c_code;
-
-            FILE* _ancillary_file;
-            FILE* get_ancillary_file();
-
-            std::string _static_weak_symbols_str;
-            bool _static_weak_symbols;
-            void set_weaks_as_statics(const std::string& str);
-
-            std::string _ompss_mode_str;
-            bool _ompss_mode;
-            void set_ompss_mode(const std::string& str);
-
-            void finalize_phase(Nodecl::NodeclBase global_node);
-            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
-
-            std::string _openmp_dry_run;
-    };
-
-} }
-
-#endif // TL_NANOX_NODECL_HPP
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+typedef int MyInt;
+char aux0[1] __attribute__ (( __aligned__ ));
+char aux1[1] __attribute__ (( __aligned__ (__alignof__ (MyInt)) ));
+char aux2[1] __attribute__ (( __aligned__ (__alignof__ (int)) ));
+char aux3[1] __attribute__ (( __aligned__ (sizeof (MyInt)) ));
+char aux4[1] __attribute__ (( __aligned__ (sizeof (int)) ));

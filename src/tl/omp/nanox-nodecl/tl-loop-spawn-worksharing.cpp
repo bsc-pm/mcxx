@@ -33,7 +33,7 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::loop_spawn(OutlineInfo& outline_info,
+    void LoweringVisitor::loop_spawn_worksharing(OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::List distribute_environment,
             Nodecl::List ranges,
@@ -108,17 +108,28 @@ namespace TL { namespace Nanox {
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
-        std::multimap<std::string, std::string> dummy_multimap;
+
+        // Loop has no implementors,but to keep the same schema than tasks, we
+        // build a device_name -> outline_name map
+        std::multimap<std::string, std::string> devices_and_implementors;
+        TL::ObjectList<std::string> device_names =
+            outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
+        for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
+                it != device_names.end(); it++)
+        {
+            devices_and_implementors.insert(
+                    make_pair(
+                        /* device name */ *it,
+                        /*implementor outline name */ outline_name));
+        }
+
         Source const_wd_info;
         const_wd_info
             << fill_const_wd_info(struct_arg_type_name,
-                    outline_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
-                    /* num_copies */ count_copies(outline_info),
-                    /* num_copies_dimensions */ count_copies_dimensions(outline_info),
-                    outline_info.get_device_names(),
-                    /* only used in task calls */ dummy_multimap,
+                    outline_info,
+                    devices_and_implementors,
                     construct);
 
         Source dependence_type;
@@ -168,7 +179,9 @@ namespace TL { namespace Nanox {
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, (nanos_wd_t*)0, replicate,"
-        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0);"
+        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0,"
+        <<                                           "0, (nanos_region_dimension_internal_t**)0"
+        <<                                           ");"
         <<             "if (err != NANOS_OK)"
         <<                 "nanos_handle_error(err);"
         <<             statement_placeholder(fill_outline_arguments_tree)

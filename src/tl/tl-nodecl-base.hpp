@@ -67,6 +67,7 @@ namespace Nodecl {
             void set_symbol(TL::Symbol sym) { ::nodecl_set_symbol(_n, sym.get_internal_symbol()); }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
+            void set_text(const std::string& str) { nodecl_set_text(_n, uniquestr(str.c_str())); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
             int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << ":" << this->get_line(); return ss.str(); }

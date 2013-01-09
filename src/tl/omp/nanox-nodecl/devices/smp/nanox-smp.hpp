@@ -61,6 +61,9 @@ namespace TL
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
 
+                virtual void copy_stuff_to_device_file(
+                        const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
+
             private:
 
                 Nodecl::List _extra_c_code;

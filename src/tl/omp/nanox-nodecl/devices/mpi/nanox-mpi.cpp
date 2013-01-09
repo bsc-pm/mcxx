@@ -26,11 +26,10 @@
 
 
 #include "tl-devices.hpp"
-#include "nanox-cuda.hpp"
+#include "nanox-mpi.hpp"
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
-#include "cxx-profile.h"
 // #include "fortran03-scope.h"
 
 //#include "cuda-aux.hpp"
@@ -40,8 +39,9 @@
 //#include "tl-omp-nanox.hpp"
 
 #include "codegen-phase.hpp"
-#include "codegen-cuda.hpp"
+#include "codegen-cxx.hpp"
 #include "cxx-cexpr.h"
+#include "filename.h"
 //#include "codegen-fortran.hpp"
 
 //#include <iostream>
@@ -53,14 +53,8 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static std::string cuda_outline_name(const std::string & name)
-{
-    return "gpu_" + name;
-}
-
-bool DeviceCUDA::is_gpu_device() const
-{
-    return true;
+static std::string get_outline_name(const std::string & name) {
+    return "mpi_" + name;
 }
 
 //
@@ -1102,17 +1096,15 @@ static void build_empty_body_for_function(
         TL::Symbol function_symbol,
         Nodecl::NodeclBase &function_code,
         Nodecl::NodeclBase &empty_stmt
-        )
-{
+        ) {
     empty_stmt = Nodecl::EmptyStatement::make("", 0);
     Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
 
-    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-    {
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE) {
         Nodecl::CompoundStatement compound_statement =
-            Nodecl::CompoundStatement::make(stmt_list,
-                    /* destructors */ Nodecl::NodeclBase::null(),
-                    "", 0);
+                Nodecl::CompoundStatement::make(stmt_list,
+                /* destructors */ Nodecl::NodeclBase::null(),
+                "", 0);
         stmt_list = Nodecl::List::make(compound_statement);
     }
 
@@ -1136,8 +1128,7 @@ static TL::Symbol new_function_symbol(
         const std::string& name,
         TL::Type return_type,
         ObjectList<std::string> parameter_names,
-        ObjectList<TL::Type> parameter_types)
-{
+        ObjectList<TL::Type> parameter_types) {
     Scope sc = current_function.get_scope();
 
     // FIXME - Wrap
@@ -1154,8 +1145,7 @@ static TL::Symbol new_function_symbol(
     entry->entity_specs.is_static = 1;
 
     // Make it member if the enclosing function is member
-    if (current_function.is_member())
-    {
+    if (current_function.is_member()) {
         entry->entity_specs.is_member = 1;
         entry->entity_specs.class_type = current_function.get_class_type().get_internal_type();
 
@@ -1166,7 +1156,7 @@ static TL::Symbol new_function_symbol(
 
     ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-    decl_context_t function_context ;
+    decl_context_t function_context;
     function_context = new_function_context(decl_context);
     function_context = new_block_context(function_context);
 
@@ -1181,8 +1171,7 @@ static TL::Symbol new_function_symbol(
     ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
     for (ObjectList<std::string>::iterator it = parameter_names.begin();
             it != parameter_names.end();
-            it++, it_ptypes++, type_it++)
-    {
+            it++, it_ptypes++, type_it++) {
         scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
         param->entity_specs.is_user_declared = 1;
         param->kind = SK_VARIABLE;
@@ -1216,13 +1205,11 @@ static TL::Symbol new_function_symbol(
     return entry;
 }
 
-
 static TL::Symbol new_function_symbol_unpacked(
         TL::Symbol current_function,
         const std::string& function_name,
-        CreateOutlineInfo& info,
-        Nodecl::Utils::SymbolMap*& out_symbol_map)
-{
+        CreateOutlineInfo& outline_info,
+        Nodecl::Utils::SymbolMap*& out_symbol_map) {
     Scope sc = current_function.get_scope();
 
     decl_context_t decl_context = sc.get_decl_context();
@@ -1237,157 +1224,142 @@ static TL::Symbol new_function_symbol_unpacked(
 
     TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++)
-    {
+            it++) {
         TL::Symbol sym = (*it)->get_symbol();
 
         std::string name;
-        if (sym.is_valid())
-        {
+        if (sym.is_valid()) {
             name = sym.get_name();
             if (IS_CXX_LANGUAGE
-                    && name == "this")
-            {
+                    && name == "this") {
                 name = "this_";
             }
-        }
-        else
-        {
+        } else {
             name = (*it)->get_field_name();
         }
 
         bool already_mapped = false;
 
-        switch ((*it)->get_sharing())
-        {
+        switch ((*it)->get_sharing()) {
             case OutlineDataItem::SHARING_PRIVATE:
-                {
-                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
-                    private_sym->kind = SK_VARIABLE;
-                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+            {
+                scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                    if (sym.is_valid())
-                    {
-                        symbol_map->add_map(sym, private_sym);
+                if (sym.is_valid()) {
+                    symbol_map->add_map(sym, private_sym);
 
-                        // Copy attributes that must be preserved
-                        private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
-                    }
-
-                    private_symbols.append(private_sym);
-                    break;
+                    // Copy attributes that must be preserved
+                    private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
                 }
+
+                private_symbols.append(private_sym);
+                break;
+            }
             case OutlineDataItem::SHARING_SHARED:
             case OutlineDataItem::SHARING_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {
-                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                            name.c_str());
-                    private_sym->kind = SK_VARIABLE;
-                    private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+            {
+                scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                        name.c_str());
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
 
-                    if (sym.is_valid())
-                    {
-                        private_sym->entity_specs.is_optional = sym.is_optional();
-                        private_sym->entity_specs.is_allocatable =
+                if (sym.is_valid()) {
+                    private_sym->entity_specs.is_optional = sym.is_optional();
+                    private_sym->entity_specs.is_allocatable =
                             !sym.is_member() && sym.is_allocatable();
-                        if (!already_mapped)
-                        {
-                            symbol_map->add_map(sym, private_sym);
-                        }
+                    if (!already_mapped) {
+                        symbol_map->add_map(sym, private_sym);
                     }
-
-                    private_sym->entity_specs.is_allocatable = 
-                        sym.is_allocatable() ||
-                        (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE) 
-                         == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
-
-                    parameter_symbols.append(private_sym);
-
-                    break;
                 }
-            case OutlineDataItem::SHARING_REDUCTION:
-                {
-                    // Original reduced variable. Passed as we pass shared parameters
-                    TL::Type param_type = (*it)->get_in_outline_type();
-                    scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
-                            (*it)->get_field_name().c_str());
-                    shared_reduction_sym->kind = SK_VARIABLE;
-                    shared_reduction_sym->type_information = param_type.get_internal_type();
-                    shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
-                    parameter_symbols.append(shared_reduction_sym);
 
-                    shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
+                private_sym->entity_specs.is_allocatable =
+                        sym.is_allocatable() ||
+                        (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                        == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+
+                parameter_symbols.append(private_sym);
+
+                break;
+            }
+            case OutlineDataItem::SHARING_REDUCTION:
+            {
+                // Original reduced variable. Passed as we pass shared parameters
+                TL::Type param_type = (*it)->get_in_outline_type();
+                scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
+                        (*it)->get_field_name().c_str());
+                shared_reduction_sym->kind = SK_VARIABLE;
+                shared_reduction_sym->type_information = param_type.get_internal_type();
+                shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                parameter_symbols.append(shared_reduction_sym);
+
+                shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
                         && !sym.is_member()
                         && sym.is_allocatable();
 
-                    // Private vector of partial reductions. This is a local pointer variable
-                    // rdv stands for reduction vector
-                    TL::Type private_reduction_vector_type = (*it)->get_private_type();
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        // T*
-                        private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
-                    }
-                    else
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
-
-                    scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
-                            ("rdv_" + name).c_str());
-                    private_reduction_vector_sym->kind = SK_VARIABLE;
-                    private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
-                    private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
-
-                    // Local variable (rdp stands for reduction private)
-                    // This variable must be initialized properly
-                    scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                            ("rdp_" + name).c_str());
-                    private_sym->kind = SK_VARIABLE;
-                    private_sym->type_information = (*it)->get_private_type().get_internal_type();
-                    private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
-                    if (sym.is_valid())
-                    {
-                        symbol_map->add_map(sym, private_sym);
-                    }
-
-                    break;
+                // Private vector of partial reductions. This is a local pointer variable
+                // rdv stands for reduction vector
+                TL::Type private_reduction_vector_type = (*it)->get_private_type();
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE) {
+                    // T*
+                    private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
+                } else {
+                    internal_error("Code unreachable", 0);
                 }
+
+                scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
+                        ("rdv_" + name).c_str());
+                private_reduction_vector_sym->kind = SK_VARIABLE;
+                private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
+                private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+
+                // Local variable (rdp stands for reduction private)
+                // This variable must be initialized properly
+                scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                        ("rdp_" + name).c_str());
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = (*it)->get_private_type().get_internal_type();
+                private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                if (sym.is_valid()) {
+                    symbol_map->add_map(sym, private_sym);
+                }
+
+                break;
+            }
             default:
-                {
-                    internal_error("Unexpected data sharing kind", 0);
-                }
+            {
+                internal_error("Unexpected data sharing kind", 0);
+            }
         }
     }
 
     // Update types of parameters (this is needed by VLAs)
     for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
             it != parameter_symbols.end();
-            it++)
-    {
+            it++) {
         it->get_internal_symbol()->type_information =
-            type_deep_copy(it->get_internal_symbol()->type_information,
-                    function_context,
-                    symbol_map->get_symbol_map());
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                function_context,
+                symbol_map->get_symbol_map());
     }
     // Update types of privates (this is needed by VLAs)
     for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
             it != private_symbols.end();
-            it++)
-    {
+            it++) {
         it->get_internal_symbol()->type_information =
-            type_deep_copy(it->get_internal_symbol()->type_information,
-                    function_context,
-                    symbol_map->get_symbol_map());
+                type_deep_copy(it->get_internal_symbol()->type_information,
+                function_context,
+                symbol_map->get_symbol_map());
     }
 
     // Now everything is set to register the function
@@ -1397,13 +1369,12 @@ static TL::Symbol new_function_symbol_unpacked(
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->file = "";
     new_function_sym->line = 0;
-
+    
     // Make it static
     new_function_sym->entity_specs.is_static = 1;
 
     // Make it member if the enclosing function is member
-    if (current_function.is_member())
-    {
+    if (current_function.is_member()) {
         new_function_sym->entity_specs.is_member = 1;
         new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
 
@@ -1423,8 +1394,7 @@ static TL::Symbol new_function_symbol_unpacked(
     parameter_info_t* it_ptypes = &(p_types[0]);
     for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
             it != parameter_symbols.end();
-            it++, it_ptypes++)
-    {
+            it++, it_ptypes++) {
         scope_entry_t* param = it->get_internal_symbol();
 
         symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
@@ -1454,245 +1424,140 @@ static TL::Symbol new_function_symbol_unpacked(
     return new_function_sym;
 }
 
-
-void DeviceCUDA::generate_ndrange_additional_code(
+void DeviceMPI::generate_additional_mpi_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-        TL::Source& code_ndrange)
-{
-    int num_args_ndrange = ndrange_args.size();
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+        const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+        const Nodecl::Utils::SimpleSymbolMap& param_to_args_map,
+        const TL::Symbol& struct_args,
+        TL::Source& code_host,
+        TL::Source& code_device_pre,        
+        TL::Source& code_device_post) {
+    int num_args_devinfo = onto_clause.size();
 
-    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-    ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
-
-    int num_params = parameters_called.size();
-    for (int i = 0; i < num_params; ++i)
-    {
-        translate_parameters_map.add_map(
-                parameters_called[i],
-                parameters_unpacked[i]);
+    TL::Type argument_type = ::get_user_defined_type(struct_args.get_internal_symbol());
+    TL::ObjectList<TL::Symbol> parameters_called = argument_type.get_fields();
+    TL::ObjectList<std::string> param_called_names;
+    
+    int num_params = parameters_called.size();    
+    for (int i = 0; i < num_params; ++i) {
+        param_called_names.append(parameters_called.at(i).get_name());
     }
-
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-    for (int i = 0; i < num_args_ndrange; ++i)
-    {
-
-        new_ndrange.append(Nodecl::Utils::deep_copy(
-                    ndrange_args[i],
-                    unpacked_function.get_related_scope(),
-                    translate_parameters_map));
-    }
-
-    ERROR_CONDITION(!new_ndrange[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
-
-    int num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
-
-    ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
-
-    bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
-            && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
-
-    ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
-
-    code_ndrange << "dim3 dimGrid;";
-    code_ndrange << "dim3 dimBlock;";
-    const char* field[3] = { "x", "y", "z"};
-    for (int i = 1; i <= 3; ++i)
-    {
-        if (check_dim)
-        {
-            if (i <= num_dim)
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = "
-                    << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
-                    << ") ? (" << as_expression(new_ndrange[i])
-                    << ") : (" << as_expression(new_ndrange[num_dim + i])
-                    << "));";
-
-                code_ndrange << "dimGrid."  << field[i-1] << " = "
-                    << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
-                    << ") ? 1 : (("
-                    << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i])
-                    << ") + ((" << as_expression(new_ndrange[i]) << " %  " << as_expression(new_ndrange[num_dim + i])
-                    << " == 0) ? 0 : 1)));";
-            }
-            else
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
-                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
-            }
-        }
-        else
-        {
-            if (i <= num_dim)
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
-                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
-            }
-            else
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
-                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
-            }
+    
+    TL::ObjectList<std::string> new_dev_info;
+    for (int i = 0; i < num_args_devinfo; ++i) {
+        if (param_called_names.contains(onto_clause[i].get_symbol().get_name())){
+            new_dev_info.append("args."+onto_clause[i].get_symbol().get_name());
+        } else {
+            new_dev_info.append(onto_clause[i].get_symbol().get_name());            
         }
     }
+    if (new_dev_info.size()==0){
+        new_dev_info.append("0");
+    }
+    if (new_dev_info.size()==1){
+        new_dev_info.append("-2");
+    }
+
+    Source struct_mpi_create;
+    Source hostCall;
+    Source deviceCall;
+
+    code_host << "MPI_Status ompss___status; "
+            << struct_mpi_create
+            << hostCall;
+    
+    code_device_pre << struct_args.get_name() << " args;"
+            << "MPI_Comm ompss_parent_comp; "
+            << "MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << "MPI_Status ompss___status; "
+            << struct_mpi_create
+            << deviceCall;
+
+    Source typelist_src, blocklen_src, displ_src;
+    //Source parameter_call;
+    
+    struct_mpi_create << "MPI_Datatype ompss___datatype;"
+            "MPI_Datatype ompss___typelist[" << num_params << "]= {" << typelist_src << "};"
+            "int ompss___blocklen[" << num_params << "] = {" << blocklen_src << "};"
+            "MPI_Aint ompss___displ[" << num_params << "] = {" << displ_src << "};";
+        
+    hostCall << " int id_func_ompss=" << _currTaskId << ";";
+    hostCall << " nanos_MPI_Send_taskinit(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitypeompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+    hostCall << " nanos_MPI_Send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+    hostCall << " nanos_MPI_Recv_taskend(&id_func_ompss, 1,  ompss_get_mpi_type(\"__mpitypeompss_signed_short\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+
+    deviceCall << " nanos_MPI_Recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
+    //deviceCall << called_task.get_name() << "(" << parameter_call << ");";
+
+    
+    code_device_post << " int ompss_id_func=" << _currTaskId << ";";
+    code_device_post << " nanos_MPI_Send_taskend(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitypeompss_signed_short\"), 0, ompss_parent_comp);";
+
+    for (int i = 0; i < num_params; ++i) {
+        //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
+        std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
+        displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
+        if (parameters_called[i].get_type().is_pointer()) {
+            typelist_src.append_with_separator("ompss_get_mpi_type(\"__mpitypeompss_unsigned_long_long\")", ",");
+
+            blocklen_src.append_with_separator("1", ",");
+        } else {
+            typelist_src.append_with_separator(ompss_mpi_type, ",");
+
+            if (parameters_called[i].get_type().array_has_size()) {
+                blocklen_src.append_with_separator(parameters_called[i].get_type().array_get_size().prettyprint(), ",");
+            } else {
+                blocklen_src.append_with_separator("1", ",");
+            }
+        }
+        
+    }
+
+    struct_mpi_create << "MPI_Type_create_struct( " << num_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+    struct_mpi_create << "MPI_Type_commit(&ompss___datatype);";
+
 
 }
 
-void DeviceCUDA::generate_ndrange_kernel_call(
-        const Scope& scope,
-        const Nodecl::NodeclBase& original_statements,
-        Nodecl::NodeclBase& output_statements)
-{
-    Nodecl::NodeclBase function_call_nodecl =
-        original_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
-
-    ObjectList<Nodecl::NodeclBase> cuda_kernel_config;
-    Symbol dim_grid  = scope.get_symbol_from_name("dimGrid");
-    Symbol dim_block = scope.get_symbol_from_name("dimBlock");
-    Symbol exec_stream = scope.get_symbol_from_name("nanos_get_kernel_execution_stream");
-    ERROR_CONDITION(!dim_grid.is_valid() || !dim_block.is_valid() || !exec_stream.is_valid(), "Unreachable code", 0);
-
-    cuda_kernel_config.append(
-            Nodecl::Symbol::make(dim_grid,
-                original_statements.get_filename(),
-                original_statements.get_line()));
-
-    cuda_kernel_config.append(
-            Nodecl::Symbol::make(dim_block,
-                original_statements.get_filename(),
-                original_statements.get_line()));
-
-    cuda_kernel_config.append(
-            Nodecl::IntegerLiteral::make(
-                TL::Type::get_int_type(),
-                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                original_statements.get_filename(),
-                original_statements.get_line()));
-
-    cuda_kernel_config.append(
-            Nodecl::FunctionCall::make(
-                Nodecl::Symbol::make(
-                    exec_stream,
-                    original_statements.get_filename(),
-                    original_statements.get_line()),
-                /* arguments */ nodecl_null(),
-                /* alternate_name */ nodecl_null(),
-                /* function_form */ nodecl_null(),
-                TL::Type::get_void_type(),
-                original_statements.get_filename(),
-                original_statements.get_line()));
-
-    Nodecl::NodeclBase kernell_call =
-        Nodecl::CudaKernelCall::make(
-                Nodecl::List::make(cuda_kernel_config),
-                function_call_nodecl,
-                TL::Type::get_void_type(),
-                original_statements.get_filename(),
-                original_statements.get_line());
-
-    Nodecl::NodeclBase expression_stmt =
-        Nodecl::ExpressionStatement::make(
-                kernell_call,
-                original_statements.get_filename(),
-                original_statements.get_line());
-
-    // In this case, we should change the output statements!
-    output_statements = expression_stmt;
-}
-
-// This visitor completes the configuration of every cuda function task
-class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
-{
-    public:
-        void visit(const Nodecl::CudaKernelCall& node)
-        {
-            Nodecl::List kernel_config = node.get_kernel_config().as<Nodecl::List>();
-
-            ERROR_CONDITION(kernel_config.size() < 2
-                    || kernel_config.size() > 4,
-                    "A kernel call configuration must have between 2 and 4 parameters", 0);
-
-            if (kernel_config.size() == 2
-                    || kernel_config.size() == 3)
-            {
-                // We should complete the kernel configuration
-                if (kernel_config.size() == 2)
-                {
-                    // Append to the kernel configuration the size of shared memory (0, in this case)
-                    kernel_config.append(
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                                node.get_filename(),
-                                node.get_line()));
-                }
-
-                Symbol exec_stream =
-                    node.retrieve_context().get_symbol_from_name("nanos_get_kernel_execution_stream");
-
-                ERROR_CONDITION(!exec_stream.is_valid(), "Unreachable code", 0);
-
-                // Append to the kernel configuration the stream
-                kernel_config.append(
-                        Nodecl::FunctionCall::make(
-                            Nodecl::Symbol::make(
-                                exec_stream,
-                                node.get_filename(),
-                                node.get_line()),
-                            /* arguments */ nodecl_null(),
-                            /* alternate_name */ nodecl_null(),
-                            /* function_form */ nodecl_null(),
-                            TL::Type::get_void_type(),
-                            node.get_filename(),
-                            node.get_line()));
-            }
-        }
-};
-
-void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
-{
-    UpdateKernelConfigsVisitor update_kernel_visitor;
-    update_kernel_visitor.walk(task_code);
-}
-
-void DeviceCUDA::create_outline(CreateOutlineInfo &info,
+/**
+ * In MPI we generate three functions
+ * _host function, function which it's called on the host (by nanox)
+ * _device function, function which it's called on the device (by the daemon mercurium generates)
+ * _unpacked function, function which it's called inside the _device function, and calls the original user-code function
+ * @param info
+ * @param outline_placeholder
+ * @param output_statements
+ * @param symbol_map
+ */
+void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map)
-{
+        Nodecl::Utils::SymbolMap* &symbol_map) {
+    
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+    
     if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for CUDA devices is not supported yet\n", 0);
+        running_error("Fortran for MPI devices is not supported yet\n", 0);
 
+    _mpi_task_processed = true;
+    _currTaskId++;
     // Unpack DTO
-    const std::string& device_outline_name = cuda_outline_name(info._outline_name);
+    const std::string& device_outline_name = get_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
-
-    // This symbol is only valid for function tasks
     const TL::Symbol& called_task = info._called_task;
-    bool is_function_task = called_task.is_valid();
+    //OutlineInfo& outline_info = info._outline_info;
 
-    output_statements = original_statements;
-
-    ERROR_CONDITION(is_function_task && !called_task.is_function(),
+    ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
     TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
+            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
 
-    if (current_function.is_nested_function())
-    {
+    if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                original_statements.get_locus().c_str());
     }
 
     Source unpacked_arguments, private_entities;
@@ -1700,101 +1565,120 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
-            it++)
-    {
-        switch ((*it)->get_sharing())
-        {
+            it++) {
+        switch ((*it)->get_sharing()) {
             case OutlineDataItem::SHARING_PRIVATE:
-                {
-                    break;
-                }
+            {
+                break;
+            }
             case OutlineDataItem::SHARING_SHARED:
             case OutlineDataItem::SHARING_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {
-                    TL::Type param_type = (*it)->get_in_outline_type();
+            {
+                TL::Type param_type = (*it)->get_in_outline_type();
 
-                    Source argument;
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        // Normal shared items are passed by reference from a pointer,
-                        // derreference here
-                        if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
-                        {
-                            argument << "*(args." << (*it)->get_field_name() << ")";
-                        }
-                        // Any other thing is passed by value
-                        else
-                        {
-                            argument << "args." << (*it)->get_field_name();
-                        }
-
-                        if (IS_CXX_LANGUAGE
-                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                        {
-                            internal_error("Not yet implemented: call the destructor", 0);
-                        }
-                    }
-                    else
-                    {
-                        internal_error("running error", 0);
-                    }
-
-                    unpacked_arguments.append_with_separator(argument, ", ");
-                    break;
-                }
-            case OutlineDataItem::SHARING_REDUCTION:
-                {
-                    // Pass the original reduced variable as if it were a shared
-                    Source argument;
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
+                Source argument;
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE) {
+                    // Normal shared items are passed by reference from a pointer,
+                    // derreference here
+                    if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                            && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this")) {
                         argument << "*(args." << (*it)->get_field_name() << ")";
+                    }// Any other thing is passed by value
+                    else {
+                        argument << "args." << (*it)->get_field_name();
                     }
-                    else
-                    {
-                        internal_error("running error", 0);
+
+                    if (IS_CXX_LANGUAGE
+                            && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY) {
+                        internal_error("Not yet implemented: call the destructor", 0);
                     }
-                    unpacked_arguments.append_with_separator(argument, ", ");
+                } else {
+                    internal_error("running error", 0);
+                }
 
-                    std::string name = (*it)->get_symbol().get_name();
+                unpacked_arguments.append_with_separator(argument, ", ");
+                break;
+            }
+            case OutlineDataItem::SHARING_REDUCTION:
+            {
+                // Pass the original reduced variable as if it were a shared
+                Source argument;
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE) {
+                    argument << "*(args." << (*it)->get_field_name() << ")";
+                } else {
+                    internal_error("running error", 0);
+                }
+                unpacked_arguments.append_with_separator(argument, ", ");
 
-                    private_entities
-                        << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
+                std::string name = (*it)->get_symbol().get_name();
+
+                private_entities
+                        << "rdp_" << name << " = " << as_expression((*it)->get_reduction_info()->get_identity()) << ";"
                         ;
 
-                    break;
-                }
+                break;
+            }
             default:
-                {
-                    internal_error("Unexpected data sharing kind", 0);
-                }
+            {
+                internal_error("Unexpected data sharing kind", 0);
+            }
         }
     }
 
+    // Add the user function to the intermediate file
+    //    if (called_task.is_valid()
+    //            && !called_task.get_function_code().is_null())
+    //    {
+    //        _cuda_file_code.append(Nodecl::Utils::deep_copy(
+    //                    called_task.get_function_code(),
+    //                    called_task.get_scope()));
+    //
+    //        // Remove the user function definition from the original source because
+    //        // It is used only in the intermediate file
+    //        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
+    //    }
 
-    // Update the kernel configurations of every cuda function call of the current task
-    Nodecl::NodeclBase task_code =
-        (is_function_task) ? called_task.get_function_code() : output_statements;
-    if (!task_code.is_null())
-    {
-        update_all_kernel_configurations(task_code);
-    }
 
-    // Add the user function to the intermediate file if It is a function task
-    // (This action must be done always after the update of the kernel configurations
-    // because the code of the user function may be changed if It contains one or more cuda function calls)
-    if (is_function_task
-            && !called_task.get_function_code().is_null())
-    {
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope()));
 
-        // Remove the user function definition from the original source because
-        // It is used only in the intermediate file
-        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
+    ObjectList<std::string> structure_name;
+    ObjectList<TL::Type> structure_type;
+    // Create the new unpacked function
+    TL::Symbol device_function = new_function_symbol(
+            current_function,
+            device_outline_name + "_device",
+            TL::Type::get_void_type(),
+            structure_name,
+            structure_type);
+    
+    // Create the outline function
+    //The outline function has always only one parameter which name is 'args'
+    structure_name.append("args");
+
+    //The type of this parameter is an struct (i. e. user defined type)
+    structure_type.append(TL::Type(
+            get_user_defined_type(
+            info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
+    
+    TL::Symbol host_function = new_function_symbol(
+            current_function,
+            device_outline_name + "_host",
+            TL::Type::get_void_type(),
+            structure_name,
+            structure_type);
+
+    Source code_host;
+    Source code_device_pre;
+    Source code_device_post;
+    if (called_task.is_valid()) {
+        generate_additional_mpi_code(called_task,
+                host_function,
+                info._target_info.get_onto(),
+                info._target_info.get_param_arg_map(),
+                info._arguments_struct,
+                code_host,
+                code_device_pre,
+                code_device_post);
     }
 
     // Create the new unpacked function
@@ -1803,25 +1687,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             device_outline_name + "_unpacked",
             info,
             symbol_map);
-
-    Source ndrange_code;
-    if (is_function_task
-            && info._target_info.get_ndrange().size() > 0)
-    {
-        generate_ndrange_additional_code(called_task,
-                unpacked_function,
-                info._target_info.get_ndrange(),
-                ndrange_code);
-    }
-
-    // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source but It is defined in cudacc_filename.cu
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
-    if (IS_C_LANGUAGE)
-    {
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
-    }
-
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
     build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
@@ -1829,691 +1694,128 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_source;
     unpacked_source
-        << "{"
-        << private_entities
-        << ndrange_code
-        << statement_placeholder(outline_placeholder)
-        << "}"
-        ;
+            << "{"
+            << private_entities
+            //<< code_host
+            << statement_placeholder(outline_placeholder)
+            << "}"
+            ; 
 
     Nodecl::NodeclBase new_unpacked_body =
-        unpacked_source.parse_statement(unpacked_function_body);
+            unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
 
-    if (is_function_task
-            && info._target_info.get_ndrange().size() > 0)
-    {
-        generate_ndrange_kernel_call(
-                outline_placeholder.retrieve_context(),
-                original_statements,
-                output_statements);
-    }
 
-    // Add the unpacked function to the intermediate cuda file
-    _cuda_file_code.append(unpacked_function_code);
+    // Add the unpacked function to the file
+    Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
     // Add a declaration of the unpacked function symbol in the original source
-    if (IS_CXX_LANGUAGE)
-    {
+    if (IS_CXX_LANGUAGE) {
         Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                 /* optative context */ nodecl_null(),
-                unpacked_function,
+                host_function,
                 original_statements.get_filename(),
                 original_statements.get_line());
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
 
-    // Create the outline function
-    //The outline function has always only one parameter which name is 'args'
-    ObjectList<std::string> structure_name;
-    structure_name.append("args");
 
-    //The type of this parameter is an struct (i. e. user defined type)
-    ObjectList<TL::Type> structure_type;
-    structure_type.append(TL::Type(
-                get_user_defined_type(
-                    info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
+    Nodecl::NodeclBase host_function_code, host_function_body;
+    build_empty_body_for_function(host_function,
+            host_function_code,
+            host_function_body);
 
-    TL::Symbol outline_function = new_function_symbol(
-            current_function,
-            device_outline_name,
-            TL::Type::get_void_type(),
-            structure_name,
-            structure_type);
+    Source host_src,
+            instrument_before,
+            instrument_after;
 
-    Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
-            outline_function_code,
-            outline_function_body);
+    host_src
+            << "{"
+            << instrument_before
+            << code_host
+            << instrument_after
+            //<< statement_placeholder(outline_placeholder)
+            << "}"
+            ;
+    
+    //std::cout << code_host.get_source(true) << "\n";
+    Nodecl::NodeclBase new_host_body = host_src.parse_statement(host_function_body);
+    host_function_body.replace(new_host_body);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, host_function_code);
+    
+    Nodecl::NodeclBase device_function_code, device_function_body;
+    build_empty_body_for_function(device_function,
+            device_function_code,
+            device_function_body);
 
-    Source outline_src,
-           instrument_before,
-           instrument_after;
+    Source device_src;
 
-    outline_src
-        << "{"
-        <<      instrument_before
-        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
-        <<      instrument_after
-        << "}"
-        ;
-
-    if (instrumentation_enabled())
-    {
-        get_instrumentation_code(
-                info._called_task,
-                outline_function,
-                outline_function_body,
-                info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
-                instrument_before,
-                instrument_after);
-    }
-
-    Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
-    outline_function_body.replace(new_outline_body);
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
+    device_src
+            << "{"
+            << code_device_pre
+            << device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+            << code_device_post
+            << "}"
+            ;
+    Nodecl::NodeclBase new_device_body = device_src.parse_statement(device_function_body);
+    device_function_body.replace(new_device_body);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
+//    
+    // device_outline_name << "_host(" << unpacked_arguments << ");"
+    _mpiDaemonMain << " else if (ompss_id_func== " << _currTaskId << "){"
+                << device_outline_name << "_device();"
+                << "}";
+    
+    output_statements = original_statements;
 }
 
+//
 
-//void DeviceCUDA::create_outline(
-//		const std::string& task_name,
-//		const std::string& struct_typename,
-//		DataEnvironInfo &data_environ,
-//		const OutlineFlags& outline_flags,
-//		AST_t reference_tree,
-//		ScopeLink sl,
-//		Source initial_setup,
-//		Source outline_body)
-//{
-//	// Common variables needed by host and device side code
-//	// outline_name
-//	Source outline_name, parameter_list;
-//	outline_name
-//		<< cuda_outline_name(task_name)
-//		;
-//
-//	/***************** Write the CUDA file *****************/
-//	process_device_side_code(
-//			outline_name,
-//            task_name,
-//			struct_typename,
-//			parameter_list,
-//			data_environ,
-//			outline_flags,
-//			initial_setup,
-//			outline_body,
-//			reference_tree,
-//			sl);
-//
-//	/******************* Generate the host side code (C/C++ file) ******************/
-//	insert_host_side_code(outline_name,
-//			outline_flags,
-//			struct_typename,
-//			parameter_list,
-//			reference_tree,
-//			sl);
-//}
-//
-//void DeviceCUDA::process_local_symbols(
-//		AST_t& decl,
-//		ScopeLink sl,
-//		Source& forward_declaration)
-//{
-//	DeclarationClosure decl_closure (sl);
-//	LangConstruct construct(decl, sl);
-//
-//	// Check we have the definition of all symbol local occurrences, like typedef's
-//	ObjectList<IdExpression> local_occurrences;
-//	local_occurrences = construct.all_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
-//
-//	for (ObjectList<IdExpression>::iterator it = local_occurrences.begin();
-//			it != local_occurrences.end();
-//			it++)
-//	{
-//		Symbol s = it->get_symbol();
-//
-//		// If this symbol comes from the guts of CUDA, ignore it
-//		if (CheckIfInCudacompiler::check(s.get_filename()))
-//			continue;
-//
-//		// Let's check its type as well
-//		TL::Type t = s.get_type();
-//		if (CheckIfInCudacompiler::check_type(t))
-//			continue;
-//
-//		// Check we have not already added the symbol
-//		if (_localDecls.find(s.get_internal_symbol()->type_information) == _localDecls.end())
-//		{
-//			_localDecls.insert(s.get_internal_symbol()->type_information);
-//
-//			decl_closure.add(s);
-//		}
-//	}
-//
-//	// User-defined structs must be included in GPU kernel's file
-//	// NOTE: 'closure()' method is not working for extern symbols...
-//	forward_declaration << decl_closure.closure() << "\n";
-//}
-//
-//void DeviceCUDA::process_extern_symbols(
-//		AST_t& decl,
-//		ScopeLink sl,
-//		Source& forward_declaration)
-//{
-//	LangConstruct construct(decl, sl);
-//	ObjectList<IdExpression> extern_occurrences;
-//	std::set<Symbol> extern_symbols;
-//
-//	// Get the definition of non local symbols
-//	extern_occurrences = construct.non_local_symbol_occurrences(LangConstruct::ALL_SYMBOLS);
-//
-//	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
-//			it != extern_occurrences.end();
-//			it++)
-//	{
-//		Symbol s = it->get_symbol();
-//
-//		// TODO: check the symbol is not a global variable
-//		// Ignore non-constant variables
-//		if (s.is_variable()
-//				&& !s.get_type().is_const())
-//			continue;
-//
-//		if (s.get_internal_symbol()->kind == SK_ENUMERATOR)
-//		{
-//			s = s.get_type().get_symbol();
-//		}
-//		while (s.is_member())
-//		{
-//			s = s.get_class_type().get_symbol();
-//		}
-//
-//		// Check we have not already added the symbol
-//		if (_fwdSymbols.count(s) == 0)
-//		{
-//			_fwdSymbols.insert(s);
-//			//decl_closure.add(s);
-//
-//			extern_symbols.insert(s);
-//		}
-//	}
-//
-//	for (std::set<Symbol>::iterator it = extern_symbols.begin();
-//			it != extern_symbols.end(); it++)
-//	{
-//		// Check the symbol is not a function definition before adding it to forward declaration (see #529)
-//		// Check the symbol does not come from CUDA (see #753 and #959)
-//		AST_t a = it->get_point_of_declaration();
-//		if (!FunctionDefinition::predicate(a) && !CheckIfInCudacompiler::check(it->get_filename()))
-//		{
-//			forward_declaration << a.prettyprint_external() << "\n";
-//		}
-//	}
-//}
-//
-//void DeviceCUDA::process_outline_task(
-//		const OutlineFlags& outline_flags,
-//		AST_t& function_tree,
-//		ScopeLink& sl,
-//		Source& forward_declaration)
-//{
-//	// Check if the task symbol is actually a function definition or a declaration
-//	if (FunctionDefinition::predicate(function_tree))
-//	{
-//		// Check if we have already printed the function definition in the CUDA file
-//		if (_taskSymbols.count(outline_flags.task_symbol) == 0)
-//		{
-//			// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-//			replace_all_kernel_configs(function_tree, sl);
-//
-//			forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
-//
-//			// Keep record of which tasks have been printed to the CUDA file
-//			// in order to avoid repeating them
-//			_taskSymbols.insert(outline_flags.task_symbol);
-//
-//			// Remove the function definition from the original source code
-//			function_tree.remove_in_list();
-//		}
-//	}
-//	else
-//	{
-//		// Not a function definition
-//		// Search for the function definition
-//		ObjectList<AST_t> funct_def_list =
-//				_root.depth_subtrees(FilterFunctionDef(outline_flags.task_symbol, sl));
-//
-//		if (funct_def_list.size() == 1)
-//		{
-//			// Check if we have already printed the function definition in the CUDA file
-//			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
-//			{
-//				// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-//				replace_all_kernel_configs(funct_def_list[0], sl);
-//
-//				forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
-//
-//				// Keep record of which tasks have been printed to the CUDA file
-//				// in order to avoid repeating them
-//				_taskSymbols.insert(outline_flags.task_symbol);
-//			}
-//
-//			// Remove the function definition from the original source code
-//			funct_def_list[0].remove_in_list();
-//		}
-//		else if (funct_def_list.size() == 0
-//				&& _taskSymbols.count(outline_flags.task_symbol) > 0)
-//		{
-//			// We have already removed it and printed it in the CUDA file, do nothing
-//		}
-//	}
-//}
-//
-//void DeviceCUDA::do_wrapper_code_replacements(
-//		std::string implemented_name,
-//		DataEnvironInfo& data_environ,
-//		const OutlineFlags& outline_flags,
-//		Source& initial_setup,
-//		Source& implements)
-//{
-//	std::multimap<std::string, std::pair<Source, Source> >::iterator it_impl;
-//	it_impl = _implementCalls.find(outline_flags.task_symbol.get_name() + implemented_name);
-//	std::pair<Source, Source> code = it_impl->second;
-//	Source ndrange = code.first;
-//	Source call = code.second;
-//	std::string str_ndrange = ndrange.get_source(false);
-//	std::string str_call = call.get_source(false);
-//	std::string translation_func = initial_setup.get_source(false);
-//
-//	// Do what do_cuda_outline_replacements does in a function call,
-//	// but in our generated implements code
-//	ObjectList<DataEnvironItem> list_param = data_environ.get_items();
-//	for (ObjectList<DataEnvironItem>::iterator it = list_param.begin();
-//			it != list_param.end();
-//			it++)
-//	{
-//		DataEnvironItem item = *it;
-//		if (item.is_firstprivate() || item.is_shared())
-//		{
-//			replaceAllString(str_ndrange, "%" + item.get_symbol().get_name() + "%", "_args->" + item.get_field_name());
-//			replaceAllString(str_call, "%" + item.get_symbol().get_name() + "%", "_args->" + item.get_field_name());
-//		}
-//
-//		// Items named _cp_+name are a translated copy of an item
-//		if (!create_translation_function())
-//		{
-//			if (translation_func.find("_cp_" + item.get_symbol().get_name()) != std::string::npos)
-//			{
-//				replaceAllString(str_call, "_args->" + item.get_field_name(), "_cp_" + item.get_symbol().get_name());
-//			}
-//		}
-//	}
-//
-//	// "build" the full code, with ndrange code, translation function (if exists) and kernel call
-//	implements
-//			<< str_ndrange
-//			<< translation_func
-//			<< str_call;
-//
-//	// Remove the code and insert it again, so it goes to last position
-//	// so next time we get called, we will get next code implementation
-//	// It is tricky, but this function gets called once per implementation
-//	// in a task, if a function has 3 different cuda implementations
-//	// with the same kernel name (with different ndranges for example),
-//	// each time we get called, we will get a different one
-//	_implementCalls.erase(it_impl);
-//	_implementCalls.insert(std::pair<std::string, std::pair<Source, Source> >(outline_flags.task_symbol.get_name() + implemented_name, std::pair<Source, Source > (ndrange, call)));
-//
-//}
-//
-//AST_t DeviceCUDA::generate_task_code(
-//		Source& outline_name,
-//		const std::string& task_name,
-//		const std::string& struct_typename,
-//		Source& parameter_list,
-//		DataEnvironInfo& data_environ,
-//		const OutlineFlags& outline_flags,
-//		Source& initial_setup,
-//		Source& outline_body,
-//		AST_t& reference_tree,
-//		ScopeLink& sl)
-//{
-//	// Check if we need to generate the wrapper
-//	bool needs_wrapper = is_wrapper_needed(outline_flags.task_symbol);
-//
-//	std::string implemented_name;
-//	if (needs_wrapper)
-//	{
-//		PragmaCustomConstruct ctr(reference_tree, sl);
-//		create_wrapper_code(ctr, outline_flags, sl, implemented_name);
-//	}
-//
-//	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
-//	FunctionDefinition enclosing_function(function_def_tree, sl);
-//	Symbol function_symbol = enclosing_function.get_function_symbol();
-//
-//	Source result, arguments_struct_definition, body;
-//	Source instrument_before, instrument_after;
-//
-//	result
-//		<< arguments_struct_definition
-//		<< "void " << outline_name << "(" << parameter_list << ")"
-//		<< "{"
-//		<< instrument_before
-//		<< body
-//		<< instrument_after
-//		<< "}"
-//		;
-//
-//	// Add the tracing instrumentation if needed
-//    if (instrumentation_enabled())
-//    {
-//        insert_instrumentation_code(
-//                function_symbol,
-//                enclosing_function,
-//                task_name,
-//                outline_name,
-//                outline_flags,
-//                reference_tree,
-//                instrument_before,
-//                instrument_after);
-//    }
-//
-//	// arguments_struct_definition
-//	Scope sc = sl.get_scope(reference_tree);
-//	Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
-//
-//	if (!struct_typename_sym.is_valid())
-//	{
-//		running_error("Invalid typename for struct args", 0);
-//	}
-//
-//	// Check if we have already printed the argument's struct definition in the CUDA file
-//	if (_taskSymbols.count(struct_typename_sym) == 0)
-//	{
-//		arguments_struct_definition
-//			<< struct_typename_sym.get_point_of_declaration().prettyprint();
-//
-//		// Keep record of which argument's struct definitions have been printed to the CUDA file
-//		// in order to avoid repeating them
-//		_taskSymbols.insert(struct_typename_sym);
-//	}
-//
-//	// parameter_list
-//	parameter_list
-//		<< struct_typename << "* const _args"
-//		;
-//
-//	// body
-//	Source private_vars, final_code;
-//
-//	if (needs_wrapper)
-//	{
-//		Source implements;
-//		do_wrapper_code_replacements(implemented_name, data_environ, outline_flags, initial_setup, implements);
-//		outline_body = implements;
-//	}
-//
-//	body
-//		<< private_vars
-//		<< initial_setup
-//		<< outline_body
-//		<< final_code
-//		;
-//
-//	// private_vars
-//	ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
-//
-//	for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-//			it != data_env_items.end();
-//			it++)
-//	{
-//		if (it->is_private())
-//		{
-//			Symbol sym = it->get_symbol();
-//			Type type = sym.get_type();
-//
-//			private_vars
-//				<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-//				;
-//		}
-//		else if (it->is_raw_buffer())
-//		{
-//			Symbol sym = it->get_symbol();
-//			Type type = sym.get_type();
-//			std::string field_name = it->get_field_name();
-//
-//			if (type.is_reference())
-//			{
-//				type = type.references_to();
-//			}
-//
-//			if (!type.is_named_class())
-//			{
-//				internal_error("invalid class type in field of raw buffer", 0);
-//			}
-//
-//			final_code
-//				<< field_name << ".~" << type.get_symbol().get_name() << "();"
-//				;
-//		}
-//	}
-//
-//	if (outline_flags.parallel)
-//	{
-//		running_error("%s: error: parallel not supported in CUDA devices", reference_tree.get_locus().c_str());
-//	}
-//
-//	// final_code
-//	if (outline_flags.parallel || outline_flags.barrier_at_end)
-//	{
-//		final_code
-//			<< OMPTransform::get_barrier_code(reference_tree)
-//			;
-//	}
-//
-//	// Parse it in a sibling function context
-//	return result.parse_declaration(enclosing_function.get_ast(), sl);
-//}
-//
-//void DeviceCUDA::process_device_side_code(
-//		Source &outline_name,
-//		const std::string& task_name,
-//		const std::string& struct_typename,
-//		Source& parameter_list,
-//		DataEnvironInfo& data_environ,
-//		const OutlineFlags& outline_flags,
-//		Source& initial_setup,
-//		Source& outline_body,
-//		AST_t& reference_tree,
-//		ScopeLink& sl)
-//{
-//	// Local and external symbol forward declarations written in the CUDA header file
-//	Source forward_declaration;
-//
-//	// Check if the task is a function, or it is inlined
-//	// Outline tasks need more work to do
-//	bool is_outline_task = (outline_flags.task_symbol != NULL);
-//
-//	// Get all the needed symbols and CUDA included files
-//	AST_t function_tree = (is_outline_task ?
-//			outline_flags.task_symbol.get_point_of_declaration() :
-//			reference_tree);
-//
-//	// Forward symbol declarations (either local or external)
-//	process_local_symbols(function_tree, sl, forward_declaration);
-//	process_extern_symbols(function_tree, sl, forward_declaration);
-//
-//	// If it is an outlined task, do some more work
-//	if (is_outline_task && !is_wrapper_needed(outline_flags.task_symbol))
-//	{
-//		process_outline_task(outline_flags, function_tree, sl, forward_declaration);
-//	}
-//
-//	// Generate device side task code
-//	AST_t outline_code_tree = generate_task_code(
-//			outline_name,
-//            task_name,
-//			struct_typename,
-//			parameter_list,
-//			data_environ,
-//			outline_flags,
-//			initial_setup,
-//			outline_body,
-//			reference_tree,
-//			sl);
-//
-//	if (is_wrapper_needed(outline_flags.task_symbol))
-//	{
-//		process_extern_symbols(outline_code_tree, sl, forward_declaration);
-//	}
-//
-//
-//	// Look for kernel calls to add the Nanos++ kernel execution stream whenever possible
-//	replace_all_kernel_configs(outline_code_tree, sl);
-//
-//	insert_device_side_code(forward_declaration, outline_code_tree);
-//
-//}
-//
-//void DeviceCUDA::insert_device_side_code(Source &forward_declaration)
-//{
-//	AST_t empty_tree;
-//	insert_device_side_code(forward_declaration, empty_tree);
-//}
-//
-//void DeviceCUDA::insert_device_side_code(AST_t &code_tree)
-//{
-//	Source empty_source;
-//	insert_device_side_code(empty_source, code_tree);
-//}
-//
-//void DeviceCUDA::insert_device_side_code(
-//		Source &forward_declaration,
-//		AST_t& outline_code_tree)
-//{
-//	// This registers the output file in the compilation pipeline if needed
-//	std::ofstream cudaFile, cudaHeaderFile;
-//	get_output_file(cudaFile, cudaHeaderFile);
-//
-//	// Print declarations in header file in the following way:
-//	// 1 - Protect the header with ifndef/define/endif
-//	//     |--> Done at get_output_file() and run()
-//	// 2 - Emit extern C when we are compiling a C code
-//	//     |--> WARNING: C code included from CXX may need extern C, too, but this is not checked (not trivial)
-//	// 3 - Write forward declarations
-//
-//	if (IS_C_LANGUAGE) {
-//		cudaHeaderFile << "extern \"C\" {\n";
-//	}
-//	cudaHeaderFile << forward_declaration.get_source(false) << "\n";
-//	if (IS_C_LANGUAGE) {
-//		cudaHeaderFile << "}\n";
-//	}
-//	cudaHeaderFile.close();
-//
-//	// Print definitions in source file
-//	cudaFile << "extern \"C\" {\n";
-//	cudaFile << outline_code_tree.prettyprint_external() << "\n";
-//	cudaFile << "}\n";
-//	cudaFile.close();
-//
-//}
-//
-//void DeviceCUDA::insert_host_side_code(
-//		Source &outline_name,
-//		const OutlineFlags& outline_flags,
-//		const std::string& struct_typename,
-//		Source &parameter_list,
-//		AST_t &reference_tree,
-//		ScopeLink &sl)
-//{
-//	// Check if the task is a function, or it is inlined
-//	if (outline_flags.task_symbol != NULL)
-//	{
-//		// We have already removed the function definition
-//		// Now replace it for the outline declaration
-//		Source function_decl_src;
-//
-//		CXX_LANGUAGE()
-//		{
-//			function_decl_src
-//				<< "extern \"C\" { "
-//				;
-//		}
-//
-//		function_decl_src
-//			<< "void " << outline_name << "(" << struct_typename << "*);"
-//			;
-//
-//		CXX_LANGUAGE()
-//		{
-//			function_decl_src
-//				<< "}"
-//				;
-//		}
-//
-//		AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
-//		reference_tree.prepend_sibling_function(function_decl_tree);
-//	}
-//	else
-//	{
-//		// Forward declaration of the task outline
-//		Source outline_declaration_src;
-//
-//		CXX_LANGUAGE()
-//		{
-//			outline_declaration_src
-//				<< "extern \"C\" { "
-//				;
-//		}
-//
-//		outline_declaration_src
-//			<< "void " << outline_name << "(" << parameter_list << ");"
-//			;
-//
-//		CXX_LANGUAGE()
-//		{
-//			outline_declaration_src
-//				<< "}"
-//				;
-//		}
-//		AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
-//		reference_tree.prepend_sibling_function(outline_declaration_tree);
-//	}
-//}
-//
-//
-DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")) //, _cudaFilename(""), _cudaHeaderFilename("")
+DeviceMPI::DeviceMPI()
+: DeviceProvider(/* device_name */ std::string("mpi")) //, _cudaFilename(""), _cudaHeaderFilename("")
 {
-    set_phase_name("Nanox CUDA support");
-    set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
+    set_phase_name("Nanox MPI support");
+    set_phase_description("This phase is used by Nanox phases to implement MPI device support");
 }
 
-
-void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
+void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
-        Source &fortran_dynamic_init UNUSED_PARAMETER)
-{
-    const std::string& device_outline_name = cuda_outline_name(info._outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012))
-    {
+        Source &fortran_dynamic_init UNUSED_PARAMETER) {
+    TargetInformation& target_information = info._target_info;
+    const std::string& device_outline_name = get_outline_name(info._outline_name);
+    if (Nanos::Version::interface_is_at_least("master", 5012)) {        
+        ObjectList<Nodecl::NodeclBase> onto_clause=target_information.get_onto();
+        Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
+        std::string assignedComm="0";
+        std::string assignedRank="-2";
+        if (onto_clause.size()>=1){
+            assignedComm=as_symbol( param_to_args_map.map(onto_clause.at(0).get_symbol()));
+        }
+        if (onto_clause.size()>=2){
+            assignedRank=as_symbol( param_to_args_map.map(onto_clause.at(1).get_symbol()));            
+        }
         ancillary_device_description
-            << comment("CUDA device descriptor")
-            << "static nanos_smp_args_t "
-            << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
-            ;
-    }
-    else
-    {
+                << comment("MPI device descriptor")
+                << "static nanos_mpi_args_t "
+                << device_outline_name << "_mpi_args;"
+                << device_outline_name << "_mpi_args.outline = (void(*)(void*))" << device_outline_name << "_host;"
+                << device_outline_name << "_mpi_args._assignedComm = " << assignedComm << ";"
+                << device_outline_name << "_mpi_args._assignedRank = " << assignedRank << ";";
+                
+//        ancillary_device_description
+//                << comment("MPI device descriptor")
+//                << "static nanos_mpi_args_t 
+//                << device_outline_name << "_args;"
+//                << device_outline_name << "_args.outline = { (void(*)(void*))" << device_outline_name << "_host};"
+//                << device_outline_name << "_args._assignedComm = " << _assignedComm << ";"
+//                << device_outline_name << "_args._assignedRank = " << _assignedRank << ";"
+                ;
+    } else {
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
+    device_descriptor << "{ &nanos_mpi_factory, &" << device_outline_name << "_mpi_args }";
 }
 
 //void DeviceCUDA::do_replacements(
@@ -2531,113 +1833,189 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
 //}
 //
 
-void DeviceCUDA::add_included_cuda_files(FILE* file)
-{
-    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-    std::string cuda_file_ext(".cu\"");
-    std::string cuda_header_ext(".cuh\"");
+//void DeviceMPI::add_included_cuda_files(FILE* file) {
+//    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+//    std::string cuda_file_ext(".cu\"");
+//    std::string cuda_header_ext(".cuh\"");
+//
+//    for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++) {
+//        std::string line = (*it).get_preprocessor_line();
+//        std::string extension = line.substr(line.find_last_of("."));
+//
+//        if (extension == cuda_file_ext || extension == cuda_header_ext) {
+//            int output = fprintf(file, "%s\n", line.c_str());
+//            if (output < 0)
+//                internal_error("Error trying to write the intermediate cuda file\n", 0);
+//        }
+//    }
+//}
 
-    for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
-    {
-        std::string line = (*it).get_preprocessor_line();
-        std::string extension = line.substr(line.find_last_of("."));
-
-        if (extension == cuda_file_ext || extension == cuda_header_ext)
-        {
-            int output = fprintf(file, "%s\n", line.c_str());
-            if (output < 0)
-                internal_error("Error trying to write the intermediate cuda file\n", 0);
-        }
-    }
-}
-
-bool DeviceCUDA::allow_mandatory_creation()
-{
+bool DeviceMPI::allow_mandatory_creation() {
     return true;
 }
 
-void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
-{
-    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
-            it != stuff_to_be_copied.end();
-            ++it)
-    {
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
-    }
+void DeviceMPI::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied) {
+    //    for (Nodecl::List::iterator it = symbols.begin();
+    //            it != symbols.end();
+    //            ++it)
+    //    {
+    //        Symbol sym = (*it).as<Nodecl::Symbol>().get_symbol();
+    //        if (sym.is_function()
+    //                && !sym.get_function_code().is_null())
+    //        {
+    //            _cuda_file_code.append(Nodecl::Utils::deep_copy(
+    //                        sym.get_function_code(),
+    //                        sym.get_scope()));
+    //        }
+    //    }
 }
 
-void DeviceCUDA::phase_cleanup(DTO& data_flow)
-{
-    if (!_cuda_file_code.is_null())
-    {
-        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
-        std::string new_filename = "cudacc_" + original_filename.substr(0, original_filename.find("."))  + ".cu";
+void DeviceMPI::phase_cleanup(DTO& data_flow) {
+    _mpiDaemonMain << "}"; //END WHILE (daemon)
+    _mpiDaemonMain << "}"; //END main
 
-        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
-        if (ancillary_file == NULL)
-        {
-            running_error("%s: error: cannot open file '%s'. %s\n",
-                    original_filename.c_str(),
-                    new_filename.c_str(),
-                    strerror(errno));
+    // Check if the file has already been created (and written)
+    std::ofstream mpiFile;
+    std::string _mpiFilename;
+    bool new_file = false;
+
+    //Source included_files;
+    if (_mpi_task_processed && !CURRENT_CONFIGURATION->do_not_link) {
+        if (CompilationProcess::get_current_file().get_filename(false).find("ompss___mpiWorker_") == std::string::npos) {
+            // Set the file name 
+            _mpiFilename = "ompss___mpiWorker_";
+            _mpiFilename += CompilationProcess::get_current_file().get_filename(false);
+            new_file = true;
+            mpiFile.open(_mpiFilename.c_str());
+            std::ifstream streamFile(CompilationProcess::get_current_file().get_filename(true).c_str());
+
+            mpiFile << streamFile.rdbuf();
+            // Remove the intermediate source file
+            mark_file_for_cleanup(_mpiFilename.c_str());
+            
+            Symbol main  = _root.retrieve_context().get_symbol_from_name("main");            
+            if (main.is_valid()){
+                //Symbol sMain=listMain.at(0);
+                //Get filename and pass value to nanox
+                Source filenameSrc;                
+                filenameSrc << "setMpiFilename(\"./";
+//                if (CompilationConfiguration::get_current_configuration() != "mic"){
+//                    filenameSrc << "mic";
+//                }
+                if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+                 {
+                    filenameSrc << give_basename(CURRENT_CONFIGURATION->linked_output_filename)  << "\");";
+                } else {
+                    filenameSrc << "a.out"  << "\");";
+                }
+                Source real_main;
+                real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
+                        << filenameSrc
+                        << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
+                        << "ompss___mpi_daemon_main(argc,argv);"
+                        << "return 0;"
+                        << "} else {"
+                        << "return main(argc,argv);"
+                        <<"}}"
+                        ;
+                
+                //Nodecl::FunctionCode function_code = main.get_function_code().as<Nodecl::FunctionCode>();
+                //std::cout << _root.prettyprint() << "\n"; 
+                Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code()); 
+                Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
+                Nodecl::Utils::prepend_to_top_level_nodecl(newompss_main);
+                Nodecl::Utils::append_to_top_level_nodecl(new_main);
+                main.set_name("ompss___user_main");
+                //lRoot.at(lRoot.size()-1).append_sibling(new_main);
+                _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
+            }
+            
+
+            // Get *.cu included files
+            //        ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+            //
+            //        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++) {
+            //            std::string line = (*it).get_preprocessor_line();
+            //            if (line.find("nanos") == std::string::npos) {
+            //                included_files << line << "\n";
+            //            }
+            //        }
+            //Add a copy of current file for MIC
+            const std::string configuration_name = "mic";
+            //CompilationProcess::add_file(_mpiFilename, configuration_name, new_file);
+            mpiFile.close();
         }
-
-        CXX_LANGUAGE()
-        {
-            // Add to the new intermediate file the *.cu, *.cuh included files.
-            // It must be done only in C++ language because the C++ codegen do
-            // not deduce the set of used symbols
-            add_included_cuda_files(ancillary_file);
-        }
-
-        compilation_configuration_t* configuration = ::get_compilation_configuration("cuda");
-        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvcc/mnvcxx", 0);
-
-        // Make sure phases are loaded (this is needed for codegen)
-        load_compiler_phases(configuration);
-
-        TL::CompilationProcess::add_file(new_filename, "cuda");
-
-        //Remove the intermediate source file
-        ::mark_file_for_cleanup(new_filename.c_str());
-
-        Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
-
-        phase->codegen_top_level(_cuda_file_code, ancillary_file);
-
-        fclose(ancillary_file);
-
-        // Do not forget the clear the code for next files
-        _cuda_file_code.get_internal_nodecl() = nodecl_null();
     }
 
 
 
-	//_cudaFilename = "";
-	//_cudaHeaderFilename = "";
-	//_root = AST_t(0);
+    //_cudaFilename = "";
+    //_cudaHeaderFilename = "";
+    //_root = AST_t(0);
 }
 
-void DeviceCUDA::pre_run(DTO& dto)
-{
-	//_root = dto["translation_unit"];
-	//if (dto.get_keys().contains("openmp_task_info"))
-	//{
-	//	_function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
-	//}
+void DeviceMPI::pre_run(DTO& dto) {
+    _root = dto["nodecl"];
+    _mpi_task_processed = false;
+    //_mpiDaemonMain <<"    MPI_Datatype dame_int(){	return MPI_INT;}MPI_Datatype ompss_get_mpi_type(__mpitypeompss_signed_short{	return MPI_SHORT;}MPI_Datatype dame_byte(){return MPI_BYTE;}";
+
+    _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { "
+            << " nanos_MPI_Init(&argc, &argv);	"
+            << " int ompss_id_func; "
+            << " MPI_Status ompss___status; "
+            << " MPI_Comm ompss_parent_comp; "
+            << " MPI_Comm_get_parent( &ompss_parent_comp ); "
+            << " while(1){ "
+            << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitypeompss_signed_short\"), 0, ompss_parent_comp, &ompss___status); "
+            << " if (ompss_id_func==-1){ "
+            // << " MPI_Finalize(); "
+            << " return 0; "
+            << " } ";
+    //_root = dto["translation_unit"];
+    //if (dto.get_keys().contains("openmp_task_info"))
+    //{
+    //	_function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+    //}
 }
 
-void DeviceCUDA::run(DTO& dto)
-{
-	//if (_cudaHeaderFilename != "") {
-	//	// Protect the header with ifndef/define/endif
-	//	// Here we emit the last endif
-	//	std::string def = get_header_macro();
-	//	std::ofstream cudaHeaderFile;
-	//	cudaHeaderFile.open(_cudaHeaderFilename.c_str(), std::ios_base::app);
-	//	cudaHeaderFile << "#endif // " << def.c_str() << "\n";
-	//	cudaHeaderFile.close();
-	//}
+void DeviceMPI::run(DTO& dto) {
 }
 
-EXPORT_PHASE(TL::Nanox::DeviceCUDA);
+std::string DeviceMPI::get_ompss_mpi_type(Type type) {
+    std::string result = "ompss_get_mpi_type(\"__mpitypeompss_";
+    if (type.is_char()) {
+        result += "char";
+    } else if (type.is_signed_short_int()) {
+        result += "signed_short";
+    } else if (type.is_signed_int()) {
+        result += "signed_int";
+    } else if (type.is_signed_long_int()) {
+        result += "signed_long";
+    } else if (type.is_signed_char()) {
+        result += "signed_char";
+    } else if (type.is_unsigned_char()) {
+        result += "unsigned_char";
+    } else if (type.is_unsigned_short_int()) {
+        result += "unsigned_short";
+    } else if (type.is_unsigned_int()) {
+        result += "unsigned_int";
+    } else if (type.is_unsigned_long_int()) {
+        result += "unsigned_long";
+    } else if (type.is_float()) {
+        result += "float";
+    } else if (type.is_double()) {
+        result += "double";
+    } else if (type.is_long_double()) {
+        result += "long_double";
+    } else if (type.is_bool()) {
+        result += "bool";
+    } else if (type.is_wchar_t()) {
+        result += "wchar_t";
+    } else {
+        result += "byte";
+    }
+    result += "\")";
+    return result;
+}
+
+EXPORT_PHASE(TL::Nanox::DeviceMPI);

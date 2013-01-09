@@ -1870,9 +1870,10 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
             // Reason: this attributes refer to declarator_list
-            if (ASTType(spec) == AST_GCC_ATTRIBUTE)
-                continue;
-            gather_decl_spec_information(spec, gather_info, decl_context);
+            if (ASTType(spec) != AST_GCC_ATTRIBUTE)
+            {
+                gather_decl_spec_information(spec, gather_info, decl_context);
+            }
         }
     }
 
@@ -1986,14 +1987,19 @@ void build_scope_decl_specifier_seq(AST a,
             for_each_element(list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) != AST_GCC_ATTRIBUTE)
-                    continue;
-                gather_decl_spec_information(spec, gather_info, decl_context);
+                if (ASTType(spec) == AST_GCC_ATTRIBUTE)
+                {
+                    gather_decl_spec_information(spec, gather_info, decl_context);
+                }
             }
         }
 
-        // Now update the type_spec with type information that was caught in the decl_specifier_seq
-        // First "long"/"short"
+        // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->is_short = local_gather_info.is_short;
+        gather_info->is_long = local_gather_info.is_long;
+        gather_info->is_unsigned = local_gather_info.is_unsigned;
+        gather_info->is_signed = local_gather_info.is_signed;
+
         if (gather_info->is_short)
         {
             if (*type_info == get_signed_int_type())
@@ -2514,6 +2520,45 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         decl_context, abstract_decl, nodecl_output);
 
                 *simple_type_info = declarator_type;
+                break;
+            }
+            // Microsoft builtin types
+        case AST_MS_INT8:
+            {
+                // Behaves like a char
+                *simple_type_info = get_char_type();
+                break;
+            }
+        case AST_MS_INT16:
+            {
+                // Behaves like a short
+                *simple_type_info = get_signed_int_type();
+                gather_info->is_short = 1;
+                break;
+            }
+        case AST_MS_INT32:
+            {
+                // Behaves like int
+                *simple_type_info = get_signed_int_type();
+                break;
+            }
+        case AST_MS_INT64:
+            {
+                // May be long int or long long int depending on the environment
+                *simple_type_info = get_signed_int_type();
+
+                if (type_get_size(get_signed_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 1;
+                }
+                else if (type_get_size(get_signed_long_long_int_type()) == 8)
+                {
+                    gather_info->is_long = 2;
+                }
+                else
+                {
+                    running_error("%s: error: __int64 not supported\n", ast_location(a));
+                }
                 break;
             }
             // Mercurium internal mechanism
@@ -13555,14 +13600,14 @@ static void finish_pragma_declaration(
         int line,
         nodecl_t *nodecl_output)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text, 
+    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
     //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" : 
-    //         (nodecl_is_list(nodecl_decl) ? 
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) : 
+    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
+    //         (nodecl_is_list(nodecl_decl) ?
+    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
     //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
-    
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) && 
+
+    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
             entry_list_size(declared_symbols) != 0, "This should not happen", 0);
 
     if (entry_list_size(declared_symbols) > 0)
@@ -13601,7 +13646,7 @@ static void finish_pragma_declaration(
 
         for (i = 0; i < num_items; i++)
         {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION, 
+            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
                     "Invalid node in nodecl_pragma_output", 0);
 
             nodecl_t pragma_context = nodecl_get_child(list[i], 2);
@@ -13627,8 +13672,8 @@ static void finish_pragma_declaration(
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
 }
 
-static void build_scope_pragma_custom_construct_declaration(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_pragma_custom_construct_declaration(AST a,
+        decl_context_t decl_context,
         nodecl_t *nodecl_output)
 {
     scope_entry_list_t* declared_symbols = NULL;
@@ -13644,15 +13689,15 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
+    common_build_scope_pragma_custom_declaration(a, decl_context,
             &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma, 
+            build_scope_declaration_pragma,
             &info);
 
     pragma_nesting--;
     ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
 
-    finish_pragma_declaration(declared_symbols, 
+    finish_pragma_declaration(declared_symbols,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_decl,

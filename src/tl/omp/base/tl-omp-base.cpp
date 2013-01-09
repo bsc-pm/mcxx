@@ -74,7 +74,7 @@ namespace TL { namespace OpenMP {
             if (it->get_kind() != kind)
                 continue;
 
-            data_ref_list.append(it->get_copy_expression());
+            data_ref_list.append(it->get_copy_expression().shallow_copy());
         }
 
         if (!data_ref_list.empty())
@@ -269,7 +269,18 @@ namespace TL { namespace OpenMP {
                 {
                     target_items.append(
                             Nodecl::OpenMP::NDRange::make(
-                                Nodecl::List::make(ndrange_exprs),
+                                Nodecl::List::make(ndrange_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+                
+                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+                if (!onto_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Onto::make(
+                                Nodecl::List::make(onto_exprs),                                
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
 
@@ -930,11 +941,20 @@ namespace TL { namespace OpenMP {
                 internal_error("Invalid values in schedule clause", 0);
             }
 
-            if (schedule == "static"
-                    || schedule == "dynamic"
-                    || schedule == "guided"
-                    || schedule == "runtime"
-                    || schedule == "auto")
+            std::string checked_schedule_name = schedule;
+
+            // Allow OpenMP schedules be prefixed with ompss_
+            std::string ompss_prefix = "ompss_";
+            if (checked_schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix)
+            {
+                checked_schedule_name = checked_schedule_name.substr(ompss_prefix.size());
+            }
+
+            if (checked_schedule_name == "static"
+                    || checked_schedule_name == "dynamic"
+                    || checked_schedule_name == "guided"
+                    || checked_schedule_name == "runtime"
+                    || checked_schedule_name == "auto")
             {
                 execution_environment.append(
                         Nodecl::OpenMP::Schedule::make(
@@ -1113,27 +1133,12 @@ namespace TL { namespace OpenMP {
                     "%s: expecting a function declaration or definition", decl.get_locus().c_str());
 
             Symbol sym = decl.get_symbol();
-
-            ERROR_CONDITION(!sym.is_function(),
-                    "%s: the '%s' symbol is not a function", decl.get_locus().c_str(), sym.get_name().c_str());
-
             symbols.append(Nodecl::Symbol::make(sym, file, line));
 
-            Nodecl::NodeclBase function_code = sym.get_function_code();
-            if (!function_code.is_null())
-            {
-                result = Nodecl::OpenMP::TargetDefinition::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
-            else
-            {
-                result = Nodecl::OpenMP::TargetDeclaration::make(
-                        Nodecl::List::make(devices),
-                        Nodecl::List::make(symbols),
-                        file, line);
-            }
+            result = Nodecl::OpenMP::TargetDeclaration::make(
+                    Nodecl::List::make(devices),
+                    Nodecl::List::make(symbols),
+                    file, line);
 
             decl.replace(result);
         }
@@ -1605,9 +1610,20 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
-
+        
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        if (!onto_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
+                    
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
@@ -1773,6 +1789,26 @@ namespace TL { namespace OpenMP {
                 OpenMP::COPY_DIR_INOUT,
                 filename, line,
                 target_items);
+        
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::NDRange::make(
+                        Nodecl::List::make(ndrange_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }
+
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        if (!onto_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        filename, line));
+        }        
 
         result_list.append(
                 Nodecl::OpenMP::Target::make(

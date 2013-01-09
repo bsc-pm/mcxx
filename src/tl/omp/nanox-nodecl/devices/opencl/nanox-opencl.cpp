@@ -61,6 +61,10 @@ namespace TL { namespace Nanox {
     {
     }
 
+    void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
+    {
+    }
+
 } }
 
 EXPORT_PHASE(TL::Nanox::DeviceOpenCL);
