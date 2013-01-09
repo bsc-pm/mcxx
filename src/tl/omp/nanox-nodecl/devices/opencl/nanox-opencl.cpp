@@ -463,11 +463,13 @@ void DeviceOpenCL::generate_ndrange_code(
     ERROR_CONDITION(((num_dim * 3) + 1 + !check_dim) != num_args_ndrange && ((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
 
     //Create OCL Kernel
-    code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",ompss_program);";
+    code_ndrange << "char* ompss_code = \"adasas\";";    
+    code_ndrange << "void* ompss_program_ocl = nanos_get_ocl_program(ompss_code,\"\");";
+    code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",ompss_program_ocl);";
     //Prepare setArgs
     for (int i = 0; i < num_params; ++i) {
-        //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
-        if (parameters_unpacked[i].get_type().is_pointer()) {
+        //Check original function type
+        if (parameters_called[i].get_type().is_pointer()) {
             code_ndrange << "nanos_ocl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(parameters_unpacked[i]) <<");";
         } else {            
             code_ndrange << "nanos_ocl_set_arg(ompss_kernel_ocl," << i << ", "
@@ -479,7 +481,7 @@ void DeviceOpenCL::generate_ndrange_code(
     code_ndrange << "size_t local_size_arr["<< num_dim <<"];";
     code_ndrange << "size_t global_size_arr["<< num_dim <<"];";    
     int num_dim_offset=num_dim;
-    for (int i = 1; i <= 3; ++i)
+    for (int i = 1; i <= num_dim; ++i)
     {
         if (check_dim)
         {
@@ -522,7 +524,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
-    std::cout << "entro\n\n";
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for OpenCL devices is not supported yet\n", 0);
 
@@ -673,7 +674,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         << "{"
         << private_entities
         << ndrange_code
-        //<< statement_placeholder(outline_placeholder)
         << "}"
         ;
 
@@ -755,6 +755,12 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
+    
+    //Dummy function call placeholder
+    Source unpacked_ndr_code;
+    unpacked_ndr_code << statement_placeholder(outline_placeholder);
+    Nodecl::NodeclBase new_unpacked_ndr_code = unpacked_ndr_code.parse_statement(unpacked_function_body);
+    outline_placeholder=new_unpacked_ndr_code;
 }
 
 //
@@ -776,7 +782,7 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
     {
         ancillary_device_description
             << comment("OpenCL device descriptor")
-            << "static nanos_smp_args_t "
+            << "static nanos_opencl_args_t "
             << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
             ;
     }
@@ -785,7 +791,7 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
+    device_descriptor << "{ &nanos_opencl_factory, &" << device_outline_name << "_args }";
 }
 
 

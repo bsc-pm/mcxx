@@ -644,7 +644,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Source code_host;
     Source code_device_pre;
     Source code_device_post;
-    if (called_task.is_valid()) {
+    //if (called_task.is_valid()) {
         generate_additional_mpi_code(
                 info._target_info.get_onto(),
                 info._arguments_struct,
@@ -652,7 +652,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 code_host,
                 code_device_pre,
                 code_device_post);
-    }
+    //}
 
     // Create the new unpacked function
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
@@ -711,7 +711,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             << "}"
             ;
 
-    //Rstd::cout << code_host.get_source(true) << "\n";
     Nodecl::NodeclBase new_host_body = host_src.parse_statement(host_function_body);
     host_function_body.replace(new_host_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, host_function_code);
@@ -733,7 +732,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_device_body = device_src.parse_statement(device_function_body);
     device_function_body.replace(new_device_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
-
+    
     output_statements = original_statements;
 }
 
