@@ -1795,8 +1795,9 @@ namespace TL { namespace OpenMP {
         {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
-                        Nodecl::List::make(ndrange_exprs),                                
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        Nodecl::List::make(ndrange_exprs),                     
+                        //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
                         filename, line));
         }
 
@@ -1805,8 +1806,9 @@ namespace TL { namespace OpenMP {
         {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
-                        Nodecl::List::make(onto_exprs),                                
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                        Nodecl::List::make(onto_exprs), 
+                        //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
                         filename, line));
         }        
 
