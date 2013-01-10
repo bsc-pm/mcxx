@@ -61,11 +61,11 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
-                const AnalysisStaticInfo& _for_analysis_info;
+                const Analysis::AnalysisStaticInfo& _for_analysis_info;
 
             public:
                 VectorizerVisitorLoopHeader(const unsigned int vector_length,
-                        const AnalysisStaticInfo& for_analysis_info);
+                        const Analysis::AnalysisStaticInfo& for_analysis_info);
 
                 void visit(const Nodecl::LoopControl& loop_header);
 
@@ -75,10 +75,10 @@ namespace TL
         class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const AnalysisStaticInfo& _for_analysis_info;
+                const Analysis::AnalysisStaticInfo& _for_analysis_info;
 
             public:
-                VectorizerVisitorLoopInit(const AnalysisStaticInfo& for_analysis_info);
+                VectorizerVisitorLoopInit(const Analysis::AnalysisStaticInfo& for_analysis_info);
 
                 void visit(const Nodecl::ObjectInit& node);
                 void visit(const Nodecl::Assignment& node);
@@ -91,11 +91,11 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
-                const AnalysisStaticInfo& _for_analysis_info;
+                const Analysis::AnalysisStaticInfo& _for_analysis_info;
 
             public:
                 VectorizerVisitorLoopCond(const unsigned int vector_length,
-                        const AnalysisStaticInfo& for_analysis_info);
+                        const Analysis::AnalysisStaticInfo& for_analysis_info);
 
                 void visit(const Nodecl::Equal& node);
                 void visit(const Nodecl::LowerThan& node);
@@ -111,11 +111,11 @@ namespace TL
         {
             private:
                 const unsigned int _vector_length;
-                const AnalysisStaticInfo& _for_analysis_info;
+                const Analysis::AnalysisStaticInfo& _for_analysis_info;
 
             public:
                 VectorizerVisitorLoopNext(const unsigned int vector_length,
-                        const AnalysisStaticInfo& for_analysis_info);
+                        const Analysis::AnalysisStaticInfo& for_analysis_info);
 
                 void visit(const Nodecl::Comma& node);
                 void visit(const Nodecl::Preincrement& node);

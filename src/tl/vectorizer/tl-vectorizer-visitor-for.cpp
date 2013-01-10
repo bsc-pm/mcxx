@@ -45,7 +45,7 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            AnalysisStaticInfo for_analysis_info(for_statement);
+            Analysis::AnalysisStaticInfo for_analysis_info(for_statement);
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -109,7 +109,7 @@ Nodecl::NodeclBase& n)
 
         VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
                 const unsigned int vector_length,
-                const AnalysisStaticInfo& for_analysis_info) :
+                const Analysis::AnalysisStaticInfo& for_analysis_info) :
             _vector_length(vector_length), _for_analysis_info(for_analysis_info)
         {
         }
@@ -140,7 +140,7 @@ Nodecl::NodeclBase& n)
             return Ret();
         }
 
-        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(const AnalysisStaticInfo&
+        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(const Analysis::AnalysisStaticInfo&
 for_analysis_info) :
             _for_analysis_info(for_analysis_info)
         {
@@ -148,8 +148,9 @@ for_analysis_info) :
 
         void VectorizerVisitorLoopInit::visit(const Nodecl::ObjectInit& node)
         {
-            running_error("Vectorizer (%s): Declaration of new variables is not supported yet in LoopControl."\
-                          " Please, declare them outside of the loop.", node.get_locus().c_str());
+            running_error("Vectorizer (%s): Declaration of new variables is not supported yet "\
+                          "in LoopControl. Please, declare them outside of the loop.",
+                          node.get_locus().c_str());
         }
 
         void VectorizerVisitorLoopInit::visit(const Nodecl::Assignment& node)
@@ -180,7 +181,7 @@ Nodecl::NodeclBase& n)
 
         VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
                 const unsigned int vector_length,
-                const AnalysisStaticInfo& for_analysis_info) :
+                const Analysis::AnalysisStaticInfo& for_analysis_info) :
             _vector_length(vector_length), _for_analysis_info(for_analysis_info)
         {
         }
@@ -254,7 +255,7 @@ Nodecl::NodeclBase& n)
 
         VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
                 const unsigned int vector_length,
-                const AnalysisStaticInfo& for_analysis_info) :
+                const Analysis::AnalysisStaticInfo& for_analysis_info) :
             _vector_length(vector_length), _for_analysis_info(for_analysis_info)
         {
         }

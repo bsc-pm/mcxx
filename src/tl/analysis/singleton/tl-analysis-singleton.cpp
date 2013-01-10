@@ -250,16 +250,22 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables( Nodecl::NodeclBase loop )
+    ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
+            Nodecl::NodeclBase loop )
     {
         ObjectList<Utils::InductionVariableData*> result;
         if( _induction_variables )
         {
-            Node* enclosing = nodecl_enclosing_pcfg( loop );
-            if( enclosing != NULL )
-            {
-                result = enclosing->get_induction_variables( );
-            }
+            // TODO
+//             Node* enclosing = nodecl_enclosing_pcfg( loop );
+//             if( enclosing != NULL )
+//             {
+//                 ObjectList<Utils::InductionVariableData*> ivs = enclosing->get_induction_variables( );
+//                 for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+//                 {
+//                     result.append( ( *it )->get_variable( ).get_nodecl( ) );
+//                 }
+//             }
         }
         return result;
     }
@@ -267,9 +273,9 @@ namespace Analysis {
     // TODO
     ObjectList<Nodecl::NodeclBase> PCFGAnalysis_memento::get_constants( Nodecl::NodeclBase loop )
     {
-       ObjectList<Nodecl::NodeclBase> result;
+        ObjectList<Nodecl::NodeclBase> result;
 
-       return result;
+        return result;
     }
 
     // TODO
