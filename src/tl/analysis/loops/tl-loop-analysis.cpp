@@ -73,12 +73,13 @@ namespace Analysis {
                         else
                         {
                             nodecl_t iv = ( *it )->get_variable( ).get_nodecl( ).get_internal_nodecl( );
-//                             for( Utils::ext_sym_map::iiterator itrd = rdi.begin( ); itrd != rdi.end( ); ++itrd )
-//                             {
-//
-//                             }
                             WARNING_MESSAGE( "Induction Variable '%s' not found in the RD_IN set of loop '%d'",
                                              codegen_to_str( iv, nodecl_retrieve_context( iv ) ), current->get_id( ) );
+                            for( Utils::ext_sym_map::iterator itrd = rdi.begin( ); itrd != rdi.end( ); ++itrd )
+                            {
+                                nodecl_t n = itrd->first.get_nodecl( ).get_internal_nodecl( );
+                                std::cerr << "  - " << codegen_to_str( n, nodecl_retrieve_context( n ) ) << std::endl;
+                            }
                         }
 
                         // The upper bound
