@@ -31,6 +31,7 @@
 
 #include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
+#include "tl-induction-variables-data.hpp"
 
 // Set of classes implementing the Memento Pattern with Analysis purposes.
 // ----------------         -------------        ----------------
@@ -106,7 +107,9 @@ namespace Analysis {
 
         bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
-        ObjectList<Nodecl::NodeclBase> get_induction_variables( Nodecl::NodeclBase loop );
+        ObjectList<Utils::InductionVariableData*> get_induction_variables( Nodecl::NodeclBase loop );
+
+        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase loop );
 
         bool is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
