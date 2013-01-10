@@ -397,7 +397,6 @@ void DeviceMPI::generate_additional_mpi_code(
         TL::Source& code_host,
         TL::Source& code_device_pre,        
         TL::Source& code_device_post) {
-    int num_args_devinfo = onto_clause.size();
 
     TL::Type argument_type = ::get_user_defined_type(struct_args.get_internal_symbol());
     TL::ObjectList<TL::Symbol> parameters_called = argument_type.get_fields();
@@ -408,20 +407,11 @@ void DeviceMPI::generate_additional_mpi_code(
         param_called_names.append(parameters_called.at(i).get_name());
     }
     
+    //We fill it manually with "Null" values
+    //Nanox will search the right communicator and rank at runtime (based on the binding)
     TL::ObjectList<std::string> new_dev_info;
-    for (int i = 0; i < num_args_devinfo; ++i) {
-        if (param_called_names.contains(onto_clause[i].get_symbol().get_name())){
-            new_dev_info.append("args."+onto_clause[i].get_symbol().get_name());
-        } else {
-            new_dev_info.append(onto_clause[i].get_symbol().get_name());            
-        }
-    }
-    if (new_dev_info.size()==0){
-        new_dev_info.append("0");
-    }
-    if (new_dev_info.size()==1){
-        new_dev_info.append("-2");
-    }
+    new_dev_info.append("0");
+    new_dev_info.append("-2");
 
     Source struct_mpi_create;
     Source hostCall;
