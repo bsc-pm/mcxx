@@ -32,7 +32,8 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils )
         : _name( name ), _graph( NULL ), _utils( utils ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
-          _task_nodes_l( ), _func_calls( )
+          _task_nodes_l( ), _func_calls( ),
+          _cluster_to_entry_map( )
     {
 
         _graph = create_graph_node( NULL, nodecl, EXTENSIBLE_GRAPH );

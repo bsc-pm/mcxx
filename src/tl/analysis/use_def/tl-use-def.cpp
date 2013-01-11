@@ -525,7 +525,7 @@ namespace Analysis {
                                  func_node->get_graph_type_as_string( ).c_str( ) );
                 Node* outer_node = func_node->get_outer_node( );
                 while( outer_node->is_split_statement( ) )
-                { // splited
+                {
                     ERROR_CONDITION( outer_node->get_graph_exit_node( )->get_parents().size( ) != 1,
                                      "Expecting only one node as parent of the Exit Node in "\
                                      "the SPLIT_STMT node %d", outer_node->get_id( ) );
