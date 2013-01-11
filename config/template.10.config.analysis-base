@@ -1,11 +1,13 @@
 # OpenMP + Analysis
 
 [analysiscc : plaincc]
+options = --openmp
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {analysis} compiler_phase = libtest_analysis.so
+{simd} options = --variable=simd_enabled:1
 
 [analysiscxx : plaincxx]
 {openmp} compiler_phase = libtlomp-base.so
@@ -13,3 +15,4 @@
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {analysis} compiler_phase = libtest_analysis.so
+{simd} options = --variable=simd_enabled:1
