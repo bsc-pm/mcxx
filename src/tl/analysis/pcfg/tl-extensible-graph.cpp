@@ -771,7 +771,7 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits(Node* current)
     {
-        if(current->is_visited( ) )
+        if( current->is_visited( ) )
         {
 //                 std::cerr << "           clear visits --> " << current->get_id( ) << std::endl;
             current->set_visited(false);

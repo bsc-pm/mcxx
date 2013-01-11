@@ -44,15 +44,14 @@ namespace Analysis {
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
 
-        //!List of functions visited when IPA analysis occurs
-        ObjectList<Symbol> _visited_functions;
-
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
          * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          */
-        void compute_usage_rec( Node* current, bool ipa, Utils::nodecl_set ipa_arguments );
+        void compute_usage_rec( Node* current, ObjectList<TL::Symbol>& visited_functions,
+                                ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
+                                bool ipa, Utils::nodecl_set ipa_arguments );
 
         //! Returns a list with two elements. The firs is the list of upper exposed variables of the graph node;
         //! The second is the list of killed variables of the graph node (Used in composite nodes)
@@ -70,8 +69,10 @@ namespace Analysis {
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          *                      Only necessary when \ipa is true
          */
-        void compute_usage( bool ipa, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ),
-                            ObjectList<TL::Symbol> visited_functions = ObjectList<TL::Symbol>() );
+        void compute_usage( ObjectList<TL::Symbol> visited_functions,
+                            ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
+                            bool ipa = false, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( )
+);
     };
 
     // ************************** End class implementing use-definition analysis ************************** //
@@ -94,9 +95,6 @@ namespace Analysis {
         //! The results of the analysis performed during the visit will be attached to the node
         Node* _node;
 
-        //! Statement we are traversing in this visit
-        Nodecl::NodeclBase _st;
-
         //! State of the traversal
         /*!
          * This value will be true when the actual expression is a defined value
@@ -113,7 +111,11 @@ namespace Analysis {
          */
         Nodecl::NodeclBase _actual_nodecl;
 
-        ObjectList<TL::Symbol> _visited_functions;
+        //!List of functions visited
+        ObjectList<Symbol> _visited_functions;
+
+        //! List of global variables appeared until certain point of the analysis
+        ObjectList<Utils::ExtendedSymbolUsage> _visited_global_vars;
 
         // *** Members for the IPA analysis *** //
 
@@ -147,16 +149,23 @@ namespace Analysis {
 
     public:
         // *** Constructors *** //
-        UsageVisitor( Node* n, Nodecl::NodeclBase st,
+        UsageVisitor( Node* n,
+                      ObjectList<Symbol> visited_functions,
+                      ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                       bool ipa, Scope sc, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
 
+        // *** Getters and Setters *** //
+        ObjectList<Symbol> get_visited_functions( ) const;
+        ObjectList<Utils::ExtendedSymbolUsage> get_visited_global_variables( ) const;
+
+        // *** Utils *** //
         bool variable_is_in_context( Nodecl::NodeclBase var );
 
-        void compute_statement_usage( ObjectList<TL::Symbol> visited_functions );
+        // *** Modifiers *** //
+        void compute_statement_usage( Nodecl::NodeclBase st );
 
         // *** Visitors *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
-
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit_pre( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ArraySubscript& n );
@@ -169,6 +178,7 @@ namespace Analysis {
         Ret visit_pre( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit_pre( const Nodecl::Dereference& n );
+        Ret visit( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::MinusAssignment& n );
@@ -182,6 +192,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
         Ret visit_pre( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };

@@ -389,11 +389,11 @@ namespace Analysis {
 
             Nodecl::NodeclBase get_task_context( );
 
-            void set_task_context(Nodecl::NodeclBase c);
+            void set_task_context( Nodecl::NodeclBase c );
 
             Symbol get_task_function( );
 
-            void set_task_function(Symbol func_sym);
+            void set_task_function( Symbol func_sym );
 
             // ***************** END Getters and setters for OmpSs analysis ***************** //
             // ****************************************************************************** //
@@ -405,7 +405,7 @@ namespace Analysis {
 
             Node* get_stride_node( );
 
-            void set_stride_node(Node* stride);
+            void set_stride_node( Node* stride );
 
             bool is_stride_node( );
             bool is_stride_node( Node* loop );
@@ -422,37 +422,42 @@ namespace Analysis {
             Utils::ext_sym_set get_ue_vars( );
 
             //! Adds a new upper exposed variable to the node
-            void set_ue_var(Utils::ExtendedSymbol new_ue_var);
+            void set_ue_var( Utils::ExtendedSymbol new_ue_var );
 
             //! Adds a new set of upper exposed variable to the node
-            void set_ue_var(Utils::ext_sym_set new_ue_vars);
+            void set_ue_var( Utils::ext_sym_set new_ue_vars );
 
             //! Deletes an old upper exposed variable from the node
-            void unset_ue_var(Utils::ExtendedSymbol old_ue_var);
+            void unset_ue_var( Utils::ExtendedSymbol old_ue_var );
 
             //! Returns the list of killed variables of the node
             Utils::ext_sym_set get_killed_vars( );
 
             //! Adds a new killed variable to the node
-            void set_killed_var(Utils::ExtendedSymbol new_killed_var);
+            void set_killed_var( Utils::ExtendedSymbol new_killed_var );
 
             //! Adds a new set of killed variables to the node
-            void set_killed_var(Utils::ext_sym_set new_killed_vars);
+            void set_killed_var( Utils::ext_sym_set new_killed_vars );
 
             //! Deletes an old killed variable from the node
-            void unset_killed_var(Utils::ExtendedSymbol old_killed_var);
+            void unset_killed_var( Utils::ExtendedSymbol old_killed_var );
 
             //! Returns the list of undefined behaviour variables of the node
             Utils::ext_sym_set get_undefined_behaviour_vars( );
 
             //! Adds a new undefined behaviour variable to the node
-            void set_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var);
+            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
 
             //! Adds a set of undefined behaviour variables to the node
-            void set_undefined_behaviour_var(Utils::ext_sym_set new_undef_vars);
+            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+
+            //! Adds a new undefined behaviour variable and deletes this variable from them
+            //! upper exposed and killed sets of the node
+            void set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                    Utils::ExtendedSymbol new_undef_var );
 
             //! Deletes an old undefined behaviour variable from the node
-            void unset_undefined_behaviour_var(Utils::ExtendedSymbol old_undef_var);
+            void unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
 
             // ************* END getters and setters for use-definition analysis ************ //
             // ****************************************************************************** //

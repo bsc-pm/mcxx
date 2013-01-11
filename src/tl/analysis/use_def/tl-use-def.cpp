@@ -38,18 +38,22 @@ namespace Analysis {
     // **************************** Class implementing use-definition analysis **************************** //
 
     UseDef::UseDef( ExtensibleGraph* graph )
-            : _graph( graph ), _visited_functions( )
+            : _graph( graph )
     {}
 
-    void UseDef::compute_usage( bool ipa, Utils::nodecl_set ipa_arguments, ObjectList<TL::Symbol> visited_functions )
+    void UseDef::compute_usage( ObjectList<TL::Symbol> visited_functions,
+                                ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
+                                bool ipa, Utils::nodecl_set ipa_arguments )
     {
         Node* graph = _graph->get_graph( );
-        _visited_functions = visited_functions;
-        compute_usage_rec( graph, ipa, ipa_arguments );
+        visited_global_vars.insert( _graph->get_global_variables( ) );
+        compute_usage_rec( graph, visited_functions, visited_global_vars, ipa, ipa_arguments );
         ExtensibleGraph::clear_visits( graph );
     }
 
-    void UseDef::compute_usage_rec( Node* current, bool ipa, Utils::nodecl_set ipa_arguments )
+    void UseDef::compute_usage_rec( Node* current, ObjectList<TL::Symbol>& visited_functions,
+                                    ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
+                                    bool ipa, Utils::nodecl_set ipa_arguments )
     {
         if( !current->is_visited( ) )
         {
@@ -61,7 +65,9 @@ namespace Analysis {
             if( current->is_graph_node( ) )
             {
                 // Use-def info is computed from inner nodes to outer nodes
-                compute_usage_rec( current->get_graph_entry_node( ), ipa, ipa_arguments );
+                compute_usage_rec( current->get_graph_entry_node( ),
+                                   visited_functions, visited_global_vars,
+                                   ipa, ipa_arguments );
 
                 // Propagate usage info from inner to outer nodes
                 ExtensibleGraph::clear_visits( current );
@@ -73,8 +79,12 @@ namespace Analysis {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
-                    UsageVisitor uv( current, *it, ipa, _graph->get_scope( ), ipa_arguments );
-                    uv.compute_statement_usage( _visited_functions );
+                    UsageVisitor uv( current, visited_functions, visited_global_vars,
+                                     ipa, _graph->get_scope( ), ipa_arguments );
+                    uv.compute_statement_usage( *it );
+
+                    visited_functions.insert( uv.get_visited_functions( ) );
+                    visited_global_vars.insert( uv.get_visited_global_variables( ) );
                 }
             }
 
@@ -82,7 +92,9 @@ namespace Analysis {
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
-                compute_usage_rec( *it, ipa, ipa_arguments );
+                compute_usage_rec( *it,
+                                   visited_functions, visited_global_vars,
+                                   ipa, ipa_arguments );
             }
         }
     }
@@ -247,7 +259,8 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Can't propagate use-def info from inner nodes to outer nodes in node '%d' with type '%s'.\n",
+            internal_error( "Cannot propagate use-def info from inner nodes to outer nodes "\
+                            "in node '%d' with type '%s'. GRAPH_NODE expected\n",
                             current->get_id( ), current->get_type_as_string( ).c_str( ) );
         }
     }
@@ -261,7 +274,9 @@ namespace Analysis {
     // ***************************** Class implementing use-definition visitor **************************** //
 
     static void get_use_def_variables( Node* actual, int id_target_node,
-                                       Utils::ext_sym_set &ue_vars, Utils::ext_sym_set &killed_vars, Utils::ext_sym_set &undef_vars )
+                                       Utils::ext_sym_set &ue_vars,
+                                       Utils::ext_sym_set &killed_vars,
+                                       Utils::ext_sym_set &undef_vars )
     {
         ObjectList<Node*> children = actual->get_children( );
         for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
@@ -300,7 +315,7 @@ namespace Analysis {
         for( ; itp != parameters.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
-            if( param_type.is_any_reference( ) || param_type.is_pointer( ) )
+            if( ( param_type.is_any_reference( ) || param_type.is_pointer( ) ) )
             {
                 ref_params_to_args[*itp] = *ita;
             }
@@ -309,22 +324,54 @@ namespace Analysis {
         return ref_params_to_args;
     }
 
-    UsageVisitor::UsageVisitor( Node* n, Nodecl::NodeclBase st,
+    static sym_to_nodecl_map map_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
+                                                               Nodecl::List arguments )
+    {
+        sym_to_nodecl_map non_ref_params_to_args;
+
+        ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
+        Nodecl::List::iterator ita = arguments.begin( );
+        for( ; itp != parameters.end( ); ++itp, ++ita )
+        {
+            Type param_type = itp->get_type( );
+            if( ( !param_type.is_any_reference( ) && !param_type.is_pointer( ) ) )
+            {
+                non_ref_params_to_args[*itp] = *ita;
+            }
+        }
+
+        return non_ref_params_to_args;
+    }
+
+    UsageVisitor::UsageVisitor( Node* n,
+                                ObjectList<Symbol> visited_functions,
+                                ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                                 bool ipa, Scope sc, Utils::nodecl_set ipa_arguments )
-            : _node( n ), _st( st), _define( false ), _actual_nodecl( Nodecl::NodeclBase::null( ) ), _visited_functions( ),
-              _ipa( ipa ), _sc( sc ), _ipa_arguments( ipa_arguments )
-    {}
+        : _node( n ), _define( false ), _actual_nodecl( Nodecl::NodeclBase::null( ) ),
+          _visited_functions( visited_functions ), _visited_global_vars( visited_global_vars ),
+          _ipa( ipa ), _sc( sc ), _ipa_arguments( ipa_arguments )
+    { }
 
     UsageVisitor::UsageVisitor( const UsageVisitor& v )
     {
         _node = v._node;
-        _st = v._st;
         _define = v._define;
         _actual_nodecl = v._actual_nodecl;
         _visited_functions = v._visited_functions;
+        _visited_global_vars = v._visited_global_vars;
         _ipa = v._ipa;
         _sc = v._sc;
         _ipa_arguments = v._ipa_arguments;
+    }
+
+    ObjectList<Symbol> UsageVisitor::get_visited_functions( ) const
+    {
+        return _visited_functions;
+    }
+
+    ObjectList<Utils::ExtendedSymbolUsage> UsageVisitor::get_visited_global_variables( ) const
+    {
+        return _visited_global_vars;
     }
 
     bool UsageVisitor::variable_is_in_context( Nodecl::NodeclBase var )
@@ -340,12 +387,9 @@ namespace Analysis {
         return false;
     }
 
-    void UsageVisitor::compute_statement_usage( ObjectList<TL::Symbol> visited_functions )
+    void UsageVisitor::compute_statement_usage( Nodecl::NodeclBase st )
     {
-        _visited_functions = visited_functions;
-
-        // Walk current statement
-        walk( _st );
+        walk( st );
 
         // Propagate Use-Def info from inner nodes to outer node
         if( _node->is_split_statement( ) )
@@ -355,17 +399,21 @@ namespace Analysis {
             Utils::ext_sym_set inner_killed = inner_graph->get_killed_vars( );
             Utils::ext_sym_set inner_undef = inner_graph->get_undefined_behaviour_vars( );
 
-            _node->set_ue_var( Utils::containers_difference( Utils::containers_difference( Utils::ext_sym_set_union( _node->get_ue_vars( ),
-                                                                                                                    inner_ue ),
-                                                                                           inner_killed ),
-                                                             inner_undef ) );
-
-            _node->set_killed_var( Utils::containers_difference( Utils::ext_sym_set_union( _node->get_killed_vars( ),
-                                                                                          inner_killed ),
-                                                                 inner_undef ) );
-
-            _node->set_undefined_behaviour_var( Utils::ext_sym_set_union( _node->get_undefined_behaviour_vars( ),
-                                                                  inner_undef ) );
+            _node->set_ue_var(
+                    Utils::containers_difference(
+                            Utils::containers_difference(
+                                    Utils::ext_sym_set_union( _node->get_ue_vars( ),
+                                                              inner_ue ),
+                                    inner_killed ),
+                            inner_undef ) );
+            _node->set_killed_var(
+                    Utils::containers_difference(
+                            Utils::ext_sym_set_union( _node->get_killed_vars(),
+                                                      inner_killed ),
+                            inner_undef ) );
+            _node->set_undefined_behaviour_var(
+                    Utils::ext_sym_set_union( _node->get_undefined_behaviour_vars( ),
+                                              inner_undef ) );
         }
     }
 
@@ -392,39 +440,133 @@ namespace Analysis {
     void UsageVisitor::function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments )
     {
         TL::Symbol func_sym = called_sym.get_symbol( );
+
         // The function called must be analyzed only in case it has not been analyzed previously
         if( !_visited_functions.contains( func_sym ) )
         {
-            // Add the current function as traversed to avoid cyclic traversals
-            _visited_functions.insert( func_sym );
-
+            _visited_functions.append( func_sym );
             Nodecl::FunctionCode called_func =
-                called_sym.as<Nodecl::Symbol>( ).get_symbol( ).get_function_code( ).as<Nodecl::FunctionCode>( );
+                func_sym.get_function_code( ).as<Nodecl::FunctionCode>( );
 
-            Nodecl::FunctionCode copied_func = called_func.shallow_copy( ).as<Nodecl::FunctionCode>( );
+            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
+            Nodecl::List args = arguments.as<Nodecl::List>( );
+            if( !called_func.is_null( ) )
+            {
+                Nodecl::FunctionCode copied_func =
+                        called_func.shallow_copy( ).as<Nodecl::FunctionCode>( );
 
-            // Create renaming map
-            sym_to_nodecl_map renaming_map = map_reference_params_to_args( func_sym.get_function_parameters( ),
-                                                                           arguments.as<Nodecl::List>( ) );
+                // Create renaming map
+                sym_to_nodecl_map renaming_map =
+                        map_reference_params_to_args( params, args );
 
-            // Rename the parameters with the arguments
-            Nodecl::NodeclBase stmts = copied_func.get_statements( );
-            RenameVisitor rv( renaming_map );
-            rv.rename_expressions( stmts );
+                // Rename the parameters with the arguments
+                Nodecl::NodeclBase stmts = copied_func.get_statements( );
+                RenameVisitor rv( renaming_map );
+                rv.rename_expressions( stmts );
 
-            // Create the PCFG for the renamed code
-            PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), called_func );
-            ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
+                // Create the PCFG for the renamed code
+                PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), called_func );
+                ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
 
-            // Compute Use-Def of the code
-            UseDef ue( pcfg );
-            ue.compute_usage( /* ipa */ true, get_arguments_list( renaming_map ), _visited_functions );
+                _visited_global_vars.insert( pcfg->get_global_variables( ) );
 
-            // Set the current node usage as the usage of the function just computed
-            Node* pcfg_node = pcfg->get_graph( );
-            _node->set_ue_var( pcfg_node->get_ue_vars( ) );
-            _node->set_killed_var( pcfg_node->get_killed_vars( ) );
-            _node->set_undefined_behaviour_var( pcfg_node->get_undefined_behaviour_vars( ) );
+                // Compute the Use-Def variables of the code
+                UseDef ue( pcfg );
+                ue.compute_usage( _visited_functions, _visited_global_vars,
+                                  /* ipa */ true, get_arguments_list( renaming_map ) );
+
+                // Set the node usage
+                Node* pcfg_node = pcfg->get_graph( );
+                    // reference parameters and global variables
+                Utils::ext_sym_set ue_vars = pcfg_node->get_ue_vars( );
+                Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
+                Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
+                    // value parameters
+                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                    it != non_ref_params.end( ); ++it )
+                {
+                    ue_vars.insert( Utils::ExtendedSymbol( it->second ) );
+                }
+                    // set the values
+                _node->set_ue_var( ue_vars );
+                _node->set_killed_var( killed_vars );
+                _node->set_undefined_behaviour_var( undef_vars );
+
+                // Propagate the function call Use-Def info to outer nodes
+                // in case the call is inside a bigger instruction.
+                // F.i.:   int b = foo(a, b)
+                //         PCFG:
+                //           ______________________________________________
+                //          |  [SPIT_STMT]                                 |
+                //          |  __________________________________________  |
+                //          | | [FUNC_CALL]                              | |
+                //          | |  _______       ___________       ______  | |
+                //          | | |       |     |           |     |      | | |
+                //          | | | ENTRY |---->| foo(a, b) |---->| EXIT | | |
+                //          | | |_______|     |___________|     |______| | |
+                //          | |__________________________________________| |
+                //          |               _______|_______                |
+                //          |              |               |               |
+                //          |              | b = foo(a, b) |               |
+                //          |              |_______________|               |
+                //          |______________________________________________|
+                //
+                //         When computing Use-Def of "foo(a, b)", we can easily propagate
+                //             the info to the node "b=foo(a, b)".
+                //             We will propagate, the function Use-Def to the outer nodes
+                //             of a FUNC_CALL node until we find a non-SPLIT_STMT node.
+                Node* func_node = _node->get_outer_node();
+                ERROR_CONDITION( func_node->is_function_call_node( ),
+                                 "Outer node of a statement containing only a function call "\
+                                 "must be of type FUNC_CALL. Instead, outer node of node %d, "\
+                                 "with cal to function %s, has type %s\n", _node->get_id( ),
+                                 called_sym.get_symbol( ).get_name( ).c_str( ),
+                                 func_node->get_graph_type_as_string( ).c_str( ) );
+                Node* outer_node = func_node->get_outer_node( );
+                while( outer_node->is_split_statement( ) )
+                { // splited
+                    ERROR_CONDITION( outer_node->get_graph_exit_node( )->get_parents().size( ) != 1,
+                                     "Expecting only one node as parent of the Exit Node in "\
+                                     "the SPLIT_STMT node %d", outer_node->get_id( ) );
+                    Node* split_stmt_node = outer_node->get_graph_exit_node( )->get_parents()[0];
+                    split_stmt_node->set_ue_var( ue_vars );
+                    split_stmt_node->set_killed_var( killed_vars );
+                    split_stmt_node->set_undefined_behaviour_var( undef_vars );
+
+                    outer_node = outer_node->get_outer_node( );
+                }
+            }
+            else
+            {   // We do not have access to the called code
+                // Set all reference parameters to undefined
+                sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
+                for( sym_to_nodecl_map::iterator it = ref_params.begin( );
+                     it != ref_params.end( ); ++it )
+                {
+                    if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                    {
+                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                Utils::ExtendedSymbol( it->second ) );
+                    }
+                }
+
+                // Set the value passed parameters as Used
+                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                     it != non_ref_params.end( ); ++it )
+                {
+                    _node->set_ue_var( Utils::ExtendedSymbol( it->second ) );
+                }
+
+                // Set all global variables to undefined
+                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                     _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
+                {
+                    _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                            it->get_extended_symbol() );
+                }
+            }
         }
     }
 
@@ -496,15 +638,19 @@ namespace Analysis {
             _actual_nodecl = n;
     }
 
+    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Dereference& n )
+    {
+        walk( n.get_rhs( ) );
+    }
+
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::DivAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::FunctionCall& n )
-    {   // Different _st and n mean this node is composed and the function has been analyzed before
-        if( Nodecl::Utils::equal_nodecls( _st, n ) )
-            function_visit( n.get_called( ), n.get_arguments( ) );
+    {
+        function_visit( n.get_called( ), n.get_arguments( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::MinusAssignment& n )
@@ -571,13 +717,20 @@ namespace Analysis {
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Range& n )
     {
-        internal_error( "Range not yet implemented in UsageVisitor.", 0 );
+        walk( n.get_lower() );
+        walk( n.get_upper() );
+        walk( n.get_stride() );
     }
 
     UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::Reference& n )
     {
         if( _actual_nodecl.is_null( ) )
             _actual_nodecl = n;
+    }
+
+    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Reference& n )
+    {
+        walk( n.get_rhs( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Symbol& n )
@@ -594,14 +747,16 @@ namespace Analysis {
             if( _define )
                 _node->set_killed_var( Utils::ExtendedSymbol( defined_var ) );
             else
-                _node->set_ue_var( Utils::ExtendedSymbol( defined_var ) );
+            {
+                if( !Utils::ext_sym_set_contains_nodecl( defined_var, _node->get_killed_vars() ) )
+                    _node->set_ue_var( Utils::ExtendedSymbol( defined_var ) );
+            }
         }
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
-    {   // Different _st and n mean this node is composed and the function has been analyzed before
-        if( Nodecl::Utils::equal_nodecls( _st, n ) )
-            function_visit( n.get_called( ), n.get_arguments( ) );
+    {
+        function_visit( n.get_called( ), n.get_arguments( ) );
     }
 
     // *************************** End class implementing use-definition visitor ************************** //
