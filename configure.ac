@@ -988,7 +988,7 @@ dnl We try to figure a sensible default environment based on the configure envir
             RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
             ;;
-       arm*-*-linux-gnueabi)
+       arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
             default_type_environ="linux-arm"
             ;;
        spu)

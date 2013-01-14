@@ -1789,6 +1789,28 @@ namespace TL { namespace OpenMP {
                 OpenMP::COPY_DIR_INOUT,
                 filename, line,
                 target_items);
+        
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        if (!ndrange_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::NDRange::make(
+                        Nodecl::List::make(ndrange_exprs),                     
+                        //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
+                        filename, line));
+        }
+
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        if (!onto_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Onto::make(
+                        Nodecl::List::make(onto_exprs), 
+                        //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
+                        filename, line));
+        }        
 
         result_list.append(
                 Nodecl::OpenMP::Target::make(

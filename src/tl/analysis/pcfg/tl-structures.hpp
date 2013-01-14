@@ -72,6 +72,7 @@ namespace Analysis {
         OMP_SECTIONS,
         OMP_SINGLE,
         OMP_TASK,
+        SIMD,
         SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
         SWITCH                          //! Switch statement
     };
