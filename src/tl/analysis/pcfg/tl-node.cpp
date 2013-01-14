@@ -1321,6 +1321,19 @@ namespace Analysis {
         }
     }
 
+    void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+            Utils::ExtendedSymbol new_undef_var )
+    {
+        // Conservatively, delete the reference argument of UE and KILL sets
+        if( has_key( _UPPER_EXPOSED ) )
+            unset_ue_var( new_undef_var );
+        if( has_key( _KILLED ) )
+            unset_killed_var( new_undef_var );
+
+        // Add the global variable to the UNDEF list
+        set_undefined_behaviour_var( new_undef_var );
+    }
+
     void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
     {
         Utils::ext_sym_set undef_vars;

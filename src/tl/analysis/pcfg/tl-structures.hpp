@@ -189,19 +189,19 @@ namespace Analysis {
 
     /*! \def _UPPER_EXPOSED
         * Set of upper exposed variables within a node.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _UPPER_EXPOSED  "ue_vars"
 
     /*! \def _KILLED
         * Set of killed variables within a node.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _KILLED         "killed_vars"
 
     /*! \def _UNDEF
         * Set of variables within a node that we cannot define the behaviour.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _UNDEF          "undefined_behaviour_vars"
 

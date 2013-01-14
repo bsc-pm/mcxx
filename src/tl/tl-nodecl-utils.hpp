@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -56,8 +56,9 @@ namespace Nodecl
         bool nodecl_is_bitwise_op( Nodecl::NodeclBase n );
         bool nodecl_is_assignment_op( Nodecl::NodeclBase n );
         bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
-        
-        bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
+
+        bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
+                           bool skip_conversion_nodecls = false);
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;
         };
@@ -210,7 +211,7 @@ namespace Nodecl
 
             public:
                 LabelSymbolMap(
-                        SymbolMap* original_symbol_map, 
+                        SymbolMap* original_symbol_map,
                         Nodecl::NodeclBase code,
                         TL::ReferenceScope ref_scope);
 
@@ -257,8 +258,8 @@ namespace TL
             void analyze_loop_header();
         public:
             ForStatement(const Nodecl::ForStatement n)
-                : Nodecl::ForStatement(n) 
-            { 
+                : Nodecl::ForStatement(n)
+            {
                     analyze_loop_header();
             }
 

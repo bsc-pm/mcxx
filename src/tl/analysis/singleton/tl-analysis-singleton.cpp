@@ -358,12 +358,12 @@ namespace Analysis {
                     std::cerr << "- Generating PCFG '" << pcfg_name << "'" << std::endl;
 
                 // Create the PCFG
-                    PCFGVisitor v( pcfg_name, *it );
-                    ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
+                PCFGVisitor v( pcfg_name, *it );
+                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
-                    // Store the pcfg in the singleton
-                    memento.set_pcfg( pcfg_name, pcfg );
-                    result.append( pcfg );
+                // Store the pcfg in the singleton
+                memento.set_pcfg( pcfg_name, pcfg );
+                result.append( pcfg );
             }
             else
             {
@@ -402,7 +402,13 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "- Use-Definition of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
                 UseDef ud( *it );
-                ud.compute_usage( /* ipa */ false );
+
+                ObjectList<TL::Symbol> visited_functions;
+                if( (*it)->get_function_symbol( ).is_valid( ) )
+                    visited_functions.insert( (*it)->get_function_symbol( ) );
+                ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars =
+                    ObjectList<Utils::ExtendedSymbolUsage>( ( *it )->get_global_variables( ) );
+                ud.compute_usage( visited_functions, visited_global_vars );
             }
         }
 
