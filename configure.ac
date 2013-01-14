@@ -489,6 +489,53 @@ AC_SUBST([gpu_valid])
 
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
+dnl --------------------- Support for GPU tests in Nanox --------------------------------
+
+gpu_enabled=yes
+#we could do the oposite and explicitly enable it
+
+
+AC_MSG_CHECKING([if the use of FPGA devices was disabled])
+AC_ARG_ENABLE([nanox-fpga-device],
+  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the use of FPGA devices]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        gpu_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            gpu_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    fpga_enabled="yes"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+FPGA_CC=""
+AC_ARG_WITH([fpga-cc],
+AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler for arm]),
+	[
+		FPGA_CC="${withval}"
+	],
+	[
+		FPGA_CC="arm-linux-gnueabi-"
+	])
+
+AC_SUBST([FPGA_CC])
+
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.fpga"
+COMPILER_NAMES="${COMPILER_NAMES} fpgacc"
+
+
+dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
+
 
 dnl --------------------- OpenMP profile mode ---------------------
 
