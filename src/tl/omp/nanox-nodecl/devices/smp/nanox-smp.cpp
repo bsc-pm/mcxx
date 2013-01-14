@@ -653,13 +653,26 @@ namespace TL { namespace Nanox {
 
         function_symbol.get_internal_symbol()->defined = 1;
 
-        function_code = Nodecl::FunctionCode::make(context,
-                // Initializers
-                Nodecl::NodeclBase::null(),
-                // Internal functions
-                Nodecl::NodeclBase::null(),
-                function_symbol,
-                "", 0);
+        if (function_symbol.is_dependent_function())
+        {
+            function_code = Nodecl::TemplateFunctionCode::make(context,
+                    // Initializers
+                    Nodecl::NodeclBase::null(),
+                    // Internal functions
+                    Nodecl::NodeclBase::null(),
+                    function_symbol,
+                    "", 0);
+        }
+        else
+        {
+            function_code = Nodecl::FunctionCode::make(context,
+                    // Initializers
+                    Nodecl::NodeclBase::null(),
+                    // Internal functions
+                    Nodecl::NodeclBase::null(),
+                    function_symbol,
+                    "", 0);
+        }
     }
 
     Source DeviceSMP::emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)

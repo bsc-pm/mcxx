@@ -5264,3 +5264,13 @@ int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_
 
     internal_error("This symbol is not a parameter of the function", 0);
 }
+
+char is_dependent_function(scope_entry_t* entry)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+
+    return is_dependent_type(entry->type_information)
+        || (entry->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+        || (entry->entity_specs.is_member
+                && is_dependent_type(entry->entity_specs.class_type));
+}
