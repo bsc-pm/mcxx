@@ -408,11 +408,6 @@ namespace Analysis {
         return result;
     }
 
-    bool Node::operator==( const Node* &n ) const
-    {
-        return ( ( _id == n->_id ) && ( _entry_edges == n->_entry_edges ) && ( _exit_edges == n->_exit_edges ) );
-    }
-
     Symbol Node::get_function_node_symbol( )
     {
 
@@ -436,6 +431,16 @@ namespace Analysis {
 
         return s;
     }
+
+    bool Node::operator==( const Node* &n ) const
+    {
+        return ( ( _id == n->_id ) && ( _entry_edges == n->_entry_edges ) && ( _exit_edges == n->_exit_edges ) );
+    }
+
+
+
+    // ****************************************************************************** //
+    // ********** Getters and setters for PCFG structural nodes and types *********** //
 
     Node_type Node::get_type( )
     {
@@ -525,7 +530,7 @@ namespace Analysis {
         else
         {
             WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
-                            get_type_as_string( ).c_str( ) );
+                             get_type_as_string( ).c_str( ) );
         }
         return entry_node;
     }
@@ -578,6 +583,106 @@ namespace Analysis {
         {
             internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
                             get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    Nodecl::NodeclBase Node::get_graph_label( )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
+            if( has_key( _NODE_LABEL ) )
+            {
+                res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, Nodecl::NodeclBase::null( ) );
+            }
+            return res;
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the label to node '%d'",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    void Node::set_graph_label( Nodecl::NodeclBase n )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            set_data( _NODE_LABEL, n );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    Graph_type Node::get_graph_type( )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            return get_data<Graph_type>( _GRAPH_TYPE );
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while getting graph type to node '%d'. GRAPH expected.",
+                           get_type_as_string( ).c_str( ), _id);
+        }
+    }
+
+    void Node::set_graph_type( Graph_type graph_type )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            set_data( _GRAPH_TYPE, graph_type );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting graph type to node '%d'. GRAPH expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    static bool node_is_claused_graph_omp( Graph_type type )
+    {
+        return ( type == OMP_ATOMIC || OMP_CRITICAL
+        || type == OMP_LOOP || type == OMP_PARALLEL  || OMP_SECTIONS
+        || type == OMP_SINGLE || type == OMP_TASK );
+    }
+
+    PCFGPragmaInfo Node::get_omp_node_info( )
+    {
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+            && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+            || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        {
+            if( has_key( _OMP_INFO ) )
+                return get_data<PCFGPragmaInfo>( _OMP_INFO );
+            else
+            {
+                PCFGPragmaInfo p;
+                return p;
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the OmpSs. OMP node expected.",
+                            get_type_as_string( ).c_str( ) );
+        }
+    }
+
+    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
+    {
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+            && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+            || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        {
+            set_data<PCFGPragmaInfo>( _OMP_INFO, pragma );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the OmpSs node info. OMP_PRAGMA node expected",
+                            get_type_as_string( ).c_str( ) );
         }
     }
 
@@ -658,106 +763,36 @@ namespace Analysis {
         }
     }
 
-    Nodecl::NodeclBase Node::get_graph_label( )
+    Symbol Node::get_label( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
+        if( ntype == GOTO || ntype == LABELED )
         {
-            Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
-            if( has_key( _NODE_LABEL ) )
-            {
-                res = get_data<Nodecl::NodeclBase>( _NODE_LABEL, Nodecl::NodeclBase::null( ) );
-            }
-            return res;
+            return get_data<Symbol>( _NODE_LABEL );
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while getting the label to node '%d'",
+            internal_error( "Unexpected node type '%s' while getting the label to node '%d'. GOTO or LABELED NODES expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    void Node::set_graph_label( Nodecl::NodeclBase n )
+    void Node::set_label( Symbol s )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
+        if( ntype == GOTO || ntype == LABELED )
         {
-            set_data( _NODE_LABEL, n );
+            set_data( _NODE_LABEL, s );
         }
         else
         {
-            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH expected.",
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
 
-    Graph_type Node::get_graph_type( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            return get_data<Graph_type>( _GRAPH_TYPE );
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while getting graph type to node '%d'. GRAPH expected.",
-                        get_type_as_string( ).c_str( ), _id);
-        }
-    }
-
-    void Node::set_graph_type( Graph_type graph_type )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            set_data( _GRAPH_TYPE, graph_type );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting graph type to node '%d'. GRAPH expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    static bool node_is_claused_graph_omp( Graph_type type )
-    {
-        return ( type == OMP_ATOMIC || OMP_CRITICAL
-                 || type == OMP_LOOP || type == OMP_PARALLEL  || OMP_SECTIONS
-                 || type == OMP_SINGLE || type == OMP_TASK );
-    }
-
-    PCFGPragmaInfo Node::get_omp_node_info( )
-    {
-        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-                 && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
-              || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
-        {
-                if( has_key( _OMP_INFO ) )
-                    return get_data<PCFGPragmaInfo>( _OMP_INFO );
-                else
-                {
-                    PCFGPragmaInfo p;
-                    return p;
-                }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while getting the OmpSs. OMP node expected.",
-                           get_type_as_string( ).c_str( ) );
-        }
-    }
-
-    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
-    {
-        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-                 && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
-              || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
-        {
-            set_data<PCFGPragmaInfo>( _OMP_INFO, pragma );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the OmpSs node info. OMP_PRAGMA node expected",
-                            get_type_as_string( ).c_str( ) );
-        }
-    }
-
+    // ******** END Getters and setters for PCFG structural nodes and types ********* //
+    // ****************************************************************************** //
 
 
     // ****************************************************************************** //
@@ -805,362 +840,9 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
-    ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
-    {
-        ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) )
-        {
-            if( has_key( _INDUCTION_VARS ))
-                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
-        }
-        else
-        {
-            WARNING_MESSAGE( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                                _id, get_type_as_string( ).c_str( ) );
-        }
-        return ivs;
-    }
 
-    void Node::set_induction_variable( Utils::InductionVariableData* iv )
-    {
-        if( is_loop_node( ) )
-        {
-            ObjectList<Utils::InductionVariableData*> ivs;
-            if( has_key( _INDUCTION_VARS ) )
-            {
-                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
-            }
-
-            ivs.insert( iv );
-            set_data( _INDUCTION_VARS, ivs );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting a induction variable in the graph node '%d'. LOOP expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-
-
-    Symbol Node::get_label( )
-    {
-        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if( ntype == GOTO || ntype == LABELED )
-        {
-            return get_data<Symbol>( _NODE_LABEL );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while getting the label to node '%d'. GOTO or LABELED NODES expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    void Node::set_label( Symbol s )
-    {
-        Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if( ntype == GOTO || ntype == LABELED )
-        {
-            set_data( _NODE_LABEL, s );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    Nodecl::NodeclBase Node::get_task_context( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
-            {
-                return get_data<Nodecl::Context>( _TASK_CONTEXT );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while getting the context of the task node '%d'. " \
-                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
-            }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while getting the context of the task node '%d'. \"task\" type expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    void Node::set_task_context( Nodecl::NodeclBase c )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
-            {
-                return set_data( _TASK_CONTEXT, c );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while setting the context of the task node '%d'. " \
-                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
-            }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    Symbol Node::get_task_function( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
-            {
-                return get_data<Symbol>( _TASK_FUNCTION );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
-                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
-                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
-            }
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while getting the symbol of the function embedded in a task'. GRAPH NODE expected.",
-                        get_type_as_string( ).c_str( ));
-        }
-    }
-
-    void Node::set_task_function( Symbol func_sym )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
-            {
-                return set_data( _TASK_FUNCTION, func_sym );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
-                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
-                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
-            }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the symbol of the function embedded in a task. GRAPH NODE expected.",
-                            get_type_as_string( ).c_str( ) );
-        }
-    }
-
-    // FIXME Other loop nodes can have a stride
-    Node* Node::get_stride_node( )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == LOOP_FOR )
-            {
-                return get_data<Node*>( _STRIDE_NODE );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected",
-                                get_graph_type_as_string( ).c_str( ), _id );
-            }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    // FIXME Other loop nodes can have a stride
-    void Node::set_stride_node( Node* stride )
-    {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-        {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == LOOP_FOR )
-            {
-                set_data( _STRIDE_NODE, stride );
-            }
-            else
-            {
-                internal_error( "Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected",
-                                get_graph_type_as_string( ).c_str( ), _id );
-            }
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string( ).c_str( ), _id );
-        }
-    }
-
-    // FIXME Other loop nodes can have a stride
-    bool Node::is_stride_node( )
-    {
-        bool res = false;
-        Node* outer_node = get_outer_node( );
-        while( outer_node != NULL && outer_node->get_graph_type( ) != LOOP_FOR)
-        {
-            outer_node = outer_node->get_outer_node( );
-        }
-
-        if( outer_node != NULL )
-        {
-            Node* stride = outer_node->get_stride_node( );
-            res = ( stride->_id == _id );
-        }
-        return res;
-    }
-
-    bool Node::is_stride_node( Node* loop )
-    {
-        Node* stride = loop->get_stride_node( );
-        return ( stride->_id == _id );
-    }
-
-    Node* Node::advance_over_non_statement_nodes( )
-    {
-        ObjectList<Node*> children = get_children( );
-        Node_type ntype;
-        Node* result = this;
-
-        while( ( children.size( ) == 1 ) && ( !result->has_key( _NODE_STMTS ) ) )
-        {
-            Node* c0 = children[0];
-            ntype = c0->get_data<Node_type>( _NODE_TYPE );
-            if( ntype == GRAPH )
-            {
-                result = c0->get_data<Node*>( _ENTRY_NODE );
-            }
-            else if( ntype == EXIT )
-            {
-                if( c0->has_key( _OUTER_NODE ) )
-                {
-                    result = c0->get_data<Node*>( _OUTER_NODE );
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                result = c0;
-            }
-            children = result->get_children( );
-        }
-
-        return result;
-    }
-
-    Node* Node::back_over_non_statement_nodes( )
-    {
-        ObjectList<Node*> parents = get_parents( );
-        Node_type ntype;
-        Node* result = this;
-
-        while( ( parents.size( ) == 1 ) && ( !result->has_key( _NODE_STMTS ) ) )
-        {
-            Node* p0 = parents[0];
-            ntype = p0->get_data<Node_type>( _NODE_TYPE );
-
-            if( ntype == GRAPH )
-            {
-                result = p0->get_data<Node*>( _EXIT_NODE );
-            }
-            else if( ntype == ENTRY )
-            {
-                if( p0->has_key( _OUTER_NODE ) )
-                {
-                    result = p0->get_data<Node*>( _OUTER_NODE );
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                result = p0;
-            }
-            parents = result->get_parents( );
-        }
-
-        return result;
-    }
-
-    Utils::ext_sym_set Node::get_live_in_vars( )
-    {
-        Utils::ext_sym_set live_in_vars;
-
-        if(has_key(_LIVE_IN))
-        {
-            live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-        }
-
-        return live_in_vars;
-    }
-
-    void Node::set_live_in(Utils::ExtendedSymbol new_live_in_var)
-    {
-        Utils::ext_sym_set live_in_vars;
-
-        if(has_key(_LIVE_IN))
-        {
-            live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-        }
-        live_in_vars.insert(new_live_in_var);
-
-        set_data(_LIVE_IN, live_in_vars);
-    }
-
-    void Node::set_live_in(Utils::ext_sym_set new_live_in_set)
-    {
-        set_data(_LIVE_IN, new_live_in_set);
-    }
-
-    Utils::ext_sym_set Node::get_live_out_vars( )
-    {
-        Utils::ext_sym_set live_out_vars;
-
-        if(has_key(_LIVE_OUT))
-        {
-            live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
-        }
-
-        return live_out_vars;
-    }
-
-    void Node::set_live_out( Utils::ExtendedSymbol new_live_out_var )
-    {
-        Utils::ext_sym_set live_out_vars;
-
-        if( has_key( _LIVE_OUT ) )
-        {
-            live_out_vars = get_data<Utils::ext_sym_set>( _LIVE_OUT);
-        }
-        live_out_vars.insert( new_live_out_var );
-
-        set_data( _LIVE_OUT, live_out_vars );
-    }
-
-    void Node::set_live_out( Utils::ext_sym_set new_live_out_set )
-    {
-        set_data( _LIVE_OUT, new_live_out_set );
-    }
+    // ****************************************************************************** //
+    // *************** Getters and setters for use-definition analysis ************** //
 
     Utils::ext_sym_set Node::get_ue_vars( )
     {
@@ -1321,32 +1003,6 @@ namespace Analysis {
         }
     }
 
-    void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-            Utils::ExtendedSymbol new_undef_var )
-    {
-        // Conservatively, delete the reference argument of UE and KILL sets
-        if( has_key( _UPPER_EXPOSED ) )
-            unset_ue_var( new_undef_var );
-        if( has_key( _KILLED ) )
-            unset_killed_var( new_undef_var );
-
-        // Add the global variable to the UNDEF list
-        set_undefined_behaviour_var( new_undef_var );
-    }
-
-    void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
-    {
-        Utils::ext_sym_set undef_vars;
-
-        if( has_key( _UNDEF ) )
-        {
-            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
-            undef_vars.erase( old_undef_var );
-        }
-
-        set_data( _UNDEF, undef_vars );
-    }
-
     void Node::set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars )
     {
         Utils::ext_sym_set undef_vars;
@@ -1372,118 +1028,437 @@ namespace Analysis {
         }
     }
 
+    void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+        Utils::ExtendedSymbol new_undef_var )
+    {
+        // Conservatively, delete the reference argument of UE and KILL sets
+        if( has_key( _UPPER_EXPOSED ) )
+            unset_ue_var( new_undef_var );
+        if( has_key( _KILLED ) )
+            unset_killed_var( new_undef_var );
+
+        // Add the global variable to the UNDEF list
+            set_undefined_behaviour_var( new_undef_var );
+    }
+
+    void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
+    {
+        Utils::ext_sym_set undef_vars;
+
+        if( has_key( _UNDEF ) )
+        {
+            undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
+            undef_vars.erase( old_undef_var );
+        }
+
+        set_data( _UNDEF, undef_vars );
+    }
+
+    // ************* END getters and setters for use-definition analysis ************ //
+    // ****************************************************************************** //
+
 
 
     // ****************************************************************************** //
-    // ************** Getters and setters for task dependence analysis ************** //
+    // ****************** Getters and setters for liveness analysis ***************** //
 
-    Utils::ext_sym_set Node::get_deps_private_vars( )
+    Utils::ext_sym_set Node::get_live_in_vars( )
     {
-        Utils::ext_sym_set deps_private_vars;
-        if( has_key( _DEPS_PRIVATE ) )
-            deps_private_vars = get_data<Utils::ext_sym_set>( _DEPS_PRIVATE );
-        return deps_private_vars;
+        Utils::ext_sym_set live_in_vars;
+
+        if(has_key(_LIVE_IN))
+        {
+            live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
+        }
+
+        return live_in_vars;
     }
 
-    void Node::set_deps_private_vars( Utils::ext_sym_set new_deps_private_var )
+    void Node::set_live_in(Utils::ExtendedSymbol new_live_in_var)
     {
-        Utils::ext_sym_set deps_private_vars = get_deps_private_vars( );
-        deps_private_vars.insert( new_deps_private_var.begin( ), new_deps_private_var.end( ) );
-        set_data( _DEPS_PRIVATE, deps_private_vars );
+        Utils::ext_sym_set live_in_vars;
+
+        if(has_key(_LIVE_IN))
+        {
+            live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
+        }
+        live_in_vars.insert(new_live_in_var);
+
+        set_data(_LIVE_IN, live_in_vars);
     }
 
-
-    Utils::ext_sym_set Node::get_deps_firstprivate_vars( )
+    void Node::set_live_in(Utils::ext_sym_set new_live_in_set)
     {
-        Utils::ext_sym_set deps_firstprivate_vars;
-        if( has_key( _DEPS_FIRSTPRIVATE ) )
-            deps_firstprivate_vars = get_data<Utils::ext_sym_set>( _DEPS_FIRSTPRIVATE );
-        return deps_firstprivate_vars;
+        set_data(_LIVE_IN, new_live_in_set);
     }
 
-    void Node::set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var )
+    Utils::ext_sym_set Node::get_live_out_vars( )
     {
-        Utils::ext_sym_set deps_firstprivate_vars = get_deps_firstprivate_vars( );
-        deps_firstprivate_vars.insert( new_deps_firstprivate_var.begin( ), new_deps_firstprivate_var.end( ) );
-        set_data( _DEPS_FIRSTPRIVATE, deps_firstprivate_vars );
+        Utils::ext_sym_set live_out_vars;
+
+        if(has_key(_LIVE_OUT))
+        {
+            live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
+        }
+
+        return live_out_vars;
     }
 
-    Utils::ext_sym_set Node::get_deps_shared_vars( )
+    void Node::set_live_out( Utils::ExtendedSymbol new_live_out_var )
     {
-        Utils::ext_sym_set deps_shared_vars;
-        if( has_key( _DEPS_SHARED ) )
-            deps_shared_vars = get_data<Utils::ext_sym_set>( _DEPS_SHARED );
-        return deps_shared_vars;
+        Utils::ext_sym_set live_out_vars;
+
+        if( has_key( _LIVE_OUT ) )
+        {
+            live_out_vars = get_data<Utils::ext_sym_set>( _LIVE_OUT);
+        }
+        live_out_vars.insert( new_live_out_var );
+
+        set_data( _LIVE_OUT, live_out_vars );
     }
 
-    void Node::set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var )
+    void Node::set_live_out( Utils::ext_sym_set new_live_out_set )
     {
-        Utils::ext_sym_set deps_shared_vars = get_deps_shared_vars( );
-        deps_shared_vars.insert( new_deps_shared_var.begin( ), new_deps_shared_var.end( ) );
-        set_data( _DEPS_SHARED, deps_shared_vars );
+        set_data( _LIVE_OUT, new_live_out_set );
     }
 
-    Utils::ext_sym_set Node::get_deps_in_exprs( )
+    // **************** END getters and setters for liveness analysis *************** //
+    // ****************************************************************************** //
+
+
+
+    // ****************************************************************************** //
+    // ************ Getters and setters for reaching definitions analysis *********** //
+
+    Utils::ext_sym_map Node::get_generated_stmts( )
     {
-        Utils::ext_sym_set in_deps;
-        if( has_key( _DEPS_IN ) )
-            in_deps = get_data<Utils::ext_sym_set>( _DEPS_IN );
-        return in_deps;
+        Utils::ext_sym_map gen_stmts;
+        if( has_key( _GEN ) )
+            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
+        return gen_stmts;
     }
 
-    void Node::set_deps_in_exprs( Utils::ext_sym_set new_in_deps )
+    Utils::ext_sym_map Node::set_generated_stmts( Utils::ext_sym_map gen )
     {
-        Utils::ext_sym_set in_deps = get_deps_in_exprs( );
-        in_deps.insert( new_in_deps.begin( ), new_in_deps.end( ) );
-        set_data( _DEPS_IN, in_deps );
+        Utils::ext_sym_map gen_stmts;
+        if( has_key( _GEN ) )
+        {
+            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
+            for( Utils::ext_sym_map::iterator it = gen.begin( ); it != gen.end( ); ++it )
+            {
+                if( gen_stmts.find( it->first ) != gen_stmts.end( ) )
+                {
+                    gen_stmts.erase( it->first );
+
+                }
+            }
+        }
+        gen_stmts.insert( gen.begin( ), gen.end( ) );
+        set_data( _GEN, gen_stmts );
+        return gen_stmts;
     }
 
-    Utils::ext_sym_set Node::get_deps_out_exprs( )
+    Utils::ext_sym_map Node::get_reaching_definitions_in( )
     {
-        Utils::ext_sym_set out_deps;
-        if( has_key( _DEPS_OUT ) )
-            out_deps = get_data<Utils::ext_sym_set>( _DEPS_OUT );
-        return out_deps;
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
+        {
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
+        }
+        return reaching_defs_in;
     }
 
-    void Node::set_deps_out_exprs( Utils::ext_sym_set new_out_deps )
+    Utils::ext_sym_map Node::get_reaching_definitions_out( )
     {
-        Utils::ext_sym_set out_deps = get_deps_out_exprs( );
-        out_deps.insert( new_out_deps.begin( ), new_out_deps.end( ) );
-        set_data( _DEPS_OUT, out_deps );
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
+        {
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
+        }
+        return reaching_defs_out;
     }
 
-    Utils::ext_sym_set Node::get_deps_inout_exprs( )
+    void Node::set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
     {
-        Utils::ext_sym_set inout_deps;
-        if( has_key( _DEPS_INOUT ) )
-            inout_deps = get_data<Utils::ext_sym_set>( _DEPS_INOUT );
-        return inout_deps;
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
+        {
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
+            if( reaching_defs_in.find( var ) != reaching_defs_in.end( ) )
+            {
+                reaching_defs_in.erase( var );
+            }
+        }
+        reaching_defs_in[var] = init;
+        set_data( _REACH_DEFS_IN, reaching_defs_in );
     }
 
-    void Node::set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps )
+    void Node::set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in )
     {
-        Utils::ext_sym_set inout_deps = get_deps_inout_exprs( );
-        inout_deps.insert( new_inout_deps.begin( ), new_inout_deps.end( ) );
-        set_data( _DEPS_INOUT, inout_deps );
+        Utils::ext_sym_map reaching_defs_in;
+        if( has_key( _REACH_DEFS_IN ) )
+        {
+            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
+            for( Utils::ext_sym_map::iterator it = reach_defs_in.begin( ); it != reach_defs_in.end( ); ++it )
+            {
+                if( reaching_defs_in.find( it->first ) != reaching_defs_in.end( ) )
+                {
+                    reaching_defs_in.erase( it->first );
+                    break;
+                }
+            }
+        }
+        reaching_defs_in.insert( reach_defs_in.begin( ), reach_defs_in.end( ) );
+        set_data( _REACH_DEFS_IN, reaching_defs_in );
     }
 
-    Utils::ext_sym_set Node::get_deps_undef_vars( )
+    void Node::set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
     {
-        Utils::ext_sym_set undef_deps;
-        if( has_key( _DEPS_UNDEF ) )
-            undef_deps = get_data<Utils::ext_sym_set>( _DEPS_UNDEF );
-        return undef_deps;
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
+        {
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
+            if( reaching_defs_out.find( var ) != reaching_defs_out.end( ) )
+            {
+                reaching_defs_out.erase( var );
+            }
+        }
+        reaching_defs_out[var] = init;
+        set_data( _REACH_DEFS_OUT, reaching_defs_out );
     }
 
-    void Node::set_deps_undef_vars( Utils::ext_sym_set new_undef_deps )
+    void Node::set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out )
     {
-        Utils::ext_sym_set undef_deps = get_deps_undef_vars( );
-        undef_deps.insert( new_undef_deps.begin( ), new_undef_deps.end( ) );
-        set_data( _DEPS_UNDEF, undef_deps );
+        Utils::ext_sym_map reaching_defs_out;
+        if( has_key( _REACH_DEFS_OUT ) )
+        {
+            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
+            for( Utils::ext_sym_map::iterator it = reach_defs_out.begin( ); it != reach_defs_out.end( ); ++it )
+            {
+                if( reaching_defs_out.find( it->first ) != reaching_defs_out.end( ) )
+                {
+                    reaching_defs_out.erase( it->first );
+                    break;
+                }
+            }
+        }
+        reaching_defs_out.insert( reach_defs_out.begin( ), reach_defs_out.end( ) );
+        set_data( _REACH_DEFS_OUT, reaching_defs_out );
     }
 
-    // ************ END getters and setters for task dependence analysis ************ //
+    // ********** END getters and setters for reaching definitions analysis ********* //
+    // ****************************************************************************** //
+
+
+
+    // ****************************************************************************** //
+    // ******************* Getters and setters for loops analysis ******************* //
+
+    ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
+    {
+        ObjectList<Utils::InductionVariableData*> ivs;
+        if( is_loop_node( ) )
+        {
+            if( has_key( _INDUCTION_VARS ))
+                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
+        }
+        else
+        {
+            WARNING_MESSAGE( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+                             _id, get_type_as_string( ).c_str( ) );
+        }
+        return ivs;
+    }
+
+    void Node::set_induction_variable( Utils::InductionVariableData* iv )
+    {
+        if( is_loop_node( ) )
+        {
+            ObjectList<Utils::InductionVariableData*> ivs;
+            if( has_key( _INDUCTION_VARS ) )
+            {
+                ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
+            }
+
+            ivs.insert( iv );
+            set_data( _INDUCTION_VARS, ivs );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting a induction variable in the graph node '%d'. LOOP expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    // FIXME Other loop nodes can have a stride
+    Node* Node::get_stride_node( )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == LOOP_FOR )
+            {
+                return get_data<Node*>( _STRIDE_NODE );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected",
+                                get_graph_type_as_string( ).c_str( ), _id );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    // FIXME Other loop nodes can have a stride
+    void Node::set_stride_node( Node* stride )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == LOOP_FOR )
+            {
+                set_data( _STRIDE_NODE, stride );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected",
+                                get_graph_type_as_string( ).c_str( ), _id );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    // FIXME Other loop nodes can have a stride
+    bool Node::is_stride_node( )
+    {
+        bool res = false;
+        Node* outer_node = get_outer_node( );
+        while( outer_node != NULL && outer_node->get_graph_type( ) != LOOP_FOR)
+        {
+            outer_node = outer_node->get_outer_node( );
+        }
+
+        if( outer_node != NULL )
+        {
+            Node* stride = outer_node->get_stride_node( );
+            res = ( stride->_id == _id );
+        }
+        return res;
+    }
+
+    bool Node::is_stride_node( Node* loop )
+    {
+        Node* stride = loop->get_stride_node( );
+        return ( stride->_id == _id );
+    }
+
+    // ***************** END getters and setters for loops analysis ***************** //
+    // ****************************************************************************** //
+
+
+
+    // ****************************************************************************** //
+    // ******************* Getters and setters for OmpSs analysis ******************* //
+
+    Nodecl::NodeclBase Node::get_task_context( )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
+            {
+                return get_data<Nodecl::Context>( _TASK_CONTEXT );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while getting the context of the task node '%d'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the context of the task node '%d'. \"task\" type expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    void Node::set_task_context( Nodecl::NodeclBase c )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
+            {
+                return set_data( _TASK_CONTEXT, c );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while setting the context of the task node '%d'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ), _id );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    Symbol Node::get_task_function( )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
+            {
+                return get_data<Symbol>( _TASK_FUNCTION );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
+                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while getting the symbol of the function embedded in a task'. GRAPH NODE expected.",
+                        get_type_as_string( ).c_str( ));
+        }
+    }
+
+    void Node::set_task_function( Symbol func_sym )
+    {
+        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        {
+            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
+            if( graph_type == OMP_TASK )
+            {
+                return set_data( _TASK_FUNCTION, func_sym );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
+                                "\"task\" type expected", get_graph_type_as_string( ).c_str( ),
+                                get_data<Nodecl::NodeclBase>( _NODE_LABEL ).prettyprint( ).c_str( ) );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the symbol of the function embedded in a task. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ) );
+        }
+    }
+
+    // ***************** END Getters and setters for OmpSs analysis ***************** //
     // ****************************************************************************** //
 
 
@@ -1640,131 +1615,121 @@ namespace Analysis {
 
 
     // ****************************************************************************** //
-    // ************ Getters and setters for reaching definitions analysis *********** //
+    // ************** Getters and setters for task dependence analysis ************** //
 
-    Utils::ext_sym_map Node::get_generated_stmts( )
+    Utils::ext_sym_set Node::get_deps_private_vars( )
     {
-        Utils::ext_sym_map gen_stmts;
-        if( has_key( _GEN ) )
-            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
-        return gen_stmts;
+        Utils::ext_sym_set deps_private_vars;
+        if( has_key( _DEPS_PRIVATE ) )
+            deps_private_vars = get_data<Utils::ext_sym_set>( _DEPS_PRIVATE );
+        return deps_private_vars;
     }
 
-    Utils::ext_sym_map Node::set_generated_stmts( Utils::ext_sym_map gen )
+    void Node::set_deps_private_vars( Utils::ext_sym_set new_deps_private_var )
     {
-        Utils::ext_sym_map gen_stmts;
-        if( has_key( _GEN ) )
-        {
-            gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
-            for( Utils::ext_sym_map::iterator it = gen.begin( ); it != gen.end( ); ++it )
-            {
-                if( gen_stmts.find( it->first ) != gen_stmts.end( ) )
-                {
-                    gen_stmts.erase( it->first );
-
-                }
-            }
-        }
-        gen_stmts.insert( gen.begin( ), gen.end( ) );
-        set_data( _GEN, gen_stmts );
-        return gen_stmts;
+        Utils::ext_sym_set deps_private_vars = get_deps_private_vars( );
+        deps_private_vars.insert( new_deps_private_var.begin( ), new_deps_private_var.end( ) );
+        set_data( _DEPS_PRIVATE, deps_private_vars );
     }
 
-    Utils::ext_sym_map Node::get_reaching_definitions_in( )
+
+    Utils::ext_sym_set Node::get_deps_firstprivate_vars( )
     {
-        Utils::ext_sym_map reaching_defs_in;
-        if( has_key( _REACH_DEFS_IN ) )
-        {
-            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
-        }
-        return reaching_defs_in;
+        Utils::ext_sym_set deps_firstprivate_vars;
+        if( has_key( _DEPS_FIRSTPRIVATE ) )
+            deps_firstprivate_vars = get_data<Utils::ext_sym_set>( _DEPS_FIRSTPRIVATE );
+        return deps_firstprivate_vars;
     }
 
-    Utils::ext_sym_map Node::get_reaching_definitions_out( )
+    void Node::set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var )
     {
-        Utils::ext_sym_map reaching_defs_out;
-        if( has_key( _REACH_DEFS_OUT ) )
-        {
-            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
-        }
-        return reaching_defs_out;
+        Utils::ext_sym_set deps_firstprivate_vars = get_deps_firstprivate_vars( );
+        deps_firstprivate_vars.insert( new_deps_firstprivate_var.begin( ), new_deps_firstprivate_var.end( ) );
+        set_data( _DEPS_FIRSTPRIVATE, deps_firstprivate_vars );
     }
 
-    void Node::set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
+    Utils::ext_sym_set Node::get_deps_shared_vars( )
     {
-        Utils::ext_sym_map reaching_defs_in;
-        if( has_key( _REACH_DEFS_IN ) )
-        {
-            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
-            if( reaching_defs_in.find( var ) != reaching_defs_in.end( ) )
-            {
-                reaching_defs_in.erase( var );
-            }
-        }
-        reaching_defs_in[var] = init;
-        set_data( _REACH_DEFS_IN, reaching_defs_in );
+        Utils::ext_sym_set deps_shared_vars;
+        if( has_key( _DEPS_SHARED ) )
+            deps_shared_vars = get_data<Utils::ext_sym_set>( _DEPS_SHARED );
+        return deps_shared_vars;
     }
 
-    void Node::set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in )
+    void Node::set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var )
     {
-        Utils::ext_sym_map reaching_defs_in;
-        if( has_key( _REACH_DEFS_IN ) )
-        {
-            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
-            for( Utils::ext_sym_map::iterator it = reach_defs_in.begin( ); it != reach_defs_in.end( ); ++it )
-            {
-                if( reaching_defs_in.find( it->first ) != reaching_defs_in.end( ) )
-                {
-                    reaching_defs_in.erase( it->first );
-                    break;
-                }
-            }
-        }
-        reaching_defs_in.insert( reach_defs_in.begin( ), reach_defs_in.end( ) );
-        set_data( _REACH_DEFS_IN, reaching_defs_in );
+        Utils::ext_sym_set deps_shared_vars = get_deps_shared_vars( );
+        deps_shared_vars.insert( new_deps_shared_var.begin( ), new_deps_shared_var.end( ) );
+        set_data( _DEPS_SHARED, deps_shared_vars );
     }
 
-    void Node::set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
+    Utils::ext_sym_set Node::get_deps_in_exprs( )
     {
-        Utils::ext_sym_map reaching_defs_out;
-        if( has_key( _REACH_DEFS_OUT ) )
-        {
-            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
-            if( reaching_defs_out.find( var ) != reaching_defs_out.end( ) )
-            {
-                reaching_defs_out.erase( var );
-            }
-        }
-        reaching_defs_out[var] = init;
-        set_data( _REACH_DEFS_OUT, reaching_defs_out );
+        Utils::ext_sym_set in_deps;
+        if( has_key( _DEPS_IN ) )
+            in_deps = get_data<Utils::ext_sym_set>( _DEPS_IN );
+        return in_deps;
     }
 
-    void Node::set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out )
+    void Node::set_deps_in_exprs( Utils::ext_sym_set new_in_deps )
     {
-        Utils::ext_sym_map reaching_defs_out;
-        if( has_key( _REACH_DEFS_OUT ) )
-        {
-            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
-            for( Utils::ext_sym_map::iterator it = reach_defs_out.begin( ); it != reach_defs_out.end( ); ++it )
-            {
-                if( reaching_defs_out.find( it->first ) != reaching_defs_out.end( ) )
-                {
-                    reaching_defs_out.erase( it->first );
-                    break;
-                }
-            }
-        }
-        reaching_defs_out.insert( reach_defs_out.begin( ), reach_defs_out.end( ) );
-        set_data( _REACH_DEFS_OUT, reaching_defs_out );
+        Utils::ext_sym_set in_deps = get_deps_in_exprs( );
+        in_deps.insert( new_in_deps.begin( ), new_in_deps.end( ) );
+        set_data( _DEPS_IN, in_deps );
     }
 
-    // ********** END getters and setters for reaching definitions analysis ********* //
+    Utils::ext_sym_set Node::get_deps_out_exprs( )
+    {
+        Utils::ext_sym_set out_deps;
+        if( has_key( _DEPS_OUT ) )
+            out_deps = get_data<Utils::ext_sym_set>( _DEPS_OUT );
+        return out_deps;
+    }
+
+    void Node::set_deps_out_exprs( Utils::ext_sym_set new_out_deps )
+    {
+        Utils::ext_sym_set out_deps = get_deps_out_exprs( );
+        out_deps.insert( new_out_deps.begin( ), new_out_deps.end( ) );
+        set_data( _DEPS_OUT, out_deps );
+    }
+
+    Utils::ext_sym_set Node::get_deps_inout_exprs( )
+    {
+        Utils::ext_sym_set inout_deps;
+        if( has_key( _DEPS_INOUT ) )
+            inout_deps = get_data<Utils::ext_sym_set>( _DEPS_INOUT );
+        return inout_deps;
+    }
+
+    void Node::set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps )
+    {
+        Utils::ext_sym_set inout_deps = get_deps_inout_exprs( );
+        inout_deps.insert( new_inout_deps.begin( ), new_inout_deps.end( ) );
+        set_data( _DEPS_INOUT, inout_deps );
+    }
+
+    Utils::ext_sym_set Node::get_deps_undef_vars( )
+    {
+        Utils::ext_sym_set undef_deps;
+        if( has_key( _DEPS_UNDEF ) )
+            undef_deps = get_data<Utils::ext_sym_set>( _DEPS_UNDEF );
+        return undef_deps;
+    }
+
+    void Node::set_deps_undef_vars( Utils::ext_sym_set new_undef_deps )
+    {
+        Utils::ext_sym_set undef_deps = get_deps_undef_vars( );
+        undef_deps.insert( new_undef_deps.begin( ), new_undef_deps.end( ) );
+        set_data( _DEPS_UNDEF, undef_deps );
+    }
+
+    // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
 
 
     // ****************************************************************************** //
-    // ************************* Utils for node info printing *********************** //
+    // *********************************** Utils ************************************ //
 
     void Node::print_use_def_chains( )
     {
@@ -1864,8 +1829,7 @@ namespace Analysis {
         }
     }
 
-    // *********************** END utils for node info printing ********************* //
+    // ********************************* END utils ********************************** //
     // ****************************************************************************** //
-
 }
 }

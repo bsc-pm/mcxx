@@ -262,7 +262,21 @@ namespace Analysis {
      */
     #define _AUX_REACH_DEFS      "aux_reaching_defs"
 
-    // ********************************* Reaching Definitions analysis ********************************* //
+    // ******************************* End reaching Definitions analysis ******************************* //
+    // ************************************************************************************************* //
+
+
+
+    // ************************************************************************************************* //
+    // ****************************************** Loop analysis **************************************** //
+
+    /*! \def _INDUCTION_VARS
+     * Map containing the induction variables associated with a Loop Node
+     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+     */
+    #define _INDUCTION_VARS     "induction_vars"
+
+    // **************************************** End loop analysis ************************************** //
     // ************************************************************************************************* //
 
 
@@ -360,11 +374,7 @@ namespace Analysis {
 
 
 
-    /*! \def _INDUCTION_VARS
-     * Map containing the induction variables associated with a Loop Node
-     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
-     */
-    #define _INDUCTION_VARS     "induction_vars"
+
 
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma
