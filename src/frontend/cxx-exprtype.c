@@ -473,10 +473,14 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 if (CURRENT_CONFIGURATION->preserve_parentheses
                         && !nodecl_is_err_expr(*nodecl_output))
                 {
+                    nodecl_t nodecl_inner = *nodecl_output;
                     *nodecl_output = nodecl_make_parenthesized_expression(
-                            *nodecl_output,
-                            nodecl_get_type(*nodecl_output),
+                            nodecl_inner,
+                            nodecl_get_type(nodecl_inner),
                             ASTFileName(expression), ASTLine(expression));
+
+                    // Make sure we propagate the constant value
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_inner));
                 }
                 break;
             }
