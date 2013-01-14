@@ -153,7 +153,7 @@ namespace Analysis {
         _auto_deps = true;
     }
 
-    Node* PCFGAnalysis_memento::nodecl_is_enclosed_by( Node* current, Nodecl::NodeclBase n )
+    Node* PCFGAnalysis_memento::pcfg_node_enclosing_nodecl( Node* current, Nodecl::NodeclBase n )
     {
         Node* result = NULL;
         if( !current->is_visited( ) )
@@ -171,13 +171,14 @@ namespace Analysis {
                 }
                 else
                 {
-                    result = nodecl_is_enclosed_by( current->get_graph_entry_node( ), n );
+                    result = pcfg_node_enclosing_nodecl( current->get_graph_entry_node( ), n );
                 }
             }
             else if( !current->is_entry_node( ) )
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
+                     it != stmts.end( ); ++it )
                 {
                     if( Nodecl::Utils::equal_nodecls( *it, n ) )
                     {
@@ -190,9 +191,10 @@ namespace Analysis {
             if( result == NULL )
             {
                 ObjectList<Node*> children = current->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                for( ObjectList<Node*>::iterator it = children.begin( );
+                     it != children.end( ); ++it )
                 {
-                    result = nodecl_is_enclosed_by( current->get_graph_entry_node( ), n );
+                    result = pcfg_node_enclosing_nodecl( *it, n );
                     if( result != NULL )
                     {
                         break;
@@ -203,13 +205,13 @@ namespace Analysis {
         return result;
     }
 
-    Node* PCFGAnalysis_memento::nodecl_enclosing_pcfg( Nodecl::NodeclBase n )
+    Node* PCFGAnalysis_memento::node_enclosing_nodecl( Nodecl::NodeclBase n )
     {
         Node* result;
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
             Node* current = it->second->get_graph( );
-            result = nodecl_is_enclosed_by( current, n );
+            result = pcfg_node_enclosing_nodecl( current, n );
             ExtensibleGraph::clear_visits( current );
 
             if( result != NULL )
@@ -220,24 +222,28 @@ namespace Analysis {
 
         if( result == NULL )
         {
-            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. You probably misstepped during the analysis.",
-                             codegen_to_str( n.get_internal_nodecl( ),
-                                             nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
+            nodecl_t internal_n = n.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. "\
+                             "You probably misstepped during the analysis.",
+                             codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
 
         return result;
     }
 
-    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
+    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n
+)
     {
         bool result = false;
         if( _induction_variables )
         {
-            Node* enclosing = nodecl_enclosing_pcfg( loop );
-            if( enclosing != NULL )
+            Node* loop_pcfg_node = node_enclosing_nodecl( loop );
+            if( loop_pcfg_node != NULL )
             {
-                ObjectList<Utils::InductionVariableData*> ivs = enclosing->get_induction_variables( );
-                for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+                ObjectList<Utils::InductionVariableData*> ivs =
+                        loop_pcfg_node->get_induction_variables( );
+                for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( );
+                     it != ivs.end( ); ++it )
                 {
                     if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) );
                     {
@@ -256,16 +262,11 @@ namespace Analysis {
         ObjectList<Utils::InductionVariableData*> result;
         if( _induction_variables )
         {
-            // TODO
-//             Node* enclosing = nodecl_enclosing_pcfg( loop );
-//             if( enclosing != NULL )
-//             {
-//                 ObjectList<Utils::InductionVariableData*> ivs = enclosing->get_induction_variables( );
-//                 for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
-//                 {
-//                     result.append( ( *it )->get_variable( ).get_nodecl( ) );
-//                 }
-//             }
+            Node* loop_pcfg_node = node_enclosing_nodecl( loop );
+            if( loop_pcfg_node != NULL )
+            {
+                result = loop_pcfg_node->get_induction_variables( );
+            }
         }
         return result;
     }

@@ -74,32 +74,6 @@ namespace Analysis {
             Node( const Node& n );
             Node& operator=( const Node& );
 
-
-            // *** Analysis *** //
-
-            //! Traverses forward the nodes that do not contain Statements inside them.
-            /*!
-            The method stops when the processed node has a number of children different from 1 or
-            does not contain statements.
-            \return Pointer to the last node processed.
-            */
-            Node* advance_over_non_statement_nodes( );
-
-            //! Traverses backward the nodes that do not contain Statements inside them.
-            /*!
-            The method stops when the processed node has a number of parents different from 1 or
-            does not contain statements.
-            \return Pointer to the last node processed.
-            */
-            Node* back_over_non_statement_nodes( );
-
-            //! Returns the list of live in variables in the node (Used in composite nodes)
-            Utils::ext_sym_set get_live_in_over_nodes( );
-
-            //! Returns the list of live out variables in the node (Used in composite nodes)
-            Utils::ext_sym_set get_live_out_over_nodes( );
-
-
         public:
             // *** Constructors *** //
 
@@ -275,7 +249,6 @@ namespace Analysis {
             //! This method only works for composite nodes of type "function_call"
             Symbol get_function_node_symbol( );
 
-
             //! Returns true if the node has the same identifier and the same entries and exits
             bool operator==( const Node* &n ) const;
 
@@ -371,53 +344,8 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
-            // *********** Getters and setters for induction variables analysis ************* //
-
-            //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            ObjectList<Utils::InductionVariableData*> get_induction_variables( );
-
-            //! Set a new induction variable in a loop graph node
-            void set_induction_variable( Utils::InductionVariableData* iv );
-
-            // ********* END getters and setters for induction variables analysis *********** //
-            // ****************************************************************************** //
-
-
-
-            // ****************************************************************************** //
-            // ******************* Getters and setters for OmpSs analysis ******************* //
-
-            Nodecl::NodeclBase get_task_context( );
-
-            void set_task_context( Nodecl::NodeclBase c );
-
-            Symbol get_task_function( );
-
-            void set_task_function( Symbol func_sym );
-
-            // ***************** END Getters and setters for OmpSs analysis ***************** //
-            // ****************************************************************************** //
-
-
-
-            // ****************************************************************************** //
-            // ******************* Getters and setters for loops analysis ******************* //
-
-            Node* get_stride_node( );
-
-            void set_stride_node( Node* stride );
-
-            bool is_stride_node( );
-            bool is_stride_node( Node* loop );
-
-            // ***************** END getters and setters for loops analysis ***************** //
-            // ****************************************************************************** //
-
-
-
-            // ****************************************************************************** //
             // *************** Getters and setters for use-definition analysis ************** //
-//
+
             //! Returns the list of upper exposed variables of the node
             Utils::ext_sym_set get_ue_vars( );
 
@@ -465,33 +393,6 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
-            // ************ Getters and setters for reaching definitions analysis *********** //
-
-            //! Return the map containing all statements containing a generated value
-            Utils::ext_sym_map get_generated_stmts( );
-
-            //! Include a new map of generated values
-            //! If a definition of the same variable already existed, the is substituted by the new value
-            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
-
-            //! Return the map containing all symbols reached at the entry of the node and its reached expression
-            Utils::ext_sym_map get_reaching_definitions_in( );
-
-            //! Return the map containing all symbols reached at the exit of the node and its reached expression
-            Utils::ext_sym_map get_reaching_definitions_out( );
-
-            //! Set to one variable a new expression value and append this relationship to the node
-            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
-            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
-            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
-            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
-
-            // ********** END getters and setters for reaching definitions analysis ********* //
-            // ****************************************************************************** //
-
-
-
-            // ****************************************************************************** //
             // ****************** Getters and setters for liveness analysis ***************** //
 
             //! Returns the set of variables that are alive at the entry of the node.
@@ -519,6 +420,108 @@ namespace Analysis {
             void set_live_out(Utils::ext_sym_set new_live_out_set);
 
             // **************** END getters and setters for liveness analysis *************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ************ Getters and setters for reaching definitions analysis *********** //
+
+            //! Return the map containing all statements containing a generated value
+            Utils::ext_sym_map get_generated_stmts( );
+
+            //! Include a new map of generated values
+            //! If a definition of the same variable already existed, the is substituted by the new value
+            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+
+            //! Return the map containing all symbols reached at the entry of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_in( );
+
+            //! Return the map containing all symbols reached at the exit of the node and its reached expression
+            Utils::ext_sym_map get_reaching_definitions_out( );
+
+            //! Set to one variable a new expression value and append this relationship to the node
+            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
+
+            // ********** END getters and setters for reaching definitions analysis ********* //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ******************* Getters and setters for loops analysis ******************* //
+
+            //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( );
+
+            //! Set a new induction variable in a loop graph node
+            void set_induction_variable( Utils::InductionVariableData* iv );
+
+            Node* get_stride_node( );
+
+            void set_stride_node( Node* stride );
+
+            bool is_stride_node( );
+            bool is_stride_node( Node* loop );
+
+            // ***************** END getters and setters for loops analysis ***************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ******************* Getters and setters for OmpSs analysis ******************* //
+
+            Nodecl::NodeclBase get_task_context( );
+
+            void set_task_context( Nodecl::NodeclBase c );
+
+            Symbol get_task_function( );
+
+            void set_task_function( Symbol func_sym );
+
+            // ***************** END Getters and setters for OmpSs analysis ***************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // *************** Getters and setters for auto-scoping analysis **************** //
+
+            // Shared variables
+            Utils::ext_sym_set get_sc_shared_vars( );
+            void set_sc_shared_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_var( Utils::ext_sym_set es_list );
+
+            // Private variables
+            Utils::ext_sym_set get_sc_private_vars( );
+            void set_sc_private_var( Utils::ExtendedSymbol es );
+            void set_sc_private_var( Utils::ext_sym_set es_list );
+
+            // Firstprivate variables
+            Utils::ext_sym_set get_sc_firstprivate_vars( );
+            void set_sc_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_firstprivate_var( Utils::ext_sym_set es_list );
+
+            // Shared or Firstprivate variables
+            Utils::ext_sym_set get_sc_shared_or_firstprivate_vars( );
+            void set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es );
+            void set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list );
+
+            // Undefined variables
+            Utils::ext_sym_set get_sc_undef_vars( );
+            void set_sc_undef_var( Utils::ExtendedSymbol es );
+            void set_sc_undef_var( Utils::ext_sym_set es_list );
+
+            // Race condition variables
+            Utils::ext_sym_set get_sc_race_vars( );
+            void set_sc_race_var( Utils::ExtendedSymbol es );
+            void set_sc_race_var( Utils::ext_sym_set es_list );
+
+            // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //
 
 
@@ -560,44 +563,6 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
-            // ****************************************************************************** //
-
-
-
-            // ****************************************************************************** //
-            // *************** Getters and setters for auto-scoping analysis **************** //
-
-            // Shared variables
-            Utils::ext_sym_set get_sc_shared_vars( );
-            void set_sc_shared_var( Utils::ExtendedSymbol es );
-            void set_sc_shared_var( Utils::ext_sym_set es_list );
-
-            // Private variables
-            Utils::ext_sym_set get_sc_private_vars( );
-            void set_sc_private_var( Utils::ExtendedSymbol es );
-            void set_sc_private_var( Utils::ext_sym_set es_list );
-
-            // Firstprivate variables
-            Utils::ext_sym_set get_sc_firstprivate_vars( );
-            void set_sc_firstprivate_var( Utils::ExtendedSymbol es );
-            void set_sc_firstprivate_var( Utils::ext_sym_set es_list );
-
-            // Shared or Firstprivate variables
-            Utils::ext_sym_set get_sc_shared_or_firstprivate_vars( );
-            void set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es );
-            void set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list );
-
-            // Undefined variables
-            Utils::ext_sym_set get_sc_undef_vars( );
-            void set_sc_undef_var( Utils::ExtendedSymbol es );
-            void set_sc_undef_var( Utils::ext_sym_set es_list );
-
-            // Race condition variables
-            Utils::ext_sym_set get_sc_race_vars( );
-            void set_sc_race_var( Utils::ExtendedSymbol es );
-            void set_sc_race_var( Utils::ext_sym_set es_list );
-
-            // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //
 
 

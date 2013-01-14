@@ -30,6 +30,7 @@
 #define TL_TEST_ANALYSIS_PHASE_HPP
 
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -46,9 +47,5 @@ namespace Analysis {
     };
 }
 }
-
-// extern "C" {
-//     TL::CompilerPhase* give_compiler_phase_object(void);
-// }
 
 #endif  // TL_TEST_ANALYSIS_PHASE_HPP

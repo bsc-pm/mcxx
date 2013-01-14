@@ -68,8 +68,14 @@ namespace Analysis {
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
 
-        Node* nodecl_is_enclosed_by( Node* current, Nodecl::NodeclBase n );
-        Node* nodecl_enclosing_pcfg( Nodecl::NodeclBase n );
+        /*!Returns the PCFG node enclosed in a PCFG node containing th flow of a nodecl
+         * @param current PCFG node where to search the nodecl
+         * @param n Nodecl to be searched in the flow graph
+         * @return The PCFG node containing the Nodecl
+         */
+        Node* pcfg_node_enclosing_nodecl( Node* current, Nodecl::NodeclBase n );
+
+        Node* node_enclosing_nodecl( Nodecl::NodeclBase n );
 
     public:
         //! Class constructor
