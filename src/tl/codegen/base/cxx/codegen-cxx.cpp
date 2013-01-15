@@ -5554,6 +5554,41 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     }
 }
 
+bool CxxBase::is_pointer_arithmetic_add_helper(TL::Type op1, TL::Type op2)
+{
+    if (op1.is_lvalue_reference())
+        op1 = op1.references_to();
+
+    if (op2.is_lvalue_reference())
+        op2 = op2.references_to();
+
+    return (op1.is_pointer() && op2.is_integral_type());
+}
+
+bool CxxBase::is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    if ( is_pointer_arithmetic_add_helper(lhs.get_type(), rhs.get_type()))
+    {
+        pointer_type = lhs.get_type();
+    }
+    else if (is_pointer_arithmetic_add_helper(rhs.get_type(), lhs.get_type()))
+    {
+        pointer_type = rhs.get_type();
+    }
+    else
+    {
+        return false;
+    }
+
+    if (pointer_type.is_lvalue_reference())
+        pointer_type = pointer_type.references_to();
+
+    return true;
+}
+
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
@@ -5598,7 +5633,6 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     );
         }
 
-
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid()
                 && entry.get_type().is_valid()
@@ -5638,6 +5672,22 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                         decl_sym_fun,
                         def_sym_fun,
                         define_entities_fun);
+            }
+
+            // Special case for pointer arithmetic
+            if (node.is<Nodecl::Add>())
+            {
+                Nodecl::Add add = node.as<Nodecl::Add>();
+
+                TL::Type pointer_type;
+                if (is_pointer_arithmetic_add(add, /* out */ pointer_type))
+                {
+                    walk_type_for_symbols(
+                            pointer_type.points_to(),
+                            decl_sym_fun,
+                            def_sym_fun,
+                            define_entities_fun);
+                }
             }
         }
 

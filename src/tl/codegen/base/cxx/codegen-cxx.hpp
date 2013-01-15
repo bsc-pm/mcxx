@@ -499,6 +499,9 @@ namespace Codegen
             void emit_integer_constant(const_value_t* cval, TL::Type t);
             void emit_floating_constant(const_value_t* cval, TL::Type t);
 
+            bool is_pointer_arithmetic_add_helper(TL::Type op1, TL::Type op2);
+            bool is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type);
+
         protected:
             // Needed by codegen of cuda
             void walk_list(const Nodecl::List&, const std::string& separator);
