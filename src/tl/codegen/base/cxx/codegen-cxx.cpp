@@ -5743,7 +5743,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 t.get_symbol().get_type(),
                 symbol_to_declare,
                 symbol_to_define,
-                define_entities_in_tree);
+                define_entities_in_tree,
+                needs_definition);
 
         (this->*symbol_to_define)(t.get_symbol());
     }
