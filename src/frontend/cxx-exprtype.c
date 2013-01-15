@@ -1196,13 +1196,15 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         type_t* element_type = result;
         result = get_complex_type(result);
-        val = const_value_make_complex(const_value_get_zero(type_get_size(result), !is_unsigned), val);
+        const_value_t* imag_val = val;
+        val = const_value_make_complex(const_value_get_zero(type_get_size(result), !is_unsigned), imag_val);
 
         *nodecl_output = nodecl_make_complex_literal(
-                nodecl_make_integer_literal(element_type, const_value_get_zero(type_get_size(result), !is_unsigned), 
+                nodecl_make_integer_literal(element_type, const_value_get_zero(type_get_size(result), !is_unsigned),
                         ASTFileName(expr), ASTLine(expr)),
-                nodecl_make_integer_literal(element_type, val, ASTFileName(expr), ASTLine(expr)),
+                nodecl_make_integer_literal(element_type, imag_val, ASTFileName(expr), ASTLine(expr)),
                 result,
+                val,
                 ASTFileName(expr), ASTLine(expr));
     }
     else
@@ -1416,11 +1418,14 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         type_t* element_type = result;
         result = get_complex_type(result);
-        *nodecl_output = 
+        const_value_t* imag_value = value;
+        value = const_value_make_complex(zero, imag_value);
+        *nodecl_output =
             nodecl_make_complex_literal(
                     nodecl_make_floating_literal(element_type, zero, ASTFileName(expr), ASTLine(expr)),
-                    nodecl_make_floating_literal(element_type, value, ASTFileName(expr), ASTLine(expr)),
+                    nodecl_make_floating_literal(element_type, imag_value, ASTFileName(expr), ASTLine(expr)),
                     result,
+                    value,
                     ASTFileName(expr), ASTLine(expr));
     }
     else

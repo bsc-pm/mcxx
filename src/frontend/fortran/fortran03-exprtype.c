@@ -1412,11 +1412,10 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
             nodecl_get_constant(nodecl_imag));
 
     *nodecl_output = nodecl_make_complex_literal(
-            nodecl_real, nodecl_imag, 
+            nodecl_real, nodecl_imag,
             result_type,
+            complex_constant,
             ASTFileName(expr), ASTLine(expr));
-
-    nodecl_set_constant(*nodecl_output, complex_constant);
 }
 
 static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4620,6 +4619,7 @@ static void cast_initialization(
                     nodecl_real_part,
                     nodecl_imag_part,
                     initialized_type,
+                    *casted_const,
                     nodecl_get_filename(*nodecl_output),
                     nodecl_get_line(*nodecl_output));
         }

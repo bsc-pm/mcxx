@@ -1076,6 +1076,30 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 return result;
                 break;
             }
+        case CVK_COMPLEX:
+            {
+                nodecl_t list = nodecl_null();
+                int i;
+                for (i = 0; i < v->value.m->num_elements; i++)
+                {
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
+                }
+
+                nodecl_t real = const_value_to_nodecl_with_basic_types(v->value.m->elements[0], 
+                        integer_type,
+                        floating_type);
+                nodecl_t imag = const_value_to_nodecl_with_basic_types(v->value.m->elements[1], 
+                        integer_type,
+                        floating_type);
+
+                type_t* t = get_complex_type(nodecl_get_type(real));
+
+                nodecl_t result = nodecl_make_complex_literal(
+                        real, imag, t, v, NULL, 0);
+
+                return result;
+                break;
+            }
         default:
             {
                 // The caller should check this case
