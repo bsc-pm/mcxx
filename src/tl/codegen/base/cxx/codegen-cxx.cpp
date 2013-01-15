@@ -7079,7 +7079,7 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     const char* result = get_declaration_string_ex(t.get_internal_type(),
             scope.get_decl_context(), symbol_name.c_str(), "", 0,
             num_parameters, parameter_names, param_attributes,
-            /* is_parameter */ 0, print_name_str,
+            /* is_parameter */ 1, print_name_str,
             /* we need to store the current codegen */ (void*) this);
 
     for (int i = 0; i < num_parameters; i++)
