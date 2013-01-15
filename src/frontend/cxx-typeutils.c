@@ -2184,6 +2184,8 @@ void template_specialized_type_update_template_parameters(type_t* t, template_pa
 
 type_t* get_complex_type(type_t* t)
 {
+    ERROR_CONDITION(t == NULL, "Invalid base type for complex type", 0);
+
     static rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)

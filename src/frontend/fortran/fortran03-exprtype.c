@@ -1344,10 +1344,13 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     type_t* real_part_type = no_ref(nodecl_get_type(nodecl_real));
     type_t* imag_part_type = no_ref(nodecl_get_type(nodecl_imag));
 
+    char is_integer_complex = 0;
+
     type_t* result_type = NULL;
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
     {
+        is_integer_complex = 1;
         result_type = get_complex_type(fortran_get_default_real_type());
     }
     else if (is_floating_type(real_part_type)
@@ -1407,12 +1410,37 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
+    const_value_t* cval_real_part = nodecl_get_constant(nodecl_real);
+    const_value_t* cval_imag_part = nodecl_get_constant(nodecl_imag);
+
+    if (is_integer_complex)
+    {
+        if (equivalent_types(fortran_get_default_real_type(), get_float_type()))
+        {
+            cval_real_part = const_value_cast_to_float_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_float_value(cval_imag_part);
+        }
+        else if (equivalent_types(fortran_get_default_real_type(), get_double_type()))
+        {
+            cval_real_part = const_value_cast_to_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
+        }
+        else if (equivalent_types(fortran_get_default_real_type(), get_long_double_type()))
+        {
+            cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
     const_value_t* complex_constant = const_value_make_complex(
-            nodecl_get_constant(nodecl_real),
-            nodecl_get_constant(nodecl_imag));
+            cval_real_part,
+            cval_imag_part);
 
     *nodecl_output = nodecl_make_complex_literal(
-            nodecl_real, nodecl_imag,
             result_type,
             complex_constant,
             ASTFileName(expr), ASTLine(expr));
@@ -4616,8 +4644,6 @@ static void cast_initialization(
         {
             // Build a nodecl if needed
             *nodecl_output = nodecl_make_complex_literal(
-                    nodecl_real_part,
-                    nodecl_imag_part,
                     initialized_type,
                     *casted_const,
                     nodecl_get_filename(*nodecl_output),
