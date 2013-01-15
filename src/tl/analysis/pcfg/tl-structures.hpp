@@ -189,19 +189,19 @@ namespace Analysis {
 
     /*! \def _UPPER_EXPOSED
         * Set of upper exposed variables within a node.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _UPPER_EXPOSED  "ue_vars"
 
     /*! \def _KILLED
         * Set of killed variables within a node.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _KILLED         "killed_vars"
 
     /*! \def _UNDEF
         * Set of variables within a node that we cannot define the behaviour.
-        * Available in all nodes (Mandatory once the Liveness analysis is performed).
+        * Available in all nodes (Mandatory once the UseDef analysis is performed).
         */
     #define _UNDEF          "undefined_behaviour_vars"
 
@@ -262,7 +262,21 @@ namespace Analysis {
      */
     #define _AUX_REACH_DEFS      "aux_reaching_defs"
 
-    // ********************************* Reaching Definitions analysis ********************************* //
+    // ******************************* End reaching Definitions analysis ******************************* //
+    // ************************************************************************************************* //
+
+
+
+    // ************************************************************************************************* //
+    // ****************************************** Loop analysis **************************************** //
+
+    /*! \def _INDUCTION_VARS
+     * Map containing the induction variables associated with a Loop Node
+     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
+     */
+    #define _INDUCTION_VARS     "induction_vars"
+
+    // **************************************** End loop analysis ************************************** //
     // ************************************************************************************************* //
 
 
@@ -360,11 +374,7 @@ namespace Analysis {
 
 
 
-    /*! \def _INDUCTION_VARS
-     * Map containing the induction variables associated with a Loop Node
-     * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
-     */
-    #define _INDUCTION_VARS     "induction_vars"
+
 
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma

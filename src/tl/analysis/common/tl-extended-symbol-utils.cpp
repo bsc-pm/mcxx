@@ -320,7 +320,7 @@ namespace Utils {
         : _es( es ), _usage( usage )
     {}
 
-    ExtendedSymbol ExtendedSymbolUsage::get_extensible_symbol( ) const
+    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
     {
         return _es;
     }

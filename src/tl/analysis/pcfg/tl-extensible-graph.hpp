@@ -60,8 +60,6 @@ namespace Analysis {
         Scope _sc;
 
 
-
-
         /*!While building the CFG, this list keeps information about which variables appear in the graph
          * But no information about their usage is stored
          * When IPA is performed, then the proper information about the usage is stored
@@ -88,6 +86,11 @@ namespace Analysis {
 
         //! List of functions called by the function stored in the graph
         ObjectList<Symbol> _func_calls;
+
+
+        // *** DOT Graph *** //
+        //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
+        std::map<int, int> _cluster_to_entry_map;
 
     private:
         //! We don't want to allow this kind of constructions
@@ -116,7 +119,7 @@ namespace Analysis {
         \param indent Indentation for the actual node when it is printed.
         \param subgraph_id Identifier for the actual cluster.
         */
-        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph,
+        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
                                  std::vector<std::string>& outer_edges,
                                  std::vector<Node*>& outer_nodes,
                                  std::string indent, int& subgraph_id,
@@ -132,14 +135,14 @@ namespace Analysis {
         \param indent Indentation for the actual node when it is printed.
         \param subgraph_id Identifier for the actual cluster.
         */
-        void get_dot_subgraph( Node* actual_node, std::string& graph_data,
+        void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
                                std::vector<std::string>& outer_edges,
                                std::vector<Node*>& outer_nodes,
                                std::string indent, int& subgraph_id,
                                bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
-        void get_node_dot_data( Node* node, std::string& graph_data, std::string indent,
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
                                 bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
@@ -158,11 +161,17 @@ namespace Analysis {
 
         void connect_copied_nodes(Node* old_node);
 
-        //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
+        //! Removes those nodes that has UNCLASSIFIED_NODE type and reconnects parents and
         //! children nodes properly.
         void erase_unclassified_nodes( Node* current );
 
         void erase_jump_nodes( Node* current );
+
+        //! Method printing the nodes containing analysis info into the DOT file
+        void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
+                                       std::string cluster_name,
+                                       bool usage, bool liveness, bool reaching_defs,
+                                       bool auto_scoping, bool auto_deps );
 
     public:
         // *** Constructors *** //
@@ -328,11 +337,11 @@ namespace Analysis {
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
 
+
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
         void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
-
 
 
         // *** Getters and Setters *** //
