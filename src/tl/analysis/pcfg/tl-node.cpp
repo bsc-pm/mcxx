@@ -1195,21 +1195,7 @@ namespace Analysis {
 
     void Node::set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in )
     {
-        Utils::ext_sym_map reaching_defs_in;
-        if( has_key( _REACH_DEFS_IN ) )
-        {
-            reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
-            for( Utils::ext_sym_map::iterator it = reach_defs_in.begin( ); it != reach_defs_in.end( ); ++it )
-            {
-                if( reaching_defs_in.find( it->first ) != reaching_defs_in.end( ) )
-                {
-                    reaching_defs_in.erase( it->first );
-                    break;
-                }
-            }
-        }
-        reaching_defs_in.insert( reach_defs_in.begin( ), reach_defs_in.end( ) );
-        set_data( _REACH_DEFS_IN, reaching_defs_in );
+        set_data( _REACH_DEFS_IN, reach_defs_in );
     }
 
     void Node::set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
@@ -1229,21 +1215,7 @@ namespace Analysis {
 
     void Node::set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out )
     {
-        Utils::ext_sym_map reaching_defs_out;
-        if( has_key( _REACH_DEFS_OUT ) )
-        {
-            reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
-            for( Utils::ext_sym_map::iterator it = reach_defs_out.begin( ); it != reach_defs_out.end( ); ++it )
-            {
-                if( reaching_defs_out.find( it->first ) != reaching_defs_out.end( ) )
-                {
-                    reaching_defs_out.erase( it->first );
-                    break;
-                }
-            }
-        }
-        reaching_defs_out.insert( reach_defs_out.begin( ), reach_defs_out.end( ) );
-        set_data( _REACH_DEFS_OUT, reaching_defs_out );
+        set_data( _REACH_DEFS_OUT, reach_defs_out );
     }
 
     // ********** END getters and setters for reaching definitions analysis ********* //
