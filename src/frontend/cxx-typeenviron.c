@@ -2286,7 +2286,8 @@ void init_type_environments(void)
 
     DEFINE_FLOAT_TYPE(linux_arm_eabi, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, double, binary_float_64)
-    DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_128)
+    // Note: long double in ARM is the same as a double
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_64)
 
     // Data pointer
     linux_arm_eabi.sizeof_pointer = 4;
