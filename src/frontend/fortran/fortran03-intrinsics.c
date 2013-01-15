@@ -128,8 +128,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, bit_size, "I", I, simplify_bit_size) \
 FORTRAN_GENERIC_INTRINSIC(NULL, btest, "I,POS", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ceiling, "A,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, char, "I,?KIND", E, simplify_char) \
-FORTRAN_GENERIC_INTRINSIC(NULL, cmplx, "X,?Y,?KIND", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, dcmplx, "X,?Y", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cmplx, "X,?Y,?KIND", E, simplify_cmplx) \
+FORTRAN_GENERIC_INTRINSIC(NULL, dcmplx, "X,?Y", E, simplify_dcmplx) \
 FORTRAN_GENERIC_INTRINSIC(NULL, command_argument_count, "", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, conjg, "Z", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, cos, "X", E, simplify_cos) \
