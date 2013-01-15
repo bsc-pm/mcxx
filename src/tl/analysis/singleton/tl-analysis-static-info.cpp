@@ -25,10 +25,11 @@
 --------------------------------------------------------------------*/
 
 #include "cxx-process.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
 
 namespace TL  {
-namespace Vectorization {
+namespace Analysis {
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
                                         ObjectList<Nodecl::NodeclBase> constants )

@@ -32,7 +32,7 @@
 #include "tl-objectlist.hpp"
 
 namespace TL {
-namespace Vectorization {
+namespace Analysis {
 
     class NodeclStaticInfo
     {

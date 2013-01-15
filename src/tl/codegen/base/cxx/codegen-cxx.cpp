@@ -210,7 +210,7 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
 
 void CxxBase::visit(const Nodecl::Reference &node)
 {
-    Nodecl::NodeclBase rhs = node.children()[0];
+    Nodecl::NodeclBase rhs = node.get_rhs();
     char needs_parentheses = operand_has_lower_priority(node, rhs);
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;

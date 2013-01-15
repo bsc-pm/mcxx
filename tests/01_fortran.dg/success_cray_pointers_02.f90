@@ -7,7 +7,9 @@ PROGRAM MAIN
     IMPLICIT NONE
 
     INTEGER :: W(100)
-    INTEGER(8) :: PW
+    ! MERCURIUM_C_PTR is a builtin mfc 
+    ! constant with the kind of the integer pointer
+    INTEGER(MERCURIUM_C_PTR) :: PW
 
     W(1:4) = (/ 1, 2, 3, 4 /)
 
