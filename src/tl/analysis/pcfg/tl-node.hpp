@@ -440,10 +440,13 @@ namespace Analysis {
             //! Return the map containing all symbols reached at the exit of the node and its reached expression
             Utils::ext_sym_map get_reaching_definitions_out( );
 
-            //! Set to one variable a new expression value and append this relationship to the node
+            //! Set a new pair to the input reaching definitions of the node
             void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            //! Set a new list of input reaching definitions to the node deleting the previous list, if it existed
             void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            //! Set a new pair to the output reaching definitions of the node
             void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            //! Set a new list of output reaching definitions to the node deleting the previous list, if it existed
             void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
 
             // ********** END getters and setters for reaching definitions analysis ********* //
