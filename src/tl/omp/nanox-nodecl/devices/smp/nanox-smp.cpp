@@ -879,8 +879,6 @@ namespace TL { namespace Nanox {
                     symbol_map);
         }
 
-        info._target_info.set_unpacked_function_symbol(unpacked_function);
-
         ObjectList<std::string> structure_name;
         structure_name.append("args");
         ObjectList<TL::Type> structure_type;
