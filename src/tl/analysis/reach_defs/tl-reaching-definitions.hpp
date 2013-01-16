@@ -27,6 +27,7 @@
 #ifndef TL_REACHING_DEFINITIONS_HPP
 #define TL_REACHING_DEFINITIONS_HPP
 
+#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 

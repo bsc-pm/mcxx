@@ -116,7 +116,7 @@ catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
-    | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
+    | NODECL_COMPLEX_LITERAL() type const-value
     | NODECL_BOOLEAN_LITERAL() type const-value
     | string-literal
     | structured-value
@@ -495,6 +495,9 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+# SIMD    
+# simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT([statement] statement)
 
 ##############################
 # CUDA                       #

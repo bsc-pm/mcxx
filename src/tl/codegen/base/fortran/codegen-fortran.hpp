@@ -405,6 +405,8 @@ namespace Codegen
             static Nodecl::NodeclBase advance_parenthesized_expression(Nodecl::NodeclBase n);
 
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
+
+            void emit_floating_constant(const_value_t* value, TL::Type t);
     };
 }
 

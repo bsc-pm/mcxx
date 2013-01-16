@@ -761,6 +761,11 @@ namespace TL
         return is_complex_type(_type_info);
     }
 
+    Type Type::complex_get_base_type() const
+    {
+        return ::complex_type_get_base_type(_type_info);
+    }
+
     Type Type::get_lvalue_reference_to()
     {
         return get_lvalue_reference_type(this->_type_info);

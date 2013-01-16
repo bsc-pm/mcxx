@@ -1827,6 +1827,37 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
+    {
+        nodecl_t pragma_line = n.get_pragma_line( ).get_internal_nodecl( );
+        if( strcmp( codegen_to_str( pragma_line, nodecl_retrieve_context( pragma_line ) ),
+                    "simd " ) == 0 )
+        {
+            Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD );
+            _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
+            _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
+
+            // Compose the statements nodes
+            walk( n.get_statements( ) );
+
+            // Link properly the exit node
+            Node* exit_node = simd_node->get_graph_exit_node( );
+            exit_node->set_id( ++( _utils->_nid ) );
+            exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+
+            _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
+            return ObjectList<Node*>( 1, simd_node );
+        }
+        else
+        {
+            WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+                             codegen_to_str( pragma_line,
+                                             nodecl_retrieve_context( pragma_line ) ) );
+            return ObjectList<Node*>( );
+        }
+    }
+
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Predecrement& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
@@ -1898,7 +1929,7 @@ namespace Analysis {
         _utils->_last_nodes.clear( );
         _utils->_switch_condition_nodes.push( cond_node_l[0] );
         _utils->_break_nodes.push( exit_node );
-        ObjectList<Node*> case_stmts = walk( n.get_statement( ) );
+        walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
 
         // Link properly the exit node
@@ -2019,6 +2050,12 @@ namespace Analysis {
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Typeid& n )
     {
         return visit_unary_node( n, n.get_arg( ) );
+    }
+
+    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
+    {
+        WARNING_MESSAGE( "Ignoring unknown prama '%s' during PCFG construction", n.get_text( ).c_str( ) );
+        return ObjectList<Node*>( );
     }
 
     PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::VirtualFunctionCall& n )

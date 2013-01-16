@@ -248,12 +248,20 @@ namespace Nodecl
         return get_all_symbols_first_occurrence(n).filter(local);
     }
 
-    static bool equal_trees_rec(nodecl_t n1, nodecl_t n2)
+    static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
         if (nodecl_is_null(n1) == nodecl_is_null(n2))
         {
             if (!nodecl_is_null(n1))
             {
+                if(skip_conversion_nodes)
+                {
+                    if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+                        return equal_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
+                    if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+                        return equal_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
+                }
+
                 if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
                     &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
                     &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
@@ -262,7 +270,7 @@ namespace Nodecl
 
                     for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
                     {
-                        equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
+                        equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i), skip_conversion_nodes);
                     }
                     return equal;
                 }
@@ -347,7 +355,7 @@ namespace Nodecl
         return n.get_type().is_lvalue_reference( );
     }
 
-    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
+    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
         nodecl_t n2_ = n2.get_internal_nodecl();
@@ -359,7 +367,7 @@ namespace Nodecl
             return false;
         }
 
-        return equal_trees_rec(n1_, n2_);
+        return equal_trees_rec(n1_, n2_, skip_conversion_nodes);
     }
 
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
@@ -1193,7 +1201,7 @@ namespace Nodecl
     };
 
     Utils::LabelSymbolMap::LabelSymbolMap(
-            Utils::SymbolMap* original_symbol_map, 
+            Utils::SymbolMap* original_symbol_map,
             Nodecl::NodeclBase code,
             TL::ReferenceScope ref_scope)
         : _orig_symbol_map(original_symbol_map)

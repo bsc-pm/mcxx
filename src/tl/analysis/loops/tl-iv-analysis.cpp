@@ -26,6 +26,7 @@
 
 #include <utility>
 
+#include "codegen-common.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-node.hpp"
 
@@ -115,9 +116,9 @@ namespace Analysis {
         int id_end = loop->get_graph_exit_node( )->get_id( );
         if( st.is<Nodecl::Assignment>( ) )
         {
-            Nodecl::Assignment _st = st.as<Nodecl::Assignment>( );
-            Nodecl::NodeclBase lhs = _st.get_lhs( );
-            Nodecl::NodeclBase rhs = _st.get_rhs( );
+            Nodecl::Assignment st_ = st.as<Nodecl::Assignment>( );
+            Nodecl::NodeclBase lhs = st_.get_lhs( );
+            Nodecl::NodeclBase rhs = st_.get_rhs( );
 
             Nodecl::NodeclBase lhs_rhs, rhs_rhs;
             if(rhs.is<Nodecl::Add>( ) )
@@ -128,13 +129,13 @@ namespace Analysis {
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
 
-                if( Nodecl::Utils::equal_nodecls( lhs, lhs_rhs ) )
+                if( Nodecl::Utils::equal_nodecls( lhs, lhs_rhs, /* Skip Conversion node */ true ) )
                 {
                     _constant = rhs_rhs;
                     if( is_loop_invariant( loop_entry, id_end ) )
                         res = lhs;
                 }
-                else if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs ) )
+                else if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true ) )
                 {
                     _constant = lhs_rhs;
                     if( is_loop_invariant( loop_entry, id_end ) )
@@ -148,7 +149,7 @@ namespace Analysis {
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
 
-                if( Nodecl::Utils::equal_nodecls( lhs, lhs_rhs ) )
+                if( Nodecl::Utils::equal_nodecls( lhs, lhs_rhs, /* Skip Conversion node */ true ) )
                 {
                     _constant = rhs_rhs;
                     if( is_loop_invariant( loop_entry, id_end ) )
@@ -168,31 +169,31 @@ namespace Analysis {
         else if( st.is<Nodecl::MinusAssignment>( ) )
         {   /*! Expressions accepted
                     * . iv -= x; */
-            Nodecl::MinusAssignment _st = st.as<Nodecl::MinusAssignment>( );
-            Nodecl::NodeclBase lhs = _st.get_lhs( );
-            _constant = _st.get_rhs( );
+            Nodecl::MinusAssignment st_ = st.as<Nodecl::MinusAssignment>( );
+            Nodecl::NodeclBase lhs = st_.get_lhs( );
+            _constant = st_.get_rhs( );
             if( is_loop_invariant( loop_entry, id_end ) )
                 res = lhs;
         }
         else if( st.is<Nodecl::Preincrement>( ) )
         {
-            Nodecl::Preincrement _st = st.as<Nodecl::Preincrement>( );
-            res = _st.get_rhs( );
+            Nodecl::Preincrement st_ = st.as<Nodecl::Preincrement>( );
+            res = st_.get_rhs( );
         }
         else if( st.is<Nodecl::Postincrement>( ) )
         {
-            Nodecl::Postincrement _st = st.as<Nodecl::Postincrement>( );
-            res = _st.get_rhs( );
+            Nodecl::Postincrement st_ = st.as<Nodecl::Postincrement>( );
+            res = st_.get_rhs( );
         }
         else if( st.is<Nodecl::Predecrement>( ) )
         {
-            Nodecl::Predecrement _st = st.as<Nodecl::Predecrement>( );
-            res = _st.get_rhs( );
+            Nodecl::Predecrement st_ = st.as<Nodecl::Predecrement>( );
+            res = st_.get_rhs( );
         }
         else if( st.is<Nodecl::Postdecrement>( ) )
         {
-            Nodecl::Postdecrement _st = st.as<Nodecl::Postdecrement>( );
-            res = _st.get_rhs( );
+            Nodecl::Postdecrement st_ = st.as<Nodecl::Postdecrement>( );
+            res = st_.get_rhs( );
         }
 
         if( !res.is_null( ) )
@@ -200,6 +201,7 @@ namespace Analysis {
              *  within the loop in some way it makes iv not to be an IV. */
             if( is_false_induction_variable( res, st, loop_entry, id_end ) )
             {
+                std::cerr << "stmt " << st.prettyprint( ) << " is a false induction variable" << std::endl;
                 res = Nodecl::NodeclBase::null( );
             }
         }

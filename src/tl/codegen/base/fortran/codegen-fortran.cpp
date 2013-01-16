@@ -1065,23 +1065,28 @@ OPERATOR_TABLE
         // This ommits parentheses in negative literals
         state.in_data_value = 1;
 
+        TL::Type t = node.get_type().complex_get_base_type();
+
+        const_value_t* complex_cval = node.get_constant();
+        const_value_t* cval_real = const_value_complex_get_real_part(complex_cval);
+        const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
+
         file << "(";
-        walk(node.get_real());
+        emit_floating_constant(cval_real, t);
         file << ", ";
-        walk(node.get_imag());
+        emit_floating_constant(cval_imag, t);
         file << ")";
 
         state.in_data_value = in_data;
     }
 
-    void FortranBase::visit(const Nodecl::FloatingLiteral& node)
+    void FortranBase::emit_floating_constant(const_value_t* value, TL::Type t)
     {
-        TL::Type t = node.get_type();
+        ERROR_CONDITION(value == NULL, "Invalid constant", 0);
 
         int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
         int precision = floating_type_get_info(t.get_internal_type())->p + 1;
 
-        const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
         if (const_value_is_float(value))
         {
             const char* result = NULL;
@@ -1142,6 +1147,15 @@ OPERATOR_TABLE
                 file << ")";
         }
 #endif
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::FloatingLiteral& node)
+    {
+        emit_floating_constant(node.get_constant(), node.get_type());
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)

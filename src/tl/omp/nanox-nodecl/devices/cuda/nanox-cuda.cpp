@@ -1122,13 +1122,26 @@ static void build_empty_body_for_function(
 
     function_symbol.get_internal_symbol()->defined = 1;
 
-    function_code = Nodecl::FunctionCode::make(context,
-            // Initializers
-            Nodecl::NodeclBase::null(),
-            // Internal functions
-            Nodecl::NodeclBase::null(),
-            function_symbol,
-            "", 0);
+    if (function_symbol.is_dependent_function())
+    {
+        function_code = Nodecl::TemplateFunctionCode::make(context,
+                // Initializers
+                Nodecl::NodeclBase::null(),
+                // Internal functions
+                Nodecl::NodeclBase::null(),
+                function_symbol,
+                "", 0);
+    }
+    else
+    {
+        function_code = Nodecl::FunctionCode::make(context,
+                // Initializers
+                Nodecl::NodeclBase::null(),
+                // Internal functions
+                Nodecl::NodeclBase::null(),
+                function_symbol,
+                "", 0);
+    }
 }
 
 static TL::Symbol new_function_symbol(

@@ -2184,6 +2184,8 @@ void template_specialized_type_update_template_parameters(type_t* t, template_pa
 
 type_t* get_complex_type(type_t* t)
 {
+    ERROR_CONDITION(t == NULL, "Invalid base type for complex type", 0);
+
     static rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
@@ -7706,13 +7708,9 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 const char* whole_size = NULL;
                 if (is_parameter)
                 {
-                    // Get rid of those annoying unbounded arrays
-                    // in parameters
-                    //
-                    // This is not valid, but works most of the time...
                     if (nodecl_is_null(type_info->array->whole_size))
                     {
-                        whole_size = uniquestr("[0]");
+                        whole_size = uniquestr("[]");
                     }
                     // If this is a saved expression and it IS a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
@@ -7738,7 +7736,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[]");
                     }
-                    // If this is a saved expression and it is NOT a parameter we use its saved expression instead
+                    // If this is a saved expression and it is NOT a parameter we use its saved symbol instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
                             && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
                     {

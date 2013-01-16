@@ -55,7 +55,15 @@ namespace Utils {
             {
                 result[it->first] = it->second;
             }
+            else
+            {
+                if( !Nodecl::Utils::equal_nodecls( result[it->first], it->second ) )
+                {
+                    result.erase( it->first );
+                }
+            }
         }
+
         return result;
     }
 
@@ -320,7 +328,7 @@ namespace Utils {
         : _es( es ), _usage( usage )
     {}
 
-    ExtendedSymbol ExtendedSymbolUsage::get_extensible_symbol( ) const
+    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
     {
         return _es;
     }

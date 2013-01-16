@@ -24,8 +24,8 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#ifndef TL_EXTENSIBLE_SYMBOL_UTILS_HPP
-#define TL_EXTENSIBLE_SYMBOL_UTILS_HPP
+#ifndef TL_EXTENDED_SYMBOL_UTILS_HPP
+#define TL_EXTENDED_SYMBOL_UTILS_HPP
 
 #include "tl-extended-symbol.hpp"
 
@@ -43,7 +43,7 @@ namespace Utils {
     enum UsageValue {
         upper_exposed,
         killed,
-        undetermined_usage,     //! Can't be determined'
+        undetermined_usage,     //! Can't be determined
         undefined_usage         //! Not yet computed
     };
 
@@ -62,7 +62,7 @@ namespace Utils {
         // ********* Getters and setters ********* //
 
         //! Returns the Extended Symbol
-        ExtendedSymbol get_extensible_symbol( ) const;
+        ExtendedSymbol get_extended_symbol( ) const;
 
         //! Returns de Nodecl contained in the Extended Symbol
         Nodecl::NodeclBase get_nodecl( ) const;
@@ -167,4 +167,4 @@ namespace Utils {
 }
 }
 
-#endif      // TL_EXTENSIBLE_SYMBOL_UTILS_HPP
+#endif      // TL_EXTENDED_SYMBOL_UTILS_HPP
