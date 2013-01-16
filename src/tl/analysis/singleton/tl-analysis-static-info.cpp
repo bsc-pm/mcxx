@@ -65,6 +65,20 @@ namespace Analysis {
 
         TL::Analysis::PCFGAnalysis_memento analysis_state;
 
+        // Compute "dynamic" analysis
+        analysis.use_def( analysis_state, n );
+        analysis.liveness( analysis_state, n );
+        analysis.reaching_definitions( analysis_state, n );
+        analysis.induction_variables( analysis_state, n );
+
+        // Save static analysis
+        NodeclStaticInfo static_info( analysis_state.get_induction_variables( n ),
+                                        analysis_state.get_constants( n ) );
+        _static_info_map.insert( static_info_pair_t( n, static_info ) );
+
+
+
+/*
         // Look for parent Function Code
         Nodecl::NodeclBase parent_function = n;
         while( !parent_function.is<Nodecl::FunctionCode>( ) )
@@ -85,7 +99,7 @@ namespace Analysis {
 
         // TODO
         //Visit
-
+*/
     }
 
     bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
