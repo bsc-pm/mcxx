@@ -48,4 +48,5 @@ libpcfg_la_SOURCES= tl-pcfg-utils.hpp \
                     tl-pcfg-visitor.hpp \
                     tl-pcfg-visitor.cpp \
                     tl-dot-graph.cpp \
+                    tl-structures.hpp \
                     $(END)
