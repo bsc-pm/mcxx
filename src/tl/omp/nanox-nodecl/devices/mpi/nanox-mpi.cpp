@@ -828,7 +828,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
             << " while(1){ "
             << " nanos_MPI_Recv_taskinit(&ompss_id_func, 1, ompss_get_mpi_type(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp, &ompss___status); "
             << " if (ompss_id_func==-1){ "
-            << " MPI_Finalize(); "
+            << " nanos_MPI_Finalize(); "
             << " return 0; "
             << " } else { "
             << " void (* function_pointer)()=(void (*)()) ompss_mpi_func_pointers_dev[ompss_id_func];"
