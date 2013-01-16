@@ -950,7 +950,7 @@ type_t* const_value_get_minimal_integer_type_from_list_of_types(
             NULL);
 }
 
-static type_t* get_minimal_floating_type(const_value_t* val)
+static type_t* get_suitable_floating_type(const_value_t* val)
 {
     if (val->kind == CVK_FLOAT)
     {
@@ -1011,7 +1011,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
             {
                 type_t* t = floating_type;
                 if (t == NULL)
-                    t = get_minimal_floating_type(v);
+                    t = get_suitable_floating_type(v);
                 return nodecl_make_floating_literal(t, v, NULL, 0);
                 break;
             }
@@ -1073,6 +1073,31 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                         NULL, 0);
 
                 nodecl_set_constant(result, v);
+                return result;
+                break;
+            }
+        case CVK_COMPLEX:
+            {
+                const_value_t* real = const_value_complex_get_real_part(v);
+
+                type_t* t = NULL;
+                if (const_value_is_floating(real))
+                {
+                    t = floating_type;
+                    if (t == NULL)
+                        t = get_suitable_floating_type(const_value_complex_get_real_part(v));
+                }
+                else if (const_value_is_integer(real))
+                {
+                    // This is a GCC extension
+                    t = integer_type;
+                    if (t == NULL)
+                        t = get_minimal_integer_for_value_at_least_signed_int(real->sign, real->value.i);
+                }
+
+                t = get_complex_type(t);
+                nodecl_t result = nodecl_make_complex_literal(t, v, NULL, 0);
+
                 return result;
                 break;
             }

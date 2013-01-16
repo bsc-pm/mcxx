@@ -645,15 +645,26 @@ void CxxBase::visit(const Nodecl::Comma & node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 {
-    // This is a GCC extension
-    //
-    // In C this complex literal is created using "2j" so it will always be a
-    // literal integer/float and the real part will be zero
+    const_value_t* cval = node.get_constant();
 
-    // nodecl_t real_part = nodecl_get_child(node, 0); // Zero
-    Nodecl::NodeclBase imag_part = node.get_imag();
+    const_value_t* real_part = const_value_complex_get_real_part(cval);
+    const_value_t* imag_part = const_value_complex_get_imag_part(cval);
 
-    walk(imag_part);
+    ERROR_CONDITION(!const_value_is_zero(real_part), "Invalid complex constant in C with nonzero real component", 0);
+
+    if (const_value_is_integer(imag_part))
+    {
+        emit_integer_constant(imag_part, node.get_type().complex_get_base_type());
+    }
+    else if (const_value_is_floating(imag_part))
+    {
+        emit_floating_constant(imag_part, node.get_type().complex_get_base_type());
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
     file << "i";
 }
 
@@ -1006,38 +1017,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     walk(next);
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
+void CxxBase::emit_floating_constant(const_value_t* cval, TL::Type t)
 {
-    const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
-    ERROR_CONDITION(value == NULL, "Invalid value", 0);
-
-    type_t* t = nodecl_get_type(node.get_internal_nodecl());
-    int precision = floating_type_get_info(t)->p + 1;
-
+    int precision = floating_type_get_info(t.get_internal_type())->p + 1;
 
     // FIXME - We are relying on a (really handy) GNU extension
-    if (const_value_is_float(value))
+    if (const_value_is_float(cval))
     {
         const char* floating = NULL;
-        uniquestr_sprintf(&floating, "%.*ef", precision, const_value_cast_to_float(value));
+        uniquestr_sprintf(&floating, "%.*ef", precision, const_value_cast_to_float(cval));
         file << floating;
     }
-    else if (const_value_is_double(value))
+    else if (const_value_is_double(cval))
     {
         const char* floating = NULL;
-        uniquestr_sprintf(&floating, "%.*e", precision, const_value_cast_to_double(value));
+        uniquestr_sprintf(&floating, "%.*e", precision, const_value_cast_to_double(cval));
         file << floating;
     }
-    else if (const_value_is_long_double(value))
+    else if (const_value_is_long_double(cval))
     {
         const char* floating = NULL;
-        uniquestr_sprintf(&floating, "%.*LeL", precision, const_value_cast_to_long_double(value));
+        uniquestr_sprintf(&floating, "%.*LeL", precision, const_value_cast_to_long_double(cval));
         file << floating;
     }
 #ifdef HAVE_QUADMATH_H
-    else if (const_value_is_float128(value))
+    else if (const_value_is_float128(cval))
     {
-        __float128 f128 = const_value_cast_to_float128(value);
+        __float128 f128 = const_value_cast_to_float128(cval);
         int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
         char *c = new char[n + 1];
         quadmath_snprintf (c, n, "%.*Qe", precision, f128);
@@ -1046,6 +1052,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
         delete[] c;
     }
 #endif
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
+{
+    const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+    ERROR_CONDITION(value == NULL, "Invalid value", 0);
+
+    emit_floating_constant(value, nodecl_get_type(node.get_internal_nodecl()));
 }
 
 void CxxBase::emit_range_loop_header(
@@ -2277,6 +2291,48 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
+void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
+{
+    unsigned long long int v = const_value_cast_to_8(cval);
+
+    if (t.is_signed_int())
+    {
+        file << (signed long long)v;
+    }
+    else if (t.is_unsigned_int())
+    {
+        file << (unsigned long long)v << "U";
+    }
+    else if (t.is_signed_long_int())
+    {
+        file << (signed long long)v << "L";
+    }
+    else if (t.is_unsigned_long_int())
+    {
+        file << (unsigned long long)v << "LU";
+    }
+    else if (t.is_signed_long_long_int())
+    {
+        file << (signed long long)v << "LL";
+    }
+    else if (t.is_unsigned_long_long_int())
+    {
+        file << (unsigned long long)v << "LLU";
+    }
+    else
+    {
+        // Remaining integers like 'short'
+        if (const_value_is_signed(cval))
+        {
+            file << (signed long long)v;
+        }
+        else
+        {
+            file << (unsigned long long)v;
+        }
+    }
+} 
+
 CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
 {
     const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
@@ -2333,53 +2389,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
     }
     else
     {
-        std::string complex_prefix;
-        if (const_value_is_complex(value))
-        {
-            // In C complex constants only have imag part
-            value = const_value_complex_get_imag_part(value);
-        }
-
-        unsigned long long int v = const_value_cast_to_8(value);
-
-        if (t.is_signed_int())
-        {
-            file << (signed long long)v;
-        }
-        else if (t.is_unsigned_int())
-        {
-            file << (unsigned long long)v << "U";
-        }
-        else if (t.is_signed_long_int())
-        {
-            file << (signed long long)v << "L";
-        }
-        else if (t.is_unsigned_long_int())
-        {
-            file << (unsigned long long)v << "LU";
-        }
-        else if (t.is_signed_long_long_int())
-        {
-            file << (signed long long)v << "LL";
-        }
-        else if (t.is_unsigned_long_long_int())
-        {
-            file << (unsigned long long)v << "LLU";
-        }
-        else
-        {
-            // Remaining integers like 'short'
-            if (const_value_is_signed(value))
-            {
-                file << (signed long long)v;
-            }
-            else
-            {
-                file << (unsigned long long)v;
-            }
-        }
+        emit_integer_constant(value, t);
     }
-
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::LabeledStatement& node)
@@ -5543,6 +5554,41 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
     }
 }
 
+bool CxxBase::is_pointer_arithmetic_add_helper(TL::Type op1, TL::Type op2)
+{
+    if (op1.is_lvalue_reference())
+        op1 = op1.references_to();
+
+    if (op2.is_lvalue_reference())
+        op2 = op2.references_to();
+
+    return (op1.is_pointer() && op2.is_integral_type());
+}
+
+bool CxxBase::is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    if ( is_pointer_arithmetic_add_helper(lhs.get_type(), rhs.get_type()))
+    {
+        pointer_type = lhs.get_type();
+    }
+    else if (is_pointer_arithmetic_add_helper(rhs.get_type(), lhs.get_type()))
+    {
+        pointer_type = rhs.get_type();
+    }
+    else
+    {
+        return false;
+    }
+
+    if (pointer_type.is_lvalue_reference())
+        pointer_type = pointer_type.references_to();
+
+    return true;
+}
+
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
         void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
@@ -5587,7 +5633,6 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     );
         }
 
-
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid()
                 && entry.get_type().is_valid()
@@ -5627,6 +5672,22 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                         decl_sym_fun,
                         def_sym_fun,
                         define_entities_fun);
+            }
+
+            // Special case for pointer arithmetic
+            if (node.is<Nodecl::Add>())
+            {
+                Nodecl::Add add = node.as<Nodecl::Add>();
+
+                TL::Type pointer_type;
+                if (is_pointer_arithmetic_add(add, /* out */ pointer_type))
+                {
+                    walk_type_for_symbols(
+                            pointer_type.points_to(),
+                            decl_sym_fun,
+                            def_sym_fun,
+                            define_entities_fun);
+                }
             }
         }
 
@@ -5732,7 +5793,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 t.get_symbol().get_type(),
                 symbol_to_declare,
                 symbol_to_define,
-                define_entities_in_tree);
+                define_entities_in_tree,
+                needs_definition);
 
         (this->*symbol_to_define)(t.get_symbol());
     }
@@ -7067,7 +7129,7 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     const char* result = get_declaration_string_ex(t.get_internal_type(),
             scope.get_decl_context(), symbol_name.c_str(), "", 0,
             num_parameters, parameter_names, param_attributes,
-            /* is_parameter */ 0, print_name_str,
+            /* is_parameter */ 1, print_name_str,
             /* we need to store the current codegen */ (void*) this);
 
     for (int i = 0; i < num_parameters; i++)

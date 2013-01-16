@@ -146,7 +146,7 @@ namespace Analysis {
                     // Computing Reach Defs Out
                     Utils::ext_sym_map gen = current->get_generated_stmts( );
                     Utils::ext_sym_set killed = current->get_killed_vars( );
-                    Utils::ext_sym_map diff = containers_difference( rd_in, killed );
+                    Utils::ext_sym_map diff = Utils::containers_difference( rd_in, killed );
                     rd_out = Utils::ext_sym_map_union( gen, diff );
 
                     if( !Utils::containers_equivalence( old_rd_in, rd_in ) || !Utils::containers_equivalence( old_rd_out, rd_out ) )
