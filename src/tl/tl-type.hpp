@@ -660,6 +660,9 @@ namespace TL
             //! Returns the referenced type
             Type references_to() const;
 
+            //! Get the base type of a complex type
+            Type complex_get_base_type() const;
+
             //! States whether this type is void
             bool is_void() const;
 

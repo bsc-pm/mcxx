@@ -55,7 +55,15 @@ namespace Utils {
             {
                 result[it->first] = it->second;
             }
+            else
+            {
+                if( !Nodecl::Utils::equal_nodecls( result[it->first], it->second ) )
+                {
+                    result.erase( it->first );
+                }
+            }
         }
+
         return result;
     }
 

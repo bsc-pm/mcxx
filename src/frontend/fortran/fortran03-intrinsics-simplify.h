@@ -891,6 +891,80 @@ static nodecl_t simplify_float(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     return simplify_real(entry, 2, argument_list);
 }
 
+static nodecl_t simplify_dble(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t argument_list[2] = { arguments[0], 
+        const_value_to_nodecl(const_value_get_signed_int(fortran_get_doubleprecision_type_kind())) }; 
+    return simplify_real(entry, 2, argument_list);
+}
+
+static nodecl_t simplify_cmplx(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t arg_real = arguments[0];
+    nodecl_t arg_imag = arguments[1];
+    nodecl_t arg_kind = arguments[2];
+
+    if (nodecl_is_constant(arg_real)
+            && nodecl_is_constant(arg_imag))
+    {
+        const_value_t* value_real = nodecl_get_constant(arg_real);
+        const_value_t* value_imag = nodecl_get_constant(arg_imag);
+
+        int kind = 0;
+        if (!nodecl_is_null(arg_kind))
+        {
+            ERROR_CONDITION(!nodecl_is_constant(arg_kind), "Kind must be constant here", 0);
+            const_value_t* kind_value = nodecl_get_constant(arg_kind);
+            kind = const_value_cast_to_4(kind_value);
+        }
+        else
+        {
+            kind = fortran_get_default_real_type_kind();
+        }
+
+        type_t* float_type = choose_float_type_from_kind(arg_kind, kind);
+
+        if (is_float_type(float_type))
+        {
+            return const_value_to_nodecl(
+                    const_value_make_complex(
+                        const_value_cast_to_float_value(value_real),
+                        const_value_cast_to_float_value(value_imag))
+                    );
+        }
+        else if (is_double_type(float_type))
+        {
+            return const_value_to_nodecl(
+                    const_value_make_complex(
+                        const_value_cast_to_double_value(value_real),
+                        const_value_cast_to_double_value(value_imag))
+                    );
+        }
+        else if (is_long_double_type(float_type))
+        {
+            return const_value_to_nodecl(
+                    const_value_make_complex(
+                        const_value_cast_to_long_double_value(value_real),
+                        const_value_cast_to_long_double_value(value_imag))
+                    );
+        }
+        else
+        {
+            running_error("Invalid floating type", 0);
+        }
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_dcmplx(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t argument_list[3] = { arguments[0], arguments[1],
+        const_value_to_nodecl(const_value_get_signed_int(fortran_get_doubleprecision_type_kind())) }; 
+
+    return simplify_cmplx(entry, 3, argument_list);
+}
+
 static nodecl_t simplify_char(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     if (nodecl_is_constant(arguments[0]))

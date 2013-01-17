@@ -26,17 +26,26 @@
 
 
 
-#include "tl-compilerphase.hpp"
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+typedef struct A A;
+typedef struct B B;
 
-namespace TL
+struct A
 {
-    class RemoveAttributes : public CompilerPhase
-    {
-        private:
-            ObjectList<std::string> _attr_names;
-        public:
-            RemoveAttributes();
+    A* a;
+    B* b;
+};
 
-            virtual void run(DTO& dto);
-    };
+struct B
+{
+    A a;
+    B* b;
+};
+
+void h(B x)
+{
 }

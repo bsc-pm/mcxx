@@ -11098,12 +11098,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*,const char*, int) = NULL;
 
-    ptr_nodecl_make_func_code =
-        (!is_dependent_type(entry->type_information)
-         && (entry->kind != SK_DEPENDENT_FRIEND_FUNCTION)
-         && !(entry->entity_specs.is_member
-             && is_dependent_type(entry->entity_specs.class_type)))
-        ? &nodecl_make_function_code : &nodecl_make_template_function_code;
+    ptr_nodecl_make_func_code = is_dependent_function(entry)
+        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
 
     // Create nodecl
     nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(

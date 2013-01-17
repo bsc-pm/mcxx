@@ -262,6 +262,7 @@ LIBMCXX_EXTERN char symbol_is_local_of_dependent_function(scope_entry_t* entry);
 LIBMCXX_EXTERN scope_entry_t* get_function_or_class_where_symbol_depends(scope_entry_t* entry);
 
 LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
+LIBMCXX_EXTERN char is_dependent_function(scope_entry_t* entry);
 
 // Symbol helping routines
 LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position);

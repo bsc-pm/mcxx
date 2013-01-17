@@ -58,7 +58,7 @@ namespace TL { namespace Nanox {
     {
         return _ndrange_exprs;
     }
-    
+
     void TargetInformation::append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
         _onto_exprs.append(onto_exprs);
@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
     {
         return _onto_exprs;
     }
-    
+
     Nodecl::Utils::SimpleSymbolMap& TargetInformation::get_param_arg_map()
     {
         return _param_to_args;
@@ -78,16 +78,4 @@ namespace TL { namespace Nanox {
     {
         _param_to_args = param_arg_map;
     }
-    
-    
-    TL::Symbol TargetInformation::get_unpacked_function_symbol() const
-    {
-        return _unpacked_function_symbol;
-    }
-
-    void TargetInformation::set_unpacked_function_symbol(TL::Symbol sym)
-    {
-        _unpacked_function_symbol = sym;
-    }
-
 } }

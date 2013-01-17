@@ -923,21 +923,7 @@ namespace TL { namespace Nanox {
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        return _implementation_table[function_symbol].get_onto();   
     }
-        
-    TL::Symbol OutlineInfo::get_unpacked_function_symbol(TL::Symbol function_symbol)
-    {
-        if (function_symbol==NULL) function_symbol=Symbol::invalid();
-        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-        return _implementation_table[function_symbol].get_unpacked_function_symbol();
-    }
 
-    void OutlineInfo::set_unpacked_function_symbol(TL::Symbol unpacked_sym,TL::Symbol function_symbol)
-    {
-        if (function_symbol==NULL) function_symbol=Symbol::invalid();
-        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-        _implementation_table[function_symbol].set_unpacked_function_symbol(unpacked_sym);
-    }
-    
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
     {
         if (function_symbol==NULL) function_symbol=Symbol::invalid();

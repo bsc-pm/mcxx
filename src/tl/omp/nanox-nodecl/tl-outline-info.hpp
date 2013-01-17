@@ -349,7 +349,7 @@ namespace TL
                 ObjectList<OutlineDataItem*> get_data_items()
                 {
                     return _data_env_items;
-                }               
+                }
 
                 TL::Symbol get_funct_symbol() const {
                     return _funct_symbol;
@@ -362,7 +362,7 @@ namespace TL
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
-                                
+
                 void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
                 ObjectList<Nodecl::NodeclBase> get_onto(TL::Symbol function_symbol);
 
@@ -374,9 +374,6 @@ namespace TL
                 void add_implementation(std::string device_name, TL::Symbol function_symbol);
                 implementation_table_t& get_implementation_table();
 
-                TL::Symbol get_unpacked_function_symbol(TL::Symbol function_symbol=Symbol::invalid());
-                void set_unpacked_function_symbol(TL::Symbol unpacked_sym,TL::Symbol function_symbol=Symbol::invalid());
-                
                 void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());
                 Nodecl::Utils::SimpleSymbolMap get_param_arg_map(TL::Symbol function_symbol=Symbol::invalid());
 

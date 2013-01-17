@@ -185,6 +185,8 @@ namespace TL
             bool is_function() const;
             //! States whether this symbol is a dependent friend function
             bool is_dependent_friend_function() const;
+            //! States whether this symbol is a dependent function
+            bool is_dependent_function() const;
 
             //! States whether this symbol is a MODULE PROCEDURE
             /*!

@@ -116,7 +116,7 @@ catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
-    | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
+    | NODECL_COMPLEX_LITERAL() type const-value
     | NODECL_BOOLEAN_LITERAL() type const-value
     | string-literal
     | structured-value
