@@ -27,22 +27,19 @@
 
 
 
-#ifndef HLT_COMMON_HPP
-#define HLT_COMMON_HPP
+#include "hlt-unroll.hpp"
+#include <sstream>
 
-#ifdef _WIN32
-  #ifdef LIBHLT_DLL_EXPORT
-    #define LIBHLT_EXTERN extern __declspec(dllexport)
-    #define LIBHLT_CLASS __declspec(dllexport)
-  #else
-    #define LIBHLT_EXTERN extern __declspec(dllimport)
-    #define LIBHLT_CLASS __declspec(dllimport)
-  #endif
-  #define LIBHLT_ALWAYS_EXPORT __declspec(dllexport)
-#else
-  #define LIBHLT_EXTERN extern
-  #define LIBHLT_CLASS
-  #define LIBHLT_ALWAYS_EXPORT 
-#endif
+namespace TL { namespace HLT {
 
-#endif // HLT_COMMON_HPP
+    LoopUnroll::LoopUnroll(Nodecl::NodeclBase for_stmt, unsigned int factor)
+        : Transform(for_stmt), _tree(for_stmt), _factor(factor)
+    {
+    }
+
+    bool LoopUnroll::check(bool diagnostic)
+    {
+        return false;
+    }
+} }
+

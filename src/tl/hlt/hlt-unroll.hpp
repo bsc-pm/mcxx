@@ -27,22 +27,44 @@
 
 
 
-#ifndef HLT_COMMON_HPP
-#define HLT_COMMON_HPP
+#ifndef HLT_UNROLL_HPP
+#define HLT_UNROLL_HPP
 
-#ifdef _WIN32
-  #ifdef LIBHLT_DLL_EXPORT
-    #define LIBHLT_EXTERN extern __declspec(dllexport)
-    #define LIBHLT_CLASS __declspec(dllexport)
-  #else
-    #define LIBHLT_EXTERN extern __declspec(dllimport)
-    #define LIBHLT_CLASS __declspec(dllimport)
-  #endif
-  #define LIBHLT_ALWAYS_EXPORT __declspec(dllexport)
-#else
-  #define LIBHLT_EXTERN extern
-  #define LIBHLT_CLASS
-  #define LIBHLT_ALWAYS_EXPORT 
-#endif
+#include "tl-nodecl.hpp"
+#include "hlt-transform.hpp"
 
-#endif // HLT_COMMON_HPP
+namespace TL
+{
+    namespace HLT
+    {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Unrolls a regular loop a given number of times
+        /*! 
+          This class implements loop unrolling. Loop unrolling
+          repeats the body of the loop in the loop itsel, adjusting
+          the stride and creating, if necessary an epilog loop.
+          */
+        class LIBHLT_CLASS LoopUnroll : public Transform
+        {
+            private:
+                Nodecl::NodeclBase _tree;
+                int _factor;
+            public:
+                //! Creates a LoopUnroll object
+                /*!
+                  \param for_stmt Regular loop
+                  \param factor Number of times this loop is unrolled
+                 */
+                LoopUnroll(Nodecl::NodeclBase for_stmt, unsigned int factor);
+
+                virtual bool check(bool diagnostic);
+                virtual void transform();
+        };
+
+        //! @}
+    }
+}
+
+#endif // HLT_UNROLL_HPP

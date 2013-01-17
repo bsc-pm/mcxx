@@ -42,7 +42,9 @@ libtl_hlt_la_SOURCES = \
 	  hlt-common.hpp \
       hlt-transform.hpp \
       hlt-transform.cpp \
-     $(END)
+      hlt-unroll.hpp \
+      hlt-unroll.cpp \
+      $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
 libtl_hlt_pragma_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
