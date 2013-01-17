@@ -83,6 +83,18 @@ namespace TL
             {
                 target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
+            
+            PragmaCustomClause file = pragma_line.get_clause("file");
+            if (file.is_defined())
+            {
+                ObjectList<std::string> file_list= file.get_arguments();
+                if (file_list.size() != 1)
+                {
+                    std::cerr << pragma_line.get_locus() << ": warning: clause 'file' expects one identifier, skipping" << std::endl;
+                } else { 
+                    target_ctx.file = file_list[0];
+                }
+            }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             if (copy_deps.is_defined())

@@ -359,6 +359,9 @@ namespace TL
 
                 void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
+                
+                void set_file(std::string file,TL::Symbol function_symbol=Symbol::invalid());
+                std::string get_file(TL::Symbol function_symbol=Symbol::invalid());
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);

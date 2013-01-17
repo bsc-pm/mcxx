@@ -737,6 +737,11 @@ namespace TL { namespace Nanox {
             {
                 _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
+            
+            void visit(const Nodecl::OpenMP::File& file)   
+            { 
+                _outline_info.set_file(file.get_filename().get_text(),file.get_function_name().as<Nodecl::Symbol>().get_symbol());
+            }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
@@ -894,6 +899,20 @@ namespace TL { namespace Nanox {
        if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        return _implementation_table[function_symbol].get_device_names();   
+    }
+    
+    void OutlineInfo::set_file(std::string file,TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
+       _implementation_table[function_symbol].set_file(file);   
+    }
+
+    std::string OutlineInfo::get_file(TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       return _implementation_table[function_symbol].get_file();   
     }
 
     void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)

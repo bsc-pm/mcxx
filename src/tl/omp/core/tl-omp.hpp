@@ -258,6 +258,7 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> _onto;
 
                 ObjectList<std::string> _device_list;
+                std::string _file;
 
                 bool _copy_deps;
             public:
@@ -280,13 +281,15 @@ namespace TL
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;
-                
+                                                
                 void set_target_symbol(Symbol funct_symbol);
                 Symbol get_target_symbol() const;
 
                 void append_to_device_list(const ObjectList<std::string>& device_list);
-
                 ObjectList<std::string> get_device_list();
+                
+                void set_file(std::string filename);
+                std::string get_file() const;
 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);

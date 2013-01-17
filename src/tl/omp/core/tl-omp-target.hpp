@@ -50,6 +50,7 @@ namespace TL
 
             bool has_implements;
             Symbol implements;
+            std::string file;
 
             bool copy_deps;
 

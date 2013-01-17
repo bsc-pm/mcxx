@@ -526,6 +526,8 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 {
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for OpenCL devices is not supported yet\n", 0);
+    
+    std::cout << "clausula file OCL " << info._target_info.get_file() << "\n";
 
     // Unpack DTO
     const std::string& device_outline_name = ocl_outline_name(info._outline_name);
