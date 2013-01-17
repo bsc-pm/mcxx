@@ -1233,11 +1233,26 @@ namespace TL { namespace Nanox {
             Source &fortran_dynamic_init)
     {
         std::string outline_name = smp_outline_name(info._outline_name);
+        TL::Symbol current_function = info._current_function;
+
+        //FIXME: This is confusing. In a future, we should get the template
+        //arguments of the current function and print them
+
+        //Save the original name of the current function
+        std::string original_name = current_function.get_name();
+
+        current_function.set_name(outline_name);
+
+        std::string qualified_name = current_function.get_qualified_name();
+
+        // Restore the original name of the current function
+        current_function.set_name(original_name);
+
         if (!IS_FORTRAN_LANGUAGE)
         {
             ancillary_device_description
                 << "static nanos_smp_args_t " << outline_name << "_args = {"
-                << ".outline = (void(*)(void*))&" << outline_name
+                << ".outline = (void(*)(void*))&" << qualified_name
                 << "};"
                 ;
             device_descriptor

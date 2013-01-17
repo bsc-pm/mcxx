@@ -235,6 +235,8 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
+    Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
@@ -262,7 +264,11 @@ Source LoweringVisitor::fill_const_wd_info(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        DeviceDescriptorInfo info_implementor(implementor_outline_name,implementation_table_it->second);
+        DeviceDescriptorInfo info_implementor(
+                implementor_outline_name,
+                current_function,
+                implementation_table_it->second);
+
         device->get_device_descriptor(
                 info_implementor,
                 ancillary_device_description,
@@ -379,7 +385,7 @@ void LoweringVisitor::emit_async_common(
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_name();
+    struct_arg_type_name << structure_symbol.get_qualified_name();
 
     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
