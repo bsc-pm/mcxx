@@ -32,7 +32,7 @@ DIST_SUBDIRS= analysis \
               vectorizer \
               omp \
               instr \
-              examples \
+              old_examples \
               testing \
               hlt \
               codegen \
