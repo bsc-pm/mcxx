@@ -35,7 +35,6 @@ DIST_SUBDIRS= analysis \
               examples \
               testing \
               hlt \
-              manip \
               codegen \
               $(END)
 
