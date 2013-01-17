@@ -34,7 +34,7 @@ DIST_SUBDIRS= analysis \
               instr \
               old_examples \
               testing \
-              hlt \
+              old_hlt \
               codegen \
               $(END)
 
