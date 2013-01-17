@@ -42,8 +42,8 @@ namespace Analysis {
     // ************************ Analysis Memento class ************************ //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( false ),
-          _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
+        : _pcfgs( ), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
+          _loops( false ), _reaching_definitions( false ), _induction_variables( false ), _constants( false ),
           _auto_scoping( false ), _auto_deps( false )
     {}
 
@@ -63,14 +63,14 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
-    bool PCFGAnalysis_memento::is_constants_computed( ) const
+    bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
-        return _constants;
+        return _constants_propagation;
     }
 
-    void PCFGAnalysis_memento::set_constants_computed( )
+    void PCFGAnalysis_memento::set_constants_propagation_computed( )
     {
-        _constants = true;
+        _constants_propagation = true;
     }
 
     bool PCFGAnalysis_memento::is_canonical_computed( ) const
@@ -131,6 +131,16 @@ namespace Analysis {
     void PCFGAnalysis_memento::set_induction_variables_computed( )
     {
         _induction_variables = true;
+    }
+
+    bool PCFGAnalysis_memento::is_constants_computed( ) const
+    {
+        return _constants;
+    }
+
+    void PCFGAnalysis_memento::set_constants_computed( )
+    {
+        _constants = true;
     }
 
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
@@ -478,6 +488,26 @@ namespace Analysis {
                 LoopAnalysis la( *it, ivs );
                 la.compute_loop_ranges( );
                 print_induction_vars( ivs );
+            }
+        }
+
+        return pcfgs;
+    }
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions( memento, ast );
+
+        if( !memento.is_constants_computed( ) )
+        {
+            memento.set_constants_computed( );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Constants analysis of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+
+                // TODO
             }
         }
 

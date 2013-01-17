@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -45,7 +46,8 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(for_statement);
+            Analysis::AnalysisStaticInfo for_analysis_info(for_statement, INDUCTION_VARS_ANALYSIS,
+                                                           NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -81,8 +83,7 @@ namespace TL
             _remain_iterations = 2;
         }
 
-        Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement&
-for_statement)
+        Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
         {
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
                     for_statement, for_statement).as<Nodecl::ForStatement>();
@@ -96,8 +97,7 @@ for_statement)
         }
 
 
-        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorFor::unhandled_node(const
-Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "For Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -129,8 +129,7 @@ Nodecl::NodeclBase& n)
             visitor_loop_next.walk(loop_control.get_next());
         }
 
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopHeader::unhandled_node(const
-Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopHeader::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Header Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -140,8 +139,7 @@ Nodecl::NodeclBase& n)
             return Ret();
         }
 
-        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(const Analysis::AnalysisStaticInfo&
-for_analysis_info) :
+        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(const Analysis::AnalysisStaticInfo& for_analysis_info) :
             _for_analysis_info(for_analysis_info)
         {
         }
@@ -157,8 +155,7 @@ for_analysis_info) :
         {
             /*
             ERROR_CONDITION(!_for_analysis_info.is_induction_variable(node.get_lhs()),
-                    "Vectorizer: Induction variable was expected in LoopControl initialization.",
-0);
+                    "Vectorizer: Induction variable was expected in LoopControl initialization.", 0);
             */
         }
 
@@ -168,8 +165,7 @@ for_analysis_info) :
             walk(node.get_rhs());
         }
 
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopInit::unhandled_node(const
-Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopInit::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Init Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -242,8 +238,7 @@ condition. Both expressions are not constant.", node.get_locus().c_str());
             */
         }
 
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopCond::unhandled_node(const
-Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopCond::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Cond Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
