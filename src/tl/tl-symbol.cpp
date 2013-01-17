@@ -231,6 +231,11 @@ namespace TL
         return (this->_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION);
     }
 
+    bool Symbol::is_dependent_function() const
+    {
+        return ::is_dependent_function(_symbol);
+    }
+
     bool Symbol::is_module_procedure() const
     {
         return (this->_symbol->entity_specs.is_module_procedure);
