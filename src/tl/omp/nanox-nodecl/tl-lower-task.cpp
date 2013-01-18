@@ -160,7 +160,7 @@ Source LoweringVisitor::fill_const_wd_info(
         bool is_untied,
         bool mandatory_creation,
         OutlineInfo& outline_info,
-        std::multimap<std::string, std::string>& devices_and_implementors,
+        const std::multimap<std::string, std::string>& devices_and_implementors,
         Nodecl::NodeclBase construct)
 {
     // Static stuff
@@ -234,21 +234,28 @@ Source LoweringVisitor::fill_const_wd_info(
 
     tiedness << (int)!is_untied;
 
+    Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
-    std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
-    int n_devices=implementation_table_it->second.get_device_names().size();
+    std::multimap<std::string, std::string>::const_iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices = implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
-        if (n_devices<1){
+        if (n_devices < 1)
+        {
                 implementation_table_it++;
                 n_devices=implementation_table_it->second.get_device_names().size();
         }
+
         Source ancillary_device_description, device_description, aux_fortran_init;
 
-        if (devices_and_implementors_it!=devices_and_implementors.begin()) device_descriptions <<  ", ";
+        if (devices_and_implementors_it!=devices_and_implementors.begin())
+        {
+           device_descriptions <<  ", ";
+        }
 
         std::string device_name = devices_and_implementors_it->first;
         std::string implementor_outline_name = devices_and_implementors_it->second;
@@ -256,7 +263,14 @@ Source LoweringVisitor::fill_const_wd_info(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        DeviceDescriptorInfo info_implementor(implementor_outline_name,implementation_table_it->second);
+        std::string arguments_structure = struct_arg_type_name.get_source();
+
+        DeviceDescriptorInfo info_implementor(
+                implementor_outline_name,
+                arguments_structure,
+                current_function,
+                implementation_table_it->second);
+
         device->get_device_descriptor(
                 info_implementor,
                 ancillary_device_description,
@@ -373,14 +387,11 @@ void LoweringVisitor::emit_async_common(
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_name();
-
-    // List of device names
+    struct_arg_type_name << structure_symbol.get_qualified_name();
 
     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    
     std::multimap<std::string, std::string> devices_and_implementors;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
@@ -643,7 +654,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
-    
+
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(environment,function_symbol);

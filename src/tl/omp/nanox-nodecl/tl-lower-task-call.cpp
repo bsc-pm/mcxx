@@ -442,14 +442,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-        if (IS_CXX_LANGUAGE)
-        {
-            // We need to declare explicitly this object in C++
-            initializations_src
-                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_symbol))
-                ;
-        }
-
         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
         sym_ref.set_type(this_symbol.get_type());
 

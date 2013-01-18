@@ -184,10 +184,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source fill_const_wd_info(
                 Source &struct_arg_type_name,
-                bool is_untied,                
+                bool is_untied,
                 bool mandatory_creation,
                 OutlineInfo& outline_info,
-                std::multimap<std::string, std::string>& devices_and_implementors,
+                const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);
 
         TL::Symbol declare_const_wd_type(

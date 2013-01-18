@@ -81,8 +81,20 @@ namespace TL { namespace Nanox {
     struct DeviceDescriptorInfo
     {
         const std::string& _outline_name;
+        const std::string& _arguments_struct;
+        const TL::Symbol& _current_function;
         TargetInformation& _target_info;
-        DeviceDescriptorInfo(std::string outline_name,TargetInformation& target_info) : _outline_name(outline_name), _target_info(target_info) { }
+
+        DeviceDescriptorInfo(
+                const std::string& outline_name,
+                const std::string& arguments_struct,
+                const TL::Symbol& current_function,
+                TargetInformation& target_info)
+            :
+            _outline_name(outline_name),
+            _arguments_struct(arguments_struct),
+            _current_function(current_function),
+            _target_info(target_info) { }
     };
 
     // This DTO stores information used in 'create_outline' function

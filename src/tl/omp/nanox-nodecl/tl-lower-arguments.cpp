@@ -96,13 +96,9 @@ namespace TL { namespace Nanox {
             structure_name = ss.str();
         }
 
-        // FIXME - Wrap lots of things
-        TL::Scope sc(construct.retrieve_context()
-                .get_decl_context()
-                .namespace_scope->related_entry // SK_NAMESPACE
-                ->decl_context);
-
         TL::Symbol related_symbol = construct.retrieve_context().get_related_symbol();
+        TL::Scope sc(related_symbol.get_scope().get_decl_context());
+
         if (related_symbol.is_member())
         {
             // Class scope
@@ -116,10 +112,35 @@ namespace TL { namespace Nanox {
 
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
+        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+
+        if (related_symbol.get_type().is_template_specialized_type())
+        {
+            TL::Symbol new_template_symbol = sc.new_symbol(structure_name);
+            new_template_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
+
+            new_template_symbol.get_internal_symbol()->type_information = get_new_template_type(
+                    related_symbol.get_type().template_specialized_type_get_template_parameters().get_internal_template_parameter_list(),
+                    new_class_type,
+                    uniquestr(structure_name.c_str()),
+                    related_symbol.get_scope().get_decl_context(),
+                    construct.get_line(),
+                    uniquestr(construct.get_filename().c_str()));
+
+            template_type_set_related_symbol(
+                    new_template_symbol.get_internal_symbol()->type_information,
+                    new_template_symbol.get_internal_symbol());
+
+            new_class_symbol = named_type_get_symbol(
+                    template_type_get_primary_type(new_template_symbol.get_internal_symbol()->type_information));
+
+            new_class_type = new_class_symbol.get_type().get_internal_type();
+        }
+
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
+
         TL::Scope class_scope(class_context);
 
         class_type_set_inner_context(new_class_type, class_context);

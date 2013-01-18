@@ -42,7 +42,7 @@ namespace TL { namespace Nanox {
                immediate_decl;
 
         Source struct_arg_type_name;
-        struct_arg_type_name << structure_symbol.get_name();
+        struct_arg_type_name << structure_symbol.get_qualified_name();
 
         Source struct_size;
         Source dynamic_size;
