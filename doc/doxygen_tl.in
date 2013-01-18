@@ -580,7 +580,17 @@ INPUT                  = @top_srcdir@/src/tl/ \
                          @top_srcdir@/src/tl/codegen/common \
                          @top_srcdir@/src/tl/codegen/vector \
                          @top_srcdir@/src/tl/codegen/vector/sse \
+                         @top_srcdir@/src/tl/analysis \
+                         @top_srcdir@/src/tl/analysis/common \
+                         @top_srcdir@/src/tl/analysis/reach_defs \
+                         @top_srcdir@/src/tl/analysis/pcfg \
+                         @top_srcdir@/src/tl/analysis/use_def \
+                         @top_srcdir@/src/tl/analysis/liveness \
+                         @top_srcdir@/src/tl/analysis/extensible_graph \
+                         @top_srcdir@/src/tl/analysis/loops \
+                         @top_srcdir@/src/tl/analysis/data_flow \
                          @top_srcdir@/src/tl/analysis/singleton \
+                         @top_srcdir@/src/tl/analysis/constants \
                          @top_srcdir@/src/tl/omp/core \
                          @top_srcdir@/src/tl/omp/nanox-nodecl/ 
 
