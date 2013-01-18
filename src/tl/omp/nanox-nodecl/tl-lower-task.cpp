@@ -384,11 +384,19 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
+    Nodecl::NodeclBase code = current_function.get_function_code();
+
+    Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+        ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+        : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+    TL::Scope function_scope = context.retrieve_context();
+
     std::string outline_name = get_outline_name(current_function);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_qualified_name();
+    struct_arg_type_name << structure_symbol.get_qualified_name(function_scope);
 
     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
