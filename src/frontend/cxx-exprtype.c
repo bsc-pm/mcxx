@@ -8976,7 +8976,19 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             }
         }
         free(list);
-        
+
+        scope_entry_list_t* this_query = query_name_str(decl_context, "this");
+
+        if (this_query != NULL)
+        {
+            scope_entry_t* this_symbol = entry_list_head(this_query);
+            if (is_dependent_type(this_symbol->type_information))
+            {
+                any_arg_is_dependent = 1;
+            }
+            entry_list_free(this_query);
+        }
+
         // Note that koenig lookup is simply disabled by means of parentheses,
         // so the check has to be done here.
         if (ASTType(called_expression) == AST_SYMBOL
