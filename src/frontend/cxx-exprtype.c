@@ -8513,47 +8513,6 @@ void check_nodecl_function_call(
             nodecl_called = nodecl_called_name;
         }
 
-        if (candidates != NULL
-                && this_symbol != NULL
-                && nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
-        {
-            // We are in a case like f(x) where 'this' is available
-            // We make a lookup for the case where 'f' is a member name
-
-            char seen_one_member = 0;
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(candidates);
-                    !entry_list_iterator_end(it) && !seen_one_member;
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* current_entry = entry_list_iterator_current(it);
-                seen_one_member = current_entry->entity_specs.is_member;
-            }
-            entry_list_iterator_free(it);
-
-            // This means that f(x) can safely be called as this->f(x)
-            if (seen_one_member)
-            {
-                nodecl_t nodecl_this_symbol = nodecl_make_symbol(this_symbol, 
-                        nodecl_get_filename(nodecl_called), 
-                        nodecl_get_line(nodecl_called));
-                nodecl_set_type(nodecl_this_symbol, this_symbol->type_information);
-
-                nodecl_this_symbol = nodecl_make_dereference(
-                        nodecl_this_symbol,
-                        get_lvalue_reference_type(pointer_type_get_pointee_type(this_symbol->type_information)),
-                        nodecl_get_filename(nodecl_called), 
-                        nodecl_get_line(nodecl_called));
-
-                // Build this->f(x)
-                nodecl_called = nodecl_make_class_member_access(
-                        nodecl_this_symbol,
-                        nodecl_called,
-                        get_unknown_dependent_type(),
-                        nodecl_get_filename(nodecl_called), nodecl_get_line(nodecl_called));
-            }
-        }
-
         // Create a dependent call
         *nodecl_output = nodecl_make_cxx_dep_function_call(
                 nodecl_called,
