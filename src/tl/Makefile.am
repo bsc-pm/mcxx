@@ -26,15 +26,16 @@
 
 END=
 
-SUBDIRS = . codegen analysis vectorizer omp
+SUBDIRS = . codegen analysis vectorizer omp hlt
 
 DIST_SUBDIRS= analysis \
               vectorizer \
               omp \
               instr \
-              examples \
+              old_examples \
               testing \
-              hlt \
+			  hlt \
+              old_hlt \
               codegen \
               $(END)
 

@@ -1164,6 +1164,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/vectorizer/Makefile
            src/tl/hlt/Makefile
+           src/tl/old_hlt/Makefile
            src/tl/codegen/Makefile
            src/tl/codegen/common/Makefile
            src/tl/codegen/base/Makefile
@@ -1189,12 +1190,12 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
-           src/tl/examples/Makefile
-           src/tl/examples/basic_phase/Makefile
-           src/tl/examples/parameters/Makefile
-           src/tl/examples/mypragma/Makefile
-           src/tl/examples/decl_closure/Makefile
-           src/tl/examples/multifile_test/Makefile
+           src/tl/old_examples/Makefile
+           src/tl/old_examples/basic_phase/Makefile
+           src/tl/old_examples/parameters/Makefile
+           src/tl/old_examples/mypragma/Makefile
+           src/tl/old_examples/decl_closure/Makefile
+           src/tl/old_examples/multifile_test/Makefile
            support/Makefile
            support/iso_fortran/Makefile
            support/openmp/Makefile
