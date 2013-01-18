@@ -1279,11 +1279,12 @@ namespace TL { namespace Nanox {
             Source &device_descriptor,
             Source &fortran_dynamic_init)
     {
-        std::string outline_name = smp_outline_name(info._outline_name);
+        const std::string& outline_name = smp_outline_name(info._outline_name);
+        const std::string& arguments_struct = info._arguments_struct;
         TL::Symbol current_function = info._current_function;
 
         //FIXME: This is confusing. In a future, we should get the template
-        //arguments of the current function and print them
+        //arguments of the outline function and print them
 
         //Save the original name of the current function
         std::string original_name = current_function.get_name();
@@ -1297,9 +1298,14 @@ namespace TL { namespace Nanox {
 
         if (!IS_FORTRAN_LANGUAGE)
         {
+            // Extra cast for solving some issues of GCC 4.6.* and lowers (this
+            // issues seem to be fixed in GCC 4.7 =D)
+            std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
+            std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
+
             ancillary_device_description
                 << "static nanos_smp_args_t " << outline_name << "_args = {"
-                << ".outline = (void(*)(void*))&" << qualified_name
+                << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
                 << "};"
                 ;
             device_descriptor

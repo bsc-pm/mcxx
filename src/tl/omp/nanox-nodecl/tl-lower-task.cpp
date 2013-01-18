@@ -264,8 +264,11 @@ Source LoweringVisitor::fill_const_wd_info(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
+        std::string arguments_structure = struct_arg_type_name.get_source();
+
         DeviceDescriptorInfo info_implementor(
                 implementor_outline_name,
+                arguments_structure,
                 current_function,
                 implementation_table_it->second);
 
