@@ -218,18 +218,23 @@ Source LoweringVisitor::fill_const_wd_info(
     Source tiedness,
            priority;
 
+    // The chunk is only cleared in Fortran
+    int clear_chunk = 0;
+    if (IS_FORTRAN_LANGUAGE)
+        clear_chunk = 1;
+
     // We expand all the struct due to a limitation in the FE. See ticket
     // #963
     props_init
         << "{ "
         << /* ".mandatory_creation = " << */ (int)mandatory_creation << ",\n"
         << /* ".tied = " << */ tiedness << ",\n"
+        << /* ".clear_chunk =" << */ clear_chunk <<",\n"
         << /* ".reserved0 =" << */ "0,\n"
         << /* ".reserved1 =" << */ "0,\n"
         << /* ".reserved2 =" << */ "0,\n"
         << /* ".reserved3 =" << */ "0,\n"
         << /* ".reserved4 =" << */ "0,\n"
-        << /* ".reserved5 =" << */ "0,\n"
         << "}"
         ;
 

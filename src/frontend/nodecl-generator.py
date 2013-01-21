@@ -1319,7 +1319,10 @@ def generate_c_deep_copy_def(rule_map):
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
 
     print """
-nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
+extern nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
+   symbol_map_t* symbol_map,
+   symbol_map_t** synth_symbol_map);
+extern nodecl_t nodecl_deep_copy_function_code(nodecl_t n, decl_context_t new_decl_context, 
    symbol_map_t* symbol_map,
    symbol_map_t** synth_symbol_map);
 
@@ -1359,30 +1362,14 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       case %s:" % (node[0])
         print "       {"
 
-        copying_function = False
-
         if node[0] == "NODECL_CONTEXT":
             print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
             print "       }"
             continue
         elif node[0] == "NODECL_FUNCTION_CODE":
-            copying_function = True
-
-        if copying_function:
-            print "scope_entry_t* orig_symbol = nodecl_get_symbol(n);"
-            print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, orig_symbol);"
-            print "char new_function_ = 0;"
-
-            print "if (symbol == orig_symbol)"
-            print "{"
-            print    "new_function_ = 1;"
-            print    "symbol = calloc(1, sizeof(*symbol));"
-            print    "symbol->symbol_name = orig_symbol->symbol_name;"
-            print    "symbol->decl_context = orig_symbol->decl_context;"
-            print    "nested_symbol_map_t* nested_map = new_nested_symbol_map(*synth_symbol_map);"
-            print    "nested_map_add(nested_map, orig_symbol, symbol);"
-            print    "*synth_symbol_map = (symbol_map_t*)nested_map;"
-            print "}"
+            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
+            print "       }"
+            continue
 
         factory_arguments = []
         i = 0
@@ -1396,8 +1383,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         has_attr = lambda x : needs_attr(x) or may_have_attr(x)
 
         if has_attr("symbol"):
-            if not copying_function:
-                print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
+            print "scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, nodecl_get_symbol(n));"
         if needs_attr("symbol"):
             factory_arguments.append("symbol")
 
@@ -1433,14 +1419,6 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "int line = nodecl_get_line(n);"
         factory_arguments.append("line")
         print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
-
-        if copying_function:
-            print "if (new_function_)"
-            print "{"
-            print "    symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, (*synth_symbol_map));"
-            print "}"
-            print "symbol->entity_specs.function_code = result;"
-            print "symbol->related_decl_context = nodecl_get_decl_context(nodecl_get_child(result, 0));"
 
         if may_have_attr("symbol"):
             print "nodecl_set_symbol(result, symbol);"
