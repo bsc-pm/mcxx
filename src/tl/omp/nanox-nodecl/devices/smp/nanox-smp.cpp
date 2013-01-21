@@ -1075,10 +1075,22 @@ namespace TL { namespace Nanox {
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
+           Source unpacked_function_call;
+           if (IS_CXX_LANGUAGE
+                   && current_function.is_member()
+                   && !current_function.is_static())
+           {
+               unpacked_function_call << "args.this_->";
+               unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+           }
+
+           unpacked_function_call
+               << outline_name << "_unpacked(" << unpacked_arguments << ");";
+
             outline_src
                 << "{"
                 <<      instrument_before
-                <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      unpacked_function_call
                 <<      instrument_after
                 <<      cleanup_code
                 << "}"

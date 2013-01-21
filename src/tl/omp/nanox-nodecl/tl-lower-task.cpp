@@ -396,9 +396,13 @@ void LoweringVisitor::emit_async_common(
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_qualified_name(function_scope);
 
-    // MultiMap with every implementation of the current function task
+     struct_arg_type_name
+         << ((structure_symbol.get_type().is_template_specialized_type()
+                     &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
+         << structure_symbol.get_qualified_name(function_scope);
+
+     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
     std::multimap<std::string, std::string> devices_and_implementors;
@@ -629,6 +633,7 @@ void LoweringVisitor::emit_async_common(
         // Parse in C
         Source::source_language = SourceLanguage::C;
     }
+
     Nodecl::NodeclBase spawn_code_tree = spawn_code.parse_statement(construct);
 
     FORTRAN_LANGUAGE()
@@ -664,9 +669,48 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
 
+    Scope  enclosing_scope = construct.retrieve_context();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(environment,function_symbol);
+
+
+    // If the current function is a non-static function and It is member of a
+    // class, the first argument of the arguments list represents the object of
+    // this class
+     if (IS_CXX_LANGUAGE
+             && !function_symbol.is_static()
+             && function_symbol.is_member())
+     {
+//         Nodecl::NodeclBase class_object = *(arguments.begin());
+         TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+// 
+//         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+//         std::stringstream ss;
+//         ss << "mcc_arg_" << (int)arg_counter;
+//         TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
+//         arg_counter++;
+// 
+//         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+//         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
+//         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+// 
+         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+         sym_ref.set_type(this_symbol.get_type());
+// 
+//             // Direct initialization is enough
+//         new_symbol.get_internal_symbol()->value = sym_ref.get_internal_nodecl();
+// 
+//         new_arguments.append(new_symbol);
+// 
+         OutlineDataItem& argument_outline_data_item = outline_info.get_entity_for_symbol(this_symbol);
+
+//         // This is a special kind of shared
+         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+
+         argument_outline_data_item.set_base_address_expression(sym_ref);
+     }
 
     Symbol called_task_dummy = Symbol::invalid();
 
