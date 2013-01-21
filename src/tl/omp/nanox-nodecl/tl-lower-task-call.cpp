@@ -1023,6 +1023,8 @@ static Nodecl::NodeclBase fill_adapter_function(
                 /* internal_functions */ Nodecl::NodeclBase::null(),
                 adapter_function);
 
+    adapter_function.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+
     return function_code;
 }
 
