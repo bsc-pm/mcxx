@@ -1085,7 +1085,7 @@ namespace TL { namespace Nanox {
            }
 
            unpacked_function_call
-               << outline_name << "_unpacked(" << unpacked_arguments << ");";
+               << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
 
             outline_src
                 << "{"
