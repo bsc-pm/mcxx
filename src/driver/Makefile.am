@@ -90,6 +90,7 @@ mcxx_SOURCES = \
   cxx-configfile-lexer.h \
   cxx-configfile-lexer.c \
   cxx-multifile.h \
+  cxx-target-tools.h \
   cxx-multifile.c \
   cxx-embed.c \
   cxx-embed.h \
@@ -158,6 +159,8 @@ BUILT_SOURCES += cxx-configfile-parser.c
 BUILT_SOURCES += cxx-configfile-parser-internal.h
 BUILT_SOURCES += cxx-configfile-lexer.c
 
+BUILT_SOURCES += cxx-target-tools.h
+
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
 CLEANFILES += cxx-debugflags.c
@@ -168,6 +171,8 @@ CLEANFILES += cxx-configfile-lexer.c
 CLEANFILES += cxx-configfile-parser.c
 CLEANFILES += cxx-configfile-parser-internal.h
 CLEANFILES += cxx-configfile-parser.output
+
+CLEANFILES += cxx-target-tools.h
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 if GPERF_BUILDING
@@ -207,6 +212,19 @@ cxx-configfile-parser-internal.h : cxx-configfile-parser.c
 
 cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
 	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
+
+
+cxx-target-tools.h :
+	$(AM_V_GEN)( \
+		echo "#ifndef CXX_TARGET_TOOLS_H" > cxx-target-tools.h ; \
+		echo "#define CXX_TARGET_TOOLS_H" >> cxx-target-tools.h ; \
+		echo "" >> cxx-target-tools.h ; \
+		echo "#define TARGET_OBJDUMP \""$$(echo objdump | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
+		echo "#define TARGET_OBJCOPY \""$$(echo objcopy | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
+		echo "#define TARGET_AR \""$$(echo ar | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
+		echo "" >> cxx-target-tools.h ; \
+		echo "#endif // CXX_TARGET_TOOLS_H" >> cxx-target-tools.h; \
+		)
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx

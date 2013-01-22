@@ -145,7 +145,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
             NULL,
         };
 
-        if (execute_program("objcopy", objcopy_args) != 0)
+        if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
         {
             running_error("When creating multifile archive, 'objcopy' failed\n");
         }

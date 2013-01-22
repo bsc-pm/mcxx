@@ -30,6 +30,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
 #include "cxx-profile.h"
+#include "cxx-target-tools.h"
 #include <string.h>
 #include <stdlib.h>
 #include "uniquestr.h"
@@ -45,6 +46,12 @@ compilation_configuration_t* new_compilation_configuration(
     result->configuration_name = uniquestr(name);
     result->base_configuration = base;
 
+    // Default target tools
+    result->target_objcopy = TARGET_OBJCOPY;
+    result->target_objdump = TARGET_OBJDUMP;
+    result->target_ar = TARGET_AR;
+
+    // Fortran default width of 132 columns
     result->column_width = 132;
 
     return result;
