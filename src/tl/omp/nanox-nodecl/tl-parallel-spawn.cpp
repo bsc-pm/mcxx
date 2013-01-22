@@ -41,8 +41,18 @@ namespace TL { namespace Nanox {
                nanos_create_wd_and_run,
                immediate_decl;
 
+        Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
+
+        Nodecl::NodeclBase code = current_function.get_function_code();
+
+        Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+            ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+            : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+        TL::Scope function_scope = context.retrieve_context();
         Source struct_arg_type_name;
-        struct_arg_type_name << structure_symbol.get_qualified_name();
+        struct_arg_type_name << structure_symbol.get_qualified_name(function_scope);
 
         Source struct_size;
         Source dynamic_size;

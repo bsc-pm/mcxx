@@ -1075,10 +1075,22 @@ namespace TL { namespace Nanox {
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
+           Source unpacked_function_call;
+           if (IS_CXX_LANGUAGE
+                   && current_function.is_member()
+                   && !current_function.is_static())
+           {
+               unpacked_function_call << "args.this_->";
+               unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+           }
+
+           unpacked_function_call
+               << outline_name << "_unpacked(" << unpacked_arguments << ");";
+
             outline_src
                 << "{"
                 <<      instrument_before
-                <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      unpacked_function_call
                 <<      instrument_after
                 <<      cleanup_code
                 << "}"
@@ -1290,8 +1302,14 @@ namespace TL { namespace Nanox {
         std::string original_name = current_function.get_name();
 
         current_function.set_name(outline_name);
+        Nodecl::NodeclBase code = current_function.get_function_code();
 
-        std::string qualified_name = current_function.get_qualified_name();
+        Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+            ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+            : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+        TL::Scope function_scope = context.retrieve_context();
+        std::string qualified_name = current_function.get_qualified_name(function_scope);
 
         // Restore the original name of the current function
         current_function.set_name(original_name);

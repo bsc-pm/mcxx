@@ -33,14 +33,13 @@
 
 namespace TL { namespace Nanox {
 
-    void LoweringVisitor::add_field(OutlineDataItem& outline_data_item, 
+    void LoweringVisitor::add_field(OutlineDataItem& outline_data_item,
             TL::Type new_class_type,
             TL::Scope class_scope,
             TL::Symbol new_class_symbol,
             Nodecl::NodeclBase construct)
     {
         std::string field_name = outline_data_item.get_field_name();
-
         TL::Symbol field = class_scope.new_symbol(field_name);
         field.get_internal_symbol()->kind = SK_VARIABLE;
         field.get_internal_symbol()->entity_specs.is_user_declared = 1;
@@ -139,7 +138,7 @@ namespace TL { namespace Nanox {
 
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-        decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
+        decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(), new_class_symbol.get_internal_symbol());
 
         TL::Scope class_scope(class_context);
 

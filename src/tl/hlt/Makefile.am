@@ -30,13 +30,30 @@ phases_LTLIBRARIES = libtl-hlt-pragma.la
 include ../Makefile.phases
 
 END=
+
+ANALYSIS_CFLAGS= \
+			  -I $(srcdir)/../analysis/common \
+			  -I $(srcdir)/../analysis/constants \
+			  -I $(srcdir)/../analysis/liveness \
+			  -I $(srcdir)/../analysis/loops \
+			  -I $(srcdir)/../analysis/pcfg \
+			  -I $(srcdir)/../analysis/reach_defs \
+			  -I $(srcdir)/../analysis/singleton \
+			  -I $(srcdir)/../analysis/test_phase \
+			  -I $(srcdir)/../analysis/use_def \
+			  $(END)
+
+ANALYSIS_LDFLAGS = ../analysis/singleton/libanalysis_singleton.la
  
-COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT -I $(srcdir)/../omp/core
+COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
+			  -I $(srcdir)/../omp/core \
+			  $(ANALYSIS_CFLAGS) \
+			  $(END)
 
 libtl_hlt_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
 libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
 libtl_hlt_la_LIBADD=$(tl_libadd)
-libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+libtl_hlt_la_LDFLAGS=$(tl_ldflags) $(ANALYSIS_LDFLAGS)
 
 libtl_hlt_la_SOURCES = \
 	  hlt-common.hpp \

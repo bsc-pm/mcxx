@@ -28,7 +28,9 @@
 
 
 #include "hlt-unroll.hpp"
+#include "tl-analysis-static-info.hpp"
 #include <sstream>
+#include <limits.h>
 
 namespace TL { namespace HLT {
 
@@ -39,7 +41,28 @@ namespace TL { namespace HLT {
 
     bool LoopUnroll::check(bool diagnostic)
     {
-        return false;
+        if (!_tree.is<Nodecl::ForStatement>())
+        {
+            if (diagnostic)
+            {
+                std::cerr << _tree.get_locus() << ": error: only for-statement can be unrolled" << std::endl;
+            }
+            return false;
+        }
+
+        // Now ask analysis to tell us the induction variables of this for statement
+        // First get the enclosing function
+        TL::Scope sc = ReferenceScope(_tree).get_scope();
+        TL::Symbol function_symbol = sc.get_related_symbol();
+
+        Nodecl::NodeclBase function_code = function_symbol.get_function_code();
+        ERROR_CONDITION(function_code.is_null(), "Invalid node", 0);
+
+        Analysis::AnalysisStaticInfo analysis_static(function_code, INDUCTION_VARS_ANALYSIS, NESTED_FOR_STATIC_INFO, INT_MAX);
+
+        // ObjectList<InductionVariableData*> induction_vars = analysis_static.get_induction_variables();
+
+        return true;
     }
 } }
 

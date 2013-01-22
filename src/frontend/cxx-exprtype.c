@@ -5782,9 +5782,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     else if (entry->kind == SK_FUNCTION)
     {
         type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
-        // This symbol is bogus. Do not use it! Use instead the unresolved
-        // overload type information
-        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        *nodecl_output = nodecl_name;
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL
@@ -5811,11 +5809,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
-        // This symbol is bogus. Do not use it! Use instead the unresolved
-        // overload type information
-        *nodecl_output = nodecl_make_symbol(named_type,
-                nodecl_get_filename(nodecl_name),
-                nodecl_get_line(nodecl_name));
+        *nodecl_output = nodecl_name;
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL
@@ -8320,78 +8314,87 @@ static void handle_computed_function_type(
     }
 }
 
-void check_nodecl_function_call(nodecl_t nodecl_called, 
+static void check_nodecl_function_call_c(nodecl_t nodecl_called, 
         nodecl_t nodecl_argument_list, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
     // Keep the original name, lest it was a dependent call after all
-    nodecl_t nodecl_called_name = nodecl_called;
-
     const char* filename = nodecl_get_filename(nodecl_called);
     int line = nodecl_get_line(nodecl_called);
 
-    C_LANGUAGE()
+    type_t* called_type = no_ref(nodecl_get_type(nodecl_called));
+
+    if (is_computed_function_type(called_type))
     {
-        type_t* called_type = no_ref(nodecl_get_type(nodecl_called));
+        handle_computed_function_type(&nodecl_called, &called_type, nodecl_argument_list, decl_context, filename, line);
 
-        if (is_computed_function_type(called_type))
+        if (nodecl_is_err_expr(nodecl_called))
         {
-            handle_computed_function_type(&nodecl_called, &called_type, nodecl_argument_list, decl_context, filename, line);
-
-            if (nodecl_is_err_expr(nodecl_called))
-            {
-                *nodecl_output = nodecl_called;
-                return;
-            }
-        }
-
-        if (!is_function_type(called_type)
-                && !is_pointer_to_function_type(called_type))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: expression '%s' cannot be called\n", 
-                        nodecl_get_locus(nodecl_called),
-                        codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
+            *nodecl_output = nodecl_called;
             return;
         }
+    }
 
-        if (is_pointer_to_function_type(called_type))
-            called_type = pointer_type_get_pointee_type(called_type);
-
-        check_arg_data_t data;
-        data.decl_context = decl_context;
-
-        nodecl_t nodecl_argument_list_output = nodecl_null();
-        if (!check_argument_types_of_call(
-                    nodecl_called,
-                    nodecl_argument_list,
-                    called_type,
-                    arg_type_is_ok_for_param_type_c,
-                    filename, line,
-                    &data,
-                    &nodecl_argument_list_output))
+    if (!is_function_type(called_type)
+            && !is_pointer_to_function_type(called_type))
+    {
+        if (!checking_ambiguity())
         {
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
+            error_printf("%s: expression '%s' cannot be called\n", 
+                    nodecl_get_locus(nodecl_called),
+                    codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
         }
-
-        type_t* return_type = function_type_get_return_type(called_type);
-
-        // Everything else seems fine
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_called,
-                nodecl_argument_list_output,
-                /* function_form */ nodecl_null(), // We don't need a function form in C language
-                return_type,
-                filename, line);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    // From here only C++
+    if (is_pointer_to_function_type(called_type))
+        called_type = pointer_type_get_pointee_type(called_type);
+
+    check_arg_data_t data;
+    data.decl_context = decl_context;
+
+    nodecl_t nodecl_argument_list_output = nodecl_null();
+    if (!check_argument_types_of_call(
+                nodecl_called,
+                nodecl_argument_list,
+                called_type,
+                arg_type_is_ok_for_param_type_c,
+                filename, line,
+                &data,
+                &nodecl_argument_list_output))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    type_t* return_type = function_type_get_return_type(called_type);
+
+    // Everything else seems fine
+    *nodecl_output = cxx_nodecl_make_function_call(
+            nodecl_called,
+            nodecl_argument_list_output,
+            /* function_form */ nodecl_null(), // We don't need a function form in C language
+            return_type,
+            filename, line);
+}
+
+
+void check_nodecl_function_call(
+        nodecl_t nodecl_called, 
+        nodecl_t nodecl_argument_list, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    C_LANGUAGE()
+    {
+        check_nodecl_function_call_c(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
+        return;
+    }
+
+    const char* filename = nodecl_get_filename(nodecl_called);
+    int line = nodecl_get_line(nodecl_called);
 
     // Let's build the function form
     nodecl_t function_form = nodecl_null();
@@ -8410,17 +8413,46 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         }
     }
 
-    // Let's check the called entity
-    //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
+    // If any in the expression list is type dependent this call is all dependent
+    char any_arg_is_dependent = 0;
+    int i, num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+    for (i = 0; i < num_items && !any_arg_is_dependent; i++)
+    {
+        nodecl_t argument = list[i];
+        if (nodecl_expr_is_type_dependent(argument))
+        {
+            any_arg_is_dependent = 1;
+        }
+    }
+    free(list);
+
+    scope_entry_list_t* this_query = query_name_str(decl_context, "this");
+    scope_entry_t* this_symbol = NULL;
+
+    if (this_query != NULL)
+    {
+        this_symbol = entry_list_head(this_query);
+        if (is_dependent_type(this_symbol->type_information))
+        {
+            any_arg_is_dependent = 1;
+        }
+        entry_list_free(this_query);
+    }
+
+    // // Let's check the called entity
+    // //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
-    template_parameter_list_t* explicit_template_arguments = NULL;
-    type_t* called_type = NULL;
+    nodecl_t nodecl_called_name = nodecl_called;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
         char can_succeed = 1;
         // If can_succeed becomes zero, this call is not possible at all (e.g.
         // we are "calling" a typedef-name or class-name)
-        candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context, &can_succeed);
+        if (!any_arg_is_dependent)
+        {
+            candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context, &can_succeed);
+        }
 
         if (candidates == NULL && can_succeed)
         {
@@ -8428,40 +8460,28 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
-        if (candidates == NULL)
+        if (candidates == NULL
+                && !any_arg_is_dependent)
         {
             if (!checking_ambiguity())
             {
                 error_printf("%s:%d: error: called name '%s' not found in the current scope\n",
-                        filename, line,
+                        nodecl_get_filename(nodecl_called), nodecl_get_line(nodecl_called),
                         codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_called), nodecl_get_line(nodecl_called));
             return;
         }
-        else
+        else if (candidates != NULL)
         {
             cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, &nodecl_called);
         }
     }
 
-    if (nodecl_expr_is_type_dependent(nodecl_called)
-            // It may be value dependent if we are calling a nontype template
-            // parameter with type pointer to function
-            || nodecl_expr_is_value_dependent(nodecl_called))
-    {
-        // This is a dependent call, remember the original called name instead
-        // of anything synthesized by lookup
-        *nodecl_output = nodecl_make_cxx_dep_function_call(
-                nodecl_called_name,
-                nodecl_argument_list,
-                /* alternate_name */ nodecl_null(),
-                get_unknown_dependent_type(),
-                filename, line);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-    else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_called)))
+    template_parameter_list_t* explicit_template_arguments = NULL;
+    type_t* called_type = NULL;
+
+    if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_called)))
     {
         type_t* unresolved_type = nodecl_get_type(nodecl_called);
         candidates = unresolved_overloaded_type_get_overload_set(unresolved_type);
@@ -8472,14 +8492,40 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         called_type = nodecl_get_type(nodecl_called);
     }
 
+    if (!nodecl_is_err_expr(nodecl_called)
+            && (any_arg_is_dependent
+                || nodecl_expr_is_type_dependent(nodecl_called)
+                || nodecl_expr_is_value_dependent(nodecl_called)))
+    {
+        // If the called entity or one of the arguments is dependent, all the
+        // call is dependent
+
+        if (nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_SIMPLE)
+        {
+            // The call is dependent. For this reason we should ignore the nodecl constructed in
+            // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
+            nodecl_called = nodecl_called_name;
+        }
+
+        // Create a dependent call
+        *nodecl_output = nodecl_make_cxx_dep_function_call(
+                nodecl_called,
+                nodecl_argument_list,
+                /* alternate_name */ nodecl_null(),
+                get_unknown_dependent_type(),
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
     // This 1+ is room for the implicit argument
     int num_arguments = 1 + nodecl_list_length(nodecl_argument_list);
     type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { NULL };
 
     // Fill the argument_types here
     {
-        int num_items = 0, i;
-        nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+        num_items = 0;
+        list = nodecl_unpack_list(nodecl_argument_list, &num_items);
         for (i = 0; i < num_items; i++)
         {
             nodecl_t nodecl_arg = list[i];
@@ -8695,7 +8741,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         }
         else 
         {
-            scope_entry_list_t* this_query = query_name_str(decl_context, "this");
+            this_query = query_name_str(decl_context, "this");
 
             if (this_query != NULL)
             {
@@ -8842,8 +8888,8 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         // Starting from 0 would be a conversion of 'this' which does not apply here
         int arg_i = 1;
         // Set conversors of arguments if needed
-        int i, num_items = 0;
-        nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+        num_items = 0;
+        list = nodecl_unpack_list(nodecl_argument_list, &num_items);
         
         int num_parameters = function_type_get_num_parameters(function_type_of_called);
         if (function_type_get_has_ellipsis(function_type_of_called))
@@ -8963,32 +9009,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 
     CXX_LANGUAGE()
     {
-        // If any in the expression list is type dependent this call is all dependent
-        char any_arg_is_dependent = 0;
-        int i, num_items = 0;
-        nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
-        for (i = 0; i < num_items && !any_arg_is_dependent; i++)
-        {
-            nodecl_t argument = list[i];
-            if (nodecl_expr_is_type_dependent(argument))
-            {
-                any_arg_is_dependent = 1;
-            }
-        }
-        free(list);
-
-        scope_entry_list_t* this_query = query_name_str(decl_context, "this");
-
-        if (this_query != NULL)
-        {
-            scope_entry_t* this_symbol = entry_list_head(this_query);
-            if (is_dependent_type(this_symbol->type_information))
-            {
-                any_arg_is_dependent = 1;
-            }
-            entry_list_free(this_query);
-        }
-
         // Note that koenig lookup is simply disabled by means of parentheses,
         // so the check has to be done here.
         if (ASTType(called_expression) == AST_SYMBOL
@@ -9005,27 +9025,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
         else
         {
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
-        }
-
-        if (!nodecl_is_err_expr(nodecl_called)
-                && (any_arg_is_dependent
-                    || nodecl_expr_is_type_dependent(nodecl_called)))
-        {
-            if (is_id_expression(called_expression))
-            {
-                // The code is dependent. For this reason we should ignore the nodecl constructed in
-                // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
-                compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
-            }
-
-            *nodecl_output = nodecl_make_cxx_dep_function_call(
-                    nodecl_called,
-                    nodecl_argument_list,
-                    /* alternate_name */ nodecl_null(),
-                    get_unknown_dependent_type(),
-                    ASTFileName(expr), ASTLine(expr));
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-            return;
         }
     }
 

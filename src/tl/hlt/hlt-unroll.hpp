@@ -41,9 +41,9 @@ namespace TL
         //! @{
 
         //! Unrolls a regular loop a given number of times
-        /*! 
+        /*!
           This class implements loop unrolling. Loop unrolling
-          repeats the body of the loop in the loop itsel, adjusting
+          repeats the body of the loop in the loop itself, adjusting
           the stride and creating, if necessary an epilog loop.
           */
         class LIBHLT_CLASS LoopUnroll : public Transform
