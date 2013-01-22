@@ -1989,7 +1989,8 @@ void LoweringVisitor::fill_dependences_internal(
                     << dependency_flags_in << "," 
                     << dependency_flags_out << ", "
                     << /* renaming has not yet been implemented */ "0, " 
-                    << dependency_flags_concurrent
+                    << dependency_flags_concurrent << ","
+                    << dependency_flags_commutative
                     << "}"
                     ;
 

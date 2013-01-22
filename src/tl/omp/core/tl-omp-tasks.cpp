@@ -641,11 +641,18 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause reduction_clause = pragma_line.get_clause("concurrent");
-            ObjectList<Nodecl::NodeclBase> reduction_arguments;
-            if (reduction_clause.is_defined())
+            PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
+            ObjectList<Nodecl::NodeclBase> concurrent_arguments;
+            if (concurrent_clause.is_defined())
             {
-                reduction_arguments = reduction_clause.get_arguments_as_expressions(param_ref_tree);
+                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(param_ref_tree);
+            }
+
+            PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
+            ObjectList<Nodecl::NodeclBase> commutative_arguments;
+            if (commutative_clause.is_defined())
+            {
+                commutative_arguments = commutative_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             if (!function_sym.is_function())
@@ -683,7 +690,9 @@ namespace TL
 
             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
 
-            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+            dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+
+            dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
 
             dependence_list_check(dependence_list);
 
