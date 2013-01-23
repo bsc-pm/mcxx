@@ -35,6 +35,19 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
+    // ***************************** Extended Symbol comparisons ****************************** //
+
+    bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained )
+    {
+        return Nodecl::Utils::nodecl_contains_nodecl( container.get_nodecl( ), contained.get_nodecl( ) );
+    }
+
+    // **************************************************************************************** //
+    // *************************** END extended Symbol comparisons **************************** //
+
+
+
+    // **************************************************************************************** //
     // *************** Methods for dealing with containers of Extended Symbols **************** //
 
     ext_sym_set ext_sym_set_union( ext_sym_set c1, ext_sym_set c2 )
@@ -51,19 +64,78 @@ namespace Utils {
 
         for( ext_sym_map::iterator it = c2.begin(); it != c2.end(); ++it)
         {
-            if( c1.find( it->first ) == c1.end( ) )
+            bool pair_already_in_map = false;
+            std::pair<ext_sym_map::iterator, ext_sym_map::iterator> current_key_in_result = result.equal_range( it->first );
+            for( ext_sym_map::iterator itt = current_key_in_result.first; itt != current_key_in_result.second; ++itt )
             {
-                result[it->first] = it->second;
-            }
-            else
-            {
-                if( !Nodecl::Utils::equal_nodecls( result[it->first], it->second ) )
+                if( Nodecl::Utils::equal_nodecls( itt->second, it->second ) )
                 {
-                    result.erase( it->first );
+                    pair_already_in_map = true;
+                    break;
                 }
+            }
+            if( !pair_already_in_map )
+            {
+                result.insert( std::pair<ExtendedSymbol, Nodecl::NodeclBase>( it->first, it->second ) );
             }
         }
 
+        return result;
+    }
+
+    ext_sym_set ext_sym_set_difference( ext_sym_set c1, ext_sym_set c2 )
+    {
+        ext_sym_set result;
+        std::set_difference( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
+                             std::inserter( result, result.begin() ) );
+        return result;
+    }
+
+    ext_sym_map ext_sym_map_minus_ext_sym_set( ext_sym_map c1, ext_sym_set c2 )
+    {
+        ext_sym_map result;
+        for( ext_sym_map::iterator it = c1.begin(); it != c1.end(); ++it)
+        {
+            if( c2.find( it->first ) == c2.end( ) )
+            {
+                result.insert( std::pair<ExtendedSymbol, Nodecl::NodeclBase>( it->first, it->second ) );
+            }
+        }
+        return result;
+    }
+
+    bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 )
+    {
+        bool result = false;
+        if( c1.size( ) == c2.size( ) )
+        {
+            ext_sym_set intersection;
+            std::set_intersection( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
+                                   std::inserter( intersection, intersection.begin() ) );
+            if( intersection.size( ) == c1.size( ) )
+                result = true;
+        }
+        return result;
+    }
+
+    bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 )
+    {
+        bool result = false;
+        if( c1.size( ) == c2.size( ) )
+        {
+            result = true;
+            ext_sym_map::iterator it1 = c1.begin( );
+            ext_sym_map::iterator it2 = c2.begin( );
+            for( ; it1 != c1.end( ); ++it1, ++it2 )
+            {
+                if( !Nodecl::Utils::equal_nodecls( it1->first.get_nodecl( ), it2->first.get_nodecl( ), /* skip Conversion nodes */ true ) ||
+                    !Nodecl::Utils::equal_nodecls( it1->second, it2->second, /* skip Conversion nodes */ true ) )
+                {
+                    result = false;
+                    break;
+                }
+            }
+        }
         return result;
     }
 

@@ -122,7 +122,8 @@ namespace Analysis {
 
         bool is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
-        bool is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
+        //! Returns true when all Induction Variables of a loop has stride equal to one
+        bool is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
     friend class AnalysisSingleton;
     };

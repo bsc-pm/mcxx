@@ -47,10 +47,14 @@ namespace Analysis {
         //! Set of induction variables found for the current graph
         Utils::InductionVarsPerNode _induction_vars;
 
+        //! Set of variables determining the limits of the loop
+        Utils::InductionVarsPerNode _loop_limits;
+
         //! Recursive method that actually computes the loop ranges of \_graph
         void compute_loop_ranges_rec( Node* current );
 
-
+        //! Method to compute the number of iterations of a loop
+        void get_loop_limits( Nodecl::NodeclBase cond, int loop_id );
 
         // *** Private methods *** //
 //         void traverse_loop_init( Node* loop_node, Nodecl::NodeclBase init );

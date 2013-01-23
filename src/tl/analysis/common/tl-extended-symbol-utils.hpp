@@ -85,54 +85,22 @@ namespace Utils {
 
 
     // **************************************************************************************** //
-    // *************** Methods for dealing with containers of Extended Symbols **************** //
+    // ********************** Methods for dealing with Extended Symbols *********************** //
+
+    // ExtendedSymbol comparisons
+
+    bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained );
 
     // ********** Containers algorithms ********* //
 
     ext_sym_map ext_sym_map_union( ext_sym_map c1, ext_sym_map c2 );
-
     ext_sym_set ext_sym_set_union( ext_sym_set c1, ext_sym_set c2 );
 
-    template <typename T>
-    T containers_difference( T c1, T c2 )
-    {
-        T result;
-        std::set_difference( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
-                             std::inserter( result, result.begin() ) );
-        return result;
-    }
+    ext_sym_set ext_sym_set_difference( ext_sym_set c1, ext_sym_set c2 );
+    ext_sym_map ext_sym_map_minus_ext_sym_set( ext_sym_map c1, ext_sym_set c2 );
 
-    template <typename T, typename U>
-    T containers_difference( T c1, U c2 )
-    {
-        T result;
-        for( typename T::iterator it = c1.begin(); it != c1.end(); ++it)
-        {
-            if( c2.find( it->first ) == c2.end( ) )
-            {
-                result[it->first] = it->second;
-            }
-        }
-        return result;
-    }
-
-    template <typename T>
-    bool containers_equivalence( T c1, T c2 )
-    {
-        bool result = false;
-        if( c1.size( ) == c2.size( ) )
-        {
-            T intersection;
-            std::set_intersection( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
-                                   std::inserter( intersection, intersection.begin() ) );
-            if( intersection.size( ) == c1.size( ) )
-                result = true;
-        }
-        return result;
-    }
-
-
-    // ********** Extended Symbol list ********** //
+    bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 );
+    bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
 
     bool ext_sym_set_contains_sym(ExtendedSymbol s, ext_sym_set sym_set);
     bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
@@ -161,7 +129,7 @@ namespace Utils {
     ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
     ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list );
 
-    // ************* END methods for dealing with containers of Extended Symbols ************** //
+    // ******************** END methods for dealing with Extended Symbols ********************* //
     // **************************************************************************************** //
 }
 }

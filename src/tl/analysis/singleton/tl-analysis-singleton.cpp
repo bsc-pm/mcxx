@@ -22,8 +22,11 @@
  License along with Mercurium C/C++ source-to-source compiler; if
  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
  Cambridge, MA 02139, USA.
+
  --------------------------------------------------------------------*/
 
+
+#include "cxx-cexpr.h"
 #include "cxx-process.h"
 
 #include "tl-analysis-singleton.hpp"
@@ -297,10 +300,21 @@ namespace Analysis {
         return result;
     }
 
-    // TODO
-    bool PCFGAnalysis_memento::is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
+    bool PCFGAnalysis_memento::is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
     {
-        bool result = false;
+        bool result = true;
+
+        ObjectList<Utils::InductionVariableData*> ivs = get_induction_variables( loop );
+        for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+        {
+            Nodecl::NodeclBase incr = ( *it )->get_increment( );
+            if( !incr.is_constant( ) ||
+                ( incr.is_constant( ) && !const_value_is_one( incr.get_constant( ) ) ) )
+            {
+                result = false;
+                break;
+            }
+        }
 
         return result;
     }

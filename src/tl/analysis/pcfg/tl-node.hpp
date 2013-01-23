@@ -219,9 +219,19 @@ namespace Analysis {
             //! Returns true when the node is the exit node of composite node \graph
             bool is_graph_exit_node( Node* graph );
 
-            //! Returns true when the node is a composite node of LOOP type
+            //! Returns true when the node is a composite node of any type of loop
             bool is_loop_node( );
 
+            //! Returns true when the node is a composite node of FOR_LOOP type
+            bool is_for_loop( );
+
+            //! Returns true when the node is a composite node of FOR_WHILE type
+            bool is_while_loop( );
+
+            //! Returns true when the node is a composite node of FOR_DOWHILE type
+            bool is_do_loop( );
+
+            //! Returns true when the node contains the stride of a FOR_LOOP node
             bool is_loop_stride( Node* loop );
 
             //! Returns true when the node is a NORMAL node
