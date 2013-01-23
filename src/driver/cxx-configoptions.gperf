@@ -54,5 +54,8 @@ target_options, config_set_target_options
 compiler_dto, config_set_compiler_dto
 fortran_preprocessor_name, config_set_fortran_preprocessor_name
 fortran_preprocessor_options, config_set_fortran_preprocessor_options
+target_objcopy, config_set_target_objcopy
+target_objdump, config_set_target_objdump
+target_ar, config_set_target_ar
 %%
 

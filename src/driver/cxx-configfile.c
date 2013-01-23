@@ -477,6 +477,24 @@ int config_set_codegen_phase(compilation_configuration_t* config, const char* in
     return 0;
 }
 
+int config_set_target_objcopy(compilation_configuration_t* config, const char* index UNUSED_PARAMETER, const char* value)
+{
+    config->target_objcopy = value;
+    return 0;
+}
+
+int config_set_target_objdump(compilation_configuration_t* config, const char* index UNUSED_PARAMETER, const char* value)
+{
+    config->target_objdump = value;
+    return 0;
+}
+
+int config_set_target_ar(compilation_configuration_t* config, const char* index UNUSED_PARAMETER, const char* value)
+{
+    config->target_ar = value;
+    return 0;
+}
+
 char config_file_parse(const char *filename)
 {
     if (open_configuration_file_for_scan(filename))

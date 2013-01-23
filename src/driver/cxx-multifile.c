@@ -121,7 +121,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
         NULL
     };
 
-    if (execute_program("objcopy", arguments_objcopy) != 0)
+    if (execute_program(CURRENT_CONFIGURATION->target_objcopy, arguments_objcopy) != 0)
     {
         running_error("Error when extracting the object file data", 0);
     }
@@ -176,7 +176,7 @@ void multifile_extract_extended_info(const char* filename)
             NULL,
         };
 
-        if (execute_program("ar", list_arguments) != 0)
+        if (execute_program(CURRENT_CONFIGURATION->target_ar, list_arguments) != 0)
         {
             running_error("Error while extracting members of archive", 0);
         }
@@ -235,8 +235,8 @@ char multifile_object_has_extended_info(const char* filename)
         NULL
     };
 
-    // Should this 'objdump' be configurable?
-    if (execute_program_flags("objdump", arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
+    if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
+                arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
         running_error("Error when identifying object file", 0);
     }
@@ -532,7 +532,7 @@ void multifile_embed_bfd_collective(void **data, const char* output_filename)
         NULL,
     };
 
-    if (execute_program("objcopy", objcopy_args) != 0)
+    if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
     {
         running_error("When creating multifile archive, 'objcopy' failed\n");
     }

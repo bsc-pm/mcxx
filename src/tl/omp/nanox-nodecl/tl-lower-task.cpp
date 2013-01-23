@@ -388,6 +388,8 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
+    bool is_function_task = called_task.is_valid();
+
     Nodecl::NodeclBase code = current_function.get_function_code();
 
     Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
@@ -492,7 +494,7 @@ void LoweringVisitor::emit_async_common(
         // The symbol 'real_called_task' will be invalid if the current task is
         // a inline task. Otherwise, It will be the implementor symbol
         TL::Symbol real_called_task =
-                (called_task.is_valid()) ?
+                (is_function_task) ?
                     implementor_symbol : TL::Symbol::invalid();
 
         CreateOutlineInfo info_implementor(
@@ -539,6 +541,11 @@ void LoweringVisitor::emit_async_common(
 
         devices_and_implementors_it++;
         n_devices--;
+    }
+
+    if (is_function_task)
+    {
+        remove_non_smp_functions(implementation_table);
     }
 
 
@@ -678,43 +685,29 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     OutlineInfo outline_info(environment,function_symbol);
 
+    // Handle the special object 'this'
+    if (IS_CXX_LANGUAGE
+            && !function_symbol.is_static()
+            && function_symbol.is_member())
+    {
+        TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+        ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
-    // If the current function is a non-static function and It is member of a
-    // class, the first argument of the arguments list represents the object of
-    // this class
-     if (IS_CXX_LANGUAGE
-             && !function_symbol.is_static()
-             && function_symbol.is_member())
-     {
-//         Nodecl::NodeclBase class_object = *(arguments.begin());
-         TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
-         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
-// 
-//         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-//         std::stringstream ss;
-//         ss << "mcc_arg_" << (int)arg_counter;
-//         TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
-//         arg_counter++;
-// 
-//         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-//         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
-//         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-// 
-         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
-         sym_ref.set_type(this_symbol.get_type());
-// 
-//             // Direct initialization is enough
-//         new_symbol.get_internal_symbol()->value = sym_ref.get_internal_nodecl();
-// 
-//         new_arguments.append(new_symbol);
-// 
-         OutlineDataItem& argument_outline_data_item = outline_info.get_entity_for_symbol(this_symbol);
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+        sym_ref.set_type(this_symbol.get_type());
 
-//         // This is a special kind of shared
-         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+        // The object 'this' may already have an associated OutlineDataItem
+        OutlineDataItem& argument_outline_data_item =
+            outline_info.get_entity_for_symbol(this_symbol);
 
-         argument_outline_data_item.set_base_address_expression(sym_ref);
-     }
+        // We must ensure that this OutlineDataItem is moved to the
+        // first position of the list of OutlineDataItems.
+        outline_info.move_at_begin(argument_outline_data_item);
+
+        // This is a special kind of shared
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+        argument_outline_data_item.set_base_address_expression(sym_ref);
+    }
 
     Symbol called_task_dummy = Symbol::invalid();
 
@@ -1988,7 +1981,8 @@ void LoweringVisitor::fill_dependences_internal(
                     << dependency_flags_in << "," 
                     << dependency_flags_out << ", "
                     << /* renaming has not yet been implemented */ "0, " 
-                    << dependency_flags_concurrent
+                    << dependency_flags_concurrent << ","
+                    << dependency_flags_commutative
                     << "}"
                     ;
 
@@ -2323,5 +2317,22 @@ void LoweringVisitor::fill_dimensions(
     }
 }
 
+void LoweringVisitor::remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table)
+{
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
+    {
+        ObjectList<std::string> devices=it->second.get_device_names();
+        if (!devices.contains("smp"))
+        {
+            TL::Symbol implementor = it->first;
+            if (!implementor.get_function_code().is_null())
+            {
+                Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
+            }
+        }
+    }
+}
 
 } }

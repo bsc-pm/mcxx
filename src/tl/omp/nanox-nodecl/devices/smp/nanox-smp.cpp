@@ -291,6 +291,8 @@ namespace TL { namespace Nanox {
             CreateOutlineInfo& info,
             Nodecl::Utils::SymbolMap*& out_symbol_map)
     {
+        bool is_function_task = info._called_task.is_valid();
+
         Scope sc = current_function.get_scope();
         decl_context_t decl_context = sc.get_decl_context();
 
@@ -311,9 +313,17 @@ namespace TL { namespace Nanox {
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
+        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static()
+                && it != data_items.end())
+        {
+            it++;
+        }
+
+        for (; it != data_items.end(); it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
 
@@ -523,6 +533,17 @@ namespace TL { namespace Nanox {
                         new_template_sym->type_information));
         }
 
+        // Make it static
+        new_function_sym->entity_specs.is_static = 1;
+
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static())
+        {
+          new_function_sym->entity_specs.is_static = 0;
+        }
+
         // Finally, we update the parameters of the new function symbol
         for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
                 it != parameter_symbols.end();
@@ -532,9 +553,6 @@ namespace TL { namespace Nanox {
             symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
         }
-
-        // Make it static
-        new_function_sym->entity_specs.is_static = 1;
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
@@ -786,7 +804,7 @@ namespace TL { namespace Nanox {
         //Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
         const Nodecl::NodeclBase& original_statements = info._original_statements;
-        //OutlineInfo& outline_info = info._outline_info;
+        bool is_function_task = info._called_task.is_valid();
 
         output_statements = original_statements;
 
@@ -808,9 +826,17 @@ namespace TL { namespace Nanox {
         int upper_bound_index = 0;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
+        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static()
+                && it != data_items.end())
+        {
+            ++it;
+        }
+
+        for (; it != data_items.end(); it++)
         {
             switch ((*it)->get_sharing())
             {
@@ -1076,16 +1102,16 @@ namespace TL { namespace Nanox {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
            Source unpacked_function_call;
-           if (IS_CXX_LANGUAGE
-                   && current_function.is_member()
-                   && !current_function.is_static())
-           {
-               unpacked_function_call << "args.this_->";
-               unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
-           }
+            if (IS_CXX_LANGUAGE
+                    && !is_function_task
+                    && current_function.is_member()
+                    && !current_function.is_static())
+            {
+                unpacked_function_call << "args.this_->";
+            }
 
            unpacked_function_call
-               << outline_name << "_unpacked(" << unpacked_arguments << ");";
+               << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
 
             outline_src
                 << "{"
