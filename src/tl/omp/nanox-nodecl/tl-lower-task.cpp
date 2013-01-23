@@ -389,6 +389,8 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
+    bool is_function_task = called_task.is_valid();
+
     Nodecl::NodeclBase code = current_function.get_function_code();
 
     Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
@@ -493,7 +495,7 @@ void LoweringVisitor::emit_async_common(
         // The symbol 'real_called_task' will be invalid if the current task is
         // a inline task. Otherwise, It will be the implementor symbol
         TL::Symbol real_called_task =
-                (called_task.is_valid()) ?
+                (is_function_task) ?
                     implementor_symbol : TL::Symbol::invalid();
 
         CreateOutlineInfo info_implementor(
@@ -540,6 +542,11 @@ void LoweringVisitor::emit_async_common(
 
         devices_and_implementors_it++;
         n_devices--;
+    }
+
+    if (is_function_task)
+    {
+        remove_non_smp_functions(implementation_table);
     }
 
 
@@ -2325,5 +2332,22 @@ void LoweringVisitor::fill_dimensions(
     }
 }
 
+void LoweringVisitor::remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table)
+{
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
+    {
+        ObjectList<std::string> devices=it->second.get_device_names();
+        if (!devices.contains("smp"))
+        {
+            TL::Symbol implementor = it->first;
+            if (!implementor.get_function_code().is_null())
+            {
+                Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
+            }
+        }
+    }
+}
 
 } }

@@ -321,6 +321,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
+
+        void remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table);
 };
 
 } }
