@@ -344,6 +344,24 @@ namespace Analysis {
                         || ( get_graph_type( ) == LOOP_WHILE ) ) );
     }
 
+    bool Node::is_for_loop( )
+    {
+        return ( ( get_type( ) == GRAPH )
+                 && ( get_graph_type( ) == LOOP_FOR ) );
+    }
+
+    bool Node::is_while_loop( )
+    {
+        return ( ( get_type( ) == GRAPH )
+                 && ( get_graph_type( ) == LOOP_WHILE ) );
+    }
+
+    bool Node::is_do_loop( )
+    {
+        return ( ( get_type( ) == GRAPH )
+                 && ( get_graph_type( ) == LOOP_DOWHILE ) );
+    }
+
     bool Node::is_loop_stride( Node* loop )
     {
         return ( loop->get_stride_node( )->get_id( ) == _id );
@@ -1184,12 +1202,8 @@ namespace Analysis {
         if( has_key( _REACH_DEFS_IN ) )
         {
             reaching_defs_in = get_data<Utils::ext_sym_map>( _REACH_DEFS_IN );
-            if( reaching_defs_in.find( var ) != reaching_defs_in.end( ) )
-            {
-                reaching_defs_in.erase( var );
-            }
         }
-        reaching_defs_in[var] = init;
+        reaching_defs_in.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( var, init ) );
         set_data( _REACH_DEFS_IN, reaching_defs_in );
     }
 
@@ -1204,12 +1218,8 @@ namespace Analysis {
         if( has_key( _REACH_DEFS_OUT ) )
         {
             reaching_defs_out = get_data<Utils::ext_sym_map>( _REACH_DEFS_OUT );
-            if( reaching_defs_out.find( var ) != reaching_defs_out.end( ) )
-            {
-                reaching_defs_out.erase( var );
-            }
         }
-        reaching_defs_out[var] = init;
+        reaching_defs_out.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( var, init ) );
         set_data( _REACH_DEFS_OUT, reaching_defs_out );
     }
 

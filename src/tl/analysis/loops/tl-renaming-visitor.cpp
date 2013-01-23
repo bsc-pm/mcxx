@@ -369,11 +369,11 @@ namespace Analysis {
 
     //! Useful to combine expressions as 'i = i + j;' where 'i, j' are induction variables
     template <typename T>
-    Nodecl::NodeclBase RenamingVisitor::create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
+    void RenamingVisitor::create_new_range_from_binary_node( T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
                                                                             Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
-                                                                            Nodecl::NodeclBase stride)
+                                                                            Nodecl::NodeclBase stride )
     {
-        Nodecl::NodeclBase renamed, lb, ub;
+        Nodecl::NodeclBase lb, ub;
 
         if (n.template is<Nodecl::Add>())
         {
@@ -546,14 +546,9 @@ namespace Analysis {
         }
 
         // Compute constant values for LB and UB if possible
-        Nodecl::NodeclBase reduced_lb = Nodecl::Utils::reduce_expression(lb);
-//             std::cerr << "Reducing LB: " << lb.prettyprint() << "  --> " << reduced_lb.prettyprint() << std::endl;
-        Nodecl::NodeclBase reduced_ub = Nodecl::Utils::reduce_expression(ub);
-//             std::cerr << "Reducing UB: " << ub.prettyprint() << "  --> " << reduced_ub.prettyprint() << std::endl;
-
-        renamed = Nodecl::Range::make(reduced_lb, reduced_ub, stride, n.get_type(), _filename, _line);
-
-        return renamed;
+        Nodecl::Utils::ReduceExpressionVisitor v;
+        v.walk( lb );
+        v.walk( ub );
     }
 
     // ************************************************************************************** //
@@ -773,7 +768,7 @@ namespace Analysis {
                     stride = stride2;
                 }
 
-                renamed = create_new_range_from_binary_node(n, lb1, ub1, lb2, ub2, stride);
+                renamed = create_new_range_from_binary_node( n, lb1, ub1, lb2, ub2, stride );
             }
             else
             {

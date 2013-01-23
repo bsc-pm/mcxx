@@ -63,7 +63,7 @@ namespace Analysis {
         Ret visit_binary(const T& n);
 
         template <typename T>
-        Nodecl::NodeclBase create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
+        void create_new_range_from_binary_node(T& n, Nodecl::NodeclBase lb1, Nodecl::NodeclBase ub1,
                                                             Nodecl::NodeclBase lb2, Nodecl::NodeclBase ub2,
                                                             Nodecl::NodeclBase stride);
 
