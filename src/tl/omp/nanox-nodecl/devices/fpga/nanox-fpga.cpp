@@ -213,11 +213,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             _fpga_file_code.append(wrapper);
             _fpga_file_code.append(tmp_task);
             //TODO: Add inline pragma to called task #pragma HLS inline
-            // Remove the user function definition from the original source because
-
-            // It is used only in the intermediate file
-            // ^^ Are we completely sure about this? 
-            Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
         }
     }
 
@@ -380,7 +375,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
     device_descriptor
-        << "{ nanos_fpga_factory,  &" << outline_name << "_args },";
+        << "{ nanos_fpga_factory,  &" << outline_name << "_args }";
         ;
 
 }
@@ -794,10 +789,6 @@ Source DeviceFPGA::fpga_param_code(
     //Nodecl::Utils::SimpleSymbolMap *ssmap = (Nodecl::Utils::SimpleSymbolMap*)symbol_map;
     //TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     Source args_src;
-    /*
-     * At some point we should have something like a nanox fpga-api so we can call functions
-     * like init/deinit hardware, get channels and (maybe) setup config.
-     */
 
     /*
      * Get the fpga handle to write the data that we need.
