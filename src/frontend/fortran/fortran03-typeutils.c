@@ -150,25 +150,8 @@ const char* fortran_print_type_str(type_t* t)
     else if (is_function_type(t))
     {
         result = "PROCEDURE";
-        // result = strappend(result, "(");
-
-        // int i;
-        // 
-        // int n = function_type_get_num_parameters(t);
-        // for (i = 0; i < n; i++)
-        // {
-        //     type_t* param_type = function_type_get_parameter_type_num(t, i);
-        //     char c[256];
-        //     snprintf(c, 255, "%s%s", (i == 0 ? "" : ", "), 
-        //             fortran_print_type_str(param_type));
-        //     c[255] = '\0';
-
-        //     result = strappend(result, c);
-        // }
-
-        // result = strappend(result, ")");
     }
-    else 
+    else
     {
         const char* non_printable = NULL;
         uniquestr_sprintf(&non_printable, "non-fortran type '%s'", print_declarator(t));

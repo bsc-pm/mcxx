@@ -8642,11 +8642,10 @@ void check_nodecl_function_call(
 
                     surrogate_symbol->kind = SK_FUNCTION;
                     {
-                        char c[256];
-                        snprintf(c, 255, "<surrogate-function-%d>", num_surrogate_functions);
-                        c[255] = '\0';
+                        const char *surrogate_name = NULL;
+                        uniquestr_sprintf(&surrogate_name, "<surrogate-function-%d>", num_surrogate_functions);
 
-                        surrogate_symbol->symbol_name = uniquestr(c);
+                        surrogate_symbol->symbol_name = surrogate_name;
                     }
 
                     // Check this to be the proper context required

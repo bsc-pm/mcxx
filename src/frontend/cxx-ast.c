@@ -824,20 +824,18 @@ const char* ast_location(const_AST a)
     if (a == NULL)
         return "";
 
-    char result[256];
+    const char* result = NULL;
 
     if (a->filename == NULL)
     {
-        snprintf(result, 255, "<unknown file>:%u", a->line);
+        uniquestr_sprintf(&result, "<unknown file>:%u", a->line);
     }
     else
     {
-        snprintf(result, 255, "%s:%u", a->filename, a->line);
+        uniquestr_sprintf(&result, "%s:%u", a->filename, a->line);
     }
 
-    result[255] = '\0';
-
-    return uniquestr(result);
+    return result;
 }
 
 // Trees are copied
