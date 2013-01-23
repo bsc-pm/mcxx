@@ -97,6 +97,7 @@ namespace Analysis {
 
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
             bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope );
     };
 
     // ************************** END User interface for static analysis *************************** //

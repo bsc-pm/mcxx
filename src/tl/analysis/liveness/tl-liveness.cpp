@@ -147,9 +147,10 @@ namespace Analysis {
 
                     // Computing Live In
                     live_in = Utils::ext_sym_set_union( current->get_ue_vars( ),
-                                                       Utils::containers_difference( live_out, current->get_killed_vars( ) ) );
+                                                        Utils::ext_sym_set_difference( live_out, current->get_killed_vars( ) ) );
 
-                    if( !Utils::containers_equivalence( old_live_in, live_in ) || !Utils::containers_equivalence( old_live_out, live_out ) )
+                    if( !Utils::ext_sym_set_equivalence( old_live_in, live_in ) ||
+                        !Utils::ext_sym_set_equivalence( old_live_out, live_out ) )
                     {
                         current->set_live_in( live_in );
                         current->set_live_out( live_out );

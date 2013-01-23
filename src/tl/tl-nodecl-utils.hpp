@@ -28,6 +28,8 @@
 #define TL_NODECL_ALG_HPP
 
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-calc.hpp"
+#include "tl-nodecl-visitor.hpp"
 #include "tl-source.hpp"
 
 #include "cxx-nodecl-deep-copy.h"
@@ -51,12 +53,14 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
 
         bool nodecl_is_arithmetic_op( Nodecl::NodeclBase n );
-        bool nodecl_is_comparison_op( Nodecl::NodeclBase n );
-        bool nodecl_is_logical_op( Nodecl::NodeclBase n );
-        bool nodecl_is_bitwise_op( Nodecl::NodeclBase n );
         bool nodecl_is_assignment_op( Nodecl::NodeclBase n );
+        bool nodecl_is_bitwise_op( Nodecl::NodeclBase n );
+        bool nodecl_is_comparison_op( Nodecl::NodeclBase n );
+        bool nodecl_is_literal( Nodecl::NodeclBase n );
+        bool nodecl_is_logical_op( Nodecl::NodeclBase n );
         bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
+        bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                            bool skip_conversion_nodecls = false);
         struct Nodecl_hash {
@@ -66,6 +70,62 @@ namespace Nodecl
             bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
         };
 
+        /*!
+         * This method must be called in pre-order from the bottom of a tree expression
+         *
+         * R1 :   +                                     R3 :    -
+         *      /   \          =>     c1 + c2                 /   \     =>    c1 - c2
+         *    c1    c2                                      c1    c2
+         *
+         * R2 :   +                       +             R4      -                +
+         *      /   \          =>       /   \                 /   \     =>     /   \
+         *     t    c                  c     t               t    c          -c     t
+         *
+         * R5 :   -
+         *      /   \               =>    0
+         *     t1   t2 , t1 = t2
+         *
+         * R6 :       +                    +
+         *          /   \               /     \
+         *         +    c2     =>    c1+c2     t
+         *       /   \
+         *     c1    t
+         *
+         * R7 :   *                                     R8 :    *                 *
+         *      /   \          =>     c1 * c2                 /   \     =>      /   \
+         *    c1    c2                                       t    c            c     t
+         *
+         * R9 :       *                    *
+         *          /   \               /     \
+         *         *    c2     =>    c1*c2     t
+         *       /   \
+         *     c1    t
+         *
+         * R10 :  /
+         *      /   \          =>     0
+         *     0    c,  c != 0
+         *
+         * R11 :  %         %
+         *      /   \  ,  /   \   =>  0
+         *     t    1    t    t
+         */
+        class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+        private:
+            Calculator _calc;
+
+        public:
+            // *** Constructor *** //
+            ReduceExpressionVisitor( );
+
+            // *** Visiting methods *** //
+            Ret visit_post( const Nodecl::Add& n );
+            Ret visit_post( const Nodecl::Div& n );
+            Ret visit_post( const Nodecl::LowerOrEqualThan& n );
+            Ret visit_post( const Nodecl::Minus& n );
+            Ret visit_post( const Nodecl::Mod& n );
+            Ret visit_post( const Nodecl::Mul& n );
+        };
 
         // Basic replacement
         //
@@ -78,9 +138,6 @@ namespace Nodecl
         // element, this replace will behave as if we replaced it with its
         // item.
         void replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src);
-
-        NodeclBase reduce_expression(Nodecl::NodeclBase n);
-        NodeclBase algebraic_simplification(Nodecl::NodeclBase n);
 
         Nodecl::List get_all_list_from_list_node(Nodecl::List);
 
