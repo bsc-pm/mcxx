@@ -106,7 +106,7 @@ namespace TL { namespace Nanox {
         const Nodecl::NodeclBase& _original_statements;
         Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
-        const TL::Symbol& _called_task; // Only used in CUDA device
+        const TL::Symbol& _called_task;
 
         CreateOutlineInfo(std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
