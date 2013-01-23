@@ -81,6 +81,7 @@
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "cxx-codegen.h"
+#include "cxx-target-tools.h"
 
 #include "filename.h"
 
@@ -3590,7 +3591,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     // NULL
     num_arguments += 1;
 
-    const char* mf03_prescanner = "mf03-prescanner";
+    const char* mf03_prescanner = TARGET_MF03_PRESCANNER;
     int full_path_length = 0;
     if (CURRENT_CONFIGURATION->prescanner_name == NULL)
     {
