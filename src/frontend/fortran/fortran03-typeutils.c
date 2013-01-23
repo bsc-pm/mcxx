@@ -29,6 +29,7 @@
 #include "cxx-nodecl-decls.h"
 #include "cxx-limits.h"
 #include "cxx-utils.h"
+#include "cxx-cexpr.h"
 #include <string.h>
 
 const char* fortran_print_type_str(type_t* t)
@@ -800,3 +801,28 @@ type_t* fortran_choose_character_type_from_kind(int kind_size)
     return choose_type_from_kind_table(character_types, MAX_CHARACTER_KIND, kind_size);
 }
 
+int fortran_array_type_get_total_number_of_elements(type_t* t)
+{
+    ERROR_CONDITION(!fortran_is_array_type(t), "This is not a Fortran array type", 0);
+    t = advance_over_typedefs(t);
+
+    int number_of_elements = 1;
+    while (fortran_is_array_type(t))
+    {
+        if (array_type_is_unknown_size(t))
+        {
+            return -1;
+        }
+
+        nodecl_t whole_size = array_type_get_array_size_expr(t);
+        if (!nodecl_is_constant(whole_size))
+        {
+            return -1;
+        }
+
+        const_value_t * size = nodecl_get_constant(whole_size);
+        number_of_elements *= const_value_cast_to_signed_int(size);
+        t = array_type_get_element_type(t);
+    }
+    return number_of_elements;
+}
