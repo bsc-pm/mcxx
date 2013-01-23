@@ -478,7 +478,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
-static const char *fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename);
+static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed);
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
@@ -2666,12 +2666,14 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
+        char preprocessed = 0;
         // If the file is not preprocessed or we've ben told to preprocess it
         if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
                     && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
+            preprocessed = 1;
             timing_t timing_preprocessing;
 
             const char* old_preprocessor_name = CURRENT_CONFIGURATION->preprocessor_name;
@@ -2719,7 +2721,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             timing_t timing_prescanning;
             
             timing_start(&timing_prescanning);
-            parsed_filename = fortran_prescan_file(translation_unit, parsed_filename);
+            parsed_filename = fortran_prescan_file(translation_unit, parsed_filename, preprocessed);
             timing_end(&timing_prescanning);
 
             if (parsed_filename != NULL
@@ -3573,7 +3575,7 @@ const char* preprocess_file(const char* input_filename)
     return preprocess_single_file(input_filename, NULL);
 }
 
-static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename)
+static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed)
 {
     temporal_file_t prescanned_file = new_temporal_file();
     const char* prescanned_filename = prescanned_file->name;
@@ -3581,8 +3583,10 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     int prescanner_args = count_null_ended_array((void**)CURRENT_CONFIGURATION->prescanner_options);
 
     int num_arguments = prescanner_args;
-    // -r dir -l -q input -o output
-    num_arguments += 7;
+    // -l [optional]
+    num_arguments += 1;
+    // -r dir -q input -o output
+    num_arguments += 6;
     // NULL
     num_arguments += 1;
 
@@ -3626,11 +3630,16 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
             CURRENT_CONFIGURATION->num_include_dirs,
             uniquestr(prescanner_include_output->name));
 
+    if (!preprocessed)
+    {
+        // We want the prescanner to emit line markers only if the file was not
+        // preprocessed
+        prescanner_options[i] = uniquestr("-l");
+        i++;
+    }
     prescanner_options[i] = uniquestr("-r");
     i++;
     prescanner_options[i] = uniquestr(prescanner_include_output->name);
-    i++;
-    prescanner_options[i] = uniquestr("-l");
     i++;
     prescanner_options[i] = uniquestr("-q");
     i++;
