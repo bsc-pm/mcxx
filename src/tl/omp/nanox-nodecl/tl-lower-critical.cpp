@@ -60,21 +60,20 @@ namespace TL { namespace Nanox {
         {
             _lock_names.insert(lock_name);
             // We need to sign in the global lock
-            Source global_lock_decl;
+            Source global_lock_decl, initialization_if_needed;
+
+            global_lock_decl
+                << "__attribute__((weak)) "
+                << as_type(nanos_lock_t_name.get_user_defined_type())
+                << " " << lock_name << initialization_if_needed << ";";
+
             if (IS_C_LANGUAGE
                     || IS_FORTRAN_LANGUAGE)
             {
-                global_lock_decl
-                    << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << " = " << initializer << ";"
-                    ;
+                initialization_if_needed
+                    << " = " << initializer;
             }
-            else if (IS_CXX_LANGUAGE)
-            {
-                // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
-                global_lock_decl
-                    << "__attribute__((weak)) " << as_type(nanos_lock_t_name.get_type()) << " " << lock_name << ";"
-                    ;
-            }
+            // For C++ there is a nice constructor doing what NANOS_INIT_LOCK_FREE does
 
             FORTRAN_LANGUAGE()
             {
@@ -83,9 +82,15 @@ namespace TL { namespace Nanox {
             }
 
             Nodecl::NodeclBase global_lock_tree = global_lock_decl.parse_global(construct);
+
             FORTRAN_LANGUAGE()
             {
                 Source::source_language = SourceLanguage::Current;
+            }
+
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, global_lock_tree);
             }
         }
         if (IS_FORTRAN_LANGUAGE)

@@ -363,7 +363,18 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(member.get_member().get_kind()));
+                    _data_ref._base_address =
+                        Nodecl::Reference::make(
+                                Nodecl::ClassMemberAccess::make(
+                                    _data_ref._base_address,
+                                    member.get_member().shallow_copy(),
+                                    t,
+                                    member.get_filename(),
+                                    member.get_line()
+                                    ),
+                                t.get_pointer_to(),
+                                member.get_filename(),
+                                member.get_line());
                 }
             }
 

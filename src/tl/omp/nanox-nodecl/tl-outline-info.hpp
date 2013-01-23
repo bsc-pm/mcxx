@@ -380,6 +380,8 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
+                // This is needed for the 'this' object
+                void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
         };

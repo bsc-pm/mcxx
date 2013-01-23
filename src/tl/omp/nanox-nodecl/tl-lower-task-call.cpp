@@ -451,6 +451,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_arguments.append(new_symbol);
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+
+        // We must ensure that this OutlineDataItem is moved to the
+        // first position of the list of OutlineDataItems.
+        arguments_outline_info.move_at_begin(argument_outline_data_item);
+
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
 
