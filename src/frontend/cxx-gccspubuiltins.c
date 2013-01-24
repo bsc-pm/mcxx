@@ -254,7 +254,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
         const_value_t** const_value UNUSED_PARAMETER)
 {
     // Why people insists on having overload in C?
-    char name[256];
+    char name[MCXX_MAX_C_OVERLOADS];
 
     // From gcc source at maximum 16 are defined
     const int max_valid_overloads = 24;

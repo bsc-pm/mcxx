@@ -4729,8 +4729,21 @@ static void cast_initialization(
         // FIXME: if the type of 'val' and 'initialized_type' are the same but they
         // have different kinds, we need a cast!
 
-        // No cast
-        *casted_const = val;
+        if (is_floating_type(initialized_type)
+                && const_value_is_floating(val))
+        {
+            *casted_const = const_value_cast_to_floating_type_value(val, initialized_type);
+        }
+        else if (is_integer_type(initialized_type)
+                && const_value_is_integer(val))
+        {
+            *casted_const = const_value_cast_to_bytes(val, type_get_size(initialized_type), /* sign */ 1);
+        }
+        else
+        {
+            // No cast
+            *casted_const = val;
+        }
     }
 }
 

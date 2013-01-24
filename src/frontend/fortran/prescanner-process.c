@@ -603,12 +603,23 @@ static void cut_lines(prescanner_t* prescanner)
 
 	while (iter != NULL)
 	{
+		const char *p = &(iter->line[0]);
+		while (*p == ' ' || *p == '\t')
+			p++;
+
+		// This is a line information, do not cut
+		if (*p == '#')
+		{
+			iter = iter->next;
+			continue;
+		}
+
 		// First we normalize tab initiated lines as they are really annoying later
 		if (iter->line[0] == '\t')
 		{
 			normalize_line(prescanner, &iter->line);
 		}
-		
+
 		iter->line[prescanner->width] = '\0';
 		if (prescanner->pad_strings)
 		{
