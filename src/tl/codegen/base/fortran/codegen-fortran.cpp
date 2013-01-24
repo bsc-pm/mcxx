@@ -3375,7 +3375,8 @@ OPERATOR_TABLE
                 ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
             }
 
-            if (!entry.is_generic_specifier())
+            if (!entry.is_generic_specifier()
+                    && !entry.is_intrinsic())
             {
                 // First pass to declare everything that might be needed by the dummy arguments
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
@@ -3385,7 +3386,7 @@ OPERATOR_TABLE
                 {
                     if (it->get_type().basic_type().is_class())
                     {
-                        declare_symbol(it->get_type().basic_type().get_symbol(), 
+                        declare_symbol(it->get_type().basic_type().get_symbol(),
                                 it->get_type().basic_type().get_symbol().get_scope());
                     }
                 }
