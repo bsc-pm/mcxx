@@ -58,7 +58,7 @@ namespace Analysis {
 
         Name_to_pcfg_map _pcfgs;
 
-        bool _constants;            //!<True when constant propagation and constant folding have been applied
+        bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
         bool _use_def;              //!<True when use-definition chains have been calculated
         bool _liveness;             //!<True when liveness analysis has been applied
@@ -89,8 +89,8 @@ namespace Analysis {
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
 
-        bool is_constants_computed( ) const;
-        void set_constants_computed( );
+        bool is_constants_propagation_computed( ) const;
+        void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
         void set_canonical_computed( );
         bool is_usage_computed( ) const;
@@ -108,18 +108,20 @@ namespace Analysis {
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
 
-
-        // ************* Loop analysis info ************** //
-
+        //! Returns true when #n is an induction variable in #loop
         bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
+        //! Returns the list of induction variables found in #loop
         ObjectList<Utils::InductionVariableData*> get_induction_variables( Nodecl::NodeclBase loop );
 
-        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase loop );
+        //! Returns true when all Induction Variables of a loop has stride equal to one
+        bool is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
-        bool is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
+        //! Returns a list of objects that are constants in #n
+        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase n );
 
-        bool is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
+        //! Returns true when #var is constant in #n
+        bool is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var );
 
     friend class AnalysisSingleton;
     };
@@ -199,6 +201,7 @@ namespace Analysis {
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         // ********************* Utils ******************** //
 

@@ -58,6 +58,8 @@ namespace Analysis {
         //! Propagates reaching definitions information from inner to outer nodes
         void set_graph_node_reaching_definitions( Node* current );
 
+        Utils::ext_sym_map combine_generated_statements( Node* current );
+
     public:
         //! Constructor
         ReachingDefinitions( ExtensibleGraph* graph );
@@ -74,13 +76,14 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ************************ Class implementing a visitor of reaching definition *********************** //
 
-    class LIBTL_CLASS ReachingDefinitionsVisitor : public Nodecl::ExhaustiveVisitor< void >
+    class LIBTL_CLASS GeneratedStatementsVisitor : public Nodecl::ExhaustiveVisitor< void >
     {
     private:
         /*!Set of statements that are generated in a given node
-         * Since the #gen set is used to compute the Reach Out set and
-         * the statements within a node are parsed in sequential order,
-         * we only care about the last generation for a given variable.
+         * The #gen set is used to compute the Reach Out Definitions of a given Node.
+         * Thus, #gen set must contain only downwards exposed definition.
+         * Since the statements within a node are parsed in sequential order,
+         * we will only store the last generation for a given variable.
          * Example:
          *      Node (X) :=  v = u + w;
          *                   v = w;
@@ -91,7 +94,7 @@ namespace Analysis {
     public:
 
         //! Constructor
-        ReachingDefinitionsVisitor( );
+        GeneratedStatementsVisitor( );
 
         // **************** Getters and setters *************** //
         Utils::ext_sym_map get_gen( );

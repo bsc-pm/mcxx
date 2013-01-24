@@ -170,7 +170,7 @@ namespace TL { namespace Nanox {
             }
 
             // FIXME: We may need an additional cast here (GCC bug solved in 4.5)
-            function_name_instr << as_symbol(outline_function);
+            function_name_instr << outline_function.get_qualified_name();
 
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"

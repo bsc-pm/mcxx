@@ -29,8 +29,12 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_ignore=yes
 </testinfo>
 */
+
+// Currently, the runtime does not support 'implements'
+
 #include <stdio.h>
 #include <stdlib.h>
 

@@ -386,6 +386,11 @@ typedef struct compilation_configuration_tag
 
     const char** linker_options;
 
+    // Toolchain tools of the target
+    const char* target_objcopy;
+    const char* target_objdump;
+    const char* target_ar;
+
     const char* output_directory;
 
     // Include directories

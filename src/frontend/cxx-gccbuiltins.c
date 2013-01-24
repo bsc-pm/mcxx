@@ -2349,7 +2349,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
         const_value_t** const_value UNUSED_PARAMETER)
 {
     // Why people insists on having overload in C?
-    char name[256];
+    char name[MCXX_MAX_C_OVERLOADS];
 
     // We will iterate from 1 to 32
     const int max_valid_overloads = 5;

@@ -45,25 +45,43 @@ namespace Utils {
     class LIBTL_CLASS InductionVariableData {
     private:
         ExtendedSymbol _var;
-        Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop >*/
-        Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) >*/
-        Nodecl::NodeclBase _stride;     /*!< Stride within a loop >*/
-        InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived >*/
-        Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself >*/
+
+        Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop */
+        Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) */
+        Nodecl::NodeclBase _incr;       /*!< Stride within a loop */
+
+        InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived */
+        Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
+
+        bool _is_linear;                /*!< Boolean indicating whether the IV increments by a linear function */
 
     public:
+
+        // *** Constructors *** //
+        //! Constructor to store variables that have upper and lower limits and stride but aren't Induction Variables
+        InductionVariableData( ExtendedSymbol var );
+        //! Induction Variable common constructor
         InductionVariableData( ExtendedSymbol var, InductionVarType type, Nodecl::NodeclBase family );
 
+
+        // *** Getters and Setters *** //
         ExtendedSymbol get_variable() const;
         void set_variable( Nodecl::NodeclBase s );
+
         Nodecl::NodeclBase get_lb( ) const;
         void set_lb( Nodecl::NodeclBase lb );
+
         Nodecl::NodeclBase get_ub( ) const;
         void set_ub( Nodecl::NodeclBase ub );
-        Nodecl::NodeclBase get_stride( ) const;
-        void set_stride( Nodecl::NodeclBase stride );
+
+        Nodecl::NodeclBase get_increment( ) const;
+        void set_increment( Nodecl::NodeclBase incr );
+
         std::string get_type_as_string( ) const;
+
         Nodecl::NodeclBase get_family( ) const;
+
+        bool is_linear( ) const;
 
         bool is_basic( );
 
@@ -84,6 +102,9 @@ namespace Utils {
 
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var );
+
+    InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
+                                                             Nodecl::NodeclBase var );
 
     // ******************************* END Induction Variables utils ******************************* //
     // ********************************************************************************************* //

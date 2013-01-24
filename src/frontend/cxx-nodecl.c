@@ -214,10 +214,11 @@ int nodecl_get_line(nodecl_t t)
 
 const char* nodecl_get_locus(nodecl_t t)
 {
-    char c[256];
-    snprintf(c, 255, "%s:%d", nodecl_get_filename(t), nodecl_get_line(t));
-    c[255] = '\0';
-    return uniquestr(c);
+    const char* result;
+
+    uniquestr_sprintf(&result, "%s:%d", nodecl_get_filename(t), nodecl_get_line(t));
+
+    return result;
 }
 
 nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2)

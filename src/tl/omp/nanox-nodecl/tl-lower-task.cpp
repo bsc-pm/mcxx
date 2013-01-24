@@ -161,7 +161,7 @@ Source LoweringVisitor::fill_const_wd_info(
         bool is_untied,
         bool mandatory_creation,
         OutlineInfo& outline_info,
-        std::multimap<std::string, std::string>& devices_and_implementors,
+        const std::multimap<std::string, std::string>& devices_and_implementors,
         Nodecl::NodeclBase construct)
 {
     // Static stuff
@@ -218,38 +218,50 @@ Source LoweringVisitor::fill_const_wd_info(
     Source tiedness,
            priority;
 
+    // The chunk is only cleared in Fortran
+    int clear_chunk = 0;
+    if (IS_FORTRAN_LANGUAGE)
+        clear_chunk = 1;
+
     // We expand all the struct due to a limitation in the FE. See ticket
     // #963
     props_init
         << "{ "
         << /* ".mandatory_creation = " << */ (int)mandatory_creation << ",\n"
         << /* ".tied = " << */ tiedness << ",\n"
+        << /* ".clear_chunk =" << */ clear_chunk <<",\n"
         << /* ".reserved0 =" << */ "0,\n"
         << /* ".reserved1 =" << */ "0,\n"
         << /* ".reserved2 =" << */ "0,\n"
         << /* ".reserved3 =" << */ "0,\n"
         << /* ".reserved4 =" << */ "0,\n"
-        << /* ".reserved5 =" << */ "0,\n"
         << "}"
         ;
 
     tiedness << (int)!is_untied;
 
+    Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
-    std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
-    int n_devices=implementation_table_it->second.get_device_names().size();
+    std::multimap<std::string, std::string>::const_iterator devices_and_implementors_it = devices_and_implementors.begin();
+    int n_devices = implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
-        if (n_devices<1){
+        if (n_devices < 1)
+        {
                 implementation_table_it++;
                 n_devices=implementation_table_it->second.get_device_names().size();
         }
+
         Source ancillary_device_description, device_description, aux_fortran_init;
 
-        if (devices_and_implementors_it!=devices_and_implementors.begin()) device_descriptions <<  ", ";
+        if (devices_and_implementors_it!=devices_and_implementors.begin())
+        {
+           device_descriptions <<  ", ";
+        }
 
         std::string device_name = devices_and_implementors_it->first;
         std::string implementor_outline_name = devices_and_implementors_it->second;
@@ -257,7 +269,14 @@ Source LoweringVisitor::fill_const_wd_info(
         DeviceProvider* device = device_handler.get_device(device_name);
         ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
-        DeviceDescriptorInfo info_implementor(implementor_outline_name,implementation_table_it->second);
+        std::string arguments_structure = struct_arg_type_name.get_source();
+
+        DeviceDescriptorInfo info_implementor(
+                implementor_outline_name,
+                arguments_structure,
+                current_function,
+                implementation_table_it->second);
+
         device->get_device_descriptor(
                 info_implementor,
                 ancillary_device_description,
@@ -370,18 +389,29 @@ void LoweringVisitor::emit_async_common(
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
+    bool is_function_task = called_task.is_valid();
+
+    Nodecl::NodeclBase code = current_function.get_function_code();
+
+    Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+        ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+        : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+    TL::Scope function_scope = context.retrieve_context();
+
     std::string outline_name = get_outline_name(current_function);
 
     // Declare argument structure
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
-    struct_arg_type_name << structure_symbol.get_name();
 
-    // List of device names
+     struct_arg_type_name
+         << ((structure_symbol.get_type().is_template_specialized_type()
+                     &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
+         << structure_symbol.get_qualified_name(function_scope);
 
-    // MultiMap with every implementation of the current function task
+     // MultiMap with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    
     std::multimap<std::string, std::string> devices_and_implementors;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
@@ -465,7 +495,7 @@ void LoweringVisitor::emit_async_common(
         // The symbol 'real_called_task' will be invalid if the current task is
         // a inline task. Otherwise, It will be the implementor symbol
         TL::Symbol real_called_task =
-                (called_task.is_valid()) ?
+                (is_function_task) ?
                     implementor_symbol : TL::Symbol::invalid();
 
         CreateOutlineInfo info_implementor(
@@ -512,6 +542,11 @@ void LoweringVisitor::emit_async_common(
 
         devices_and_implementors_it++;
         n_devices--;
+    }
+
+    if (is_function_task)
+    {
+        remove_non_smp_functions(implementation_table);
     }
 
 
@@ -610,6 +645,7 @@ void LoweringVisitor::emit_async_common(
         // Parse in C
         Source::source_language = SourceLanguage::C;
     }
+
     Nodecl::NodeclBase spawn_code_tree = spawn_code.parse_statement(construct);
 
     FORTRAN_LANGUAGE()
@@ -644,10 +680,35 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
-    
+
+    Scope  enclosing_scope = construct.retrieve_context();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(environment,function_symbol);
+
+    // Handle the special object 'this'
+    if (IS_CXX_LANGUAGE
+            && !function_symbol.is_static()
+            && function_symbol.is_member())
+    {
+        TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+        ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+        sym_ref.set_type(this_symbol.get_type());
+
+        // The object 'this' may already have an associated OutlineDataItem
+        OutlineDataItem& argument_outline_data_item =
+            outline_info.get_entity_for_symbol(this_symbol);
+
+        // We must ensure that this OutlineDataItem is moved to the
+        // first position of the list of OutlineDataItems.
+        outline_info.move_at_begin(argument_outline_data_item);
+
+        // This is a special kind of shared
+        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+        argument_outline_data_item.set_base_address_expression(sym_ref);
+    }
 
     Symbol called_task_dummy = Symbol::invalid();
 
@@ -1921,7 +1982,8 @@ void LoweringVisitor::fill_dependences_internal(
                     << dependency_flags_in << "," 
                     << dependency_flags_out << ", "
                     << /* renaming has not yet been implemented */ "0, " 
-                    << dependency_flags_concurrent
+                    << dependency_flags_concurrent << ","
+                    << dependency_flags_commutative
                     << "}"
                     ;
 
@@ -2256,5 +2318,22 @@ void LoweringVisitor::fill_dimensions(
     }
 }
 
+void LoweringVisitor::remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table)
+{
+    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
+    {
+        ObjectList<std::string> devices=it->second.get_device_names();
+        if (!devices.contains("smp"))
+        {
+            TL::Symbol implementor = it->first;
+            if (!implementor.get_function_code().is_null())
+            {
+                Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
+            }
+        }
+    }
+}
 
 } }

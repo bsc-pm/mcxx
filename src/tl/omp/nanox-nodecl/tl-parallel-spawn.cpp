@@ -38,16 +38,29 @@ namespace TL { namespace Nanox {
             TL::Symbol structure_symbol)
     {
         Source nanos_create_wd,
-               nanos_create_wd_and_run,
-               immediate_decl;
+        nanos_create_wd_and_run,
+        immediate_decl;
 
+        Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
+        Nodecl::NodeclBase code = current_function.get_function_code();
+
+        Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+            ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+            : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+        TL::Scope function_scope = context.retrieve_context();
         Source struct_arg_type_name;
-        struct_arg_type_name << structure_symbol.get_name();
+
+        struct_arg_type_name
+            << ((structure_symbol.get_type().is_template_specialized_type()
+                        &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
+            << structure_symbol.get_qualified_name(function_scope);
 
         Source struct_size;
         Source dynamic_size;
         struct_size << "sizeof(imm_args)" << dynamic_size;
-        
+
         // Fill argument structure
         allocate_immediate_structure(
                 outline_info,

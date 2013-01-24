@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -110,41 +110,34 @@ namespace TL
                 HLTPragmaPhase();
                 virtual void run(TL::DTO& dto);
             private:
-                void unroll_loop(PragmaCustomConstruct construct);
-                void block_loop(PragmaCustomConstruct construct);
-                void stripmine_loop(PragmaCustomConstruct construct);
-                void distribute_loop(PragmaCustomConstruct construct);
+                // void unroll_loop(PragmaCustomConstruct construct);
+                // void block_loop(PragmaCustomConstruct construct);
+                // void stripmine_loop(PragmaCustomConstruct construct);
+                // void distribute_loop(PragmaCustomConstruct construct);
 
-                void pre_fuse_loops(PragmaCustomConstruct construct);
-                void fuse_loops(PragmaCustomConstruct construct);
+                // void pre_fuse_loops(PragmaCustomConstruct construct);
+                // void fuse_loops(PragmaCustomConstruct construct);
 
-                void interchange_loops(PragmaCustomConstruct construct);
-                void collapse_loop(PragmaCustomConstruct construct);
+                // void interchange_loops(PragmaCustomConstruct construct);
+                // void collapse_loop(PragmaCustomConstruct construct);
 
-                void jam_loops(Statement unrolled_loop);
+                // void jam_loops(Statement unrolled_loop);
 
-                void outline_code(PragmaCustomConstruct construct);
+                // void outline_code(PragmaCustomConstruct construct);
 
-                void extend_function(PragmaCustomConstruct construct);
+                // void extend_function(PragmaCustomConstruct construct);
 
-                void peel_loop(PragmaCustomConstruct construct);
+                // void peel_loop(PragmaCustomConstruct construct);
 
-                void task_aggregate(PragmaCustomConstruct construct);
+                // void task_aggregate(PragmaCustomConstruct construct);
 
-                void set_instrument_hlt(const std::string &str);
-                void set_acml_hlt(const std::string &str);
-                void set_intermediate_simd_prettyprint(const std::string &str);
+                // void set_instrument_hlt(const std::string &str);
+                // void set_acml_hlt(const std::string &str);
+                // void set_intermediate_simd_prettyprint(const std::string &str);
 
-                void simd_pre_run(AST_t translation_unit, ScopeLink scope_link);
-                void simdize(PragmaCustomConstruct construct);
-
-                std::string _enable_hlt_instr_str;
-                std::string _enable_hlt_acml_str;
-                std::string _enable_hlt_intermediate_simd_prettyprint;
+                // void simd_pre_run(AST_t translation_unit, ScopeLink scope_link);
+                // void simdize(PragmaCustomConstruct construct);
         };
-
-        bool enable_acml_library = false;
-        bool enable_interm_simd_prettyprint = false;
 
         //! @}
     }

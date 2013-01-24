@@ -184,10 +184,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source fill_const_wd_info(
                 Source &struct_arg_type_name,
-                bool is_untied,                
+                bool is_untied,
                 bool mandatory_creation,
                 OutlineInfo& outline_info,
-                std::multimap<std::string, std::string>& devices_and_implementors,
+                const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);
 
         TL::Symbol declare_const_wd_type(
@@ -321,6 +321,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
+
+        void remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table);
 };
 
 } }

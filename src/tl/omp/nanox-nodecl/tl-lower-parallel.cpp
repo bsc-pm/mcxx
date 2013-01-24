@@ -53,9 +53,32 @@ namespace TL { namespace Nanox {
         // Get the new statements
         statements = construct.get_statements();
 
+        Scope  enclosing_scope = construct.retrieve_context();
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-        
         OutlineInfo outline_info(environment,function_symbol);
+
+        // Handle the special object 'this'
+        if (IS_CXX_LANGUAGE
+                && !function_symbol.is_static()
+                && function_symbol.is_member())
+        {
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+            Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+            sym_ref.set_type(this_symbol.get_type());
+
+            // The object 'this' may already have an associated OutlineDataItem
+            OutlineDataItem& argument_outline_data_item = outline_info.get_entity_for_symbol(this_symbol);
+
+            // We must ensure that this OutlineDataItem is moved to the
+            // first position of the list of OutlineDataItems.
+            outline_info.move_at_begin(argument_outline_data_item);
+
+            // This is a special kind of shared
+            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            argument_outline_data_item.set_base_address_expression(sym_ref);
+        }
 
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 

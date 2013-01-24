@@ -324,8 +324,8 @@ namespace Analysis {
         return ref_params_to_args;
     }
 
-    static sym_to_nodecl_map map_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
-                                                               Nodecl::List arguments )
+    static sym_to_nodecl_map map_lvalue_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
+                                                                      Nodecl::List arguments )
     {
         sym_to_nodecl_map non_ref_params_to_args;
 
@@ -334,7 +334,8 @@ namespace Analysis {
         for( ; itp != parameters.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
-            if( ( !param_type.is_any_reference( ) && !param_type.is_pointer( ) ) )
+            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) &&
+                Nodecl::Utils::nodecl_is_modifiable_lvalue( *ita )  )
             {
                 non_ref_params_to_args[*itp] = *ita;
             }
@@ -400,14 +401,14 @@ namespace Analysis {
             Utils::ext_sym_set inner_undef = inner_graph->get_undefined_behaviour_vars( );
 
             _node->set_ue_var(
-                    Utils::containers_difference(
-                            Utils::containers_difference(
+                    Utils::ext_sym_set_difference(
+                            Utils::ext_sym_set_difference(
                                     Utils::ext_sym_set_union( _node->get_ue_vars( ),
                                                               inner_ue ),
                                     inner_killed ),
                             inner_undef ) );
             _node->set_killed_var(
-                    Utils::containers_difference(
+                    Utils::ext_sym_set_difference(
                             Utils::ext_sym_set_union( _node->get_killed_vars(),
                                                       inner_killed ),
                             inner_undef ) );
@@ -482,7 +483,7 @@ namespace Analysis {
                 Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
                 Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
                     // value parameters
-                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                sym_to_nodecl_map non_ref_params = map_lvalue_non_reference_params_to_args( params, args );
                 for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
                     it != non_ref_params.end( ); ++it )
                 {
@@ -552,7 +553,7 @@ namespace Analysis {
                 }
 
                 // Set the value passed parameters as Used
-                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                sym_to_nodecl_map non_ref_params = map_lvalue_non_reference_params_to_args( params, args );
                 for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
                      it != non_ref_params.end( ); ++it )
                 {

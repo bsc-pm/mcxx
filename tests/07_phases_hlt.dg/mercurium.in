@@ -9,4 +9,5 @@ test_CXX="\${MCXX} --profile=hltcxx"
 test_CFLAGS="--hlt --variable=allow_identity:false"
 test_CXXFLAGS="--hlt --variable=allow_identity:false"
 test_nolink=yes
+test_ignore=yes
 EOF

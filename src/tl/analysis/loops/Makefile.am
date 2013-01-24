@@ -35,9 +35,7 @@ libloops_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_
 
 END=
 
-libloops_analysis_la_SOURCES = tl-renaming-visitor.hpp \
-                               tl-renaming-visitor.cpp \
-                               tl-iv-analysis.hpp \
+libloops_analysis_la_SOURCES = tl-iv-analysis.hpp \
                                tl-iv-analysis.cpp \
                                tl-loop-analysis.hpp \
                                tl-loop-analysis.cpp \

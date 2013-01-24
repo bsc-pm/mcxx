@@ -650,11 +650,18 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
-            PragmaCustomClause reduction_clause = pragma_line.get_clause("concurrent");
-            ObjectList<Nodecl::NodeclBase> reduction_arguments;
-            if (reduction_clause.is_defined())
+            PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
+            ObjectList<Nodecl::NodeclBase> concurrent_arguments;
+            if (concurrent_clause.is_defined())
             {
-                reduction_arguments = reduction_clause.get_arguments_as_expressions(param_ref_tree);
+                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(param_ref_tree);
+            }
+
+            PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
+            ObjectList<Nodecl::NodeclBase> commutative_arguments;
+            if (commutative_clause.is_defined())
+            {
+                commutative_arguments = commutative_clause.get_arguments_as_expressions(param_ref_tree);
             }
 
             if (!function_sym.is_function())
@@ -692,7 +699,9 @@ namespace TL
 
             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
 
-            dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+            dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+
+            dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
 
             dependence_list_check(dependence_list);
 
@@ -830,6 +839,43 @@ namespace TL
             
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
+
+            TL::Scope scope = construct.retrieve_context();
+
+            Symbol enclosing_function = scope.get_related_symbol();
+            // In some special cases we need to add the symbol 'this' to the
+            // current class scope. This is needed because in the pragma of a
+            // non-static member function may appear a member of this class.
+            // Example:
+            //
+            //  struct X
+            //  {
+            //      char var[10];
+            //
+            //      void foo(int i)
+            //      {
+            //          #pragma omp task inout(var[i])
+            //          {
+            //          }
+            //      }
+            //  };
+            //
+            if (enclosing_function.is_member()
+                    && !enclosing_function.is_static())
+            {
+                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
+                if (!this_symbol.is_valid())
+                {
+                    this_symbol = scope.new_symbol("this");
+                    Type pointed_this = enclosing_function.get_class_type();
+                    Type this_type = pointed_this.get_pointer_to().get_const_type();
+
+                    this_symbol.get_internal_symbol()->type_information = this_type.get_internal_type();
+                    this_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                    this_symbol.get_internal_symbol()->defined = 1;
+                    this_symbol.get_internal_symbol()->do_not_print = 1;
+                }
+            }
 
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);

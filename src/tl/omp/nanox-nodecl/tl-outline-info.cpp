@@ -870,6 +870,22 @@ namespace TL { namespace Nanox {
         return *(_data_env_items.back());
     }
 
+    void OutlineInfo::move_at_begin(OutlineDataItem& item)
+    {
+        TL::ObjectList<OutlineDataItem*> new_list;
+        new_list.append(&item);
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
+                it != _data_env_items.end();
+                it++)
+        {
+            if (*it != &item)
+            {
+                new_list.append(*it);
+            }
+        }
+        std::swap(_data_env_items, new_list);
+    }
+
     void OutlineInfo::move_at_end(OutlineDataItem& item)
     {
         TL::ObjectList<OutlineDataItem*> new_list;

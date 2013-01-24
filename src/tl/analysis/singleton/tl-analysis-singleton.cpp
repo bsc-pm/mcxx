@@ -22,8 +22,11 @@
  License along with Mercurium C/C++ source-to-source compiler; if
  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
  Cambridge, MA 02139, USA.
+
  --------------------------------------------------------------------*/
 
+
+#include "cxx-cexpr.h"
 #include "cxx-process.h"
 
 #include "tl-analysis-singleton.hpp"
@@ -42,7 +45,7 @@ namespace Analysis {
     // ************************ Analysis Memento class ************************ //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _pcfgs( ), _constants( false ), _canonical( false ), _use_def( false ), _liveness( false ),
+        : _pcfgs( ), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
           _auto_scoping( false ), _auto_deps( false )
     {}
@@ -63,14 +66,14 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
-    bool PCFGAnalysis_memento::is_constants_computed( ) const
+    bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
-        return _constants;
+        return _constants_propagation;
     }
 
-    void PCFGAnalysis_memento::set_constants_computed( )
+    void PCFGAnalysis_memento::set_constants_propagation_computed( )
     {
-        _constants = true;
+        _constants_propagation = true;
     }
 
     bool PCFGAnalysis_memento::is_canonical_computed( ) const
@@ -231,8 +234,7 @@ namespace Analysis {
         return result;
     }
 
-    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n
-)
+    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
     {
         bool result = false;
         if( _induction_variables )
@@ -245,7 +247,7 @@ namespace Analysis {
                 for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( );
                      it != ivs.end( ); ++it )
                 {
-                    if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) );
+                    if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes*/ true ) );
                     {
                         result = true;
                         break;
@@ -271,33 +273,71 @@ namespace Analysis {
         return result;
     }
 
-    // TODO
-    ObjectList<Nodecl::NodeclBase> PCFGAnalysis_memento::get_constants( Nodecl::NodeclBase loop )
+    ObjectList<Nodecl::NodeclBase> PCFGAnalysis_memento::get_constants( Nodecl::NodeclBase n )
     {
         ObjectList<Nodecl::NodeclBase> result;
 
+        Node* n_pcfg_node = node_enclosing_nodecl( n );
+        if( n_pcfg_node != NULL )
+        {
+            // FIXME Shall we check all variables in the function code where n is??
+            ObjectList<Symbol> n_syms = Nodecl::Utils::get_all_symbols( n );
+            Utils::ext_sym_set n_killed_vars = n_pcfg_node->get_killed_vars( );
+            for( ObjectList<Symbol>::iterator it = n_syms.begin( ); it != n_syms.end( ); ++it )
+            {
+                if( !ext_sym_set_contains_nodecl( it->get_value( ) , n_killed_vars ) )
+                {
+                    result.append( it->get_value( ) );
+                }
+            }
+        }
+
         return result;
     }
 
-    // TODO
-    bool PCFGAnalysis_memento::is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
+    bool PCFGAnalysis_memento::is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var )
     {
-        bool result = false;
+        bool result = true;
+
+        Node* n_pcfg_node = node_enclosing_nodecl( n );
+        if( n_pcfg_node != NULL )
+        {
+            ObjectList<Symbol> n_syms = Nodecl::Utils::get_all_symbols( n );
+            Utils::ext_sym_set n_killed_vars = n_pcfg_node->get_killed_vars( );
+            for( ObjectList<Symbol>::iterator it = n_syms.begin( ); it != n_syms.end( ); ++it )
+            {
+                if( ext_sym_set_contains_nodecl( it->get_value( ) , n_killed_vars ) )
+                {
+                    result = false;
+                }
+            }
+        }
 
         return result;
     }
 
-    // TODO
-    bool PCFGAnalysis_memento::is_stride_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
+    bool PCFGAnalysis_memento::is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
     {
-        bool result = false;
+        bool result = true;
+
+        ObjectList<Utils::InductionVariableData*> ivs = get_induction_variables( loop );
+        for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+        {
+            Nodecl::NodeclBase incr = ( *it )->get_increment( );
+            if( !incr.is_constant( ) ||
+                ( incr.is_constant( ) && !const_value_is_one( incr.get_constant( ) ) ) )
+            {
+                result = false;
+                break;
+            }
+        }
 
         return result;
     }
 
     void PCFGAnalysis_memento::reset_state( )
     {
-        _constants = false;
+        _constants_propagation = false;
         _canonical = false;
         _use_def = false;
         _liveness = false;
@@ -379,8 +419,21 @@ namespace Analysis {
     void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
                                                               Nodecl::NodeclBase ast )
     {
-        //         ConditionalConstantAnalysis ca( ipa );
-        //         ca.conditional_constant_propagation( pcfg );
+        if( !memento.is_constants_propagation_computed( ) )
+        {
+            memento.set_constants_propagation_computed( );
+
+            ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    std::cerr << "- Constants propagation of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+                std::cerr << "Constants Propagation is not yet implemented" << std::endl;
+                // ConditionalConstantAnalysis ca( ipa );
+                // ca.conditional_constant_propagation( pcfg );
+            }
+        }
     }
 
     // TODO

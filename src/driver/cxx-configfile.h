@@ -67,6 +67,10 @@ option_function_t config_set_fortran_array_descriptor;
 option_function_t config_set_fortran_preprocessor_name;
 option_function_t config_set_fortran_preprocessor_options;
 
+option_function_t config_set_target_objcopy;
+option_function_t config_set_target_objdump;
+option_function_t config_set_target_ar;
+
 void print_help_target_options(void);
 
 MCXX_END_DECLS

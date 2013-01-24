@@ -291,11 +291,12 @@ namespace TL { namespace Nanox {
             CreateOutlineInfo& info,
             Nodecl::Utils::SymbolMap*& out_symbol_map)
     {
+        bool is_function_task = info._called_task.is_valid();
+
         Scope sc = current_function.get_scope();
-
         decl_context_t decl_context = sc.get_decl_context();
-        decl_context_t function_context;
 
+        decl_context_t function_context;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -307,15 +308,22 @@ namespace TL { namespace Nanox {
         }
 
         // Create all the symbols and an appropiate mapping
-
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
+        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static()
+                && it != data_items.end())
+        {
+            it++;
+        }
+
+        for (; it != data_items.end(); it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
 
@@ -463,6 +471,7 @@ namespace TL { namespace Nanox {
                        function_context,
                        symbol_map->get_symbol_map());
         }
+
         // Update types of privates (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
                 it != private_symbols.end();
@@ -474,16 +483,76 @@ namespace TL { namespace Nanox {
                        symbol_map->get_symbol_map());
         }
 
-        // Now everything is set to register the function
-        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-        new_function_sym->entity_specs.is_user_declared = 1;
+        // Build the function type
+        parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++, it_ptypes++)
+        {
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
 
-        new_function_sym->kind = SK_FUNCTION;
-        new_function_sym->file = "";
-        new_function_sym->line = 0;
+            // FIXME - We should do all the remaining lvalue adjustments
+            it_ptypes->type_info = get_unqualified_type(it->get_internal_symbol()->type_information);
+        }
+
+        type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
+        delete[] p_types;
+
+        // Now everything is set to register the function
+        scope_entry_t* new_function_sym = NULL;
+        if (!current_function.get_type().is_template_specialized_type())
+        {
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+            new_function_sym->entity_specs.is_user_declared = 1;
+            new_function_sym->kind = SK_FUNCTION;
+            new_function_sym->file = "";
+            new_function_sym->line = 0;
+            new_function_sym->type_information = function_type;
+        }
+        else
+        {
+            scope_entry_t* new_template_sym =
+                new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+            new_template_sym->kind = SK_TEMPLATE;
+            new_template_sym->file = "";
+            new_template_sym->line = 0;
+
+            new_template_sym->type_information = get_new_template_type(
+                    decl_context.template_parameters,
+                    function_type,
+                    uniquestr(function_name.c_str()),
+                    decl_context, 0, "");
+
+            template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            // The new function is the primary template specialization
+            new_function_sym = named_type_get_symbol(
+                    template_type_get_primary_type(
+                        new_template_sym->type_information));
+        }
 
         // Make it static
         new_function_sym->entity_specs.is_static = 1;
+
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static())
+        {
+          new_function_sym->entity_specs.is_static = 0;
+        }
+
+        // Finally, we update the parameters of the new function symbol
+        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++, it_ptypes++)
+        {
+            scope_entry_t* param = it->get_internal_symbol();
+            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
+        }
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
@@ -502,37 +571,6 @@ namespace TL { namespace Nanox {
 
         new_function_sym->related_decl_context = function_context;
 
-        parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
-
-        parameter_info_t* it_ptypes = &(p_types[0]);
-        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
-                it != parameter_symbols.end();
-                it++, it_ptypes++)
-        {
-            scope_entry_t* param = it->get_internal_symbol();
-
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
-
-            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                    new_function_sym->entity_specs.num_related_symbols,
-                    param);
-
-            it_ptypes->is_ellipsis = 0;
-            it_ptypes->nonadjusted_type_info = NULL;
-
-            // FIXME - We should do all the remaining lvalue adjustments
-            type_t* param_type = get_unqualified_type(param->type_information);
-            it_ptypes->type_info = param_type;
-        }
-
-        type_t *function_type = get_new_function_type(
-                get_void_type(),
-                p_types,
-                parameter_symbols.size());
-
-        new_function_sym->type_information = function_type;
-
-        delete[] p_types;
 
         out_symbol_map = symbol_map;
         return new_function_sym;
@@ -545,35 +583,10 @@ namespace TL { namespace Nanox {
             ObjectList<std::string> parameter_names,
             ObjectList<TL::Type> parameter_types)
     {
-        Scope sc = current_function.get_scope();
-
-        // FIXME - Wrap
-        decl_context_t decl_context = sc.get_decl_context();
-
-        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
-        entry->entity_specs.is_user_declared = 1;
-
-        entry->kind = SK_FUNCTION;
-        entry->file = "";
-        entry->line = 0;
-
-        // Make it static
-        entry->entity_specs.is_static = 1;
-
-        // Make it member if the enclosing function is member
-        if (current_function.is_member())
-        {
-            entry->entity_specs.is_member = 1;
-            entry->entity_specs.class_type = current_function.get_class_type().get_internal_type();
-
-            entry->entity_specs.access = AS_PUBLIC;
-
-            ::class_type_add_member(entry->entity_specs.class_type, entry);
-        }
-
+        decl_context_t decl_context = current_function.get_scope().get_decl_context();
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context ;
+        decl_context_t function_context;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -583,13 +596,12 @@ namespace TL { namespace Nanox {
             function_context = new_function_context(decl_context);
             function_context = new_block_context(function_context);
         }
-        function_context.function_scope->related_entry = entry;
-        function_context.block_scope->related_entry = entry;
 
-        entry->related_decl_context = function_context;
+        // Build the function type
+        int num_parameters = 0;
+        scope_entry_t** parameter_list = NULL;
 
         parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
-
         parameter_info_t* it_ptypes = &(p_types[0]);
         ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
         for (ObjectList<std::string>::iterator it = parameter_names.begin();
@@ -604,13 +616,9 @@ namespace TL { namespace Nanox {
 
             param->defined = 1;
 
-            symbol_set_as_parameter_of_function(param, entry, entry->entity_specs.num_related_symbols);
-
             param->type_information = get_unqualified_type(type_it->get_internal_type());
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    param);
+            P_LIST_ADD(parameter_list, num_parameters, param);
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
@@ -622,11 +630,68 @@ namespace TL { namespace Nanox {
                 p_types,
                 parameter_types.size());
 
-        entry->type_information = function_type;
-
         delete[] p_types;
 
-        return entry;
+        // Now, we can create the new function symbol
+        scope_entry_t* new_function_sym = NULL;
+        if (!current_function.get_type().is_template_specialized_type())
+        {
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+            new_function_sym->entity_specs.is_user_declared = 1;
+            new_function_sym->kind = SK_FUNCTION;
+            new_function_sym->file = "";
+            new_function_sym->line = 0;
+            new_function_sym->type_information = function_type;
+        }
+        else
+        {
+            scope_entry_t* new_template_sym = new_symbol(
+                    decl_context, decl_context.current_scope, name.c_str());
+            new_template_sym->kind = SK_TEMPLATE;
+            new_template_sym->file = "";
+            new_template_sym->line = 0;
+
+            new_template_sym->type_information = get_new_template_type(
+                    decl_context.template_parameters,
+                    function_type,
+                    uniquestr(name.c_str()),
+                    decl_context, 0, "");
+
+            template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            // The new function is the primary template specialization
+            new_function_sym = named_type_get_symbol(
+                    template_type_get_primary_type(
+                        new_template_sym->type_information));
+        }
+
+        function_context.function_scope->related_entry = new_function_sym;
+        function_context.block_scope->related_entry = new_function_sym;
+
+        new_function_sym->related_decl_context = function_context;
+
+        new_function_sym->entity_specs.related_symbols = parameter_list;
+        new_function_sym->entity_specs.num_related_symbols = num_parameters;
+        for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
+        {
+            symbol_set_as_parameter_of_function(
+                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+        }
+
+        // Make it static
+        new_function_sym->entity_specs.is_static = 1;
+
+        // Make it member if the enclosing function is member
+        if (current_function.is_member())
+        {
+            new_function_sym->entity_specs.is_member = 1;
+            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+            new_function_sym->entity_specs.access = AS_PUBLIC;
+
+            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
+        }
+        return new_function_sym;
     }
 
     static void build_empty_body_for_function(
@@ -739,7 +804,7 @@ namespace TL { namespace Nanox {
         //Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
         const Nodecl::NodeclBase& original_statements = info._original_statements;
-        //OutlineInfo& outline_info = info._outline_info;
+        bool is_function_task = info._called_task.is_valid();
 
         output_statements = original_statements;
 
@@ -761,15 +826,28 @@ namespace TL { namespace Nanox {
         int upper_bound_index = 0;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
+        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static()
+                && it != data_items.end())
+        {
+            ++it;
+        }
+
+        for (; it != data_items.end(); it++)
         {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        // Do nothing
+                        if (IS_CXX_LANGUAGE)
+                        {
+                            // We need the declarations of the private symbols!
+                            private_entities << as_type((*it)->get_symbol().get_type().no_ref()) << " " << (*it)->get_symbol().get_name() << ";";
+                        }
+
                         if ((*it)->get_symbol().is_valid()
                                 && (*it)->get_symbol().is_allocatable())
                         {
@@ -1028,10 +1106,22 @@ namespace TL { namespace Nanox {
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
+           Source unpacked_function_call;
+            if (IS_CXX_LANGUAGE
+                    && !is_function_task
+                    && current_function.is_member()
+                    && !current_function.is_static())
+            {
+                unpacked_function_call << "args.this_->";
+            }
+
+           unpacked_function_call
+               << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
+
             outline_src
                 << "{"
                 <<      instrument_before
-                <<      outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      unpacked_function_call
                 <<      instrument_after
                 <<      cleanup_code
                 << "}"
@@ -1232,12 +1322,39 @@ namespace TL { namespace Nanox {
             Source &device_descriptor,
             Source &fortran_dynamic_init)
     {
-        std::string outline_name = smp_outline_name(info._outline_name);
+        const std::string& outline_name = smp_outline_name(info._outline_name);
+        const std::string& arguments_struct = info._arguments_struct;
+        TL::Symbol current_function = info._current_function;
+
+        //FIXME: This is confusing. In a future, we should get the template
+        //arguments of the outline function and print them
+
+        //Save the original name of the current function
+        std::string original_name = current_function.get_name();
+
+        current_function.set_name(outline_name);
+        Nodecl::NodeclBase code = current_function.get_function_code();
+
+        Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+            ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+            : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+        TL::Scope function_scope = context.retrieve_context();
+        std::string qualified_name = current_function.get_qualified_name(function_scope);
+
+        // Restore the original name of the current function
+        current_function.set_name(original_name);
+
         if (!IS_FORTRAN_LANGUAGE)
         {
+            // Extra cast for solving some issues of GCC 4.6.* and lowers (this
+            // issues seem to be fixed in GCC 4.7 =D)
+            std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
+            std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
+
             ancillary_device_description
                 << "static nanos_smp_args_t " << outline_name << "_args = {"
-                << ".outline = (void(*)(void*))&" << outline_name
+                << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
                 << "};"
                 ;
             device_descriptor

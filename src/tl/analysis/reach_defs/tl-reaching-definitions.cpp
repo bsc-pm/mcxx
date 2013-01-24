@@ -65,7 +65,7 @@ namespace Analysis {
                 }
                 else if( !current->is_entry_node( ) )
                 {
-                    ReachingDefinitionsVisitor rdv;
+                    GeneratedStatementsVisitor rdv;
                     ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                     {
@@ -146,10 +146,10 @@ namespace Analysis {
                     // Computing Reach Defs Out
                     Utils::ext_sym_map gen = current->get_generated_stmts( );
                     Utils::ext_sym_set killed = current->get_killed_vars( );
-                    Utils::ext_sym_map diff = Utils::containers_difference( rd_in, killed );
+                    Utils::ext_sym_map diff = Utils::ext_sym_map_minus_ext_sym_set( rd_in, killed );
                     rd_out = Utils::ext_sym_map_union( gen, diff );
 
-                    if( !Utils::containers_equivalence( old_rd_in, rd_in ) || !Utils::containers_equivalence( old_rd_out, rd_out ) )
+                    if( !Utils::ext_sym_map_equivalence( old_rd_in, rd_in ) || !Utils::ext_sym_map_equivalence( old_rd_out, rd_out ) )
                     {
                         current->set_reaching_definitions_in( rd_in );
                         current->set_reaching_definitions_out( rd_out );
@@ -166,16 +166,17 @@ namespace Analysis {
         }
     }
 
+
     void ReachingDefinitions::set_graph_node_reaching_definitions( Node* current )
     {
         if( current->is_graph_node( ) )
         {
-            // RDI(graph) = U RDI(inner entries)
+            // RDI(graph) = U RDO (Y), for all Y predecessors of X
             Utils::ext_sym_map graph_rdi;
-            ObjectList<Node*> entries = current->get_graph_entry_node( )->get_children( );
-            for( ObjectList<Node*>::iterator it = entries.begin( ); it != entries.end( ); ++it )
+            ObjectList<Node*> parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
             {
-                graph_rdi = Utils::ext_sym_map_union( graph_rdi, ( *it )->get_reaching_definitions_in( ) );
+                graph_rdi = Utils::ext_sym_map_union( graph_rdi, ( *it )->get_reaching_definitions_out( ) );
             }
             current->set_reaching_definitions_in( graph_rdi );
 
@@ -198,103 +199,109 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ************************ Class implementing a visitor of reaching definition *********************** //
 
-    ReachingDefinitionsVisitor::ReachingDefinitionsVisitor( )
+    GeneratedStatementsVisitor::GeneratedStatementsVisitor( )
             : _gen( )
     {}
 
-    Utils::ext_sym_map ReachingDefinitionsVisitor::get_gen( )
+    Utils::ext_sym_map GeneratedStatementsVisitor::get_gen( )
     {
         return _gen;
     }
 
-    void ReachingDefinitionsVisitor::visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
+    void GeneratedStatementsVisitor::visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
     {
-        _gen[lhs] = rhs;
+        if( _gen.find( lhs ) != _gen.end( ) )
+        {   // Generated set only contains downwards exposed definitions
+            // So, if there is a previous statement that generated a definition for the same variable
+            // we remove it from the list
+            _gen.erase( Utils::ExtendedSymbol( lhs ) );
+        }
+        _gen.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( Utils::ExtendedSymbol( lhs ), rhs ) );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::AddAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::AddAssignment& n )
     {
         Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                                  n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::Assignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Assignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                          n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::DivAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::DivAssignment& n )
     {
         Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::MinusAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                                  n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::ModAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ModAssignment& n )
     {
         Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ),  n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::MulAssignment& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MulAssignment& n )
     {
         Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_filename( ), n.get_line( ) );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::Postdecrement& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postdecrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
                                                                    n.get_filename( ), n.get_line( ) );
@@ -303,7 +310,7 @@ namespace Analysis {
         visit_assignment( n.get_rhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::Postincrement& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postincrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
                                                                    n.get_filename( ), n.get_line( ) );
@@ -312,7 +319,7 @@ namespace Analysis {
         visit_assignment( n.get_rhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::Predecrement& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Predecrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
                                                                    n.get_filename( ), n.get_line( ) );
@@ -321,7 +328,7 @@ namespace Analysis {
         visit_assignment( n.get_rhs( ), rhs );
     }
 
-    ReachingDefinitionsVisitor::Ret ReachingDefinitionsVisitor::visit( const Nodecl::Preincrement& n )
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Preincrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
                                                                    n.get_filename( ), n.get_line( ) );
@@ -343,7 +350,7 @@ namespace Analysis {
     //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), Nodecl::NodeclBase( one ), n.get_filename(), n.get_line() ) );
     // - AddAssignment:
     //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), n.get_rhs(), n.get_filename(), n.get_line() ) );
-//     void ReachingDefinitionsVisitor::compute_init_expr( Nodecl::NodeclBase init_value )
+//     void GeneratedStatementsVisitor::compute_init_expr( Nodecl::NodeclBase init_value )
 //     {
 //         Nodecl::Calculator calc;
 //         const_value_t* const_val = calc.compute_const_value( init_value );

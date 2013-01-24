@@ -36,7 +36,7 @@ namespace TL {
 namespace Analysis {
 
     LoopAnalysis::LoopAnalysis( ExtensibleGraph* graph, Utils::InductionVarsPerNode ivs )
-            : _graph( graph ), _induction_vars( ivs )
+            : _graph( graph ), _induction_vars( ivs ), _loop_limits( )
     {}
 
     void LoopAnalysis::compute_loop_ranges( )
@@ -82,11 +82,40 @@ namespace Analysis {
                             }
                         }
 
+                        // Loop limits
+                        // It is convenient to use the InductionVariableData structure, even though the return of the
+                        // condition parsing might not be an Induction Variable but a variable that defined the limits
+                        // of the loop
+
                         // The upper bound
+                                // Easy case: the condition node contains the upper bound of the induction variable
+                        Node* condition_node = NULL;
+                        if( current->is_for_loop( ) )
+                        {
+                            // Check whether the loop has a condition in the loop control
+                            Nodecl::ForStatement loop_stmt = current->get_graph_label( ).as<Nodecl::ForStatement>( );
+                            Nodecl::LoopControl loop_control = loop_stmt.get_loop_header( ).as<Nodecl::LoopControl>( );
+                            if( !loop_control.get_cond( ).is_null( ) )
+                            {
+                                condition_node = current->get_graph_entry_node( )->get_children()[0];
+                            }
+                        }
+                        else if( current->is_while_loop( ) )
+                        {
+                            condition_node = current->get_graph_entry_node( )->get_children()[0];
+                        }
+                        else if( current->is_do_loop( ) )
+                        {
+                            condition_node = current->get_graph_exit_node( )->get_parents()[0];
+                        }
+                        if( condition_node != NULL )
+                        {
+                            Nodecl::NodeclBase condition_stmt = condition_node->get_statements()[0];
+                            get_loop_limits( condition_stmt, current->get_id( ) );
+                        }
 
-
-                        // The stride
-
+                                // The upper bound must be computed depending on the loop limits
+                        // TODO
                     }
 
                 }
@@ -101,191 +130,139 @@ namespace Analysis {
         }
     }
 
+    void LoopAnalysis::get_loop_limits( Nodecl::NodeclBase cond, int loop_id )
+    {
+        Nodecl::Utils::ReduceExpressionVisitor v;
 
+        if( cond.is<Nodecl::Symbol>( ) )
+        {   // No limits to be computed
+        }
+        else if( cond.is<Nodecl::LogicalAnd>( ) )
+        {
+            // Traverse left and right parts
+            Nodecl::LogicalAnd cond_ = cond.as<Nodecl::LogicalAnd>( );
+            get_loop_limits( cond_.get_lhs( ), loop_id );
+            get_loop_limits( cond_.get_rhs( ), loop_id );
+        }
+        else if( cond.is<Nodecl::LogicalOr>( ) )
+        {
+            internal_error( "Combined || expressions as loop condition not yet implemented", 0 );
+        }
+        else if( cond.is<Nodecl::LogicalNot>( ) )
+        {
+            internal_error( "Combined ! expressions as loop condition not yet implemented", 0 );
+        }
+        else if( cond.is<Nodecl::LowerThan>( ) )
+        {
+            Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>( );
+            Nodecl::NodeclBase var = cond_.get_lhs( );
+            Nodecl::NodeclBase var_limit = cond_.get_rhs( );
 
+            // The upper bound will be the rhs minus 1
+            nodecl_t one = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed*/ 1 ) );
+            Nodecl::NodeclBase var_limit_ = var_limit.shallow_copy( );
+            Nodecl::NodeclBase ub = Nodecl::Minus::make( var_limit_, Nodecl::IntegerLiteral( one ), var.get_type( ) );
+            v.walk( ub );
 
+            std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
+                    _induction_vars.equal_range( loop_id );
+            Utils::InductionVariableData* loop_info_var = get_induction_variable_from_list(
+                    Utils::InductionVarsPerNode( loop_ivs.first, loop_ivs.second ), var );
+            if ( loop_info_var != NULL )
+            {
+                loop_info_var->set_ub( ub );
+            }
+            else
+            {
+                loop_info_var = new Utils::InductionVariableData( var );
+                loop_info_var->set_ub( ub );
+                _loop_limits.insert( Utils::InductionVarsPerNode::value_type( loop_id, loop_info_var ) );
+            }
+        }
+        else if( cond.is<Nodecl::LowerOrEqualThan>( ) )
+        {
+            Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>( );
+            Nodecl::NodeclBase var = cond_.get_lhs( );
+            Nodecl::NodeclBase var_limit = cond_.get_rhs( );
 
+            std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
+                    _induction_vars.equal_range( loop_id );
+            Utils::InductionVariableData* loop_info_var = get_induction_variable_from_list(
+                    Utils::InductionVarsPerNode( loop_ivs.first, loop_ivs.second ), var );
+            if ( loop_info_var != NULL )
+            {
+                loop_info_var->set_ub( var_limit );
+            }
+            else
+            {
+                loop_info_var = new Utils::InductionVariableData( var );
+                loop_info_var->set_ub( var_limit );
+                _loop_limits.insert( Utils::InductionVarsPerNode::value_type( loop_id, loop_info_var ) );
+            }
+        }
+        else if( cond.is<Nodecl::GreaterThan>( ) )
+        {
+            Nodecl::GreaterThan cond_ = cond.as<Nodecl::GreaterThan>( );
+            Nodecl::NodeclBase var = cond_.get_lhs( );
+            Nodecl::NodeclBase var_limit = cond_.get_rhs( );
 
+            // This is not the UB, is the LB: the lower bound will be the rhs plus 1
+            nodecl_t one = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed*/ 1 ) );
+            Nodecl::NodeclBase var_limit_ = var_limit.shallow_copy( );
+            Nodecl::NodeclBase lb = Nodecl::Add::make( var_limit_, Nodecl::IntegerLiteral( one ), var.get_type( ) );
+            v.walk( lb );
 
+            std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
+                    _induction_vars.equal_range( loop_id );
+            Utils::InductionVariableData* loop_info_var = get_induction_variable_from_list(
+                    Utils::InductionVarsPerNode( loop_ivs.first, loop_ivs.second ), var );
+            if ( loop_info_var != NULL )
+            {
+                loop_info_var->set_ub( loop_info_var->get_lb( ) );
+                loop_info_var->set_lb( lb );
+            }
+            else
+            {
+                loop_info_var = new Utils::InductionVariableData( var );
+                loop_info_var->set_lb( lb );
+                _loop_limits.insert( Utils::InductionVarsPerNode::value_type( loop_id, loop_info_var ) );
+            }
+        }
+        else if( cond.is<Nodecl::GreaterOrEqualThan>( ) )
+        {
+            Nodecl::GreaterThan cond_ = cond.as<Nodecl::GreaterThan>( );
+            Nodecl::NodeclBase var = cond_.get_lhs( );
+            Nodecl::NodeclBase var_limit = cond_.get_rhs( );
 
+            std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
+                    _induction_vars.equal_range( loop_id );
+            Utils::InductionVariableData* loop_info_var = get_induction_variable_from_list(
+                    Utils::InductionVarsPerNode( loop_ivs.first, loop_ivs.second ), var );
+            if( loop_info_var != NULL )
+            {
+                loop_info_var->set_ub( loop_info_var->get_lb( ) );
+                loop_info_var->set_lb( var );
+            }
+            else
+            {
+                loop_info_var = new Utils::InductionVariableData( var );
+                loop_info_var->set_lb( var_limit );
+                _loop_limits.insert( Utils::InductionVarsPerNode::value_type( loop_id, loop_info_var ) );
+            }
+        }
+        else if( cond.is<Nodecl::Different>( ) )
+        {
+            internal_error( "Analysis of loops with DIFFERENT condition expression not yet implemented", 0 );
+        }
+        else if( cond.is<Nodecl::Equal>( ) )
+        {
+            internal_error( "Analysis of loops with EQUAL condition expression not yet implemented", 0 );
+        }
+        else
+        {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
+        }
+    }
 
-//     void LoopAnalysis::traverse_loop_init(Node* loop_node, Nodecl::NodeclBase init)
-//     {
-//         if (init.is<Nodecl::Comma>())
-//         {
-//             Nodecl::Comma init_ = init.as<Nodecl::Comma>();
-//             traverse_loop_init(loop_node, init_.get_rhs());
-//             traverse_loop_init(loop_node, init_.get_lhs());
-//         }
-//         else if (init.is<Nodecl::ObjectInit>())
-//         {
-//             Nodecl::ObjectInit init_ = init.as<Nodecl::ObjectInit>();
-//             Symbol def_var = init_.get_symbol();
-//             Nodecl::NodeclBase def_expr = def_var.get_value();
-//
-//             InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
-//             _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
-//         }
-//         else if (init.is<Nodecl::Assignment>())
-//         {
-//             Nodecl::Assignment init_ = init.as<Nodecl::Assignment>();
-//             Symbol def_var = init_.get_lhs().get_symbol();
-//             Nodecl::NodeclBase def_expr = init_.get_rhs();
-//
-//             InductionVarInfo* ind = new InductionVarInfo(def_var, def_expr);
-//             _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), ind));
-//         }
-//         else if (init.is_null())
-//         {}  // Nothing to do, no init expression
-//         else
-//         {
-//             internal_error("Node kind '%s' while analysing the induction variables in loop init expression not yet implemented",
-//                 ast_print_node_type(init.get_kind()));
-//         }
-//     }
-//
-//     InductionVarInfo* LoopAnalysis::induction_vars_l_contains_symbol(Node* node, Symbol s) const
-//     {
-//         std::pair<induc_vars_map::const_iterator, induc_vars_map::const_iterator> actual_ind_vars = _induction_vars.equal_range(node->get_id());
-//         for (induc_vars_map::const_iterator it = actual_ind_vars.first; it != actual_ind_vars.second; ++it)
-//         {
-//             if (it->second->get_symbol() == s)
-//             {
-//                 return it->second;
-//             }
-//         }
-//         return NULL;
-//     }
-//
-//     // FIXME LHS of comparisons can be not symbols, e.g.: (b = p[0]) > a
-//     void LoopAnalysis::traverse_loop_cond(Node* loop_node, Nodecl::NodeclBase cond)
-//     {
-//         Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
-//
-//         // Logical Operators
-//         if (cond.is<Nodecl::Symbol>())
-//         {   // No limits to be computed
-//         }
-//         else if (cond.is<Nodecl::LogicalAnd>())
-//         {
-//             // Traverse left and right parts
-//             Nodecl::LogicalAnd cond_ = cond.as<Nodecl::LogicalAnd>();
-//             traverse_loop_cond(loop_node, cond_.get_lhs());
-//             traverse_loop_cond(loop_node, cond_.get_rhs());
-//
-//             std::cerr << "warning: Combined && expressions as loop condition not properly implemented" << std::endl;
-//         }
-//         else if (cond.is<Nodecl::LogicalOr>())
-//         {
-//             internal_error("Combined || expressions as loop condition not yet implemented", 0);
-//         }
-//         else if (cond.is<Nodecl::LogicalNot>())
-//         {
-//             internal_error("Combined ! expressions as loop condition not yet implemented", 0);
-//         }
-//         // Relational Operators
-//         else if (cond.is<Nodecl::LowerThan>())
-//         {
-//             Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>();
-//             Symbol def_var = cond_.get_lhs().get_symbol();
-//             Nodecl::NodeclBase def_expr = cond_.get_rhs();
-//
-//             // The upper bound will be the rhs minus 1
-//             nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-//             Nodecl::NodeclBase ub = Nodecl::Minus::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(),
-//                                                         cond.get_filename(), cond.get_line());
-//             ub = Nodecl::Utils::reduce_expression(ub);
-//
-//             InductionVarInfo* loop_info_var;
-//             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
-//             {
-//                 loop_info_var->set_ub(ub);
-//             }
-//             else
-//             {
-//                 loop_info_var = new InductionVarInfo(def_var, def_expr);
-//                 loop_info_var->set_ub(ub);
-//                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
-//             }
-//         }
-//         else if (cond.is<Nodecl::LowerOrEqualThan>())
-//         {
-//             Nodecl::LowerThan cond_ = cond.as<Nodecl::LowerThan>();
-//             Symbol def_var = cond_.get_lhs().get_symbol();
-//             Nodecl::NodeclBase def_expr = cond_.get_rhs();
-//
-//             InductionVarInfo* loop_info_var;
-//             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
-//             {
-//                 loop_info_var->set_ub(def_expr);
-//             }
-//             else
-//             {
-//                 loop_info_var = new InductionVarInfo(def_var, def_expr);
-//                 loop_info_var->set_ub(def_expr);
-//                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
-//             }
-//
-//         }
-//         else if (cond.is<Nodecl::GreaterThan>())
-//         {
-//             Nodecl::GreaterThan cond_ = cond.as<Nodecl::GreaterThan>();
-//             Symbol def_var = cond_.get_lhs().get_symbol();
-//             Nodecl::NodeclBase def_expr = cond_.get_rhs();
-//
-//             // This is not the UB, is the LB: the lower bound will be the rhs plus 1
-//             nodecl_t one = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed*/ 1));
-//             Nodecl::NodeclBase lb = Nodecl::Add::make(def_expr, Nodecl::IntegerLiteral(one), def_var.get_type(),
-//                                                     cond.get_filename(), cond.get_line());
-//             lb = Nodecl::Utils::reduce_expression(lb);
-//
-//             InductionVarInfo* loop_info_var;
-//             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
-//             {
-//                 loop_info_var->set_ub(loop_info_var->get_lb());
-//                 loop_info_var->set_lb(lb);
-//             }
-//             else
-//             {
-//                 loop_info_var = new InductionVarInfo(def_var, def_expr);
-//                 loop_info_var->set_lb(lb);
-//                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
-//             }
-//         }
-//         else if (cond.is<Nodecl::GreaterOrEqualThan>())
-//         {
-//             Nodecl::GreaterThan cond_ = cond.as<Nodecl::GreaterThan>();
-//             Symbol def_var = cond_.get_lhs().get_symbol();
-//             Nodecl::NodeclBase def_expr = cond_.get_rhs();
-//
-//             InductionVarInfo* loop_info_var;
-//             if ( (loop_info_var = induction_vars_l_contains_symbol(loop_node, def_var)) != NULL )
-//             {
-//                 loop_info_var->set_ub(loop_info_var->get_lb());
-//                 loop_info_var->set_lb(def_expr);
-//             }
-//             else
-//             {
-//                 loop_info_var = new InductionVarInfo(def_var, def_expr);
-//                 loop_info_var->set_lb(def_expr);
-//                 _induction_vars.insert(induc_vars_map::value_type(loop_node->get_id(), loop_info_var));
-//             }
-//         }
-//         else if (cond.is<Nodecl::Different>())
-//         {
-//             internal_error("Analysis of loops with DIFFERENT condition expression not yet implemented", 0);
-//         }
-//         else if (cond.is<Nodecl::Equal>())
-//         {
-//             internal_error("Analysis of loops with EQUAL condition expression not yet implemented", 0);
-//         }
-//         else if (cond.is_null())
-//         {}  // Nothing to do, no init expression
-//         else
-//         {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
-//         }
-//     }
-//
 //     void LoopAnalysis::traverse_loop_stride(Node* loop_node, Nodecl::NodeclBase stride)
 //     {
 //         if (stride.is<Nodecl::Preincrement>() || stride.is<Nodecl::Postincrement>())

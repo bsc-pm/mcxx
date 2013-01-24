@@ -4012,19 +4012,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_enums = 0;
-        char c[256];
+        const char* symbol_name;
         C_LANGUAGE()
         {
-            snprintf(c, 255, "enum mcc_enum_anon_%d", anonymous_enums);
+            uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "mcc_enum_anon_%d", anonymous_enums);
+            uniquestr_sprintf(&symbol_name, "mcc_enum_anon_%d", anonymous_enums);
         }
-        c[255] = '\0';
         anonymous_enums++;
 
-        new_enum = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
+        new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         new_enum->line = ASTLine(a);
         new_enum->file = ASTFileName(a);
         new_enum->kind = SK_ENUM;
@@ -5168,14 +5167,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
-        char constructor_name[256] = { 0 };
+        const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(constructor_name, 256, "%s", "constructor ");
+            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
         scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
@@ -5362,14 +5361,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
-        char constructor_name[256] = { 0 };
+        const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(constructor_name, 256, "%s", "constructor ");
+            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
         scope_entry_t* implicit_copy_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
@@ -5654,16 +5653,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     // Implicit destructor
     if (class_type_get_destructor(class_type) == NULL)
     {
-        char destructor_name[256] = { 0 };
+        const char* destructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(destructor_name, 255, "~%s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&destructor_name, "~%s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(destructor_name, 255, "%s", "~destructor");
+            uniquestr_sprintf(&destructor_name, "%s", "~destructor");
         }
-        destructor_name[255] = '\0';
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
@@ -6474,21 +6472,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_classes = 0;
-        char c[256];
+        const char* symbol_name;
         C_LANGUAGE()
         {
-            snprintf(c, 255, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            uniquestr_sprintf(&symbol_name, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
         }
-        c[255] = '\0';
         anonymous_classes++;
 
-        class_entry = new_symbol(decl_context, 
-                decl_context.current_scope, 
-                uniquestr(c));
+        class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
 
         class_entry->kind = SK_CLASS;
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
@@ -9833,16 +9828,11 @@ static void build_scope_template_template_parameter(AST a,
     {
         AST symbol = ASTSon1(a);
         template_parameter_name = ASTText(symbol);
-
     }
     else
     {
-        char artificial_template_param_name[256];
-
-        sprintf(artificial_template_param_name, 
+        uniquestr_sprintf(&template_parameter_name,
                 "__tpl_tpl_param_%d_%d__", nesting, template_parameters->num_parameters);
-
-        template_parameter_name = uniquestr(artificial_template_param_name);
     }
 
     DEBUG_CODE()
@@ -9986,10 +9976,8 @@ static void build_scope_type_template_parameter(AST a,
     }
     else
     {
-        char template_param_name[256];
-        sprintf(template_param_name, "__type_tpl__param_%d_%d__", nesting, 
+        uniquestr_sprintf(&template_parameter_name, "__type_tpl__param_%d_%d__", nesting, 
                 template_parameters->num_parameters);
-        template_parameter_name = uniquestr(template_param_name);
 
         line = ASTLine(a);
         file = ASTFileName(a);
@@ -10093,12 +10081,9 @@ static void build_scope_nontype_template_parameter(AST a,
     }
     else
     {
-        char template_param_name[256];
-
-        sprintf(template_param_name, "__nontype_tpl_param_%d_%d__", 
+        uniquestr_sprintf(&template_parameter_name, "__nontype_tpl_param_%d_%d__", 
                 nesting, 
                 template_parameters->num_parameters);
-        template_parameter_name = uniquestr(template_param_name);
     }
     entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
     entry->symbol_name = template_parameter_name;
@@ -11022,12 +11007,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
         // For C++ we should elaborate a bit more __PRETTY_FUNCTION__
         // but this is very gcc specific
-        char c[256] = { 0 };
-        snprintf(c, 255, "\"%s\"", entry->symbol_name);
-        c[255] = '\0';
+        const char* c;
+        uniquestr_sprintf(&c, "\"%s\"", entry->symbol_name);
+
         nodecl_t nodecl_expr = internal_expression_parse(c, block_context);
 
-        const char* func_names[] = 
+        const char* func_names[] =
         {
             "__func__",
             "__FUNCTION__",

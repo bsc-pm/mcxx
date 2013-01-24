@@ -558,7 +558,7 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     if (nodecl_is_null(dim))
     {
         type_t* t = no_ref(nodecl_get_type(array));
-        int value = array_type_get_total_number_of_elements(t);
+        int value = fortran_array_type_get_total_number_of_elements(t);
         if (value == -1)
         {
             return nodecl_null();
