@@ -318,7 +318,7 @@ namespace TL { namespace OpenMP {
                 if (!function_task_info.get_priority_clause_expression().is_null())
                 {
                     result_list.append(
-                        Nodecl::OpenMP::Priority::make(function_task_info.get_priority_clause_expression())
+                        Nodecl::OpenMP::Priority::make(function_task_info.get_priority_clause_expression().shallow_copy())
                         );
                 }
 
