@@ -311,8 +311,8 @@ namespace TL { namespace OpenMP {
                 if (!function_task_info.get_if_clause_conditional_expression().is_null())
                 {
                     result_list.append(
-                        Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression())
-                        );
+                        Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression().shallow_copy())
+                       );
                 }
 
                 if (!function_task_info.get_priority_clause_expression().is_null())
