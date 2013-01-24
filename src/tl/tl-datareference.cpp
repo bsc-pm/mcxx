@@ -313,15 +313,6 @@ namespace TL
                 if (!_data_ref._is_valid)
                     return;
 
-                // Ignore the object 'this' of C++
-                if (IS_CXX_LANGUAGE
-                        && _data_ref._base_symbol.get_name() == "this")
-                {
-                    walk(member.get_member());
-                    return;
-                }
-
-
                 TL::Type t = member.get_type();
                 if (t.is_any_reference())
                     t = t.references_to();
