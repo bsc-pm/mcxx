@@ -274,10 +274,13 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         char is_implicit_argument,
         const char* filename, int line)
 {
-    fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
-            print_declarator(orig));
-    fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
-            print_declarator(dest));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
+                print_declarator(orig));
+        fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
+                print_declarator(dest));
+    }
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
             NULL, 0, /* mandatory */ 0);
