@@ -423,6 +423,7 @@ void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+        const std::string filename,
         TL::Source& code_ndrange)
 {
     int num_args_ndrange = ndrange_args.size();
@@ -461,18 +462,20 @@ void DeviceOpenCL::generate_ndrange_code(
             && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
 
     ERROR_CONDITION(((num_dim * 3) + 1 + !check_dim) != num_args_ndrange && ((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
-
+    
+    std::string compiler_opts;
+    if (CURRENT_CONFIGURATION->opencl_build_options!=NULL){        
+        compiler_opts=std::string(CURRENT_CONFIGURATION->opencl_build_options);
+    }
     //Create OCL Kernel
-    code_ndrange << "char* ompss_code = \"adasas\";";    
-    code_ndrange << "void* ompss_program_ocl = nanos_get_ocl_program(ompss_code,\"\");";
-    code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",ompss_program_ocl);";
+    code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
     //Prepare setArgs
     for (int i = 0; i < num_params; ++i) {
         //Check original function type
         if (parameters_called[i].get_type().is_pointer()) {
-            code_ndrange << "nanos_ocl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(parameters_unpacked[i]) <<");";
+            code_ndrange << "nanos_opencl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(parameters_unpacked[i]) <<");";
         } else {            
-            code_ndrange << "nanos_ocl_set_arg(ompss_kernel_ocl," << i << ", "
+            code_ndrange << "nanos_opencl_set_arg(ompss_kernel_ocl," << i << ", "
                     "sizeof(" << as_symbol(parameters_unpacked[i]) << "),&" << as_symbol(parameters_unpacked[i]) <<");";
         }        
     }
@@ -527,8 +530,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for OpenCL devices is not supported yet\n", 0);
     
-    std::cout << "clausula file OCL " << info._target_info.get_file() << "\n";
-
     // Unpack DTO
     const std::string& device_outline_name = ocl_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -631,9 +632,9 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     if (called_task.is_valid()
             && !called_task.get_function_code().is_null())
     {
-        _ocl_file_code.append(Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope()));
+        //_ocl_file_code.append(Nodecl::Utils::deep_copy(
+        //            called_task.get_function_code(),
+        //            called_task.get_scope()));
 
         // Remove the user function definition from the original source because
         // It is used only in the intermediate file
@@ -646,6 +647,13 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             device_outline_name + "_unpacked",
             info,
             symbol_map);
+    
+    //Get file clause, if not present, use global file
+    std::string file=info._target_info.get_file();
+    if (file.empty()){
+        ERROR_CONDITION(CURRENT_CONFIGURATION->opencl_code_file==NULL,"No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag",called_task.get_name().c_str());
+        file=std::string(CURRENT_CONFIGURATION->opencl_code_file);
+    }
 
     Source ndrange_code;
     if (called_task.is_valid()
@@ -654,6 +662,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         generate_ndrange_code(called_task,
                 unpacked_function,
                 info._target_info.get_ndrange(),
+                file,
                 ndrange_code);
     }
 
@@ -785,7 +794,8 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
         ancillary_device_description
             << comment("OpenCL device descriptor")
             << "static nanos_opencl_args_t "
-            << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
+            << device_outline_name << "_args;"                
+            << device_outline_name << "_args.outline = (void(*)(void*))" << device_outline_name << ";"
             ;
     }
     else
@@ -824,37 +834,37 @@ bool DeviceOpenCL::allow_mandatory_creation()
 
 void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
 {
-    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
-            it != stuff_to_be_copied.end();
-            ++it)
-    {
-        _ocl_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
-    }
+//    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
+//            it != stuff_to_be_copied.end();
+//            ++it)
+//    {
+//        _ocl_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+//    }
 }
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
     if (!_ocl_file_code.is_null())
     {
-        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
-        std::string new_filename = "oclcc_" + original_filename.substr(0, original_filename.find("."))  + ".cu";
-
-        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
-        if (ancillary_file == NULL)
-        {
-            running_error("%s: error: cannot open file '%s'. %s\n",
-                    original_filename.c_str(),
-                    new_filename.c_str(),
-                    strerror(errno));
-        }
-
-        CXX_LANGUAGE()
-        {
-            // Add to the new intermediate file the *.cu, *.cuh included files.
-            // It must be done only in C++ language because the C++ codegen do
-            // not deduce the set of used symbols
-            add_included_opencl_files(ancillary_file);
-        }
+//        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+//        std::string new_filename = "oclcc_" + original_filename.substr(0, original_filename.find("."))  + ".cu";
+//
+//        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+//        if (ancillary_file == NULL)
+//        {
+//            running_error("%s: error: cannot open file '%s'. %s\n",
+//                    original_filename.c_str(),
+//                    new_filename.c_str(),
+//                    strerror(errno));
+//        }
+//
+//        CXX_LANGUAGE()
+//        {
+//            // Add to the new intermediate file the *.cu, *.cuh included files.
+//            // It must be done only in C++ language because the C++ codegen do
+//            // not deduce the set of used symbols
+//            add_included_opencl_files(ancillary_file);
+//        }
 
 //        compilation_configuration_t* configuration = ::get_compilation_configuration("cuda");
 //        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvcc/mnvcxx", 0);
@@ -871,7 +881,7 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 //
 //        phase->codegen_top_level(_ocl_file_code, ancillary_file);
 
-        fclose(ancillary_file);
+       // fclose(ancillary_file);
 
         // Do not forget the clear the code for next files
         _ocl_file_code.get_internal_nodecl() = nodecl_null();

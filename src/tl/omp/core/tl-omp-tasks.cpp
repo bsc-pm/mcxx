@@ -729,6 +729,8 @@ namespace TL
                             COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
 
+                
+                target_info.set_file(target_context.file);
                 target_info.append_to_ndrange(target_context.ndrange);
                 target_info.append_to_onto(target_context.onto);
 

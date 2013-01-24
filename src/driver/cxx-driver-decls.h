@@ -459,6 +459,9 @@ typedef struct compilation_configuration_tag
     
     //OpenCL Build options
     const char* opencl_build_options;
+        
+    //OpenCL File options
+    const char* opencl_code_file;
 
     // Target options
     int num_target_option_maps;

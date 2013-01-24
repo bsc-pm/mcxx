@@ -47,6 +47,7 @@ namespace TL
                           const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,
                           const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                          const std::string filename,
                           TL::Source& code_ndrange);
 
                   void add_included_opencl_files(FILE* file);

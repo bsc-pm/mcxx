@@ -149,7 +149,7 @@ namespace TL { namespace Nanox {
                     construct.get_locus().c_str(),
                     device_name.get_text().c_str());
 
-            device->copy_stuff_to_device_file(declarations);
+            //device->copy_stuff_to_device_file(declarations);
         }
 
          if (!using_device_smp)

@@ -65,8 +65,8 @@ namespace TL
                 void add_device_name(std::string device_name);
                 ObjectList<std::string>& get_device_names();   
 
-                void set_file(std::string& file);
-                std::string& get_file();
+                void set_file(std::string file);
+                std::string get_file();
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase>& get_ndrange();

@@ -87,7 +87,7 @@ namespace TL
             PragmaCustomClause file = pragma_line.get_clause("file");
             if (file.is_defined())
             {
-                ObjectList<std::string> file_list= file.get_arguments();
+                ObjectList<std::string> file_list= file.get_tokenized_arguments();
                 if (file_list.size() != 1)
                 {
                     std::cerr << pragma_line.get_locus() << ": warning: clause 'file' expects one identifier, skipping" << std::endl;
@@ -378,6 +378,7 @@ namespace TL
                     COPY_DIR_INOUT,
                     target_info);
 
+            target_info.set_file(target_ctx.file);
             target_info.append_to_ndrange(target_ctx.ndrange);
             target_info.append_to_onto(target_ctx.onto);
             target_info.append_to_device_list(target_ctx.device_list);

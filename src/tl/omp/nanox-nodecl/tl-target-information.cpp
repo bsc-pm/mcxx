@@ -54,7 +54,7 @@ namespace TL { namespace Nanox {
         _file=file;
     }
 
-    std::string TargetInformation::get_device_names()
+    std::string TargetInformation::get_file()
     {
         return _file;
     }
