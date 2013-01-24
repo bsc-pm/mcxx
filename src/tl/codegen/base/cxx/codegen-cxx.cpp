@@ -5907,7 +5907,11 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         TL::Symbol enum_entry = t.get_symbol();
 
-        walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        // Only walk the enumerators if not already defined
+        if (get_codegen_status(enum_entry) != CODEGEN_STATUS_DEFINED)
+        {
+            walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
         define_or_declare_if_complete(enum_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unresolved_overload())
