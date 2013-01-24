@@ -1,13 +1,14 @@
-# CUDA profile
-[ocl]
+# OpenCL profile
+[oclcc : omp-base ]
 language = C
-options =
-preprocessor_name =
-preprocessor_options =
-compiler_name = echo
-compiler_options = 
-linker_name = 
-linker_options = 
-target_options[sscc] = no_sublink no_embed
-target_options[mcc] = no_sublink no_embed
-target_options[mcxx] = no_sublink no_embed
+options = --opencl
+preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+compiler_phase = libtlnanox-opencl.so
+linker_options = -lnanox-opencl-api
+
+[oclcxx : omp-base]
+language = C++
+options = --opencl
+preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+compiler_phase = libtlnanox-opencl.so
+linker_options = -lnanox-opencl-api
