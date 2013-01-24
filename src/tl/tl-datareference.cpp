@@ -942,7 +942,27 @@ namespace TL
         else if (expr.is<Nodecl::ClassMemberAccess>())
         {
             // a.b
-            internal_error("Not yet implemented", 0);
+            Nodecl::NodeclBase result = Nodecl::Minus::make(
+                    Nodecl::Cast::make(
+                        Nodecl::Reference::make(
+                            expr,
+                            expr.get_type().get_pointer_to(),
+                            expr.get_filename(), expr.get_line()),
+                        get_ptrdiff_t_type(),
+                        "C", expr.get_filename(), expr.get_line()),
+                    Nodecl::Cast::make(
+                        Nodecl::Reference::make(
+                            expr.as<Nodecl::ClassMemberAccess>().get_lhs(),
+                            expr.as<Nodecl::ClassMemberAccess>().get_lhs().get_type().get_pointer_to(),
+                            expr.get_filename(), expr.get_line()),
+                        get_ptrdiff_t_type(),
+                        "C", expr.get_filename(), expr.get_line()),
+                    TL::Type::get_int_type(),
+                    expr.get_filename(),
+                    expr.get_line());
+
+            return result;
+            //internal_error("Not yet implemented", 0);
         }
 
         return const_value_to_nodecl(const_value_get_signed_int(0));
