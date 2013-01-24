@@ -1627,7 +1627,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
-                        && !current_gather_info.is_extern)
+                        && !current_gather_info.is_extern
+                        // In C, an entity may be redefined at file-scope
+                        && !(IS_C_LANGUAGE
+                            && (entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            && nodecl_is_null(entry->value)))
                 {
                     if (!checking_ambiguity())
                     {
@@ -1637,6 +1641,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry->file,
                                 entry->line);
                     }
+                }
+                else
+                {
+                    // Update the location
+                    entry->file = ast_get_filename(declarator);
+                    entry->line = ast_get_line(declarator);
                 }
 
                 if (is_array_type(declarator_type)
