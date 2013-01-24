@@ -6242,6 +6242,11 @@ char is_other_float_type(type_t* t)
             && t->type->builtin_type == BT_OTHER_FLOAT);
 }
 
+char is_float128_type(type_t* t)
+{
+    return (is_other_float_type(t) && floating_type_get_info(t)->size_of == 16);
+}
+
 char is_complex_type(type_t* t)
 {
     t = advance_over_typedefs(t);

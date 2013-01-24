@@ -301,6 +301,7 @@ LIBMCXX_EXTERN char is_double_type(type_t* t);
 LIBMCXX_EXTERN char is_long_double_type(type_t* t);
 LIBMCXX_EXTERN char is_float_type(type_t* t);
 LIBMCXX_EXTERN char is_other_float_type(type_t* t);
+LIBMCXX_EXTERN char is_float128_type(type_t* t);
 
 LIBMCXX_EXTERN const floating_type_info_t* floating_type_get_info(type_t* t);
 
