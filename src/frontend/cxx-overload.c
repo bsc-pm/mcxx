@@ -1453,8 +1453,7 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
         }
     }
     else if ((scs1.conv[0] == scs2.conv[0])
-            && (scs1.conv[1] == scs2.conv[1])
-            && (scs1.conv[2] == scs2.conv[2]))
+            && (scs1.conv[1] == scs2.conv[1]))
     {
         // If both are reference bindings, and scs2 binds a lvalue to a rvalue-reference
         // while scs1 binds a lvalue to a lvalue-reference, scs1 is better
