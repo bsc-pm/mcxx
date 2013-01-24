@@ -269,17 +269,17 @@ namespace TL { namespace OpenMP {
                 {
                     target_items.append(
                             Nodecl::OpenMP::NDRange::make(
-                                Nodecl::List::make(ndrange_exprs),                                
+                                Nodecl::List::make(ndrange_exprs),
                                 Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
-                
+
                 ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
                 if (!onto_exprs.empty())
                 {
                     target_items.append(
                             Nodecl::OpenMP::Onto::make(
-                                Nodecl::List::make(onto_exprs),                                
+                                Nodecl::List::make(onto_exprs),
                                 Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
