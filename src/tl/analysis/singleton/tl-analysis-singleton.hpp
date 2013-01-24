@@ -65,7 +65,6 @@ namespace Analysis {
         bool _loops;                //!<True when loops analysis has been applied
         bool _reaching_definitions; //!<True when reaching definitions has been calculated
         bool _induction_variables;  //!<True when induction variable analysis has been applied
-        bool _constants;            //!<True when constants analysis has been applied
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
 
@@ -104,26 +103,25 @@ namespace Analysis {
         void set_reaching_definitions_computed( );
         bool is_induction_variables_computed( ) const;
         void set_induction_variables_computed( );
-        bool is_constants_computed( ) const;
-        void set_constants_computed( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
 
-
-        // ************* Loop analysis info ************** //
-
+        //! Returns true when #n is an induction variable in #loop
         bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
+        //! Returns the list of induction variables found in #loop
         ObjectList<Utils::InductionVariableData*> get_induction_variables( Nodecl::NodeclBase loop );
-
-        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase loop );
-
-        bool is_constant( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
 
         //! Returns true when all Induction Variables of a loop has stride equal to one
         bool is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
+
+        //! Returns a list of objects that are constants in #n
+        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase n );
+
+        //! Returns true when #var is constant in #n
+        bool is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var );
 
     friend class AnalysisSingleton;
     };
