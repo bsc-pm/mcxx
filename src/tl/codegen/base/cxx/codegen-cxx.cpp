@@ -7190,11 +7190,10 @@ TL::Type CxxBase::fix_references(TL::Type t)
         }
         else
         {
-            Nodecl::NodeclBase lb, ub;
-            t.array_get_bounds(lb, ub);
+            Nodecl::NodeclBase size = t.array_get_size();
             TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
 
-            return fix_references(t.array_element()).get_array_to(lb, ub, sc);
+            return fix_references(t.array_element()).get_array_to(size, sc);
         }
     }
     else if (t.is_pointer())
