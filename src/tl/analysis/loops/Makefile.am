@@ -39,4 +39,5 @@ libloops_analysis_la_SOURCES = tl-iv-analysis.hpp \
                                tl-iv-analysis.cpp \
                                tl-loop-analysis.hpp \
                                tl-loop-analysis.cpp \
+                               tl-renaming-visitor.hpp \
                                $(END)
