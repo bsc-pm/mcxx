@@ -7507,7 +7507,9 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         leave_test_expression();
 
         // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE)
+        // unless this is a vector type where (T){1,2,3,4} is fine
+        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE
+                && !is_vector_type(no_ref(declarator_type)))
         {
             nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
         }
