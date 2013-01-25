@@ -49,4 +49,5 @@ int main()
 
     a.f(0);
     ptr_a->f(1);
+#pragma omp taskwait
 }
