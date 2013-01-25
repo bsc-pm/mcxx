@@ -7198,7 +7198,12 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
     else if (t.is_pointer())
     {
-        return fix_references(t.points_to()).get_pointer_to();
+        TL::Type fixed = fix_references(t.points_to()).get_pointer_to();
+
+        fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
+                get_cv_qualifier(t.get_internal_type()));
+
+        return fixed;
     }
     else if (t.is_function())
     {
