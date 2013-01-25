@@ -3,7 +3,7 @@
 language = C
 options = -std=gnu99 
 options = --vector-flavor=gnu 
-compiler_options = -flax-vector-conversions
+{simd} compiler_options = -flax-vector-conversions
 
 [mcxx : omp-base]
 language = C++
