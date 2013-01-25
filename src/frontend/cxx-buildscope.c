@@ -312,6 +312,26 @@ typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_s
 static linkage_stack_t _linkage_stack[MCXX_MAX_LINKAGE_NESTING] = { { NULL, 1 } };
 static int _top_linkage_stack = 0;
 
+static scope_entry_t* _vla_stack[MCXX_MAX_VLA_SYMBOLS] = { };
+static int _vla_stack_idx = 0;
+
+void push_vla_dimension_symbol(scope_entry_t* entry)
+{
+    ERROR_CONDITION(_vla_stack_idx == MCXX_MAX_VLA_SYMBOLS, "Too many VLA symbols per expression", 0);
+    _vla_stack[_vla_stack_idx] = entry;
+    _vla_stack_idx++;
+}
+
+scope_entry_t* pop_vla_dimension_symbol(void)
+{
+    if (_vla_stack_idx > 0)
+    {
+        _vla_stack_idx--;
+        return _vla_stack[_vla_stack_idx];
+    }
+    return NULL;
+}
+
 static const char* linkage_current_get_name(void)
 {
     return _linkage_stack[_top_linkage_stack].name;
@@ -12830,6 +12850,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 decl_context, declarator, nodecl_output);
         scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
+        // FIXME: Handle VLAs here
+        ERROR_CONDITION(gather_info.num_vla_dimension_symbols > 0, "Unsupported VLAs at the declaration", 0);
+
         AST initializer = ASTSon2(a);
 
         nodecl_t nodecl_expr = nodecl_null();
@@ -12842,6 +12865,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                         prettyprint_in_buffer(initializer));
             }
         }
+        // FIXME: Handle VLAs here
+        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the initialization expression", 0);
 
         entry->value = nodecl_expr;
 
@@ -12909,6 +12934,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             }
         }
 
+        // FIXME: Handle VLAs here
+        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the expression", 0);
     }
 }
 
@@ -12993,8 +13020,24 @@ static void build_scope_expression_statement(AST a,
         }
     }
 
+    *nodecl_output = nodecl_null();
 
-    *nodecl_output = nodecl_make_list_1(
+    scope_entry_t* vla_dimension_symbol = pop_vla_dimension_symbol();
+    while (vla_dimension_symbol != NULL)
+    {
+        *nodecl_output = nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_object_init(
+                    vla_dimension_symbol,
+                    ASTFileName(expr),
+                    ASTLine(expr)));
+
+        vla_dimension_symbol = pop_vla_dimension_symbol();
+    }
+
+
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_expression_statement(nodecl_expr, ASTFileName(expr), ASTLine(expr)));
 }
 
@@ -13078,6 +13121,10 @@ static void build_scope_for_statement(AST a,
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
+        // This tree contains VLA object inits
+        ERROR_CONDITION(!nodecl_is_null(nodecl_loop_init)
+                && (nodecl_list_length(nodecl_loop_init) > 1), "Unsupported VLAs at this expression statement", 0);
+
         nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
         // Get the expression itself instead of an expression statement
         nodecl_loop_init = nodecl_make_list_1(nodecl_get_child(nodecl_loop_init, 0));
@@ -13817,7 +13864,7 @@ static void build_scope_upc_forall_statement(AST a,
     {
         build_scope_simple_declaration(for_init_statement, block_context, 
                 /* is_template */ 0, /* is_explicit_instantiation */ 0,
-                &nodecl_for_init, 
+                &nodecl_for_init,
                 /* declared_symbols */ NULL, /* gather_decl_spec_list_t */ NULL);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)

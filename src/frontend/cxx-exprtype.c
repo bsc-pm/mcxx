@@ -9124,6 +9124,12 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     compute_declarator_type(abstract_declarator, &gather_info, simple_type_info,
             &declarator_type, decl_context, abstract_declarator, &dummy_nodecl_output);
 
+    int i;
+    for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
+    {
+        push_vla_dimension_symbol(gather_info.vla_dimension_symbols[i]);
+    }
+
     check_nodecl_cast_expr(nodecl_casted_expr, decl_context, declarator_type, cast_kind,
             ASTFileName(expr), ASTLine(expr),
             nodecl_output);
