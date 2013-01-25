@@ -461,7 +461,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
     std::string cast_kind = node.get_text();
-    TL::Type t = node.get_type();
+    TL::Type t = fix_references(node.get_type());
     Nodecl::NodeclBase nest = node.get_rhs();
 
     if (IS_C_LANGUAGE
@@ -7179,13 +7179,27 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
     else if (t.is_array())
     {
-        // Arrays should not have references as elements
-        return t;
+        if (t.array_is_region())
+        {
+            Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
+            t.array_get_bounds(lb, ub);
+            t.array_get_region_bounds(reg_lb, reg_ub);
+            TL::Scope sc = array_type_get_region_size_expr_context(t.get_internal_type());
+
+            return fix_references(t.array_element()).get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+        }
+        else
+        {
+            Nodecl::NodeclBase lb, ub;
+            t.array_get_bounds(lb, ub);
+            TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
+
+            return fix_references(t.array_element()).get_array_to(lb, ub, sc);
+        }
     }
     else if (t.is_pointer())
     {
-        // Pointers cannot point to references
-        return t;
+        return fix_references(t.points_to()).get_pointer_to();
     }
     else if (t.is_function())
     {
