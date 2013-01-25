@@ -842,7 +842,12 @@ namespace TL { namespace Nanox {
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        // Do nothing
+                        if (IS_CXX_LANGUAGE)
+                        {
+                            // We need the declarations of the private symbols!
+                            private_entities << as_type((*it)->get_symbol().get_type().no_ref()) << " " << (*it)->get_symbol().get_name() << ";";
+                        }
+
                         if ((*it)->get_symbol().is_valid()
                                 && (*it)->get_symbol().is_allocatable())
                         {

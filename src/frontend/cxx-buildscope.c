@@ -1627,7 +1627,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
-                        && !current_gather_info.is_extern)
+                        && !current_gather_info.is_extern
+                        // In C, an entity may be redefined at file-scope
+                        && !(IS_C_LANGUAGE
+                            && (entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            && nodecl_is_null(entry->value)))
                 {
                     if (!checking_ambiguity())
                     {
@@ -1637,6 +1641,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry->file,
                                 entry->line);
                     }
+                }
+                else
+                {
+                    // Update the location
+                    entry->file = ast_get_filename(declarator);
+                    entry->line = ast_get_line(declarator);
                 }
 
                 if (is_array_type(declarator_type)
@@ -3999,19 +4009,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_enums = 0;
-        char c[256];
+        const char* symbol_name;
         C_LANGUAGE()
         {
-            snprintf(c, 255, "enum mcc_enum_anon_%d", anonymous_enums);
+            uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "mcc_enum_anon_%d", anonymous_enums);
+            uniquestr_sprintf(&symbol_name, "mcc_enum_anon_%d", anonymous_enums);
         }
-        c[255] = '\0';
         anonymous_enums++;
 
-        new_enum = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
+        new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         new_enum->line = ASTLine(a);
         new_enum->file = ASTFileName(a);
         new_enum->kind = SK_ENUM;
@@ -5155,14 +5164,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
-        char constructor_name[256] = { 0 };
+        const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(constructor_name, 256, "%s", "constructor ");
+            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
         scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
@@ -5349,14 +5358,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
-        char constructor_name[256] = { 0 };
+        const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(constructor_name, 256, "%s", "constructor ");
+            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
         scope_entry_t* implicit_copy_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
@@ -5641,16 +5650,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     // Implicit destructor
     if (class_type_get_destructor(class_type) == NULL)
     {
-        char destructor_name[256] = { 0 };
+        const char* destructor_name = NULL;
         if (is_named_class_type(type_info))
         {
-            snprintf(destructor_name, 255, "~%s", named_type_get_symbol(type_info)->symbol_name);
+            uniquestr_sprintf(&destructor_name, "~%s", named_type_get_symbol(type_info)->symbol_name);
         }
         else
         {
-            snprintf(destructor_name, 255, "%s", "~destructor");
+            uniquestr_sprintf(&destructor_name, "%s", "~destructor");
         }
-        destructor_name[255] = '\0';
 
         scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
@@ -6461,21 +6469,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_classes = 0;
-        char c[256];
+        const char* symbol_name;
         C_LANGUAGE()
         {
-            snprintf(c, 255, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
         }
         CXX_LANGUAGE()
         {
-            snprintf(c, 255, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            uniquestr_sprintf(&symbol_name, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
         }
-        c[255] = '\0';
         anonymous_classes++;
 
-        class_entry = new_symbol(decl_context, 
-                decl_context.current_scope, 
-                uniquestr(c));
+        class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
 
         class_entry->kind = SK_CLASS;
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
@@ -9654,7 +9659,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         AST declarator = ASTSon0(init_declarator);
         AST initializer = ASTSon1(init_declarator);
 
-        if (type_specifier != NULL)
+        if (simple_type_info != NULL)
         {
             // This is not a constructor
             is_constructor = 0;
@@ -9820,16 +9825,11 @@ static void build_scope_template_template_parameter(AST a,
     {
         AST symbol = ASTSon1(a);
         template_parameter_name = ASTText(symbol);
-
     }
     else
     {
-        char artificial_template_param_name[256];
-
-        sprintf(artificial_template_param_name, 
+        uniquestr_sprintf(&template_parameter_name,
                 "__tpl_tpl_param_%d_%d__", nesting, template_parameters->num_parameters);
-
-        template_parameter_name = uniquestr(artificial_template_param_name);
     }
 
     DEBUG_CODE()
@@ -9973,10 +9973,8 @@ static void build_scope_type_template_parameter(AST a,
     }
     else
     {
-        char template_param_name[256];
-        sprintf(template_param_name, "__type_tpl__param_%d_%d__", nesting, 
+        uniquestr_sprintf(&template_parameter_name, "__type_tpl__param_%d_%d__", nesting, 
                 template_parameters->num_parameters);
-        template_parameter_name = uniquestr(template_param_name);
 
         line = ASTLine(a);
         file = ASTFileName(a);
@@ -10080,12 +10078,9 @@ static void build_scope_nontype_template_parameter(AST a,
     }
     else
     {
-        char template_param_name[256];
-
-        sprintf(template_param_name, "__nontype_tpl_param_%d_%d__", 
+        uniquestr_sprintf(&template_parameter_name, "__nontype_tpl_param_%d_%d__", 
                 nesting, 
                 template_parameters->num_parameters);
-        template_parameter_name = uniquestr(template_param_name);
     }
     entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
     entry->symbol_name = template_parameter_name;
@@ -10528,16 +10523,13 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     char is_constructor = 0;
 
-    AST type_spec = NULL;
-
     if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &type_info, decl_context, /* first_declarator */ NULL, nodecl_output);
-        type_spec = ASTSon1(decl_spec_seq);
     }
 
-    if (type_spec == NULL)
+    if (type_info == NULL)
     {
         if (is_constructor_declarator(ASTSon1(a)))
         {
@@ -10743,17 +10735,14 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
 
-    AST type_spec = NULL;
-
     char is_constructor = 0;
     if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &type_info, decl_context, /* first_declarator */ NULL, nodecl_output);
-        type_spec = ASTSon1(decl_spec_seq);
     }
 
-    if (type_spec == NULL)
+    if (type_info == NULL)
     {
         CXX_LANGUAGE()
         {
@@ -11009,12 +10998,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
         // For C++ we should elaborate a bit more __PRETTY_FUNCTION__
         // but this is very gcc specific
-        char c[256] = { 0 };
-        snprintf(c, 255, "\"%s\"", entry->symbol_name);
-        c[255] = '\0';
+        const char* c;
+        uniquestr_sprintf(&c, "\"%s\"", entry->symbol_name);
+
         nodecl_t nodecl_expr = internal_expression_parse(c, block_context);
 
-        const char* func_names[] = 
+        const char* func_names[] =
         {
             "__func__",
             "__FUNCTION__",
@@ -11642,7 +11631,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     char is_constructor = 0;
     AST decl_spec_seq = ASTSon0(function_header);
-    AST type_spec = NULL;
 
     // If ambiguous is due because we don't know how to "lay" the type_specifier
     // but it has type_specifier
@@ -11650,10 +11638,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info,
                 decl_context, /* first_declarator */ NULL, nodecl_output);
-        type_spec = ASTSon1(decl_spec_seq);
     }
 
-    if (type_spec == NULL)
+    if (type_info == NULL)
     {
         // This is a constructor
         if (is_constructor_declarator(function_declarator))
@@ -12179,7 +12166,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST initializer = ASTSon1(declarator);
 
                         // Change name of constructors
-                        if (type_specifier == NULL)
+                        if (member_type == NULL)
                         {
                             if (is_constructor_declarator(declarator))
                             {

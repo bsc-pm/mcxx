@@ -667,20 +667,20 @@ type {
      // Now we are on the quote "
      p++;
  
-     char filename[256];
-     memset(filename, 0, 256);
+     char filename[MCXX_MAX_FILENAME];
  
      char *f = filename;
  
      while (*p != '"')
      {
-         if (f < &(filename[255]))
+         if (f < &(filename[MCXX_MAX_FILENAME - 1]))
          {
              (*f) = *p;
              f++;
          }
          p++;
      }
+     *f = '\0';
 
      // Update the file 
 	scanning_now.current_filename = uniquestr(filename);
@@ -713,20 +713,20 @@ type {
 	// Now we are over the doublequote. Jump it
 	directive++;
 
-	char filename[256];
-	memset(filename, 0, 256);
+	char filename[MCXX_MAX_FILENAME];
 
 	char* p = filename;
 
 	while (*directive != '"')
 	{
-        if (p < &(filename[255]))
+        if (p < &(filename[MCXX_MAX_FILENAME-1]))
         {
             *p = *directive;
             p++;
         }
 		directive++;
 	}
+    *p = '\0';
 
 	// Now we have the new number line and the new file name
 
@@ -803,11 +803,11 @@ type {
 
     if (system_header_file)
     {
-        char path[256];
-        strncpy(path, filename, 255);
+        char path[MCXX_MAX_FILENAME];
+        strncpy(path, filename, MCXX_MAX_FILENAME-1);
 
         char *name_without_path = basename(path);
-        strncpy(filename, name_without_path, 255);
+        strncpy(filename, name_without_path, MCXX_MAX_FILENAME);
     }
 
     if (start_of_new_file 
@@ -1368,9 +1368,9 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 
-    char c[256];
-    sprintf(c, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
-    c[255] = '\0';
+    char c[MCXX_MAX_FILENAME];
+    snprintf(c, MCXX_MAX_FILENAME, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+    c[MCXX_MAX_FILENAME-1] = '\0';
     scanning_now.filename = uniquestr(c);
 
     scanning_now.current_filename = scanning_now.filename;

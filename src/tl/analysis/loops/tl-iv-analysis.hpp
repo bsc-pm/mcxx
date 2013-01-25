@@ -40,6 +40,12 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
+    //! Parses a statement looking for syntactically accepted Induction Variables
+    //! @return True when IV is an accepted induction variable
+    bool is_accepted_induction_variable_syntax( Nodecl::NodeclBase stmt,
+                                                Nodecl::NodeclBase& iv,
+                                                Nodecl::NodeclBase& incr );
+
     class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<void> {
     private:
 
@@ -61,14 +67,16 @@ namespace Analysis {
         bool is_there_unique_definition_in_loop( Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop );
         bool is_there_definition_in_loop_(Nodecl::NodeclBase iv_st, Node* iv_node, Node* current, Node* loop );
 
-        //! This method returns true when \iv is defined more than once in the loop
-        bool is_false_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase stmt, Node* node, int id_end );
+        /*!This method checks whether a potential IV is a real IV within a loop
+         * The method might recompute the increment of the IV in case it is necessary
+         * @return True, when the variable ends up being a real Induction Variable
+         */
+        bool check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                 Nodecl::NodeclBase stmt, Node* node, int id_end );
 
         //! This method is overloaded to deal with graph visits
-        bool is_false_induction_variable_( Nodecl::NodeclBase iv, Nodecl::NodeclBase stmt, Node* node, int id_end );
-
-        bool only_definition_is_in_loop(Nodecl::NodeclBase family, Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
-        bool only_definition_is_in_loop( Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop );
+        bool check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                     Nodecl::NodeclBase stmt, Node* node, int id_end );
 
         /*!Deletes those induction variables included in the list during a previous traverse through the loop control
          * that are redefined within the loop
@@ -76,32 +84,6 @@ namespace Analysis {
          * \param loop_node Outer loop node where is contained the node we are checking
          */
         void delete_false_induction_vars( Node* node, Node* loop_node );
-
-        bool is_loop_invariant_rec( Node* node, int id_end );
-
-        // ********** Modified Symbol Visitor ********** //
-        //!The Visitor returns true in case the symbol is modified, and false otherwise
-        void visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
-        void visit_function( Symbol func_sym, ObjectList<Type> param_types, Nodecl::List arguments );
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Dereference& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::VirtualFunctionCall& n );
-        Ret join_list( TL::ObjectList<bool>& list );
 
     public:
 
@@ -111,19 +93,20 @@ namespace Analysis {
 
         // **** Induction Variables analysis methods **** //
 
+        /*!Compute the set of induction variables of a given PCFG
+         * An induction variable is the variable that gets increased or decreased by
+         * a fixed amount on every iteration of a loop, or is a linear function of
+         * another induction variable.
+         */
         void compute_induction_variables( );
 
-        Nodecl::NodeclBase is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop );
+        Nodecl::NodeclBase is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop,
+                                                        Nodecl::NodeclBase& incr );
 
         Nodecl::NodeclBase is_derived_induction_variable( Nodecl::NodeclBase st, Node* current,
                                                           Node* loop, Nodecl::NodeclBase& family );
 
-        bool is_loop_invariant( Node* node, int id_end );
-
-        bool induction_vars_l_contains_symbol( Node*, Symbol s ) const;
-
         Utils::InductionVarsPerNode get_all_induction_vars( ) const;
-
     };
 
     // ************************ END class for induction variables analysis ************************* //
@@ -132,32 +115,58 @@ namespace Analysis {
 
 
     // ********************************************************************************************* //
-    // **************** Visitor matching nodecls for induction variables analysis ****************** //
-    //! Returns true when the Nodecl being visited contains or is equal to \_node_to_find
+    // ****************** Visitor that checks whether a potential IV is a real IV ****************** //
 
-    class LIBTL_CLASS MatchingVisitor : public Nodecl::ExhaustiveVisitor<void>
+    class LIBTL_CLASS FalseInductionVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        Nodecl::NodeclBase _node_to_find;
-        bool _found;
+        // Input info
+        Nodecl::NodeclBase _iv;
+        Nodecl::NodeclBase* _incr;
+
+        // Output info
+        bool _is_induction_var;
+
+        // Members convenient during visiting
+        int _n_nested_conditionals;     /*!< Number of conditionals that contains the statement currently parsed */
+
+        Nodecl::Calculator _calc;
+
+        //! Resets the class members as if the partially computed IV was never an Induction Variable
+        void undefine_induction_variable( );
 
     public:
-        //! Constructor
-        MatchingVisitor( Nodecl::NodeclBase nodecl );
+        // *** Constructor *** //
+        FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase *incr );
 
-        // ******* Getters and setters ******* //
-        bool node_found( );
+        // *** Getters and Setters*** //
+        bool get_is_induction_variable( ) const;
 
-        // ********* Visiting methods ********* //
-        Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
+        // *** Visiting methods *** //
         Ret join_list( TL::ObjectList<bool>& list );
+
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::ConditionalExpression& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::IfElseStatement& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::Postdecrement& n );
+        Ret visit( const Nodecl::Postincrement& n );
+        Ret visit( const Nodecl::Predecrement& n );
+        Ret visit( const Nodecl::Preincrement& n );
     };
 
-    // ************** END visitor matching nodecls for induction variables analysis **************** //
+    // **************** END Visitor that checks whether a potential IV is a real IV **************** //
     // ********************************************************************************************* //
-
 }
 }
 

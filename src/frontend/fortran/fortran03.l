@@ -35,6 +35,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "cxx-ast.h"
 #include "cxx-driver-utils.h"
 #include "cxx-diagnostic.h"
@@ -3164,7 +3165,10 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
 
     if (*p == '"')
     {
-        char c[256];
+        int length = 64;
+        char *c = malloc(sizeof(*c) * length);
+        char *last_char = &c[length - 1];
+        *last_char = '\0';
         memset(c, 0, sizeof(c));
 
         char *q = c;
@@ -3173,9 +3177,23 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
         p++;
 
         while (*p != '"'
-                && *p != '\0'
-                && q < &(c[255]))
+                && *p != '\0')
         {
+            if (q >= last_char)
+            {
+                // Give up if the path is unrealistically long
+                if (length > 4096)
+                    break;
+
+                // Too long, realloc
+                int old_length = length;
+                length *= 2;
+                c = realloc(c, sizeof(*c) * length);
+                last_char = &c[length - 1];
+                *last_char = '\0';
+                q = &c[old_length - 1];
+            }
+
             *q = *p;
             q++;
             p++;
@@ -3187,6 +3205,7 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
         p++;
 
         *filename = uniquestr(c);
+        free(c);
 
         // Skip blanks
         while (*p == ' ' || *p == '\t') p++;

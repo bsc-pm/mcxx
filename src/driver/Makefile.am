@@ -222,6 +222,7 @@ cxx-target-tools.h :
 		echo "#define TARGET_OBJDUMP \""$$(echo objdump | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
 		echo "#define TARGET_OBJCOPY \""$$(echo objcopy | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
 		echo "#define TARGET_AR \""$$(echo ar | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
+		echo "#define TARGET_MF03_PRESCANNER \""$$(echo mf03-prescanner | $(SED) '$(program_transform_name)')\" >> cxx-target-tools.h ; \
 		echo "" >> cxx-target-tools.h ; \
 		echo "#endif // CXX_TARGET_TOOLS_H" >> cxx-target-tools.h; \
 		)

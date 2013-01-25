@@ -478,16 +478,17 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             it != param_to_arg_expr.end();
             it++)
     {
+        TL::Symbol parameter = it->first;
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
                 lift_pointer(functor(outline_data_item_get_parameter_position)),
-                it->first.get_parameter_position_in(called_sym));
+                parameter.get_parameter_position_in(called_sym));
 
         if (found.empty())
         {
             internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
                     arguments.get_locus().c_str(),
-                    it->first.get_name().c_str());
+                    parameter.get_name().c_str());
         }
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
@@ -499,9 +500,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         // FIXME - Wrap this sort of things
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_symbol.get_internal_symbol()->type_information = it->first.get_type().get_internal_type();
+        new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-        param_sym_to_arg_sym[it->first] = new_symbol;
+        param_sym_to_arg_sym[parameter] = new_symbol;
 
         if (IS_CXX_LANGUAGE)
         {
@@ -517,7 +518,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 ;
         }
 
-        if (it->first.get_type().is_class() && IS_CXX_LANGUAGE)
+        if (parameter.get_type().is_class() && IS_CXX_LANGUAGE)
         {
             internal_error("Copy-construction of a class type is not yet implemented", 0);
         }
@@ -535,10 +536,18 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             t = t.get_lvalue_reference_to();
         sym_ref.set_type(t);
 
-        outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
-        param_to_args_map.add_map(it->first,new_symbol);
+        if (parameter.get_type().is_any_reference()
+                && !parameter.get_type().is_const())
+        {
+            outline_register_entities.add_shared(new_symbol);
+        }
+        else
+        {
+            outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+        }
+        param_to_args_map.add_map(parameter,new_symbol);
     }
-    
+
     //Add this map to target information, so DeviceProviders can translate 
     //Clauses in case it's needed, now we only add the same for every task, but in a future?
     OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();    
@@ -714,6 +723,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
+        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
     code_plus_initializations.append(new_code);
@@ -744,7 +755,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             function_symbol,
             called_symbol,
             statements,
-            task_environment.priority,
+            updated_priority,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,

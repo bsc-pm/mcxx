@@ -1591,6 +1591,10 @@ const_value_t* const_value_make_wstring(int* literal, int num_elements)
 const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
 {
     const_value_t* complex_[] = { real_part, imag_part };
+
+    ERROR_CONDITION((real_part->kind != imag_part->kind),
+            "Real part and imag part must be the same constant kind", 0);
+
     const_value_t* result = make_multival(2, complex_);
     result->kind = CVK_COMPLEX;
     return result;
@@ -2989,9 +2993,57 @@ static const_value_t* complex_neq(const_value_t* v1, const_value_t* v2)
     return const_value_not(complex_eq(v1, v2));
 }
 
-static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER)
+static const_value_kind_t get_common_complex_kind(const_value_t *v1, const_value_t *v2)
 {
-    internal_error("Not yet implemented", 0);
+    const_value_kind_t kind1 = v1->value.m->elements[0]->kind; 
+    const_value_kind_t kind2 = v2->value.m->elements[0]->kind; 
+
+    if (kind1 > kind2)
+        return kind1;
+    else
+        return kind2;
+}
+
+static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
+{
+    switch (get_common_complex_kind(v1, v2))
+    {
+        case CVK_FLOAT:
+            {
+                return const_value_get_complex_float(
+                        cpowf(const_value_cast_to_complex_float(v1),
+                            const_value_cast_to_complex_float(v2)));
+                break;
+            }
+        case CVK_DOUBLE:
+            {
+                return const_value_get_complex_double(
+                        cpow(const_value_cast_to_complex_double(v1),
+                            const_value_cast_to_complex_double(v2)));
+                break;
+            }
+        case CVK_LONG_DOUBLE:
+            {
+                return const_value_get_complex_double(
+                        cpowl(const_value_cast_to_complex_double(v1),
+                            const_value_cast_to_complex_double(v2)));
+                break;
+            }
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            {
+                return const_value_get_complex_float128(
+                        cpowq(const_value_cast_to_complex_float128(v1),
+                            const_value_cast_to_complex_float128(v2)));
+                break;
+            }
+#endif
+        default:
+            {
+                internal_error("Code unreachable", 0);
+                break;
+            }
+    }
 }
 
 void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_elements)

@@ -36,10 +36,15 @@ namespace Utils {
     // ********************************************************************************************* //
     // ************************* Class representing and induction variable ************************* //
 
+    InductionVariableData::InductionVariableData( ExtendedSymbol var )
+        : _var( var ), _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ),
+          _incr( Nodecl::NodeclBase::null( ) )
+    {}
+
     InductionVariableData::InductionVariableData( ExtendedSymbol var,
                                                   InductionVarType type, Nodecl::NodeclBase family )
         : _var( var ), _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ),
-          _stride( Nodecl::NodeclBase::null( ) ), _type( type ), _family( family )
+          _incr( Nodecl::NodeclBase::null( ) ), _type( type ), _family( family ), _is_linear( false )
     {}
 
     ExtendedSymbol InductionVariableData::get_variable() const
@@ -72,14 +77,14 @@ namespace Utils {
         _ub = ub;
     }
 
-    Nodecl::NodeclBase InductionVariableData::get_stride( ) const
+    Nodecl::NodeclBase InductionVariableData::get_increment( ) const
     {
-        return _stride;
+        return _incr;
     }
 
-    void InductionVariableData::set_stride( Nodecl::NodeclBase stride )
+    void InductionVariableData::set_increment( Nodecl::NodeclBase incr )
     {
-        _stride = stride;
+        _incr = incr;
     }
 
     bool InductionVariableData::is_basic( )
@@ -108,12 +113,17 @@ namespace Utils {
         return _family;
     }
 
+    bool InductionVariableData::is_linear( ) const
+    {
+        return _is_linear;
+    }
+
     bool InductionVariableData::operator==( const InductionVariableData& rhs ) const
     {
         return ( Nodecl::Utils::equal_nodecls( _var.get_nodecl( ), rhs._var.get_nodecl( ) )
                  && Nodecl::Utils::equal_nodecls( _lb, rhs._lb )
                  && Nodecl::Utils::equal_nodecls( _ub, rhs._ub )
-                 && Nodecl::Utils::equal_nodecls( _stride, rhs._stride )
+                 && Nodecl::Utils::equal_nodecls( _incr, rhs._incr )
                  && ( _type == rhs._type ) && ( _family == rhs._family ) );
     }
 
@@ -133,7 +143,7 @@ namespace Utils {
             nodecl_t var = iv->get_variable( ).get_nodecl( ).get_internal_nodecl( );
             nodecl_t lb = iv->get_lb( ).get_internal_nodecl( );
             nodecl_t ub = iv->get_ub( ).get_internal_nodecl( );
-            nodecl_t stride = iv->get_stride( ).get_internal_nodecl( );
+            nodecl_t incr = iv->get_increment( ).get_internal_nodecl( );
             std::string type = iv->get_type_as_string( );
             nodecl_t family = iv->get_family( ).get_internal_nodecl( );
 
@@ -141,7 +151,7 @@ namespace Utils {
                       << "  -->  " << codegen_to_str( var, nodecl_retrieve_context( var ) )
                       << " [ "     << ( nodecl_is_null( lb ) ? "NULL" : codegen_to_str( lb, nodecl_retrieve_context( lb ) ) )
                       << " : "     << ( nodecl_is_null( ub ) ? "NULL" : codegen_to_str( ub, nodecl_retrieve_context( ub ) ) )
-                      << " : "     << ( nodecl_is_null( stride ) ? "NULL" : codegen_to_str( stride, nodecl_retrieve_context( stride ) ) )
+                      << " : "     << ( nodecl_is_null( incr ) ? "NULL" : codegen_to_str( incr, nodecl_retrieve_context( incr ) ) )
                       << " ], ["   << type
                       << ( nodecl_is_null( family ) ? "" : (": " + std::string( codegen_to_str( family, nodecl_retrieve_context( family ) ) ) ) )
                       << " ]"      << std::endl;
@@ -151,13 +161,36 @@ namespace Utils {
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var )
     {
+        bool result = false;
         for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); it != iv_list.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var ) )
-                return true;
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
+                                              /* skip conversion nodes */ true ) )
+            {
+                result = true;
+                break;
+            }
         }
 
-        return true;
+        return result;
+    }
+
+    InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
+                                                             Nodecl::NodeclBase var )
+    {
+        InductionVariableData* result = NULL;
+
+        for( InductionVarsPerNode::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+        {
+            if( Nodecl::Utils::equal_nodecls( it->second->get_variable( ).get_nodecl( ), var,
+                                              /* skip conversion nodes */ true ) )
+            {
+                result = it->second;
+                break;
+            }
+        }
+
+        return result;
     }
 
     // ******************************* END Induction Variables utils ******************************* //

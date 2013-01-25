@@ -82,6 +82,12 @@ enum
 
     // Generic types in c
     MCXX_MAX_GENERIC_TYPES = 4,
+
+    // Number of C (not C++) "overloads"
+    MCXX_MAX_C_OVERLOADS = 256,
+
+    // Max file name length
+    MCXX_MAX_FILENAME = 4096,
 };
 
 #endif // CXX_LIMITS_H

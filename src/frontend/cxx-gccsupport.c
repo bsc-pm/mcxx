@@ -369,9 +369,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
                 fprintf(stderr, "%s: warning: attribute 'mode' is deprecated better use 'vector_size'\n", 
                         ast_location(expression_list));
 
-                char number_of_elements_str[256];
-                strncpy(number_of_elements_str, &(size_mode[1]), 255);
-                number_of_elements_str[255] = '\0';
+                // Skip first character
+                char *number_of_elements_str = strdup(&size_mode[1]);
                 char *p = number_of_elements_str;
 
                 while (isdigit(*p))
@@ -477,6 +476,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                     }
                 }
 
+                free(number_of_elements_str);
             }
         }
         else

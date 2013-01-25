@@ -6242,6 +6242,11 @@ char is_other_float_type(type_t* t)
             && t->type->builtin_type == BT_OTHER_FLOAT);
 }
 
+char is_float128_type(type_t* t)
+{
+    return (is_other_float_type(t) && floating_type_get_info(t)->size_of == 16);
+}
+
 char is_complex_type(type_t* t)
 {
     t = advance_over_typedefs(t);
@@ -7058,10 +7063,10 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                             }
                             else
                             {
-                                char c[256];
-                                snprintf(c, 255, "<<unknown-float-type-%d-bits>>", (int)simple_type->floating_info->bits);
-                                c[255] = '\0';
-                                result = strappend(result, c);
+                                const char* current;
+                                uniquestr_sprintf(&current, "<<unknown-float-type-%d-bits>>", (int)simple_type->floating_info->bits);
+
+                                result = strappend(result, current);
                             }
                             break;
                         }
@@ -7961,12 +7966,12 @@ static const char* get_template_parameters_list_str(template_parameter_list_t* t
         template_parameter_value_t* template_parameter = 
             template_parameters->arguments[i];
 
-        char c[256];
-        snprintf(c, 255, "[[%d, %d]] ", 
+        const char* c;
+        uniquestr_sprintf(&c, "[[%d, %d]] ", 
                 get_template_nesting_of_template_parameters(template_parameters),
                 i);
 
-        result = strappend(result, uniquestr(c));
+        result = strappend(result, c);
 
         switch (template_parameter->kind)
         {
@@ -8054,9 +8059,8 @@ static const char* get_builtin_type_name(type_t* type_info)
                             // Mark booleans of nonregular size
                             if (type_get_size(type_info) != type_get_size(get_bool_type()))
                             {
-                                char c[256];
-                                snprintf(c, 255, "boolean of %zd bytes", (size_t)type_get_size(type_info));
-                                c[255] = '\0';
+                                const char *c;
+                                uniquestr_sprintf(&c, "boolean of %zd bytes", (size_t)type_get_size(type_info));
                                 result = strappend(result, c);
                             }
                             else
@@ -8083,9 +8087,9 @@ static const char* get_builtin_type_name(type_t* type_info)
                             }
                             else
                             {
-                                char c[256];
-                                snprintf(c, 255, "<<unknown-float-type-%d-bits>>", (int)simple_type_info->floating_info->bits);
-                                c[255] = '\0';
+                                const char* c;
+                                uniquestr_sprintf(&c, "<<unknown-float-type-%d-bits>>", (int)simple_type_info->floating_info->bits);
+
                                 result = strappend(result, c);
                             }
                             break;
@@ -8114,10 +8118,9 @@ static const char* get_builtin_type_name(type_t* type_info)
             }
         case STK_VECTOR:
             {
-                char c[256];
-                snprintf(c, 255, "vector of size %d of ", 
+                const char* c;
+                uniquestr_sprintf(&c, "vector of size %d of ", 
                         simple_type_info->vector_size);
-                c[255] = '\0';
                 result = strappend(result, c);
                 result = strappend(result, print_declarator(simple_type_info->vector_element));
                 break;
@@ -8127,8 +8130,8 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_ENUM :
             {
-                char c[256] = { 0 };
-                snprintf(c, 255, "enum <anonymous> %p", type_info);
+                const char* c;
+                uniquestr_sprintf(&c, "enum <anonymous> %p", type_info);
                 result = strappend(result, c);
             }
             break;
@@ -8145,8 +8148,8 @@ static const char* get_builtin_type_name(type_t* type_info)
                     }
                 }
 
-                char c[256] = { 0 };
-                snprintf(c, 255, "class <anonymous>%s %p", template_parameters, type_info);
+                const char* c = NULL;
+                uniquestr_sprintf(&c, "class <anonymous>%s %p", template_parameters, type_info);
                 result = strappend(result, c);
             }
             break;
@@ -8208,16 +8211,17 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_TEMPLATE_TYPE :
             {
                 // FIXME - this should be much more informative
-                char c[256] = { 0 };
-                snprintf(c, 255, "<template type %p>", 
+                const char* c;
+                uniquestr_sprintf(&c, "<template type %p>", 
                         type_info);
                 result = strappend(result, c);
                 break;
             }
         default :
             {
-                char c[50];
-                snprintf(c, 49, "(unknown simple type = %d)", simple_type_info->kind);
+                const char* c;
+                uniquestr_sprintf(&c, "(unknown simple type = %d)",
+                        simple_type_info->kind);
                 result = strappend(result, c);
                 break;
             }
@@ -8411,8 +8415,8 @@ const char* print_declarator(type_t* printed_declarator)
                             template_parameter_value_t* template_parameter = 
                                 printed_declarator->template_arguments->arguments[i];
 
-                            char c[256];
-                            snprintf(c, 255, "[[%d, %d]] ", 
+                            const char* c = NULL;
+                            uniquestr_sprintf(&c, "[[%d, %d]] ", 
                                     get_template_nesting_of_template_parameters(printed_declarator->template_arguments),
                                     i);
 
@@ -8477,18 +8481,16 @@ const char* print_declarator(type_t* printed_declarator)
                 }
             case TK_COMPUTED:
                 {
-                    char c[256];
-                    snprintf(c, 255, "<computed function type>");
-                    c[255] = '\0';
+                    const char* c = NULL;
+                    uniquestr_sprintf(&c, "<computed function type>");
                     printed_declarator = NULL;
                     tmp_result = uniquestr(c);
                     break;
                 }
             default :
                 {
-                    char c[256];
-                    snprintf(c, 255, "<unknown type kind %d>", printed_declarator->kind);
-                    c[255] = '\0';
+                    const char* c = NULL;
+                    uniquestr_sprintf(&c, "<unknown type kind %d>", printed_declarator->kind);
                     printed_declarator = NULL;
                     tmp_result = uniquestr(c);
                     break;
@@ -8753,13 +8755,24 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 );
 
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
+        (*result) = identity_scs(t_orig, t_dest);
 
-        if (standard_conversion_between_types(&conversion_among_lvalues, unqualif_orig, unqualif_dest)
-                || (is_class_type(unqualif_dest) 
-                    && is_class_type(unqualif_orig)
-                    && class_type_is_base(unqualif_dest, unqualif_orig)))
+        char ok = 0;
+        if (standard_conversion_between_types(&conversion_among_lvalues, no_ref(orig), unqualif_dest))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result).conv[0] = conversion_among_lvalues.conv[0];
+            (*result).conv[1] = conversion_among_lvalues.conv[1];
+            ok = 1;
+        }
+        else if (is_class_type(unqualif_dest)
+                    && is_class_type(unqualif_orig)
+                    && class_type_is_base(unqualif_dest, unqualif_orig))
+        {
+            ok = 1;
+        }
+
+        if (ok)
+        {
             DEBUG_CODE()
             {
                 if (is_rvalue_reference_type(dest))
@@ -8770,6 +8783,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 {
                     fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
                 }
+            }
+            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
+            {
+                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
             return 1;
         }
@@ -8787,6 +8804,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a lvalue\n");
         }
         (*result) = identity_scs(t_orig, t_dest);
+        if (is_more_cv_qualified_type(reference_type_get_referenced_type(dest),
+                    reference_type_get_referenced_type(orig)))
+        {
+            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+        }
         return 1;
     }
 
@@ -8843,6 +8865,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a reference by means of lvalue\n");
             }
+            if (is_more_cv_qualified_type(ref_dest, ref_orig))
+                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -10868,9 +10892,9 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
 {
     if (t == NULL)
     {
-        char c[256];
-        snprintf(c, 255, "< unknown type > %s\n", name);
-        return uniquestr(c);
+        const char* c = NULL;
+        uniquestr_sprintf(&c, "< unknown type > %s\n", name);
+        return c;
     }
     else if (is_unresolved_overloaded_type(t))
     {
