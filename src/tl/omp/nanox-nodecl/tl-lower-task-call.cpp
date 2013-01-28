@@ -723,6 +723,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
+        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
     code_plus_initializations.append(new_code);
@@ -753,7 +755,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             function_symbol,
             called_symbol,
             statements,
-            task_environment.priority,
+            updated_priority,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,

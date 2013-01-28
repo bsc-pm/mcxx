@@ -147,6 +147,9 @@ LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t d
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);
 LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type);
 
+LIBMCXX_EXTERN void push_vla_dimension_symbol(scope_entry_t* entry);
+LIBMCXX_EXTERN scope_entry_t* pop_vla_dimension_symbol(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H
