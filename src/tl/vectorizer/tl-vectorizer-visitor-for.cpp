@@ -46,8 +46,8 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(for_statement, INDUCTION_VARS_ANALYSIS,
-                                                           NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
+            Analysis::AnalysisStaticInfo for_analysis_info(for_statement, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS,
+                                                           Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
 
             // TODO: ???
             analyze_loop(for_statement);

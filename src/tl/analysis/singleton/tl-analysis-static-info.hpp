@@ -32,30 +32,52 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-objectlist.hpp"
 
-// Macros defining the analysis to be computed
-enum analysis_tag
-{
-    PCFG_ANALYSIS           = 0x01,
-    USAGE_ANALYSIS          = 0x02,
-    LIVENESS_ANALYSIS       = 0x04,
-    REACHING_DEFS_ANALYSIS  = 0x08,
-    INDUCTION_VARS_ANALYSIS = 0x10,
-    CONSTANTS_ANALYSIS      = 0x20
-};
-
-// Macros defining whether the Static Info must be computed in nested block
-enum nested_analysis_tag
-{
-    NESTED_NONE_STATIC_INFO     = 0x00,
-    NESTED_IF_STATIC_INFO       = 0x01,
-    NESTED_DO_STATIC_INFO       = 0x04,
-    NESTED_WHILE_STATIC_INFO    = 0x08,
-    NESTED_FOR_STATIC_INFO      = 0x10,
-    NESTED_ALL_STATIC_INFO      = 0xFF
-};
-
 namespace TL {
 namespace Analysis {
+
+    // ********************************************************************************************* //
+    // ********************** Class to define which analysis are to be done ************************ //
+
+    struct WhichAnalysis
+    {
+        // Macros defining the analysis to be computed
+        enum Analysis_tag
+        {
+            PCFG_ANALYSIS           = 1u << 1,
+            USAGE_ANALYSIS          = 1u << 2,
+            LIVENESS_ANALYSIS       = 1u << 3,
+            REACHING_DEFS_ANALYSIS  = 1u << 4,
+            INDUCTION_VARS_ANALYSIS = 1u << 5,
+            CONSTANTS_ANALYSIS      = 1u << 6
+        } _which_analysis;
+
+        WhichAnalysis( Analysis_tag a );
+        WhichAnalysis( int a );
+        operator WhichAnalysis();
+    };
+
+    struct WhereAnalysis
+    {
+        // Macros defining whether the Static Info must be computed in nested block
+        enum Nested_analysis_tag
+        {
+            NESTED_NONE_STATIC_INFO     = 1u << 0,
+            NESTED_IF_STATIC_INFO       = 1u << 2,
+            NESTED_DO_STATIC_INFO       = 1u << 3,
+            NESTED_WHILE_STATIC_INFO    = 1u << 4,
+            NESTED_FOR_STATIC_INFO      = 1u << 5,
+            NESTED_ALL_STATIC_INFO      = 0xFF
+        } _where_analysis;
+
+        WhereAnalysis( Nested_analysis_tag a );
+        WhereAnalysis( int a );
+        operator WhereAnalysis();
+    };
+
+    // ******************** END class to define which analysis are to be done ********************** //
+    // ********************************************************************************************* //
+
+
 
     // ********************************************************************************************* //
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
@@ -92,8 +114,8 @@ namespace Analysis {
             static_info_map_t _static_info_map;
 
         public:
-            AnalysisStaticInfo( const Nodecl::NodeclBase n, analysis_tag analysis_mask,
-                                nested_analysis_tag nested_analysis_mask, int nesting_level );
+            AnalysisStaticInfo( const Nodecl::NodeclBase n, WhichAnalysis::Analysis_tag analysis_mask,
+                                WhereAnalysis::Nested_analysis_tag nested_analysis_mask, int nesting_level );
 
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
             bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
@@ -115,10 +137,10 @@ namespace Analysis {
         PCFGAnalysis_memento _state;
 
         //! Mask containing the analysis to be performed
-        analysis_tag _analysis_mask;
+        WhichAnalysis::Analysis_tag _analysis_mask;
 
         //! Mask containing the nested constructs to be parsed
-        nested_analysis_tag _nested_analysis_mask;
+        WhereAnalysis::Nested_analysis_tag _nested_analysis_mask;
 
         //! Level of nesting of blocks inside the visited nodecl to be parsed
         int _nesting_level;
@@ -133,7 +155,8 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        NestedBlocksStaticInfoVisitor( analysis_tag analysis_mask, nested_analysis_tag nested_analysis_mask,
+        NestedBlocksStaticInfoVisitor( WhichAnalysis::Analysis_tag analysis_mask,
+                                       WhereAnalysis::Nested_analysis_tag nested_analysis_mask,
                                        PCFGAnalysis_memento state, int nesting_level );
 
         // *** Getters and Setters *** //
