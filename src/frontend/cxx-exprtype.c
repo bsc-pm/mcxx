@@ -2127,6 +2127,7 @@ static void error_message_overload_failed(candidate_t* candidates,
         const char* name,
         decl_context_t decl_context,
         int num_arguments, type_t** arguments,
+        type_t* this_type,
         const char* filename, int line);
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
@@ -2347,6 +2348,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     prettyprint_in_buffer(operator_name),
                     decl_context,
                     num_arguments, argument_types,
+                    /* implicit_argument */ NULL,
                     filename, line);
         }
         overloaded_type = get_error_type();
@@ -2516,6 +2518,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                     prettyprint_in_buffer(operator_name),
                     decl_context,
                     num_arguments, argument_types,
+                    /* implicit_argument */ NULL,
                     filename, line);
         }
         overloaded_type = get_error_type();
@@ -6050,7 +6053,8 @@ static void check_nodecl_array_subscript_expression(
                 error_message_overload_failed(candidate_set, 
                         "operator[]",
                         decl_context,
-                        num_arguments, argument_types,
+                        1, &argument_types[1],
+                        /* implicit_argument_type */ subscripted_type,
                         filename, line);
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -6662,6 +6666,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                             decl_context,
                             num_arguments,
                             argument_types,
+                            /* implicit argument */ NULL,
                             filename, line);
                 }
                 *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -8750,7 +8755,8 @@ void check_nodecl_function_call(
 
                 type_t* ptr_class_type = this_->type_information;
                 type_t* class_type = pointer_type_get_pointee_type(ptr_class_type);
-                argument_types[0] = class_type;
+                // We make a dereference here, thus the argument must be a lvalue
+                argument_types[0] = get_lvalue_reference_type(class_type);
 
                 entry_list_free(this_query);
 
@@ -8762,7 +8768,7 @@ void check_nodecl_function_call(
                 nodecl_implicit_argument = 
                     nodecl_make_dereference(
                             nodecl_sym,
-                            class_type,
+                            get_lvalue_reference_type(class_type),
                             nodecl_get_filename(nodecl_called), 
                             nodecl_get_line(nodecl_called));
             }
@@ -8815,8 +8821,9 @@ void check_nodecl_function_call(
             error_message_overload_failed(candidate_set, 
                     codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)),
                     decl_context,
-                    num_arguments,
-                    argument_types,
+                    num_arguments - 1,
+                    argument_types + 1,
+                    /* implicit_argument */ argument_types[0],
                     filename, line);
         }
         *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -9501,7 +9508,7 @@ static void check_nodecl_member_access(
             nodecl_accessed_out = 
                 nodecl_make_dereference(
                         nodecl_accessed,
-                        accessed_type,
+                        get_lvalue_reference_type(accessed_type),
                         nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
         }
         else if (is_array_type(no_ref(accessed_type)))
@@ -9594,8 +9601,9 @@ static void check_nodecl_member_access(
                 error_message_overload_failed(candidate_set, 
                         "operator->",
                         decl_context,
-                        /* num_arguments */ 1, 
-                        argument_types,
+                        /* num_arguments */ 0, 
+                        /* no explicit arguments */ NULL,
+                        /* implicit_argument */ argument_types[0],
                         nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
             }
             *nodecl_output = nodecl_make_err_expr(filename, line);
@@ -9881,6 +9889,7 @@ static void check_postoperator_user_defined(
                     get_operator_function_name(operator),
                     decl_context,
                     num_arguments, argument_types,
+                    /* implicit_argument */ NULL,
                     nodecl_get_filename(postoperated_expr), 
                     nodecl_get_line(postoperated_expr));
         }
@@ -10036,6 +10045,7 @@ static void check_preoperator_user_defined(AST operator,
                     get_operator_function_name(operator),
                     decl_context,
                     num_arguments, argument_types,
+                    /* implicit_argument */ NULL,
                     nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(preoperated_expr), nodecl_get_line(preoperated_expr));
@@ -14276,6 +14286,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                         c,
                         decl_context,
                         num_arguments, arguments,
+                        /* implicit_argument */ NULL,
                         filename, line);
                 entry_list_free(operator_overload_set);
             }
@@ -14328,8 +14339,9 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
         const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
 {
     entry = entry_advance_aliases(entry);
-    info_printf("%s:%d: note:    %s",
+    info_printf("%s:%d: note:    %s%s",
             entry->file, entry->line,
+            (entry->entity_specs.is_member && entry->entity_specs.is_static) ? "static " : "",
             print_decl_type_str(entry->type_information, entry->decl_context, 
                 get_qualified_symbol_name(entry, entry->decl_context)));
 
@@ -14378,8 +14390,12 @@ static void error_message_overload_failed(candidate_t* candidates,
         decl_context_t decl_context,
         int num_arguments,
         type_t** arguments,
+        type_t* implicit_argument,
         const char* filename, int line)
 {
+    ERROR_CONDITION(arguments == NULL && num_arguments > 0, 
+            "Mismatch between arguments and number of arguments", 0);
+
     const char* argument_types = "(";
 
     int i, j = 0;
@@ -14400,6 +14416,8 @@ static void error_message_overload_failed(candidate_t* candidates,
     error_printf("%s:%d: error: failed overload call to %s%s\n",
             filename, line, name, argument_types);
 
+    char there_are_nonstatic_members = 0;
+
     if (candidates != NULL)
     {
         candidate_t* it = candidates;
@@ -14409,6 +14427,9 @@ static void error_message_overload_failed(candidate_t* candidates,
         while (it != NULL)
         {
             scope_entry_t* entry = it->entry;
+
+            there_are_nonstatic_members =
+                there_are_nonstatic_members || (entry->entity_specs.is_member && !entry->entity_specs.is_static);
 
             candidate_list = entry_list_add_once(candidate_list, entry);
             it = it->next;
@@ -14422,6 +14443,15 @@ static void error_message_overload_failed(candidate_t* candidates,
     {
         info_printf("%s:%d: info: no candidate functions\n", filename, line);
     }
+
+    if (there_are_nonstatic_members
+            && implicit_argument != NULL)
+    {
+        info_printf("%s:%d: info: the implicit argument for nonstatic member candidates is '%s'\n", 
+                filename, line,
+                print_type_str(implicit_argument, decl_context));
+    }
+
 }
 
 nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line)
