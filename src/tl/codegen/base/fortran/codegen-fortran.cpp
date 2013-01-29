@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-compilerphase.hpp"
 #include "codegen-fortran.hpp"
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
@@ -40,7 +41,8 @@
 
 namespace Codegen
 {
-    const std::string ptr_loc_base_name = "PTR_LOC_";
+    const std::string ptr_loc_base_name = "MFC_PTR_LOC_";
+    const std::string fun_loc_base_name = "MFC_FUN_LOC_";
 
     std::string FortranBase::codegen(const Nodecl::NodeclBase &n) 
     {
@@ -1281,8 +1283,22 @@ OPERATOR_TABLE
         if (is_fortran_representable_pointer(t))
         {
             ptr_loc_map_t::iterator it = _ptr_loc_map.find(t);
-            ERROR_CONDITION(it == _ptr_loc_map.end(), 
-                    "No PTR_LOC was defined for type '%s'\n",
+            ERROR_CONDITION(it == _ptr_loc_map.end(),
+                    "No MFC_PTR_LOC was defined for type '%s'\n",
+                    print_declarator(t.get_internal_type()));
+
+            std::string &str = it->second;
+            file << str << "(";
+            walk(node.get_rhs());
+            file << ")";
+        }
+        else if (_emit_fun_loc
+                && (t.is_function()
+                    || (t.is_pointer() && t.points_to().is_function())))
+        {
+            ptr_loc_map_t::iterator it = _fun_loc_map.find(TL::Type::get_void_type());
+            ERROR_CONDITION(it == _fun_loc_map.end(),
+                    "No MFC_FUN_LOC was defined for type '%s'\n",
                     print_declarator(t.get_internal_type()));
 
             std::string &str = it->second;
@@ -2778,6 +2794,32 @@ OPERATOR_TABLE
         return fun_name.str();
     }
 
+    std::string FortranBase::define_fun_loc(TL::Type t, const std::string& function_name = "")
+    {
+        ERROR_CONDITION(!t.is_void(), "Invalid type, expecting void", 0);
+        static int num = 0;
+
+        std::stringstream fun_name;
+        if (function_name == "")
+        {
+            fun_name << fun_loc_base_name << num << "_" 
+                // Hash the name of the file to avoid conflicts
+                << std::hex
+                << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
+                << std::dec;
+            num++;
+        }
+        else
+        {
+            fun_name << function_name;
+        }
+
+        indent();
+        file << "INTEGER(" << t.get_pointer_to().get_size() << "), EXTERNAL :: " << fun_name.str() << "\n";
+
+        return fun_name.str();
+    }
+
     void FortranBase::emit_interface_for_symbol(TL::Symbol entry)
     {
         // Get the real symbol (it may be the same as entry) but it will be
@@ -2960,6 +3002,28 @@ OPERATOR_TABLE
                 {
                     // This type has been seen before but not emitted in this program unit yet
                     define_ptr_loc(t, it->second);
+                    _external_symbols.insert(it->second);
+                }
+            }
+            else if (_emit_fun_loc
+                    && (t.is_function()
+                        || (t.is_pointer() && t.points_to().is_function())))
+            {
+                // Note that we use a single 'void' type for all functions
+                TL::Type used_type = TL::Type::get_void_type();
+                ptr_loc_map_t::iterator it = _fun_loc_map.find(used_type);
+
+                if (it == _fun_loc_map.end())
+                {
+                    // This type has not been seen before
+                    std::string ptr_loc_fun_name = define_fun_loc(used_type);
+                    _fun_loc_map[used_type] = ptr_loc_fun_name;
+                    _external_symbols.insert(ptr_loc_fun_name);
+                }
+                else if (_external_symbols.find(it->second) == _external_symbols.end())
+                {
+                    // This type has been seen before but not emitted in this program unit yet
+                    define_fun_loc(used_type, it->second);
                     _external_symbols.insert(it->second);
                 }
             }
@@ -5169,20 +5233,32 @@ OPERATOR_TABLE
 
     void FortranBase::emit_ptr_loc_C()
     {
-        if (_ptr_loc_map.empty())
+        if (_ptr_loc_map.empty()
+                && _fun_loc_map.empty())
             return;
+
+        TL::Type integer_ptr( get_size_t_type());
+        std::string intptr_type_str = integer_ptr.get_declaration(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context), "");
 
         std::stringstream c_file_src;
         for (ptr_loc_map_t::iterator it = _ptr_loc_map.begin();
                 it != _ptr_loc_map.end();
                 it++)
         {
-            TL::Type integer_ptr( get_size_t_type());
-
             std::string str = strtolower(it->second.c_str());
+            c_file_src
+                // Note the mangling _ after the name
+                <<  intptr_type_str << " " << str << "_(void* p)\n"
+                << "{\n"
+                << " return (" << intptr_type_str << ")p;\n"
+                << "}\n";
+        }
 
-            std::string intptr_type_str = integer_ptr.get_declaration(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context), "");
-
+        for (ptr_loc_map_t::iterator it = _fun_loc_map.begin();
+                it != _fun_loc_map.end();
+                it++)
+        {
+            std::string str = strtolower(it->second.c_str());
             c_file_src
                 // Note the mangling _ after the name
                 <<  intptr_type_str << " " << str << "_(void* p)\n"
@@ -5337,6 +5413,20 @@ OPERATOR_TABLE
         }
 
         return (num_functs > 1);
+    }
+
+    FortranBase::FortranBase()
+    {
+        _emit_fun_loc = false;
+        register_parameter("emit_fun_loc",
+                "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
+                _emit_fun_loc_str,
+                "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+    }
+
+    void FortranBase::set_emit_fun_loc(const std::string& str)
+    {
+        TL::parse_boolean_option("emit_fun_loc", str, _emit_fun_loc, "Assuming false.");
     }
 }
 
