@@ -340,6 +340,26 @@ namespace TL
                 }
             }
 
+            static void update_parameter_of_phase(TL::CompilerPhase* phase,
+                    external_var_t* ext_var,
+                    bool &registered)
+            {
+                std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
+                for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
+                        it != parameters.end();
+                        it++)
+                {
+                    CompilerPhaseParameter* param(*it);
+
+                    // Udate every variable of the phase if needed
+                    if (param->name() == std::string(ext_var->name))
+                    {
+                        param->set_value(ext_var->value);
+                        registered = true;
+                    }
+                }
+            }
+
             static void phases_update_parameters(compilation_configuration_t* config)
             {
                 // This is blatantly inefficient, I know
@@ -350,6 +370,15 @@ namespace TL
                     external_var_t* ext_var = config->external_vars[i];
                     bool registered = false;
 
+                    // Codegen phase
+                    if (config->codegen_phase != NULL)
+                    {
+                        update_parameter_of_phase(
+                                reinterpret_cast<TL::CompilerPhase*>(config->codegen_phase),
+                                ext_var, registered);
+                    }
+
+                    // Regular phases
                     if (compiler_phases.find(config) == compiler_phases.end())
                         continue;
 
@@ -359,26 +388,13 @@ namespace TL
                             it++)
                     {
                         TL::CompilerPhase* phase = (*it);
-                        std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
-                        for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
-                                it != parameters.end();
-                                it++)
-                        {
-                            CompilerPhaseParameter* param(*it);
-
-                            // Udate every variable of the phase if needed
-                            if (param->name() == std::string(ext_var->name))
-                            {
-                                param->set_value(ext_var->value);
-                                registered = true;
-                            }
-                        }
+                        update_parameter_of_phase(phase, ext_var, registered);
                     }
 
                     if (!registered)
                     {
-                        std::cerr << "Variable --variable=" 
-                            << std::string(ext_var->name) 
+                        std::cerr << "Variable --variable="
+                            << std::string(ext_var->name)
                             << " it is not registered by any phase" << std::endl;
                     }
                 }
