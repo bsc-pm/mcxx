@@ -514,14 +514,14 @@ void LoweringVisitor::emit_async_common(
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
         // function specified in the 'implements' clause. For this reason, we
-        // copy the tree and we replace the function task symbol with the
+        // copy the tree and we replace the called task symbol with the
         // implementor symbol
         Nodecl::NodeclBase outline_statements_code;
-        if (current_function.is_valid()
-                && current_function != implementor_symbol)
+        if (is_function_task
+                && called_task != implementor_symbol)
         {
             Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-            symbol_map_copy_statements.add_map(current_function, implementor_symbol);
+            symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
             Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
                 output_statements,
