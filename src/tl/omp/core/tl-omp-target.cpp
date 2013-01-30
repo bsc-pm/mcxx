@@ -103,29 +103,37 @@ namespace TL
                 {
                     Nodecl::NodeclBase implements_name = implements_list[0];
 
-                    bool valid = false;
-
                     Symbol sym (NULL);
                     if (implements_name.is<Nodecl::Symbol>())
                     {
                         sym = implements_name.get_symbol();
-
-                        if (sym.is_valid()
-                                && sym.is_function())
-                            valid = true;
                     }
-
-                    if (!valid)
+                    else if (implements_name.is<Nodecl::CxxDepNameSimple>())
                     {
-                        std::cerr << implements_name.get_locus() << ": warning: '" 
-                            << implements_name.prettyprint() 
-                            << "' is not a valid identifier, skipping" 
-                            << std::endl;
+                        ObjectList<TL::Symbol> symbols = scope.get_symbols_from_name(implements_name.get_text());
+
+                        ERROR_CONDITION(symbols.size() != 1,
+                                "The argument of the clause 'implements' cannot be an overloaded function identifier", 0);
+
+                        sym = symbols[0];
                     }
                     else
                     {
+                        internal_error("Unexpected node", 0);
+                    }
+
+                    if (sym.is_valid()
+                            && sym.is_function())
+                    {
                         target_ctx.has_implements = true;
                         target_ctx.implements = sym;
+                    }
+                    else
+                    {
+                        std::cerr << implements_name.get_locus() << ": warning: '"
+                            << implements_name.prettyprint()
+                            << "' is not a valid identifier, skipping"
+                            << std::endl;
                     }
                 }
             }
