@@ -11,7 +11,7 @@ fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @XLF@
 # XL Fortran does not append _ to function names by default. It should, though.
-compiler_options = -qextname
+compiler_options = -qextname -qxlf2003=autorealloc
 linker_name = @XLF@
 linker_options =
 
