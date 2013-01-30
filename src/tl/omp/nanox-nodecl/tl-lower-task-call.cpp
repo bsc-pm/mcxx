@@ -383,7 +383,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment,called_sym);
+    OutlineInfo parameters_outline_info(parameters_environment, called_sym);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -724,6 +724,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
+        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
     code_plus_initializations.append(new_code);
@@ -754,7 +756,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             function_symbol,
             called_symbol,
             statements,
-            task_environment.priority,
+            updated_priority,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
@@ -1110,7 +1112,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment,adapter_function);
+    OutlineInfo new_outline_info(new_environment, called_task_function);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);

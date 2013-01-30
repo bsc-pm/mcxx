@@ -32,6 +32,40 @@ namespace TL  {
 namespace Analysis {
 
     // ********************************************************************************************* //
+    // ********************** Class to define which analysis are to be done ************************ //
+
+    WhichAnalysis::WhichAnalysis( Analysis_tag a )
+            : _which_analysis( a )
+    {}
+
+    WhichAnalysis::WhichAnalysis( int a )
+            : _which_analysis( Analysis_tag( a ) )
+    {}
+
+    WhichAnalysis::operator WhichAnalysis()
+    {
+        return _which_analysis;
+    }
+
+    WhereAnalysis::WhereAnalysis( Nested_analysis_tag a )
+            : _where_analysis( a )
+    {}
+
+    WhereAnalysis::WhereAnalysis( int a )
+            : _where_analysis( Nested_analysis_tag( a ) )
+    {}
+
+    WhereAnalysis::operator WhereAnalysis()
+    {
+        return _where_analysis;
+    }
+
+    // ******************** END class to define which analysis are to be done ********************** //
+    // ********************************************************************************************* //
+
+
+
+    // ********************************************************************************************* //
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
@@ -69,8 +103,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
-    AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase n, analysis_tag analysis_mask,
-                                            nested_analysis_tag nested_analysis_mask, int nesting_level)
+    AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase n, WhichAnalysis::Analysis_tag analysis_mask,
+                                            WhereAnalysis::Nested_analysis_tag nested_analysis_mask, int nesting_level)
     {
         TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
 
@@ -81,29 +115,26 @@ namespace Analysis {
         ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
         ObjectList<Nodecl::NodeclBase> constants;
 
-        if( analysis_mask & PCFG_ANALYSIS )
+        if( analysis_mask & WhichAnalysis::PCFG_ANALYSIS )
         {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
-        if( analysis_mask & USAGE_ANALYSIS )
+        if( analysis_mask & ( WhichAnalysis::USAGE_ANALYSIS
+                              || WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
             analysis.use_def( analysis_state, n );
         }
-        if( analysis_mask & LIVENESS_ANALYSIS )
+        if( analysis_mask & WhichAnalysis::LIVENESS_ANALYSIS )
         {
             analysis.liveness( analysis_state, n );
         }
-        if( analysis_mask & REACHING_DEFS_ANALYSIS )
+        if( analysis_mask & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
             analysis.reaching_definitions( analysis_state, n );
         }
-        if( analysis_mask & INDUCTION_VARS_ANALYSIS )
+        if( analysis_mask & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             analysis.induction_variables( analysis_state, n );
-        }
-        if( analysis_mask & CONSTANTS_ANALYSIS )
-        {
-//             analysis.constants( analysis_state, n );
         }
 
         // Save static analysis
@@ -153,8 +184,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ********************* Visitor retrieving the analysis of a given Nodecl ********************* //
 
-    NestedBlocksStaticInfoVisitor::NestedBlocksStaticInfoVisitor( analysis_tag analysis_mask,
-                                                                  nested_analysis_tag nested_analysis_mask,
+    NestedBlocksStaticInfoVisitor::NestedBlocksStaticInfoVisitor( WhichAnalysis::Analysis_tag analysis_mask,
+                                                                  WhereAnalysis::Nested_analysis_tag nested_analysis_mask,
                                                                   PCFGAnalysis_memento state,
                                                                   int nesting_level)
             : _state( state ), _analysis_mask( analysis_mask ), _nested_analysis_mask( nested_analysis_mask ),
@@ -179,9 +210,9 @@ namespace Analysis {
         // The queries to the analysis info depend on the mask
         ObjectList<Nodecl::NodeclBase> cs;
         ObjectList<Analysis::Utils::InductionVariableData*> ivs;
-        if( _analysis_mask | CONSTANTS_ANALYSIS )
+        if( _analysis_mask | WhichAnalysis::CONSTANTS_ANALYSIS )
             cs = _state.get_constants( n );
-        if( _analysis_mask | INDUCTION_VARS_ANALYSIS )
+        if( _analysis_mask | WhichAnalysis::INDUCTION_VARS_ANALYSIS )
             ivs = _state.get_induction_variables( n );
 
         NodeclStaticInfo static_info( ivs, cs );
@@ -191,7 +222,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::DoStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_DO_STATIC_INFO )
+        if( _nested_analysis_mask | WhereAnalysis::NESTED_DO_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -207,7 +238,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::IfElseStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_IF_STATIC_INFO )
+        if( _nested_analysis_mask | WhereAnalysis::NESTED_IF_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -224,7 +255,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::ForStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_FOR_STATIC_INFO )
+        if( _nested_analysis_mask | WhereAnalysis::NESTED_FOR_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -240,7 +271,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::WhileStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_WHILE_STATIC_INFO )
+        if( _nested_analysis_mask | WhereAnalysis::NESTED_WHILE_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)

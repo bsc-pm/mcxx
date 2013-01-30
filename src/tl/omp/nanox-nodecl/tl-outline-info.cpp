@@ -835,7 +835,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol)
         : _data_env_items()
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -844,7 +844,6 @@ namespace TL { namespace Nanox {
             sc = environment.retrieve_context();
         }
         //Add one targetInfo, main task
-       if (funct_symbol==NULL) funct_symbol=Symbol::invalid();
         TargetInformation ti;
         _implementation_table.insert(std::make_pair(funct_symbol, ti));
         _funct_symbol=funct_symbol;
@@ -905,14 +904,12 @@ namespace TL { namespace Nanox {
 
     void OutlineInfo::add_device_name(std::string device_name,TL::Symbol function_symbol)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
        _implementation_table[function_symbol].add_device_name(device_name);   
     }
 
     ObjectList<std::string> OutlineInfo::get_device_names(TL::Symbol function_symbol)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        return _implementation_table[function_symbol].get_device_names();   
     }
@@ -933,49 +930,42 @@ namespace TL { namespace Nanox {
 
     void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);       
     }
 
     ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        return _implementation_table[function_symbol].get_ndrange();   
     }
     
     void OutlineInfo::append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        _implementation_table[function_symbol].append_to_onto(onto_exprs);       
     }
 
     ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
        return _implementation_table[function_symbol].get_onto();   
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
     {
-        if (function_symbol==NULL) function_symbol=Symbol::invalid();
         ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
         return _implementation_table[function_symbol].get_param_arg_map();
     }
 
     void OutlineInfo::set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol)
     {
-        if (function_symbol==NULL) function_symbol=Symbol::invalid();
         ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
         _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
     void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
     {
-        if (function_symbol==NULL) function_symbol=Symbol::invalid();
         //if no impl present, we add it, otherwise just add a device
          if(_implementation_table.count(function_symbol)==0){
              TargetInformation ti;

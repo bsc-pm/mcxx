@@ -16,7 +16,7 @@ options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P
 compiler_name = @IFORT@
-compiler_options = -recursive
+compiler_options = -recursive -assume realloc_lhs
 linker_name = @IFORT@
 linker_options =
 

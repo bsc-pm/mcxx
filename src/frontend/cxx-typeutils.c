@@ -8755,13 +8755,24 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 );
 
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
+        (*result) = identity_scs(t_orig, t_dest);
 
-        if (standard_conversion_between_types(&conversion_among_lvalues, unqualif_orig, unqualif_dest)
-                || (is_class_type(unqualif_dest) 
-                    && is_class_type(unqualif_orig)
-                    && class_type_is_base(unqualif_dest, unqualif_orig)))
+        char ok = 0;
+        if (standard_conversion_between_types(&conversion_among_lvalues, no_ref(orig), unqualif_dest))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result).conv[0] = conversion_among_lvalues.conv[0];
+            (*result).conv[1] = conversion_among_lvalues.conv[1];
+            ok = 1;
+        }
+        else if (is_class_type(unqualif_dest)
+                    && is_class_type(unqualif_orig)
+                    && class_type_is_base(unqualif_dest, unqualif_orig))
+        {
+            ok = 1;
+        }
+
+        if (ok)
+        {
             DEBUG_CODE()
             {
                 if (is_rvalue_reference_type(dest))
@@ -8772,6 +8783,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 {
                     fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
                 }
+            }
+            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
+            {
+                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
             return 1;
         }
@@ -8789,6 +8804,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a lvalue\n");
         }
         (*result) = identity_scs(t_orig, t_dest);
+        if (is_more_cv_qualified_type(reference_type_get_referenced_type(dest),
+                    reference_type_get_referenced_type(orig)))
+        {
+            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+        }
         return 1;
     }
 
@@ -8845,6 +8865,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a reference by means of lvalue\n");
             }
+            if (is_more_cv_qualified_type(ref_dest, ref_orig))
+                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }

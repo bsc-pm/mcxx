@@ -42,6 +42,7 @@ namespace Codegen
             virtual void codegen_cleanup();
 
         public:
+            FortranBase();
 
             void visit(const Nodecl::TopLevel& node);
             void visit(const Nodecl::FunctionCode& node);
@@ -185,6 +186,9 @@ namespace Codegen
                 // kind-name from ISO_C_BINDING
                 bool emit_interoperable_types;
 
+                // Fun locs
+                bool emit_fun_loc;
+
                 State()
                     : _indent_level(0),
                     in_forall(false),
@@ -192,7 +196,8 @@ namespace Codegen
                     in_data_value(false),
                     flatten_array_construct(false),
                     emit_types_as_literals(false),
-                    emit_interoperable_types(false)
+                    emit_interoperable_types(false),
+                    emit_fun_loc(false)
                 {
                 }
             } state;
@@ -274,6 +279,7 @@ namespace Codegen
             // we emit a PTR_LOC_xxx call which must be later emitted in C
             typedef std::map<TL::Type, std::string> ptr_loc_map_t;
             ptr_loc_map_t _ptr_loc_map;
+            ptr_loc_map_t _fun_loc_map;
 
             // This is a set stating if a given PTR_LOC_xxx names has been
             // emitted already or not in the current scoping unit
@@ -281,6 +287,7 @@ namespace Codegen
             external_symbol_set_t _external_symbols;
 
             std::string define_ptr_loc(TL::Type t, const std::string& function_name);
+            std::string define_fun_loc(TL::Type t, const std::string& function_name);
 
             void set_codegen_status(TL::Symbol sym, codegen_status_t status);
             codegen_status_t get_codegen_status(TL::Symbol sym);
@@ -407,6 +414,10 @@ namespace Codegen
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
 
             void emit_floating_constant(const_value_t* value, TL::Type t);
+
+            std::string _emit_fun_loc_str;
+            bool _emit_fun_loc;
+            void set_emit_fun_loc(const std::string& str);
     };
 }
 

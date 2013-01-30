@@ -29,17 +29,15 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_ignore=yes
+test_ENV="NX_SCHEDULE=versioning"
 </testinfo>
 */
-
-// Currently, the runtime does not support 'implements'
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #pragma omp target device (smp)
-#pragma omp task inout(*a) target device (fooo)
+#pragma omp task inout(*a)
 void task1(int *a)
 {
     *a += 2;

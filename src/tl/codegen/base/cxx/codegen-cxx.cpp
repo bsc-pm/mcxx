@@ -461,7 +461,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
     std::string cast_kind = node.get_text();
-    TL::Type t = node.get_type();
+    TL::Type t = fix_references(node.get_type());
     Nodecl::NodeclBase nest = node.get_rhs();
 
     if (IS_C_LANGUAGE
@@ -5907,7 +5907,11 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         TL::Symbol enum_entry = t.get_symbol();
 
-        walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        // Only walk the enumerators if not already defined
+        if (get_codegen_status(enum_entry) != CODEGEN_STATUS_DEFINED)
+        {
+            walk_type_for_symbols(enum_entry.get_type(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        }
         define_or_declare_if_complete(enum_entry, symbol_to_declare, symbol_to_define);
     }
     else if (t.is_unresolved_overload())
@@ -7175,13 +7179,31 @@ TL::Type CxxBase::fix_references(TL::Type t)
     }
     else if (t.is_array())
     {
-        // Arrays should not have references as elements
-        return t;
+        if (t.array_is_region())
+        {
+            Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
+            t.array_get_bounds(lb, ub);
+            t.array_get_region_bounds(reg_lb, reg_ub);
+            TL::Scope sc = array_type_get_region_size_expr_context(t.get_internal_type());
+
+            return fix_references(t.array_element()).get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+        }
+        else
+        {
+            Nodecl::NodeclBase size = t.array_get_size();
+            TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
+
+            return fix_references(t.array_element()).get_array_to(size, sc);
+        }
     }
     else if (t.is_pointer())
     {
-        // Pointers cannot point to references
-        return t;
+        TL::Type fixed = fix_references(t.points_to()).get_pointer_to();
+
+        fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
+                get_cv_qualifier(t.get_internal_type()));
+
+        return fixed;
     }
     else if (t.is_function())
     {

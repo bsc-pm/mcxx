@@ -524,65 +524,57 @@ namespace TL
             mr.read(_kind);
         }
 
-        static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
+        struct IsUselessDependence : Predicate<Nodecl::NodeclBase>
         {
-            Nodecl::NodeclBase expr(function_dep.get_data_reference());
 
-            if (expr.is<Nodecl::Symbol>())
-            {
-                Symbol sym = expr.get_symbol();
-                if (sym.is_parameter()
-                        && !sym.get_type().is_any_reference())
+            private:
+                DependencyDirection _direction;
+            public:
+                IsUselessDependence(DependencyDirection &direction)
+                    : _direction(direction) { }
+
+                virtual bool do_(IsUselessDependence::ArgType expr) const
                 {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        static void dependence_list_check(ObjectList<FunctionTaskDependency>& function_task_param_list)
-        {
-            ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
-                    function_task_param_list.end(),
-                    is_useless_dependence);
-
-            for (ObjectList<FunctionTaskDependency>::iterator it = begin_remove;
-                    it != function_task_param_list.end();
-                    it++)
-            {
-                DependencyDirection direction(it->get_direction());
-                Nodecl::NodeclBase expr(it->get_data_reference());
-
-                if (expr.is<Nodecl::Symbol>())
-                {
-                    Symbol sym = expr.get_symbol();
-                    if (sym.is_parameter()
-                            && !sym.get_type().is_any_reference())
+                    if (expr.is<Nodecl::Symbol>())
                     {
-                        // Copy semantics of values in C/C++ lead to this fact
-                        // If the dependence is output (or inout) this should
-                        // be regarded as an error
-                        if ((direction & DEP_DIR_OUT) == DEP_DIR_OUT)
+                        Symbol sym = expr.get_symbol();
+                        if (sym.is_parameter()
+                                && !sym.get_type().is_any_reference())
                         {
-                            running_error("%s: error: output dependence '%s' "
-                                    "only names a parameter. The value of a parameter is never copied out of a function "
-                                    "so it cannot generate an output dependence",
-                                    expr.get_locus().c_str(),
-                                    expr.prettyprint().c_str());
-                        }
-                        else
-                        {
-                            std::cerr << expr.get_locus() << ": warning: "
-                                "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                "is always copied and cannot define an input dependence"
-                                << std::endl;
+                            // Copy semantics of values in C/C++ lead to this fact
+                            // If the dependence is output (or inout) this should
+                            // be regarded as an error
+                            if ((_direction & DEP_DIR_OUT) == DEP_DIR_OUT)
+                            {
+                                error_printf("%s: error: output dependence '%s' "
+                                        "only names a parameter. The value of a parameter is never copied out of a function "
+                                        "so it cannot generate an output dependence\n",
+                                        expr.get_locus().c_str(),
+                                        expr.prettyprint().c_str());
+                                return true;
+                            }
+                            else
+                            {
+                                std::cerr << expr.get_locus() << ": warning: "
+                                    "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
+                                    "is always copied and cannot define an input dependence"
+                                    << std::endl;
+                                return true;
+                            }
                         }
                     }
+                    return false;
                 }
-            }
+        };
+
+        static void dependence_list_check(ObjectList<Nodecl::NodeclBase>& expression_list, DependencyDirection direction)
+        {
+            IsUselessDependence is_useless_dependence(direction);
 
             // Remove useless expressions
-            function_task_param_list.erase(begin_remove, function_task_param_list.end());
+            expression_list.erase(
+                    std::remove_if(expression_list.begin(), expression_list.end(), is_useless_dependence),
+                    expression_list.end());
         }
 
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
@@ -692,18 +684,18 @@ namespace TL
 
             ObjectList<FunctionTaskDependency> dependence_list;
 
-
+            dependence_list_check(input_arguments, DEP_DIR_IN);
             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
 
+            dependence_list_check(output_arguments, DEP_DIR_OUT);
             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
 
+            dependence_list_check(inout_arguments, DEP_DIR_INOUT);
             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
 
             dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
 
             dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
-
-            dependence_list_check(dependence_list);
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
@@ -720,7 +712,7 @@ namespace TL
 
                 if (target_context.copy_deps)
                 {
-                    // Honour copy deps
+                    // Honour copy deps but first remove useless dependences
                     target_ctx_copy_in.append(input_arguments);
                     target_ctx_copy_out.append(output_arguments);
                     target_ctx_copy_inout.append(inout_arguments);

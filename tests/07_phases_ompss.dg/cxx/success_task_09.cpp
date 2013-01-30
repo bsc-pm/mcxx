@@ -28,40 +28,23 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-test_compile_fail=yes
-test_compile_faulty=yes
-
-# test_compile_fail_nanox_mercurium=yes
-# test_compile_faulty_nanox_mercurium=yes
-#
-# test_compile_fail_nanox_instrument=yes
-# test_compile_faulty_nanox_instrument=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#include <algorithm>
-#include <functional>
-#include <vector>
-
-#pragma omp declare reduction( + : std::vector<int> : \
-std::transform(_in.begin( ), _in.end( ), \
-_out.begin( ), _out.begin ( ), std::plus<int >() ) )
-
-#pragma omp declare reduction( merge: std::vector<int>: \
-_out.insert(_out.end(), _in.begin(), _in.end() ) )
-
-int main (int argc, char* argv[])
+#pragma omp task priority( iteration )
+void task( int iteration, int number )
 {
-   std::vector<int> v1(5);
-   std::vector<int> v2(5);
+}
 
-   #pragma omp parallel for reduction(merge : v2)
-   for (int i=0; i<5; i++)
-   {
-      v1 = v2;
-   }
-
-   return 0;
+int main( void )
+{
+    int i = 0;
+    for ( i = 20; i > 0; --i ) {
+        task( i, 1 );
+        task( i, 2 );
+        task( i, 3 );
+    }
+#pragma omp taskwait
+    return 0;
 }

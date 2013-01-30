@@ -274,10 +274,13 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         char is_implicit_argument,
         const char* filename, int line)
 {
-    fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
-            print_declarator(orig));
-    fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
-            print_declarator(dest));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
+                print_declarator(orig));
+        fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
+                print_declarator(dest));
+    }
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
             NULL, 0, /* mandatory */ 0);
@@ -1450,8 +1453,7 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
         }
     }
     else if ((scs1.conv[0] == scs2.conv[0])
-            && (scs1.conv[1] == scs2.conv[1])
-            && (scs1.conv[2] == scs2.conv[2]))
+            && (scs1.conv[1] == scs2.conv[1]))
     {
         // If both are reference bindings, and scs2 binds a lvalue to a rvalue-reference
         // while scs1 binds a lvalue to a lvalue-reference, scs1 is better

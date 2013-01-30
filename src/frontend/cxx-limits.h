@@ -86,6 +86,9 @@ enum
     // Number of C (not C++) "overloads"
     MCXX_MAX_C_OVERLOADS = 256,
 
+    // Number of VLA symbols per expression
+    MCXX_MAX_VLA_SYMBOLS = 256,
+
     // Max file name length
     MCXX_MAX_FILENAME = 4096,
 };

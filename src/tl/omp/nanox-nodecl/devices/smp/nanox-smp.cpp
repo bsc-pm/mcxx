@@ -544,6 +544,7 @@ namespace TL { namespace Nanox {
           new_function_sym->entity_specs.is_static = 0;
         }
 
+
         // Finally, we update the parameters of the new function symbol
         for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
                 it != parameter_symbols.end();
@@ -564,6 +565,13 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
                     new_function_sym);
+        }
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            new_function_sym->type_information = ::get_cv_qualified_type(
+                    new_function_sym->type_information,
+                    get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
 
         function_context.function_scope->related_entry = new_function_sym;
