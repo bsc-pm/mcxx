@@ -5705,7 +5705,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                         nodecl_get_filename(nodecl_name),
                         nodecl_get_line(nodecl_name));
 
-                nodecl_set_type(nodecl_this_symbol, this_type);
+                nodecl_set_type(nodecl_this_symbol, this_symbol->type_information);
 
                 nodecl_t nodecl_this_derref =
                     nodecl_make_dereference(

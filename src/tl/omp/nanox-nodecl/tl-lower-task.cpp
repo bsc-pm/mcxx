@@ -1563,11 +1563,24 @@ void LoweringVisitor::fill_copies(
                     copy_ol_setup,
                     copy_imm_arg,
                     copy_imm_setup);
-            emit_translation_function_region(ctr,
-                    outline_info,
-                    parameter_outline_info,
-                    structure_symbol,
-                    xlate_function_name);
+
+            if (bool allow_multiple_copies = Nanos::Version::interface_is_at_least("copies_api", 1002))
+            {
+                emit_translation_function_region(ctr,
+                        outline_info,
+                        parameter_outline_info,
+                        structure_symbol,
+                        xlate_function_name);
+            }
+            else
+            {
+                emit_translation_function_nonregion(ctr,
+                        outline_info,
+                        parameter_outline_info,
+                        structure_symbol,
+                        allow_multiple_copies,
+                        xlate_function_name);
+            }
         }
     }
     else
@@ -1587,10 +1600,12 @@ void LoweringVisitor::fill_copies(
                     copy_ol_setup,
                     copy_imm_arg,
                     copy_imm_setup);
+
             emit_translation_function_nonregion(ctr,
                     outline_info,
                     parameter_outline_info,
                     structure_symbol,
+                    /* allow_multiple_copies */ false,
                     xlate_function_name);
         }
     }
@@ -1601,7 +1616,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         OutlineInfo& outline_info,
         OutlineInfo* parameter_outline_info,
         TL::Symbol structure_symbol,
-
+        bool allow_multiple_copies,
         // Out
         TL::Source& xlate_function_name
         )
@@ -1652,7 +1667,8 @@ void LoweringVisitor::emit_translation_function_nonregion(
         Source declaration;
         declaration
             << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() << ";";
-
+        std::cerr << print_declarator((*it)->get_field_type().get_internal_type()) << std::endl;
+        std::cerr << print_declarator((*it)->get_in_outline_type().get_internal_type()) << std::endl;
         if (IS_FORTRAN_LANGUAGE)
         {
             Source::source_language = SourceLanguage::C;
@@ -1694,8 +1710,8 @@ void LoweringVisitor::emit_translation_function_nonregion(
         if (copies.empty())
             continue;
 
-        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
-        if (copies.size() > 1)
+        if (!allow_multiple_copies
+                && copies.size() > 1)
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
@@ -1716,6 +1732,13 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             base_address = data_ref.get_base_address();
         }
+
+
+        std::cerr << "BASE ADDRESS " << base_address.prettyprint() << std::endl;
+
+        base_address = Nodecl::Dereference::make(base_address, base_address.get_type().points_to().get_lvalue_reference_to());
+
+        std::cerr << "BASE ADDRESS 2 " << base_address.prettyprint() << std::endl;
 
         translations
             << "{"
