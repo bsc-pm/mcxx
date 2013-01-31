@@ -86,11 +86,11 @@ namespace Analysis {
     {
         private:
             ObjectList<Analysis::Utils::InductionVariableData*> _induction_variables;
-            ObjectList<Nodecl::NodeclBase> _constants;
+            Utils::ext_sym_set _killed;
 
         public:
             NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
-                              ObjectList<Nodecl::NodeclBase> constants );
+                              Utils::ext_sym_set killed );
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
             bool is_induction_variable( const Nodecl::NodeclBase& n ) const;

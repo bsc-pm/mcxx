@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <climits>
+
 #include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
@@ -49,7 +51,7 @@ namespace TL
             Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ INT_MAX);
 
             // TODO: ???
             analyze_loop(for_statement);
