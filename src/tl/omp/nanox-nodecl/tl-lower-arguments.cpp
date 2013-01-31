@@ -73,6 +73,9 @@ namespace TL { namespace Nanox {
         }
 
         class_type_add_member(new_class_type.get_internal_type(), field.get_internal_symbol());
+
+        // Remember the field
+        outline_data_item.set_field_symbol(field);
     }
 
     TL::Symbol LoweringVisitor::declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct)
