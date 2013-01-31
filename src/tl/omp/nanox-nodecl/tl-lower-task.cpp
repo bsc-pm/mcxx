@@ -1611,6 +1611,35 @@ void LoweringVisitor::fill_copies(
     }
 }
 
+// This visitor makes an in-place modification!
+struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
+{
+    typedef std::map<TL::Symbol, TL::Symbol> sym_to_field_t;
+    sym_to_field_t sym_to_field;
+    TL::Symbol structure;
+
+    void visit_post(const Nodecl::Symbol &n)
+    {
+        sym_to_field_t::iterator it = sym_to_field.find(n.get_symbol());
+        if (it != sym_to_field.end())
+        {
+            Nodecl::NodeclBase struct_node = Nodecl::Symbol::make(structure);
+            struct_node.set_type(structure.get_type());
+
+            Nodecl::NodeclBase field_node = Nodecl::Symbol::make(it->second);
+            field_node.set_type(it->second.get_type());
+
+            n.replace(
+                    Nodecl::ClassMemberAccess::make(
+                        struct_node,
+                        field_node,
+                        field_node.get_type().get_lvalue_reference_to())
+                    );
+        }
+    }
+
+};
+
 void LoweringVisitor::emit_translation_function_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -1658,46 +1687,18 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-    // First gather all the data, so the translations are easier later
+    // Initialize the rewrite visitor
+    RewriteAddressExpression rewrite_base_address;
+    TL::Symbol argument_structure_symbol = ReferenceScope(function_body).get_scope().get_symbol_from_name("arg");
+    ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
+    rewrite_base_address.structure = argument_structure_symbol;
+
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end(); it++)
     {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        Source declaration;
-        declaration
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() << ";";
-        std::cerr << print_declarator((*it)->get_field_type().get_internal_type()) << std::endl;
-        std::cerr << print_declarator((*it)->get_in_outline_type().get_internal_type()) << std::endl;
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::C;
-        }
-        declaration.parse_statement(function_body);
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-
-        TL::Symbol new_sym = ReferenceScope(function_body).get_scope().get_symbol_from_name((*it)->get_symbol().get_name());
-        ERROR_CONDITION(!new_sym.is_valid(), "Invalid symbol just created", 0);
-
-        symbol_map.add_map((*it)->get_symbol(), new_sym);
-
-        if ((*it)->get_base_symbol_of_argument().is_valid())
-        {
-            symbol_map.add_map((*it)->get_base_symbol_of_argument(), new_sym);
-        }
-
-        if (IS_CXX_LANGUAGE)
-        {
-            translations << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_sym));
-        }
-
-        translations
-            << (*it)->get_symbol().get_name()
-            << " = arg." << (*it)->get_field_name() << ";"
-            ;
+        // Create a mapping "var" to "args->var"
+        ERROR_CONDITION(!(*it)->get_field_symbol().is_valid(), "Invalid field symbol", 0);
+        rewrite_base_address.sym_to_field[(*it)->get_symbol()] = (*it)->get_field_symbol();
     }
 
     int copy_num = 0;
@@ -1722,23 +1723,20 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
         TL::DataReference data_ref(copies[0].expression);
 
-        Nodecl::NodeclBase base_address;
+        // if (IS_FORTRAN_LANGUAGE)
+        // {
+        //     base_address = data_ref.get_base_address_as_integer();
+        // }
+        // else
+        // {
+        //     base_address = data_ref.get_base_address().shallow_copy();
+        // }
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            base_address = data_ref.get_base_address_as_integer();
-        }
-        else
-        {
-            base_address = data_ref.get_base_address();
-        }
+        // // rewrite
+        // rewrite_base_address.walk(base_address);
 
-
-        std::cerr << "BASE ADDRESS " << base_address.prettyprint() << std::endl;
-
-        base_address = Nodecl::Dereference::make(base_address, base_address.get_type().points_to().get_lvalue_reference_to());
-
-        std::cerr << "BASE ADDRESS 2 " << base_address.prettyprint() << std::endl;
+        Nodecl::NodeclBase offset = data_ref.get_offsetof();
+        rewrite_base_address.walk(offset);
 
         translations
             << "{"
@@ -1748,9 +1746,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "intptr_t host_base_address;"
 
             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
-            << "offset = (intptr_t)(" << as_expression(
-                        Nodecl::Utils::deep_copy(base_address, function_body,
-                            symbol_map)) << ") - (intptr_t)host_base_address;"
+            << "offset = " << as_expression(offset) << ";"
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
             << "device_base_address -= offset;"
@@ -1758,7 +1754,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
-        copy_num++;
+        copy_num += copies.size();
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -1820,21 +1816,6 @@ void LoweringVisitor::emit_translation_function_region(
 
     Source translations;
 
-    // First gather all the data, so the translations are easier later
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end(); it++)
-    {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        if (copies.empty())
-            continue;
-
-        translations
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
-            << " = arg." << (*it)->get_field_name() << ";"
-            ;
-    }
-
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -1857,7 +1838,7 @@ void LoweringVisitor::emit_translation_function_region(
             << "}"
             ;
 
-        copy_num++;
+        copy_num += copies.size();
     }
 
     if (IS_FORTRAN_LANGUAGE)
