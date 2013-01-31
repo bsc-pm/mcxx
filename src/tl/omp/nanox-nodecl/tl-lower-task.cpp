@@ -379,13 +379,11 @@ void LoweringVisitor::emit_async_common(
            dynamic_wd_info,
            xlate_function_name;
 
-    Nodecl::NodeclBase fill_outline_arguments_tree,
-        fill_dependences_outline_tree;
+    Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
            fill_dependences_outline;
 
-    Nodecl::NodeclBase fill_immediate_arguments_tree,
-        fill_dependences_immediate_tree;
+    Nodecl::NodeclBase fill_immediate_arguments_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
