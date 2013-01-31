@@ -2164,15 +2164,7 @@ void LoweringVisitor::fill_dependences_internal(
                     }
 
                     Source dep_address;
-                    // if (on_wait)
-                    {
-                       dep_address << as_expression(base_address);
-                    }
-                    // else
-                    // {                        
-                    //     dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
-                    //         ;
-                    // }
+                    dep_address << as_expression(dep_expr.get_address_of_symbol());
 
                     dependency_init
                         << "{"
