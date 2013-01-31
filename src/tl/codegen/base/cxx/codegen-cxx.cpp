@@ -3624,11 +3624,11 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 {
                     // Define the types used by the function parameters
                     TL::ObjectList<TL::Type> parameters = member.get_type().parameters();
-                    for (TL::ObjectList<TL::Type>::iterator it = parameters.begin();
-                            it != parameters.end();
-                            it++)
+                    for (TL::ObjectList<TL::Type>::iterator it2 = parameters.begin();
+                            it2 != parameters.end();
+                            it2++)
                     {
-                        TL::Type current_parameter(*it);
+                        TL::Type current_parameter(*it2);
                         walk_type_for_symbols(
                                 current_parameter,
                                 &CxxBase::declare_symbol_if_nonnested,
@@ -3678,7 +3678,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
     TL::ObjectList<TL::Symbol> must_be_defined_inside_class = result;
 
-    for (TL::ObjectList<TL::Symbol>::iterator it = must_be_defined_inside_class.begin();
+    for (it = must_be_defined_inside_class.begin();
             it != must_be_defined_inside_class.end();
             it++)
     {

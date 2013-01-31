@@ -1,6 +1,6 @@
 phasesdir = $(pkglibdir)
 
-tl_cflags= -Wall \
+tl_cflags= -Wall -Wshadow \
     -I $(top_srcdir)/src/tl/codegen/common \
     -I $(top_srcdir)/src/tl/codegen/vector \
     -I $(top_srcdir)/src/tl/codegen/base/cxx \

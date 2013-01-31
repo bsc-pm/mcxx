@@ -256,12 +256,12 @@ namespace Codegen
                     it2 != it->nodes_after_contains.end();
                     it2++)
             {
-                Nodecl::NodeclBase& node(*it2);
+                Nodecl::NodeclBase& current_node(*it2);
 
                 push_declaration_status();
                 clear_renames();
 
-                walk(node);
+                walk(current_node);
                 pop_declaration_status();
             }
 
@@ -361,15 +361,15 @@ namespace Codegen
 
                 // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
-                TL::ObjectList<TL::Symbol> related_symbols = internal_procedure.get_related_symbols();
-                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                        it != related_symbols.end();
-                        it++)
+                TL::ObjectList<TL::Symbol> internal_related_symbols = internal_procedure.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = internal_related_symbols.begin();
+                        it2 != internal_related_symbols.end();
+                        it2++)
                 {
-                    if (it->get_type().basic_type().is_class())
+                    if (it2->get_type().basic_type().is_class())
                     {
-                        declare_symbol(it->get_type().basic_type().get_symbol(),
-                                it->get_type().basic_type().get_symbol().get_scope());
+                        declare_symbol(it2->get_type().basic_type().get_symbol(),
+                                it2->get_type().basic_type().get_symbol().get_scope());
                     }
                 }
             }
@@ -836,7 +836,7 @@ OPERATOR_TABLE
                 // First prepare shape
                 std::string shape;
                 TL::Type t = type;
-                int n = 0;
+                int m = 0;
                 while (fortran_is_array_type(t.get_internal_type()))
                 {
 
@@ -846,12 +846,12 @@ OPERATOR_TABLE
                     ERROR_CONDITION((v == NULL), "There must be a constant here!", 0);
 
                     ss << const_value_cast_to_signed_int(v);
-                    if (n != 0)
+                    if (m != 0)
                         ss << ", ";
 
                     shape = ss.str() + shape;
                     t = t.array_element();
-                    n++;
+                    m++;
                 }
                
                 file << "RESHAPE( SOURCE=";

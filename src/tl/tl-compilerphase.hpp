@@ -55,17 +55,17 @@ namespace TL
 
             //! Creates a compiler phase parameter
             /*!
-             * \param name Name of the parameter
-             * \param description The description of the parameter
+             * \param name_ Name of the parameter
+             * \param descr The description of the parameter
              * \param ref Reference where the value will be updated
              * \param default_value Default value of this parameter used to initialize it
              */
-            CompilerPhaseParameter(const std::string& name,
-                    const std::string& description,
+            CompilerPhaseParameter(const std::string& name_,
+                    const std::string& descr,
                     std::string& ref,
                     std::string default_value = "")
-                : _name(name),
-                _description(description),
+                : _name(name_),
+                _description(descr),
                 _reference(ref)
             {
                 _reference = default_value;

@@ -105,13 +105,13 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
         param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
         if (it != map.end())
         {
-            TL::Symbol sym = it->second;
+            TL::Symbol sym_2 = it->second;
             Nodecl::NodeclBase result = Nodecl::Symbol::make(
-                    sym,
-                    sym.get_filename(),
-                    sym.get_line());
+                    sym_2,
+                    sym_2.get_filename(),
+                    sym_2.get_line());
 
-            result.set_type(sym.get_type());
+            result.set_type(sym_2.get_type());
 
             return result;
         }

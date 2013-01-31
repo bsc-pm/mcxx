@@ -2048,7 +2048,6 @@ void LoweringVisitor::fill_dependences_internal(
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
                     {
-                        Source dims_description;
                         dims_description
                             << "{"
                             << dimension_size << ","
