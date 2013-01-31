@@ -2026,13 +2026,13 @@ void LoweringVisitor::fill_dependences_internal(
                 dependency_regions << ";"
                     ;
 
-                Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
+                 Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
 
-                if (dep_expr_offset.is_null())
-                {
-                    dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
-                }
-                ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
+                 if (dep_expr_offset.is_null())
+                 {
+                     dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
+                 }
+                 ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
                 dependency_offset << as_expression(dep_expr_offset);
 
