@@ -234,30 +234,6 @@ namespace Analysis {
         return result;
     }
 
-    bool PCFGAnalysis_memento::is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
-    {
-        bool result = false;
-        if( _induction_variables )
-        {
-            Node* loop_pcfg_node = node_enclosing_nodecl( loop );
-            if( loop_pcfg_node != NULL )
-            {
-                ObjectList<Utils::InductionVariableData*> ivs =
-                        loop_pcfg_node->get_induction_variables( );
-                for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( );
-                     it != ivs.end( ); ++it )
-                {
-                    if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes*/ true ) );
-                    {
-                        result = true;
-                        break;
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
             Nodecl::NodeclBase loop )
     {
@@ -289,46 +265,6 @@ namespace Analysis {
                 {
                     result.append( it->get_value( ) );
                 }
-            }
-        }
-
-        return result;
-    }
-
-    bool PCFGAnalysis_memento::is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var )
-    {
-        bool result = true;
-
-        Node* n_pcfg_node = node_enclosing_nodecl( n );
-        if( n_pcfg_node != NULL )
-        {
-            ObjectList<Symbol> n_syms = Nodecl::Utils::get_all_symbols( n );
-            Utils::ext_sym_set n_killed_vars = n_pcfg_node->get_killed_vars( );
-            for( ObjectList<Symbol>::iterator it = n_syms.begin( ); it != n_syms.end( ); ++it )
-            {
-                if( ext_sym_set_contains_nodecl( it->get_value( ) , n_killed_vars ) )
-                {
-                    result = false;
-                }
-            }
-        }
-
-        return result;
-    }
-
-    bool PCFGAnalysis_memento::is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n )
-    {
-        bool result = true;
-
-        ObjectList<Utils::InductionVariableData*> ivs = get_induction_variables( loop );
-        for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
-        {
-            Nodecl::NodeclBase incr = ( *it )->get_increment( );
-            if( !incr.is_constant( ) ||
-                ( incr.is_constant( ) && !const_value_is_one( incr.get_constant( ) ) ) )
-            {
-                result = false;
-                break;
             }
         }
 

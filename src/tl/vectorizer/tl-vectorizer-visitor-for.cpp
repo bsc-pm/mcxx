@@ -46,8 +46,10 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(for_statement, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS,
-                                                           Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
+            Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -60,7 +62,7 @@ namespace TL
             }
 
             // Vectorizing Loop Header
-            VectorizerVisitorLoopHeader visitor_loop_header(_vector_length, for_analysis_info);
+            VectorizerVisitorLoopHeader visitor_loop_header(for_statement, for_analysis_info, _vector_length);
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
@@ -108,24 +110,25 @@ namespace TL
         }
 
         VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
-                const unsigned int vector_length,
-                const Analysis::AnalysisStaticInfo& for_analysis_info) :
-            _vector_length(vector_length), _for_analysis_info(for_analysis_info)
+                const Nodecl::ForStatement& for_statement,
+                const Analysis::AnalysisStaticInfo& for_analysis_info,
+                const unsigned int vector_length) :
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _vector_length(vector_length)
         {
         }
 
         void VectorizerVisitorLoopHeader::visit(const Nodecl::LoopControl& loop_control)
         {
             // Init
-            VectorizerVisitorLoopInit visitor_loop_init(_for_analysis_info);
+            VectorizerVisitorLoopInit visitor_loop_init(_for_statement, _for_analysis_info);
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            VectorizerVisitorLoopCond visitor_loop_cond(_vector_length, _for_analysis_info);
+            VectorizerVisitorLoopCond visitor_loop_cond(_for_statement, _for_analysis_info, _vector_length);
             visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
-            VectorizerVisitorLoopNext visitor_loop_next(_vector_length, _for_analysis_info);
+            VectorizerVisitorLoopNext visitor_loop_next(_for_statement, _for_analysis_info, _vector_length);
             visitor_loop_next.walk(loop_control.get_next());
         }
 
@@ -139,8 +142,10 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(const Analysis::AnalysisStaticInfo& for_analysis_info) :
-            _for_analysis_info(for_analysis_info)
+        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(
+                const Nodecl::ForStatement& for_statement,
+                const Analysis::AnalysisStaticInfo& for_analysis_info) :
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info)
         {
         }
 
@@ -176,9 +181,11 @@ namespace TL
         }
 
         VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
-                const unsigned int vector_length,
-                const Analysis::AnalysisStaticInfo& for_analysis_info) :
-            _vector_length(vector_length), _for_analysis_info(for_analysis_info)
+                const Nodecl::ForStatement& for_statement,
+                const Analysis::AnalysisStaticInfo& for_analysis_info,
+                const unsigned int vector_length) :
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info),
+            _vector_length(vector_length)
         {
         }
 
@@ -213,9 +220,9 @@ namespace TL
             Nodecl::Equal condition = node.as<Nodecl::Equal>();
             Nodecl::NodeclBase lhs = condition.get_lhs();
             Nodecl::NodeclBase rhs = condition.get_rhs();
-/*
-            bool lhs_const_flag = _for_analysis_info.is_constant(lhs);
-            bool rhs_const_flag = _for_analysis_info.is_constant(rhs);
+
+            bool lhs_const_flag = _for_analysis_info.is_constant(_for_statement, lhs);
+            bool rhs_const_flag = _for_analysis_info.is_constant(_for_statement, rhs);
 
             if (!lhs_const_flag && rhs_const_flag)
             {
@@ -227,15 +234,14 @@ namespace TL
             }
             else if (lhs_const_flag && rhs_const_flag)
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop
-condition. Both expressions are constant.", node.get_locus().c_str());
+                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop"
+                        "condition. Both expressions are constant.", node.get_locus().c_str());
             }
             else
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop
-condition. Both expressions are not constant.", node.get_locus().c_str());
+                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop"
+                        "condition. Both expressions are not constant.", node.get_locus().c_str());
             }
-            */
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopCond::unhandled_node(const Nodecl::NodeclBase& n)
@@ -249,88 +255,87 @@ condition. Both expressions are not constant.", node.get_locus().c_str());
         }
 
         VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
-                const unsigned int vector_length,
-                const Analysis::AnalysisStaticInfo& for_analysis_info) :
-            _vector_length(vector_length), _for_analysis_info(for_analysis_info)
+                const Nodecl::ForStatement& for_statement,
+                const Analysis::AnalysisStaticInfo& for_analysis_info,
+                const unsigned int vector_length) :
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info),
+            _vector_length(vector_length)
         {
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
         {
-            /*
             const Nodecl::NodeclBase rhs = node.get_rhs();
 
-            if (_for_analysis_info.is_induction_variable(rhs))
+            if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             rhs.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 node.get_type(),
-                                _for_analysis_info.get_ind_var_step(rhs),
+                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
                                 node.get_filename(),
                                 node.get_line()),
-                            n.get_type(),
-                            n.get_filename(),
-                            n.get_line());
+                            node.get_type(),
+                            node.get_filename(),
+                            node.get_line());
 
                 node.replace(new_node);
             }
-            */
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
-            /*
             const Nodecl::NodeclBase rhs = node.get_rhs();
 
-            if (_for_analysis_info.is_induction_variable(rhs))
+            if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             rhs.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 node.get_type(),
-                                _for_analysis_info.get_ind_var_step(rhs),
+                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
                                 node.get_filename(),
                                 node.get_line()),
-                            n.get_type(),
-                            n.get_filename(),
-                            n.get_line());
+                            node.get_type(),
+                            node.get_filename(),
+                            node.get_line());
 
                 node.replace(new_node);
             }
-            */
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
         {
-            /*
             const Nodecl::NodeclBase lhs = node.get_lhs();
 
-            if (_for_analysis_info.is_induction_variable(lhs))
+            if (_for_analysis_info.is_induction_variable(_for_statement, lhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             lhs,
                             Nodecl::Add::make(
-                                Nodecl::Parenthesis::make(
+                                Nodecl::ParenthesizedExpression::make(
                                     node.get_rhs(),
                                     node.get_type(),
                                     node.get_filename(),
                                     node.get_line()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
-                                    _for_analysis_info.get_ind_var_step(lhs),
+                                    _for_analysis_info.get_induction_variable_increment(_for_statement, lhs),
                                     node.get_filename(),
                                     node.get_line()),
-                            n.get_type(),
-                            n.get_filename(),
-                            n.get_line());
+                                node.get_type(),
+                                node.get_filename(),
+                                node.get_line()),
+                            node.get_type(),
+                            node.get_filename(),
+                            node.get_line());
 
                 node.replace(new_node);
             }
-            */
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Comma& node)
