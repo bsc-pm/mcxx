@@ -180,7 +180,7 @@ namespace Analysis {
         /*!
         \param name Name which will identify the graph.
         */
-        ExtensibleGraph( std::string name, Nodecl::NodeclBase nodecl, PCFGVisitUtils* utils );
+        ExtensibleGraph( std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils );
 
         //! Creates a new graph with the same characteristics of the actual graph
 //         ExtensibleGraph* copy( );

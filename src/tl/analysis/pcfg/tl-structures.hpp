@@ -57,8 +57,8 @@ namespace Analysis {
     // Modifications here require modifying Node::get_graph_type_as_string
     enum Graph_type {
         COND_EXPR,                      //! Conditional expression
-        EXTENSIBLE_GRAPH,               //! Special graph: this is the most outer graph node in an Extensible Graph
         FUNC_CALL,                      //! Function Call
+        FUNC_CODE,                      //! Function Code
         IF_ELSE,                        //! IfElse statement
         LOOP_DOWHILE,                   //! Set of nodes of a for loopm (but the initialization)
         LOOP_FOR,
@@ -72,6 +72,7 @@ namespace Analysis {
         OMP_SECTIONS,
         OMP_SINGLE,
         OMP_TASK,
+        OTHER,                          //! Generation of an ExtensibleGraph from any other type of construct
         SIMD,
         SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
         SWITCH                          //! Switch statement

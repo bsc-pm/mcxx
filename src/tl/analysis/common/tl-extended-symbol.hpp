@@ -50,9 +50,9 @@ namespace Utils {
 
             //! Returns the symbol contained in a nodecl which is an Extensible Symbol or
             //! a part of a nodecl which is an Extensible Symbol
-            ObjectList<Symbol> get_nodecl_symbols( Nodecl::NodeclBase n ) const;
+            ObjectList<Symbol> get_nodecl_symbols( const Nodecl::NodeclBase& n ) const;
 
-            Symbol get_nodecl_symbol( Nodecl::NodeclBase n ) const;
+            Symbol get_nodecl_symbol( const Nodecl::NodeclBase& n ) const;
 
         public:
             // *** Constructors *** //
@@ -65,7 +65,7 @@ namespace Utils {
                 * \param n Nodecl containing s Symbol.
                 *          This will be more than a Symbol when the nodecl is a member access or an array access
                 */
-            ExtendedSymbol( Nodecl::NodeclBase n );
+            ExtendedSymbol( const Nodecl::NodeclBase& n );
 
 
             // *** Modifiers *** //
@@ -89,9 +89,9 @@ namespace Utils {
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;
 
-            static ObjectList<Nodecl::NodeclBase> get_nodecls_base( Nodecl::NodeclBase n );
+            static ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
 
-            static Nodecl::NodeclBase get_nodecl_base( Nodecl::NodeclBase n );
+            static Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
 
             //! Returns true when the extensible symbol contains a symbols which do not represents
             //! neither an array access nor a member access, but a symbol.

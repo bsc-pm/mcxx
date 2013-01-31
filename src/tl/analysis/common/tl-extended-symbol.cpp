@@ -39,19 +39,12 @@ namespace Utils {
         : _n( Nodecl::NodeclBase::null( ) )
     {}
 
-    ExtendedSymbol::ExtendedSymbol( Nodecl::NodeclBase n )
+    ExtendedSymbol::ExtendedSymbol( const Nodecl::NodeclBase& n )
     {
-        if ( !n.is<Nodecl::Symbol>( ) && !Nodecl::Utils::nodecl_is_modifiable_lvalue( n ) )
-        {
-            nodecl_t internal_n = n.get_internal_nodecl( );
-            internal_error( "An ExtendedSymbol must contain an l-value, and nodecl '%s' isn't one\n",
-                            codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
-        }
-
         _n = n;
     }
 
-    ObjectList<Nodecl::NodeclBase> ExtendedSymbol::get_nodecls_base(Nodecl::NodeclBase n)
+    ObjectList<Nodecl::NodeclBase> ExtendedSymbol::get_nodecls_base( const Nodecl::NodeclBase& n )
     {
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
         {
@@ -134,7 +127,7 @@ namespace Utils {
         }
     }
 
-    ObjectList<Symbol> ExtendedSymbol::get_nodecl_symbols(Nodecl::NodeclBase n) const
+    ObjectList<Symbol> ExtendedSymbol::get_nodecl_symbols( const Nodecl::NodeclBase& n ) const
     {
         ObjectList<Symbol> syms;
         ObjectList<Nodecl::NodeclBase> base_nodecls = get_nodecls_base(n);
@@ -153,7 +146,7 @@ namespace Utils {
         return get_nodecl_symbols(_n);
     }
 
-    Nodecl::NodeclBase ExtendedSymbol::get_nodecl_base(Nodecl::NodeclBase n)
+    Nodecl::NodeclBase ExtendedSymbol::get_nodecl_base( const Nodecl::NodeclBase& n )
     {
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
         {
@@ -240,7 +233,7 @@ namespace Utils {
         }
     }
 
-    Symbol ExtendedSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
+    Symbol ExtendedSymbol::get_nodecl_symbol( const Nodecl::NodeclBase& n ) const
     {
         Nodecl::NodeclBase base_nodecl = get_nodecl_base(n);
         if (!n.is<Nodecl::FunctionCall>())

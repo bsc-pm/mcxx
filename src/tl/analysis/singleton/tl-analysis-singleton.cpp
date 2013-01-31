@@ -156,7 +156,7 @@ namespace Analysis {
         _auto_deps = true;
     }
 
-    Node* PCFGAnalysis_memento::pcfg_node_enclosing_nodecl( Node* current, Nodecl::NodeclBase n )
+    Node* PCFGAnalysis_memento::pcfg_node_enclosing_nodecl( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
         if( !current->is_visited( ) )
@@ -208,7 +208,7 @@ namespace Analysis {
         return result;
     }
 
-    Node* PCFGAnalysis_memento::node_enclosing_nodecl( Nodecl::NodeclBase n )
+    Node* PCFGAnalysis_memento::node_enclosing_nodecl( const Nodecl::NodeclBase& n )
     {
         Node* result;
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
@@ -235,7 +235,7 @@ namespace Analysis {
     }
 
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
-            Nodecl::NodeclBase loop )
+            const Nodecl::NodeclBase& loop )
     {
         ObjectList<Utils::InductionVariableData*> result;
         if( _induction_variables )
@@ -249,23 +249,14 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<Nodecl::NodeclBase> PCFGAnalysis_memento::get_constants( Nodecl::NodeclBase n )
+    Utils::ext_sym_set PCFGAnalysis_memento::get_killed( const Nodecl::NodeclBase& n )
     {
-        ObjectList<Nodecl::NodeclBase> result;
+        Utils::ext_sym_set result;
 
         Node* n_pcfg_node = node_enclosing_nodecl( n );
         if( n_pcfg_node != NULL )
         {
-            // FIXME Shall we check all variables in the function code where n is??
-            ObjectList<Symbol> n_syms = Nodecl::Utils::get_all_symbols( n );
-            Utils::ext_sym_set n_killed_vars = n_pcfg_node->get_killed_vars( );
-            for( ObjectList<Symbol>::iterator it = n_syms.begin( ); it != n_syms.end( ); ++it )
-            {
-                if( !ext_sym_set_contains_nodecl( it->get_value( ) , n_killed_vars ) )
-                {
-                    result.append( it->get_value( ) );
-                }
-            }
+            result = n_pcfg_node->get_killed_vars( );
         }
 
         return result;
