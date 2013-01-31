@@ -108,20 +108,11 @@ namespace Analysis {
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
 
-        //! Returns true when #n is an induction variable in #loop
-        bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
-
         //! Returns the list of induction variables found in #loop
         ObjectList<Utils::InductionVariableData*> get_induction_variables( Nodecl::NodeclBase loop );
 
-        //! Returns true when all Induction Variables of a loop has stride equal to one
-        bool is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
-
         //! Returns a list of objects that are constants in #n
         ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase n );
-
-        //! Returns true when #var is constant in #n
-        bool is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var );
 
     friend class AnalysisSingleton;
     };

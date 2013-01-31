@@ -46,9 +46,9 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(for_statement, 
-                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS | 
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
+            Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
                     Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 0);
 
             // TODO: ???
@@ -111,9 +111,9 @@ namespace TL
 
         VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
                 const Nodecl::ForStatement& for_statement,
-                const Analysis::AnalysisStaticInfo& for_analysis_info, 
+                const Analysis::AnalysisStaticInfo& for_analysis_info,
                 const unsigned int vector_length) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _vector_length(vector_length) 
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _vector_length(vector_length)
         {
         }
 
@@ -274,7 +274,7 @@ namespace TL
                             rhs.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 node.get_type(),
-                                _for_analysis_info.get_ind_var_step(_for_statement, rhs),
+                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
                                 node.get_filename(),
                                 node.get_line()),
                             node.get_type(),
@@ -296,7 +296,7 @@ namespace TL
                             rhs.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 node.get_type(),
-                                _for_analysis_info.get_ind_var_step(_for_statement, rhs),
+                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
                                 node.get_filename(),
                                 node.get_line()),
                             node.get_type(),
@@ -324,9 +324,12 @@ namespace TL
                                     node.get_line()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
-                                    _for_analysis_info.get_ind_var_step(_for_statement, lhs),
+                                    _for_analysis_info.get_induction_variable_increment(_for_statement, lhs),
                                     node.get_filename(),
                                     node.get_line()),
+                                node.get_type(),
+                                node.get_filename(),
+                                node.get_line()),
                             node.get_type(),
                             node.get_filename(),
                             node.get_line());
