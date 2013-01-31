@@ -688,6 +688,10 @@ namespace TL
         {
             return get_address_of_symbol_helper(expr.as<Nodecl::ParenthesizedExpression>().get_nest());
         }
+        else if (expr.is<Nodecl::ClassMemberAccess>())
+        {
+            return get_address_of_symbol_helper(expr.as<Nodecl::ClassMemberAccess>().get_lhs());
+        }
         else
         {
             internal_error("Unhandled case '%s'\n", ast_print_node_type(expr.get_kind()));
