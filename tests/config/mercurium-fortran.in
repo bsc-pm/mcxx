@@ -1,5 +1,16 @@
 #!@BASH@
 
+if [ @FORTRAN_TESTS_ENABLED@ = no ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
+
 # Basic mercurium generator with Fortran support
 source @abs_top_builddir@/tests/config/mercurium
 

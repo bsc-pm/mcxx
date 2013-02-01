@@ -1183,7 +1183,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_unsigned_long_long_int_type();
     }
 
-    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
+    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL
