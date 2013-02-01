@@ -2470,7 +2470,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
-    file << entry.get_name() << "(";
+
+    if (entry.is_class())
+    {
+        // Use the qualified name, do not rely on class-scope unqualified lookup
+        file << entry.get_qualified_name() << "(";
+    }
+    else
+    {
+        // Otherwise the name must not be qualified
+        file << entry.get_name() << "(";
+    }
 
     TL::Type type = entry.get_type();
     if (entry.is_class())
