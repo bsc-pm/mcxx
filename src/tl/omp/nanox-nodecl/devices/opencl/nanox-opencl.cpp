@@ -451,18 +451,20 @@ void DeviceOpenCL::generate_ndrange_code(
                     translate_parameters_map));
     }
 
-    ERROR_CONDITION(!new_ndrange[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
-
-    int num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
-
-    ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
-
+    bool dim_const=new_ndrange[0].is_constant();
+    
     bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
             && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
             && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
-
-    ERROR_CONDITION(((num_dim * 3) + 1 + !check_dim) != num_args_ndrange && ((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
+    int num_dim = 0;
     
+    if (dim_const){
+       num_dim=const_value_cast_to_4(new_ndrange[0].get_constant());
+       ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
+       ERROR_CONDITION(((num_dim * 3) + 1 + !check_dim) != num_args_ndrange && ((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
+    }
+
+   
     std::string compiler_opts;
     if (CURRENT_CONFIGURATION->opencl_build_options!=NULL){        
         compiler_opts=std::string(CURRENT_CONFIGURATION->opencl_build_options);
@@ -479,46 +481,89 @@ void DeviceOpenCL::generate_ndrange_code(
                     "sizeof(" << as_symbol(parameters_unpacked[i]) << "),&" << as_symbol(parameters_unpacked[i]) <<");";
         }        
     }
-    //Prepare ndrange
-    code_ndrange << "size_t offset_arr["<< num_dim <<"];";
-    code_ndrange << "size_t local_size_arr["<< num_dim <<"];";
-    code_ndrange << "size_t global_size_arr["<< num_dim <<"];";    
+    //Prepare ndrange calc pointers and arrays
+    code_ndrange << "int num_dim=" << as_expression(new_ndrange[0]) <<";";
+    code_ndrange << "size_t offset_tmp["<< as_expression(new_ndrange[0]) <<"];";
+    code_ndrange << "size_t offset_arr["<< as_expression(new_ndrange[0]) <<"];";
+    code_ndrange << "size_t local_size_arr["<< as_expression(new_ndrange[0]) <<"];";
+    code_ndrange << "size_t global_size_arr["<< as_expression(new_ndrange[0]) <<"];";  
+    code_ndrange << "size_t* local_size_ptr;"; 
+    code_ndrange << "size_t* offset_ptr;"; 
+    code_ndrange << "size_t* global_size_ptr;"; 
+    code_ndrange << "size_t* final_local_size_ptr;"; 
+    code_ndrange << "short local_size_zero=0;"; 
+    code_ndrange << "int i=0;";
     int num_dim_offset=num_dim;
-    for (int i = 1; i <= num_dim; ++i)
-    {
-        if (check_dim)
-        {
-            code_ndrange << "offset_arr[" << i-1 << "] = "
-                << "("
-                << as_expression(new_ndrange[i])
-                << ");";
-            
-            code_ndrange << "local_size_arr[" << i-1 << "] = "
-                << "(("
-                << as_expression(new_ndrange[num_dim_offset + i])
-                << " < " << as_expression(new_ndrange[num_dim + num_dim_offset + i])
-                << ") ? (" << as_expression(new_ndrange[num_dim_offset + i])
-                << ") : (" << as_expression(new_ndrange[num_dim + num_dim_offset + i])
-                << "));";
-
-            code_ndrange << "global_size_arr[" << i-1 << "] = "
-                << "(("                    
-                << as_expression(new_ndrange[num_dim_offset + i])
-                << " < " << as_expression(new_ndrange[num_dim + num_dim_offset + i])
-                << ") ? (" << as_expression(new_ndrange[num_dim_offset + i])
-                << ") : ((" << as_expression(new_ndrange[num_dim_offset + i])
-                << ") + ((" << as_expression(new_ndrange[num_dim_offset + i]) << " %  " << as_expression(new_ndrange[num_dim + num_dim_offset + i])
-                << " == 0) ? 0 : (" << as_expression(new_ndrange[num_dim + num_dim_offset + 1]) << "-" << as_expression(new_ndrange[num_dim_offset + 1]) << " %  " << as_expression(new_ndrange[num_dim + num_dim_offset + 1]) <<"))));";
-            }
-        else
-        {
-            code_ndrange << "offset_arr[" << i-1 << "] = (" << as_expression(new_ndrange[i]) << ");";
-            code_ndrange << "local_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";";
-            code_ndrange << "global_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim_offset + i]) << ";";
+    //Build arrays with information from ndrange clause or pointing to the ndrange pointers
+    if (!dim_const){
+        if (num_args_ndrange==3){
+            code_ndrange << "for (i=0;i< num_dim;++i){ offset_tmp[i]=0; };";
+            code_ndrange << "offset_ptr=offset_tmp;";
+            code_ndrange << "global_size_ptr=" << as_expression(new_ndrange[1]) << ";";
+            code_ndrange << "local_size_ptr=" << as_expression(new_ndrange[2]) << ";";                    
+        } else if (num_args_ndrange==4){            
+            code_ndrange << "offset_ptr=" << as_expression(new_ndrange[1]) << ";";
+            code_ndrange << "global_size_ptr=" << as_expression(new_ndrange[2]) << ";";
+            code_ndrange << "local_size_ptr=" << as_expression(new_ndrange[3]) << ";"; 
+        } else {
+            WARNING_MESSAGE("Invalid number of parameters for ndrange, when number of dimensions is not const, it must be 3 or 4",0);
         }
+    } else {
+        code_ndrange << "size_t local_size_tmp[num_dim];";
+        code_ndrange << "size_t global_size_tmp[num_dim];";    
+        for (int i=1; i <= num_dim; ++i)
+        {        
+            if (((num_dim * 3) + 1 + !check_dim) != num_args_ndrange){   
+                num_dim_offset=0;
+                code_ndrange << "offset_tmp[" << i-1 << "] = 0;";
+            } else {            
+                code_ndrange << "offset_tmp[" << i-1 << "] = (" << as_expression(new_ndrange[i]) << ");";
+            }
+            code_ndrange << "local_size_tmp[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";";
+            code_ndrange << "global_size_tmp[" << i-1 << "] = " << as_expression(new_ndrange[num_dim_offset + i]) << ";";
+        }   
+        code_ndrange << "offset_ptr=offset_tmp;";
+        code_ndrange << "local_size_ptr=local_size_tmp;";
+        code_ndrange << "global_size_ptr=global_size_tmp;";
     }
-    //Launch kernel/ it will be freed inside
-    code_ndrange << "nanos_exec_kernel(ompss_kernel_ocl, " << num_dim << ",offset_arr,local_size_arr,global_size_arr);";
+    //Check if local_size has zeros
+    code_ndrange << "for (i=0;i<num_dim;++i){ if (local_size_ptr[i]==0) local_size_zero=1; };";
+    code_ndrange << "if (local_size_zero) { for (i=0;i<num_dim;++i){  local_size_ptr[i]=1; }}";
+
+    //Now do the rounding
+    if (check_dim)
+    {
+        code_ndrange << "for (i=0;i<num_dim;++i){";
+        code_ndrange << "offset_arr[i] = " << "offset_ptr[i];";
+
+        code_ndrange << "local_size_arr[i] = "
+            << "(("
+            << "global_size_ptr[i]"
+            << " < " << "local_size_ptr[i]"
+            << ") ? (" << "global_size_ptr[i]"
+            << ") : (" << "local_size_ptr[i]"
+            << "));";
+
+        code_ndrange << "global_size_arr[i] = "
+            << "(("                    
+            << "global_size_ptr[i]"
+            << " < " <<  "local_size_ptr[i]"
+            << ") ? (" << "global_size_ptr[i]"
+            << ") : ((" << "global_size_ptr[i]"
+            << ") + ((" << "global_size_ptr[i]" << " %  " << "local_size_ptr[ i]"
+            << " == 0) ? 0 : (" <<  "local_size_ptr[ i ]" << "-" << "global_size_ptr[ i]" << " %  " <<  "local_size_ptr[i]" <<"))));";
+        code_ndrange << "}";
+     }
+    
+    
+    if (check_dim){
+        code_ndrange << "if (local_size_zero) { final_local_size_ptr=0; } else {  final_local_size_ptr = local_size_arr; }";
+        //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+        code_ndrange << "nanos_exec_kernel(ompss_kernel_ocl, " << num_dim << ",offset_arr,final_local_size_ptr,global_size_arr);";    
+    } else {
+        code_ndrange << "if (local_size_zero) { final_local_size_ptr=0; } else {  final_local_size_ptr = local_size_ptr; }";
+        code_ndrange << "nanos_exec_kernel(ompss_kernel_ocl, " << num_dim << ",offset_ptr,final_local_size_ptr,global_size_ptr);";            
+    }
 
 }
 
