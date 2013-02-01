@@ -56,6 +56,11 @@ namespace TL { namespace Nanox {
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
                 "0").connect(functor(&Lowering::set_ompss_mode, *this));
+
+        register_parameter("instrument", 
+                "Enables Nanos++ instrumentation", 
+                _instrumentation_str,
+                "0").connect(functor(&Lowering::set_instrumentation, *this));
     }
 
     void Lowering::run(DTO& dto)
@@ -90,6 +95,16 @@ namespace TL { namespace Nanox {
     void Lowering::set_ompss_mode(const std::string& str)
     {
         parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
+    }
+
+    void Lowering::set_instrumentation(const std::string& str)
+    {
+        parse_boolean_option("instrument", str, _instrumentation_enabled, "Assuming false.");
+    }
+
+    bool Lowering::instrumentation_enabled() const
+    {
+        return _instrumentation_enabled;
     }
 
     bool Lowering::in_ompss_mode() const
