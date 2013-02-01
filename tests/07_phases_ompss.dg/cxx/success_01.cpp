@@ -34,20 +34,28 @@ test_generator=config/mercurium-ompss
 
 struct A
 {
-    int x[10];
-#pragma omp task out(x[i])
-    void f(int i)
+    void f(int n) const
     {
-        x[i] = 0;
+        if (n > 0)
+        {
+
+#pragma omp task
+            {
+                this->f(n-1);
+            }
+        }
+    }
+
+#pragma omp task
+    void g(int n) const
+    {
     }
 };
 
 int main()
 {
     A a;
-    A* ptr_a = &a;
-
-    a.f(0);
-    ptr_a->f(1);
+    a.f(2);
+    a.g(2);
 #pragma omp taskwait
 }

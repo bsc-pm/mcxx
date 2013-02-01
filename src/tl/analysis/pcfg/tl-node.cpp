@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <climits>
+
 #include "cxx-codegen.h"
 #include "cxx-process.h"
 
@@ -34,13 +36,11 @@
 #include "tl-iv-analysis.hpp"
 #include "tl-node.hpp"
 
-#define ID 4294967295
-
 namespace TL {
 namespace Analysis {
 
     Node::Node( )
-            : _id( ID ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+            : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
     {
         set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
     }
@@ -54,7 +54,7 @@ namespace Analysis {
         if( ntype == GRAPH )
         {
             set_data( _ENTRY_NODE, new Node( id, ENTRY, NULL ) );
-            unsigned int exit_id = ID - 1;
+            unsigned int exit_id = INT_MAX - 1;
             set_data( _EXIT_NODE, new Node( exit_id, EXIT, NULL ) );
         }
     }
@@ -510,8 +510,8 @@ namespace Analysis {
             switch( ntype )
             {
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
-                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
                 case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
+                case FUNC_CODE:         graph_type = "FUNC_CODE";           break;
                 case IF_ELSE:           graph_type = "IF_ELSE";             break;
                 case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
                 case LOOP_FOR:          graph_type = "LOOP_FOR";            break;
@@ -524,6 +524,7 @@ namespace Analysis {
                 case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
                 case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
                 case OMP_TASK:          graph_type = "OMP_TASK";            break;
+                case OTHER:             graph_type = "OTHER";               break;
                 case SIMD:              graph_type = "SIMD";                break;
                 case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
                 case SWITCH:            graph_type = "SWITCH";              break;

@@ -31,14 +31,14 @@
 namespace TL {
 namespace Analysis {
 
-    Edge::Edge( Node *source, Node *target, bool is_back_edge, bool is_task_edge,
+    Edge::Edge( Node *source, Node *target, bool is_back_edge_, bool is_task_edge_,
                 Edge_type type, std::string label )
         : _source( source ), _target( target )
     {
         set_data( _EDGE_TYPE, type );
         set_data( _EDGE_LABEL, label );
-        set_data( _IS_BACK_EDGE, is_back_edge );
-        set_data( _IS_TASK_EDGE, is_task_edge );
+        set_data( _IS_BACK_EDGE, is_back_edge_ );
+        set_data( _IS_TASK_EDGE, is_task_edge_ );
     }
 
     Node* Edge::get_source( ) const

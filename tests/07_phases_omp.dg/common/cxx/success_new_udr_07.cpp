@@ -29,13 +29,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail_nanox_mercurium=yes
-test_compile_faulty_nanox_mercurium=yes
-
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
-
+test_compile_fail=yes
+test_compile_faulty=yes
 </testinfo>
 */
 

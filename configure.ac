@@ -1232,6 +1232,7 @@ echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
+echo "   Host supports __int128 : " $have_int128
 echo "   SIMD Support: " $simd_version $simd_math_version
 echo ""
 echo " * Fortran support : yes"

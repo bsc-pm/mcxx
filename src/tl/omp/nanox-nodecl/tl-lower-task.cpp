@@ -378,13 +378,11 @@ void LoweringVisitor::emit_async_common(
            dynamic_wd_info,
            xlate_function_name;
 
-    Nodecl::NodeclBase fill_outline_arguments_tree,
-        fill_dependences_outline_tree;
+    Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
            fill_dependences_outline;
 
-    Nodecl::NodeclBase fill_immediate_arguments_tree,
-        fill_dependences_immediate_tree;
+    Nodecl::NodeclBase fill_immediate_arguments_tree;
     Source fill_immediate_arguments,
            fill_dependences_immediate;
 
@@ -513,14 +511,14 @@ void LoweringVisitor::emit_async_common(
         // We cannot use the original statements because It contains a function
         // call to the original function task and we really want to call to the
         // function specified in the 'implements' clause. For this reason, we
-        // copy the tree and we replace the function task symbol with the
+        // copy the tree and we replace the called task symbol with the
         // implementor symbol
         Nodecl::NodeclBase outline_statements_code;
-        if (current_function.is_valid()
-                && current_function != implementor_symbol)
+        if (is_function_task
+                && called_task != implementor_symbol)
         {
             Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-            symbol_map_copy_statements.add_map(current_function, implementor_symbol);
+            symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
             Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
                 output_statements,
@@ -1564,11 +1562,24 @@ void LoweringVisitor::fill_copies(
                     copy_ol_setup,
                     copy_imm_arg,
                     copy_imm_setup);
-            emit_translation_function_region(ctr,
-                    outline_info,
-                    parameter_outline_info,
-                    structure_symbol,
-                    xlate_function_name);
+
+            if (bool allow_multiple_copies = Nanos::Version::interface_is_at_least("copies_api", 1002))
+            {
+                emit_translation_function_region(ctr,
+                        outline_info,
+                        parameter_outline_info,
+                        structure_symbol,
+                        xlate_function_name);
+            }
+            else
+            {
+                emit_translation_function_nonregion(ctr,
+                        outline_info,
+                        parameter_outline_info,
+                        structure_symbol,
+                        allow_multiple_copies,
+                        xlate_function_name);
+            }
         }
     }
     else
@@ -1588,21 +1599,52 @@ void LoweringVisitor::fill_copies(
                     copy_ol_setup,
                     copy_imm_arg,
                     copy_imm_setup);
+
             emit_translation_function_nonregion(ctr,
                     outline_info,
                     parameter_outline_info,
                     structure_symbol,
+                    /* allow_multiple_copies */ false,
                     xlate_function_name);
         }
     }
 }
+
+// This visitor makes an in-place modification!
+struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
+{
+    typedef std::map<TL::Symbol, TL::Symbol> sym_to_field_t;
+    sym_to_field_t sym_to_field;
+    TL::Symbol structure;
+
+    void visit_post(const Nodecl::Symbol &n)
+    {
+        sym_to_field_t::iterator it = sym_to_field.find(n.get_symbol());
+        if (it != sym_to_field.end())
+        {
+            Nodecl::NodeclBase struct_node = Nodecl::Symbol::make(structure);
+            struct_node.set_type(structure.get_type());
+
+            Nodecl::NodeclBase field_node = Nodecl::Symbol::make(it->second);
+            field_node.set_type(it->second.get_type());
+
+            n.replace(
+                    Nodecl::ClassMemberAccess::make(
+                        struct_node,
+                        field_node,
+                        field_node.get_type().get_lvalue_reference_to())
+                    );
+        }
+    }
+
+};
 
 void LoweringVisitor::emit_translation_function_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         OutlineInfo* parameter_outline_info,
         TL::Symbol structure_symbol,
-
+        bool allow_multiple_copies,
         // Out
         TL::Source& xlate_function_name
         )
@@ -1644,45 +1686,18 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-    // First gather all the data, so the translations are easier later
+    // Initialize the rewrite visitor
+    RewriteAddressExpression rewrite_base_address;
+    TL::Symbol argument_structure_symbol = ReferenceScope(function_body).get_scope().get_symbol_from_name("arg");
+    ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
+    rewrite_base_address.structure = argument_structure_symbol;
+
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end(); it++)
     {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        Source declaration;
-        declaration
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() << ";";
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::C;
-        }
-        declaration.parse_statement(function_body);
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
-
-        TL::Symbol new_sym = ReferenceScope(function_body).get_scope().get_symbol_from_name((*it)->get_symbol().get_name());
-        ERROR_CONDITION(!new_sym.is_valid(), "Invalid symbol just created", 0);
-
-        symbol_map.add_map((*it)->get_symbol(), new_sym);
-
-        if ((*it)->get_base_symbol_of_argument().is_valid())
-        {
-            symbol_map.add_map((*it)->get_base_symbol_of_argument(), new_sym);
-        }
-
-        if (IS_CXX_LANGUAGE)
-        {
-            translations << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_sym));
-        }
-
-        translations
-            << (*it)->get_symbol().get_name()
-            << " = arg." << (*it)->get_field_name() << ";"
-            ;
+        // Create a mapping "var" to "args->var"
+        ERROR_CONDITION(!(*it)->get_field_symbol().is_valid(), "Invalid field symbol", 0);
+        rewrite_base_address.sym_to_field[(*it)->get_symbol()] = (*it)->get_field_symbol();
     }
 
     int copy_num = 0;
@@ -1695,8 +1710,8 @@ void LoweringVisitor::emit_translation_function_nonregion(
         if (copies.empty())
             continue;
 
-        ERROR_CONDITION(copies.empty(), "Invalid copy set", 0);
-        if (copies.size() > 1)
+        if (!allow_multiple_copies
+                && copies.size() > 1)
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
@@ -1707,16 +1722,20 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
         TL::DataReference data_ref(copies[0].expression);
 
-        Nodecl::NodeclBase base_address;
+        // if (IS_FORTRAN_LANGUAGE)
+        // {
+        //     base_address = data_ref.get_base_address_as_integer();
+        // }
+        // else
+        // {
+        //     base_address = data_ref.get_base_address().shallow_copy();
+        // }
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            base_address = data_ref.get_base_address_as_integer();
-        }
-        else
-        {
-            base_address = data_ref.get_base_address();
-        }
+        // // rewrite
+        // rewrite_base_address.walk(base_address);
+
+        Nodecl::NodeclBase offset = data_ref.get_offsetof();
+        rewrite_base_address.walk(offset);
 
         translations
             << "{"
@@ -1726,9 +1745,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "intptr_t host_base_address;"
 
             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
-            << "offset = (intptr_t)(" << as_expression(
-                        Nodecl::Utils::deep_copy(base_address, function_body,
-                            symbol_map)) << ") - (intptr_t)host_base_address;"
+            << "offset = " << as_expression(offset) << ";"
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
             << "device_base_address -= offset;"
@@ -1736,7 +1753,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
             << "}"
             ;
-        copy_num++;
+        copy_num += copies.size();
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -1798,21 +1815,6 @@ void LoweringVisitor::emit_translation_function_region(
 
     Source translations;
 
-    // First gather all the data, so the translations are easier later
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end(); it++)
-    {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        if (copies.empty())
-            continue;
-
-        translations
-            << as_type((*it)->get_field_type()) << " " << (*it)->get_symbol().get_name() 
-            << " = arg." << (*it)->get_field_name() << ";"
-            ;
-    }
-
     int copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -1835,7 +1837,7 @@ void LoweringVisitor::emit_translation_function_region(
             << "}"
             ;
 
-        copy_num++;
+        copy_num += copies.size();
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -2027,13 +2029,13 @@ void LoweringVisitor::fill_dependences_internal(
                 dependency_regions << ";"
                     ;
 
-                Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
+                 Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
 
-                if (dep_expr_offset.is_null())
-                {
-                    dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
-                }
-                ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
+                 if (dep_expr_offset.is_null())
+                 {
+                     dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
+                 }
+                 ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
                 dependency_offset << as_expression(dep_expr_offset);
 
@@ -2049,7 +2051,6 @@ void LoweringVisitor::fill_dependences_internal(
                     if (IS_C_LANGUAGE
                             || IS_CXX_LANGUAGE)
                     {
-                        Source dims_description;
                         dims_description
                             << "{"
                             << dimension_size << ","
@@ -2166,15 +2167,7 @@ void LoweringVisitor::fill_dependences_internal(
                     }
 
                     Source dep_address;
-                    // if (on_wait)
-                    {
-                       dep_address << as_expression(base_address);
-                    }
-                    // else
-                    // {                        
-                    //     dep_address << "(void*)" << arguments_accessor << (*it)->get_field_name()
-                    //         ;
-                    // }
+                    dep_address << as_expression(dep_expr.get_address_of_symbol());
 
                     dependency_init
                         << "{"

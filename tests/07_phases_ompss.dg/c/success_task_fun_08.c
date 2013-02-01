@@ -29,40 +29,20 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_noexec=yes
 </testinfo>
 */
-#include <stdio.h>
-#include <stdlib.h>
 
-#pragma omp target device (smp)
-#pragma omp task inout(*a) target device (fooo)
-void task1(int *a)
+#pragma omp target device(smp) copy_deps
+#pragma omp task out(*a)
+void foo(float* a)
 {
-    *a += 2;
 }
 
-#pragma omp target device (smp) implements(task1)
-#pragma omp task inout(*a)
-void task1_smp_v2(int *a)
+int main ()
 {
-    *a += 2;
-}
-
-
-int main(int argc, char *argv[])
-{
-    int a = 5;
-
-    task1(&a);
-
+    float *a;
+	foo(a);
+	foo(a);
 #pragma omp taskwait
-
-    if (a != 7)
-    {
-        fprintf(stderr, "a == %d != 7\n", a);
-        abort();
-    }
-
-    return 0;
+	return 0;
 }

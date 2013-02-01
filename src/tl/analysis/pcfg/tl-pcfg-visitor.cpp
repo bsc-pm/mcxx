@@ -214,10 +214,10 @@ namespace Analysis {
 
                     // disconnect those nodes of its parents
                     ObjectList<Node*> aux = ( *it )->get_parents( );
-                    for(ObjectList<Node*>::iterator iit = aux.begin( ); iit != aux.end( ); ++iit )
+                    for(ObjectList<Node*>::iterator iit2 = aux.begin( ); iit2 != aux.end( ); ++iit2 )
                     {
-                        ( *iit )->erase_exit_edge( *it );
-                        ( *it )->erase_entry_edge( *iit );
+                        ( *iit2 )->erase_exit_edge( *it );
+                        ( *it )->erase_entry_edge( *iit2 );
                     }
                     // delete the node if it is not of Graph type, otherwise, connect it to the Entry
                     if( ( *it )->get_type( ) != GRAPH )

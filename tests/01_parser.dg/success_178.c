@@ -28,26 +28,14 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=config/mercurium
 </testinfo>
 */
-
-struct A
+int main(int argc, char* argv[])
 {
-    int x[10];
-#pragma omp task out(x[i])
-    void f(int i)
-    {
-        x[i] = 0;
-    }
-};
+    void *Ah;
+    int nt;
+    nt = 1000;
 
-int main()
-{
-    A a;
-    A* ptr_a = &a;
-
-    a.f(0);
-    ptr_a->f(1);
-#pragma omp taskwait
+    (void*(*)[nt])Ah;
 }

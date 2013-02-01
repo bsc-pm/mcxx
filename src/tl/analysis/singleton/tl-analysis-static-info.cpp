@@ -32,23 +32,57 @@ namespace TL  {
 namespace Analysis {
 
     // ********************************************************************************************* //
+    // ********************** Class to define which analysis are to be done ************************ //
+
+    WhichAnalysis::WhichAnalysis( Analysis_tag a )
+            : _which_analysis( a )
+    {}
+
+    WhichAnalysis::WhichAnalysis( int a )
+            : _which_analysis( Analysis_tag( a ) )
+    {}
+
+    WhichAnalysis WhichAnalysis::operator|( WhichAnalysis a )
+    {
+        return WhichAnalysis( int( this->_which_analysis ) | int( a._which_analysis ) );
+    }
+
+    WhereAnalysis::WhereAnalysis( Nested_analysis_tag a )
+            : _where_analysis( a )
+    {}
+
+    WhereAnalysis::WhereAnalysis( int a )
+            : _where_analysis( Nested_analysis_tag( a ) )
+    {}
+
+    WhereAnalysis WhereAnalysis::operator|( WhereAnalysis a )
+    {
+        return WhereAnalysis( int(this->_where_analysis) | int( a._where_analysis ) );
+    }
+
+    // ******************** END class to define which analysis are to be done ********************** //
+    // ********************************************************************************************* //
+
+
+
+    // ********************************************************************************************* //
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
-                                        ObjectList<Nodecl::NodeclBase> constants )
-            : _induction_variables( induction_variables ), _constants( constants )
+                                        Utils::ext_sym_set killed )
+            : _induction_variables( induction_variables ), _killed( killed )
     {}
 
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
-        return _constants.contains( n );
+        return ( _killed.find( Utils::ExtendedSymbol( n ) ) == _killed.end( ) );
     }
 
-    bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n )
+    bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
 
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::iterator it = _induction_variables.begin( );
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
@@ -61,6 +95,35 @@ namespace Analysis {
         return result;
     }
 
+    const_value_t* NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
+    {
+        const_value_t* result = NULL;
+        bool incr_is_complex = false;
+
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+            it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
+            {
+                result = ( *it )->get_increment( ).get_constant( );
+                if( result == NULL )
+                    incr_is_complex = true;
+                break;
+            }
+        }
+
+        if( result && !incr_is_complex )
+            WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
+                             "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
+
+        return result;
+    }
+
+    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::NodeclStaticInfo::get_induction_variables( const Nodecl::NodeclBase& n ) const
+    {
+        return _induction_variables;
+    }
+
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
     // ********************************************************************************************* //
 
@@ -69,8 +132,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
-    AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase n, analysis_tag analysis_mask,
-                                            nested_analysis_tag nested_analysis_mask, int nesting_level)
+    AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
+                                            WhereAnalysis nested_analysis_mask, int nesting_level)
     {
         TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
 
@@ -81,29 +144,26 @@ namespace Analysis {
         ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
         ObjectList<Nodecl::NodeclBase> constants;
 
-        if( analysis_mask & PCFG_ANALYSIS )
+        if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
-        if( analysis_mask & USAGE_ANALYSIS )
+        if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS
+                              | WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
             analysis.use_def( analysis_state, n );
         }
-        if( analysis_mask & LIVENESS_ANALYSIS )
+        if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
             analysis.liveness( analysis_state, n );
         }
-        if( analysis_mask & REACHING_DEFS_ANALYSIS )
+        if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
             analysis.reaching_definitions( analysis_state, n );
         }
-        if( analysis_mask & INDUCTION_VARS_ANALYSIS )
+        if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             analysis.induction_variables( analysis_state, n );
-        }
-        if( analysis_mask & CONSTANTS_ANALYSIS )
-        {
-//             analysis.constants( analysis_state, n );
         }
 
         // Save static analysis
@@ -116,33 +176,85 @@ namespace Analysis {
 
     bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
-        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        bool result = false;
 
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
-
-            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. Cannot get constant variables.'",
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether it is constant.'",
                              codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
         }
-
-        return scope_static_info->second.is_constant( n );
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_constant( n );
+        }
+        return result;
     }
 
-    bool AnalysisStaticInfo::is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n )
+    bool AnalysisStaticInfo::is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
-        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        bool result = false;
 
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether it is an induction variable.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result =  current_info.is_induction_variable( n );
+        }
 
+        return result;
+    }
+
+    const_value_t* AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
+                                                                         const Nodecl::NodeclBase& n ) const
+    {
+        const_value_t* result = NULL;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            nodecl_t scope_t = scope.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. Cannot get induction variables.'",
                              codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
         }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.get_induction_variable_increment( n );
+        }
 
-        NodeclStaticInfo current_info = scope_static_info->second;
-        return current_info.is_induction_variable( n );
+        return result;
+    }
+
+    ObjectList<Utils::InductionVariableData*> AnalysisStaticInfo::get_induction_variables( const Nodecl::NodeclBase& scope,
+                                                                                           const Nodecl::NodeclBase& n ) const
+    {
+        ObjectList<Utils::InductionVariableData*> result;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            nodecl_t scope_t = scope.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. Cannot get induction variable increment.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.get_induction_variables( n );
+        }
+
+        return result;
     }
 
     // ************************** END User interface for static analysis *************************** //
@@ -153,8 +265,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ********************* Visitor retrieving the analysis of a given Nodecl ********************* //
 
-    NestedBlocksStaticInfoVisitor::NestedBlocksStaticInfoVisitor( analysis_tag analysis_mask,
-                                                                  nested_analysis_tag nested_analysis_mask,
+    NestedBlocksStaticInfoVisitor::NestedBlocksStaticInfoVisitor( WhichAnalysis analysis_mask,
+                                                                  WhereAnalysis nested_analysis_mask,
                                                                   PCFGAnalysis_memento state,
                                                                   int nesting_level)
             : _state( state ), _analysis_mask( analysis_mask ), _nested_analysis_mask( nested_analysis_mask ),
@@ -177,21 +289,24 @@ namespace Analysis {
     void NestedBlocksStaticInfoVisitor::retrieve_current_node_static_info( Nodecl::NodeclBase n )
     {
         // The queries to the analysis info depend on the mask
-        ObjectList<Nodecl::NodeclBase> cs;
+        Utils::ext_sym_set cs;
         ObjectList<Analysis::Utils::InductionVariableData*> ivs;
-        if( _analysis_mask | CONSTANTS_ANALYSIS )
-            cs = _state.get_constants( n );
-        if( _analysis_mask | INDUCTION_VARS_ANALYSIS )
+        if( _analysis_mask._which_analysis & WhichAnalysis::CONSTANTS_ANALYSIS )
+        {
+            cs = _state.get_killed( n );
+        }
+        if( _analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
+        {
             ivs = _state.get_induction_variables( n );
+        }
 
         NodeclStaticInfo static_info( ivs, cs );
         _analysis_info.insert( static_info_pair_t( n, static_info ) );
-
     }
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::DoStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_DO_STATIC_INFO )
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_DO_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -207,7 +322,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::IfElseStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_IF_STATIC_INFO )
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_IF_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -224,7 +339,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::ForStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_FOR_STATIC_INFO )
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_FOR_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)
@@ -240,7 +355,7 @@ namespace Analysis {
 
     NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::WhileStatement& n)
     {
-        if( _nested_analysis_mask | NESTED_WHILE_STATIC_INFO )
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_WHILE_STATIC_INFO )
         {
             _current_level++;
             if( _current_level <= _nesting_level)

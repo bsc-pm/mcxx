@@ -32,22 +32,38 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-struct A
+
+#include <assert.h>
+
+#pragma omp target device(smp)
+#pragma omp task inout(a[n])
+void f1(int *a, int n)
 {
-    int x[10];
-#pragma omp task out(x[i])
-    void f(int i)
+    a[n] = n;
+}
+
+#pragma omp target device(smp)
+#pragma omp task in(*a)
+void f(int *a, int n)
+{
+    assert(*a == n);
+}
+
+#define SIZE 1000
+int k[SIZE] = { 0 };
+
+int main(int argc, char* argv[])
+{
+
+    int i;
+
+    int *p;
+    for (i = 0; i < SIZE; i++)
     {
-        x[i] = 0;
+        f1(k, i); // k[i] <- i
+        p = &k[i];
+        f(p, i);
     }
-};
 
-int main()
-{
-    A a;
-    A* ptr_a = &a;
-
-    a.f(0);
-    ptr_a->f(1);
 #pragma omp taskwait
 }

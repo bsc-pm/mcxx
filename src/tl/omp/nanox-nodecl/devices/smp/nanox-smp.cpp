@@ -462,23 +462,23 @@ namespace TL { namespace Nanox {
         }
 
         // Update types of parameters (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
-                it != parameter_symbols.end();
-                it++)
+        for (TL::ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
+                it2 != parameter_symbols.end();
+                it2++)
         {
-            it->get_internal_symbol()->type_information =
-                type_deep_copy(it->get_internal_symbol()->type_information,
+            it2->get_internal_symbol()->type_information =
+                type_deep_copy(it2->get_internal_symbol()->type_information,
                        function_context,
                        symbol_map->get_symbol_map());
         }
 
         // Update types of privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
-                it != private_symbols.end();
-                it++)
+        for (TL::ObjectList<TL::Symbol>::iterator it2 = private_symbols.begin();
+                it2 != private_symbols.end();
+                it2++)
         {
-            it->get_internal_symbol()->type_information =
-                type_deep_copy(it->get_internal_symbol()->type_information,
+            it2->get_internal_symbol()->type_information =
+                type_deep_copy(it2->get_internal_symbol()->type_information,
                        function_context,
                        symbol_map->get_symbol_map());
         }
@@ -486,15 +486,15 @@ namespace TL { namespace Nanox {
         // Build the function type
         parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
         parameter_info_t* it_ptypes = &(p_types[0]);
-        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
-                it != parameter_symbols.end();
-                it++, it_ptypes++)
+        for (ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
+                it2 != parameter_symbols.end();
+                it2++, it_ptypes++)
         {
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
 
             // FIXME - We should do all the remaining lvalue adjustments
-            it_ptypes->type_info = get_unqualified_type(it->get_internal_symbol()->type_information);
+            it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
         }
 
         type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
@@ -544,12 +544,13 @@ namespace TL { namespace Nanox {
           new_function_sym->entity_specs.is_static = 0;
         }
 
+
         // Finally, we update the parameters of the new function symbol
-        for (ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
-                it != parameter_symbols.end();
-                it++, it_ptypes++)
+        for (ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
+                it2 != parameter_symbols.end();
+                it2++, it_ptypes++)
         {
-            scope_entry_t* param = it->get_internal_symbol();
+            scope_entry_t* param = it2->get_internal_symbol();
             symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
         }
@@ -564,6 +565,13 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
                     new_function_sym);
+        }
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            new_function_sym->type_information = ::get_cv_qualified_type(
+                    new_function_sym->type_information,
+                    get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
 
         function_context.function_scope->related_entry = new_function_sym;
@@ -1009,12 +1017,12 @@ namespace TL { namespace Nanox {
             internal_functions.walk(info._original_statements);
 
             Nodecl::List l;
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_functions.function_codes.begin();
-                    it != internal_functions.function_codes.end();
-                    it++)
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+                    it2 != internal_functions.function_codes.end();
+                    it2++)
             {
                 l.append(
-                        Nodecl::Utils::deep_copy(*it, unpacked_function.get_related_scope(), *symbol_map)
+                        Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
                         );
             }
 
@@ -1053,13 +1061,13 @@ namespace TL { namespace Nanox {
             TL::ReferenceScope ref_scope(unpacked_function_body);
             decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
-            for (ObjectList<Symbol>::iterator it = fun_visitor.extra_decl_sym.begin();
-                    it != fun_visitor.extra_decl_sym.end();
-                    it++)
+            for (ObjectList<Symbol>::iterator it2 = fun_visitor.extra_decl_sym.begin();
+                    it2 != fun_visitor.extra_decl_sym.end();
+                    it2++)
             {
                 // Insert the name in the context...
                 TL::Scope sc = ref_scope.get_scope();
-                ::insert_entry(decl_context.current_scope, it->get_internal_symbol());
+                ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
             }
 
             // Copy USEd information

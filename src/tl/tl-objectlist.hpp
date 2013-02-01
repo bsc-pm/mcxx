@@ -92,8 +92,8 @@ class ObjectList : public std::vector<T>, public TL::Object
         }
 
         template <typename input_iterator>
-        ObjectList(input_iterator start, input_iterator end)
-            : std::vector<T>(start, end)
+        ObjectList(input_iterator start, input_iterator end_)
+            : std::vector<T>(start, end_)
         {
         }
 
