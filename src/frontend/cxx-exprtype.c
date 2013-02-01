@@ -1183,7 +1183,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_unsigned_long_long_int_type();
     }
 
-    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
+    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL
@@ -5705,7 +5705,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                         nodecl_get_filename(nodecl_name),
                         nodecl_get_line(nodecl_name));
 
-                nodecl_set_type(nodecl_this_symbol, this_type);
+                nodecl_set_type(nodecl_this_symbol, this_symbol->type_information);
 
                 nodecl_t nodecl_this_derref =
                     nodecl_make_dereference(

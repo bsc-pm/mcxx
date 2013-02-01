@@ -117,6 +117,9 @@ namespace TL
                 // Original symbol
                 TL::Symbol _sym;
 
+                // Symbol of the field, only known once the structure has been created
+                TL::Symbol _field_symbol;
+
                 // Name of the field
                 std::string _field_name;
                 TL::Type _field_type;
@@ -146,7 +149,8 @@ namespace TL
                 bool _is_lastprivate;
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
-                    : _sym(symbol), 
+                    : _sym(symbol),
+                    _field_symbol(),
                     _field_name(field_name), 
                     _field_type(_sym.get_type()),
                     _in_outline_type(_field_type),
@@ -163,6 +167,18 @@ namespace TL
                 Symbol get_symbol() const
                 {
                     return _sym;
+                }
+
+                //! Returns the field symbol of this item
+                /*! Note that this symbol is invalid before creating the structure */
+                TL::Symbol get_field_symbol() const
+                {
+                    return _field_symbol;
+                }
+
+                void set_field_symbol(TL::Symbol field_symbol)
+                {
+                    _field_symbol = field_symbol;
                 }
 
                 //! Returns the field name of this item

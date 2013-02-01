@@ -170,11 +170,11 @@ namespace Analysis {
                 if(!Utils::ext_sym_set_contains_englobing_nodecl(var, undef) )
                 {   // No englobing variable in the avoiding list 2
                     // Look for variables in avoiding list 2 englobed by 'var'
-                    Utils::ext_sym_set aux_set; aux_set.insert(*it);
+                    Utils::ext_sym_set aux_set_2; aux_set_2.insert(*it);
                     Utils::ext_sym_set::iterator itu = undef.begin( );
                     for (; itu != undef.end( ); ++itu)
                     {
-                        if(Utils::ext_sym_set_contains_englobing_nodecl(itu->get_nodecl( ), aux_set) )
+                        if(Utils::ext_sym_set_contains_englobing_nodecl(itu->get_nodecl( ), aux_set_2) )
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
                             std::cerr << "warning: Part of nodecl " << itu->get_nodecl( ).prettyprint( ) << " founded in the current var "

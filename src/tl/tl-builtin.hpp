@@ -290,8 +290,8 @@ namespace TL
                 : Object(s), std::string(s)
             {
             }
-            String( size_type length, const char& ch )
-                : std::string(length, ch)
+            String( size_type len, const char& ch )
+                : std::string(len, ch)
             {
             }
 
@@ -305,13 +305,13 @@ namespace TL
             {
             }
 
-            String( const char* str, size_type length )
-                : std::string(str, length)
+            String( const char* str, size_type len)
+                : std::string(str, len)
             {
             }
 
-            String( const String& str, size_type index, size_type length )
-                : std::string(str, index, length)
+            String( const String& str, size_type index, size_type len)
+                : std::string(str, index, len)
             {
             }
 

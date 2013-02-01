@@ -45,6 +45,8 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder2)
     {
         Source for_code, reduction_code, lastprivate_code, reduction_initialization, barrier_code;
+        Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
+
         if (ranges.size() == 1)
         {
             Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
@@ -65,6 +67,7 @@ namespace TL { namespace Nanox {
                 for_code
                     << "while (nanos_item_loop.execute)"
                     << "{"
+                    << instrument_loop_opt
                     ;
 
                 if (const_value_is_positive(cval))
@@ -106,6 +109,7 @@ namespace TL { namespace Nanox {
                     << "{"
                     <<   "while (nanos_item_loop.execute)"
                     <<   "{"
+                    <<       instrument_loop_opt
                     <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     <<         ind_var.get_name() << " <= nanos_item_loop.upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
@@ -120,6 +124,7 @@ namespace TL { namespace Nanox {
                     << "{"
                     <<   "while (nanos_item_loop.execute)"
                     <<   "{"
+                    <<       instrument_loop_opt
                     <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     <<         ind_var.get_name() << " >= nanos_item_loop.upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
@@ -132,6 +137,71 @@ namespace TL { namespace Nanox {
                     << "}"
                     ;
             }
+
+            if (_lowering->instrumentation_enabled())
+            {
+                instrument_before_opt
+                    << "static int nanos_loop_init = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_lower_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_upper_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
+
+                    << "if (nanos_loop_init == 0)"
+                    << "{"
+                    <<     "nanos_err_t err;"
+                    <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "nanos_loop_init = 1;"
+                    << "}"
+
+                    << "nanos_event_t loop_events[3];"
+                    << "loop_events[0].type = NANOS_POINT;"
+                    << "loop_events[1].type = NANOS_POINT;"
+                    << "loop_events[2].type = NANOS_POINT;"
+
+                    << "loop_events[0].key = nanos_instr_loop_lower_key;"
+                    << "loop_events[1].key = nanos_instr_loop_upper_key;"
+                    << "loop_events[2].key = nanos_instr_loop_step_key;"
+                    ;
+
+                instrument_loop_opt
+                    << "loop_events[0].value = nanos_item_loop.lower;"
+                    << "loop_events[1].value = nanos_item_loop.upper;"
+                    ;
+                if (range.get_step().is_constant())
+                {
+                    const_value_t* cval = range.get_step().get_constant();
+                    Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
+
+                    instrument_loop_opt
+                        << "loop_events[2].value = " << as_expression(cval_nodecl) << ";"
+                        ;
+                }
+                else
+                {
+                    instrument_loop_opt
+                        << "loop_events[2].value = nanos_step;"
+                        ;
+                }
+                instrument_loop_opt
+                    << "nanos_instrument_events(3, loop_events);"
+                    ;
+
+                instrument_after_opt
+                    << "loop_events[0].value = 0;"
+                    << "loop_events[1].value = 0;"
+                    << "loop_events[2].value = 1;"
+                    << "nanos_instrument_events(3, loop_events);"
+                    ;
+            }
         }
         else if (ranges.size() > 1)
         {
@@ -142,6 +212,7 @@ namespace TL { namespace Nanox {
             internal_error("Code unreachable", 0);
         }
 
+
         Source distribute_loop_source;
         distribute_loop_source
             << "{"
@@ -151,7 +222,9 @@ namespace TL { namespace Nanox {
             << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
             << "if (err != NANOS_OK)"
             <<     "nanos_handle_error(err);"
+            << instrument_before_opt
             << for_code
+            << instrument_after_opt
             << reduction_code
             << "}"
             << barrier_code

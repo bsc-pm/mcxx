@@ -57,8 +57,8 @@ namespace TL
             //! Gets a string representing the whole include line
             std::string get_preprocessor_line();
 
-            IncludeLine(const std::string& file, bool is_system)
-                : _file(file), _system(is_system)
+            IncludeLine(const std::string& file, bool is_system_)
+                : _file(file), _system(is_system_)
             {
             }
     };

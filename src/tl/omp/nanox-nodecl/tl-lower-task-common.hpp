@@ -53,9 +53,9 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
         }
 
-        void visit(const Nodecl::OpenMP::Priority& priority)
+        void visit(const Nodecl::OpenMP::Priority& priority_)
         {
-            this->priority = priority.get_priority();
+            this->priority = priority_.get_priority();
         }
 
         void visit(const Nodecl::OpenMP::Untied& untied)
@@ -63,14 +63,14 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
             this->is_untied = true;
         }
 
-        void visit(const Nodecl::OpenMP::If& if_condition)
+        void visit(const Nodecl::OpenMP::If& if_condition_)
         {
-            this->if_condition = if_condition.get_condition();
+            this->if_condition = if_condition_.get_condition();
         }
 
-        void visit(const Nodecl::OpenMP::TaskLabel& task_label)
+        void visit(const Nodecl::OpenMP::TaskLabel& task_label_)
         {
-            this->task_label = task_label;
+            this->task_label = task_label_;
         }
 };
 

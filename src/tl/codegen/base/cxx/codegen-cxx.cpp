@@ -2295,9 +2295,20 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
 {
     unsigned long long int v = const_value_cast_to_8(cval);
 
+    // Since we may be representing data with too many bits, let's discard
+    // uppermost bits for unsigned values
+    if (!const_value_is_signed(cval))
+    {
+        int bits = 8 * t.get_size();
+        unsigned long long int mask = ~0ULL;
+        if (bits < 64)
+            mask <<= bits;
+        v &= ~mask;
+    }
+
     if (t.is_signed_int())
     {
-        file << (signed long long)v;
+        file << *(signed long long*)&v;
     }
     else if (t.is_unsigned_int())
     {
@@ -2305,7 +2316,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     }
     else if (t.is_signed_long_int())
     {
-        file << (signed long long)v << "L";
+        file << *(signed long long*)&v << "L";
     }
     else if (t.is_unsigned_long_int())
     {
@@ -2313,7 +2324,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     }
     else if (t.is_signed_long_long_int())
     {
-        file << (signed long long)v << "LL";
+        file << *(signed long long*)&v << "LL";
     }
     else if (t.is_unsigned_long_long_int())
     {
@@ -2324,7 +2335,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
         // Remaining integers like 'short'
         if (const_value_is_signed(cval))
         {
-            file << (signed long long)v;
+            file << *(signed long long*)&v;
         }
         else
         {
@@ -2459,7 +2470,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
-    file << entry.get_name() << "(";
+
+    if (entry.is_class())
+    {
+        // Use the qualified name, do not rely on class-scope unqualified lookup
+        file << entry.get_qualified_name() << "(";
+    }
+    else
+    {
+        // Otherwise the name must not be qualified
+        file << entry.get_name() << "(";
+    }
 
     TL::Type type = entry.get_type();
     if (entry.is_class())
@@ -3624,11 +3645,11 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
                 {
                     // Define the types used by the function parameters
                     TL::ObjectList<TL::Type> parameters = member.get_type().parameters();
-                    for (TL::ObjectList<TL::Type>::iterator it = parameters.begin();
-                            it != parameters.end();
-                            it++)
+                    for (TL::ObjectList<TL::Type>::iterator it2 = parameters.begin();
+                            it2 != parameters.end();
+                            it2++)
                     {
-                        TL::Type current_parameter(*it);
+                        TL::Type current_parameter(*it2);
                         walk_type_for_symbols(
                                 current_parameter,
                                 &CxxBase::declare_symbol_if_nonnested,
@@ -3678,7 +3699,7 @@ TL::ObjectList<TL::Symbol> CxxBase::define_required_before_class(TL::Symbol symb
 
     TL::ObjectList<TL::Symbol> must_be_defined_inside_class = result;
 
-    for (TL::ObjectList<TL::Symbol>::iterator it = must_be_defined_inside_class.begin();
+    for (it = must_be_defined_inside_class.begin();
             it != must_be_defined_inside_class.end();
             it++)
     {

@@ -73,9 +73,9 @@ namespace Analysis {
          * @param n Nodecl to be searched in the flow graph
          * @return The PCFG node containing the Nodecl
          */
-        Node* pcfg_node_enclosing_nodecl( Node* current, Nodecl::NodeclBase n );
+        Node* pcfg_node_enclosing_nodecl( Node* current, const Nodecl::NodeclBase& n );
 
-        Node* node_enclosing_nodecl( Nodecl::NodeclBase n );
+        Node* node_enclosing_nodecl( const Nodecl::NodeclBase& n );
 
     public:
         //! Class constructor
@@ -108,20 +108,11 @@ namespace Analysis {
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
 
-        //! Returns true when #n is an induction variable in #loop
-        bool is_induction_variable( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
-
         //! Returns the list of induction variables found in #loop
-        ObjectList<Utils::InductionVariableData*> get_induction_variables( Nodecl::NodeclBase loop );
+        ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& loop );
 
-        //! Returns true when all Induction Variables of a loop has stride equal to one
-        bool is_increment_one( Nodecl::NodeclBase loop, Nodecl::NodeclBase n );
-
-        //! Returns a list of objects that are constants in #n
-        ObjectList<Nodecl::NodeclBase> get_constants( Nodecl::NodeclBase n );
-
-        //! Returns true when #var is constant in #n
-        bool is_constant( Nodecl::NodeclBase n, Nodecl::NodeclBase var );
+        //! Returns a list of objects that are killed in #n
+        Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
 
     friend class AnalysisSingleton;
     };

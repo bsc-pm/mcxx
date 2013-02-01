@@ -932,7 +932,7 @@ namespace TL { namespace OpenMP {
 
             if (arguments.size() == 1)
             {
-                if (schedule == "static")
+                if (schedule == "static" || schedule == "ompss_static")
                 {
                     chunk = const_value_to_nodecl(const_value_get_signed_int(0));
                 }
