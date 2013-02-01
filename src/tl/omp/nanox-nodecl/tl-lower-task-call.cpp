@@ -383,7 +383,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment, called_sym);
+    OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -1112,7 +1112,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function);
+    OutlineInfo new_outline_info(new_environment, called_task_function,_function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);

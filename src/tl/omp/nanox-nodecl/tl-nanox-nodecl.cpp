@@ -70,8 +70,7 @@ namespace TL { namespace Nanox {
         std::cerr << "Nanos++ phase" << std::endl;
 
         Nodecl::NodeclBase n = dto["nodecl"];
-
-        LoweringVisitor lowering_visitor(this);
+        LoweringVisitor lowering_visitor(this,RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]));
         lowering_visitor.walk(n);
 
         finalize_phase(n);

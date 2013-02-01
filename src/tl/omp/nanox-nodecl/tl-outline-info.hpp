@@ -34,6 +34,7 @@
 #include "tl-type.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-omp-core.hpp"
 #include <string>
 #include <sstream>
 
@@ -322,7 +323,8 @@ namespace TL
                 TL::Symbol _funct_symbol;
 
             private:
-                ObjectList<OutlineDataItem*> _data_env_items;
+                ObjectList<OutlineDataItem*> _data_env_items;                
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -334,7 +336,7 @@ namespace TL
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid());
+                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid(), RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
                 OutlineInfo();
                 ~OutlineInfo();
 

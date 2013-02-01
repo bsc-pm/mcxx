@@ -835,8 +835,8 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol)
-        : _data_env_items()
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+        : _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         if (!environment.is_null())
@@ -970,7 +970,11 @@ namespace TL { namespace Nanox {
          if(_implementation_table.count(function_symbol)==0){
              TargetInformation ti;
              ti.add_device_name(device_name);
-             _implementation_table.insert(std::make_pair(function_symbol, ti));
+             _implementation_table.insert(std::make_pair(function_symbol, ti));  
+             if (_function_task_set.valid()){
+                append_to_ndrange(function_symbol,_function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+                append_to_onto(function_symbol,_function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
+             }
          } else {
              add_device_name(device_name,function_symbol);
          }
