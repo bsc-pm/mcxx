@@ -42,7 +42,8 @@ namespace TL
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
 
-                int _remain_iterations;
+                unsigned int _remain_iterations;
+                unsigned int _unroll_factor;
 
                 void analyze_loop(const Nodecl::ForStatement& for_statement);
                 Nodecl::ForStatement get_epilog(const Nodecl::ForStatement& for_statement);
@@ -62,7 +63,7 @@ namespace TL
             private:
                 const Nodecl::ForStatement& _for_statement;
                 const Analysis::AnalysisStaticInfo& _for_analysis_info;
-                const unsigned int _vector_length;
+                const unsigned int _unroll_factor;
 
             public:
                 VectorizerVisitorLoopHeader(const Nodecl::ForStatement& for_statement,
@@ -96,12 +97,12 @@ namespace TL
             private:
                 const Nodecl::ForStatement& _for_statement;
                 const Analysis::AnalysisStaticInfo& _for_analysis_info;
-                const unsigned int _vector_length;
+                const unsigned int _unroll_factor;
 
             public:
                 VectorizerVisitorLoopCond(const Nodecl::ForStatement& for_statement,
                         const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int vector_length);
+                        const unsigned int unroll_factor);
 
                 void visit(const Nodecl::Equal& node);
                 void visit(const Nodecl::LowerThan& node);
@@ -118,12 +119,12 @@ namespace TL
             private:
                 const Nodecl::ForStatement& _for_statement;
                 const Analysis::AnalysisStaticInfo& _for_analysis_info;
-                const unsigned int _vector_length;
+                const unsigned int _unroll_factor;
 
             public:
                 VectorizerVisitorLoopNext(const Nodecl::ForStatement& for_statement,
                         const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int vector_length);
+                        const unsigned int unroll_factor);
 
                 void visit(const Nodecl::Comma& node);
                 void visit(const Nodecl::Preincrement& node);

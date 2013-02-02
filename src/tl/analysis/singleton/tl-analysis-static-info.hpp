@@ -124,6 +124,9 @@ namespace Analysis {
             //! Returns true when an object is an induction variable in a given scope
             bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            //! Returns true when an object is an induction variable in a given scope
+            bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
             //! Returns the const_value corresponding to the increment of an induction variable in a given scope
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
@@ -131,6 +134,9 @@ namespace Analysis {
             //! Returns a list with the induction variables of a given scope
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
                                                                                const Nodecl::NodeclBase& n ) const;
+
+            //! Returns 
+            bool is_stride_1( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
     };
 
     // ************************** END User interface for static analysis *************************** //

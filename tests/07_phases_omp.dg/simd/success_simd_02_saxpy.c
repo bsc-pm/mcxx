@@ -30,72 +30,44 @@ test_generator=config/mercurium-simd
 </testinfo>
 */
 
-int test(void)
+
+#include <stdio.h>
+
+void __attribute__((noinline)) saxpy(float *x, float *y, float a, int N)
 {
-#if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
-    int i;
-    unsigned char __attribute__((aligned(16))) a[102];
-    float __attribute__((aligned(16))) b[102];
-
-
-#pragma omp simd 
-    for (i=0; i<101; i++)
-    {
-        a[i] = (unsigned char)2;
-    }
-
-#pragma omp simd 
-    for (i=0; i<101; i++)
-    {
-        b[i] = 10.0f;
-    }
-
-    a[101] = 8;
-    b[101] = 7.0f;
-
+    int j;
 #pragma omp simd
-    for (i=0; i<101; i++)
+    for (j=0; j<N; j++)
     {
-        b[i] += 6.0f;
-        a[i] = b[i];
+        y[j] = a * x[j] + y[j];
+    }
+}
 
+
+int main ()
+{
+    const int N = 80;
+    const int iters = 2;
+
+    float * x = malloc(N*sizeof(float));
+    float * y = malloc(N*sizeof(float));
+    float a = 0.93f;
+
+    int i, j;
+
+    for (i=0; i<N; i++)
+    {
+        x[i] = i+1;
+        y[i] = i-1;
     }
 
-    for (i=0; i<101; i++)
+    for (i=0; i<iters; i++)
     {
-        if (a[i] != 16)
-        {
-            printf("ERROR: a[%d] == %d\n", i, a[i]);
-            return 1;
-        }
-
-        if (b[i] != 16)
-        {
-            printf("ERROR: b[%d] == %d\n", i, a[i]);
-            return 1;
-        }
-
+        saxpy(x, y, a, N);
     }
 
-    if (a[101] != 8)
-    {
-        printf("ERROR: a[%d] == %d\n", i, a[101]);
-        return 1;
-    }
-
-    if (b[101] != 7.0f)
-    {
-        printf("ERROR: b[%d] == %d\n", i, a[101]);
-        return 1;
-    }
-
-#else
-#warning "This compiler is not supported"
-#endif
+    printf("%f\n", y[10]);
+    
     return 0;
 }
 
-int main(int argc, char *argv[])
-{
-    return test();
-}

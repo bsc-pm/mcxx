@@ -28,6 +28,7 @@
 #define TL_VECTORIZER_VISITOR_STATEMENT_HPP
 
 #include "tl-nodecl-visitor.hpp"
+#include "tl-analysis-static-info.hpp"
 
 namespace TL 
 { 
@@ -39,13 +40,19 @@ namespace TL
                 const std::string _device;
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
-                const TL::Scope _simd_scope;
+
+                const TL::Scope& _simd_inner_scope;
+
+                const Nodecl::NodeclBase& _simd_statement;
+                const Analysis::AnalysisStaticInfo& _analysis_info;
 
             public:
                 VectorizerVisitorStatement(const std::string& _device,
                         const unsigned int _vector_length,
                         const TL::Type& _target_type,
-                        const TL::Scope& _simd_scope);
+                        const TL::Scope& simd_inner_scope,
+                        const Nodecl::NodeclBase& simd_statement,
+                        const Analysis::AnalysisStaticInfo& analysis_info);
 
                 virtual void visit(const Nodecl::Context& n);
                 virtual void visit(const Nodecl::CompoundStatement& n);

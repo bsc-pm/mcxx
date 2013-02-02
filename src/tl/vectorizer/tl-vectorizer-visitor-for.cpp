@@ -51,7 +51,7 @@ namespace TL
             Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ INT_MAX);
+                    Analysis::WhereAnalysis::NESTED_NONE_STATIC_INFO, /* nesting level */ 0);
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -71,7 +71,9 @@ namespace TL
             VectorizerVisitorStatement visitor_stmt(_device,
                     _vector_length,
                     _target_type,
-                    for_statement.get_statement().retrieve_context());
+                    for_statement.get_statement().retrieve_context(),
+                    for_statement,
+                    for_analysis_info);
             visitor_stmt.walk(for_statement.get_statement());
 
             if (_remain_iterations)
@@ -84,7 +86,9 @@ namespace TL
 
         void VectorizerVisitorFor::analyze_loop(const Nodecl::ForStatement& for_statement)
         {
+            //TODO
             _remain_iterations = 2;
+            _unroll_factor = 4;
         }
 
         Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
@@ -115,7 +119,7 @@ namespace TL
                 const Nodecl::ForStatement& for_statement,
                 const Analysis::AnalysisStaticInfo& for_analysis_info,
                 const unsigned int vector_length) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _vector_length(vector_length)
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _unroll_factor(vector_length)
         {
         }
 
@@ -126,11 +130,11 @@ namespace TL
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            VectorizerVisitorLoopCond visitor_loop_cond(_for_statement, _for_analysis_info, _vector_length);
+            VectorizerVisitorLoopCond visitor_loop_cond(_for_statement, _for_analysis_info, _unroll_factor);
             visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
-            VectorizerVisitorLoopNext visitor_loop_next(_for_statement, _for_analysis_info, _vector_length);
+            VectorizerVisitorLoopNext visitor_loop_next(_for_statement, _for_analysis_info, _unroll_factor);
             visitor_loop_next.walk(loop_control.get_next());
         }
 
@@ -161,7 +165,7 @@ namespace TL
         void VectorizerVisitorLoopInit::visit(const Nodecl::Assignment& node)
         {
             /*
-            ERROR_CONDITION(!_for_analysis_info.is_induction_variable(node.get_lhs()),
+            ERROR_CONDITION(!_for_analysis_info.is_induction_variable(_for_statement, node.get_lhs()),
                     "Vectorizer: Induction variable was expected in LoopControl initialization.", 0);
             */
         }
@@ -185,9 +189,9 @@ namespace TL
         VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
                 const Nodecl::ForStatement& for_statement,
                 const Analysis::AnalysisStaticInfo& for_analysis_info,
-                const unsigned int vector_length) :
+                const unsigned int unroll_factor) :
             _for_statement(for_statement), _for_analysis_info(for_analysis_info),
-            _vector_length(vector_length)
+            _unroll_factor(unroll_factor)
         {
         }
 
@@ -218,7 +222,6 @@ namespace TL
 
         void VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
         {
-
             Nodecl::Equal condition = node.as<Nodecl::Equal>();
             Nodecl::NodeclBase lhs = condition.get_lhs();
             Nodecl::NodeclBase rhs = condition.get_rhs();
@@ -228,20 +231,148 @@ namespace TL
 
             if (!lhs_const_flag && rhs_const_flag)
             {
-                // rhs = rhs-(step-1)
+                TL::Type rhs_type = rhs.get_type();
+
+                // Step
+                // TODO: Not only the trivial case
+                Nodecl::NodeclBase step;
+                Nodecl::ParenthesizedExpression new_step;
+
+                if (_for_analysis_info.is_induction_variable(_for_statement, lhs))
+                {
+                    step = const_value_to_nodecl(
+                        _for_analysis_info.get_induction_variable_increment(_for_statement, lhs));
+
+                    new_step = Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Mul::make(
+                                Nodecl::ParenthesizedExpression::make(
+                                    step,
+                                    step.get_type(),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_unsigned_int_type(),
+                                    const_value_get_unsigned_int(_unroll_factor),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                step.get_type(),
+                                node.get_filename(),
+                                node.get_line()),
+                            step.get_type(),
+                            node.get_filename(),
+                            node.get_line());
+                }
+                else
+                {
+                    running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
+                            node.get_locus().c_str());
+                }
+
+
+                // rhs = (rhs-(step-1))
+                const Nodecl::ParenthesizedExpression new_node =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Minus::make(
+                                rhs.shallow_copy(),
+                                Nodecl::ParenthesizedExpression::make(
+                                    Nodecl::Minus::make(
+                                        new_step,
+                                        Nodecl::IntegerLiteral::make(
+                                            TL::Type::get_unsigned_int_type(),
+                                            const_value_get_unsigned_int(1),
+                                            node.get_filename(),
+                                            node.get_line()),
+                                        rhs_type,
+                                        node.get_filename(),
+                                        node.get_line()),
+                                    rhs_type,
+                                    node.get_filename(),
+                                    node.get_line()),
+                                rhs_type,
+                                node.get_filename(),
+                                node.get_line()),
+                            rhs_type,
+                            node.get_filename(),
+                            node.get_line());
+
+                rhs.replace(new_node);
             }
             else if (lhs_const_flag && !rhs_const_flag)
             {
-                // lhs = lhs-(step-1)
+                TL::Type lhs_type = lhs.get_type();
+
+                // Step
+                // TODO: Not only the trivial case
+                Nodecl::NodeclBase step;
+                Nodecl::ParenthesizedExpression new_step;
+
+                if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
+                {
+                    step = const_value_to_nodecl(
+                        _for_analysis_info.get_induction_variable_increment(_for_statement, rhs));
+
+                    new_step = Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Mul::make(
+                                Nodecl::ParenthesizedExpression::make(
+                                    step,
+                                    step.get_type(),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_unsigned_int_type(),
+                                    const_value_get_unsigned_int(_unroll_factor),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                step.get_type(),
+                                node.get_filename(),
+                                node.get_line()),
+                            step.get_type(),
+                            node.get_filename(),
+                            node.get_line());
+                }
+                else
+                {
+                    running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
+                            node.get_locus().c_str());
+                }
+
+
+                // lhs = (lhs-(step-1))
+                const Nodecl::ParenthesizedExpression new_node =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Minus::make(
+                                lhs.shallow_copy(),
+                                Nodecl::ParenthesizedExpression::make(
+                                    Nodecl::Minus::make(
+                                        new_step,
+                                        Nodecl::IntegerLiteral::make(
+                                            TL::Type::get_unsigned_int_type(),
+                                            const_value_get_unsigned_int(1),
+                                            node.get_filename(),
+                                            node.get_line()),
+                                        lhs_type,
+                                        node.get_filename(),
+                                        node.get_line()),
+                                    lhs_type,
+                                    node.get_filename(),
+                                    node.get_line()),
+                                lhs_type,
+                                node.get_filename(),
+                                node.get_line()),
+                            lhs_type,
+                            node.get_filename(),
+                            node.get_line());
+
+                lhs.replace(new_node);
             }
             else if (lhs_const_flag && rhs_const_flag)
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop"
+                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
                         "condition. Both expressions are constant.", node.get_locus().c_str());
             }
             else
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop"
+                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
                         "condition. Both expressions are not constant.", node.get_locus().c_str());
             }
         }
@@ -259,9 +390,9 @@ namespace TL
         VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
                 const Nodecl::ForStatement& for_statement,
                 const Analysis::AnalysisStaticInfo& for_analysis_info,
-                const unsigned int vector_length) :
+                const unsigned int unroll_factor) :
             _for_statement(for_statement), _for_analysis_info(for_analysis_info),
-            _vector_length(vector_length)
+            _unroll_factor(unroll_factor)
         {
         }
 
@@ -290,7 +421,7 @@ namespace TL
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
             const Nodecl::NodeclBase rhs = node.get_rhs();
-
+            
             if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
             {
                 const Nodecl::AddAssignment new_node =

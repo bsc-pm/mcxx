@@ -35,9 +35,11 @@ namespace TL
                 const std::string& device,
                 const unsigned int vector_length,
                 const TL::Type& target_type,
-                const TL::Scope& simd_scope) : 
+                const TL::Scope& simd_inner_scope,
+                const Nodecl::NodeclBase& simd_statement,
+                const Analysis::AnalysisStaticInfo& analysis_info) : 
             _device(device), _vector_length(vector_length), _target_type(target_type),
-            _simd_scope(simd_scope)
+            _simd_inner_scope(simd_inner_scope), _simd_statement(simd_statement), _analysis_info(analysis_info)
         {
         }
 
@@ -60,7 +62,8 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
             VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _target_type, _simd_scope);
+                    _device, _vector_length, _target_type, _simd_inner_scope,
+                    _simd_statement, _analysis_info);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -78,7 +81,8 @@ namespace TL
                 if(!init.is_null())
                 {
                     VectorizerVisitorExpression visitor_expression(
-                            _device, _vector_length, _target_type, _simd_scope);
+                            _device, _vector_length, _target_type, _simd_inner_scope,
+                            _simd_statement, _analysis_info);
                     visitor_expression.walk(init);
                 }
             }
@@ -87,7 +91,8 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
         {
             VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _target_type, _simd_scope);
+                    _device, _vector_length, _target_type, _simd_inner_scope,
+                    _simd_statement, _analysis_info);
             visitor_expression.walk(n.get_value());
         }
 

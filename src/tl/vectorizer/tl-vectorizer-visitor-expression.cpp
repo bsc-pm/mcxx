@@ -35,9 +35,12 @@ namespace TL
                 const std::string& device,
                 const unsigned int vector_length,
                 const TL::Type& target_type,
-                const TL::Scope& simd_scope) : 
+                const TL::Scope& simd_inner_scope,
+                const Nodecl::NodeclBase& simd_statement,
+                const Analysis::AnalysisStaticInfo& analysis_info) : 
             _device(device), _vector_length(vector_length), _target_type(target_type),
-            _simd_scope(simd_scope)
+            _simd_inner_scope(simd_inner_scope), _simd_statement(simd_statement), 
+            _analysis_info(analysis_info)
         { 
         }
 
@@ -247,32 +250,40 @@ namespace TL
             }
             vector_type = vector_type.get_vector_to(_vector_length);
 
-            // Vector Store
             if(lhs.is<Nodecl::ArraySubscript>())
             {
-                TL::Type basic_type = lhs.get_type();
-                if (basic_type.is_lvalue_reference())
+                // Vector Store
+                if(_analysis_info.is_stride_1(_simd_statement, lhs))
                 {
-                    basic_type = basic_type.references_to();
-                }
+                    TL::Type basic_type = lhs.get_type();
+                    if (basic_type.is_lvalue_reference())
+                    {
+                        basic_type = basic_type.references_to();
+                    }
 
-                const Nodecl::VectorStore vector_store = 
-                    Nodecl::VectorStore::make(
-                        Nodecl::Reference::make(
-                            Nodecl::ParenthesizedExpression::make(
-                                lhs.shallow_copy(),
-                                basic_type,
+                    const Nodecl::VectorStore vector_store = 
+                        Nodecl::VectorStore::make(
+                                Nodecl::Reference::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        lhs.shallow_copy(),
+                                        basic_type,
+                                        n.get_filename(), 
+                                        n.get_line()),
+                                    basic_type.get_pointer_to(),
+                                    n.get_filename(), 
+                                    n.get_line()),
+                                n.get_rhs().shallow_copy(), 
+                                vector_type,
                                 n.get_filename(), 
-                                n.get_line()),
-                            basic_type.get_pointer_to(),
-                            n.get_filename(), 
-                            n.get_line()),
-                        n.get_rhs().shallow_copy(), 
-                        vector_type,
-                        n.get_filename(), 
-                        n.get_line());
+                                n.get_line());
 
-                n.replace(vector_store);
+                    n.replace(vector_store);
+                }
+                else // Vector Scatter
+                {
+                    //TODO
+                    std::cerr << "Warning: Vector gather is not supported yet!\n"; 
+                }
             }
             else // Register
             {
@@ -417,22 +428,31 @@ namespace TL
                 basic_type = basic_type.references_to();
             }
 
-            const Nodecl::VectorLoad vector_load = 
-                Nodecl::VectorLoad::make(
-                        Nodecl::Reference::make(
-                            Nodecl::ParenthesizedExpression::make(
-                                n.shallow_copy(),
-                                basic_type,
+            // Vector Load
+            if (_analysis_info.is_stride_1(_simd_statement, n))
+            {
+                const Nodecl::VectorLoad vector_load = 
+                    Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                Nodecl::ParenthesizedExpression::make(
+                                    n.shallow_copy(),
+                                    basic_type,
+                                    n.get_filename(), 
+                                    n.get_line()),
+                                basic_type.get_pointer_to(),
                                 n.get_filename(), 
                                 n.get_line()),
-                            basic_type.get_pointer_to(),
+                            vector_type,
                             n.get_filename(), 
-                            n.get_line()),
-                        vector_type,
-                        n.get_filename(), 
-                        n.get_line());
+                            n.get_line());
 
-            n.replace(vector_load);
+                n.replace(vector_load);
+            }
+            else // Vector Gather
+            {
+                //TODO
+                std::cerr << "Warning: Vector gather is not supported yet!\n"; 
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
@@ -503,21 +523,13 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
-            // if Sara.induction_variable --> special treatment
-            //else
-            if (is_nested_in_scope(
-                        _simd_scope.get_decl_context().current_scope,
-                        n.get_symbol().get_scope().get_decl_context().current_scope))
+            // Vectorize BASIC induction variable
+            if (_analysis_info.is_basic_induction_variable(_simd_statement, n))
             {
-                TL::Symbol sym = n.get_symbol();
-                TL::Type sym_type = sym.get_type();
-
-                if (sym_type.is_scalar_type())
-                {
-                    sym.set_type(sym_type.get_vector_to(_vector_length));
-                }
+                //TODO: Offset
             }
-            else //if Sara.is_constant_in_scope
+            // Vectorize constants
+            else if (_analysis_info.is_constant(_simd_statement, n))
             {
                 TL::Type sym_type = n.get_symbol().get_type();
 
@@ -533,7 +545,25 @@ namespace TL
                     n.replace(vector_prom);
                 }
             }
-            //else --> Error. Loop is not vectorizable without Scalar Evolution analysis.
+            // Vectorize symbols declared in the SIMD scope
+            else if (is_declared_in_scope(
+                        _simd_inner_scope.get_decl_context().current_scope,
+                        n.get_symbol().get_scope().get_decl_context().current_scope))
+            {
+                TL::Symbol sym = n.get_symbol();
+                TL::Type sym_type = sym.get_type();
+
+                if (sym_type.is_scalar_type())
+                {
+                    sym.set_type(sym_type.get_vector_to(_vector_length));
+                }
+            }
+            else
+            {
+                //TODO: If you are from outside of the loop -> Vector local copy.
+                running_error("Vectorizer: The loop is not vectorizable. '%s' is not IV or Constant or Local.",
+                        n.get_symbol().get_name().c_str());
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
@@ -560,8 +590,8 @@ namespace TL
             n.replace(vector_prom);
         }
 
-
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(const Nodecl::NodeclBase& n) 
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
+                const Nodecl::NodeclBase& n) 
         { 
             std::cerr << "Unknown 'Expression' node " 
                 << ast_print_node_type(n.get_kind()) 
@@ -571,16 +601,16 @@ namespace TL
             return Ret(); 
         }
 
-        bool VectorizerVisitorExpression::is_nested_in_scope(const scope_t *const  sc, 
-                const scope_t *const may_be_nested) const
+        bool VectorizerVisitorExpression::is_declared_in_scope(const scope_t *const  target_scope, 
+                const scope_t *const symbol_scope) const
         {
-            if (may_be_nested == NULL) 
+            if (symbol_scope == NULL) 
                 return false;
 
-            if (sc == may_be_nested) 
+            if (target_scope == symbol_scope) 
                 return true;
             else 
-                return is_nested_in_scope(sc, may_be_nested->contained_in);
+                return is_declared_in_scope(target_scope, symbol_scope->contained_in);
         }
     } 
 }
