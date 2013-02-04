@@ -15,5 +15,5 @@ target_options[mnvcc] = no_sublink embed:bfd
 target_options[mnvcxx] = no_sublink embed:bfd
 target_options[mcc] = no_sublink embed:bfd
 target_options[mcxx] = no_sublink embed:bfd
-target_options[mccall] = no_sublink embed:bfd
-target_options[mcxxall] = no_sublink embed:bfd
+target_options[allmcc] = no_sublink embed:bfd
+target_options[allmcxx] = no_sublink embed:bfd
