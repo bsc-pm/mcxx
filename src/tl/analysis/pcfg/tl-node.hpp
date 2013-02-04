@@ -192,6 +192,9 @@ namespace Analysis {
             //! Returns true when the node is a composite node (contains nodes inside)
             bool is_graph_node( );
 
+            //! Returns true when the node is the most external composite node of a graph
+            bool is_extended_graph_node( );
+
             //! Returns true when the node is an ENTRY node
             bool is_entry_node( );
 

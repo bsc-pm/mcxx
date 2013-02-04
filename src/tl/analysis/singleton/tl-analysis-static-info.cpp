@@ -98,21 +98,18 @@ namespace Analysis {
     const_value_t* NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
     {
         const_value_t* result = NULL;
-        bool incr_is_complex = false;
 
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
-            it != _induction_variables.end( ); ++it )
+             it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_increment( ).get_constant( );
-                if( result == NULL )
-                    incr_is_complex = true;
                 break;
             }
         }
 
-        if( result && !incr_is_complex )
+        if( result == NULL )
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
 
@@ -163,7 +160,11 @@ namespace Analysis {
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            analysis.induction_variables( analysis_state, n );
+            ObjectList<ExtensibleGraph*> pcfgs = analysis.induction_variables( analysis_state, n );
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
+            {
+                analysis.print_pcfg( analysis_state, (*it)->get_name( ) );
+            }
         }
 
         // Save static analysis

@@ -57,8 +57,8 @@ namespace Analysis {
     // Modifications here require modifying Node::get_graph_type_as_string
     enum Graph_type {
         COND_EXPR,                      //! Conditional expression
+        EXTENSIBLE_GRAPH,               //! Special node containing all nodes in a given graph
         FUNC_CALL,                      //! Function Call
-        FUNC_CODE,                      //! Function Code
         IF_ELSE,                        //! IfElse statement
         LOOP_DOWHILE,                   //! Set of nodes of a for loopm (but the initialization)
         LOOP_FOR,

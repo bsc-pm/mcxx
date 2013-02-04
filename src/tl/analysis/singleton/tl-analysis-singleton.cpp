@@ -168,7 +168,7 @@ namespace Analysis {
             }
             else if( current->is_graph_node( ) )
             {
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) )
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) && !current->is_extended_graph_node( ) )
                 {
                     result = current;
                 }
@@ -457,7 +457,9 @@ namespace Analysis {
                 Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars( );
                 LoopAnalysis la( *it, ivs );
                 la.compute_loop_ranges( );
-                print_induction_vars( ivs );
+
+                if( VERBOSE )
+                    print_induction_vars( ivs );
             }
         }
 
