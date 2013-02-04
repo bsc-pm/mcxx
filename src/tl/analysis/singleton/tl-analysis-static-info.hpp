@@ -122,6 +122,12 @@ namespace Analysis {
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
+            // *** Getters and Setters *** //
+
+            static_info_map_t get_static_info_map( ) const;
+
+            // *** Queries about Use-Def analysis *** //
+
             //! Returns true when an object is constant in a given scope
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 

@@ -85,7 +85,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = true;
                 break;
@@ -102,7 +102,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
             it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->is_basic( );
                 break;
@@ -208,6 +208,10 @@ namespace Analysis {
         _static_info_map.insert( nested_blocks_static_info.begin( ), nested_blocks_static_info.end( ) );
     }
 
+    static_info_map_t AnalysisStaticInfo::get_static_info_map( ) const
+    {
+        return _static_info_map;
+    }
 
     bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
@@ -323,7 +327,8 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. Cannot get induction variable increment.'",
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot get induction variable increment.'",
                              codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
         }
         else

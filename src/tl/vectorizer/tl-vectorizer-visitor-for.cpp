@@ -51,7 +51,7 @@ namespace TL
             Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_NONE_STATIC_INFO, /* nesting level */ 0);
+                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -421,7 +421,7 @@ namespace TL
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
             const Nodecl::NodeclBase rhs = node.get_rhs();
-            
+
             if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
             {
                 const Nodecl::AddAssignment new_node =
