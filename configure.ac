@@ -127,6 +127,35 @@ AC_SUBST([sqlite3_LIBS])
 
 dnl ----- End Sqlite ---------------------------
 
+dnl -- Fortran tests ---
+fortran_tests_enabled="yes"
+AC_MSG_CHECKING([if Fortran tests have been disabled])
+AC_ARG_ENABLE([fortran-tests],
+    AS_HELP_STRING([--disable-fortran-tests], [Disables all Fortran tests]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         fortran_tests_enabled="yes"
+         dnl no, they have not been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+               fortran_tests_enabled="no"
+               dnl yes, they DO have been disabled
+              AC_MSG_RESULT([yes])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
+AC_SUBST([FORTRAN_TESTS_ENABLED])
+dnl -- End Fortran tests ---
+
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
 dnl Legacy name of openmpt
@@ -1238,6 +1267,8 @@ echo ""
 echo " * Fortran support : yes"
 echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
 echo "   SQLite 3 libs: " $sqlite3_LIBS
+echo ""
+echo "   Fortran tests enabled: " $fortran_tests_enabled
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
