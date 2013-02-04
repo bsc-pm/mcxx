@@ -68,7 +68,7 @@ namespace TL
             public:
                 VectorizerVisitorLoopHeader(const Nodecl::ForStatement& for_statement,
                         const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int vector_length);
+                        const unsigned int unroll_factor);
 
                 void visit(const Nodecl::LoopControl& loop_header);
 

@@ -135,6 +135,8 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const
     {
+        return true;
+#if 0
         bool result = false;
 
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
@@ -148,6 +150,7 @@ namespace Analysis {
         }
 
         return result;
+#endif
     }
 
     ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::NodeclStaticInfo::get_induction_variables( const Nodecl::NodeclBase& n ) const

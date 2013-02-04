@@ -36,8 +36,6 @@ namespace Codegen
         // Set Codegen Vector Module
         CodegenPhase& current_codegen = Codegen::get_current();
         current_codegen.set_module_vector(new SSEModuleVisitor(&current_codegen)); // TODO
-
-//      TL::Vectorization::Vectorizer::getVectorizer();
     }
 }
 

@@ -64,12 +64,12 @@ namespace TL
             }
 
             // Vectorizing Loop Header
-            VectorizerVisitorLoopHeader visitor_loop_header(for_statement, for_analysis_info, _vector_length);
+            VectorizerVisitorLoopHeader visitor_loop_header(for_statement, for_analysis_info, _unroll_factor);
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
             VectorizerVisitorStatement visitor_stmt(_device,
-                    _vector_length,
+                    _unroll_factor,
                     _target_type,
                     for_statement.get_statement().retrieve_context(),
                     for_statement,
@@ -118,8 +118,8 @@ namespace TL
         VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
                 const Nodecl::ForStatement& for_statement,
                 const Analysis::AnalysisStaticInfo& for_analysis_info,
-                const unsigned int vector_length) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _unroll_factor(vector_length)
+                const unsigned int unroll_factor) :
+            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _unroll_factor(unroll_factor)
         {
         }
 
@@ -421,15 +421,23 @@ namespace TL
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
             const Nodecl::NodeclBase rhs = node.get_rhs();
-
             if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             rhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
+                            Nodecl::Mul::make(
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_unsigned_int_type(),
+                                    const_value_get_unsigned_int(_unroll_factor),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                Nodecl::IntegerLiteral::make(
+                                    node.get_type(),
+                                    _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
+                                    node.get_filename(),
+                                    node.get_line()),
                                 node.get_type(),
-                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
                                 node.get_filename(),
                                 node.get_line()),
                             node.get_type(),
