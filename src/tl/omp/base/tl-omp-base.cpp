@@ -451,8 +451,10 @@ namespace TL { namespace OpenMP {
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(simd_for)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
@@ -1279,19 +1281,15 @@ namespace TL { namespace OpenMP {
                 //node.append_sibling(epilog);
             }
 
-            // omp for
+            // for_handler_post
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
             Nodecl::NodeclBase code = loop_handler_post(
                     stmt, node, barrier_at_end, /* is_combined_worksharing */ false);
 
-            //Nodecl::Utils::remove_from_enclosing_list(node);
-            //ast_list_node2.push_back(code);
-
             // Removing #pragma
-            stmt.replace(node);
-            //stmt.replace(statements);
+            stmt.replace(code);
         }
         else
         {
@@ -1300,9 +1298,11 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Base::simd_for_handler_pre(TL::PragmaCustomDeclaration decl) { }
-    void Base::simd_for_handler_post(TL::PragmaCustomDeclaration decl) { }
-
+    void Base::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt) 
+    {
+    }
+ 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
     {

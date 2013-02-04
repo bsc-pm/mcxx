@@ -26,8 +26,8 @@ compile_versions="\${compile_versions} nanox_mercurium"
 test_CC_nanox_mercurium="\${MCC}"
 test_CXX_nanox_mercurium="\${MCXX}"
 
-test_CFLAGS_nanox_mercurium="--simd -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="--simd ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_mercurium="--simd --openmp -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="--simd --openmp ${COMMON_NANOX_CFLAGS}"
 
 test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
 
@@ -35,6 +35,12 @@ EOF
 
 cat <<EOF
 exec_versions="1thread"
+exec_versions="2thread"
+exec_versions="3thread"
+exec_versions="4thread"
 
 test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_2thread="OMP_NUM_THREADS='2'"
+test_ENV_3thread="OMP_NUM_THREADS='3'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
 EOF

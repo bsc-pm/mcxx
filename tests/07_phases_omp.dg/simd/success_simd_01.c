@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-simd
+test_generator=config/mercurium-serial-simd
 </testinfo>
 */
 

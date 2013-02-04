@@ -26,31 +26,40 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-simd
+test_generator=config/mercurium-parallel-simd
 </testinfo>
 */
 
-
 #include <stdio.h>
 
-void __attribute__((noinline)) saxpy(float *x, float *y, float a, int N)
+#define VECTOR_SIZE 16
+
+void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int N)
 {
     int j;
-#pragma omp simd
-    for (j=0; j<N; j++)
+#pragma omp parallel
     {
-        y[j] = a * x[j] + y[j];
+#pragma omp simd for
+        for (j=0; j<N; j++)
+        {
+            z[j] = a * x[j] + y[j];
+        }
     }
+}
 }
 
 
-int main ()
+int main (int argc, char * argv[])
 {
-    const int N = 80;
-    const int iters = 2;
+    const int N = 16;
+    const int iters = 1;
 
-    float * x = malloc(N*sizeof(float));
-    float * y = malloc(N*sizeof(float));
+    float *x, *y, *z; 
+    
+    posix_memalign((void **)&x, VECTOR_SIZE, N*sizeof(float));
+    posix_memalign((void **)&y, VECTOR_SIZE, N*sizeof(float));
+    posix_memalign((void **)&z, VECTOR_SIZE, N*sizeof(float));
+    
     float a = 0.93f;
 
     int i, j;
@@ -59,15 +68,24 @@ int main ()
     {
         x[i] = i+1;
         y[i] = i-1;
+        z[i] = 0.0f;
     }
 
     for (i=0; i<iters; i++)
     {
-        saxpy(x, y, a, N);
+        saxpy(x, y, z, a, N);
     }
 
-    printf("%f\n", y[10]);
-    
+    for (i=0; i<N; i++)
+    {
+        if (z[i] != (a * x[i] + y[i]))
+        {
+            printf("Error\n");
+            return (1);
+        }
+    }
+
+    printf("SUCCESS!\n");
     return 0;
 }
 

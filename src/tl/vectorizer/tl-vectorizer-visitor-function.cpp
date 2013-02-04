@@ -45,7 +45,7 @@ namespace TL
             // Get analysis info
             Analysis::AnalysisStaticInfo func_analysis_info(function_code,
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_NONE_STATIC_INFO, /* nesting level */ 0);
+                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
 
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
