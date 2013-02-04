@@ -1822,8 +1822,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2086,8 +2085,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2190,7 +2188,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     indent();
     file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     if (!initializers.is_null())
     {
@@ -5455,8 +5452,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         if (symbol.is_explicit_constructor()
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+                && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
         }
