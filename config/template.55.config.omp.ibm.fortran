@@ -1,7 +1,7 @@
 # IBM XL
 [xlmfc : omp-base]
 language = Fortran
-options = -I @PKGDATADIR@/fortran/openmp
+options = -I @PKGDATADIR@/fortran/openmp --fortran-array-descriptor=xlf
 # XL Fortran does not allow using LOC for functions
 # instead generate C-wrappers for this
 options = --variable=emit_fun_loc:1
