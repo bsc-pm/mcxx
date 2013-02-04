@@ -93,8 +93,12 @@ namespace Analysis {
                               Utils::ext_sym_set killed );
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
+
+            // *** Queries about induction variables *** //
             bool is_induction_variable( const Nodecl::NodeclBase& n ) const;
+            bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
+            bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
             ObjectList<Utils::InductionVariableData*>  get_induction_variables( const Nodecl::NodeclBase& n ) const;
     };
 
@@ -121,6 +125,8 @@ namespace Analysis {
             //! Returns true when an object is constant in a given scope
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            // *** Queries about induction variables *** //
+
             //! Returns true when an object is an induction variable in a given scope
             bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
@@ -131,12 +137,12 @@ namespace Analysis {
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
 
+            //! Returns true when the increment of a given induction variable is constant and equal to 1
+            bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
             //! Returns a list with the induction variables of a given scope
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
                                                                                const Nodecl::NodeclBase& n ) const;
-
-            //! Returns 
-            bool is_stride_1( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
     };
 
     // ************************** END User interface for static analysis *************************** //

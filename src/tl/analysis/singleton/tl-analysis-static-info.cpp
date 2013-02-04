@@ -95,6 +95,23 @@ namespace Analysis {
         return result;
     }
 
+    bool NodeclStaticInfo::is_basic_induction_variable( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+            it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n ) )
+            {
+                result = ( *it )->is_basic( );
+                break;
+            }
+        }
+
+        return result;
+    }
+
     const_value_t* NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
     {
         const_value_t* result = NULL;
@@ -112,6 +129,23 @@ namespace Analysis {
         if( result == NULL )
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
+
+        return result;
+    }
+
+    bool NodeclStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+             it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            {
+                result = ( *it )->is_increment_one( );
+                break;
+            }
+        }
 
         return result;
     }
@@ -216,6 +250,27 @@ namespace Analysis {
         return result;
     }
 
+    bool AnalysisStaticInfo::is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            nodecl_t scope_t = scope.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether it is an induction variable.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result =  current_info.is_basic_induction_variable( n );
+        }
+
+        return result;
+    }
+
     const_value_t* AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                                          const Nodecl::NodeclBase& n ) const
     {
@@ -232,6 +287,28 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.get_induction_variable_increment( n );
+        }
+
+        return result;
+    }
+
+    bool AnalysisStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& scope,
+                                                                  const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            nodecl_t scope_t = scope.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the increment is one.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_induction_variable_increment_one( n );
         }
 
         return result;
