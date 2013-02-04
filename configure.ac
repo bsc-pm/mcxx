@@ -519,6 +519,25 @@ AC_SUBST([gpu_valid])
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
 
+dnl --------------------- Start OpenCL support in Mercurium --------------------------------
+
+opencl_valid=no
+AC_MSG_CHECKING([if nanox has opencl enabled])
+AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
+if test x$opencl_valid = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+   COMPILER_NAMES="${COMPILER_NAMES} oclcc oclcxx"
+   #if OpenCL+CPU, generate a profile which can compile for both devices
+   if test x$gpu_valid = xyes;
+   then
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+       COMPILER_NAMES="${COMPILER_NAMES} mccall mcxall"
+   fi
+fi
+
+dnl --------------------- End OpenCL support in Nanox --------------------------------
+
 dnl --------------------- OpenMP profile mode ---------------------
 
 is_enabled_tl_omp_profile="no"
@@ -1239,6 +1258,7 @@ then
 fi
 
 echo "   GPU testing enabled:" $gpu_valid
+echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
