@@ -527,12 +527,12 @@ AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
 if test x$opencl_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
-   COMPILER_NAMES="${COMPILER_NAMES} oclcc oclcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
    #if OpenCL+CPU, generate a profile which can compile for both devices
    if test x$gpu_valid = xyes;
    then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-       COMPILER_NAMES="${COMPILER_NAMES} mccall mcxall"
+       COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
    fi
 fi
 
