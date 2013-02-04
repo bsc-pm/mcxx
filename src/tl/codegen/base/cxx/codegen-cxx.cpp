@@ -2019,6 +2019,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
+
+    // At this point, we mark the function as defined. It must be done here to
+    // avoid the useless declaration of the function being defined and other
+    // related problems.
+    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+
     C_LANGUAGE()
     {
         bool has_ellipsis = false;
