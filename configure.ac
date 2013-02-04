@@ -286,7 +286,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
 
 NANOX_INSTRUMENTATION=""
