@@ -253,7 +253,7 @@ namespace TL
             if(lhs.is<Nodecl::ArraySubscript>())
             {
                 // Vector Store
-                if(_analysis_info.is_induction_variable_increment_one(_simd_statement, lhs))
+                if(_analysis_info.is_adjacent_access(_simd_statement, lhs))
                 {
                     TL::Type basic_type = lhs.get_type();
                     if (basic_type.is_lvalue_reference())
@@ -429,7 +429,7 @@ namespace TL
             }
 
             // Vector Load
-            if (_analysis_info.is_induction_variable_increment_one(_simd_statement, n))
+            if (_analysis_info.is_adjacent_access(_simd_statement, n))
             {
                 const Nodecl::VectorLoad vector_load =
                     Nodecl::VectorLoad::make(

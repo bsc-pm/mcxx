@@ -135,8 +135,6 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const
     {
-        return true;
-#if 0
         bool result = false;
 
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
@@ -150,12 +148,89 @@ namespace Analysis {
         }
 
         return result;
-#endif
     }
 
-    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::NodeclStaticInfo::get_induction_variables( const Nodecl::NodeclBase& n ) const
+    Utils::InductionVariableData* NodeclStaticInfo::get_induction_variable( const Nodecl::NodeclBase& n ) const
+    {
+        Utils::InductionVariableData* iv = NULL;
+
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+            it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            {
+                iv = *it;
+                break;
+            }
+        }
+
+        return iv;
+    }
+
+    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::get_induction_variables( const Nodecl::NodeclBase& n ) const
     {
         return _induction_variables;
+    }
+
+    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = true;
+
+        if( n.is<Nodecl::ArraySubscript>( ) )
+        {
+            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+            Nodecl::List::iterator it = subscript.begin( );
+            for( ; it != subscript.end( ) - 1; ++it )
+            {   // All dimensions but the less significant must be constant
+                if( !it->is_constant( ) )
+                {
+                    result = false;
+                    break;
+                }
+            }
+            // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
+            if( it == subscript.end( ) - 1 )
+            {
+                Nodecl::Utils::ReduceExpressionVisitor v;
+                Nodecl::NodeclBase s = it->shallow_copy( );
+                v.walk( s );
+
+
+                if( !is_induction_variable( s ) )
+                {
+                    if( s.is<Nodecl::Add>( ) )
+                    {
+                        Nodecl::NodeclBase lhs = s.as<Nodecl::Add>( ).get_lhs( );
+                        Nodecl::NodeclBase rhs = s.as<Nodecl::Add>( ).get_rhs( );
+                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
+                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
+                        {
+                            result = false;
+                        }
+                    }
+                    else if ( s.is<Nodecl::Minus>( ) )
+                    {
+                        Nodecl::NodeclBase lhs = s.as<Nodecl::Minus>( ).get_lhs( );
+                        Nodecl::NodeclBase rhs = s.as<Nodecl::Minus>( ).get_rhs( );
+                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
+                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
+                        {
+                            result = false;
+                        }
+                    }
+                    else
+                    {
+                        result = false;
+                    }
+                }
+                else if ( /*is_induction_variable( s )*/ !get_induction_variable( s )->is_increment_one( ) )
+                {
+                    result = false;
+                }
+            }
+        }
+
+        return result;
     }
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -338,6 +413,27 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.get_induction_variables( n );
+        }
+
+        return result;
+    }
+
+    bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            nodecl_t scope_t = scope.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the access is adjacent.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_adjacent_access( n );
         }
 
         return result;

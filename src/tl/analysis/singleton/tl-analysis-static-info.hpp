@@ -95,11 +95,22 @@ namespace Analysis {
             bool is_constant( const Nodecl::NodeclBase& n ) const;
 
             // *** Queries about induction variables *** //
+
             bool is_induction_variable( const Nodecl::NodeclBase& n ) const;
+
             bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
+
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
+
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
-            ObjectList<Utils::InductionVariableData*>  get_induction_variables( const Nodecl::NodeclBase& n ) const;
+
+            //! Returns the induction variable containing the given nodecl
+            //! If the nodecl is not an induction variable, then returns NULL
+            Utils::InductionVariableData* get_induction_variable( const Nodecl::NodeclBase& n ) const;
+
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
+
+            bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
     };
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -149,6 +160,9 @@ namespace Analysis {
             //! Returns a list with the induction variables of a given scope
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
                                                                                const Nodecl::NodeclBase& n ) const;
+
+            //! Returns true if the given nodecl is an array accessed by adjacent positions
+            bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
     };
 
     // ************************** END User interface for static analysis *************************** //
