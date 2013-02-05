@@ -34,6 +34,7 @@
 #include "tl-type.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-omp-core.hpp"
 #include <string>
 #include <sstream>
 
@@ -340,6 +341,8 @@ namespace TL
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
                 std::string get_field_name(std::string name);
 
                 // Do not copy
@@ -350,8 +353,11 @@ namespace TL
 
             public:
 
+
                 OutlineInfo();
-                OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol = TL::Symbol::invalid());
+                OutlineInfo(Nodecl::NodeclBase environment,
+                        TL::Symbol funct_symbol = Symbol::invalid(),
+                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
 
@@ -371,6 +377,9 @@ namespace TL
 
                 void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
+
+                void set_file(TL::Symbol function_symbol,std::string file);
+                std::string get_file(TL::Symbol function_symbol);
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);

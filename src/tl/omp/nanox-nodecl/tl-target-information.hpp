@@ -55,6 +55,8 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
 
                 ObjectList<Nodecl::NodeclBase> _onto_exprs;
+                
+                std::string _file;
 
                 // Devices information
                 ObjectList<std::string> _device_names;
@@ -69,7 +71,10 @@ namespace TL
                 std::string get_outline_name() const;
 
                 void add_device_name(std::string device_name);
-                ObjectList<std::string>& get_device_names();
+                ObjectList<std::string>& get_device_names();   
+
+                void set_file(std::string file);
+                std::string get_file();
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase>& get_ndrange();

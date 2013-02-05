@@ -645,7 +645,7 @@ void LoweringVisitor::emit_async_common(
             outline_info, 
             /* accessor */ Source("imm_args."),
             fill_dependences_immediate);
-
+    
     FORTRAN_LANGUAGE()
     {
         // Parse in C

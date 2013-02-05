@@ -738,6 +738,11 @@ namespace TL { namespace Nanox {
             {
                 _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
+            
+            void visit(const Nodecl::OpenMP::File& file)   
+            { 
+                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(),file.get_filename().get_text());
+            }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
@@ -830,8 +835,8 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol)
-        : _data_env_items()
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+        : _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         if (!environment.is_null())
@@ -931,6 +936,20 @@ namespace TL { namespace Nanox {
 
        return _implementation_table[function_symbol].get_device_names();
     }
+    
+    void OutlineInfo::set_file(TL::Symbol function_symbol,std::string file)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
+       _implementation_table[function_symbol].set_file(file);   
+    }
+
+    std::string OutlineInfo::get_file(TL::Symbol function_symbol)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+       return _implementation_table[function_symbol].get_file();   
+    }
 
     void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {
@@ -995,10 +1014,15 @@ namespace TL { namespace Nanox {
             ti.add_device_name(device_name);
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
+            if (_function_task_set.valid())
+            {
+                append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+                append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
+            }
         }
         else
         {
-            add_device_name(device_name, function_symbol);
+            add_device_name(device_name,function_symbol);
         }
     }
 
