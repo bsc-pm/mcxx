@@ -1799,7 +1799,6 @@ namespace Analysis {
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
@@ -1954,12 +1953,13 @@ namespace Analysis {
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
             if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
+            {
                 _pcfg->_global_vars.insert( glob_var_usage );
+            }
         }
 
         // Create the node

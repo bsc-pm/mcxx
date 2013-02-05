@@ -25,7 +25,6 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 #include "tl-analysis-utils.hpp"
-#include "tl-extended-symbol.hpp"
 #include "tl-node.hpp"
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
 #include "tl-rename-visitor.hpp"
@@ -154,16 +153,16 @@ namespace Analysis {
                 {
                     if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
-                    // TODO
-                    std::cerr << "warning: Part of nodecl " << itk->get_nodecl( ).prettyprint( ) << " founded in the current var "
-                              << var.prettyprint( ) << " must be avoided. A subpart is killed." << std::endl;
-                    //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
-                    killed.erase( itk );
-                    if( compute_undef == '1' )
-                        new_l = insert_var_in_list( var, new_l );
-                    else
-                        undef.insert( var );
-                    break;
+                        // TODO
+                        std::cerr << "warning: Part of nodecl " << itk->get_nodecl( ).prettyprint( ) << " founded in the current var "
+                                << var.prettyprint( ) << " must be avoided. A subpart is killed." << std::endl;
+                        //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
+                        killed.erase( itk );
+                        if( compute_undef == '1' )
+                            new_l = insert_var_in_list( var, new_l );
+                        else
+                            undef.insert( var );
+                        break;
                     }
                 }
 
@@ -226,10 +225,10 @@ namespace Analysis {
 
             // Append to current node info from children
             Utils::ext_sym_set null_list;
-            undef_vars = compute_use_def_with_children( undef_children, undef_vars,
-                                                        killed_vars, undef_vars, /*compute_undef*/ '1' );
             ue_vars = compute_use_def_with_children( ue_children, ue_vars,
                                                      killed_vars, undef_vars, /*compute_undef*/ '0' );
+            undef_vars = compute_use_def_with_children( undef_children, undef_vars,
+                                                        killed_vars, undef_vars, /*compute_undef*/ '1' );
             killed_vars = compute_use_def_with_children( killed_children, killed_vars,
                                                          killed_vars, undef_vars, /*compute_undef*/ '0' );
 
@@ -249,12 +248,11 @@ namespace Analysis {
             {
                 current->set_visited( true );
 
-                Node* entry_node = current->get_graph_entry_node( );
-
-                ObjectList<Utils::ext_sym_set> use_def = get_use_def_over_nodes( entry_node );
-                current->set_ue_var( use_def[0] );
-                current->set_killed_var( use_def[1] );
-                current->set_undefined_behaviour_var( use_def[2] );
+                Utils::ext_sym_set ue_vars, killed_vars, undef_vars;
+                ObjectList<Utils::ext_sym_set> usage = get_use_def_over_nodes( current->get_graph_entry_node( ) );
+                current->set_ue_var( usage[0] );
+                current->set_killed_var( usage[1] );
+                current->set_undefined_behaviour_var( usage[2] );
             }
         }
         else

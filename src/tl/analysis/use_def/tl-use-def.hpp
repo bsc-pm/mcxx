@@ -27,6 +27,7 @@
 #ifndef TL_USE_DEF_HPP
 #define TL_USE_DEF_HPP
 
+
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
@@ -53,8 +54,11 @@ namespace Analysis {
                                 ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
                                 bool ipa, Utils::nodecl_set ipa_arguments );
 
-        //! Returns a list with two elements. The firs is the list of upper exposed variables of the graph node;
-        //! The second is the list of killed variables of the graph node (Used in composite nodes)
+        /*!Recursive method that returns a list with three elements:
+         * - The first is the list of upper exposed variables of the graph node;
+         * - The second is the list of killed variables of the graph node
+         * - The third is the list of undefined variables of the graph
+         */
         ObjectList<Utils::ext_sym_set> get_use_def_over_nodes( Node* current );
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
