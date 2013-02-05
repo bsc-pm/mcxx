@@ -48,7 +48,9 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(for_statement,
+            Analysis::AnalysisStaticInfo for_analysis_info(
+                    Nodecl::Utils::get_enclosing_function(for_statement).get_function_code()
+                        .as<Nodecl::FunctionCode>(),
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
                     Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
@@ -69,6 +71,7 @@ namespace TL
 
             // Loop Body Vectorization
             VectorizerVisitorStatement visitor_stmt(_device,
+                    _vector_length,
                     _unroll_factor,
                     _target_type,
                     for_statement.get_statement().retrieve_context(),

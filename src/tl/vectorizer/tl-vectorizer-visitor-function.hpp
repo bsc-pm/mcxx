@@ -40,6 +40,8 @@ namespace TL
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
 
+                unsigned int _unroll_factor;
+
             public:
                 VectorizerVisitorFunction(const std::string& device,
                         const unsigned int vector_length,

@@ -44,8 +44,11 @@ namespace TL
         {
             // Get analysis info
             Analysis::AnalysisStaticInfo func_analysis_info(function_code,
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 1);
+
+            //TODO
+            _unroll_factor = 4;
 
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
@@ -66,7 +69,8 @@ namespace TL
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(
                     _device, 
-                    _vector_length, 
+                    _vector_length,
+                    _unroll_factor,                    
                     _target_type,
                     function_code.get_statements().retrieve_context(),
                     function_code,

@@ -34,13 +34,14 @@ namespace TL
         VectorizerVisitorExpression::VectorizerVisitorExpression(
                 const std::string& device,
                 const unsigned int vector_length,
+                const unsigned int unroll_factor,
                 const TL::Type& target_type,
                 const TL::Scope& simd_inner_scope,
                 const Nodecl::NodeclBase& simd_statement,
                 const Analysis::AnalysisStaticInfo& analysis_info) :
-            _device(device), _vector_length(vector_length), _target_type(target_type),
-            _simd_inner_scope(simd_inner_scope), _simd_statement(simd_statement),
-            _analysis_info(analysis_info)
+            _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor),
+            _target_type(target_type), _simd_inner_scope(simd_inner_scope), 
+            _simd_statement(simd_statement), _analysis_info(analysis_info)
         {
         }
 
@@ -287,6 +288,8 @@ namespace TL
             }
             else // Register
             {
+                walk(lhs);
+
                 const Nodecl::VectorAssignment vector_assignment =
                     Nodecl::VectorAssignment::make(
                             lhs.shallow_copy(),
@@ -526,6 +529,7 @@ namespace TL
             // Vectorize BASIC induction variable
             if (_analysis_info.is_basic_induction_variable(_simd_statement, n))
             {
+                std::cerr << "IV: " << n.prettyprint();
                 //TODO: Offset
             }
             // Vectorize constants

@@ -77,6 +77,8 @@ namespace TL
 
         void Vectorizer::enable_svml()
         {
+            fprintf(stderr, "Enabling SVML\n");
+
             if (!_ffast_math_enabled)
             {
                 fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
