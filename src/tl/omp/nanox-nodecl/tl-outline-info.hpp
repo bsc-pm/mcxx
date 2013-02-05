@@ -347,11 +347,12 @@ namespace TL
                 OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
+
             public:
 
-
-                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid());
                 OutlineInfo();
+                OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol = TL::Symbol::invalid());
+
                 ~OutlineInfo();
 
                 //! Get new or retrieve existing OutlineDataItem for symbol
@@ -362,14 +363,9 @@ namespace TL
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
-                ObjectList<OutlineDataItem*> get_data_items()
-                {
-                    return _data_env_items;
-                }
+                ObjectList<OutlineDataItem*> get_data_items();
 
-                TL::Symbol get_funct_symbol() const {
-                    return _funct_symbol;
-                }
+                TL::Symbol get_funct_symbol() const;
 
                 ObjectList<OutlineDataItem*> get_fields() const;
 

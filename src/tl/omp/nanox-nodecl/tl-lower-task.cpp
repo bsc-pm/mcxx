@@ -475,7 +475,7 @@ void LoweringVisitor::emit_async_common(
     // we should create its outline function.
     OutlineInfo::implementation_table_t::iterator implementation_table_it = implementation_table.begin();
     std::multimap<std::string, std::string>::iterator devices_and_implementors_it = devices_and_implementors.begin();
-    int n_devices=implementation_table_it->second.get_device_names().size();
+    int n_devices = implementation_table_it->second.get_device_names().size();
     while (devices_and_implementors_it != devices_and_implementors.end())
     {
         if ( n_devices < 1)
