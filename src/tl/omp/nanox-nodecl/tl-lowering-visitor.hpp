@@ -54,8 +54,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
         virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
 
-        //FIXME: move this function to tl-outline-info.cpp
-        static std::string get_outline_name(TL::Symbol function_symbol);
     private:
 
         Lowering* _lowering;

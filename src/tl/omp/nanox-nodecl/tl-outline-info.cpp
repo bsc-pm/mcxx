@@ -35,9 +35,8 @@
 #include "cxx-exprtype.h"
 #include "fortran03-typeutils.h"
 #include "tl-target-information.hpp"
+#include "tl-counters.hpp"
 
-// FIXME: temporary include
-#include "tl-lowering-visitor.hpp"
 namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_field_name(std::string name)
@@ -844,7 +843,7 @@ namespace TL { namespace Nanox {
         {
             //Add one targetInfo, main task
             TargetInformation ti;
-            ti.set_outline_name(TL::Nanox::LoweringVisitor::get_outline_name(funct_symbol));
+            ti.set_outline_name(get_outline_name(funct_symbol));
             _implementation_table.insert(std::make_pair(funct_symbol, ti));
 
             _funct_symbol = funct_symbol;
@@ -994,7 +993,7 @@ namespace TL { namespace Nanox {
         {
             TargetInformation ti;
             ti.add_device_name(device_name);
-            ti.set_outline_name(TL::Nanox::LoweringVisitor::get_outline_name(function_symbol));
+            ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
         }
         else
@@ -1003,6 +1002,19 @@ namespace TL { namespace Nanox {
         }
     }
 
+    std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
+    {
+        std::string outline_name;
+
+        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
+        std::stringstream ss;
+        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
+        outline_name = ss.str();
+
+        task_counter++;
+
+        return outline_name;
+    }
     OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;

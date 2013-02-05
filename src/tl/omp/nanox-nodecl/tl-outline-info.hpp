@@ -396,6 +396,9 @@ namespace TL
                 void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
+
+            private:
+                std::string get_outline_name(TL::Symbol function_symbol);
         };
 
         class OutlineInfoRegisterEntities

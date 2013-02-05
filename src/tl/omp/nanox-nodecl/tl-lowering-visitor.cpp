@@ -25,7 +25,6 @@
 --------------------------------------------------------------------*/
 
 #include "tl-lowering-visitor.hpp"
-#include "tl-counters.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -36,20 +35,5 @@ namespace TL { namespace Nanox {
     }
 
     LoweringVisitor::~LoweringVisitor() { }
-
-    std::string LoweringVisitor::get_outline_name(TL::Symbol function_symbol)
-    {
-        std::string outline_name;
-
-        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
-
-        task_counter++;
-
-        return outline_name;
-    }
-
 
 } }
