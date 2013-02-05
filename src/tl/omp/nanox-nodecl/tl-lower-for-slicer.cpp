@@ -234,7 +234,6 @@ namespace TL { namespace Nanox {
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
-        std::string outline_name = get_outline_name(enclosing_function);
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -253,9 +252,11 @@ namespace TL { namespace Nanox {
         OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
         OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(enclosing_function);
         ERROR_CONDITION(implementation_it == implementation_table.end(),
-                "No information from the implementation table", 0)
+                "No information from the implementation table", 0);
 
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), implementation_it->second, statements,
+        TargetInformation target_info = implementation_it->second;
+        std::string outline_name = target_info.get_outline_name();
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info, statements,
                 /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names
