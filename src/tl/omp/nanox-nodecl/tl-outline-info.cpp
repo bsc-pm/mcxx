@@ -36,6 +36,8 @@
 #include "fortran03-typeutils.h"
 #include "tl-target-information.hpp"
 
+// FIXME: temporary include
+#include "tl-lowering-visitor.hpp"
 namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_field_name(std::string name)
@@ -837,11 +839,16 @@ namespace TL { namespace Nanox {
         {
             sc = environment.retrieve_context();
         }
-        //Add one targetInfo, main task
-        TargetInformation ti;
-        _implementation_table.insert(std::make_pair(funct_symbol, ti));
 
-        _funct_symbol = funct_symbol;
+        if (funct_symbol.is_valid())
+        {
+            //Add one targetInfo, main task
+            TargetInformation ti;
+            ti.set_outline_name(TL::Nanox::LoweringVisitor::get_outline_name(funct_symbol));
+            _implementation_table.insert(std::make_pair(funct_symbol, ti));
+
+            _funct_symbol = funct_symbol;
+        }
 
         OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
@@ -987,6 +994,7 @@ namespace TL { namespace Nanox {
         {
             TargetInformation ti;
             ti.add_device_name(device_name);
+            ti.set_outline_name(TL::Nanox::LoweringVisitor::get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
         }
         else
