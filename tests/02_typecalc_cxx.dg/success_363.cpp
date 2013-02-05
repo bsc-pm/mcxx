@@ -26,45 +26,27 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
-
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-
-namespace TL
+struct A
 {
-    namespace OpenMP
-    {
-        struct TargetContext
-        {
-            ObjectList<std::string> device_list;
+    A(int) { }
+    explicit A(float);
+};
 
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
+A::A(float) { }
 
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> onto;
 
-            bool has_implements;
-            Symbol implements;
-            std::string file;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(), 
-                copy_in(), 
-                copy_out(), 
-                has_implements(), 
-                implements(), 
-                copy_deps()
-            {
-            }
-        };
-    }
+void foo(A x)
+{
 }
 
-#endif // TL_OMP_TARGET_HPP
+void fii()
+{
+    float x;
+    foo(x);
+}

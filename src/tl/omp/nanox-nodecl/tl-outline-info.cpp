@@ -35,6 +35,7 @@
 #include "cxx-exprtype.h"
 #include "fortran03-typeutils.h"
 #include "tl-target-information.hpp"
+#include "tl-counters.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -493,7 +494,7 @@ namespace TL { namespace Nanox {
         }
         else
         {
-            internal_error("%s: data reference '%s' must be valid at this point!\n", 
+            internal_error("%s: data reference '%s' must be valid at this point!\n",
                     node.get_locus().c_str(),
                     Codegen::get_current().codegen_to_str(node, node.retrieve_context()).c_str()
                     );
@@ -526,7 +527,7 @@ namespace TL { namespace Nanox {
             }
             else
             {
-                internal_error("%s: data reference '%s' must be valid at this point!\n", 
+                internal_error("%s: data reference '%s' must be valid at this point!\n",
                         it->get_locus().c_str(),
                         Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                         );
@@ -546,7 +547,7 @@ namespace TL { namespace Nanox {
         {
             t = t.references_to();
         }
-        
+
         outline_info.set_field_type(t.get_unqualified_type());
 
         if (is_new)
@@ -732,10 +733,15 @@ namespace TL { namespace Nanox {
             {
                 _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
             }
-            
+
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
                 _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
+            }
+            
+            void visit(const Nodecl::OpenMP::File& file)   
+            { 
+                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(),file.get_filename().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
@@ -805,14 +811,13 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::Target& target)
             {
                 Nodecl::List devices = target.get_devices().as<Nodecl::List>();
-                
 
                 for (Nodecl::List::iterator it = devices.begin();
                         it != devices.end();
                         it++)
                 {
                     std::string current_device = it->as<Nodecl::Text>().get_text();
-                    _outline_info.add_device_name(current_device,_outline_info.get_funct_symbol());
+                    _outline_info.add_device_name(current_device, _outline_info.get_funct_symbol());
                 }
                 walk(target.get_items());
             }
@@ -820,7 +825,7 @@ namespace TL { namespace Nanox {
 
     OutlineInfo::OutlineInfo() : _data_env_items() { }
 
-    OutlineInfo::~OutlineInfo() 
+    OutlineInfo::~OutlineInfo()
     {
         for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
@@ -830,20 +835,37 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol)
-        : _data_env_items()
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+        : _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         if (!environment.is_null())
         {
             sc = environment.retrieve_context();
         }
-        //Add one targetInfo, main task
-        TargetInformation ti;
-        _implementation_table.insert(std::make_pair(funct_symbol, ti));
-        _funct_symbol=funct_symbol;
+
+        if (funct_symbol.is_valid())
+        {
+            //Add one targetInfo, main task
+            TargetInformation ti;
+            ti.set_outline_name(get_outline_name(funct_symbol));
+            _implementation_table.insert(std::make_pair(funct_symbol, ti));
+
+            _funct_symbol = funct_symbol;
+        }
+
         OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
+    }
+
+    ObjectList<OutlineDataItem*> OutlineInfo::get_data_items()
+    {
+        return _data_env_items;
+    }
+
+    TL::Symbol OutlineInfo::get_funct_symbol() const
+    {
+        return _funct_symbol;
     }
 
     OutlineDataItem& OutlineInfo::prepend_field(TL::Symbol sym)
@@ -899,64 +921,124 @@ namespace TL { namespace Nanox {
 
     void OutlineInfo::add_device_name(std::string device_name,TL::Symbol function_symbol)
     {
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
-       _implementation_table[function_symbol].add_device_name(device_name);   
+       ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+               "Function symbol '%s' not found in outline info implementation table",
+               function_symbol.get_name().c_str());
+
+       _implementation_table[function_symbol].add_device_name(device_name);
     }
 
     ObjectList<std::string> OutlineInfo::get_device_names(TL::Symbol function_symbol)
     {
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       return _implementation_table[function_symbol].get_device_names();   
+       ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+               "Function symbol '%s' not found in outline info implementation table",
+               function_symbol.get_name().c_str());
+
+       return _implementation_table[function_symbol].get_device_names();
+    }
+    
+    void OutlineInfo::set_file(TL::Symbol function_symbol,std::string file)
+    {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
+       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
+       _implementation_table[function_symbol].set_file(file);   
     }
 
-    void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    std::string OutlineInfo::get_file(TL::Symbol function_symbol)
     {
+       if (function_symbol==NULL) function_symbol=Symbol::invalid();
        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);       
+       return _implementation_table[function_symbol].get_file();   
+    }
+
+    void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    {
+       ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+               "Function symbol '%s' not found in outline info implementation table",
+               function_symbol.get_name().c_str());
+
+       _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);
     }
 
     ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
     {
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       return _implementation_table[function_symbol].get_ndrange();   
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        return _implementation_table[function_symbol].get_ndrange();
     }
-    
-    void OutlineInfo::append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto_exprs)
+
+    void OutlineInfo::append_to_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       _implementation_table[function_symbol].append_to_onto(onto_exprs);       
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        _implementation_table[function_symbol].append_to_onto(onto_exprs);
     }
 
     ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
     {
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       return _implementation_table[function_symbol].get_onto();   
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+       return _implementation_table[function_symbol].get_onto();
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
     {
-        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
         return _implementation_table[function_symbol].get_param_arg_map();
     }
 
     void OutlineInfo::set_param_arg_map(Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol)
     {
-        ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
         _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
     void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
     {
         //if no impl present, we add it, otherwise just add a device
-         if(_implementation_table.count(function_symbol)==0){
-             TargetInformation ti;
-             ti.add_device_name(device_name);
-             _implementation_table.insert(std::make_pair(function_symbol, ti));
-         } else {
-             add_device_name(device_name,function_symbol);
-         }
+        if(_implementation_table.count(function_symbol) == 0)
+        {
+            TargetInformation ti;
+            ti.add_device_name(device_name);
+            ti.set_outline_name(get_outline_name(function_symbol));
+            _implementation_table.insert(std::make_pair(function_symbol, ti));
+            if (_function_task_set.valid())
+            {
+                append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+                append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
+            }
+        }
+        else
+        {
+            add_device_name(device_name,function_symbol);
+        }
     }
 
+    std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
+    {
+        std::string outline_name;
+
+        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
+        std::stringstream ss;
+        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
+        outline_name = ss.str();
+
+        task_counter++;
+
+        return outline_name;
+    }
     OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;

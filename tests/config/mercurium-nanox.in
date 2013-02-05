@@ -2,12 +2,24 @@
 
 PROGRAMMING_MODEL=$1
 
+
 if [ ! "$PROGRAMMING_MODEL" = "" ];
 then
     PROGRAMMING_MODEL="--${PROGRAMMING_MODEL}"
 fi
 
 if [ -z "@NANOX_INCLUDES@" ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
+
+if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
 then
 
 cat <<EOF

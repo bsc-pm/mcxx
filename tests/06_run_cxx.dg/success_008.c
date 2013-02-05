@@ -26,45 +26,23 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-run
+</testinfo>
+*/
+#include <stdio.h>
+#include <stdlib.h>
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
-
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-
-namespace TL
+enum E
 {
-    namespace OpenMP
-    {
-        struct TargetContext
-        {
-            ObjectList<std::string> device_list;
+    A = -5,
+    B,
+};
 
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
-
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> onto;
-
-            bool has_implements;
-            Symbol implements;
-            std::string file;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(), 
-                copy_in(), 
-                copy_out(), 
-                has_implements(), 
-                implements(), 
-                copy_deps()
-            {
-            }
-        };
-    }
+int main(int argc, char* argv[])
+{
+    if (B >= 0)
+        abort();
+    return 0;
 }
-
-#endif // TL_OMP_TARGET_HPP

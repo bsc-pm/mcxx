@@ -1,7 +1,16 @@
 #!@BASH@
 
-@abs_top_builddir@/tests/config/mercurium-extensions
+
+# Restrict these tests to x86 32 bit
+if [ $(uname -m) = i686 ];
+then
+    @abs_top_builddir@/tests/config/mercurium-extensions
 
 cat<<EOF
-test_CXXFLAGS="\${test_CXXFLAGS} --disable-gxx-traits --env=linux-i386" 
+    test_CXXFLAGS="\${test_CXXFLAGS} --disable-gxx-traits --env=linux-i386"
 EOF
+
+else
+    echo "test_ignore=yes"
+    echo "test_ignore_reason=\"Only run in i686\""
+fi

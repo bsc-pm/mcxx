@@ -82,8 +82,6 @@ namespace TL { namespace Nanox {
 
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        std::string outline_name = get_outline_name(function_symbol);
-
         Source outline_source, reduction_code, reduction_initialization;
         Nodecl::NodeclBase inner_placeholder;
         outline_source
@@ -113,7 +111,9 @@ namespace TL { namespace Nanox {
                 "No information from the implementation table", 0)
 
         TL::Symbol called_task_dummy;
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), implementation_it->second,
+        TargetInformation target_info = implementation_it->second;
+        std::string outline_name = target_info.get_outline_name();
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
                 statements, /* task_label */ Nodecl::NodeclBase::null(),  structure_symbol, called_task_dummy);
 
         // List of device names

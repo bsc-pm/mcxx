@@ -1822,8 +1822,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2019,6 +2018,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
+
+    // At this point, we mark the function as defined. It must be done here to
+    // avoid the useless declaration of the function being defined and other
+    // related problems.
+    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+
     C_LANGUAGE()
     {
         bool has_ellipsis = false;
@@ -2080,8 +2085,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2184,7 +2188,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     indent();
     file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     if (!initializers.is_null())
     {
@@ -2295,9 +2298,20 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
 {
     unsigned long long int v = const_value_cast_to_8(cval);
 
+    // Since we may be representing data with too many bits, let's discard
+    // uppermost bits for unsigned values
+    if (!const_value_is_signed(cval))
+    {
+        int bits = 8 * t.get_size();
+        unsigned long long int mask = ~0ULL;
+        if (bits < 64)
+            mask <<= bits;
+        v &= ~mask;
+    }
+
     if (t.is_signed_int())
     {
-        file << (signed long long)v;
+        file << *(signed long long*)&v;
     }
     else if (t.is_unsigned_int())
     {
@@ -2305,7 +2319,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     }
     else if (t.is_signed_long_int())
     {
-        file << (signed long long)v << "L";
+        file << *(signed long long*)&v << "L";
     }
     else if (t.is_unsigned_long_int())
     {
@@ -2313,7 +2327,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     }
     else if (t.is_signed_long_long_int())
     {
-        file << (signed long long)v << "LL";
+        file << *(signed long long*)&v << "LL";
     }
     else if (t.is_unsigned_long_long_int())
     {
@@ -2324,7 +2338,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
         // Remaining integers like 'short'
         if (const_value_is_signed(cval))
         {
-            file << (signed long long)v;
+            file << *(signed long long*)&v;
         }
         else
         {
@@ -2459,7 +2473,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
     Nodecl::NodeclBase init_expr = node.get_init_expr();
-    file << entry.get_name() << "(";
+
+    if (entry.is_class())
+    {
+        // Use the qualified name, do not rely on class-scope unqualified lookup
+        file << entry.get_qualified_name() << "(";
+    }
+    else
+    {
+        // Otherwise the name must not be qualified
+        file << entry.get_name() << "(";
+    }
 
     TL::Type type = entry.get_type();
     if (entry.is_class())
@@ -5428,8 +5452,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         if (symbol.is_explicit_constructor()
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+                && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
         }

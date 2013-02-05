@@ -127,6 +127,35 @@ AC_SUBST([sqlite3_LIBS])
 
 dnl ----- End Sqlite ---------------------------
 
+dnl -- Fortran tests ---
+fortran_tests_enabled="yes"
+AC_MSG_CHECKING([if Fortran tests have been disabled])
+AC_ARG_ENABLE([fortran-tests],
+    AS_HELP_STRING([--disable-fortran-tests], [Disables all Fortran tests]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         fortran_tests_enabled="yes"
+         dnl no, they have not been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+               fortran_tests_enabled="no"
+               dnl yes, they DO have been disabled
+              AC_MSG_RESULT([yes])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
+AC_SUBST([FORTRAN_TESTS_ENABLED])
+dnl -- End Fortran tests ---
+
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
 dnl Legacy name of openmpt
@@ -257,7 +286,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
 
 NANOX_INSTRUMENTATION=""
@@ -462,6 +491,25 @@ AC_SUBST([gpu_valid])
 
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
+
+dnl --------------------- Start OpenCL support in Mercurium --------------------------------
+
+opencl_valid=no
+AC_MSG_CHECKING([if nanox has opencl enabled])
+AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
+if test x$opencl_valid = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
+   #if OpenCL+CPU, generate a profile which can compile for both devices
+   if test x$gpu_valid = xyes;
+   then
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+       COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+   fi
+fi
+
+dnl --------------------- End OpenCL support in Nanox --------------------------------
 
 dnl --------------------- OpenMP profile mode ---------------------
 
@@ -1165,6 +1213,8 @@ echo " * Fortran support : yes"
 echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
 echo "   SQLite 3 libs: " $sqlite3_LIBS
 echo ""
+echo "   Fortran tests enabled: " $fortran_tests_enabled
+echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
@@ -1182,6 +1232,7 @@ then
 fi
 
 echo "   GPU testing enabled:" $gpu_valid
+echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""

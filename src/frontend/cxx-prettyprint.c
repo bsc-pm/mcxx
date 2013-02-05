@@ -589,6 +589,11 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_CUDA_SHARED, simple_text_handler, "__shared__"),
     NODE_HANDLER(AST_CUDA_KERNEL_CALL, cuda_kernel_call_handler, NULL),
     NODE_HANDLER(AST_CUDA_KERNEL_ARGUMENTS, cuda_kernel_arguments_handler, NULL),
+    //OPENCL    
+    NODE_HANDLER(AST_OPENCL_KERNEL, simple_text_handler, "__kernel"),
+    NODE_HANDLER(AST_OPENCL_CONSTANT, simple_text_handler, "__constant"),
+    NODE_HANDLER(AST_OPENCL_GLOBAL, simple_text_handler, "__global"),
+    NODE_HANDLER(AST_OPENCL_LOCAL, simple_text_handler, "__local"),
     // IBM XL
     NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
 };

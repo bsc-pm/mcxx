@@ -127,6 +127,16 @@ static lexer_keyword_t cuda_keywords[] =
     { NULL, 0 }
 };
 
+static lexer_keyword_t opencl_keywords[] =
+{
+    {"__kernel" , OPENCL_KERNEL},
+    {"__global", OPENCL_GLOBAL},
+    {"__constant", OPENCL_CONSTANT},
+    {"__local", OPENCL_LOCAL},
+    // Sentinel
+    { NULL, 0 }
+};
+
 static lexer_keyword_t ms_builtin_types[] =
 {
     {"__int8" ,  MS_INT8},
@@ -1092,6 +1102,14 @@ type {
 "__constant__" |
 "__shared__" {
     return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
+}
+
+ /* OpenCL keywords */
+"__kernel" |
+"__local" |
+"__global" |
+"__constant" {
+    return lookup_keyword_in_table(opencl_keywords, yytext, CURRENT_CONFIGURATION->enable_opencl);
 }
 
 "__int8" |
