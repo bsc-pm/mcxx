@@ -38,6 +38,15 @@
 namespace TL { namespace Nanox {
 
 
+    void TargetInformation::set_outline_name(std::string outline_name)
+    {
+        _outline_name = outline_name;
+    }
+
+    std::string TargetInformation::get_outline_name() const
+    {
+        return _outline_name;
+    }
 
     void TargetInformation::add_device_name(std::string device_name)
     {
