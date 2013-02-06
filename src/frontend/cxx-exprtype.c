@@ -8160,7 +8160,7 @@ static char check_argument_types_of_call(
     return no_arg_is_faulty;
 }
 
-UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidates)
+static char some_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
 
@@ -8421,31 +8421,19 @@ void check_nodecl_function_call(
     }
 
     // If any in the expression list is type dependent this call is all dependent
-    char any_arg_is_dependent = 0;
+    char some_arg_is_dependent = 0;
     int i, num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
-    for (i = 0; i < num_items && !any_arg_is_dependent; i++)
+    for (i = 0; i < num_items && !some_arg_is_dependent; i++)
     {
         nodecl_t argument = list[i];
         if (nodecl_expr_is_type_dependent(argument))
         {
-            any_arg_is_dependent = 1;
+            some_arg_is_dependent = 1;
         }
     }
     free(list);
 
-    scope_entry_list_t* this_query = query_name_str(decl_context, "this");
-    scope_entry_t* this_symbol = NULL;
-
-    if (this_query != NULL)
-    {
-        this_symbol = entry_list_head(this_query);
-        if (is_dependent_type(this_symbol->type_information))
-        {
-            any_arg_is_dependent = 1;
-        }
-        entry_list_free(this_query);
-    }
 
     // // Let's check the called entity
     // //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
@@ -8453,22 +8441,27 @@ void check_nodecl_function_call(
     nodecl_t nodecl_called_name = nodecl_called;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
+        // NOTE: In this context the call is of the form f(X)
+
         char can_succeed = 1;
         // If can_succeed becomes zero, this call is not possible at all (e.g.
         // we are "calling" a typedef-name or class-name)
-        if (!any_arg_is_dependent)
+        if (!some_arg_is_dependent)
         {
             candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context, &can_succeed);
+            // Note that this lookup returns NULL candidates if a member of this class was found through normal lookup
         }
 
+        char not_using_koenig = 0;
         if (candidates == NULL && can_succeed)
         {
             // Try a plain lookup
             candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
+            not_using_koenig = 1;
         }
 
         if (candidates == NULL
-                && !any_arg_is_dependent)
+                && !some_arg_is_dependent)
         {
             if (!checking_ambiguity())
             {
@@ -8481,6 +8474,34 @@ void check_nodecl_function_call(
         }
         else if (candidates != NULL)
         {
+            if (!not_using_koenig
+                    && !some_arg_is_dependent
+                    && some_is_member_function(candidates))
+            {
+                // In this context:
+                // - We know that the call is of the form f(X)
+                // - We know that no argument is dependent
+                // - We have not used Koenig
+                // - The set of candidates is non-empty and at least one is a member
+                // (in fact if any is a member, all them should be members)
+                //
+                // When all these conditions meet we are calling 'member_of_the_curent_class(X)'
+                // so the call must behave as if 'this->member_of_the_curent_class(X)'. So we have
+                // to consider "this" as well
+                scope_entry_list_t* this_query = query_name_str(decl_context, "this");
+                scope_entry_t* this_symbol = NULL;
+
+                if (this_query != NULL)
+                {
+                    this_symbol = entry_list_head(this_query);
+                    if (is_dependent_type(this_symbol->type_information))
+                    {
+                        some_arg_is_dependent = 1;
+                    }
+                    entry_list_free(this_query);
+                }
+            }
+
             cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, &nodecl_called);
         }
     }
@@ -8500,7 +8521,7 @@ void check_nodecl_function_call(
     }
 
     if (!nodecl_is_err_expr(nodecl_called)
-            && (any_arg_is_dependent
+            && (some_arg_is_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called)
                 || nodecl_expr_is_value_dependent(nodecl_called)))
     {
@@ -8747,7 +8768,7 @@ void check_nodecl_function_call(
         }
         else 
         {
-            this_query = query_name_str(decl_context, "this");
+            scope_entry_list_t* this_query = query_name_str(decl_context, "this");
 
             if (this_query != NULL)
             {
