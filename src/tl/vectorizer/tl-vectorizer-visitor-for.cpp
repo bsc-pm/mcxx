@@ -24,9 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <climits>
-
-#include "tl-analysis-static-info.hpp"
+#include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -48,12 +46,17 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Analysis::AnalysisStaticInfo for_analysis_info(
+            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
                     Nodecl::Utils::get_enclosing_function(for_statement).get_function_code()
                         .as<Nodecl::FunctionCode>(),
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
                     Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
+
+            // Push ForStatement as scope for analysis
+            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
+            Vectorizer::_analysis_scopes->push_back(for_statement);
+
 
             // TODO: ???
             analyze_loop(for_statement);
@@ -66,7 +69,7 @@ namespace TL
             }
 
             // Vectorizing Loop Header
-            VectorizerVisitorLoopHeader visitor_loop_header(for_statement, for_analysis_info, _unroll_factor);
+            VectorizerVisitorLoopHeader visitor_loop_header(_unroll_factor);
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
@@ -74,10 +77,11 @@ namespace TL
                     _vector_length,
                     _unroll_factor,
                     _target_type,
-                    for_statement.get_statement().retrieve_context(),
-                    for_statement,
-                    for_analysis_info);
+                    for_statement.get_statement().retrieve_context());
             visitor_stmt.walk(for_statement.get_statement());
+
+            delete Vectorizer::_analysis_info;
+            delete Vectorizer::_analysis_scopes;
 
             if (_remain_iterations)
             {
@@ -119,25 +123,23 @@ namespace TL
         }
 
         VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
-                const Nodecl::ForStatement& for_statement,
-                const Analysis::AnalysisStaticInfo& for_analysis_info,
                 const unsigned int unroll_factor) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info), _unroll_factor(unroll_factor)
+            _unroll_factor(unroll_factor)
         {
         }
 
         void VectorizerVisitorLoopHeader::visit(const Nodecl::LoopControl& loop_control)
         {
             // Init
-            VectorizerVisitorLoopInit visitor_loop_init(_for_statement, _for_analysis_info);
+            VectorizerVisitorLoopInit visitor_loop_init;
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            VectorizerVisitorLoopCond visitor_loop_cond(_for_statement, _for_analysis_info, _unroll_factor);
+            VectorizerVisitorLoopCond visitor_loop_cond(_unroll_factor);
             visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
-            VectorizerVisitorLoopNext visitor_loop_next(_for_statement, _for_analysis_info, _unroll_factor);
+            VectorizerVisitorLoopNext visitor_loop_next(_unroll_factor);
             visitor_loop_next.walk(loop_control.get_next());
         }
 
@@ -151,10 +153,7 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(
-                const Nodecl::ForStatement& for_statement,
-                const Analysis::AnalysisStaticInfo& for_analysis_info) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info)
+        VectorizerVisitorLoopInit::VectorizerVisitorLoopInit(void)
         {
         }
 
@@ -190,10 +189,7 @@ namespace TL
         }
 
         VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
-                const Nodecl::ForStatement& for_statement,
-                const Analysis::AnalysisStaticInfo& for_analysis_info,
                 const unsigned int unroll_factor) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info),
             _unroll_factor(unroll_factor)
         {
         }
@@ -229,8 +225,10 @@ namespace TL
             Nodecl::NodeclBase lhs = condition.get_lhs();
             Nodecl::NodeclBase rhs = condition.get_rhs();
 
-            bool lhs_const_flag = _for_analysis_info.is_constant(_for_statement, lhs);
-            bool rhs_const_flag = _for_analysis_info.is_constant(_for_statement, rhs);
+            bool lhs_const_flag = Vectorizer::_analysis_info->is_constant(
+                    Vectorizer::_analysis_scopes->back(), lhs);
+            bool rhs_const_flag = Vectorizer::_analysis_info->is_constant(
+                    Vectorizer::_analysis_scopes->back(), rhs);
 
             if (!lhs_const_flag && rhs_const_flag)
             {
@@ -241,10 +239,14 @@ namespace TL
                 Nodecl::NodeclBase step;
                 Nodecl::ParenthesizedExpression new_step;
 
-                if (_for_analysis_info.is_induction_variable(_for_statement, lhs))
+                if (Vectorizer::_analysis_info->is_induction_variable(
+                            Vectorizer::_analysis_scopes->back(),
+                            lhs))
                 {
                     step = const_value_to_nodecl(
-                        _for_analysis_info.get_induction_variable_increment(_for_statement, lhs));
+                        Vectorizer::_analysis_info->get_induction_variable_increment(
+                            Vectorizer::_analysis_scopes->back(),
+                            lhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -309,10 +311,14 @@ namespace TL
                 Nodecl::NodeclBase step;
                 Nodecl::ParenthesizedExpression new_step;
 
-                if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
+                if (Vectorizer::_analysis_info->is_induction_variable(
+                            Vectorizer::_analysis_scopes->back(),
+                            rhs))
                 {
                     step = const_value_to_nodecl(
-                        _for_analysis_info.get_induction_variable_increment(_for_statement, rhs));
+                        Vectorizer::_analysis_info->get_induction_variable_increment(
+                            Vectorizer::_analysis_scopes->back(),
+                            rhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -391,10 +397,7 @@ namespace TL
         }
 
         VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
-                const Nodecl::ForStatement& for_statement,
-                const Analysis::AnalysisStaticInfo& for_analysis_info,
                 const unsigned int unroll_factor) :
-            _for_statement(for_statement), _for_analysis_info(for_analysis_info),
             _unroll_factor(unroll_factor)
         {
         }
@@ -403,14 +406,18 @@ namespace TL
         {
             const Nodecl::NodeclBase rhs = node.get_rhs();
 
-            if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
+            if (Vectorizer::_analysis_info->is_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        rhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             rhs.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 node.get_type(),
-                                _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
+                                Vectorizer::_analysis_info->get_induction_variable_increment(
+                                    Vectorizer::_analysis_scopes->back(),
+                                    rhs),
                                 node.get_filename(),
                                 node.get_line()),
                             node.get_type(),
@@ -424,7 +431,9 @@ namespace TL
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
             const Nodecl::NodeclBase rhs = node.get_rhs();
-            if (_for_analysis_info.is_induction_variable(_for_statement, rhs))
+            if (Vectorizer::_analysis_info->is_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        rhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
@@ -437,7 +446,9 @@ namespace TL
                                     node.get_line()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
-                                    _for_analysis_info.get_induction_variable_increment(_for_statement, rhs),
+                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                        Vectorizer::_analysis_scopes->back(),
+                                        rhs),
                                     node.get_filename(),
                                     node.get_line()),
                                 node.get_type(),
@@ -455,7 +466,9 @@ namespace TL
         {
             const Nodecl::NodeclBase lhs = node.get_lhs();
 
-            if (_for_analysis_info.is_induction_variable(_for_statement, lhs))
+            if (Vectorizer::_analysis_info->is_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        lhs))
             {
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
@@ -468,7 +481,9 @@ namespace TL
                                     node.get_line()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
-                                    _for_analysis_info.get_induction_variable_increment(_for_statement, lhs),
+                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                        Vectorizer::_analysis_scopes->back(),
+                                        lhs),
                                     node.get_filename(),
                                     node.get_line()),
                                 node.get_type(),

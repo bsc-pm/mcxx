@@ -36,12 +36,9 @@ namespace TL
                 const unsigned int vector_length,
                 const unsigned int unroll_factor,
                 const TL::Type& target_type,
-                const TL::Scope& simd_inner_scope,
-                const Nodecl::NodeclBase& simd_statement,
-                const Analysis::AnalysisStaticInfo& analysis_info) :
+                const TL::Scope& simd_inner_scope) :
             _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor),
-            _target_type(target_type), _simd_inner_scope(simd_inner_scope), 
-            _simd_statement(simd_statement), _analysis_info(analysis_info)
+            _target_type(target_type), _simd_inner_scope(simd_inner_scope)
         {
         }
 
@@ -254,7 +251,9 @@ namespace TL
             if(lhs.is<Nodecl::ArraySubscript>())
             {
                 // Vector Store
-                if(_analysis_info.is_adjacent_access(_simd_statement, lhs))
+                if(Vectorizer::_analysis_info->is_adjacent_access(
+                            Vectorizer::_analysis_scopes->back(),
+                            lhs))
                 {
                     TL::Type basic_type = lhs.get_type();
                     if (basic_type.is_lvalue_reference())
@@ -432,7 +431,9 @@ namespace TL
             }
 
             // Vector Load
-            if (_analysis_info.is_adjacent_access(_simd_statement, n))
+            if (Vectorizer::_analysis_info->is_adjacent_access(
+                        Vectorizer::_analysis_scopes->back(),
+                        n))
             {
                 const Nodecl::VectorLoad vector_load =
                     Nodecl::VectorLoad::make(
@@ -526,14 +527,19 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
+
             // Vectorize BASIC induction variable
-            if (_analysis_info.is_basic_induction_variable(_simd_statement, n))
+            if (Vectorizer::_analysis_info->is_basic_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        n))
             {
                 std::cerr << "IV: " << n.prettyprint();
                 //TODO: Offset
             }
             // Vectorize constants
-            else if (_analysis_info.is_constant(_simd_statement, n))
+            else if (Vectorizer::_analysis_info->is_constant(
+                        Vectorizer::_analysis_scopes->back(),
+                        n))
             {
                 TL::Type sym_type = n.get_symbol().get_type();
 

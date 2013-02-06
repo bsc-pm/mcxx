@@ -33,7 +33,11 @@ namespace TL
 {
     namespace Vectorization
     {
-        Vectorizer* Vectorizer::_vectorizer = 0;
+        Vectorizer *Vectorizer::_vectorizer = 0;
+        
+        Analysis::AnalysisStaticInfo *Vectorizer::_analysis_info = 0;
+        std::list<Nodecl::NodeclBase> *Vectorizer::_analysis_scopes = 0;
+        
         FunctionVersioning Vectorizer::_function_versioning;
 
         Vectorizer& Vectorizer::getVectorizer()

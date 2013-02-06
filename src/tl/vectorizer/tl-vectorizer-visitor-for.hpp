@@ -29,7 +29,6 @@
 #define TL_VECTORIZER_VISITOR_FOR_HPP
 
 #include "tl-nodecl-visitor.hpp"
-#include "tl-analysis-static-info.hpp"
 
 namespace TL
 {
@@ -61,14 +60,10 @@ namespace TL
         class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const Nodecl::ForStatement& _for_statement;
-                const Analysis::AnalysisStaticInfo& _for_analysis_info;
                 const unsigned int _unroll_factor;
 
             public:
-                VectorizerVisitorLoopHeader(const Nodecl::ForStatement& for_statement,
-                        const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int unroll_factor);
+                VectorizerVisitorLoopHeader(const unsigned int unroll_factor);
 
                 void visit(const Nodecl::LoopControl& loop_header);
 
@@ -77,13 +72,8 @@ namespace TL
 
         class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
         {
-            private:
-                const Nodecl::ForStatement& _for_statement;
-                const Analysis::AnalysisStaticInfo& _for_analysis_info;
-
             public:
-                VectorizerVisitorLoopInit(const Nodecl::ForStatement& for_statement,
-                        const Analysis::AnalysisStaticInfo& for_analysis_info);
+                VectorizerVisitorLoopInit(void);
 
                 void visit(const Nodecl::ObjectInit& node);
                 void visit(const Nodecl::Assignment& node);
@@ -95,14 +85,10 @@ namespace TL
         class VectorizerVisitorLoopCond : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const Nodecl::ForStatement& _for_statement;
-                const Analysis::AnalysisStaticInfo& _for_analysis_info;
                 const unsigned int _unroll_factor;
 
             public:
-                VectorizerVisitorLoopCond(const Nodecl::ForStatement& for_statement,
-                        const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int unroll_factor);
+                VectorizerVisitorLoopCond(const unsigned int unroll_factor);
 
                 void visit(const Nodecl::Equal& node);
                 void visit(const Nodecl::LowerThan& node);
@@ -117,14 +103,10 @@ namespace TL
         class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const Nodecl::ForStatement& _for_statement;
-                const Analysis::AnalysisStaticInfo& _for_analysis_info;
                 const unsigned int _unroll_factor;
 
             public:
-                VectorizerVisitorLoopNext(const Nodecl::ForStatement& for_statement,
-                        const Analysis::AnalysisStaticInfo& for_analysis_info,
-                        const unsigned int unroll_factor);
+                VectorizerVisitorLoopNext(const unsigned int unroll_factor);
 
                 void visit(const Nodecl::Comma& node);
                 void visit(const Nodecl::Preincrement& node);

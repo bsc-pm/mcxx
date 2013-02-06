@@ -27,6 +27,10 @@
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 
+
+
+#include "tl-vectorizer.hpp"
+
 namespace TL 
 {
     namespace Vectorization
@@ -36,11 +40,9 @@ namespace TL
                 const unsigned int vector_length,
                 const unsigned int unroll_factor,
                 const TL::Type& target_type,
-                const TL::Scope& simd_inner_scope,
-                const Nodecl::NodeclBase& simd_statement,
-                const Analysis::AnalysisStaticInfo& analysis_info) : 
-            _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor), _target_type(target_type),
-            _simd_inner_scope(simd_inner_scope), _simd_statement(simd_statement), _analysis_info(analysis_info)
+                const TL::Scope& simd_inner_scope) : 
+            _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor), 
+            _target_type(target_type), _simd_inner_scope(simd_inner_scope)
         {
         }
 
@@ -63,8 +65,7 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
             VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _unroll_factor, _target_type, 
-                    _simd_inner_scope, _simd_statement, _analysis_info);
+                    _device, _vector_length, _unroll_factor, _target_type, _simd_inner_scope);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -82,8 +83,8 @@ namespace TL
                 if(!init.is_null())
                 {
                     VectorizerVisitorExpression visitor_expression(
-                            _device, _vector_length, _unroll_factor, _target_type, _simd_inner_scope,
-                            _simd_statement, _analysis_info);
+                            _device, _vector_length, _unroll_factor, _target_type, 
+                            _simd_inner_scope);
                     visitor_expression.walk(init);
                 }
             }
@@ -93,8 +94,7 @@ namespace TL
         {
             VectorizerVisitorExpression visitor_expression(
                     _device, _vector_length, _unroll_factor,
-                    _target_type, _simd_inner_scope,
-                    _simd_statement, _analysis_info);
+                    _target_type, _simd_inner_scope);
             visitor_expression.walk(n.get_value());
         }
 

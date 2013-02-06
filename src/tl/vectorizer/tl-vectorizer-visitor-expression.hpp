@@ -44,9 +44,6 @@ namespace TL
 
                 const TL::Scope& _simd_inner_scope;
 
-                const Nodecl::NodeclBase& _simd_statement;
-                const Analysis::AnalysisStaticInfo& _analysis_info;
-
                 bool is_declared_in_scope(const scope_t *const target_scope , 
                         const scope_t *const symbol_scope) const;
 
@@ -55,9 +52,7 @@ namespace TL
                         const unsigned int vector_length,
                         const unsigned int unroll_factor,
                         const TL::Type& target_type,
-                        const TL::Scope& simd_inner_scope,
-                        const Nodecl::NodeclBase& simd_statement,
-                        const Analysis::AnalysisStaticInfo& analysis_info);
+                        const TL::Scope& simd_inner_scope);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
