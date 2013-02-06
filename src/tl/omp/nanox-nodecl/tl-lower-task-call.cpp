@@ -796,7 +796,7 @@ static void handle_save_expressions(decl_context_t function_context,
         struct params
         {
             Nodecl::NodeclBase& tree;
-            params(Nodecl::NodeclBase& t) : tree(t) { }
+            params(Nodecl::NodeclBase& tree_params) : tree(tree_params) { }
         } args[2] = { lower, upper };
 
         for (int i = 0; i < 2; i++)
