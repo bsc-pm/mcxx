@@ -713,14 +713,14 @@ namespace TL
                 struct Wrap
                 {
                     static void into_section(
-                            Nodecl::NodeclBase& current_pragma, 
-                            Nodecl::NodeclBase& current_statement, 
-                            TL::ObjectList<Nodecl::NodeclBase>& section_seq,
-                            Nodecl::NodeclBase& construct)
+                            Nodecl::NodeclBase& current_pragma_wrap, 
+                            Nodecl::NodeclBase& current_statement_wrap, 
+                            TL::ObjectList<Nodecl::NodeclBase>& section_seq_wrap,
+                            Nodecl::NodeclBase& construct_wrap)
                     {
                         // We will build a #pragma omp section
                         Nodecl::NodeclBase pragma_line;
-                        if (current_pragma.is_null())
+                        if (current_pragma_wrap.is_null())
                         {
                             // There is none, craft one here
                             pragma_line = Nodecl::PragmaCustomLine::make(
@@ -728,24 +728,24 @@ namespace TL
                                     Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
                                     "section",
-                                    construct.get_filename(),
-                                    construct.get_line());
+                                    construct_wrap.get_filename(),
+                                    construct_wrap.get_line());
                         }
                         else
                         {
-                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line().shallow_copy();
+                            pragma_line = current_pragma_wrap.as<Nodecl::PragmaCustomDirective>().get_pragma_line().shallow_copy();
                         }
 
                         TL::ObjectList<Nodecl::NodeclBase> singleton_list;
-                        singleton_list.append(current_statement);
+                        singleton_list.append(current_statement_wrap);
 
                         Nodecl::NodeclBase pragma_construct = Nodecl::PragmaCustomStatement::make(
                                 pragma_line,
                                 Nodecl::List::make(singleton_list), 
                                 "omp",
-                                construct.get_filename(),
-                                construct.get_line());
-                        section_seq.append(pragma_construct);
+                                construct_wrap.get_filename(),
+                                construct_wrap.get_line());
+                        section_seq_wrap.append(pragma_construct);
                     }
                 };
 
@@ -802,15 +802,15 @@ namespace TL
 
                 struct Wrap
                 {
-                    static void into_section(Nodecl::NodeclBase& current_pragma,
-                            TL::ObjectList<Nodecl::NodeclBase>& statement_set,
-                            TL::ObjectList<Nodecl::NodeclBase>& section_seq,
-                            Nodecl::NodeclBase& construct)
+                    static void into_section(Nodecl::NodeclBase& current_pragma_wrap,
+                            TL::ObjectList<Nodecl::NodeclBase>& statement_set_wrap,
+                            TL::ObjectList<Nodecl::NodeclBase>& section_seq_wrap,
+                            Nodecl::NodeclBase& construct_wrap)
                     {
                         Nodecl::NodeclBase pragma_line;
-                        if (!current_pragma.is_null())
+                        if (!current_pragma_wrap.is_null())
                         {
-                            pragma_line = current_pragma.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
+                            pragma_line = current_pragma_wrap.as<Nodecl::PragmaCustomDirective>().get_pragma_line();
                         }
                         else
                         {
@@ -820,19 +820,19 @@ namespace TL
                                     Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
                                     "section",
-                                    construct.get_filename(),
-                                    construct.get_line());
+                                    construct_wrap.get_filename(),
+                                    construct_wrap.get_line());
                         }
 
                         Nodecl::NodeclBase pragma_construct = Nodecl::PragmaCustomStatement::make(
                                 pragma_line,
-                                Nodecl::List::make(statement_set), 
+                                Nodecl::List::make(statement_set_wrap), 
                                 "omp",
-                                construct.get_filename(),
-                                construct.get_line());
-                        section_seq.append(pragma_construct);
+                                construct_wrap.get_filename(),
+                                construct_wrap.get_line());
+                        section_seq_wrap.append(pragma_construct);
 
-                        statement_set.clear();
+                        statement_set_wrap.clear();
                     }
                 };
 

@@ -1822,8 +1822,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2019,6 +2018,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
+
+    // At this point, we mark the function as defined. It must be done here to
+    // avoid the useless declaration of the function being defined and other
+    // related problems.
+    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
+
     C_LANGUAGE()
     {
         bool has_ellipsis = false;
@@ -2080,8 +2085,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     if (symbol.is_explicit_constructor()
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-            && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+            && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "explicit ";
     }
@@ -2184,7 +2188,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     indent();
     file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     if (!initializers.is_null())
     {
@@ -5449,8 +5452,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         if (symbol.is_explicit_constructor()
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED
-                && get_codegen_status(symbol) != CODEGEN_STATUS_DECLARED)
+                && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
         }

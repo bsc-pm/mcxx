@@ -1,0 +1,20 @@
+# nvcc (CUDA)
+[mmpicc : omp-base]
+language = C
+preprocessor_name = mpiicc
+preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h
+compiler_name = mpiicc
+compiler_options=  -mt_mpi
+linker_name = mpiicc
+linker_options = -mt_mpi
+compiler_phase = libtlnanox-mpi.so
+
+[mmpicxx : omp-base]
+language = C++
+preprocessor_name = mpiicpc
+preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h
+compiler_name = mpiicpc
+compiler_options=  -mt_mpi
+linker_name = mpiicpc
+linker_options = -mt_mpi
+compiler_phase = libtlnanox-mpi.so

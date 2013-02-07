@@ -33,6 +33,8 @@ config_edit = \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
      -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
      -e 's|@SIMD_INCLUDES[@]|$(SIMD_INCLUDES)|g' \
+     -e 's|@MPICC[@]|$(MPICC)|g' \
+     -e 's|@MPICXX[@]|$(MPICXX)|g' \
     $(END)
 
 # Cross compiler profile names

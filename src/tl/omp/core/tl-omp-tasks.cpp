@@ -148,6 +148,15 @@ namespace TL
             return _device_list;
         }
         
+        void TargetInfo::set_file(std::string filename)
+        {
+            _file=filename;
+        }
+        
+        std::string TargetInfo::get_file() const{
+            return _file;
+        }
+        
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
             _target_symbol=funct_symbol;
@@ -568,6 +577,74 @@ namespace TL
                     expression_list.end());
         }
 
+        // This visitor constructs a set with all the symbols of the tree
+        class GetAllSymbolsVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                std::set<TL::Symbol> _symbols;
+
+            public:
+                GetAllSymbolsVisitor() {}
+
+                void visit(const Nodecl::Symbol& node)
+                {
+                    _symbols.insert(node.get_symbol());
+                }
+
+                const std::set<TL::Symbol>& get_all_symbols()
+                {
+                    return _symbols;
+                }
+        };
+
+        // We should update the clauses of the function task because They may be
+        // written in terms of the function declaration. Example:
+        //
+        //  #pragma omp task input([10]a)
+        //  void foo(int* a);
+        //
+        //  void foo(int* c) { }
+        //
+        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses, Symbol function_symbol)
+        {
+            ObjectList<Nodecl::NodeclBase> updated_clauses;
+            ObjectList<Symbol> function_parameters = function_symbol.get_function_parameters();
+
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = clauses.begin();
+                    it != clauses.end();
+                    ++it)
+            {
+               Nodecl::NodeclBase current_clause = *it;
+
+                GetAllSymbolsVisitor visitor;
+                visitor.walk(current_clause);
+
+                Nodecl::Utils::SimpleSymbolMap symbol_map;
+                const std::set<TL::Symbol>& used_symbols = visitor.get_all_symbols();
+                for (std::set<TL::Symbol>::const_iterator it2 = used_symbols.begin();
+                        it2 != used_symbols.end();
+                        ++it2)
+                {
+                    TL::Symbol current_symbol = *it2;
+                    if (current_symbol.is_parameter()
+                            && current_symbol.is_parameter_of(function_symbol))
+                    {
+                        int param_position = current_symbol.get_parameter_position();
+                        symbol_map.add_map(current_symbol, function_parameters[param_position]);
+                    }
+                }
+
+                Nodecl::NodeclBase update_current_clause = Nodecl::Utils::deep_copy(
+                        current_clause,
+                        function_symbol.get_scope(),
+                        symbol_map);
+
+                updated_clauses.insert(update_current_clause);
+
+            }
+            return updated_clauses;
+        }
+
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
             Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
@@ -610,20 +687,22 @@ namespace TL
                 }
             }
 
-            PragmaCustomClause input_clause = pragma_line.get_clause("in", 
+            PragmaCustomClause input_clause = pragma_line.get_clause("in",
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
             if (input_clause.is_defined())
             {
                 input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
+                input_arguments = update_clauses(input_arguments, function_sym);
             }
 
-            PragmaCustomClause output_clause = pragma_line.get_clause("out", 
+            PragmaCustomClause output_clause = pragma_line.get_clause("out",
                     /* deprecated name */ "output");
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
                 output_arguments = output_clause.get_arguments_as_expressions(param_ref_tree);
+                output_arguments = update_clauses(output_arguments, function_sym);
             }
 
             PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
@@ -631,6 +710,7 @@ namespace TL
             if (inout_clause.is_defined())
             {
                 inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
+                inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
             PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
@@ -638,6 +718,7 @@ namespace TL
             if (concurrent_clause.is_defined())
             {
                 concurrent_arguments = concurrent_clause.get_arguments_as_expressions(param_ref_tree);
+                concurrent_arguments = update_clauses(concurrent_arguments, function_sym);
             }
 
             PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
@@ -645,6 +726,7 @@ namespace TL
             if (commutative_clause.is_defined())
             {
                 commutative_arguments = commutative_clause.get_arguments_as_expressions(param_ref_tree);
+                commutative_arguments = update_clauses(commutative_arguments, function_sym);
             }
 
             if (!function_sym.is_function())
@@ -697,9 +779,9 @@ namespace TL
                 target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
 
-                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = target_context.copy_in;
-                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = target_context.copy_out;
-                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = target_context.copy_inout;
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = update_clauses(target_context.copy_in, function_sym);
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = update_clauses(target_context.copy_out, function_sym);
+                TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = update_clauses(target_context.copy_inout, function_sym);
 
                 if (target_context.copy_deps)
                 {
@@ -721,6 +803,7 @@ namespace TL
                             COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
 
+                target_info.set_file(target_context.file);
                 target_info.append_to_ndrange(target_context.ndrange);
                 target_info.append_to_onto(target_context.onto);
 

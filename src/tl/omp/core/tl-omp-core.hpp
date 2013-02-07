@@ -143,6 +143,8 @@ namespace TL
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
 
+                ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+                           TL::Symbol function_symbol);
             public:
                 Core();
 

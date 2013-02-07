@@ -286,7 +286,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
 
 NANOX_INSTRUMENTATION=""
@@ -566,6 +566,25 @@ COMPILER_NAMES="${COMPILER_NAMES} fpgacc"
 dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
 
 
+dnl --------------------- Start OpenCL support in Mercurium --------------------------------
+
+opencl_valid=no
+AC_MSG_CHECKING([if nanox has opencl enabled])
+AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
+if test x$opencl_valid = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
+   #if OpenCL+CPU, generate a profile which can compile for both devices
+   if test x$gpu_valid = xyes;
+   then
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+       COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+   fi
+fi
+
+dnl --------------------- End OpenCL support in Nanox --------------------------------
+
 dnl --------------------- OpenMP profile mode ---------------------
 
 is_enabled_tl_omp_profile="no"
@@ -593,6 +612,104 @@ AC_ARG_ENABLE([tl-openmp-profile],
   ]
 )
 
+dnl -- Extra compilers ---
+disable_xlc=no
+AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
+AC_ARG_ENABLE([xlc],
+  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_xlf=no
+AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
+AC_ARG_ENABLE([xlf],
+  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlf="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlf="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlf="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_icc=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([icc],
+  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_icc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_icc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_icc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_ifort=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([ifort],
+  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_ifort="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_ifort="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_ifort="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
@@ -607,59 +724,70 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   dnl Check Intel Compiler C
-   AC_PATH_PROG([ICC], [icc], [])
-   if test x$ICC != x;
+   if test x$disable_ifort = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      dnl Check Intel Compiler C
+      AC_PATH_PROG([ICC], [icc], [])
+      if test x$ICC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      fi
+
+      dnl Check Intel Compiler C++
+      AC_PATH_PROG([ICPC], [icpc], [])
+      if test x$ICPC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+      fi
+
+      if test x$ICC != x -o x$ICPC != x;
+      then
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
+      fi
    fi
 
-   dnl Check Intel Compiler C++
-   AC_PATH_PROG([ICPC], [icpc], [])
-   if test x$ICPC != x;
+   if test x$disable_xlc = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-   fi
+      dnl XL (gcc driver)
+      AC_PATH_PROG([GXLC], [gxlc], [])
+      if test x$GXLC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+      fi
 
-   if test x$ICC != x -o x$ICPC != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
-   fi
+      dnl XL (g++ driver)
+      AC_PATH_PROG([GXLCXX], [gxlc++], [])
+      if test x$GXLCXX != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+      fi
 
-   dnl XL (gcc driver)
-   AC_PATH_PROG([GXLC], [gxlc], [])
-   if test x$GXLC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-   fi
-
-   dnl XL (g++ driver)
-   AC_PATH_PROG([GXLCXX], [gxlc++], [])
-   if test x$GXLCXX != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-   fi
-
-
-   if test x$GXLC != x -o x$GXLCXX != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+      if test x$GXLC != x -o x$GXLCXX != x;
+      then
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+      fi
    fi
 
    dnl Check Intel Fortran
-   AC_PATH_PROG([IFORT], [ifort], [])
-   if test x$IFORT != x;
+   if test x$disable_ifort = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+      AC_PATH_PROG([IFORT], [ifort], [])
+      if test x$IFORT != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+      fi
    fi
 
    dnl IBM Fortran
-   AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
-   if test x$XLF != x;
+   if test x$disable_xlf = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+       AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+       if test x$XLF != x;
+       then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+       fi
    fi
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
@@ -1287,6 +1415,7 @@ then
 fi
 
 echo "   GPU testing enabled:" $gpu_valid
+echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""

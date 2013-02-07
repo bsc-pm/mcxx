@@ -458,6 +458,15 @@ typedef struct compilation_configuration_tag
 
     // Enable CUDA
     char enable_cuda;
+    
+    // Enable OPENCL
+    char enable_opencl;
+    
+    //OpenCL Build options
+    const char* opencl_build_options;
+        
+    //OpenCL File options
+    const char* opencl_code_file;
 
     // Target options
     int num_target_option_maps;

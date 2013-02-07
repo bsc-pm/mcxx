@@ -340,6 +340,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/
 /*!include cxx-cuda.y*/
+/*!include cxx-opencl.y*/
 /*!include cxx-xl.y*/
 /*!include cxx-ms.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
@@ -2513,6 +2514,7 @@ string_literal : STRING_LITERAL
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/
 /*!include cxx-cuda.y*/
+/*!include cxx-opencl.y*/
 /*!include cxx-xl.y*/
 /*!include cxx-ms.y*/
 /*!undefine GRAMMAR_RULES*/

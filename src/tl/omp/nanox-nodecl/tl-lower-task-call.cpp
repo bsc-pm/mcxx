@@ -383,7 +383,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    OutlineInfo parameters_outline_info(parameters_environment, called_sym);
+    OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
@@ -405,6 +405,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 arguments_outline_info.add_implementation(*it2, it->first);
                 arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
                 arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
+                arguments_outline_info.set_file(it->first,it->second.get_file());
         }
     }
 
@@ -795,7 +796,7 @@ static void handle_save_expressions(decl_context_t function_context,
         struct params
         {
             Nodecl::NodeclBase& tree;
-            params(Nodecl::NodeclBase& t) : tree(t) { }
+            params(Nodecl::NodeclBase& tree_params) : tree(tree_params) { }
         } args[2] = { lower, upper };
 
         for (int i = 0; i < 2; i++)
@@ -1111,7 +1112,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function);
+    OutlineInfo new_outline_info(new_environment, called_task_function,_function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
