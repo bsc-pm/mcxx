@@ -10556,6 +10556,53 @@ char type_is_runtime_sized(type_t* t)
     return 0;
 }
 
+char type_depends_on_nonconstant_values(type_t* t)
+{
+    // This function is only valid in C but we could relax it a bit for C++
+    CXX_LANGUAGE()
+    {
+        // No type is runtime sized in C++ actually, at least no VLAs since it
+        // would break all template stuff
+        return 0;
+    }
+
+    if (is_array_type(t))
+    {
+        return array_type_is_vla(t);
+    }
+    else if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* member = entry_list_iterator_current(it);
+
+            if (type_depends_on_nonconstant_values(member->type_information))
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
+                return 1;
+            }
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
+    }
+    else if (is_any_reference_type(t))
+    {
+        return type_depends_on_nonconstant_values(get_lvalue_reference_type(t));
+    }
+    else if (is_pointer_type(t))
+    {
+        return type_depends_on_nonconstant_values(pointer_type_get_pointee_type(t));
+    }
+
+    return 0;
+}
+
 _size_t type_get_size(type_t* t)
 {
     ERROR_CONDITION(CURRENT_CONFIGURATION->type_environment == NULL,

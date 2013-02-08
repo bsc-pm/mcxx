@@ -55,6 +55,7 @@ LIBMCXX_EXTERN char standard_conversion_between_types(standard_conversion_t *res
 LIBMCXX_EXTERN char type_is_runtime_sized(type_t* t);
 LIBMCXX_EXTERN _size_t type_get_size(type_t*);
 LIBMCXX_EXTERN _size_t type_get_alignment(type_t*);
+LIBMCXX_EXTERN char type_depends_on_nonconstant_values(type_t* t);
 
 /* Type constructors: Builtins */
 LIBMCXX_EXTERN type_t* get_signed_byte_type(void);
