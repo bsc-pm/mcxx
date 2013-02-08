@@ -509,14 +509,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         {
             // We need to declare explicitly this object in C++ and initialize it properly
             initializations_src
-                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_symbol))
-                ;
+                << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_symbol));
         }
         else if (IS_C_LANGUAGE)
         {
             initializations_src
-                << as_statement(Nodecl::ObjectInit::make(new_symbol))
-                ;
+                << as_statement(Nodecl::ObjectInit::make(new_symbol));
         }
 
         if (parameter.get_type().is_class() && IS_CXX_LANGUAGE)
@@ -546,18 +544,19 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         {
             outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
         }
-        param_to_args_map.add_map(parameter,new_symbol);
+
+        param_to_args_map.add_map(parameter, new_symbol);
     }
 
-    //Add this map to target information, so DeviceProviders can translate 
+    //Add this map to target information, so DeviceProviders can translate
     //Clauses in case it's needed, now we only add the same for every task, but in a future?
-    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();    
+    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();
     for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
             it != args_implementation_table.end();
-            ++it) {
-       arguments_outline_info.set_param_arg_map(param_to_args_map,it->first);
+            ++it)
+    {
+       arguments_outline_info.set_param_arg_map(param_to_args_map, it->first);
     }
-    
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
@@ -571,11 +570,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             it++)
     {
         ERROR_CONDITION(param_sym_to_arg_sym.find(it->first) == param_sym_to_arg_sym.end(), "Symbol not found", 0);
-
         TL::Symbol &new_symbol = param_sym_to_arg_sym[it->first];
-
         OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
-
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
         copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
     }

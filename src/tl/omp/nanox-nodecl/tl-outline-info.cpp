@@ -738,9 +738,9 @@ namespace TL { namespace Nanox {
             {
                 _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
-            
-            void visit(const Nodecl::OpenMP::File& file)   
-            { 
+
+            void visit(const Nodecl::OpenMP::File& file)
+            {
                 _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(),file.get_filename().get_text());
             }
 

@@ -341,7 +341,6 @@ namespace TL { namespace Nanox {
             {
                 name = (*it)->get_field_name();
             }
-
             bool already_mapped = false;
 
             switch ((*it)->get_sharing())
@@ -370,6 +369,7 @@ namespace TL { namespace Nanox {
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 name.c_str());
+
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
@@ -1077,8 +1077,7 @@ namespace TL { namespace Nanox {
             {
                 scope_entry_t* new_used_modules_info
                     = get_or_create_used_modules_symbol_info(decl_context);
-                int i;
-                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                for (int i = 0; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
                 {
                     P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
                             new_used_modules_info->entity_specs.num_related_symbols,
@@ -1176,8 +1175,7 @@ namespace TL { namespace Nanox {
             {
                 scope_entry_t* new_used_modules_info
                     = get_or_create_used_modules_symbol_info(decl_context);
-                int i;
-                for (i = 0 ; i< original_used_modules_info->entity_specs.num_related_symbols; i++)
+                for (int i = 0 ; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
                 {
                     P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
                             new_used_modules_info->entity_specs.num_related_symbols,
