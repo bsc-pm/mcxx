@@ -310,7 +310,8 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, vla_private_symbols;
+        TL::ObjectList<TL::Type> update_vla_types;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
         TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -386,10 +387,63 @@ namespace TL { namespace Nanox {
                             }
                         }
 
-                        private_sym->entity_specs.is_allocatable = 
+                        bool found = false;
+                        Type sym_type = (*it)->get_symbol().get_type();
+                        while (!found
+                                && (sym_type.is_array() || sym_type.is_pointer()))
+                        {
+                            if (sym_type.is_array())
+                            {
+                                Nodecl::NodeclBase array_size = sym_type.array_get_size();
+
+                                if (array_size.is<Nodecl::Symbol>()
+                                        && array_size.get_symbol().is_saved_expression())
+                                {
+                                    found = true;
+
+                                    private_sym->type_information =
+                                        TL::Type::get_void_type().get_pointer_to().get_internal_type();
+
+                                    //FIXME: This name is not completely safe
+                                    std::string vla_private_sym_name = name + "_aux";
+
+                                    scope_entry_t* vla_private_sym = ::new_symbol(
+                                            function_context, function_context.current_scope, vla_private_sym_name.c_str());
+
+                                    vla_private_sym->kind = SK_VARIABLE;
+                                    vla_private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                                    vla_private_sym->defined = vla_private_sym->entity_specs.is_user_declared = 1;
+
+                                    vla_private_sym->value = Nodecl::Cast::make(
+                                            Nodecl::Symbol::make(private_sym),
+                                            vla_private_sym->type_information,
+                                            "C", current_function.get_filename(),
+                                            current_function.get_line()).get_internal_nodecl();
+
+
+                                    if (sym.is_valid())
+                                    {
+                                        vla_private_sym->entity_specs.is_optional = sym.is_optional();
+                                        vla_private_sym->entity_specs.is_allocatable =
+                                            !sym.is_member() && sym.is_allocatable();
+
+                                        symbol_map->add_map(sym, vla_private_sym);
+                                    }
+
+                                    vla_private_symbols.append(vla_private_sym);
+                                }
+                                sym_type = sym_type.array_element();
+                            }
+                            else
+                            {
+                                sym_type = sym_type.points_to();
+                            }
+                        }
+
+                        private_sym->entity_specs.is_allocatable =
                             sym.is_allocatable() ||
-                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE) 
-                                == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                             == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
 
                         parameter_symbols.append(private_sym);
 
@@ -481,6 +535,21 @@ namespace TL { namespace Nanox {
                 type_deep_copy(it2->get_internal_symbol()->type_information,
                        function_context,
                        symbol_map->get_symbol_map());
+        }
+
+
+        // Update types of privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it2 = vla_private_symbols.begin();
+                it2 != vla_private_symbols.end();
+                it2++)
+        {
+            it2->get_internal_symbol()->type_information =
+                type_deep_copy(it2->get_internal_symbol()->type_information,
+                       function_context,
+                       symbol_map->get_symbol_map());
+
+            it2->get_internal_symbol()->value =
+                nodecl_deep_copy(it2->get_internal_symbol()->value, function_context, symbol_map->get_symbol_map());
         }
 
         // Build the function type
@@ -875,7 +944,8 @@ namespace TL { namespace Nanox {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
                             if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
+                                    && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this")
+                                    && !param_type.no_ref().depends_on_nonconstant_values())
                             {
                                 argument << "*(args." << (*it)->get_field_name() << ")";
                             }

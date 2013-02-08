@@ -372,6 +372,55 @@ static void copy_outline_data_item_c(
     dest_info.get_copies() = rewrite_copies_c(source_info.get_copies(), param_sym_to_arg_sym);
 }
 
+static void handle_nonconstant_value_dimensions(TL::Type t,
+        TL::Scope new_decl_context,
+        // Out
+        Nodecl::Utils::SimpleSymbolMap& symbol_map,
+        param_sym_to_arg_sym_t& param_sym_to_arg_sym,
+        Source& stmt_initializations)
+{
+    // For every nonconstant value dimension we should create a new variable
+    // and assign to it the value of this dimension
+    if (t.is_array())
+    {
+        handle_nonconstant_value_dimensions(t.array_element(), new_decl_context, symbol_map, param_sym_to_arg_sym, stmt_initializations);
+        Nodecl::NodeclBase array_size = t.array_get_size();
+        if (!array_size.is_null()
+                && array_size.is<Nodecl::Symbol>()
+                && array_size.get_symbol().is_saved_expression())
+        {
+            TL::Symbol old_vla_dim = array_size.as<Nodecl::Symbol>().get_symbol();
+            const char* vla_name = NULL;
+            uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
+
+            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, vla_name);
+            new_vla_dim->kind = SK_VARIABLE;
+            new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
+            new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
+            new_vla_dim->file = nodecl_get_filename(array_size.get_internal_nodecl());
+            new_vla_dim->line = nodecl_get_line(array_size.get_internal_nodecl());
+
+            param_sym_to_arg_sym[old_vla_dim] = new_vla_dim;
+
+            // It's not user declared code, but we must generate it.
+            // For this reason, we do this trick
+            new_vla_dim->entity_specs.is_user_declared = 1;
+            new_vla_dim->entity_specs.is_saved_expression = 1;
+
+            stmt_initializations << as_statement(Nodecl::ObjectInit::make(new_vla_dim));
+            symbol_map.add_map(old_vla_dim, new_vla_dim);
+        }
+    }
+    else if (t.is_pointer())
+    {
+        handle_nonconstant_value_dimensions(t.points_to(), new_decl_context, symbol_map, param_sym_to_arg_sym, stmt_initializations);
+    }
+    else if (t.is_lvalue_reference())
+    {
+        handle_nonconstant_value_dimensions(t.references_to(), new_decl_context, symbol_map, param_sym_to_arg_sym, stmt_initializations);
+    }
+}
+
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -505,6 +554,20 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
         param_sym_to_arg_sym[parameter] = new_symbol;
 
+        if (new_symbol.get_type().depends_on_nonconstant_values())
+        {
+            handle_nonconstant_value_dimensions(new_symbol.get_type(),
+                    new_block_context_sc, param_to_args_map, param_sym_to_arg_sym, initializations_src);
+
+            // The 'param_to_args_map' may be updated. For this reason, we should
+            // update the type using the new symbols of the nonconstant value
+            // dimensions.
+            new_symbol.get_internal_symbol()->type_information =
+                type_deep_copy(new_symbol.get_internal_symbol()->type_information,
+                        new_block_context_sc.get_decl_context(),
+                        param_to_args_map.get_symbol_map());
+        }
+
         if (IS_CXX_LANGUAGE)
         {
             // We need to declare explicitly this object in C++ and initialize it properly
@@ -534,6 +597,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         if (!t.is_any_reference())
             t = t.get_lvalue_reference_to();
         sym_ref.set_type(t);
+
+
 
         if (parameter.get_type().is_any_reference()
                 && !parameter.get_type().is_const())

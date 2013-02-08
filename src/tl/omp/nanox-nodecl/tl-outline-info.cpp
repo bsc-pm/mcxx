@@ -250,6 +250,55 @@ namespace TL { namespace Nanox {
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item)
     {
+        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item);
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (t.is_array()
+                && outline_data_item != NULL
+                && outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+        {
+            while (t.is_array())
+            {
+                Nodecl::NodeclBase array_size = t.array_get_size();
+                if (array_size.is<Nodecl::Symbol>()
+                        && array_size.get_symbol().is_saved_expression())
+                {
+                    outline_data_item->set_allocation_policy(
+                            OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                    break;
+                }
+                t = t.array_element();
+            }
+        }
+        else
+        {
+            while (t.is_array() || t.is_pointer())
+            {
+                if (t.is_array())
+                {
+                    Nodecl::NodeclBase array_size = t.array_get_size();
+                    if (array_size.is<Nodecl::Symbol>()
+                            && array_size.get_symbol().is_saved_expression())
+                    {
+                        outline_data_item->set_field_type(
+                                TL::Type::get_void_type().get_pointer_to());
+                        break;
+                    }
+                    t = t.array_element();
+                }
+                else
+                {
+                    t = t.points_to();
+                }
+            }
+        }
+        return res;
+    }
+
+    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
+            OutlineDataItem* outline_data_item)
+    {
         if (t.is_array())
         {
             if (IS_C_LANGUAGE
@@ -261,22 +310,9 @@ namespace TL { namespace Nanox {
                         && array_size.get_symbol().is_saved_expression())
                 {
                     this->add_capture(array_size.get_symbol());
-
-                    if (outline_data_item != NULL)
-                    {
-                        if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-                        {
-                            outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
-                        }
-                        else
-                        {
-                            outline_data_item->set_field_type(TL::Type::get_void_type().get_pointer_to());
-                        }
-                    }
                 }
 
-                t = add_extra_dimensions(sym, t.array_element(), outline_data_item);
-
+                t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item);
                 return t.get_array_to(array_size, _sc);
             }
             else if (IS_FORTRAN_LANGUAGE)
@@ -421,7 +457,7 @@ namespace TL { namespace Nanox {
                     result_upper = upper;
                 }
 
-                TL::Type res = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+                TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item);
                 if (make_allocatable)
                 {
                     res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
@@ -449,12 +485,12 @@ namespace TL { namespace Nanox {
         }
         else if (t.is_pointer())
         {
-            TL::Type res = add_extra_dimensions(sym, t.points_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item);
             return res.get_pointer_to();
         }
         else if (t.is_lvalue_reference())
         {
-            TL::Type res = add_extra_dimensions(sym, t.references_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item);
             return res.get_lvalue_reference_to();
         }
         else if (t.is_function())
@@ -539,7 +575,6 @@ namespace TL { namespace Nanox {
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
-
         outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         Type t = sym.get_type();
@@ -582,6 +617,7 @@ namespace TL { namespace Nanox {
         {
             t = t.references_to();
         }
+        outline_info.set_field_type(t);
 
         if (is_new)
         {
@@ -593,7 +629,6 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_field_type(t);
         outline_info.set_captured_value(expr);
     }
 
