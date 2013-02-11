@@ -384,15 +384,18 @@ namespace Analysis {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label;
+        std::string label = "dafault";
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
             Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
             if( e != NULL )
             {   // The edge between the nodes did not exist previously
-                label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                        nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
+                if( !case_val.is_null( ) )
+                {
+                    label = codegen_to_str( case_val.get_internal_nodecl( ),
+                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
+                }
                 e->set_label( label );
 
                 if( case_stmts.back( )->get_type( ) != BREAK )
@@ -631,15 +634,19 @@ namespace Analysis {
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
-        Nodecl::NodeclBase label = n.get_name( );
+        std::string label;
+        if( n.get_name( ).is_null( ) )
+            label = "...";
+        else
+            label = n.get_name( ).prettyprint( );
         for( ObjectList<Node*>::iterator it = current_tryblock->_handler_parents.begin( );
               it != current_tryblock->_handler_parents.end( ); ++it )
         {
             Edge* catch_edge = ( *it )->get_exit_edge( catchs[0] );
             if( catch_edge != NULL )
             {
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, label ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( label );
             }
         }
 
@@ -948,12 +955,8 @@ namespace Analysis {
                 if( !( *it )->is_task_edge( ) )
                 {
                     all_tasks = false;
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
                 }
-                else
-                {
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
-                }
+                ( *it )->set_true_edge( );
                 ++it;
             }
             if( all_tasks )
@@ -1048,7 +1051,7 @@ namespace Analysis {
             bool all_tasks_then = true;
             for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
             {   // More than one exit edge means that some tasks are created within 'then' statement
-                ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
+                ( *it )->set_true_edge( );
                 if( !( *it )->is_task_edge( ) )
                     all_tasks_then = false;
             }
@@ -1064,7 +1067,7 @@ namespace Analysis {
             exit_edges = cond_node->get_exit_edges( );
             for( ; false_edge_it < cond_node->get_exit_edges( ).size( ); ++false_edge_it )
             {
-                exit_edges[false_edge_it]->set_data( _EDGE_TYPE, FALSE_EDGE );
+                exit_edges[false_edge_it]->set_false_edge( );
                 if( !exit_edges[false_edge_it]->is_task_edge( ) )
                     all_tasks_else = false;
             }
@@ -1109,7 +1112,7 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
     {
         Node* labeled_node = walk( n.get_statement( ) )[0];
-        labeled_node->set_data( _NODE_TYPE, LABELED );
+        labeled_node->set_type( LABELED );
         labeled_node->set_label( n.get_symbol( ) );
 
         for( ObjectList<Node*>::iterator it = _utils->_goto_nodes.begin( );
@@ -2035,8 +2038,8 @@ namespace Analysis {
                  it != current_tryblock->_handler_parents.end( ); ++it )
             {
                 Edge* catch_edge = ( *it )->get_exit_edges( ).back( );
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, Nodecl::NodeclBase::null( ) ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( "" );
             }
         }
 

@@ -272,6 +272,9 @@ namespace Analysis {
             //! Returns the node type.
             Node_type get_type( );
 
+            //! Set the node's type to a new type
+            void set_type( Node_type t );
+
             //! Returns a string with the node type of the node.
             std::string get_type_as_string( );
 
