@@ -4913,7 +4913,6 @@ static void build_scope_deallocate_stmt(AST a,
 static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST derived_type_stmt = ASTSon0(a);
-    AST derived_type_body = ASTSon1(a);
 
     AST type_attr_spec_list = ASTSon0(derived_type_stmt);
     AST name = ASTSon1(derived_type_stmt);
@@ -5041,11 +5040,20 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         class_name->entity_specs.access = AS_PRIVATE;
     }
 
+    AST type_param_def_stmt_seq = NULL,
+        private_or_sequence_seq = NULL,
+        component_part = NULL,
+        type_bound_procedure_part = NULL;
+
     // Derived type body
-    AST type_param_def_stmt_seq = ASTSon0(derived_type_body);
-    AST private_or_sequence_seq = ASTSon1(derived_type_body);
-    AST component_part = ASTSon2(derived_type_body);
-    AST type_bound_procedure_part = ASTSon3(derived_type_body);
+    AST derived_type_body = ASTSon1(a);
+    if (derived_type_body != NULL)
+    {
+        type_param_def_stmt_seq = ASTSon0(derived_type_body);
+        private_or_sequence_seq = ASTSon1(derived_type_body);
+        component_part = ASTSon2(derived_type_body);
+        type_bound_procedure_part = ASTSon3(derived_type_body);
+    }
 
     if (type_param_def_stmt_seq != NULL)
     {
