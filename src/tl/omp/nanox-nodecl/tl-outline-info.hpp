@@ -434,7 +434,8 @@ namespace TL
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
-                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
+                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item,
+                        bool &make_allocatable);
         };
     }
 }

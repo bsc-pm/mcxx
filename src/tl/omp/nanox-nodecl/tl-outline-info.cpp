@@ -250,7 +250,8 @@ namespace TL { namespace Nanox {
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item)
     {
-        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item);
+        bool make_allocatable = false;
+        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item, make_allocatable);
         if (t.is_any_reference())
             t = t.references_to();
 
@@ -297,7 +298,8 @@ namespace TL { namespace Nanox {
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
-            OutlineDataItem* outline_data_item)
+            OutlineDataItem* outline_data_item,
+            bool &make_allocatable)
     {
         if (t.is_array())
         {
@@ -312,7 +314,7 @@ namespace TL { namespace Nanox {
                     this->add_capture(array_size.get_symbol());
                 }
 
-                t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item);
+                t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
                 return t.get_array_to(array_size, _sc);
             }
             else if (IS_FORTRAN_LANGUAGE)
@@ -322,8 +324,6 @@ namespace TL { namespace Nanox {
                 t.array_get_bounds(lower, upper);
 
                 Nodecl::NodeclBase result_lower, result_upper;
-
-                bool make_allocatable = false;
 
                 // If the symbol is a shared allocatable we want the original type
                 if (sym.is_allocatable()
@@ -457,7 +457,7 @@ namespace TL { namespace Nanox {
                     result_upper = upper;
                 }
 
-                TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item);
+                TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
                 if (make_allocatable)
                 {
                     res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
@@ -485,12 +485,12 @@ namespace TL { namespace Nanox {
         }
         else if (t.is_pointer())
         {
-            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
             return res.get_pointer_to();
         }
         else if (t.is_lvalue_reference())
         {
-            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable);
             return res.get_lvalue_reference_to();
         }
         else if (t.is_function())
