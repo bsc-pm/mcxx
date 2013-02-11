@@ -7136,6 +7136,7 @@ static int vla_counter = -1;
 int get_vla_counter()
 {
     vla_counter++;
+    return vla_counter;
 }
 
 /*
