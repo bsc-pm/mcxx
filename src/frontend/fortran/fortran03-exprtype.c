@@ -4267,15 +4267,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
         else
         {
             *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-
-            if (!is_const_qualified_type(no_ref(entry->type_information)))
-            {
-                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
-            }
-            else
-            {
-                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
-            }
+            nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
         }
     }
     else if (entry->kind == SK_FUNCTION)
