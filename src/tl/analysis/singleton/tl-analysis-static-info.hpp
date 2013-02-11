@@ -205,11 +205,12 @@ namespace Analysis {
         static_info_map_t get_analysis_info( );
 
         // *** Visiting methods *** //
-        Ret join_list( ObjectList<static_info_map_t>& list );
-        Ret visit(const Nodecl::DoStatement& n);
-        Ret visit(const Nodecl::IfElseStatement& n);
-        Ret visit(const Nodecl::ForStatement& n);
-        Ret visit(const Nodecl::WhileStatement& n);
+        void join_list( ObjectList<static_info_map_t>& list );
+        void visit(const Nodecl::DoStatement& n);
+        void visit(const Nodecl::IfElseStatement& n);
+        void visit(const Nodecl::ForStatement& n);
+        void visit( const Nodecl::FunctionCode& n );
+        void visit(const Nodecl::WhileStatement& n);
     };
 
     // ******************* END Visitor retrieving the analysis of a given Nodecl ******************* //

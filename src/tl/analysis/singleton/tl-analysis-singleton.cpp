@@ -168,7 +168,7 @@ namespace Analysis {
             }
             else if( current->is_graph_node( ) )
             {
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) && !current->is_extended_graph_node( ) )
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) )
                 {
                     result = current;
                 }

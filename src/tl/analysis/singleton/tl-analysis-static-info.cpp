@@ -470,7 +470,7 @@ namespace Analysis {
               _nesting_level( nesting_level ), _current_level( 0 ),  _analysis_info( )
     {}
 
-    NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::join_list( ObjectList<static_info_map_t>& list )
+    void NestedBlocksStaticInfoVisitor::join_list( ObjectList<static_info_map_t>& list )
     {
         for( ObjectList<static_info_map_t>::iterator it = list.begin( ); it != list.end( );  ++it)
         {
@@ -501,12 +501,12 @@ namespace Analysis {
         _analysis_info.insert( static_info_pair_t( n, static_info ) );
     }
 
-    NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::DoStatement& n)
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::DoStatement& n )
     {
         if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_DO_STATIC_INFO )
         {
             _current_level++;
-            if( _current_level <= _nesting_level)
+            if( _current_level <= _nesting_level )
             {
                 // Current nodecl info
                 retrieve_current_node_static_info( n );
@@ -517,12 +517,12 @@ namespace Analysis {
         }
     }
 
-    NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::IfElseStatement& n)
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::IfElseStatement& n )
     {
         if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_IF_STATIC_INFO )
         {
             _current_level++;
-            if( _current_level <= _nesting_level)
+            if( _current_level <= _nesting_level )
             {
                 // Current nodecl info
                 retrieve_current_node_static_info( n );
@@ -534,12 +534,12 @@ namespace Analysis {
         }
     }
 
-    NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::ForStatement& n)
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::ForStatement& n )
     {
         if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_FOR_STATIC_INFO )
         {
             _current_level++;
-            if( _current_level <= _nesting_level)
+            if( _current_level <= _nesting_level )
             {
                 // Current nodecl info
                 retrieve_current_node_static_info( n );
@@ -550,12 +550,26 @@ namespace Analysis {
         }
     }
 
-    NestedBlocksStaticInfoVisitor::Ret NestedBlocksStaticInfoVisitor::visit(const Nodecl::WhileStatement& n)
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::FunctionCode& n )
+    {   // Assume that functions are always wanted to be parsed
+        // Otherwise, this code should not be called...
+        _current_level++;
+        if( _current_level <= _nesting_level )
+        {
+            // Current nodecl info
+            retrieve_current_node_static_info( n );
+
+            // Nested nodecl info
+            walk( n.get_statements( ) );
+        }
+    }
+
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::WhileStatement& n )
     {
         if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_WHILE_STATIC_INFO )
         {
             _current_level++;
-            if( _current_level <= _nesting_level)
+            if( _current_level <= _nesting_level )
             {
                 // Current nodecl info
                 retrieve_current_node_static_info( n );
@@ -565,6 +579,5 @@ namespace Analysis {
             }
         }
     }
-
 }
 }
