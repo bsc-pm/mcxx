@@ -454,6 +454,10 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     }
     else
     {
+        fprintf(stderr, "%s:%d: warning: ignoring unknown '!$%s' directive\n", 
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number, 
+                sentinel);
         // Ignore this sentinel
         BEGIN(unknown_pragma);
         yymore();
