@@ -35,6 +35,7 @@ top-level : function-code
           | pragma-directive
           | compatibility
           | cxx-decl
+          | simd-func-construct
 
 name : NODECL_SYMBOL() symbol type-opt const-value-opt
 type : NODECL_TYPE() type
@@ -412,6 +413,7 @@ parallel-execution : task-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
+                   | simd-constructs
 
 # single
 single-construct : NODECL_OPEN_M_P*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
@@ -498,7 +500,14 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
 # SIMD    
-# simd-construct : NODECL_OPEN_M_P*SIMD_CONSTRUCT([statement] statement)
+simd-constructs : simd-construct
+                | simd-for-construct
+                | parallel-simd-for-construct
+
+simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement)
+simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([statement] statement)
+parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement)
 
 ##############################
 # CUDA                       #

@@ -28,6 +28,7 @@
 #define TL_VECTORIZER_VISITOR_EXPRESSION_HPP
 
 #include "tl-nodecl-visitor.hpp"
+#include "tl-analysis-static-info.hpp"
 
 namespace TL 
 { 
@@ -38,18 +39,21 @@ namespace TL
             private:
                 const std::string _device;
                 const unsigned int _vector_length;
+                const unsigned int _unroll_factor;
                 const TL::Type _target_type;
-                const TL::Scope _simd_scope;
 
-                bool is_nested_in_scope(const scope_t *const sc, 
-                        const scope_t *const may_be_nested) const;
+                const TL::Scope& _simd_inner_scope;
+
+                bool is_declared_in_scope(const scope_t *const target_scope , 
+                        const scope_t *const symbol_scope) const;
 
             public:
                 VectorizerVisitorExpression(const std::string& device,
                         const unsigned int vector_length,
+                        const unsigned int unroll_factor,
                         const TL::Type& target_type,
-                        const TL::Scope& simd_scope);
-                
+                        const TL::Scope& simd_inner_scope);
+
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
                 virtual void visit(const Nodecl::Mul& n);

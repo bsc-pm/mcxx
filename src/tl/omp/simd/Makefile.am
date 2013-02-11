@@ -24,42 +24,32 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../Makefile.phases
+include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtlvectorizer.la
+phases_LTLIBRARIES = libtlomp-simd.la
 
 END=
 
-
-libtlvectorizer_la_CFLAGS = $(tl_cflags) -Wall \
-                            -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                            -I $(top_srcdir)/src/tl/analysis/common/ \
-                            -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                            $(END)
-
-libtlvectorizer_la_CXXFLAGS = $(tl_cflags) -Wall \
-                              -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                              -I $(top_srcdir)/src/tl/analysis/common/ \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                              $(END)
-
-libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
-libtlvectorizer_la_LIBADD = $(tl_libadd) \
-                          $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
+libtlomp_simd_la_CFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
                           $(END)
 
-libtlvectorizer_la_SOURCES = \
-                           tl-function-versioning.cpp \
-                           tl-function-versioning.hpp \
-                           tl-vectorizer.cpp \
-                           tl-vectorizer.hpp \
-                           tl-vectorizer-visitor-for.cpp \
-                           tl-vectorizer-visitor-for.hpp \
-                           tl-vectorizer-visitor-function.cpp \
-                           tl-vectorizer-visitor-function.hpp \
-                           tl-vectorizer-visitor-statement.cpp \
-                           tl-vectorizer-visitor-statement.hpp \
-                           tl-vectorizer-visitor-expression.cpp \
-                           tl-vectorizer-visitor-expression.hpp \
-                           $(END)
+libtlomp_simd_la_CXXFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          $(END)
+
+libtlomp_simd_la_LDFLAGS = $(tl_ldflags)
+libtlomp_simd_la_LIBADD = $(tl_libadd) ../../vectorizer/libtlvectorizer.la
+
+
+libtlomp_simd_la_SOURCES = \
+   tl-omp-simd.hpp \
+   tl-omp-simd.cpp \
+   $(END)
 

@@ -46,7 +46,8 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-nanox
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss
-	chmod +x config/mercurium-simd
+	chmod +x config/mercurium-serial-simd
+	chmod +x config/mercurium-parallel-simd
 	chmod +x config/mercurium-cuda
 	chmod +x config/mercurium-run
 #	chmod +x config/mercurium-analysis

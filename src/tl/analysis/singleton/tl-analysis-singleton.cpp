@@ -457,7 +457,9 @@ namespace Analysis {
                 Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars( );
                 LoopAnalysis la( *it, ivs );
                 la.compute_loop_ranges( );
-                print_induction_vars( ivs );
+
+                if( VERBOSE )
+                    print_induction_vars( ivs );
             }
         }
 

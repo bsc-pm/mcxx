@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -55,7 +55,7 @@ namespace Nodecl {
             bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
             void set_type(TL::Type t) { ::nodecl_set_type(_n, t.get_internal_type()); }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
-            TL::TemplateParameters get_template_parameters() const 
+            TL::TemplateParameters get_template_parameters() const
             {
                 return TL::TemplateParameters(::nodecl_get_template_parameters(_n));
             }
@@ -73,7 +73,7 @@ namespace Nodecl {
             std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << ":" << this->get_line(); return ss.str(); }
             const nodecl_t& get_internal_nodecl() const { return _n; }
             nodecl_t& get_internal_nodecl() { return _n; }
-            TL::ObjectList<NodeclBase> children() const { 
+            TL::ObjectList<NodeclBase> children() const {
                 TL::ObjectList<NodeclBase> result;
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
                 {
@@ -95,7 +95,7 @@ namespace Nodecl {
                 return nodecl_get_parent(this->_n);
             }
 
-            const_value_t* get_constant() const 
+            const_value_t* get_constant() const
             {
                 if (is_constant())
                 {
@@ -106,7 +106,7 @@ namespace Nodecl {
                     return NULL;
                 }
             }
-            
+
             // Prettyprint
             std::string prettyprint() const;
 
@@ -137,10 +137,10 @@ namespace Nodecl {
             void append_sibling(Nodecl::NodeclBase items) const;
             void prepend_sibling(Nodecl::NodeclBase items) const;
 
-            // Works like replace but handles lists. 
+            // Works like replace but handles lists.
             DEPRECATED void integrate(Nodecl::NodeclBase new_node) const;
 
-            // This sets this Nodecls as childs of the current node 
+            // This sets this Nodecls as childs of the current node
             void rechild(const TL::ObjectList<NodeclBase>& new_childs)
             {
                 ERROR_CONDITION(new_childs.size() != ::MCXX_MAX_AST_CHILDREN, "Invalid list of children", 0);
@@ -188,7 +188,10 @@ namespace Nodecl {
 
                     void previous()
                     {
-                        _current = nodecl_get_child(_current, 0);
+                        if( nodecl_is_null( _current ) )
+                            _current = _top;
+                        else
+                            _current = nodecl_get_child(_current, 0);
                     }
 
                     void rewind()
@@ -204,7 +207,7 @@ namespace Nodecl {
                     }
                 public:
                     bool operator==(const iterator& it) const
-                    { 
+                    {
                         return (nodecl_get_ast(this->_current) == nodecl_get_ast(it._current))
                             && (nodecl_get_ast(this->_top) == nodecl_get_ast(it._top));
                     }
@@ -229,7 +232,7 @@ namespace Nodecl {
                     }
 
                     iterator(const iterator& it)
-                        : _top(it._top), _current(it._current), 
+                        : _top(it._top), _current(it._current),
                         // Transfer cleanup ownership
                         _cleanup(it._cleanup)
                     {
@@ -303,7 +306,7 @@ namespace Nodecl {
                         this->next();
                         return *this;
                     }
-                    
+
                     // it--
                     iterator operator--(int)
                     {
@@ -444,7 +447,7 @@ namespace Nodecl {
                 {
                     nodecl_t singleton = nodecl_make_list_1(new_node.get_internal_nodecl());
 
-                    nodecl_set_child(singleton, 0, 
+                    nodecl_set_child(singleton, 0,
                             nodecl_get_child(it._current, 0));
 
                     nodecl_set_child(it._current, 0, singleton);
@@ -526,7 +529,7 @@ namespace Nodecl {
                     {
                         if (nodecl_get_ast(nodecl_get_child(parent, i)) == nodecl_get_ast(it._current))
                         {
-                            nodecl_set_child(parent, i, 
+                            nodecl_set_child(parent, i,
                                     nodecl_get_child(it._current, 0));
                             found = true;
                         }

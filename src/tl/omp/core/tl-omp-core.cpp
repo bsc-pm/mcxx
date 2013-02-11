@@ -1337,10 +1337,24 @@ namespace TL
         void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
         void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
-        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct) { }
-        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct) { }
-        void Core::simd_for_handler_pre(TL::PragmaCustomDeclaration construct) { }
-        void Core::simd_for_handler_post(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            for_handler_pre(construct);
+        }
+        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct)
+        {
+            for_handler_post(construct);
+        }
+
+        void Core::parallel_simd_for_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            parallel_for_handler_pre(construct);
+        }
+
+        void Core::parallel_simd_for_handler_post(TL::PragmaCustomStatement construct)
+        {
+            parallel_for_handler_post(construct);
+        }
 
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -1398,7 +1412,9 @@ namespace TL
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(simd_for)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)

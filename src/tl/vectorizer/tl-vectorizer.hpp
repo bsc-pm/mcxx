@@ -27,10 +27,12 @@
 #ifndef TL_VECTORIZER_HPP
 #define TL_VECTORIZER_HPP
 
+#include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 #include <string>
+#include <list>
 
 namespace TL 
 { 
@@ -38,17 +40,21 @@ namespace TL
     {
         class Vectorizer
         {
+            private:
+            static Vectorizer* _vectorizer;
+
+            static Analysis::AnalysisStaticInfo *_analysis_info;
+            static std::list<Nodecl::NodeclBase> *_analysis_scopes;
+            
             static FunctionVersioning _function_versioning;
 
-            private:
-                static Vectorizer* _vectorizer;
-                bool _svml_enabled;
-                bool _ffast_math_enabled;
+            bool _svml_enabled;
+            bool _ffast_math_enabled;
 
-                Vectorizer();
+            Vectorizer();
 
             public:
-                static Vectorizer& getVectorizer();
+                static Vectorizer& get_vectorizer();
 
                 Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
                         const std::string& device,
@@ -66,7 +72,12 @@ namespace TL
                 void enable_svml();
                 void enable_ffast_math();
 
-                friend void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n);
+                friend class VectorizerVisitorFor;
+                friend class VectorizerVisitorLoopCond;
+                friend class VectorizerVisitorLoopNext;
+                friend class VectorizerVisitorFunction;
+                friend class VectorizerVisitorStatement;
+                friend class VectorizerVisitorExpression;
         };
     }
 }

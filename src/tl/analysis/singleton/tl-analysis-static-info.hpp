@@ -93,9 +93,24 @@ namespace Analysis {
                               Utils::ext_sym_set killed );
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
+
+            // *** Queries about induction variables *** //
+
             bool is_induction_variable( const Nodecl::NodeclBase& n ) const;
+
+            bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
+
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
-            ObjectList<Utils::InductionVariableData*>  get_induction_variables( const Nodecl::NodeclBase& n ) const;
+
+            bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
+
+            //! Returns the induction variable containing the given nodecl
+            //! If the nodecl is not an induction variable, then returns NULL
+            Utils::InductionVariableData* get_induction_variable( const Nodecl::NodeclBase& n ) const;
+
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
+
+            bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
     };
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -118,19 +133,36 @@ namespace Analysis {
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
+            // *** Getters and Setters *** //
+
+            static_info_map_t get_static_info_map( ) const;
+
+            // *** Queries about Use-Def analysis *** //
+
             //! Returns true when an object is constant in a given scope
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            // *** Queries about induction variables *** //
+
             //! Returns true when an object is an induction variable in a given scope
             bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
+            //! Returns true when an object is an induction variable in a given scope
+            bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns the const_value corresponding to the increment of an induction variable in a given scope
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
 
+            //! Returns true when the increment of a given induction variable is constant and equal to 1
+            bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
             //! Returns a list with the induction variables of a given scope
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
                                                                                const Nodecl::NodeclBase& n ) const;
+
+            //! Returns true if the given nodecl is an array accessed by adjacent positions
+            bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
     };
 
     // ************************** END User interface for static analysis *************************** //
@@ -173,11 +205,12 @@ namespace Analysis {
         static_info_map_t get_analysis_info( );
 
         // *** Visiting methods *** //
-        Ret join_list( ObjectList<static_info_map_t>& list );
-        Ret visit(const Nodecl::DoStatement& n);
-        Ret visit(const Nodecl::IfElseStatement& n);
-        Ret visit(const Nodecl::ForStatement& n);
-        Ret visit(const Nodecl::WhileStatement& n);
+        void join_list( ObjectList<static_info_map_t>& list );
+        void visit(const Nodecl::DoStatement& n);
+        void visit(const Nodecl::IfElseStatement& n);
+        void visit(const Nodecl::ForStatement& n);
+        void visit( const Nodecl::FunctionCode& n );
+        void visit(const Nodecl::WhileStatement& n);
     };
 
     // ******************* END Visitor retrieving the analysis of a given Nodecl ******************* //

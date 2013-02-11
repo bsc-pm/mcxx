@@ -373,17 +373,20 @@ AX_EXT
 simd_version="no (SSE 4.1 or higher not detected)."
 simd_flags=
 simd_includes=
+nanox_sse="no"
 
   if test "$ax_cv_have_sse42_ext" = yes; 
   then
         simd_version="SSE4.2"
         simd_flags="-msse4.2"
         simd_includes="-msse4.2 -include nmmintrin.h"
+        nanox_sse="yes"
   else if test "$ax_cv_have_sse41_ext" = yes; 
   then
         simd_version="SSE4.1"
         simd_flags="-msse4.1"
         simd_includes="-msse4.1 -include smmintrin.h"
+        nanox_sse="yes"
   fi
   fi
 
@@ -391,40 +394,10 @@ AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_versio
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
+NANOX_SSE=$nanox_sse
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
-
-#nanox_sse="no"
-#AC_MSG_CHECKING([if SSE 4.1 support is enabled])
-#AC_ARG_ENABLE([sse],
-#  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
-#  [
-#    if test x$enableval = xyes -o x$enableval = x;
-#    then
-#        nanox_sse="yes"
-#        AC_MSG_RESULT([yes])
-#    else if test x$enableval = xno;
-#         then
-#            AC_MSG_RESULT([no])
-#            nanox_sse="no"
-#         else
-#            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-#         fi
-#    fi
-#  ],
-#  [
-#    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
-#    then
-#       nanox_sse="yes"
-#       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
-#    else
-#       nanox_sse="no"
-#       AC_MSG_RESULT([no])
-#    fi
-#  ]
-#)
-#NANOX_SSE=$nanox_sse
-#AC_SUBST([NANOX_SSE])
+AC_SUBST([NANOX_SSE])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1287,6 +1260,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
@@ -1323,7 +1297,8 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-nanox
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
-           tests/config/mercurium-simd
+           tests/config/mercurium-serial-simd
+           tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
