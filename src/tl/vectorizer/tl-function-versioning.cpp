@@ -113,7 +113,7 @@ namespace TL
             }
 
             ERROR_CONDITION(best_version == _versions.end(), 
-                    "There are no versions of function '%s' for '%s' '%d'", 
+                    "There is no version of function '%s' for '%s' '%d'", 
                     func_name.c_str(), device.c_str(), vector_length);
 
             return best_version->second.get_version();

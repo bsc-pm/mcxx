@@ -24,15 +24,32 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base simd @TL_OMP_EXTENSIONS@
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtlomp-simd.la
 
 END=
 
-DIST_SUBDIRS=base \
-             core \
-             simd \
-             nanos-common \
-             nanox-nodecl \
-             ss2omp \
-             profile \
-             $(END)
+libtlomp_simd_la_CFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          $(END)
+
+libtlomp_simd_la_CXXFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          $(END)
+
+libtlomp_simd_la_LDFLAGS = $(tl_ldflags)
+libtlomp_simd_la_LIBADD = $(tl_libadd) ../../vectorizer/libtlvectorizer.la
+
+
+libtlomp_simd_la_SOURCES = \
+   tl-omp-simd.hpp \
+   tl-omp-simd.cpp \
+   $(END)
+

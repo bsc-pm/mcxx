@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -43,9 +44,16 @@ namespace TL
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
             // Get analysis info
-            Analysis::AnalysisStaticInfo func_analysis_info(function_code,
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
+            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 1);
+
+            // Push FunctionCode as scope for analysis
+            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
+            Vectorizer::_analysis_scopes->push_back(function_code);
+
+            //TODO
+            _unroll_factor = 4;
 
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
@@ -66,12 +74,13 @@ namespace TL
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(
                     _device, 
-                    _vector_length, 
+                    _vector_length,
+                    _unroll_factor,                    
                     _target_type,
-                    function_code.get_statements().retrieve_context(),
-                    function_code,
-                    func_analysis_info);  
+                    function_code.get_statements().retrieve_context());
             visitor_stmt.walk(function_code.get_statements());
+
+            delete Vectorizer::_analysis_info;
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 

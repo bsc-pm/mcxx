@@ -344,9 +344,7 @@ namespace TL { namespace OpenMP {
     };
 
     Base::Base()
-        : PragmaCustomCompilerPhase("omp"), _core(), 
-        _vectorizer(TL::Vectorization::Vectorizer::getVectorizer()),
-        _simd_enabled(false), _svml_enabled(false), _ffast_math_enabled(false)
+        : PragmaCustomCompilerPhase("omp"), _core(), _simd_enabled(false) 
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -360,17 +358,6 @@ namespace TL { namespace OpenMP {
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
                 "0").connect(functor(&Base::set_simd, *this));
-
-
-        register_parameter("svml_enabled",
-                "If set to '1' enables svml math library, otherwise it is disabled",
-                _svml_enabled_str,
-                "0").connect(functor(&Base::set_svml, *this));
-
-        register_parameter("ffast_math_enabled",
-                "If set to '1' enables ffast_math operations, otherwise it is disabled",
-                _ffast_math_enabled_str,
-                "0").connect(functor(&Base::set_ffast_math, *this));
 
         // FIXME - Remove once ticket #1089 is fixed
         register_parameter("do_not_init_udr",
@@ -415,16 +402,6 @@ namespace TL { namespace OpenMP {
 
     void Base::run(TL::DTO& dto)
     {
-        if (_simd_enabled && _ffast_math_enabled)
-        {
-            _vectorizer.enable_ffast_math();
-        }
-
-        if (_simd_enabled && _svml_enabled)
-        {
-            _vectorizer.enable_svml();
-        }
-
         _core.run(dto);
 
         // Do nothing once we have analyzed everything
@@ -494,22 +471,6 @@ namespace TL { namespace OpenMP {
         if (simd_enabled_str == "1")
         {
             _simd_enabled = true;
-        }
-    }
-
-    void Base::set_svml(const std::string svml_enabled_str)
-    {
-        if (svml_enabled_str == "1")
-        {
-            _svml_enabled = true;
-        }
-    }
-
-    void Base::set_ffast_math(const std::string ffast_math_enabled_str)
-    {
-        if (ffast_math_enabled_str == "1")
-        {
-            _ffast_math_enabled = true;
         }
     }
 
@@ -1188,25 +1149,19 @@ namespace TL { namespace OpenMP {
             ERROR_CONDITION(ast_list_node2.size() != 1, 
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
+            Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(), 
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
-                    ast_print_node_type(node.get_kind()));
+                    ast_print_node_type(for_statement.get_kind()));
 
-            // Vectorize for
-            Nodecl::NodeclBase epilog = 
-                _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 
-                        "smp", 16, NULL); 
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
-                node.append_sibling(epilog);
-            }
+            Nodecl::OpenMP::Simd omp_simd_node =
+               Nodecl::OpenMP::Simd::make(
+                       for_statement.shallow_copy(),
+                       for_statement.get_filename(),
+                       for_statement.get_line());
+            
+            stmt.replace(Nodecl::List::make(omp_simd_node));
         }
-
-        // Remove #pragma
-        stmt.replace(statements);
     }
     
     // SIMD Functions
@@ -1222,30 +1177,18 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase node = sym.get_function_code();
             ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
-            Nodecl::FunctionCode function_code = node.as<Nodecl::FunctionCode>();
+            
+            Nodecl::OpenMP::SimdFunction simd_func = 
+                Nodecl::OpenMP::SimdFunction::make(
+                        node.shallow_copy(),
+                        node.get_filename(),
+                        node.get_line());
 
-            Nodecl::FunctionCode vectorized_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
-
-            // Vectorize function
-            _vectorizer.vectorize(vectorized_func_code, 
-                    "smp", 16, NULL); 
-
-            // Set new name
-            std::string vectorized_func_name = 
-                "__" + sym.get_name() + "_sse_16" ; // + device + vectorlength
-
-            vectorized_func_code.get_symbol().set_name(vectorized_func_name);
-
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(sym.get_name(), vectorized_func_code, 
-                    "smp", 16, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
-
-            // Append vectorized function code to scalar function
-            function_code.append_sibling(vectorized_func_code);
+            node.replace(simd_func);
+            
+            // Remove #pragma
+            Nodecl::Utils::remove_from_enclosing_list(decl);
         }
-        // Remove #pragma
-        Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
@@ -1256,6 +1199,7 @@ namespace TL { namespace OpenMP {
 
         if (_simd_enabled)
         {
+            /*
             ERROR_CONDITION(!statements.is<Nodecl::List>(), 
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -1296,10 +1240,11 @@ namespace TL { namespace OpenMP {
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
             Nodecl::NodeclBase code = loop_handler_post(
-                    stmt, node, barrier_at_end, /* is_combined_worksharing */ false);
+                    stmt, node, barrier_at_end, false);
 
             // Removing #pragma
             stmt.replace(code);
+            */
         }
         else
         {
