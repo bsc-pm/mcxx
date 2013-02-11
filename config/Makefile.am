@@ -37,9 +37,9 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        50.config.cuda \
        50.config.gpu \
-       50.config.ocl \
        10.config.omp-base \
        10.config.analysis-base \
+       50.config.omp.ocl \
        50.config.omp.mercurium \
        50.config.omp.profiling \
        50.config.omp.fortran \
@@ -48,6 +48,8 @@ CONFIG_FILES =  \
        55.config.omp.ibm \
        55.config.omp.ibm.fortran \
        55.config.omp.nvidia \
+       56.config.omp.mpi \
+       57.config.omp.all \
        00.config.plain \
 	   $(END)
 

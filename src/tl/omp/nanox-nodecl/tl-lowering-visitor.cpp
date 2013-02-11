@@ -25,31 +25,15 @@
 --------------------------------------------------------------------*/
 
 #include "tl-lowering-visitor.hpp"
-#include "tl-counters.hpp"
 
 namespace TL { namespace Nanox {
 
-    LoweringVisitor::LoweringVisitor(Lowering* lowering)
-        : _lowering(lowering)
+    LoweringVisitor::LoweringVisitor(Lowering* lowering,RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+        : _lowering(lowering), _function_task_set(function_task_set)
     {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
 
     LoweringVisitor::~LoweringVisitor() { }
-
-    std::string LoweringVisitor::get_outline_name(TL::Symbol function_symbol)
-    {
-        std::string outline_name;
-
-        Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
-
-        task_counter++;
-
-        return outline_name;
-    }
-
 
 } }

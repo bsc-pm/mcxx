@@ -299,9 +299,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether it is constant.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot resolve whether '%s' is constant.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -319,9 +321,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether it is an induction variable.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot resolve whether '%s' is an induction variable.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -340,9 +344,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether it is an induction variable.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot resolve whether '%s' is an induction variable.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -362,8 +368,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. Cannot get induction variables.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+            nodecl_t n_t = n.get_internal_nodecl( );
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot get the increment of the induction variable '%s'.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -383,9 +392,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether the increment is one.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot resolve whether the increment of '%s' is one.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -405,9 +416,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot get induction variable increment.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot get the increment of the induction variable '%s'.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {
@@ -426,9 +439,11 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             nodecl_t scope_t = scope.get_internal_nodecl( );
+            nodecl_t n_t = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether the access is adjacent.'",
-                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ) );
+                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
+                             codegen_to_str( scope_t, nodecl_retrieve_context( scope_t ) ),
+                             codegen_to_str( n_t, nodecl_retrieve_context( n_t ) ) );
         }
         else
         {

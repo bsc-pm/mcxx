@@ -35,8 +35,6 @@ namespace Nodecl
 {
     static void get_all_symbols_rec(Nodecl::NodeclBase n, TL::ObjectList<TL::Symbol>& result)
     {
-        TL::ObjectList<TL::Symbol> sym;
-
         if (n.is_null())
             return;
 
@@ -245,6 +243,33 @@ namespace Nodecl
     {
         IsNonLocalOcurrence local(n);
         return get_all_symbols_first_occurrence(n).filter(local);
+    }
+
+    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::NodeclBase>& result)
+    {
+        if (n.is_null())
+            return;
+
+        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
+            || n.is<Nodecl::ArraySubscript>() || n.is<Nodecl::PointerToMember>()
+            || n.is<Nodecl::Reference>() || n.is<Nodecl::Dereference>())
+        {
+            result.insert(n);
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+             it != children.end(); it++)
+             {
+                 get_all_memory_accesses_rec(*it, result);
+             }
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_memory_accesses(Nodecl::NodeclBase n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> obj_list;
+        get_all_memory_accesses_rec(n, obj_list);
+        return obj_list;
     }
 
     static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)

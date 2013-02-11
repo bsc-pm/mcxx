@@ -47,9 +47,16 @@ namespace TL
         class TargetInformation
         {
             private:
+
+                // This name is the generic outline name. Every device of the list
+                // '_device_name' should append its name to the generic  outline name.
+                std::string _outline_name;
+
                 ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
 
                 ObjectList<Nodecl::NodeclBase> _onto_exprs;
+                
+                std::string _file;
 
                 // Devices information
                 ObjectList<std::string> _device_names;
@@ -60,8 +67,14 @@ namespace TL
                 TargetInformation() {}
                 ~TargetInformation(){}
 
+                void set_outline_name(std::string outline_name);
+                std::string get_outline_name() const;
+
                 void add_device_name(std::string device_name);
-                ObjectList<std::string>& get_device_names();
+                ObjectList<std::string>& get_device_names();   
+
+                void set_file(std::string file);
+                std::string get_file();
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase>& get_ndrange();

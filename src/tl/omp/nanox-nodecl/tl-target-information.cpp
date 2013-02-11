@@ -38,6 +38,15 @@
 namespace TL { namespace Nanox {
 
 
+    void TargetInformation::set_outline_name(std::string outline_name)
+    {
+        _outline_name = outline_name;
+    }
+
+    std::string TargetInformation::get_outline_name() const
+    {
+        return _outline_name;
+    }
 
     void TargetInformation::add_device_name(std::string device_name)
     {
@@ -48,6 +57,17 @@ namespace TL { namespace Nanox {
     {
         return _device_names;
     }
+    
+    void TargetInformation::set_file(std::string file)
+    {
+        _file=file;
+    }
+
+    std::string TargetInformation::get_file()
+    {
+        return _file;
+    }
+    
 
     void TargetInformation::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {

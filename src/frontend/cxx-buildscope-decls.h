@@ -136,6 +136,15 @@ struct gather_decl_spec_tag {
         char is_shared;
         char is_constant;
     } cuda;
+    
+    // OpenCL info
+    struct
+    {
+        char is_kernel;
+        char is_constant;
+        char is_global;
+        char is_local;
+    } opencl;
 
     access_specifier_t current_access;
 

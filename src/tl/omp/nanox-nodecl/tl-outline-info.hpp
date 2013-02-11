@@ -34,6 +34,7 @@
 #include "tl-type.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-omp-core.hpp"
 #include <string>
 #include <sstream>
 
@@ -340,6 +341,8 @@ namespace TL
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
 
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
                 std::string get_field_name(std::string name);
 
                 // Do not copy
@@ -347,11 +350,15 @@ namespace TL
                 OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
+
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid());
                 OutlineInfo();
+                OutlineInfo(Nodecl::NodeclBase environment,
+                        TL::Symbol funct_symbol = Symbol::invalid(),
+                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+
                 ~OutlineInfo();
 
                 //! Get new or retrieve existing OutlineDataItem for symbol
@@ -362,19 +369,17 @@ namespace TL
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
-                ObjectList<OutlineDataItem*> get_data_items()
-                {
-                    return _data_env_items;
-                }
+                ObjectList<OutlineDataItem*> get_data_items();
 
-                TL::Symbol get_funct_symbol() const {
-                    return _funct_symbol;
-                }
+                TL::Symbol get_funct_symbol() const;
 
                 ObjectList<OutlineDataItem*> get_fields() const;
 
                 void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
+
+                void set_file(TL::Symbol function_symbol,std::string file);
+                std::string get_file(TL::Symbol function_symbol);
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
@@ -400,6 +405,9 @@ namespace TL
                 void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
+
+            private:
+                std::string get_outline_name(TL::Symbol function_symbol);
         };
 
         class OutlineInfoRegisterEntities

@@ -9,6 +9,7 @@
 /*!include cxx-asttype-omp.def*/
 /*!include cxx-asttype-upc.def*/
 /*!include cxx-asttype-cuda.def*/
+/*!include cxx-asttype-opencl.def*/
 /*!include cxx-asttype-xl.def*/
 /*!include cxx-asttype-ms.def*/
 /*!include cxx-asttype-fortran.def*/

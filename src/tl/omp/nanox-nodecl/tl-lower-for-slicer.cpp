@@ -45,6 +45,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder2)
     {
         Source for_code, reduction_code, lastprivate_code, reduction_initialization, step_initialization;
+        Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
         if (ranges.size() > 1)
         {
             internal_error("Collapsed ranges not implemented yet", 0);
@@ -70,6 +71,7 @@ namespace TL { namespace Nanox {
                 {
 
                     for_code
+                        << instrument_loop_opt
                         << "for (" << ind_var.get_name() << " = nanos_lower;"
                         << ind_var.get_name() << " <= nanos_upper;"
                         << ind_var.get_name() << " += " << as_expression(cval_nodecl) << ")"
@@ -79,6 +81,7 @@ namespace TL { namespace Nanox {
                 else
                 {
                     for_code
+                        << instrument_loop_opt
                         << "for (" << ind_var.get_name() << " = nanos_lower;"
                         << ind_var.get_name() << " >= nanos_upper;"
                         << ind_var.get_name() << " += " << as_expression(cval_nodecl) << ")"
@@ -101,6 +104,7 @@ namespace TL { namespace Nanox {
                     << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
+                    <<       instrument_loop_opt
                     <<       "for (" << ind_var.get_name() << " = nanos_lower;"
                     <<         ind_var.get_name() << " <= nanos_upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
@@ -111,6 +115,7 @@ namespace TL { namespace Nanox {
                     << "}"
                     << "else"
                     << "{"
+                    <<       instrument_loop_opt
                     <<       "for (" << ind_var.get_name() << " = nanos_lower;"
                     <<         ind_var.get_name() << " >= nanos_upper;"
                     <<         ind_var.get_name() << " += nanos_step)"
@@ -119,6 +124,71 @@ namespace TL { namespace Nanox {
                     <<       "}"
                     <<       lastprivate_code
                     << "}"
+                    ;
+            }
+
+            if (_lowering->instrumentation_enabled())
+            {
+                instrument_before_opt
+                    << "static int nanos_loop_init = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_lower_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_upper_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
+                    << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
+
+                    << "if (nanos_loop_init == 0)"
+                    << "{"
+                    <<     "nanos_err_t err;"
+                    <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
+                    <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                    <<     "nanos_loop_init = 1;"
+                    << "}"
+
+                    << "nanos_event_t loop_events[3];"
+                    << "loop_events[0].type = NANOS_POINT;"
+                    << "loop_events[1].type = NANOS_POINT;"
+                    << "loop_events[2].type = NANOS_POINT;"
+
+                    << "loop_events[0].key = nanos_instr_loop_lower_key;"
+                    << "loop_events[1].key = nanos_instr_loop_upper_key;"
+                    << "loop_events[2].key = nanos_instr_loop_step_key;"
+                    ;
+
+                instrument_loop_opt
+                    << "loop_events[0].value = nanos_lower;"
+                    << "loop_events[1].value = nanos_upper;"
+                    ;
+                if (range.get_step().is_constant())
+                {
+                    const_value_t* cval = range.get_step().get_constant();
+                    Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
+
+                    instrument_loop_opt
+                        << "loop_events[2].value = " << as_expression(cval_nodecl) << ";"
+                        ;
+                }
+                else
+                {
+                    instrument_loop_opt
+                        << "loop_events[2].value = nanos_step;"
+                        ;
+                }
+                instrument_loop_opt
+                    << "nanos_instrument_events(3, loop_events);"
+                    ;
+
+                instrument_after_opt
+                    << "loop_events[0].value = 0;"
+                    << "loop_events[1].value = 0;"
+                    << "loop_events[2].value = 1;"
+                    << "nanos_instrument_events(3, loop_events);"
                     ;
             }
         }
@@ -134,7 +204,9 @@ namespace TL { namespace Nanox {
             << "int nanos_lower = " << slicer_descriptor.get_name() << ".lower;"
             << "int nanos_upper = " << slicer_descriptor.get_name() << ".upper;"
             << step_initialization
+            << instrument_before_opt
             << for_code
+            << instrument_after_opt
             << reduction_code
             << "}"
             ;
@@ -162,7 +234,6 @@ namespace TL { namespace Nanox {
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
-        std::string outline_name = get_outline_name(enclosing_function);
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -181,9 +252,11 @@ namespace TL { namespace Nanox {
         OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
         OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(enclosing_function);
         ERROR_CONDITION(implementation_it == implementation_table.end(),
-                "No information from the implementation table", 0)
+                "No information from the implementation table", 0);
 
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), implementation_it->second, statements,
+        TargetInformation target_info = implementation_it->second;
+        std::string outline_name = target_info.get_outline_name();
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info, statements,
                 /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names

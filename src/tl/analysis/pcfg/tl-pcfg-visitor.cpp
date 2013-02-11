@@ -1259,10 +1259,8 @@ namespace Analysis {
         else
         {
             ObjectList<Node*> object_init_last_nodes = _utils->_last_nodes;
-            nodecl_t n_sym = nodecl_make_symbol( n.get_symbol( ).get_internal_symbol( ),
-                                                 n.get_filename( ).c_str( ), n.get_line( ) );
-            Nodecl::Symbol nodecl_symbol( n_sym );
-            ObjectList<Node*> init_sym = walk( nodecl_symbol );
+            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+            ObjectList<Node*> init_sym = walk( n_sym );
             ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
 
             if( init_expr.empty( ) )
@@ -1799,7 +1797,6 @@ namespace Analysis {
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
@@ -1954,12 +1951,13 @@ namespace Analysis {
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
             if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
+            {
                 _pcfg->_global_vars.insert( glob_var_usage );
+            }
         }
 
         // Create the node

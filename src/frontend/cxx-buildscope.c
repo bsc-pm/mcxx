@@ -2251,6 +2251,19 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_CUDA_CONSTANT:
             gather_info->cuda.is_constant = 1;
+            break;                     
+            // OPENCL stuff
+        case AST_OPENCL_KERNEL:
+            gather_info->opencl.is_kernel = 1;
+            break;
+        case AST_OPENCL_GLOBAL:
+            gather_info->opencl.is_global = 1;
+            break;
+        case AST_OPENCL_LOCAL:
+            gather_info->opencl.is_local = 1;
+            break;
+        case AST_OPENCL_CONSTANT:
+            gather_info->opencl.is_constant = 1;
             break;
         case AST_XL_BUILTIN_SPEC :
             // Do nothing at the moment
@@ -4199,12 +4212,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 {
                     if (nodecl_is_constant(base_enumerator))
                     {
-                        const_value_t* val_plus_one = 
-                            const_value_add(
-                                    nodecl_get_constant(base_enumerator),
-                                    const_value_get_signed_int(delta));
+                        const_value_t* base_const = 
+                                    nodecl_get_constant(base_enumerator);
+                        const_value_t* val_plus_one =
+                            const_value_cast_to_bytes(
+                                    const_value_add(
+                                        base_const,
+                                        const_value_get_signed_int(delta)),
+                                    const_value_get_bytes(base_const),
+                                    const_value_is_signed(base_const));
 
-                        enumeration_item->value = const_value_to_nodecl(val_plus_one);
+                        enumeration_item->value = const_value_to_nodecl_with_basic_type(val_plus_one,
+                                no_ref(nodecl_get_type(base_enumerator)));
                         enumeration_item->type_information = nodecl_get_type(enumeration_item->value);
                     }
                     else if (IS_CXX_LANGUAGE

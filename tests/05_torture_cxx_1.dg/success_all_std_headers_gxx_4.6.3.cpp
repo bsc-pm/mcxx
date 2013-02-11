@@ -31,6 +31,15 @@ test_generator=05_torture_cxx_1.dg/mercurium
 */
 
 
+// The versions of GCC lower than 4.6 ignore this test!
+#if ((__GNUC__ < 4) \
+        || (( __GNUC__ == 4) && __GNUC_MINOR__ < 6))
+    #define IGNORE_TEST
+#endif
+
+
+#ifndef IGNORE_TEST
+
 # 35 "success_all_std_headers_4_6_3.cpp" 3       
 
 #pragma GCC visibility push(default)
@@ -48864,4 +48873,4 @@ namespace std __attribute__ ((__visibility__ ("default")))
 
 
 
-       
+#endif

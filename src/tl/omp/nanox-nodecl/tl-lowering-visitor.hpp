@@ -28,6 +28,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-omp-core.hpp" 
 
 #include <set>
 #include <stdio.h>
@@ -37,7 +38,7 @@ namespace TL { namespace Nanox {
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
-        LoweringVisitor(Lowering*);
+        LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
         ~LoweringVisitor();
         virtual void visit(const Nodecl::OpenMP::Task& construct);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
@@ -57,6 +58,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
 
         Lowering* _lowering;
+        RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
@@ -182,14 +184,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void emit_wait_async(Nodecl::NodeclBase construct, bool has_dependences, OutlineInfo& outline_info);
 
-        std::string get_outline_name(TL::Symbol function_symbol);
 
         Source fill_const_wd_info(
                 Source &struct_arg_type_name,
                 bool is_untied,
                 bool mandatory_creation,
                 OutlineInfo& outline_info,
-                const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);
 
         TL::Symbol declare_const_wd_type(
