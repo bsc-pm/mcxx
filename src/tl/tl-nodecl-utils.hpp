@@ -52,6 +52,8 @@ namespace Nodecl
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_first_occurrence(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_first_occurrence(Nodecl::NodeclBase);
 
+        TL::ObjectList<Nodecl::NodeclBase> get_all_memory_accesses(Nodecl::NodeclBase n);
+
         bool nodecl_is_arithmetic_op( Nodecl::NodeclBase n );
         bool nodecl_is_assignment_op( Nodecl::NodeclBase n );
         bool nodecl_is_bitwise_op( Nodecl::NodeclBase n );

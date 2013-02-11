@@ -64,6 +64,7 @@ namespace Analysis {
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
 
+
     public:
         //! Constructor
         UseDef( ExtensibleGraph* graph );
@@ -150,6 +151,10 @@ namespace Analysis {
 
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
+
+        // Methods to parse the file containing C function definitions useful for Use-Def analysis
+        void parse_parameter( std::string current_param, Nodecl::NodeclBase arg );
+        bool parse_c_functions_file( Symbol func_sym, Nodecl::List args );
 
     public:
         // *** Constructors *** //
