@@ -40,7 +40,7 @@ enum A
   L=1,
   D=2
 };
-#pragma omp declare reduction (foo: enum A: _out=_in)
+#pragma omp declare reduction (foo: enum A : omp_out=omp_in) initializer(omp_priv = L)
 
 int main (int argc, char* argv[])
 {

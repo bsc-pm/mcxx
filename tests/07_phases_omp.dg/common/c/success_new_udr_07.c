@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -43,7 +41,7 @@ struct myInt {
    int x;
 };
 
-#pragma omp declare reduction(+:struct myInt: _out.x += _in.x)
+#pragma omp declare reduction(+:struct myInt: omp_out.x += omp_in.x) initializer(omp_priv = {0})
 
 int omp_get_num_threads(void);
 int omp_get_thread_num(void);

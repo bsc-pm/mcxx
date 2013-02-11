@@ -5673,7 +5673,19 @@ char is_signed_integral_type(type_t* t)
         || is_signed_short_int_type(t)
         || is_signed_int_type(t)
         || is_signed_long_int_type(t)
-        || is_signed_long_long_int_type(t);
+        || is_signed_long_long_int_type(t)
+        || is_signed_int128_type(t);
+}
+
+char is_unsigned_integral_type(type_t* t)
+{
+    return is_unsigned_char_type(t)
+        || is_unsigned_byte_type(t)
+        || is_unsigned_short_int_type(t)
+        || is_unsigned_int_type(t)
+        || is_unsigned_long_int_type(t)
+        || is_unsigned_long_long_int_type(t)
+        || is_unsigned_int128_type(t);
 }
 
 char is_signed_int_type(type_t *t)
@@ -9170,6 +9182,34 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         // _Complex cases
+        else if (is_integer_type(orig)
+                && is_complex_type(dest)
+                && is_floating_type(complex_type_get_base_type(dest)))
+        {
+            // Integral -> Complex FloatingType
+            // We model this as a conversion from Integral to FloatingType
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integer to (complex-)floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_complex_type(orig)
+                && is_floating_type(complex_type_get_base_type(orig))
+                && is_integer_type(dest))
+        {
+            // Complex FloatingType -> Integral
+            // We model this as a conversion from FloatingType to Integral
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex-float to integral conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
         else if (is_floating_type(orig)
                 && !is_complex_type(orig)
                 && is_complex_type(dest)
@@ -9241,17 +9281,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-	else if (is_complex_type(orig)
-		&& is_floating_type(dest))
-	{
-	    DEBUG_CODE()
-	    {
-		fprintf(stderr, "SCS: Applying complex to floating conversion\n");
-	    }
-	    (*result).conv[1] = SCI_COMPLEX_TO_FLOAT_CONVERSION;
-	    // Direct conversion, no cv-qualifiers can be involved here
-	    orig = dest;
-	}
+        else if (is_complex_type(orig)
+                && is_floating_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying complex to floating conversion\n");
+            }
+            (*result).conv[1] = SCI_COMPLEX_TO_FLOAT_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
     }
 
     // Third kind of conversion

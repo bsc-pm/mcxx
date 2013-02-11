@@ -29,7 +29,7 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-source.hpp"
-#include "tl-omp-udr.hpp"
+#include "tl-omp-reduction.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
@@ -41,9 +41,10 @@ namespace TL
     namespace OpenMP
     {
         bool Core::_already_registered(false);
+        bool Core::_silent_declare_reduction(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _udr_counter(0)
+            : PragmaCustomCompilerPhase("omp")
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -113,11 +114,8 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // FIXME - Remove once ticket #1089 is fixed
-            if (_do_not_init_udr == "0")
-            {
-                initialize_builtin_udr_reductions(global_scope);
-            }
+            // Initialize OpenMP reductions
+            initialize_builtin_reductions(global_scope);
 
             PragmaCustomCompilerPhase::run(dto);
 
@@ -1376,14 +1374,6 @@ namespace TL
         }
 
         void Core::section_handler_post(TL::PragmaCustomStatement)
-        {
-        }
-
-        void Core::declare_reduction_handler_pre(TL::PragmaCustomDirective directive)
-        {
-        }
-
-        void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
         {
         }
 

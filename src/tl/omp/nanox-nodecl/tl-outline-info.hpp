@@ -132,7 +132,7 @@ namespace TL
                 Nodecl::NodeclBase _base_address_expression;
 
                 // Reductions
-                OpenMP::UDRInfoItem *_udr_info_item;
+                OpenMP::Reduction *_reduction;
 
                 TL::ObjectList<DependencyItem> _dependences;
 
@@ -283,9 +283,9 @@ namespace TL
                     return _base_address_expression;
                 }
 
-                void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
+                void set_reduction_info(OpenMP::Reduction* reduction)
                 {
-                    _udr_info_item = udr_info_item;
+                    _reduction = reduction;
                 }
 
                 bool is_reduction() const
@@ -293,9 +293,9 @@ namespace TL
                     return _sharing == SHARING_REDUCTION;
                 }
 
-                OpenMP::UDRInfoItem* get_reduction_info() const
+                OpenMP::Reduction* get_reduction_info() const
                 {
-                    return _udr_info_item;
+                    return _reduction;
                 }
 
                 void set_captured_value(Nodecl::NodeclBase captured_value)
@@ -430,7 +430,7 @@ namespace TL
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
-                void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info);
+                void add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);

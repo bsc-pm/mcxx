@@ -39,7 +39,7 @@ struct A
 {
 };
 
-#pragma omp declare reduction (myop: A : _out=_in) identity(constructor)
+#pragma omp declare reduction (myop: A : omp_out=omp_in)
 
 struct B: A
 {

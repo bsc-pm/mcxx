@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -39,7 +37,7 @@ int omp_get_thread_num(void);
 
 typedef struct {
   double real;
-  double imaginary;
+  double imag;
 } my_complex_t;
 
 my_complex_t complex_add (my_complex_t a, my_complex_t b) 
@@ -54,8 +52,8 @@ my_complex_t complex_mul (my_complex_t a, my_complex_t b)
     return m;
 }
 
-#pragma omp declare reduction(complex_add : my_complex_t : _out = complex_add(_in,_out)) identity({0,0})
-#pragma omp declare reduction(complex_mul : my_complex_t : _out = complex_mul(_in,_out)) identity({1,0})
+#pragma omp declare reduction(complex_add : my_complex_t : omp_out = complex_add(omp_in, omp_out)) initializer(omp_priv = {0,0})
+#pragma omp declare reduction(complex_mul : my_complex_t : omp_out = complex_mul(omp_in, omp_out)) initializer(omp_priv = {1,0})
 
 #define N 100
 my_complex_t vector[N];

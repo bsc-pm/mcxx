@@ -29,38 +29,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+test_nolink=yes
 </testinfo>
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef int Myint;
-
-#pragma omp declare reduction(mymin:Myint: omp_out = omp_out > omp_in ? omp_in : omp_out ) initializer(omp_priv = 2147483647)
-
-#define N 100
-
-int omp_get_num_threads(void);
-int omp_get_thread_num(void);
-
-int main (int argc, char **argv)
-{
-   int i,x = N+1;
-   int a[N];
-
-   for ( i = 0; i < N ; i++ ) a[i] = i;
-
-#ifdef NANOX
-    #pragma omp for reduction(mymin:x)
-#else
-    #pragma omp parallel for reduction(mymin:x)
-#endif
-   for ( i = 0; i < N ; i++ )
-   {
-        x = a[i] < x ? a[i] : x;
-   }
-
-   if ( x != 0 ) abort();
-   return 0;
-}
+#pragma omp declare reduction(foo : float : omp_in *= omp_out )

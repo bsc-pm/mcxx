@@ -859,6 +859,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     RETURN_TOKEN(TOK_IS_VARIABLE);
 }
 
+@OMP-DECLARE-REDUCTION@ {
+    parse_token_text();
+    return SUBPARSE_OPENMP_DECLARE_REDUCTION;
+}
+
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
 

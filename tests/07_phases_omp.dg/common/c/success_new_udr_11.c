@@ -29,8 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_noexec=yes
-test_compile_fail=yes
+test_nolink=yes
 </testinfo>
 */
 
@@ -41,10 +40,9 @@ struct A
 
 void foo ( struct A *a,  struct A *b );
 
-#pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
+#pragma omp declare reduction ( foo : struct A : foo(&omp_out,&omp_in) ) initializer(omp_priv = {0})
 
 void bar ()
 {
-  // illegal re-declaration
-  #pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
+  #pragma omp declare reduction ( foo : struct A : foo(&omp_out,&omp_in) ) initializer(omp_priv = {0})
 }

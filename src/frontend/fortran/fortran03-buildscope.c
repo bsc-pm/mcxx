@@ -1277,17 +1277,17 @@ static void build_global_program_unit(AST program_unit)
             &nodecl_internal_subprograms);
 }
 
-static type_t* gather_type_from_declaration_type_spec_(AST a, 
+static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
         decl_context_t decl_context);
 
-static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context)
+type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context)
 {
-    return gather_type_from_declaration_type_spec_(a, decl_context);
+    return fortran_gather_type_from_declaration_type_spec_(a, decl_context);
 }
 
 static type_t* get_derived_type_name(AST a, decl_context_t decl_context);
 
-static type_t* gather_type_from_declaration_type_spec_of_component(AST a, decl_context_t decl_context,
+static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a, decl_context_t decl_context,
         char is_pointer_component)
 {
     type_t* result = NULL;
@@ -1316,7 +1316,7 @@ static type_t* gather_type_from_declaration_type_spec_of_component(AST a, decl_c
     }
     else
     {
-        result = gather_type_from_declaration_type_spec_(a, decl_context);
+        result = fortran_gather_type_from_declaration_type_spec_(a, decl_context);
     }
 
     return result;
@@ -1525,7 +1525,7 @@ static scope_entry_t* new_procedure_symbol(
                 else
                 {
                     AST declaration_type_spec = ASTSon0(prefix_spec);
-                    return_type = gather_type_from_declaration_type_spec(declaration_type_spec, program_unit_context);
+                    return_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, program_unit_context);
 
                     if (return_type != NULL)
                     {
@@ -2829,7 +2829,7 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
     return result;
 }
 
-static type_t* gather_type_from_declaration_type_spec_(AST a, 
+static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
         decl_context_t decl_context)
 {
     type_t* result = NULL;
@@ -2870,7 +2870,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 }
                 else
                 {
-                    element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                    element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
                 }
 
                 result = get_complex_type(element_type);
@@ -2953,7 +2953,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_VECTOR_TYPE:
             {
-                type_t* element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
                 // Generic vector
                 result = get_vector_type(element_type, 0);
                 break;
@@ -5123,7 +5123,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
             }
 
-            type_t* basic_type = gather_type_from_declaration_type_spec_of_component(declaration_type_spec, 
+            type_t* basic_type = fortran_gather_type_from_declaration_type_spec_of_component(declaration_type_spec, 
                     decl_context, attr_spec.is_pointer);
 
             AST it2;
@@ -5984,7 +5984,7 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
             AST declaration_type_spec = ASTSon0(implicit_spec);
             AST letter_spec_list = ASTSon1(implicit_spec);
 
-            type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+            type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
 
             if (basic_type == NULL)
             {
@@ -7044,7 +7044,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         }
         else
         {
-            return_type = gather_type_from_declaration_type_spec(proc_interface, decl_context);
+            return_type = fortran_gather_type_from_declaration_type_spec(proc_interface, decl_context);
         }
     }
 
@@ -7515,7 +7515,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     AST attr_spec_list = ASTSon1(a);
     AST entity_decl_list = ASTSon2(a);
 
-    type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+    type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
@@ -8011,6 +8011,10 @@ static void build_scope_typedef_stmt(AST a, decl_context_t decl_context, nodecl_
 static void build_scope_nodecl_literal(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_from_ast_nodecl_literal(a);
+    if (!nodecl_is_list(*nodecl_output))
+    {
+        *nodecl_output = nodecl_make_list_1(*nodecl_output);
+    }
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)

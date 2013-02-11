@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -45,7 +43,7 @@ class myInt {
 public:
    myInt() : x(0) {}
 
-   #pragma omp declare reduction( + : myInt : _out += _in)
+   #pragma omp declare reduction( + : myInt : omp_out += omp_in)
 
    myInt & operator+= (const myInt &b) {  this->x += b.x; return *this; }
    myInt & operator+= (const int b) { this->x += b; return *this; }
@@ -60,7 +58,7 @@ public:
    void foo();
    int bar()
    {
-       #pragma omp declare reduction( * : myInt : _out *= _in)
+       #pragma omp declare reduction( * : myInt : omp_out *= omp_in)
        myInt a;
        #pragma omp parallel reduction(* : a)
        int x = rand();
@@ -70,7 +68,7 @@ public:
 
 void myInt::foo()
 {
-   #pragma omp declare reduction(- : myInt : _out -= _in)
+   #pragma omp declare reduction(- : myInt : omp_out -= omp_in)
    myInt a;
    #pragma omp parallel reduction(- :a)
    int x = rand();
@@ -87,7 +85,7 @@ int main (int argc, char **argv)
        s += i;
    }
 
-    #pragma omp parallel for reduction(myInt::+ :x)
+    #pragma omp parallel for reduction(myInt::operator+ :x)
    for ( i = 0; i < N ; i++ )
    {
         x += a[i];

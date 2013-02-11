@@ -372,13 +372,6 @@ namespace TL { namespace OpenMP {
                 _ffast_math_enabled_str,
                 "0").connect(functor(&Base::set_ffast_math, *this));
 
-        // FIXME - Remove once ticket #1089 is fixed
-        register_parameter("do_not_init_udr",
-                "Disable initialization of UDRs. This may be needed in some setups due to a bug",
-                _core._do_not_init_udr,
-                "0");
-
-
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -1527,7 +1520,7 @@ namespace TL { namespace OpenMP {
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
                 return Nodecl::OpenMP::ReductionItem::make(
-                        /* reductor */ Nodecl::Symbol::make(arg.get_udr().get_symbol_holder(), _filename, _line),
+                        /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _filename, _line),
                         /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _filename, _line),
                         _filename, _line);
             }

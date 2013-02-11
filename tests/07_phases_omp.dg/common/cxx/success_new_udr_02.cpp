@@ -29,15 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail=yes
-test_compile_faulty=yes
-
-# test_compile_fail_nanox_mercurium=yes
-# test_compile_faulty_nanox_mercurium=yes
-#
-# test_compile_fail_nanox_instrument=yes
-# test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -49,18 +40,16 @@ test_compile_faulty=yes
 
 namespace A {
 
-struct myInt {
-   int x;
+    struct myInt {
+        int x;
 
-   void operator+= ( const int b ) { x += b; }
-   void operator+= ( const myInt &b ) { x += b.x; }
-};
+        void operator+= ( const int b ) { x += b; }
+        void operator+= ( const myInt &b ) { x += b.x; }
+    };
 
-#pragma omp declare reduction(plus:myInt: _out.x += _in.x) identity({0})
+#pragma omp declare reduction(plus:myInt: omp_out.x += omp_in.x) initializer(omp_priv = {0})
 
 }
-
-#pragma omp declare reduction(plus:A::myInt: _out.x = _in.x)
 
 int main (int argc, char **argv)
 {
@@ -73,7 +62,7 @@ int main (int argc, char **argv)
        s += i;
    }
 
-   #pragma omp parallel for reduction(A::plus:x)
+   #pragma omp parallel for reduction(A::plus : x)
    for ( i = 0; i < N ; i++ )
    {
         x += a[i];

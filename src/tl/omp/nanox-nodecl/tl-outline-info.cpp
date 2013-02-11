@@ -632,12 +632,12 @@ namespace TL { namespace Nanox {
         outline_info.set_captured_value(expr);
     }
 
-    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
+    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
         outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
-        outline_info.set_reduction_info(&udr_info);
+        outline_info.set_reduction_info(reduction);
 
         TL::Type t = symbol.get_type();
         if (t.is_any_reference())
@@ -835,12 +835,12 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)
             {
-                TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
+                TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
 
-                OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
-
-                add_reduction(symbol, udr_info);
+                OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
+                add_reduction(symbol, red);
             }
 
             void visit(const Nodecl::OpenMP::Target& target)

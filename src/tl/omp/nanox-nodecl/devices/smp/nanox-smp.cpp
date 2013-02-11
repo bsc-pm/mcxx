@@ -285,11 +285,69 @@ namespace TL { namespace Nanox {
         return new_function_sym;
     }
 
+    static Source emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
+    {
+        Source result;
+
+        TL::Type t = sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
+                    int &lower_bound_index, int &upper_bound_index)
+            {
+                Source current_arg;
+                if (t.is_array())
+                {
+                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t.array_get_bounds(lower, upper);
+
+                    if (lower.is_null())
+                    {
+                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
+                        lower_bound_index++;
+                    }
+
+                    if (upper.is_null())
+                    {
+                        current_arg << "mcc_upper_bound_" << upper_bound_index;
+                        upper_bound_index++;
+                    }
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
+            {
+                aux_rec(array_shape,
+                        t, t.get_num_dimensions(), t.get_num_dimensions(),
+                        lower_bound_index, upper_bound_index);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
+
+        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     static TL::Symbol new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
             CreateOutlineInfo& info,
-            Nodecl::Utils::SymbolMap*& out_symbol_map)
+            // Out
+            Nodecl::Utils::SymbolMap*& out_symbol_map,
+            Source &initial_statements,
+            Source &final_statements)
     {
         bool is_function_task = info._called_task.is_valid();
 
@@ -323,6 +381,9 @@ namespace TL { namespace Nanox {
         {
             it++;
         }
+
+        int lower_bound_index = 0;
+        int upper_bound_index = 0;
 
         for (; it != data_items.end(); it++)
         {
@@ -362,6 +423,18 @@ namespace TL { namespace Nanox {
                         }
 
                         private_symbols.append(private_sym);
+
+                        if (IS_CXX_LANGUAGE)
+                        {
+                            // We need the declarations of the private symbols!
+                            initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
+                        }
+
+                        if ((*it)->get_symbol().is_valid()
+                                && (*it)->get_symbol().is_allocatable())
+                        {
+                            initial_statements << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -493,13 +566,60 @@ namespace TL { namespace Nanox {
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
                         private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
 
+                        if (IS_CXX_LANGUAGE)
+                        {
+                            initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                        private_reduction_vector_sym));
+                        }
+
                         // Local variable (rdp stands for reduction private)
-                        // This variable must be initialized properly
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 ("rdp_" + name).c_str());
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                        if (IS_CXX_LANGUAGE)
+                        {
+                            initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
+                        }
+
+                        // This variable must be initialized properly
+                        OpenMP::Reduction* red = (*it)->get_reduction_info();
+                        if (!red->get_initializer().is_null())
+                        {
+                            Nodecl::Utils::SimpleSymbolMap reduction_init_map;
+                            reduction_init_map.add_map(red->get_omp_priv(), private_sym);
+                            reduction_init_map.add_map(red->get_omp_orig(), shared_reduction_sym);
+                            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                            {
+                                private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
+                                        Scope(function_context),
+                                        reduction_init_map).get_internal_nodecl();
+                            }
+                            else if (IS_FORTRAN_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase init_expr = Nodecl::Utils::deep_copy(red->get_initializer(),
+                                        Scope(function_context),
+                                        reduction_init_map);
+
+                                Nodecl::Symbol sym_ref = Nodecl::Symbol::make(private_sym);
+                                type_t* lvalue_ref = get_lvalue_reference_type(private_sym->type_information);
+                                sym_ref.set_type(lvalue_ref);
+
+                                Nodecl::NodeclBase assignment_statement = Nodecl::ExpressionStatement::make(
+                                        Nodecl::Assignment::make(
+                                            sym_ref,
+                                            init_expr,
+                                            lvalue_ref));
+
+                                initial_statements << as_statement(assignment_statement);
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
 
                         if (sym.is_valid())
                         {
@@ -647,7 +767,6 @@ namespace TL { namespace Nanox {
         function_context.block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
-
 
         out_symbol_map = symbol_map;
         return new_function_sym;
@@ -817,60 +936,6 @@ namespace TL { namespace Nanox {
         }
     }
 
-    Source DeviceSMP::emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
-    {
-        Source result;
-
-        TL::Type t = sym.get_type();
-        if (t.is_any_reference())
-            t = t.references_to();
-
-        struct Aux
-        {
-            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
-                    int &lower_bound_index, int &upper_bound_index)
-            {
-                Source current_arg;
-                if (t.is_array())
-                {
-                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
-
-                    Source curent_arg;
-                    Nodecl::NodeclBase lower, upper;
-                    t.array_get_bounds(lower, upper);
-
-                    if (lower.is_null())
-                    {
-                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
-                        lower_bound_index++;
-                    }
-
-                    if (upper.is_null())
-                    {
-                        current_arg << "mcc_upper_bound_" << upper_bound_index;
-                        upper_bound_index++;
-                    }
-
-                    array_shape.append_with_separator(current_arg, ",");
-                }
-            }
-
-            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
-            {
-                aux_rec(array_shape,
-                        t, t.get_num_dimensions(), t.get_num_dimensions(),
-                        lower_bound_index, upper_bound_index);
-            }
-        };
-
-        Source array_shape;
-        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
-
-        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
-            ;
-
-        return result;
-    }
 
 
     void DeviceSMP::create_outline(CreateOutlineInfo& info,
@@ -897,10 +962,8 @@ namespace TL { namespace Nanox {
                         original_statements.get_locus().c_str());
         }
 
-        Source unpacked_arguments, cleanup_code, private_entities, extra_declarations;
-
-        int lower_bound_index = 0;
-        int upper_bound_index = 0;
+        Source unpacked_arguments, cleanup_code, extra_declarations;
+        Source final_statements, initial_statements;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
         TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -913,23 +976,14 @@ namespace TL { namespace Nanox {
             ++it;
         }
 
+        // Prepare arguments for the call to the unpack (or forward in Fortran)
         for (; it != data_items.end(); it++)
         {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        if (IS_CXX_LANGUAGE)
-                        {
-                            // We need the declarations of the private symbols!
-                            private_entities << as_type((*it)->get_symbol().get_type().no_ref()) << " " << (*it)->get_symbol().get_name() << ";";
-                        }
-
-                        if ((*it)->get_symbol().is_valid()
-                                && (*it)->get_symbol().is_allocatable())
-                        {
-                            private_entities << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
-                        }
+                        // Do nothing
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
@@ -986,7 +1040,7 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
-                        // Pass the original reduced variable as if it were a shared
+                        // // Pass the original reduced variable as if it were a shared
                         Source argument;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
@@ -999,10 +1053,6 @@ namespace TL { namespace Nanox {
                         unpacked_arguments.append_with_separator(argument, ", ");
 
                         std::string name = (*it)->get_symbol().get_name();
-
-                        private_entities
-                            << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
-                            ;
 
                         break;
                     }
@@ -1024,7 +1074,10 @@ namespace TL { namespace Nanox {
                     current_function,
                     outline_name + "_unpack",
                     info,
-                    symbol_map);
+                    // out
+                    symbol_map,
+                    initial_statements,
+                    final_statements);
         }
         else
         {
@@ -1032,7 +1085,10 @@ namespace TL { namespace Nanox {
                     current_function,
                     outline_name + "_unpacked",
                     info,
-                    symbol_map);
+                    // out
+                    symbol_map,
+                    initial_statements,
+                    final_statements);
         }
 
         ObjectList<std::string> structure_name;
@@ -1109,8 +1165,9 @@ namespace TL { namespace Nanox {
         }
         unpacked_source
             << extra_declarations
-            << private_entities
+            << initial_statements
             << statement_placeholder(outline_placeholder)
+            << final_statements
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {

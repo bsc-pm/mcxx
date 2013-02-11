@@ -272,6 +272,7 @@ LIBMCXX_EXTERN type_t* complex_type_get_base_type(type_t* t);
 // char, wchar_t, bool and any integer
 LIBMCXX_EXTERN char is_integral_type(type_t* t); 
 LIBMCXX_EXTERN char is_signed_integral_type(type_t* t);
+LIBMCXX_EXTERN char is_unsigned_integral_type(type_t* t);
 // A synonim in the standard
 LIBMCXX_EXTERN char is_integer_type(type_t* t); 
 LIBMCXX_EXTERN char is_enum_type(type_t* t);
@@ -294,6 +295,9 @@ LIBMCXX_EXTERN char is_character_type(type_t* t);
 LIBMCXX_EXTERN char is_char_type(type_t* t);
 LIBMCXX_EXTERN char is_signed_char_type(type_t* t);
 LIBMCXX_EXTERN char is_unsigned_char_type(type_t* t);
+
+LIBMCXX_EXTERN char is_signed_int128_type(type_t*);
+LIBMCXX_EXTERN char is_unsigned_int128_type(type_t*);
 
 LIBMCXX_EXTERN char is_wchar_t_type(type_t* t);
 

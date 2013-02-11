@@ -29,15 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail=yes
-test_compile_faulty=yes
-
-#test_compile_fail_nanox_mercurium=yes
-#test_compile_faulty_nanox_mercurium=yes
-#
-#test_compile_fail_nanox_instrument=yes
-#test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -46,7 +37,7 @@ test_compile_faulty=yes
 namespace n
 {
   struct A {};
-  #pragma omp declare reduction (foo: A: _out=_in)
+  #pragma omp declare reduction (foo: A: omp_out=omp_in)
 }
 
 int main (int argc, char* argv[])
