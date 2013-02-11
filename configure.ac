@@ -1103,6 +1103,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile

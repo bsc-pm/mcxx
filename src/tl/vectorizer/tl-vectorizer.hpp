@@ -54,7 +54,7 @@ namespace TL
             Vectorizer();
 
             public:
-                static Vectorizer& getVectorizer();
+                static Vectorizer& get_vectorizer();
 
                 Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
                         const std::string& device,

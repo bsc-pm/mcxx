@@ -40,7 +40,7 @@ namespace TL
         
         FunctionVersioning Vectorizer::_function_versioning;
 
-        Vectorizer& Vectorizer::getVectorizer()
+        Vectorizer& Vectorizer::get_vectorizer()
         {
             if(_vectorizer == 0)
                 _vectorizer = new Vectorizer();
