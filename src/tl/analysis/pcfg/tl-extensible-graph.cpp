@@ -30,7 +30,8 @@ namespace TL {
 namespace Analysis {
 
     ExtensibleGraph::ExtensibleGraph( std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils )
-        : _name( name ), _graph( NULL ), _utils( utils ), _sc( nodecl.retrieve_context( ) ),
+        : _name( name ), _graph( NULL ), _utils( utils ),
+          _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
           _task_nodes_l( ), _func_calls( ),
           _cluster_to_entry_map( )
@@ -781,6 +782,11 @@ namespace Analysis {
     std::string ExtensibleGraph::get_name( ) const
     {
         return _name;
+    }
+
+    Nodecl::NodeclBase ExtensibleGraph::get_nodecl( ) const
+    {
+        return _nodecl;
     }
 
     Scope ExtensibleGraph::get_scope( ) const
