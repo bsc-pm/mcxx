@@ -24,7 +24,11 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <iostream>
+#include <fstream>
+
 #include "tl-analysis-utils.hpp"
+#include "config.h"
 #include "tl-node.hpp"
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
 #include "tl-rename-visitor.hpp"
@@ -322,7 +326,7 @@ namespace Analysis {
         return ref_params_to_args;
     }
 
-    static sym_to_nodecl_map map_lvalue_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
+    static sym_to_nodecl_map map_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
                                                                       Nodecl::List arguments )
     {
         sym_to_nodecl_map non_ref_params_to_args;
@@ -436,6 +440,101 @@ namespace Analysis {
         _define = false;
     }
 
+    void UsageVisitor::parse_parameter( std::string current_param, Nodecl::NodeclBase arg )
+    {
+        std::cerr << "Current param: '" << current_param << "'" << std::endl;
+        size_t first_slash_pos = current_param.find( "#" );
+        if( first_slash_pos != std::string::npos )
+        {   // Parameter is pointer
+            // The address is used
+            std::cerr << " Set as used: " << arg.prettyprint( ) << std::endl;
+            _node->set_ue_var( Utils::ExtendedSymbol( arg ) );
+            size_t second_slash_pos = current_param.find( "#", first_slash_pos );
+            std::string pointed_param_usage = current_param.substr( first_slash_pos, second_slash_pos - first_slash_pos );
+            std::cerr << "pointer param usage: " << pointed_param_usage << std::endl;
+            // TODO: What do we want to do with the pointed value??
+        }
+        else
+        {
+            ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( arg );
+            for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+            {
+                std::cerr << " Set as used: " << it_o->prettyprint( ) << std::endl;
+                _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+            }
+        }
+    }
+
+    bool UsageVisitor::parse_c_functions_file( Symbol func_sym, Nodecl::List args )
+    {
+        bool side_effects = true;
+
+        std::string cLibFuncsPath = std::string( MCXX_ANALYSIS_DATA_PATH ) + "/cLibraryFunctionList" ;
+        std::ifstream cLibFuncs( cLibFuncsPath.c_str( ) );
+        if( cLibFuncs.is_open( ) )
+        {
+            std::string func_decl;
+            while( cLibFuncs.good( ) )
+            {
+                getline( cLibFuncs, func_decl );
+                if( func_decl.substr( 0, 2 ) != "//" )
+                {
+                    size_t open_parenth_pos = func_decl.find( "(" );
+                    std::string func_name = func_decl.substr( 0, open_parenth_pos - 1 );
+                    if( func_sym.get_name( ) == func_name )
+                    {   // No global variable is read / written
+                        // Check for parameters usage
+                        std::cerr << "Matched func_name: '" << func_name << "'" << std::endl;
+                        side_effects = false;
+
+                        size_t comma_pos = func_decl.find( "," );
+                        if( comma_pos == std::string::npos )
+                        {
+                            comma_pos = func_decl.find( ")" );
+                        }
+                        size_t last_comma_pos = open_parenth_pos + 1;
+                        std::string current_param;
+                        Nodecl::List::iterator it = args.begin( );
+                        while( comma_pos != std::string::npos && /* not a default parameter*/ it != args.end( ) )
+                        {
+                            current_param = func_decl.substr( last_comma_pos, comma_pos - last_comma_pos );
+                            parse_parameter( current_param, *it );
+                            it++;
+                            last_comma_pos = comma_pos + 1;
+                            comma_pos = func_decl.find( ",", last_comma_pos );
+                        }
+                        // Last parameter
+                        if( it != args.end( ) )
+                        {
+                            current_param = func_decl.substr( last_comma_pos, func_decl.find( ")", last_comma_pos ) - last_comma_pos );
+                            if( current_param == "..." )
+                            {   // Arguments are supposed to be only used
+                                ObjectList<Nodecl::NodeclBase> obj;
+                                while( it != args.end( ) )
+                                {
+                                    obj = Nodecl::Utils::get_all_memory_accesses( *it );
+                                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o  != obj.end( ); ++it_o )
+                                    {
+                                        std::cerr << " Set as used: " << it_o->prettyprint( ) << std::endl;
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                                    }
+                                    ++it;
+                                }
+                            }
+                            else
+                            {
+                                parse_parameter( current_param, *it );
+                            }
+                        }
+                    }
+                }
+            }
+            cLibFuncs.close();
+        }
+
+        return side_effects;
+    }
+
     void UsageVisitor::function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments )
     {
         TL::Symbol func_sym = called_sym.get_symbol( );
@@ -481,11 +580,15 @@ namespace Analysis {
                 Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
                 Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
                     // value parameters
-                sym_to_nodecl_map non_ref_params = map_lvalue_non_reference_params_to_args( params, args );
+                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
                 for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
                     it != non_ref_params.end( ); ++it )
                 {
-                    ue_vars.insert( Utils::ExtendedSymbol( it->second ) );
+                    ObjectList<Nodecl::NodeclBase> syms = Nodecl::Utils::get_all_memory_accesses( it->second );
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it_s = syms.begin( ); it_s != syms.end( ); ++it_s )
+                    {
+                        ue_vars.insert( Utils::ExtendedSymbol( *it_s ) );
+                    }
                 }
                     // set the values
                 _node->set_ue_var( ue_vars );
@@ -538,32 +641,96 @@ namespace Analysis {
             }
             else
             {   // We do not have access to the called code
-                // Set all reference parameters to undefined
-                sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
-                for( sym_to_nodecl_map::iterator it = ref_params.begin( );
-                     it != ref_params.end( ); ++it )
-                {
-                    if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+
+                // Check whether we have enough attributes in the function symbol
+                // to determine the function side effects
+                bool side_effects = true;
+
+                if( func_sym.has_gcc_attributes( ) )
+                {   // Check for information synthesized by gcc
+//                     std::cerr << "Function " << func_sym.get_name( ) << " has gcc attributes" << std::endl;
+                    ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
+                    for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
+                         it != gcc_attrs.end( ); ++it )
                     {
-                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                Utils::ExtendedSymbol( it->second ) );
+                        std::string attr_name = it->get_attribute_name( );
+//                         std::cerr << "   attr: '" << attr_name << "'" << std::endl;
+                        if( attr_name == "const" || attr_name == "pure" )
+                        {   // No side effects except the return value.
+                            // Only examine the arguments ( and global variables in 'pure' case)
+                            side_effects = false;
+
+                            Utils::ext_sym_set ue_vars;
+                            // Set all parameters as used ( if not previously killed or undefined )
+                            for( Nodecl::List::iterator it_arg = args.begin( ); it_arg != args.end( ); ++it_arg )
+                            {
+                                Utils::ExtendedSymbol es( *it_arg );
+                                if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
+                                    && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
+                                {
+                                    ue_vars.insert( es );
+                                }
+                            }
+
+                            if( attr_name == "pure" )
+                            {   // Set all global variables as upper exposed ( if not previously killed or undefined )
+                                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it_g =
+                                    _visited_global_vars.begin( ); it_g != _visited_global_vars.end( ); ++it_g )
+                                {
+                                    Utils::ExtendedSymbol es( it_g->get_extended_symbol() );
+                                    if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
+                                        && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
+                                    {
+                                        ue_vars.insert( es );
+                                    }
+                                }
+                            }
+                            _node->set_ue_var( ue_vars );
+                        }
                     }
                 }
 
-                // Set the value passed parameters as Used
-                sym_to_nodecl_map non_ref_params = map_lvalue_non_reference_params_to_args( params, args );
-                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
-                     it != non_ref_params.end( ); ++it )
+                if( side_effects )
                 {
-                    _node->set_ue_var( Utils::ExtendedSymbol( it->second ) );
-                }
+//                     std::cerr << "Function " << func_sym.get_name( ) << " checked in Mercurium decl list" << std::endl;
+                    // Check in Mercurium function attributes data-base
+                    side_effects = parse_c_functions_file( func_sym, args );
 
-                // Set all global variables to undefined
-                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
-                     _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
-                {
-                    _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                            it->get_extended_symbol() );
+                    // Still cannot determine which are the side effects of the function...
+                    if( side_effects )
+                    {
+                        // Set all reference parameters to undefined
+                        sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
+                        for( sym_to_nodecl_map::iterator it = ref_params.begin( );
+                            it != ref_params.end( ); ++it )
+                        {
+                            if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                            {
+                                _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                        Utils::ExtendedSymbol( it->second ) );
+                            }
+                        }
+
+                        // Set the value passed parameters as upper exposed
+                        sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                        for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                            it != non_ref_params.end( ); ++it )
+                        {
+                            ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                            for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                            {
+                                _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                            }
+                        }
+
+                        // Set all global variables to undefined
+                        for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                            _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
+                        {
+                            _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                    it->get_extended_symbol() );
+                        }
+                    }
                 }
             }
         }
@@ -669,8 +836,11 @@ namespace Analysis {
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ObjectInit& n )
     {
-        Nodecl::Symbol s = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
-        _node->set_killed_var( Utils::ExtendedSymbol( s ) );
+        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+        _node->set_killed_var( Utils::ExtendedSymbol( n_sym ) );
+
+        // Value of initialization, in case it exists
+        walk( n.get_symbol( ).get_value( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::PointerToMember& n )

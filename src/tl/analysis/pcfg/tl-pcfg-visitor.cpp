@@ -1259,10 +1259,8 @@ namespace Analysis {
         else
         {
             ObjectList<Node*> object_init_last_nodes = _utils->_last_nodes;
-            nodecl_t n_sym = nodecl_make_symbol( n.get_symbol( ).get_internal_symbol( ),
-                                                 n.get_filename( ).c_str( ), n.get_line( ) );
-            Nodecl::Symbol nodecl_symbol( n_sym );
-            ObjectList<Node*> init_sym = walk( nodecl_symbol );
+            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+            ObjectList<Node*> init_sym = walk( n_sym );
             ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
 
             if( init_expr.empty( ) )
