@@ -1144,7 +1144,6 @@ namespace TL { namespace OpenMP {
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
                     ast_print_node_type(for_statement.get_kind()));
 
-            // Vectorize for
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
                        for_statement.shallow_copy(),
@@ -1161,7 +1160,6 @@ namespace TL { namespace OpenMP {
     {
         if (_simd_enabled)
         {
-            /*
             ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
 
             TL::Symbol sym = decl.get_symbol();
@@ -1169,31 +1167,18 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase node = sym.get_function_code();
             ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
-            Nodecl::FunctionCode function_code = node.as<Nodecl::FunctionCode>();
+            
+            Nodecl::OpenMP::SimdFunction simd_func = 
+                Nodecl::OpenMP::SimdFunction::make(
+                        node.shallow_copy(),
+                        node.get_filename(),
+                        node.get_line());
 
-            Nodecl::FunctionCode vectorized_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
-
-            // Vectorize function
-            _vectorizer.vectorize(vectorized_func_code, 
-                    "smp", 16, NULL); 
-
-            // Set new name
-            std::string vectorized_func_name = 
-                "__" + sym.get_name() + "_sse_16" ; // + device + vectorlength
-
-            vectorized_func_code.get_symbol().set_name(vectorized_func_name);
-
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(sym.get_name(), vectorized_func_code, 
-                    "smp", 16, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
-
-            // Append vectorized function code to scalar function
-            function_code.append_sibling(vectorized_func_code);
-            */
+            node.replace(simd_func);
+            
+            // Remove #pragma
+            Nodecl::Utils::remove_from_enclosing_list(decl);
         }
-        // Remove #pragma
-        Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }

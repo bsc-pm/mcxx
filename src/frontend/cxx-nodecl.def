@@ -35,6 +35,7 @@ top-level : function-code
           | pragma-directive
           | compatibility
           | cxx-decl
+          | simd-func-construct
 
 name : NODECL_SYMBOL() symbol type-opt const-value-opt
 type : NODECL_TYPE() type
@@ -503,6 +504,7 @@ simd-constructs : simd-construct
                 | parallel-simd-for-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement)
+simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement)
 simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([statement] statement)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement)
 
