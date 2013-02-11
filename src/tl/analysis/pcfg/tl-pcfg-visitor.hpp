@@ -308,6 +308,8 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Section& n );
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
+        Ret visit( const Nodecl::OpenMP::Simd& n );
+        Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
