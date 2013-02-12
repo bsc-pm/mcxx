@@ -1949,6 +1949,7 @@ namespace Analysis {
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
         exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+        _utils->_outer_nodes.pop( );
 
         // Finish computation of switch exit nodes
         if( cond_node_l[0]->get_exit_edges( ).empty( ) )
