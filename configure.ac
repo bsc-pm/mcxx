@@ -371,6 +371,8 @@ dnl SIMD Support
 AX_EXT
 
 simd_version="no (SSE 4.1 or higher not detected)."
+simd_math_version="(SVML not detected)"
+svml_enabled="no"
 simd_flags=
 simd_includes=
 nanox_sse="no"
@@ -390,14 +392,17 @@ nanox_sse="no"
   fi
   fi
 
-AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_version="(SVML not detected)"])
+AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"; svml_enabled="yes"], [])
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
+SVML_ENABLED=$svml_enabled
 NANOX_SSE=$nanox_sse
+
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
 AC_SUBST([NANOX_SSE])
+AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1298,6 +1303,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
+           tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
            tests/config/bets

@@ -42,7 +42,6 @@ void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int 
         {
             z[j] = a * x[j] + y[j];
         }
-    }
 }
 
 

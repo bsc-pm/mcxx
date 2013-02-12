@@ -113,8 +113,6 @@ namespace TL {
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
         {
-            printf("SIMD\n");
-
             Nodecl::NodeclBase for_statement = simd_node.get_statement();
 
             // Vectorize for

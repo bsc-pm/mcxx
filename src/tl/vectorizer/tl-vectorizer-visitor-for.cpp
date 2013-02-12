@@ -51,7 +51,7 @@ namespace TL
                         .as<Nodecl::FunctionCode>(),
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 2);
+                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
 
             // Push ForStatement as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -73,11 +73,17 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
+            TL::Scope inner_scope_of_for = for_statement.get_statement().retrieve_context();
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                inner_scope_of_for = for_statement.get_statement().as<Nodecl::List>().front().retrieve_context();
+            }
+
             VectorizerVisitorStatement visitor_stmt(_device,
                     _vector_length,
                     _unroll_factor,
                     _target_type,
-                    for_statement.get_statement().retrieve_context());
+                    inner_scope_of_for);
             visitor_stmt.walk(for_statement.get_statement());
 
             delete Vectorizer::_analysis_info;
@@ -404,62 +410,12 @@ namespace TL
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
         {
-            const Nodecl::NodeclBase rhs = node.get_rhs();
-
-            if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
-                        rhs))
-            {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            rhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                node.get_type(),
-                                Vectorizer::_analysis_info->get_induction_variable_increment(
-                                    Vectorizer::_analysis_scopes->back(),
-                                    rhs),
-                                node.get_filename(),
-                                node.get_line()),
-                            node.get_type(),
-                            node.get_filename(),
-                            node.get_line());
-
-                node.replace(new_node);
-            }
+            visit_increment(node, node.get_rhs());
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
-            const Nodecl::NodeclBase rhs = node.get_rhs();
-            if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
-                        rhs))
-            {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            rhs.shallow_copy(),
-                            Nodecl::Mul::make(
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_filename(),
-                                    node.get_line()),
-                                Nodecl::IntegerLiteral::make(
-                                    node.get_type(),
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        Vectorizer::_analysis_scopes->back(),
-                                        rhs),
-                                    node.get_filename(),
-                                    node.get_line()),
-                                node.get_type(),
-                                node.get_filename(),
-                                node.get_line()),
-                            node.get_type(),
-                            node.get_filename(),
-                            node.get_line());
-
-                node.replace(new_node);
-            }
+            visit_increment(node, node.get_rhs());
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
@@ -503,6 +459,38 @@ namespace TL
             walk(node.get_rhs());
         }
 
+        void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
+        {
+            if (Vectorizer::_analysis_info->is_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        lhs))
+            {
+                const Nodecl::AddAssignment new_node =
+                    Nodecl::AddAssignment::make(
+                            lhs.shallow_copy(),
+                            Nodecl::Mul::make(
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_unsigned_int_type(),
+                                    const_value_get_unsigned_int(_unroll_factor),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                Nodecl::IntegerLiteral::make(
+                                    node.get_type(),
+                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                        Vectorizer::_analysis_scopes->back(),
+                                        lhs),
+                                    node.get_filename(),
+                                    node.get_line()),
+                                node.get_type(),
+                                node.get_filename(),
+                                node.get_line()),
+                            node.get_type(),
+                            node.get_filename(),
+                            node.get_line());
+
+                node.replace(new_node);
+            }
+        }
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Next Visitor: Unknown node "

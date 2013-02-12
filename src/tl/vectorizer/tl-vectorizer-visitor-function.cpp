@@ -46,7 +46,7 @@ namespace TL
             // Get analysis info
             Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
-                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 1);
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
 
             // Push FunctionCode as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -58,14 +58,32 @@ namespace TL
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
+            TL::ObjectList<TL::Symbol> parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_type = func_type.parameters();
 
             TL::ObjectList<TL::Type> parameters_vector_type;
-            for(TL::ObjectList<TL::Type>::iterator it = parameters_type.begin();
-                    it != parameters_type.end();
-                    it++)
+            
+            TL::ObjectList<TL::Type>::iterator it_type;
+            TL::ObjectList<TL::Symbol>::iterator it_sym;
+
+            for(it_sym = parameters.begin(), it_type = parameters_type.begin();
+                    it_type != parameters_type.end();
+                    it_sym++, it_type++)
             {
-                parameters_vector_type.append((*it).get_vector_to(_vector_length));
+                TL::ObjectList<Nodecl::Symbol> sym_ocurrences = 
+                    Nodecl::Utils::get_all_symbols_occurrences((*it_sym).make_nodecl("", 0));
+
+                for (TL::ObjectList<Nodecl::Symbol>::iterator it_occurrence = sym_ocurrences.begin();
+                        it_occurrence != sym_ocurrences.end();
+                        it_occurrence++)
+                {
+                    if((*it_type).is_scalar_type())
+                    {
+                        (*it_occurrence).get_symbol().set_type((*it_type).get_vector_to(_vector_length));
+                    }
+                }
+
+                parameters_vector_type.append((*it_type).get_vector_to(_vector_length));
             }
 
             vect_func_sym.set_type(func_type.returns().get_vector_to(_vector_length).
