@@ -8176,6 +8176,25 @@ UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidat
     return is_member;
 }
 
+static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candidates, scope_entry_t* this_symbol)
+{
+    char result = 0;
+    type_t* class_type = get_unqualified_type(pointer_type_get_pointee_type(this_symbol->type_information));
+
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it) && !result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_function = entry_list_iterator_current(it);
+        result = (current_function->entity_specs.is_member
+                && class_type_is_derived(class_type, current_function->entity_specs.class_type));
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
 char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments)
 {
     type_t* function_type = entry->type_information;
@@ -8440,10 +8459,6 @@ void check_nodecl_function_call(
     if (this_query != NULL)
     {
         this_symbol = entry_list_head(this_query);
-        if (is_dependent_type(this_symbol->type_information))
-        {
-            any_arg_is_dependent = 1;
-        }
         entry_list_free(this_query);
     }
 
@@ -8497,6 +8512,17 @@ void check_nodecl_function_call(
     else
     {
         called_type = nodecl_get_type(nodecl_called);
+    }
+
+    if (this_symbol != NULL
+            && is_dependent_type(this_symbol->type_information)
+            && any_is_member_function_of_class_or_derived(candidates, this_symbol))
+    {
+        // If we are doing a call F(X) or A::F(X), F (or A::F) is a member
+        // function of a class and this is that same class or a derived one,
+        // then we have to act as if (*this).F(X) (or  (*this).A::F(X)). This
+        // implies that if 'this' is dependent the whole call is dependent
+        any_arg_is_dependent = 1;
     }
 
     if (!nodecl_is_err_expr(nodecl_called)
@@ -8745,31 +8771,25 @@ void check_nodecl_function_call(
             nodecl_implicit_argument = nodecl_get_child(nodecl_called, 0);
             argument_types[0] = nodecl_get_type(nodecl_implicit_argument);
         }
-        else 
+        else
         {
-            this_query = query_name_str(decl_context, "this");
-
-            if (this_query != NULL)
+            if (this_symbol != NULL)
             {
-                scope_entry_t* this_ = entry_list_head(this_query);
-
-                type_t* ptr_class_type = this_->type_information;
+                type_t* ptr_class_type = this_symbol->type_information;
                 type_t* class_type = pointer_type_get_pointee_type(ptr_class_type);
                 // We make a dereference here, thus the argument must be a lvalue
                 argument_types[0] = get_lvalue_reference_type(class_type);
 
-                entry_list_free(this_query);
-
-                nodecl_t nodecl_sym = nodecl_make_symbol(this_, 
-                        nodecl_get_filename(nodecl_called), 
+                nodecl_t nodecl_sym = nodecl_make_symbol(this_symbol,
+                        nodecl_get_filename(nodecl_called),
                         nodecl_get_line(nodecl_called));
                 nodecl_set_type(nodecl_sym, ptr_class_type);
 
-                nodecl_implicit_argument = 
+                nodecl_implicit_argument =
                     nodecl_make_dereference(
                             nodecl_sym,
                             get_lvalue_reference_type(class_type),
-                            nodecl_get_filename(nodecl_called), 
+                            nodecl_get_filename(nodecl_called),
                             nodecl_get_line(nodecl_called));
             }
         }
