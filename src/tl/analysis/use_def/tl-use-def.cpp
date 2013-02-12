@@ -158,8 +158,8 @@ namespace Analysis {
                     if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                         // TODO
-                        WARNING_MESSAGE( "Part of nodecl '%s' founded in the current var must be avoided. " \
-                                         "A subpart is killed.", itk->get_nodecl( ).prettyprint( ), var.prettyprint( ) );
+                        std::cerr << "warning: Part of nodecl " << itk->get_nodecl( ).prettyprint( ) << " founded in the current var "
+                                << var.prettyprint( ) << " must be avoided. A subpart is killed." << std::endl;
                         //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
                         killed.erase( itk );
                         if( compute_undef == '1' )
@@ -180,8 +180,8 @@ namespace Analysis {
                         if(Utils::ext_sym_set_contains_englobing_nodecl(itu->get_nodecl( ), aux_set_2) )
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
-                            WARNING_MESSAGE( "Part of nodecl founded in the current var must be avoided. "\
-                                             "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ), var.prettyprint( ) );
+                            std::cerr << "warning: Part of nodecl " << itu->get_nodecl( ).prettyprint( ) << " founded in the current var "
+                            << var.prettyprint( ) << " must be avoided. A subpart is undefined." << std::endl;
                             undef.erase(itu);
                             if(compute_undef == '1')
                                 new_l = insert_var_in_list(var, new_l);

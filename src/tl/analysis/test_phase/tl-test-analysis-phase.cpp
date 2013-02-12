@@ -59,13 +59,13 @@ namespace Analysis {
                 std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
             analysis.liveness( memento, ast );
 
-//             if( VERBOSE )
-//                 std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
-//             analysis.reaching_definitions( memento, ast );
-//
-//             if( VERBOSE )
-//                 std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
-//             analysis.induction_variables( memento, ast );
+            if( VERBOSE )
+                std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
+            analysis.reaching_definitions( memento, ast );
+
+            if( VERBOSE )
+                std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
+            analysis.induction_variables( memento, ast );
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
