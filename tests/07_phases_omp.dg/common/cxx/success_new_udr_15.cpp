@@ -38,7 +38,7 @@ test_generator=config/mercurium-omp
 struct A
 {
 };
-#pragma omp declare reduction (foo: A : _out=_in) identity(constructor)
+#pragma omp declare reduction (foo: A : omp_out=omp_in)
 
 struct B:A {};
 struct C:A {};

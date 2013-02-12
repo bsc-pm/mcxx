@@ -336,42 +336,6 @@ namespace TL
             return *_current_data_sharing;
         }
 
-        ObjectList<UDRInfoItem> Info::get_udr_list(Nodecl::NodeclBase a)
-        {
-            if (_map_udr_info.find(a) == _map_udr_info.end())
-            {
-                ObjectList<UDRInfoItem> empty_udr_list;
-                return empty_udr_list;
-            }
-            else
-            {
-                return _map_udr_info[a];
-            }
-        }
-
-        void Info::set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol> sym_list)
-        {
-            internal_error("Not yet implemented", 0);
-#if 0
-            if (_map_udr_info.find(a) != _map_udr_info.end())
-            {
-                int i=0;
-                for(ObjectList<UDRInfoItem>::iterator it = _map_udr_info[a].begin();
-                        it != _map_udr_info[a].end();
-                        it++)
-                {
-                    (*it).set_function_definition_symbol(sym_list[i]);
-                    i++;
-                }
-            }
-#endif
-        }
-
-        void Info::set_udr_list(Nodecl::NodeclBase a, ObjectList<UDRInfoItem> udr_list)
-        {
-            _map_udr_info[a] = udr_list;
-        }
-
         void Info::push_current_data_sharing(DataSharingEnvironment& data_sharing)
         {
             _stack_data_sharing.push(_current_data_sharing);
@@ -391,8 +355,6 @@ namespace TL
                 delete _root_data_sharing;
             }
             _current_data_sharing = _root_data_sharing = new DataSharingEnvironment(NULL);
-            _map_data_sharing.clear();
-            _map_udr_info.clear();
             // Why stack is so special?
             _stack_data_sharing = std::stack<DataSharingEnvironment*>();
         }

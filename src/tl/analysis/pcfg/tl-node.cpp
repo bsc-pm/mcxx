@@ -291,6 +291,11 @@ namespace Analysis {
         return ( get_type( ) == GRAPH );
     }
 
+    bool Node::is_extended_graph_node( )
+    {
+        return ( ( get_type( ) == GRAPH ) && ( get_graph_type( ) == EXTENSIBLE_GRAPH ) );
+    }
+
     bool Node::is_entry_node( )
     {
         return ( get_type( ) == ENTRY );
@@ -468,6 +473,11 @@ namespace Analysis {
             return UNCLASSIFIED_NODE;
     }
 
+    void Node::set_type( Node_type t )
+    {
+        set_data( _NODE_TYPE, t );
+    }
+
     std::string Node::get_type_as_string( )
     {
         std::string type = "";
@@ -510,8 +520,8 @@ namespace Analysis {
             switch( ntype )
             {
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
+                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
                 case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
-                case FUNC_CODE:         graph_type = "FUNC_CODE";           break;
                 case IF_ELSE:           graph_type = "IF_ELSE";             break;
                 case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
                 case LOOP_FOR:          graph_type = "LOOP_FOR";            break;

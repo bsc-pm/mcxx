@@ -24,6 +24,7 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 
 #include "tl-nodecl-utils.hpp"
@@ -85,6 +86,11 @@ namespace Utils {
     void InductionVariableData::set_increment( Nodecl::NodeclBase incr )
     {
         _incr = incr;
+    }
+
+    bool InductionVariableData::is_increment_one( ) const
+    {
+        return ( _incr.is_constant( ) && ( const_value_is_one( _incr.get_constant( ) ) ) );
     }
 
     bool InductionVariableData::is_basic( )

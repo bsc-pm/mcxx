@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -45,26 +43,22 @@ namespace A {
 
 struct myInt {
    int x;
-
+   myInt() : x(0) { }
    void operator+= ( const int b ) { x += b; }
    void operator+= ( const myInt &b ) { x += b.x; }
 };
 
-#pragma omp declare reduction(plus:myInt: _out.x += _in.x)
+#pragma omp declare reduction(plus:myInt: omp_out.x += omp_in.x)
 
 }
 
-#pragma omp declare reduction(plus:A::myInt: _out.x = _in.x)
+#pragma omp declare reduction(plus:A::myInt: omp_out.x = omp_in.x)
 
 int main (int argc, char **argv)
 {
-   // syntax error: FIXME
-
-   forcing compiler error );
-
    int i,s=0;
    int a[N];
-   A::myInt x = {0};
+   A::myInt x;
 
    for ( i = 0; i < N ; i++ ) {
        a[i] = i;
@@ -77,9 +71,11 @@ int main (int argc, char **argv)
         x += a[i];
    }
 
-   if ( x.x != s ) abort();
-
-   abort();
+   if ( x.x != s ) 
+   {
+       std::cerr << "(x.x == " << x.x << ") != (s == " << s << ")" << std::endl;
+       abort();
+   }
 
    return 0;
 }

@@ -26,45 +26,40 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-simd
+test_generator=config/mercurium-serial-simd
 </testinfo>
 */
 
 int test(void)
 {
-  #if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
+#if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
     int i;
     unsigned char __attribute__((aligned(16))) a[102];
     float __attribute__((aligned(16))) b[102];
 
 
-#pragma omp task shared(i, a, b)
+#pragma omp simd 
+    for (i=0; i<101; i++)
     {
-    
-#pragma hlt simd (a)
-        for (i=0; i<101; i++)
-        {
-            a[i] = (unsigned char)2;
-        }
-
-#pragma hlt simd (b)
-        for (i=0; i<101; i++)
-        {
-            b[i] = 10.0f;
-        }
-
-        a[101] = 8;
-        b[101] = 7.0f;
-
-#pragma hlt simd (a, b)
-        for (i=0; i<101; i++)
-        {
-            b[i] += 6.0f;
-            a[i] = b[i];
-
-        }
+        a[i] = (unsigned char)2;
     }
-#pragma omp taskwait
+
+#pragma omp simd 
+    for (i=0; i<101; i++)
+    {
+        b[i] = 10.0f;
+    }
+
+    a[101] = 8;
+    b[101] = 7.0f;
+
+#pragma omp simd
+    for (i=0; i<101; i++)
+    {
+        b[i] += 6.0f;
+        a[i] = b[i];
+
+    }
 
     for (i=0; i<101; i++)
     {
@@ -95,7 +90,7 @@ int test(void)
     }
 
 #else
-  #warning "This compiler is not supported"
+#warning "This compiler is not supported"
 #endif
     return 0;
 }

@@ -53,6 +53,8 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
+        Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
+
         /*!Graph scope (This variable is used when the variables are tagged as global)
          * If the graph contains a function code, the scope is the function's scope.
          * If the graph contains a block of code, the scope is the scope of the function containing the code.
@@ -348,6 +350,9 @@ namespace Analysis {
 
         //! Returns the name of the graph
         std::string get_name( ) const;
+
+        //! Returns the nodecl contained in the graph
+        Nodecl::NodeclBase get_nodecl( ) const;
 
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope( ) const;

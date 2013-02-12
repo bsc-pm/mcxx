@@ -76,6 +76,7 @@ namespace Utils {
 
         Nodecl::NodeclBase get_increment( ) const;
         void set_increment( Nodecl::NodeclBase incr );
+        bool is_increment_one( ) const;
 
         std::string get_type_as_string( ) const;
 

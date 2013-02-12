@@ -955,6 +955,11 @@ namespace TL
         return equivalent_types(this->_type_info, t._type_info);
     }
 
+    bool Type::depends_on_nonconstant_values() const
+    {
+        return type_depends_on_nonconstant_values(this->_type_info);
+    }
+
     bool Type::lacks_prototype() const
     {
         return function_type_get_lacking_prototype(this->_type_info);

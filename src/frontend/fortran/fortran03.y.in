@@ -938,6 +938,7 @@ static const char* safe_asttext(AST a)
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
+/*!include fortran03-omp.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %start program
@@ -6252,6 +6253,7 @@ labeldef : label
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
+/*!include fortran03-omp.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

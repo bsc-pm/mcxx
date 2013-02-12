@@ -38,13 +38,7 @@ END=
 
 EXTRA_DIST =
 EXTRA_DIST += tl-omp-constructs.def \
-			  builtin-reductions.py \
 			  $(END)
-
-CLEANFILES=
-CLEANFILES += tl-omp-udr-builtins.cpp
-
-BUILT_SOURCES=tl-omp-udr-builtins.cpp
 
 libtlomp_core_la_SOURCES = \
    tl-omp-core.hpp \
@@ -58,10 +52,9 @@ libtlomp_core_la_SOURCES = \
    tl-omp-target.hpp \
    tl-omp-target.cpp \
    tl-omp-collapse.cpp \
+   tl-omp-reduction.hpp \
    tl-omp-reduction.cpp \
-   tl-omp-udr.hpp \
-   tl-omp-udr.cpp \
-   tl-omp-udr-builtins.cpp \
+   tl-omp-reduction-builtin.cpp \
    $(END)
 
 if SUPPORTED_SILENT_RULES
@@ -69,7 +62,3 @@ PYTHON_verbose = $(PYTHON_verbose_$(V))
 PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
 PYTHON_verbose_0 = @echo "  PYTHON" $@;
 endif
-
-tl-omp-udr-builtins.cpp : builtin-reductions.py
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/builtin-reductions.py > $@
-

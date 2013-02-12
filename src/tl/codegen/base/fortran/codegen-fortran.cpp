@@ -3773,11 +3773,11 @@ OPERATOR_TABLE
                 }
             }
 
-            // If it was empty add a dummy empty component
+            // If it was empty add a comment
             if (members.empty())
             {
                 indent();
-                file << "INTEGER :: dummy_empty_\n";
+                file << "! DERVIVED TYPE WITHOUT MEMBERS\n";
             }
 
 

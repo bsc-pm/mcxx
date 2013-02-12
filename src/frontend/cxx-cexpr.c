@@ -1407,11 +1407,7 @@ const_value_t* integer_type_get_maximum(type_t* t)
         t = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
     }
 
-    if (is_unsigned_char_type(t)
-            || is_unsigned_short_int_type(t)
-            || is_unsigned_long_int_type(t)
-            || is_unsigned_long_long_int_type(t)
-            || is_unsigned_int_type(t))
+    if (is_unsigned_integral_type(t))
     {
         cvalue_uint_t mask = ~(cvalue_uint_t)0;
 
@@ -1422,11 +1418,7 @@ const_value_t* integer_type_get_maximum(type_t* t)
 
         return const_value_get_integer(mask, type_get_size(t), /* sign */ 0);
     }
-    else if (is_signed_char_type(t)
-            || is_signed_short_int_type(t)
-            || is_signed_long_int_type(t)
-            || is_signed_long_long_int_type(t)
-            || is_signed_int_type(t))
+    else if (is_signed_integral_type(t))
     {
         cvalue_uint_t mask = ~(cvalue_uint_t)0;
         mask >>= (sizeof(cvalue_uint_t) - type_get_size(t)*8 + 1);

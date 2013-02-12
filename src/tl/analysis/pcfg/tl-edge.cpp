@@ -138,31 +138,9 @@ namespace Analysis {
                 break;
                 case ALWAYS:        // No label needed
                 break;
-                case CASE:          {
-                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >( _EDGE_LABEL );
-                                        unsigned int i = 0;
-                                        while( i < labels.size( ) )
-                                        {
-                                            if( labels[i].is_null( ) )
-                                                label += ", default";
-                                            else
-                                            {
-                                                nodecl_t internal_n = labels[i].get_internal_nodecl( );
-                                                label += ", " + std::string( codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
-                                            }
-
-
-                                            ++i;
-                                        }
-                                        label = label.substr( 2, label.size() ); // Delete the two first characters: ' ' and ','
-                                        break;
-                                    }
+                case CASE:
                 case CATCH:         {
-                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >( _EDGE_LABEL );
-                                        if ( labels[0].is_null( ) )
-                                            label = "...";
-                                        else
-                                            label = labels[0].get_symbol( ).get_name( );
+                                        label = get_data<std::string>( _EDGE_LABEL );
                                         break;
                                     }
                 case GOTO_EDGE:     label = get_data<std::string>( _EDGE_LABEL );
@@ -178,12 +156,31 @@ namespace Analysis {
 
     void Edge::set_label( std::string label )
     {
-        set_data( _EDGE_LABEL, label );
+        std::string new_label = "";
+        if( has_key( _EDGE_LABEL) )
+        {
+            new_label = get_data<std::string>( _EDGE_LABEL ) + ", " + label;
+        }
+        else
+        {
+            new_label = label;
+        }
+        set_data( _EDGE_LABEL, new_label );
     }
 
     void Edge::set_true_edge( )
     {
         set_data( _EDGE_TYPE, TRUE_EDGE );
+    }
+
+    void Edge::set_false_edge( )
+    {
+        set_data( _EDGE_TYPE, FALSE_EDGE );
+    }
+
+    void Edge::set_catch_edge( )
+    {
+        set_data( _EDGE_TYPE, CATCH );
     }
 
     bool Edge::is_always_edge( )

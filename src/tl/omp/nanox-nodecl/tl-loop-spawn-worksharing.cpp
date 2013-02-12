@@ -103,6 +103,12 @@ namespace TL { namespace Nanox {
             ;
 
         Source worksharing_creation;
+
+        if (IS_CXX_LANGUAGE)
+        {
+            worksharing_creation
+                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), slicer_descriptor));
+        }
         worksharing_creation
             <<     "err = nanos_worksharing_create(&" << as_symbol(slicer_descriptor) << ", current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"

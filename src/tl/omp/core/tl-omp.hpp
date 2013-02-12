@@ -38,7 +38,7 @@
 #include "tl-dto.hpp"
 
 #include "tl-pragmasupport.hpp"
-#include "tl-omp-udr.hpp"
+#include "tl-omp-reduction.hpp"
 #include "tl-omp-deps.hpp"
 
 #include "tl-datareference.hpp"
@@ -129,22 +129,22 @@ namespace TL
                 void module_read(ModuleReader& mw);
         };
 
-        //! Auxiliar class used in reduction clauses
+        //! Auxiliar class used in reduction clauses. Ties a TL::Symbol with an OpenMP::Reduction
         class LIBTL_CLASS ReductionSymbol 
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem _udr_item;
+                Reduction *_reduction;
 
             public:
-                ReductionSymbol(Symbol s, 
-                        const UDRInfoItem& udr_info_item)
-                    : _symbol(s), _udr_item(udr_info_item)
+                ReductionSymbol(Symbol s, Reduction *reduction)
+                    : _symbol(s), _reduction(reduction)
                 {
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item)
+                    : _symbol(red_sym._symbol),
+                    _reduction(red_sym._reduction)
                 {
                 }
 
@@ -153,9 +153,9 @@ namespace TL
                     return _symbol;
                 }
 
-                const UDRInfoItem& get_udr() const
+                Reduction* get_reduction() const
                 {
-                    return _udr_item;
+                    return _reduction;
                 }
         };
 
@@ -392,7 +392,6 @@ namespace TL
                 DataSharingEnvironment* _current_data_sharing;
                 std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
                 std::stack<DataSharingEnvironment*> _stack_data_sharing;
-                std::map<Nodecl::NodeclBase, ObjectList<UDRInfoItem> > _map_udr_info;
 
             public:
                 Info(DataSharingEnvironment* root_data_sharing)
@@ -404,10 +403,6 @@ namespace TL
 
                 DataSharingEnvironment& get_current_data_sharing();
                 DataSharingEnvironment& get_root_data_sharing();
-
-                ObjectList<UDRInfoItem> get_udr_list(Nodecl::NodeclBase a);
-                void set_udr_list(Nodecl::NodeclBase expr, ObjectList<UDRInfoItem> udr_list);
-                void set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol>);
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();
