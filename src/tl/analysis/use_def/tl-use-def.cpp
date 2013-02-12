@@ -159,7 +159,8 @@ namespace Analysis {
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                         // TODO
                         WARNING_MESSAGE( "Part of nodecl '%s' founded in the current var must be avoided. " \
-                                         "A subpart is killed.", itk->get_nodecl( ).prettyprint( ), var.prettyprint( ) );
+                                         "A subpart is killed.", itk->get_nodecl( ).prettyprint( ).c_str( ),
+                                         var.prettyprint( ).c_str( ) );
                         //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
                         killed.erase( itk );
                         if( compute_undef == '1' )
@@ -181,7 +182,8 @@ namespace Analysis {
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
                             WARNING_MESSAGE( "Part of nodecl founded in the current var must be avoided. "\
-                                             "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ), var.prettyprint( ) );
+                                             "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ).c_str( ),
+                                             var.prettyprint( ).c_str( ) );
                             undef.erase(itu);
                             if(compute_undef == '1')
                                 new_l = insert_var_in_list(var, new_l);
