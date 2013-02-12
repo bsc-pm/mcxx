@@ -24,6 +24,7 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include "tl-nodecl-utils.hpp"
 #include "tl-rename-visitor.hpp"
 
 namespace TL {
@@ -42,7 +43,7 @@ namespace Analysis {
     {
         if( _renaming_map.find( n.get_symbol( ) ) != _renaming_map.end( ) )
         {
-            n.replace( _renaming_map[ n.get_symbol( ) ] );
+            Nodecl::Utils::replace( n, _renaming_map[ n.get_symbol( ) ].shallow_copy() );
         }
     }
 
