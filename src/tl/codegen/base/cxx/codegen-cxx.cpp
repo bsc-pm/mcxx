@@ -5217,7 +5217,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         return;
     }
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    // If the symbol is already defined we should not change its codegen status
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_NONE)
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
     if (symbol.is_class())
     {
