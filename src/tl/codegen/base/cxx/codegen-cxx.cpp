@@ -2303,9 +2303,9 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     if (!const_value_is_signed(cval))
     {
         int bits = 8 * t.get_size();
-        unsigned long long int mask = ~0ULL;
+        unsigned long long int mask = 0;
         if (bits < 64)
-            mask <<= bits;
+            mask = ((~0ULL) << bits);
         v &= ~mask;
     }
 
