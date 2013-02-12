@@ -65,6 +65,8 @@ namespace Nodecl
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                            bool skip_conversion_nodecls = false);
+        int cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
+                        bool skip_conversion_nodecls = false);
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;
         };
