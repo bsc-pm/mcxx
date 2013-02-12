@@ -5521,10 +5521,13 @@ scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = no_ref(argument_types[0]);
-
     if (fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("trim", t0, t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL("trim",
+                get_array_type(fortran_get_default_character_type(),
+                    /* whole size */ nodecl_null(),
+                    symbol->decl_context),
+                t0);
     }
 
     return NULL;
