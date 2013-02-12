@@ -143,6 +143,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 }
             case OutlineDataItem::SHARING_REDUCTION:
                 {
+                    WARNING_MESSAGE("Reductions are not tested for FPGA", "");
                     // Pass the original reduced variable as if it were a shared
                     Source argument;
                     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -155,12 +156,12 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     }
                     unpacked_arguments.append_with_separator(argument, ", ");
 
-                    std::string name = (*it)->get_symbol().get_name();
-
-                    private_entities
-                        << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
-                        ;
-
+                    //Seems that this is not needed anymore
+//                    std::string name = (*it)->get_symbol().get_name();
+//
+//                    private_entities
+//                        << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
+//                        ;
                     break;
                 }
             default:
@@ -604,6 +605,7 @@ TL::Symbol DeviceFPGA::new_function_symbol_unpacked(
                 }
             case OutlineDataItem::SHARING_REDUCTION:
                 {
+                    WARNING_MESSAGE("Reductions are not tested for FPGA", "");
                     // Original reduced variable. Passed as we pass shared parameters
                     TL::Type param_type = (*it)->get_in_outline_type();
                     scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
