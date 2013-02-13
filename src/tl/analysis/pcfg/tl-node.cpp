@@ -473,6 +473,11 @@ namespace Analysis {
             return UNCLASSIFIED_NODE;
     }
 
+    void Node::set_type( Node_type t )
+    {
+        set_data( _NODE_TYPE, t );
+    }
+
     std::string Node::get_type_as_string( )
     {
         std::string type = "";

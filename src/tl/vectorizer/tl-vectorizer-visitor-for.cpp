@@ -51,7 +51,7 @@ namespace TL
                         .as<Nodecl::FunctionCode>(),
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 1);
+                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 2);
 
             // Push ForStatement as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();

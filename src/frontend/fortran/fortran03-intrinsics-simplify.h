@@ -53,7 +53,7 @@ static nodecl_t simplify_precision(scope_entry_t* entry UNUSED_PARAMETER, int nu
 {
     nodecl_t x = arguments[0];
 
-    type_t* t = nodecl_get_type(x);
+    type_t* t = no_ref(nodecl_get_type(x));
 
     const floating_type_info_t * model = floating_type_get_info(t);
 

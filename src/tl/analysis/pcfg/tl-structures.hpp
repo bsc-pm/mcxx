@@ -74,6 +74,7 @@ namespace Analysis {
         OMP_TASK,
         OTHER,                          //! Generation of an ExtensibleGraph from any other type of construct
         SIMD,
+        SIMD_FUNCTION,
         SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
         SWITCH                          //! Switch statement
     };
