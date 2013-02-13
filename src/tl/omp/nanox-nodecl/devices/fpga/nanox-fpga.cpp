@@ -57,7 +57,7 @@ const std::string DeviceFPGA::hls_out = HLS_VPREF + "out";
 
 static std::string fpga_outline_name(const std::string &name)
 {
-    return "_fpga_" + name;
+    return "fpga_" + name;
 }
 
 static void print_ast_dot(const Nodecl::NodeclBase &node)
@@ -298,6 +298,19 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     Source instrument_before,
            instrument_after;
 
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                outline_function,
+                outline_function_body,
+                info._task_label,
+                original_statements.get_filename(),
+                original_statements.get_line(),
+                instrument_before,
+                instrument_after);
+    }
+
     outline_src
         << "{"
         <<      instrument_before
@@ -363,12 +376,13 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
     Source device_outline_name;
 
     device_outline_name << fpga_outline_name(outline_name);
+    std::string device_args_name = fpga_outline_name(outline_name);
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
         ancillary_device_description
             << comment("FPGA device descriptor")
             << "static nanos_smp_args_t "
-            << outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
+            << device_args_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
             ;
     }
     else
@@ -376,7 +390,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         internal_error("Unsupported Nanos version.", 0);
     }
     device_descriptor
-        << "{ nanos_fpga_factory,  &" << outline_name << "_args }";
+        << "{ &nanos_fpga_factory,  &" << device_args_name << "_args }";
         ;
 
 }
