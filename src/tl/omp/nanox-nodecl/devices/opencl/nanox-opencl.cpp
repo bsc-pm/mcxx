@@ -680,10 +680,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         //_ocl_file_code.append(Nodecl::Utils::deep_copy(
         //            called_task.get_function_code(),
         //            called_task.get_scope()));
-
-        // Remove the user function definition from the original source because
-        // It is used only in the intermediate file
-        Nodecl::Utils::remove_from_enclosing_list(called_task.get_function_code());
     }
 
     // Create the new unpacked function
