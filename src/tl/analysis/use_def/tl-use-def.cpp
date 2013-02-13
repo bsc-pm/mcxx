@@ -338,7 +338,7 @@ namespace Analysis {
         {
             Type param_type = itp->get_type( );
             if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) &&
-                !ita->is_constant( ) )
+                ita->has_symbol( ) )
             {
                 non_ref_params_to_args[*itp] = *ita;
             }
@@ -443,16 +443,13 @@ namespace Analysis {
 
     void UsageVisitor::parse_parameter( std::string current_param, Nodecl::NodeclBase arg )
     {
-        std::cerr << "Current param: '" << current_param << "'" << std::endl;
         size_t first_slash_pos = current_param.find( "#" );
         if( first_slash_pos != std::string::npos )
         {   // Parameter is pointer
             // The address is used
-            std::cerr << " Set as used: " << arg.prettyprint( ) << std::endl;
             _node->set_ue_var( Utils::ExtendedSymbol( arg ) );
             size_t second_slash_pos = current_param.find( "#", first_slash_pos );
             std::string pointed_param_usage = current_param.substr( first_slash_pos, second_slash_pos - first_slash_pos );
-            std::cerr << "pointer param usage: " << pointed_param_usage << std::endl;
             // TODO: What do we want to do with the pointed value??
         }
         else
@@ -460,7 +457,6 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( arg );
             for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
             {
-                std::cerr << " Set as used: " << it_o->prettyprint( ) << std::endl;
                 _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
             }
         }
@@ -573,8 +569,6 @@ namespace Analysis {
                 // Rename the parameters with the arguments
                 RenameVisitor rv( renaming_map );
                 rv.rename_expressions( copied_func );
-                std::cerr << "Function code after replacement \n"
-                          << copied_func.prettyprint( ) << std::endl;
 
                 // Create the PCFG for the renamed code
                 PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), copied_func );
@@ -655,22 +649,17 @@ namespace Analysis {
             }
             else
             {   // We do not have access to the called code
-
-                std::cerr << "Function code of " << func_sym.get_name( ) << " NOT found" << std::endl;
-
                 // Check whether we have enough attributes in the function symbol
                 // to determine the function side effects
                 bool side_effects = true;
 
                 if( func_sym.has_gcc_attributes( ) )
                 {   // Check for information synthesized by gcc
-                    std::cerr << "Function " << func_sym.get_name( ) << " has gcc attributes" << std::endl;
                     ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
                     for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
                          it != gcc_attrs.end( ); ++it )
                     {
                         std::string attr_name = it->get_attribute_name( );
-                        std::cerr << "   attr: '" << attr_name << "'" << std::endl;
                         if( attr_name == "const" || attr_name == "pure" )
                         {   // No side effects except the return value.
                             // Only examine the arguments ( and global variables in 'pure' case)
@@ -708,7 +697,6 @@ namespace Analysis {
 
                 if( side_effects )
                 {
-                    std::cerr << "Function " << func_sym.get_name( ) << " checked in Mercurium decl list" << std::endl;
                     // Check in Mercurium function attributes data-base
                     side_effects = parse_c_functions_file( func_sym, args );
 
