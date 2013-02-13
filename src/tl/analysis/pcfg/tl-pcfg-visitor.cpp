@@ -26,8 +26,9 @@
 
 
 #include "cxx-process.h"
-
 #include "tl-pcfg-visitor.hpp"
+
+#include <cassert>
 
 namespace TL {
 namespace Analysis {
@@ -1323,7 +1324,22 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
     {
-        return visit_barrier( );
+        Node* environ_exit = _utils->_environ_entry_exit.top( ).second;
+        ObjectList<Node*> exit_parents = environ_exit->get_parents( );
+
+        // Save current info
+        _pcfg->disconnect_nodes( exit_parents, environ_exit );
+        ObjectList<Node*> actual_last_nodes = _utils->_last_nodes;
+        _utils->_last_nodes = exit_parents;
+
+        // Create the barrier node
+        visit_barrier( );
+        _pcfg->connect_nodes( _utils->_last_nodes[0], environ_exit );
+
+        // Restore current info
+        _utils->_last_nodes = actual_last_nodes;
+
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
@@ -1449,9 +1465,10 @@ namespace Analysis {
         int n_connects = entry_children.size( );
         _pcfg->connect_nodes( entry_flush, entry_children,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
-                              ObjectList<std::string>( n_connects, "" ));
+                              ObjectList<std::string>( n_connects, "" ) );
 
         // Restore current info
+        environ_entry = entry_flush;
         _utils->_last_nodes = actual_last_nodes;
 
         return ObjectList<Node*>( );
@@ -1566,7 +1583,6 @@ namespace Analysis {
 
         parallel_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, parallel_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1577,7 +1593,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node );
+
         return ObjectList<Node*>( 1, parallel_node );
     }
 
@@ -1731,10 +1749,8 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, single_entry );
         walk( n.get_statements( ) );
 
-
         single_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, single_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1745,7 +1761,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
+
         return ObjectList<Node*>( 1, single_node );
     }
 
@@ -1949,6 +1967,7 @@ namespace Analysis {
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
         exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+        _utils->_outer_nodes.pop( );
 
         // Finish computation of switch exit nodes
         if( cond_node_l[0]->get_exit_edges( ).empty( ) )
