@@ -2078,6 +2078,12 @@ void build_scope_decl_specifier_seq(AST a,
             {
                 *type_info = get_unsigned_long_long_int_type();
             }
+#ifdef HAVE_INT128
+            else if (*type_info == get_signed_int128_type())
+            {
+                *type_info = get_unsigned_int128_type();
+            }
+#endif
         }
         else if (gather_info->is_signed)
         {
@@ -2563,6 +2569,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         decl_context, abstract_decl, nodecl_output);
 
                 *simple_type_info = declarator_type;
+                break;
+            }
+        case AST_GCC_INT128:
+            {
+#if HAVE_INT128
+                *simple_type_info = get_signed_int128_type();
+#else
+                error_printf("%s: error: __int128 support not available\n", ast_location(a));
+                *simple_type_info = get_error_type();
+#endif
                 break;
             }
             // Microsoft builtin types

@@ -2026,6 +2026,20 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         result = get_unsigned_int_type();
     }
+#if HAVE_INT128
+    // If either is signed __int128, convert to signed __int128
+    else if (is_signed_int128_type(lhs_type)
+            || is_signed_int128_type(rhs_type))
+    {
+        result = get_signed_int128_type();
+    }
+    // If either is unsigned __int128, convert to unsigned __int128
+    else if (is_unsigned_int128_type(lhs_type)
+            || is_unsigned_int128_type(rhs_type))
+    {
+        result = get_unsigned_int128_type();
+    }
+#endif
     // both should be int here
     else if (!is_signed_int_type(lhs_type)
             || !is_signed_int_type(rhs_type))
