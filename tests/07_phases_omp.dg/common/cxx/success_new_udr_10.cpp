@@ -29,24 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail=yes
-test_compile_faulty=yes
-
-# test_exec_fail_nanox_mercurium_1thread=yes
-# test_exec_faulty_nanox_mercurium_1thread=yes
-# test_exec_fail_nanox_mercurium_2thread=yes
-# test_exec_faulty_nanox_mercurium_2thread=yes
-# test_exec_fail_nanox_mercurium_4thread=yes
-# test_exec_faulty_nanox_mercurium_4thread=yes
-#
-# test_exec_fail_nanox_instrument_1thread=yes
-# test_exec_faulty_nanox_instrument_1thread=yes
-# test_exec_fail_nanox_instrument_2thread=yes
-# test_exec_faulty_nanox_instrument_2thread=yes
-# test_exec_fail_nanox_instrument_4thread=yes
-# test_exec_faulty_nanox_instrument_4thread=yes
-
 </testinfo>
 */
 
@@ -64,8 +46,8 @@ int max(int x, int y )
 }
 
 #pragma omp declare reduction( maxarea : point_t : \
-_out.x = max(_out.x , _in.x ), _out.y = max(_out.y , _in.y ) ) \
-identity( {0 ,0} )
+omp_out.x = max(omp_out.x , omp_in.x ), omp_out.y = max(omp_out.y , omp_in.y ) ) \
+initializer( omp_priv = {0 ,0} )
 
 int main (int argc, char* argv[])
 {
@@ -73,8 +55,6 @@ int main (int argc, char* argv[])
 
    #pragma omp parallel reduction (maxarea : pt)
    pt;
-
-   abort();
 
    return 0;
 }

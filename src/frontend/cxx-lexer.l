@@ -1119,6 +1119,10 @@ type {
     return lookup_keyword_in_table(ms_builtin_types, yytext, CURRENT_CONFIGURATION->enable_ms_builtin_types);
 }
 
+"__int128" {
+    parse_token_text(); return TOKEN_INT128;
+}
+
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }
@@ -1127,11 +1131,7 @@ type {
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
 @ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
-@OMP_OPERATOR_NAME@ { parse_token_text(); return SUBPARSE_OMP_OPERATOR_NAME; }
-@OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
-@OMP_UDR_DECLARE_2@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE_2; }
-@OMP_UDR_IDENTITY@ { parse_token_text(); return SUBPARSE_OMP_UDR_IDENTITY; }
-@OMP_UDR_CONSTRUCTOR@ { parse_token_text(); return OMP_UDR_CONSTRUCTOR; }
+@OMP-DECLARE-REDUCTION@ { parse_token_text(); return SUBPARSE_OPENMP_DECLARE_REDUCTION; }
 @NODECL-LITERAL-EXPR@ { parse_token_text(); return NODECL_LITERAL_EXPR; }
 @NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
 @SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }

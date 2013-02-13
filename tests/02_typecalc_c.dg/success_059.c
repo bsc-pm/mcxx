@@ -28,25 +28,14 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium
 </testinfo>
 */
-#include <stdlib.h>
 
-#pragma omp declare reduction(myop: int: _out = _in * _out)
-
-namespace A {
-#pragma omp declare reduction(myop: int: _out = _in + _out)
-}
-
-int main(int argc, char* argv[])
+void f(void)
 {
-    int x;
-    using namespace A;
-    #pragma omp parallel reduction(A::myop : x)
-    x = rand();
-
-    return 0;
+    _Complex float cf;
+    int i;
+    cf = 0;
+    i = cf;
 }

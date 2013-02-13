@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -42,10 +40,12 @@ enum A
   D=2
 };
 
-A& operator+=(const A& _in, A& _out)
+A& operator+=(A& _out, A& _in)
 {
   return  _out = A(_out + _in);
 }
+
+#pragma omp declare reduction(+:A:omp_out += omp_in)
 
 int main (int argc, char* argv[])
 {

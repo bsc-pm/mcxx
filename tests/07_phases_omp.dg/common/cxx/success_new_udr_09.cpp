@@ -29,24 +29,22 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
 #include "omp.h"
 
-// fail because we need to lookup in all nested classes
-
 class A {
   public :
-    A & operator+= ( const A & );
+    A & operator+= ( const A & )
+    {
+    }
 };
 
 class B : public A {
 };
 
-#pragma omp declare reduction( + : A : _out += _in )
+#pragma omp declare reduction( + : A : omp_out += omp_in )
 
 int main (int argc, char* argv[])
 {

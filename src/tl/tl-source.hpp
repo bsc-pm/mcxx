@@ -216,6 +216,9 @@ namespace TL
 
             static SourceLanguage source_language;
 
+            typedef void (*compute_nodecl_fun_t)(AST, decl_context_t, nodecl_t*);
+            typedef decl_context_t (*decl_context_map_fun_t)(decl_context_t);
+
         private:
             chunk_list_ref_t _chunk_list;
 
@@ -226,10 +229,8 @@ namespace TL
 
             typedef int (*prepare_lexer_fun_t)(const char*);
             typedef int (*parse_fun_t)(AST*);
-            typedef void (*compute_nodecl_fun_t)(AST, decl_context_t, nodecl_t*);
-            typedef decl_context_t (*decl_context_map_fun_t)(decl_context_t);
 
-            Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
+            Nodecl::NodeclBase parse_common(ReferenceScope ref_scope,
                     ParseFlags parse_flags,
                     const std::string& substring_prefix,
                     prepare_lexer_fun_t prepare_lexer,
@@ -371,6 +372,24 @@ namespace TL
              * Scope should be class scope
              */
             Nodecl::NodeclBase parse_member(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
+            //! Parse an id-expression
+            /*!
+             * This is C++ only. The returned tree is not typechecked or looked up.
+             * This is just an abstract tree denoting an entity. Can be used for
+             * some lookup functions
+             */
+            Nodecl::NodeclBase parse_id_expression(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
+            //! Generic parser
+            /*!
+             * Use this one for custom created subparsers. Make sure you provide everything
+             */
+            Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
+                    ParseFlags parse_flags,
+                    const std::string& substring_prefix,
+                    compute_nodecl_fun_t compute_nodecl,
+                    decl_context_map_fun_t decl_context_map_fun);
 
             // Format string for debugging
             static std::string format_source(const std::string&);

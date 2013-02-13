@@ -760,6 +760,9 @@ namespace TL
             */
             bool is_same_type(Type t) const;
 
+            //! States whether the current type depends on nonconstant values
+            bool depends_on_nonconstant_values() const;
+
             /* We should consider to remove this one day */
             friend class Symbol;
             friend class Source;

@@ -53,13 +53,13 @@ libtlvectorizer_la_SOURCES = \
                            tl-function-versioning.hpp \
                            tl-vectorizer.cpp \
                            tl-vectorizer.hpp \
-                           tl-vectorizer-visitor-expression.cpp \
-                           tl-vectorizer-visitor-expression.hpp \
                            tl-vectorizer-visitor-for.cpp \
                            tl-vectorizer-visitor-for.hpp \
                            tl-vectorizer-visitor-function.cpp \
                            tl-vectorizer-visitor-function.hpp \
                            tl-vectorizer-visitor-statement.cpp \
                            tl-vectorizer-visitor-statement.hpp \
+                           tl-vectorizer-visitor-expression.cpp \
+                           tl-vectorizer-visitor-expression.hpp \
                            $(END)
 

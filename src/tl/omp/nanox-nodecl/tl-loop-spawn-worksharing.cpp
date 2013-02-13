@@ -103,25 +103,17 @@ namespace TL { namespace Nanox {
             ;
 
         Source worksharing_creation;
+
+        if (IS_CXX_LANGUAGE)
+        {
+            worksharing_creation
+                << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), slicer_descriptor));
+        }
         worksharing_creation
             <<     "err = nanos_worksharing_create(&" << as_symbol(slicer_descriptor) << ", current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
             <<     "if (err != NANOS_OK)"
             <<         "nanos_handle_error(err);"
             ;
-
-        // Loop has no implementors,but to keep the same schema than tasks, we
-        // build a device_name -> outline_name map
-        std::multimap<std::string, std::string> devices_and_implementors;
-        TL::ObjectList<std::string> device_names =
-            outline_info.get_device_names(Nodecl::Utils::get_enclosing_function(construct));
-        for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
-                it != device_names.end(); it++)
-        {
-            devices_and_implementors.insert(
-                    make_pair(
-                        /* device name */ *it,
-                        /*implementor outline name */ outline_name));
-        }
 
         Source const_wd_info;
         const_wd_info
@@ -129,7 +121,6 @@ namespace TL { namespace Nanox {
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
                     outline_info,
-                    devices_and_implementors,
                     construct);
 
         Source dependence_type;

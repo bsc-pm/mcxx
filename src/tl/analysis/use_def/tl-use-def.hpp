@@ -27,6 +27,7 @@
 #ifndef TL_USE_DEF_HPP
 #define TL_USE_DEF_HPP
 
+
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
@@ -53,12 +54,16 @@ namespace Analysis {
                                 ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
                                 bool ipa, Utils::nodecl_set ipa_arguments );
 
-        //! Returns a list with two elements. The firs is the list of upper exposed variables of the graph node;
-        //! The second is the list of killed variables of the graph node (Used in composite nodes)
+        /*!Recursive method that returns a list with three elements:
+         * - The first is the list of upper exposed variables of the graph node;
+         * - The second is the list of killed variables of the graph node
+         * - The third is the list of undefined variables of the graph
+         */
         ObjectList<Utils::ext_sym_set> get_use_def_over_nodes( Node* current );
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
+
 
     public:
         //! Constructor
@@ -146,6 +151,10 @@ namespace Analysis {
 
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
+
+        // Methods to parse the file containing C function definitions useful for Use-Def analysis
+        void parse_parameter( std::string current_param, Nodecl::NodeclBase arg );
+        bool parse_c_functions_file( Symbol func_sym, Nodecl::List args );
 
     public:
         // *** Constructors *** //

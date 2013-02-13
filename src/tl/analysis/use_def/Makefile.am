@@ -28,8 +28,14 @@ include ../../Makefile.phases
 
 lib_LTLIBRARIES = libuse_def.la
 
+EXTRA_DIST=cLibraryFunctionList
+
+analysisdatadir = @datadir@/@PACKAGE@/analysisdata
+
 libuse_def_la_CFLAGS = $(tl_cflags)
-libuse_def_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libuse_def_la_CXXFLAGS = $(tl_cflags) -DMCXX_ANALYSIS_DATA_PATH=\"$(analysisdatadir)\" \
+				       -I $(srcdir)/../../ \
+				       -I $(srcdir)/../common -I $(srcdir)/../pcfg
 libuse_def_la_LDFLAGS = $(tl_ldflags)
 libuse_def_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
@@ -40,3 +46,7 @@ libuse_def_la_SOURCES = tl-rename-visitor.hpp \
                         tl-use-def.hpp \
                         tl-use-def.cpp \
                         $(END)
+
+analysisdata_DATA = \
+		    cLibraryFunctionList \
+		    $(END)

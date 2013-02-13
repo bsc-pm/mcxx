@@ -30,14 +30,13 @@
 <testinfo>
 test_generator=config/mercurium-omp
 test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
 #include <stdlib.h>
 
 namespace A {
-#pragma omp declare reduction(myop: int: _out = _in + _out)
+#pragma omp declare reduction(myop: int: omp_out = omp_in + omp_out)
 }
 
 int main(int argc, char* argv[])

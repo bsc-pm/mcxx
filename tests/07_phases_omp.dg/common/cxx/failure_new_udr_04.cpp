@@ -30,7 +30,6 @@
 <testinfo>
 test_generator=config/mercurium-omp
 test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -40,13 +39,16 @@ class A {
      int x;
 };
 
-#pragma omp declare reduction ( + : A : _out.x += _in.x )
+// Failure here
+#pragma omp declare reduction ( + : A : omp_out.x += omp_in.x )
 
-void main (int argc, char* argv[])
+int main (int argc, char* argv[])
 {
    A a;
 
-   // fail
    #pragma omp parallel reduction( + : a )
+   {
+       a;
+   }
    return 0;
 }

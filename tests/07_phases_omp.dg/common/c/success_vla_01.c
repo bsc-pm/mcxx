@@ -30,19 +30,12 @@
 <testinfo>
 test_generator=config/mercurium-omp
 
-# test_exec_fail_nanox_mercurium_1thread=yes
-# test_exec_faulty_nanox_mercurium_1thread=yes
-# test_exec_fail_nanox_mercurium_2thread=yes
-# test_exec_faulty_nanox_mercurium_2thread=yes
-# test_exec_fail_nanox_mercurium_4thread=yes
-# test_exec_faulty_nanox_mercurium_4thread=yes
-#
-# test_exec_fail_nanox_instrument_1thread=yes
-# test_exec_faulty_nanox_instrument_1thread=yes
-# test_exec_fail_nanox_instrument_2thread=yes
-# test_exec_faulty_nanox_instrument_2thread=yes
-# test_exec_fail_nanox_instrument_4thread=yes
-# test_exec_faulty_nanox_instrument_4thread=yes
+test_exec_fail_nanox_imcc_1thread=yes
+test_exec_faulty_nanox_imcc_1thread=yes
+test_exec_fail_nanox_imcc_2thread=yes
+test_exec_faulty_nanox_imcc_2thread=yes
+test_exec_fail_nanox_imcc_4thread=yes
+test_exec_faulty_nanox_imcc_4thread=yes
 </testinfo>
 */
 

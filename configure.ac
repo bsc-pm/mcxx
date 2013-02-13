@@ -373,17 +373,20 @@ AX_EXT
 simd_version="no (SSE 4.1 or higher not detected)."
 simd_flags=
 simd_includes=
+nanox_sse="no"
 
   if test "$ax_cv_have_sse42_ext" = yes; 
   then
         simd_version="SSE4.2"
         simd_flags="-msse4.2"
         simd_includes="-msse4.2 -include nmmintrin.h"
+        nanox_sse="yes"
   else if test "$ax_cv_have_sse41_ext" = yes; 
   then
         simd_version="SSE4.1"
         simd_flags="-msse4.1"
         simd_includes="-msse4.1 -include smmintrin.h"
+        nanox_sse="yes"
   fi
   fi
 
@@ -391,40 +394,10 @@ AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_versio
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
+NANOX_SSE=$nanox_sse
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
-
-#nanox_sse="no"
-#AC_MSG_CHECKING([if SSE 4.1 support is enabled])
-#AC_ARG_ENABLE([sse],
-#  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
-#  [
-#    if test x$enableval = xyes -o x$enableval = x;
-#    then
-#        nanox_sse="yes"
-#        AC_MSG_RESULT([yes])
-#    else if test x$enableval = xno;
-#         then
-#            AC_MSG_RESULT([no])
-#            nanox_sse="no"
-#         else
-#            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-#         fi
-#    fi
-#  ],
-#  [
-#    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
-#    then
-#       nanox_sse="yes"
-#       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
-#    else
-#       nanox_sse="no"
-#       AC_MSG_RESULT([no])
-#    fi
-#  ]
-#)
-#NANOX_SSE=$nanox_sse
-#AC_SUBST([NANOX_SSE])
+AC_SUBST([NANOX_SSE])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -565,6 +538,104 @@ AC_ARG_ENABLE([tl-openmp-profile],
   ]
 )
 
+dnl -- Extra compilers ---
+disable_xlc=no
+AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
+AC_ARG_ENABLE([xlc],
+  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_xlf=no
+AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
+AC_ARG_ENABLE([xlf],
+  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlf="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlf="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlf="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_icc=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([icc],
+  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_icc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_icc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_icc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_ifort=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([ifort],
+  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_ifort="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_ifort="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_ifort="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
@@ -579,59 +650,70 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   dnl Check Intel Compiler C
-   AC_PATH_PROG([ICC], [icc], [])
-   if test x$ICC != x;
+   if test x$disable_ifort = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      dnl Check Intel Compiler C
+      AC_PATH_PROG([ICC], [icc], [])
+      if test x$ICC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      fi
+
+      dnl Check Intel Compiler C++
+      AC_PATH_PROG([ICPC], [icpc], [])
+      if test x$ICPC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+      fi
+
+      if test x$ICC != x -o x$ICPC != x;
+      then
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
+      fi
    fi
 
-   dnl Check Intel Compiler C++
-   AC_PATH_PROG([ICPC], [icpc], [])
-   if test x$ICPC != x;
+   if test x$disable_xlc = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-   fi
+      dnl XL (gcc driver)
+      AC_PATH_PROG([GXLC], [gxlc], [])
+      if test x$GXLC != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+      fi
 
-   if test x$ICC != x -o x$ICPC != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
-   fi
+      dnl XL (g++ driver)
+      AC_PATH_PROG([GXLCXX], [gxlc++], [])
+      if test x$GXLCXX != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+      fi
 
-   dnl XL (gcc driver)
-   AC_PATH_PROG([GXLC], [gxlc], [])
-   if test x$GXLC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-   fi
-
-   dnl XL (g++ driver)
-   AC_PATH_PROG([GXLCXX], [gxlc++], [])
-   if test x$GXLCXX != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-   fi
-
-
-   if test x$GXLC != x -o x$GXLCXX != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+      if test x$GXLC != x -o x$GXLCXX != x;
+      then
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+      fi
    fi
 
    dnl Check Intel Fortran
-   AC_PATH_PROG([IFORT], [ifort], [])
-   if test x$IFORT != x;
+   if test x$disable_ifort = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+      AC_PATH_PROG([IFORT], [ifort], [])
+      if test x$IFORT != x;
+      then
+         COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+      fi
    fi
 
    dnl IBM Fortran
-   AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
-   if test x$XLF != x;
+   if test x$disable_xlf = xno;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+       AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+       if test x$XLF != x;
+       then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+       fi
    fi
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
@@ -1178,6 +1260,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
@@ -1214,7 +1297,8 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-nanox
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
-           tests/config/mercurium-simd
+           tests/config/mercurium-serial-simd
+           tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium

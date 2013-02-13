@@ -184,14 +184,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void emit_wait_async(Nodecl::NodeclBase construct, bool has_dependences, OutlineInfo& outline_info);
 
-        std::string get_outline_name(TL::Symbol function_symbol);
 
         Source fill_const_wd_info(
                 Source &struct_arg_type_name,
                 bool is_untied,
                 bool mandatory_creation,
                 OutlineInfo& outline_info,
-                const std::multimap<std::string, std::string>& devices_and_implementors,
                 Nodecl::NodeclBase construct);
 
         TL::Symbol declare_const_wd_type(
@@ -327,6 +325,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
 
         void remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table);
+
+        typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
+        reduction_map_t _reduction_map;
+        TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        reduction_map_t _reduction_cleanup_map;
+        TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 };
 
 } }

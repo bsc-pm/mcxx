@@ -132,7 +132,7 @@ namespace TL
                 Nodecl::NodeclBase _base_address_expression;
 
                 // Reductions
-                OpenMP::UDRInfoItem *_udr_info_item;
+                OpenMP::Reduction *_reduction;
 
                 TL::ObjectList<DependencyItem> _dependences;
 
@@ -283,9 +283,9 @@ namespace TL
                     return _base_address_expression;
                 }
 
-                void set_reduction_info(OpenMP::UDRInfoItem* udr_info_item)
+                void set_reduction_info(OpenMP::Reduction* reduction)
                 {
-                    _udr_info_item = udr_info_item;
+                    _reduction = reduction;
                 }
 
                 bool is_reduction() const
@@ -293,9 +293,9 @@ namespace TL
                     return _sharing == SHARING_REDUCTION;
                 }
 
-                OpenMP::UDRInfoItem* get_reduction_info() const
+                OpenMP::Reduction* get_reduction_info() const
                 {
-                    return _udr_info_item;
+                    return _reduction;
                 }
 
                 void set_captured_value(Nodecl::NodeclBase captured_value)
@@ -339,7 +339,8 @@ namespace TL
                 TL::Symbol _funct_symbol;
 
             private:
-                ObjectList<OutlineDataItem*> _data_env_items;                
+                ObjectList<OutlineDataItem*> _data_env_items;
+
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
@@ -349,11 +350,15 @@ namespace TL
                 OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
+
             public:
 
 
-                OutlineInfo(Nodecl::NodeclBase environment,TL::Symbol funct_symbol=Symbol::invalid(), RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
                 OutlineInfo();
+                OutlineInfo(Nodecl::NodeclBase environment,
+                        TL::Symbol funct_symbol = Symbol::invalid(),
+                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+
                 ~OutlineInfo();
 
                 //! Get new or retrieve existing OutlineDataItem for symbol
@@ -364,20 +369,15 @@ namespace TL
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
-                ObjectList<OutlineDataItem*> get_data_items()
-                {
-                    return _data_env_items;
-                }
+                ObjectList<OutlineDataItem*> get_data_items();
 
-                TL::Symbol get_funct_symbol() const {
-                    return _funct_symbol;
-                }
+                TL::Symbol get_funct_symbol() const;
 
                 ObjectList<OutlineDataItem*> get_fields() const;
 
                 void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
-                
+
                 void set_file(TL::Symbol function_symbol,std::string file);
                 std::string get_file(TL::Symbol function_symbol);
 
@@ -405,6 +405,9 @@ namespace TL
                 void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
+
+            private:
+                std::string get_outline_name(TL::Symbol function_symbol);
         };
 
         class OutlineInfoRegisterEntities
@@ -427,10 +430,12 @@ namespace TL
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
-                void add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info);
+                void add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
+                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item,
+                        bool &make_allocatable);
         };
     }
 }

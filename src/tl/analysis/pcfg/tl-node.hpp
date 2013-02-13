@@ -192,6 +192,9 @@ namespace Analysis {
             //! Returns true when the node is a composite node (contains nodes inside)
             bool is_graph_node( );
 
+            //! Returns true when the node is the most external composite node of a graph
+            bool is_extended_graph_node( );
+
             //! Returns true when the node is an ENTRY node
             bool is_entry_node( );
 
@@ -268,6 +271,9 @@ namespace Analysis {
 
             //! Returns the node type.
             Node_type get_type( );
+
+            //! Set the node's type to a new type
+            void set_type( Node_type t );
 
             //! Returns a string with the node type of the node.
             std::string get_type_as_string( );

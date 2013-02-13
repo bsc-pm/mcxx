@@ -28,23 +28,11 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-test_noexec=yes
-test_compile_fail=yes
+test_generator=config/mercurium
 </testinfo>
 */
 
-struct A
+void f(int n, int v[n][n])
 {
-  int x;
-};
-
-void foo ( struct A *a,  struct A *b );
-
-#pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
-
-void bar ()
-{
-  // illegal re-declaration
-  #pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
+   f(n-1, v);
 }

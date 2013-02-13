@@ -29,59 +29,15 @@
 namespace TL {
 namespace Analysis {
 
-    static Graph_type generate_graph_type( const Nodecl::NodeclBase& n )
-    {
-        Graph_type result;
-
-        if( n.is<Nodecl::ConditionalExpression>( ) )
-            result = COND_EXPR;
-        else if( n.is<Nodecl::FunctionCall>( ) )
-            result = FUNC_CALL;
-        else if( n.is<Nodecl::FunctionCode>( ) )
-            result = FUNC_CODE;
-        else if( n.is<Nodecl::IfElseStatement>( ) )
-            result = IF_ELSE;
-        else if( n.is<Nodecl::DoStatement>( ) )
-            result = LOOP_DOWHILE;
-        else if( n.is<Nodecl::ForStatement>( ) )
-            result = LOOP_FOR;
-        else if( n.is<Nodecl::WhileStatement>( ) )
-            result = LOOP_WHILE;
-        else if( n.is<Nodecl::OpenMP::Atomic>( ) )
-            result = OMP_ATOMIC;
-        else if( n.is<Nodecl::OpenMP::Critical>( ) )
-            result = OMP_CRITICAL;
-        else if( n.is<Nodecl::OpenMP::For>( ) )
-            result = OMP_LOOP;
-        else if( n.is<Nodecl::OpenMP::Parallel>( ) )
-            result = OMP_PARALLEL;
-        else if( n.is<Nodecl::OpenMP::Section>( ) )
-            result = OMP_SECTION;
-        else if( n.is<Nodecl::OpenMP::Sections>( ) )
-            result = OMP_SECTIONS;
-        else if( n.is<Nodecl::OpenMP::Single>( ) )
-            result = OMP_SINGLE;
-        else if( n.is<Nodecl::OpenMP::Task>( ) )
-            result = OMP_TASK;
-        else if( n.is<Nodecl::PragmaCustomStatement>( )
-                 && n.as<Nodecl::PragmaCustomStatement>( ).get_pragma_line( ).prettyprint( ) == "simd" )
-            result = SIMD;
-        else if( n.is<Nodecl::SwitchStatement>( ) )
-            result = SWITCH;
-        else
-            result = OTHER;
-
-        return result;
-    }
-
     ExtensibleGraph::ExtensibleGraph( std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils )
-        : _name( name ), _graph( NULL ), _utils( utils ), _sc( nodecl.retrieve_context( ) ),
+        : _name( name ), _graph( NULL ), _utils( utils ),
+          _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
           _task_nodes_l( ), _func_calls( ),
           _cluster_to_entry_map( )
     {
 
-        _graph = create_graph_node( NULL, nodecl, generate_graph_type( nodecl ) );
+        _graph = create_graph_node( NULL, nodecl, EXTENSIBLE_GRAPH );
         _utils->_last_nodes = ObjectList<Node*>( 1, _graph->get_graph_entry_node( ) );
     }
 
@@ -826,6 +782,11 @@ namespace Analysis {
     std::string ExtensibleGraph::get_name( ) const
     {
         return _name;
+    }
+
+    Nodecl::NodeclBase ExtensibleGraph::get_nodecl( ) const
+    {
+        return _nodecl;
     }
 
     Scope ExtensibleGraph::get_scope( ) const

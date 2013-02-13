@@ -168,7 +168,14 @@ namespace Analysis {
             }
             else if( current->is_graph_node( ) )
             {
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n ) )
+                // We a node is found as label of a PCFGNode, i might be confusing:
+                // When calling to analysis with a non-TopLevel node, both the EXTENSIBLE_GRAPH and
+                // the non-TopLevel node, have the same label, so we have to look for the one that
+                // is not the EXTENSIBLE_GRAPH node.
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n )
+                    && ( n.is<Nodecl::FunctionCode>( )
+                         || n.is<Nodecl::OpenMP::SimdFunction>( )
+                         || ( !n.is<Nodecl::FunctionCode>() && !current->is_extended_graph_node( ) ) ) )
                 {
                     result = current;
                 }
@@ -234,16 +241,51 @@ namespace Analysis {
         return result;
     }
 
+    static void get_inner_loops_induction_variables( Node* pcfg_node,
+                                                     ObjectList<Utils::InductionVariableData*>& result )
+    {
+        if( !pcfg_node->is_visited( ) )
+        {
+            pcfg_node->set_visited( true );
+
+            if( pcfg_node->is_exit_node( ) )
+            {
+                return;
+            }
+            else
+            {
+                if( pcfg_node->is_graph_node( ) )
+                {
+                    // Look for inner loops
+                    get_inner_loops_induction_variables( pcfg_node->get_graph_entry_node( ), result );
+
+                    // Add current induction variables
+                    if( pcfg_node->is_loop_node( ) )
+                    {
+                        result.append( pcfg_node->get_induction_variables( ) );
+                    }
+                }
+
+                ObjectList<Node*> children = pcfg_node->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                {
+                    get_inner_loops_induction_variables( *it, result );
+                }
+            }
+        }
+    }
+
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
-            const Nodecl::NodeclBase& loop )
+            const Nodecl::NodeclBase& n )
     {
         ObjectList<Utils::InductionVariableData*> result;
         if( _induction_variables )
         {
-            Node* loop_pcfg_node = node_enclosing_nodecl( loop );
-            if( loop_pcfg_node != NULL )
+            Node* pcfg_node = node_enclosing_nodecl( n );
+            if( pcfg_node != NULL )
             {
-                result = loop_pcfg_node->get_induction_variables( );
+                get_inner_loops_induction_variables( pcfg_node, result );
+                ExtensibleGraph::clear_visits( pcfg_node );
             }
         }
         return result;
@@ -457,7 +499,9 @@ namespace Analysis {
                 Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars( );
                 LoopAnalysis la( *it, ivs );
                 la.compute_loop_ranges( );
-                print_induction_vars( ivs );
+
+                if( VERBOSE )
+                    print_induction_vars( ivs );
             }
         }
 

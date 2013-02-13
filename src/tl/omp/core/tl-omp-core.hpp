@@ -58,15 +58,8 @@ namespace TL
 
         class Core : public TL::PragmaCustomCompilerPhase
         {
-            public:
-                // FIXME - Remove once ticket #1089 is fixed
-                // This is public because it is used by OpenMP::Base
-                std::string _do_not_init_udr;
             private:
-
-                int _udr_counter;
                 void parse_new_udr(const std::string& str);
-
 
                 void register_omp_constructs();
 
@@ -143,6 +136,18 @@ namespace TL
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
 
+                void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src);
+                void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src);
+                void parse_declare_reduction(ReferenceScope ref_sc,
+                        const std::string &name,
+                        const std::string &typenames,
+                        const std::string &combiner,
+                        const std::string &initializer);
+
+                void initialize_builtin_reductions(Scope sc);
+
+                ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+                           TL::Symbol function_symbol);
             public:
                 Core();
 
@@ -154,6 +159,10 @@ namespace TL
                 virtual ~Core() { }
 
                 RefPtr<OpenMP::Info> get_openmp_info();
+
+
+                //! Used when parsing declare reduction
+                static bool _silent_declare_reduction;
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

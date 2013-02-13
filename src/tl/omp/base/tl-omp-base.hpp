@@ -29,7 +29,6 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-core.hpp"
-#include "tl-vectorizer.hpp"
 
 namespace TL
 {
@@ -48,22 +47,15 @@ namespace TL
 
             private:
                 OpenMP::Core _core;
-                TL::Vectorization::Vectorizer& _vectorizer;
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string _openmp_dry_run;
-                std::string _simd_enabled_str;
-                std::string _svml_enabled_str;
-                std::string _ffast_math_enabled_str;
 
+                std::string _simd_enabled_str;
                 bool _simd_enabled;
-                bool _svml_enabled;
-                bool _ffast_math_enabled;
 
                 void set_simd(const std::string simd_enabled_str);
-                void set_svml(const std::string svml_enabled_str);
-                void set_ffast_math(const std::string ffast_math_enabled_str);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
