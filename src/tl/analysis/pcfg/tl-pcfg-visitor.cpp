@@ -385,41 +385,33 @@ namespace Analysis {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label = "dafault";
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
-            Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
-            if( e != NULL )
-            {   // The edge between the nodes did not exist previously
-                if( !case_val.is_null( ) )
-                {
-                    label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
-                }
-                e->set_label( label );
-
-                if( case_stmts.back( )->get_type( ) != BREAK )
-                {
-                    _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
-                }
+            Edge* e;
+            if( case_stmts[0]->is_break_node( ) )
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, _utils->_switch_nodes.top( )->_exit, CASE );
             }
             else
-            {   // If the nodes where already connected, then the edge must have two labels
-                ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
-                for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( ); it != case_entry_edges.end( ); ++it )
-                {
-                    if( ( *it )->get_source( )->get_id( ) == _utils->_switch_condition_nodes.top( )->get_id( ) )
-                    {
-                        e = *it;
-                        break;
-                    }
-                }
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_stmts[0], CASE );
+            }
 
-                label = e->get_label( );
-                label += ", " + std::string(codegen_to_str( case_val.get_internal_nodecl( ),
-                                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) ) );
-                e->set_label( label );
+            std::string label;
+            if( !case_val.is_null( ) )
+            {
+                label = case_val.prettyprint( );
+            }
+            else
+            {
+                label = "dafault";
+            }
+            e->set_label( label );
+
+            if( case_stmts.back( )->get_type( ) != BREAK )
+            {
+                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
             }
         }
         else
@@ -607,7 +599,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
-        Node* break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
+        // The only case when '_utils->_last_nodes' can be empy is when a Case Statement has no statements
+        Node* break_node;
+        if( _utils->_last_nodes.empty( ) )
+            break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, BREAK );
+        else
+            break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, break_node );
@@ -1959,10 +1956,11 @@ namespace Analysis {
 
         // Compose the statements nodes
         _utils->_last_nodes.clear( );
-        _utils->_switch_condition_nodes.push( cond_node_l[0] );
+        _utils->_switch_nodes.push( new PCFGSwitch( cond_node_l[0], exit_node ) );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
+        _utils->_switch_nodes.pop( );
 
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );

@@ -337,10 +337,18 @@ namespace Analysis {
         for( ; itp != parameters.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
-            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) &&
-                ita->has_symbol( ) )
+            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )
             {
-                non_ref_params_to_args[*itp] = *ita;
+                // If some memory access in the argument is a symbol, then we add the tuple to the map
+                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
+                {
+                    if( it->has_symbol( ) )
+                    {
+                        non_ref_params_to_args[*itp] = *ita;
+                        break;
+                    }
+                }
             }
         }
 

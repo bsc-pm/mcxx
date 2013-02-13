@@ -49,9 +49,6 @@ namespace Analysis {
         //! Empty constructor
         PCFGLoopControl( );
 
-        //! Copy constructor
-        PCFGLoopControl( const PCFGLoopControl& loop_ctrl );
-
         //! Destructor
         ~PCFGLoopControl( );
 
@@ -78,11 +75,24 @@ namespace Analysis {
         //! Empty constructor
         PCFGTryBlock( );
 
-        //! Copy constructor
-        PCFGTryBlock( const PCFGTryBlock& try_block );
-
         //! Destructor
         ~PCFGTryBlock( );
+
+    friend class PCFGVisitor;
+    };
+
+    class PCFGSwitch
+    {
+    private:
+        Node* _condition;
+        Node* _exit;
+
+    public:
+        //! Empty constructor
+        PCFGSwitch( Node* condition, Node* exit );
+
+        //! Destructor
+        ~PCFGSwitch( );
 
     friend class PCFGVisitor;
     };
@@ -200,10 +210,9 @@ namespace Analysis {
         ObjectList<Node*> _labeled_nodes;
         ObjectList<Node*> _goto_nodes;
 
-        //! Container to keep the conditional node of a switch statement
-        std::stack<Node*> _switch_condition_nodes;
 
         //! Container to keep information of complex statements during its nodes the construction
+        std::stack<PCFGSwitch*> _switch_nodes;
         std::stack<PCFGLoopControl*> _nested_loop_nodes;
         ObjectList<PCFGTryBlock*> _tryblock_nodes;
 
