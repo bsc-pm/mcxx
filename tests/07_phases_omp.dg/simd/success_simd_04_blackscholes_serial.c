@@ -177,17 +177,17 @@ int main (int argc, char* argv[])
  
     for (i=0; i<(width*height*4); i++)
     {
-        if(input_sc[i] != input[i])
+        if(fabsf(input_sc[i] - input[i]) > 0.01f)
         {
             printf("ERROR\n");
             exit(1);
         }
-        if(output1_sc[i] != output1[i])
+        if(fabsf(output1_sc[i] - output1[i]) > 0.01f)
         {
             printf("ERROR\n");
             exit(1);
         }
-        if(output2_sc[i] != output2[i])
+        if(fabsf(output2_sc[i] - output2[i]) > 0.01f)
         {
             printf("ERROR\n");
             exit(1);

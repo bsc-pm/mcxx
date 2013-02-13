@@ -479,14 +479,14 @@ namespace Codegen
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
         {
-            file << "(_mm_sub_epi32( _mm_setzero_si128(0),";
+            file << "(_mm_sub_epi32( _mm_setzero_si128(),";
             walk(node.get_rhs());
             file << "))";
         }
         else if (type.is_signed_short_int() ||
                 type.is_unsigned_short_int())
         {
-            file << "(_mm_sub_epi16( _mm_setzero_si128(0),";
+            file << "(_mm_sub_epi16( _mm_setzero_si128(),";
             walk(node.get_rhs());
             file << "))";
         }
@@ -494,7 +494,7 @@ namespace Codegen
                 type.is_signed_char() ||
                 type.is_unsigned_char())
         {
-            file << "(_mm_sub_epi8( _mm_setzero_si128(0),";
+            file << "(_mm_sub_epi8( _mm_setzero_si128(),";
             walk(node.get_rhs());
             file << "))";
         }
@@ -714,9 +714,9 @@ namespace Codegen
         }
 
         file << "("; 
-        walk(true_node);
+        walk(false_node); // False first!
         file << ", ";
-        walk(false_node);
+        walk(true_node);
         file << ", "
             << casting;
         walk(condition_node);
