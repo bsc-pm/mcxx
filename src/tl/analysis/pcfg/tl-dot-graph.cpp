@@ -203,7 +203,7 @@ namespace Analysis {
                         std::string extra_edge_attrs = "";
                         if( ( *it )->is_task_edge( ) )
                         {
-                            extra_edge_attrs = ", style=dotted";
+                            extra_edge_attrs = ", style=dashed";
                         }
 
                         if( belongs_to_the_same_graph( *it ) )
@@ -272,17 +272,17 @@ namespace Analysis {
             }
             case OMP_BARRIER:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"BARRIER\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BARRIER\", shape=diamond]\n";
                 break;
             }
             case OMP_FLUSH:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"FLUSH\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " FLUSH\", shape=ellipse]\n";
                 break;
             }
             case OMP_TASKWAIT:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"TASKWAIT\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " TASKWAIT\", shape=ellipse]\n";
                 break;
             }
             case BREAK:
