@@ -923,7 +923,8 @@ OPERATOR_TABLE
                         if (num_items > 0)
                             file << ", ";
 
-                        file << "B'" << to_binary(bitfield_pack) << "'";
+                        // file << "B'" << to_binary(bitfield_pack) << "'";
+                        file << (int)(signed char)(bitfield_pack);
                         num_items++;
 
                         // Get current offset and compute the number of bytes
@@ -963,7 +964,8 @@ OPERATOR_TABLE
                 if (num_items > 0)
                     file << ", ";
 
-                file << "B'" << to_binary(bitfield_pack) << "'";
+                // file << "B'" << to_binary(bitfield_pack) << "'";
+                file << (int)(signed char)(bitfield_pack);
 
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now
