@@ -6,7 +6,9 @@ options = --openmp
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{simd} options = --variable=simd_enabled:1
 {analysis} compiler_phase = libtest_analysis.so
+{openmp} compiler_phase = libtlomp-simd.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
@@ -17,7 +19,9 @@ options = --openmp
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{simd} options = --variable=simd_enabled:1
 {analysis} compiler_phase = libtest_analysis.so
+{openmp} compiler_phase = libtlomp-simd.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
