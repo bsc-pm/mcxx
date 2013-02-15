@@ -527,52 +527,52 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
+            TL::Symbol sym = n.get_symbol();
+            TL::Type sym_type = sym.get_type();
 
-            // Vectorize BASIC induction variable
-            if (Vectorizer::_analysis_info->is_basic_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
-                        n))
+            if (!sym_type.is_vector())
             {
-                std::cerr << "IV: " << n.prettyprint();
-                //TODO: Offset
-            }
-            // Vectorize constants
-            else if (Vectorizer::_analysis_info->is_constant(
-                        Vectorizer::_analysis_scopes->back(),
-                        n))
-            {
-                TL::Type sym_type = n.get_symbol().get_type();
-
-                if (sym_type.is_scalar_type())
-                {
-                    const Nodecl::ConstantVectorPromotion vector_prom =
-                        Nodecl::ConstantVectorPromotion::make(
-                                n.shallow_copy(),
-                                sym_type.get_vector_to(_vector_length),
-                                n.get_filename(),
-                                n.get_line());
-
-                    n.replace(vector_prom);
+               // Vectorize BASIC induction variable
+               if (Vectorizer::_analysis_info->is_basic_induction_variable(
+                           Vectorizer::_analysis_scopes->back(),
+                           n))
+               {
+                    std::cerr << "This IV needs offset!: " << n.prettyprint();
+                    //TODO: Offset
                 }
-            }
-            // Vectorize symbols declared in the SIMD scope
-            else if (is_declared_in_scope(
-                        _simd_inner_scope.get_decl_context().current_scope,
-                        n.get_symbol().get_scope().get_decl_context().current_scope))
-            {
-                TL::Symbol sym = n.get_symbol();
-                TL::Type sym_type = sym.get_type();
-
-                if (sym_type.is_scalar_type())
+                // Vectorize constants
+                else if (Vectorizer::_analysis_info->is_constant(
+                            Vectorizer::_analysis_scopes->back(),
+                            n))
                 {
-                    sym.set_type(sym_type.get_vector_to(_vector_length));
+                    if (sym_type.is_scalar_type())
+                    {
+                        const Nodecl::ConstantVectorPromotion vector_prom =
+                            Nodecl::ConstantVectorPromotion::make(
+                                    n.shallow_copy(),
+                                    sym_type.get_vector_to(_vector_length),
+                                    n.get_filename(),
+                                    n.get_line());
+
+                        n.replace(vector_prom);
+                    }
                 }
-            }
-            else
-            {
-                //TODO: If you are from outside of the loop -> Vector local copy.
-                running_error("Vectorizer: The loop is not vectorizable. '%s' is not IV or Constant or Local.",
-                        n.get_symbol().get_name().c_str());
+                // Vectorize symbols declared in the SIMD scope
+                else if (is_declared_in_scope(
+                            _simd_inner_scope.get_decl_context().current_scope,
+                            sym.get_scope().get_decl_context().current_scope))
+                {
+                    if (sym_type.is_scalar_type())
+                    {
+                        sym.set_type(sym_type.get_vector_to(_vector_length));
+                    }
+                }
+                else
+                {
+                    //TODO: If you are from outside of the loop -> Vector local copy.
+                    running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV or Constant or Local.",
+                            sym.get_name().c_str());
+                }
             }
         }
 
@@ -616,11 +616,15 @@ namespace TL
         {
             if (symbol_scope == NULL)
                 return false;
-
-            if (target_scope == symbol_scope)
+            else if (target_scope == NULL)
+                return false;
+            else if (target_scope == symbol_scope)
                 return true;
             else
-                return is_declared_in_scope(target_scope, symbol_scope->contained_in);
+            {
+                printf ("False: %p != %p\n", target_scope, symbol_scope);
+                return false;
+            }
         }
     }
 }
