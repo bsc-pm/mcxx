@@ -322,6 +322,7 @@ namespace Analysis {
             current->set_live_in( graph_li );
 
             // LO(graph) = U LI(S), where S successor( graph )
+            Utils::ext_sym_set graph_lo = compute_live_out( current, container_task );
             current->set_live_out( graph_lo );
         }
     }
