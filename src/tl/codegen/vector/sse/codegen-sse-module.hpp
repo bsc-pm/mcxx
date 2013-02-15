@@ -35,6 +35,10 @@ namespace Codegen
 {
     class SSEModuleVisitor : public CodegenModuleVisitor
     {
+        private:
+            bool is_int_gather_func_defined;
+            bool is_float_gather_func_defined;
+
         public:
 
             SSEModuleVisitor(CodegenVisitor* base_codegen);
@@ -61,6 +65,8 @@ namespace Codegen
             void visit(const Nodecl::VectorAssignment& node);
             void visit(const Nodecl::VectorLoad& node);
             void visit(const Nodecl::VectorStore& node);
+            void visit(const Nodecl::VectorGather& node);
+            void visit(const Nodecl::VectorScatter& node);
            
             void visit(const Nodecl::VectorFunctionCall& node);
             void visit(const Nodecl::VectorFabs& node);

@@ -313,8 +313,29 @@ namespace TL
                 }
                 else // Vector Scatter
                 {
-                    //TODO
-                    std::cerr << "Warning: Vector scatter is not supported yet!\n";
+                    const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
+
+                    const Nodecl::NodeclBase base = lhs_array.get_subscripted();
+                    const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>(); 
+
+                    ERROR_CONDITION(subscripts.size() > 1,
+                            "Vectorizer: Scatter on multidimensional array is not supported yet!", 0);
+
+                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
+
+                    Nodecl::NodeclBase strides = *subscripts.begin();
+                    walk(strides);
+                    
+                    const Nodecl::VectorScatter vector_scatter =
+                        Nodecl::VectorScatter::make(
+                                base.shallow_copy(),
+                                strides,
+                                n.get_rhs().shallow_copy(),
+                                vector_type,
+                                n.get_filename(),
+                                n.get_line());
+
+                    n.replace(vector_scatter);
                 }
             }
             else // Register
@@ -486,9 +507,16 @@ namespace TL
             }
             else // Vector Gather
             {
-                /*
                 const Nodecl::NodeclBase base = n.get_subscripted();
                 const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>(); 
+
+                ERROR_CONDITION(subscripts.size() > 1,
+                    "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
+
+                std::cerr << "Gather: " << n.prettyprint() << "\n";
+
+                Nodecl::NodeclBase strides = *subscripts.begin();
+                walk(strides);
 
                 const Nodecl::VectorGather vector_gather =
                     Nodecl::VectorGather::make(
@@ -499,7 +527,6 @@ namespace TL
                             n.get_line());
 
                 n.replace(vector_gather);
-                */
             }
         }
 
@@ -577,46 +604,48 @@ namespace TL
             if (!sym_type.is_vector_type())
             {
                // Vectorize BASIC induction variable
-               if (Vectorizer::_analysis_info->is_basic_induction_variable(
-                           Vectorizer::_analysis_scopes->back(),
-                           n))
-               {
-                   TL::ObjectList<Nodecl::NodeclBase> int_literal_list;
+                if (Vectorizer::_analysis_info->is_basic_induction_variable(
+                            Vectorizer::_analysis_scopes->back(),
+                            n))
+                {
+                    std::cerr << "Basic IV: " << n.prettyprint() << "\n";
 
-                   const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                           Vectorizer::_analysis_scopes->back(), n);
+                    TL::ObjectList<Nodecl::NodeclBase> int_literal_list;
 
-                   for(const_value_t *i = const_value_get_zero(4, 0); 
-                           const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
-                           i = const_value_add(i, ind_var_increment))
-                   {
-                       int_literal_list.append(const_value_to_nodecl(i));
-                   }
+                    const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
+                            Vectorizer::_analysis_scopes->back(), n);
 
-                   Nodecl::List offset = Nodecl::List::make(int_literal_list);
+                    for(const_value_t *i = const_value_get_zero(4, 0); 
+                            const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
+                            i = const_value_add(i, ind_var_increment))
+                    {
+                        int_literal_list.append(const_value_to_nodecl(i));
+                    }
 
-                   Nodecl::ParenthesizedExpression vector_induction_var =
-                       Nodecl::ParenthesizedExpression::make(
-                               Nodecl::VectorAdd::make(
-                                   Nodecl::VectorPromotion::make(
-                                       n.shallow_copy(),
-                                       n.get_type().get_vector_to(_vector_length),
-                                       n.get_filename(),
-                                       n.get_line()),
-                                   Nodecl::VectorLiteral::make(
-                                       offset,
-                                       n.get_type().get_vector_to(_vector_length),
-                                       n.get_filename(),
-                                       n.get_line()),
-                                   n.get_type().get_vector_to(_vector_length),
-                                   n.get_filename(),
-                                   n.get_line()),
-                               n.get_type().get_vector_to(_vector_length),
-                               n.get_filename(),
-                               n.get_line());
+                    Nodecl::List offset = Nodecl::List::make(int_literal_list);
 
-                   n.replace(vector_induction_var);
-               }
+                    Nodecl::ParenthesizedExpression vector_induction_var =
+                        Nodecl::ParenthesizedExpression::make(
+                                Nodecl::VectorAdd::make(
+                                    Nodecl::VectorPromotion::make(
+                                        n.shallow_copy(),
+                                        n.get_type().get_vector_to(_vector_length),
+                                        n.get_filename(),
+                                        n.get_line()),
+                                    Nodecl::VectorLiteral::make(
+                                        offset,
+                                        n.get_type().get_vector_to(_vector_length),
+                                        n.get_filename(),
+                                        n.get_line()),
+                                    n.get_type().get_vector_to(_vector_length),
+                                    n.get_filename(),
+                                    n.get_line()),
+                                n.get_type().get_vector_to(_vector_length),
+                                n.get_filename(),
+                                n.get_line());
+
+                    n.replace(vector_induction_var);
+                }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
                             Vectorizer::_analysis_scopes->back(),

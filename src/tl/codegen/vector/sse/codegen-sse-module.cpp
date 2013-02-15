@@ -512,13 +512,20 @@ namespace Codegen
             walk(node.get_nest());
             return;
         }
+        else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
+                (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
+                (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
+                (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
+        {
+            walk(node.get_nest());
+            return;
+        }
         else if (src_type.is_signed_int() &&
                 dst_type.is_float()) 
         { 
             file << "_mm_cvtepi32_ps("; 
             walk(node.get_nest());
             file << ")"; 
-
         } 
         else if (src_type.is_float() &&
                 dst_type.is_signed_int()) 
@@ -615,8 +622,9 @@ namespace Codegen
  
         else
         {
-            fprintf(stderr, "SSE Codegen: Conversion at '%s' is not supported yet.\n", 
-                    node.get_locus().c_str());
+            fprintf(stderr, "SSE Codegen: Conversion at '%s' is not supported yet: %s\n", 
+                    node.get_locus().c_str(),
+                    node.get_nest().prettyprint().c_str());
         }      
     }
 
@@ -855,6 +863,105 @@ namespace Codegen
         walk(node.get_rhs());
         file << ")"; 
     }
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorGather& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_set";
+
+        // Postfix
+        if (type.is_integral_type()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }
+
+        file << "("; 
+
+        int i = 0;
+        
+        walk(node.get_base());
+        file << "[";
+
+        file << "_mm_extract_epi32";
+        file << "(";
+        walk(node.get_strides());
+        file << ", ";
+        file << i;
+        file << ")";
+
+        file << "]";
+
+        i++;
+
+        for (; i < 4; i++)
+        {
+            file << ", ";
+
+            walk(node.get_base());
+            file << "[";
+
+            file << "_mm_extract_epi32";
+            file << "(";
+            walk(node.get_strides());
+            file << ", ";
+            file << i;
+            file << ")";
+
+            file << "]";
+        }
+
+        file << ")"; 
+    }
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorScatter& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Postfix
+        if (type.is_integral_type()) 
+        { 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }
+
+        for (int i=0; i < 4; i++)
+        {
+            walk(node.get_base());
+            file << "[";
+
+            file << "_mm_extract_epi32";
+            file << "(";
+            walk(node.get_strides());
+            file << ", ";
+            file << i;
+            file << ")";
+
+            file << "]";
+
+            file << " = _mm_extract_epi32(";
+            walk(node.get_source());
+            file << ", ";
+            file << i;
+            file << ")";
+ 
+            file << ";" << std::endl;
+        }
+    }
+
+
+
 
     void SSEModuleVisitor::visit(const Nodecl::VectorFunctionCall& node) 
     {
