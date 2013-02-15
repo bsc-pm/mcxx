@@ -133,8 +133,6 @@ namespace Analysis {
 
         static AnalysisSingleton* _analysis;
 
-        Nodecl::NodeclBase _node;
-
 
         // *************** Private methods **************** //
 
@@ -157,9 +155,6 @@ namespace Analysis {
 
         //!Single instance constructor
         static AnalysisSingleton& get_analysis( );
-
-        //! Returns the nodecl that originated the analysis
-        Nodecl::NodeclBase get_nodecl_origin( );
 
 
         // *************** Analysis methods *************** //

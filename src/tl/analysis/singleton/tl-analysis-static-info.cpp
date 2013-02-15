@@ -246,6 +246,8 @@ namespace Analysis {
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                             WhereAnalysis nested_analysis_mask, int nesting_level)
     {
+        _node = n;
+
         TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
 
         TL::Analysis::PCFGAnalysis_memento analysis_state;
@@ -287,6 +289,11 @@ namespace Analysis {
     static_info_map_t AnalysisStaticInfo::get_static_info_map( ) const
     {
         return _static_info_map;
+    }
+
+    Nodecl::NodeclBase AnalysisStaticInfo::get_nodecl_origin( ) const
+    {
+        return _node;
     }
 
     bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const

@@ -129,6 +129,8 @@ namespace Analysis {
         private:
             static_info_map_t _static_info_map;
 
+            Nodecl::NodeclBase _node;
+
         public:
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
@@ -136,6 +138,9 @@ namespace Analysis {
             // *** Getters and Setters *** //
 
             static_info_map_t get_static_info_map( ) const;
+
+            //! Returns the nodecl that originated the analysis
+            Nodecl::NodeclBase get_nodecl_origin( ) const;
 
             // *** Queries about Use-Def analysis *** //
 
