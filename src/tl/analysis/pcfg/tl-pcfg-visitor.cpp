@@ -26,8 +26,9 @@
 
 
 #include "cxx-process.h"
-
 #include "tl-pcfg-visitor.hpp"
+
+#include <cassert>
 
 namespace TL {
 namespace Analysis {
@@ -384,38 +385,33 @@ namespace Analysis {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label;
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
-            Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
-            if( e != NULL )
-            {   // The edge between the nodes did not exist previously
-                label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                        nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
-                e->set_label( label );
-
-                if( case_stmts.back( )->get_type( ) != BREAK )
-                {
-                    _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
-                }
+            Edge* e;
+            if( case_stmts[0]->is_break_node( ) )
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, _utils->_switch_nodes.top( )->_exit, CASE );
             }
             else
-            {   // If the nodes where already connected, then the edge must have two labels
-                ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
-                for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( ); it != case_entry_edges.end( ); ++it )
-                {
-                    if( ( *it )->get_source( )->get_id( ) == _utils->_switch_condition_nodes.top( )->get_id( ) )
-                    {
-                        e = *it;
-                        break;
-                    }
-                }
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_stmts[0], CASE );
+            }
 
-                label = e->get_label( );
-                label += ", " + std::string(codegen_to_str( case_val.get_internal_nodecl( ),
-                                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) ) );
-                e->set_label( label );
+            std::string label;
+            if( !case_val.is_null( ) )
+            {
+                label = case_val.prettyprint( );
+            }
+            else
+            {
+                label = "dafault";
+            }
+            e->set_label( label );
+
+            if( case_stmts.back( )->get_type( ) != BREAK )
+            {
+                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
             }
         }
         else
@@ -603,7 +599,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
-        Node* break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
+        // The only case when '_utils->_last_nodes' can be empy is when a Case Statement has no statements
+        Node* break_node;
+        if( _utils->_last_nodes.empty( ) )
+            break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, BREAK );
+        else
+            break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, break_node );
@@ -631,15 +632,19 @@ namespace Analysis {
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
-        Nodecl::NodeclBase label = n.get_name( );
+        std::string label;
+        if( n.get_name( ).is_null( ) )
+            label = "...";
+        else
+            label = n.get_name( ).prettyprint( );
         for( ObjectList<Node*>::iterator it = current_tryblock->_handler_parents.begin( );
               it != current_tryblock->_handler_parents.end( ); ++it )
         {
             Edge* catch_edge = ( *it )->get_exit_edge( catchs[0] );
             if( catch_edge != NULL )
             {
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, label ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( label );
             }
         }
 
@@ -948,12 +953,8 @@ namespace Analysis {
                 if( !( *it )->is_task_edge( ) )
                 {
                     all_tasks = false;
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
                 }
-                else
-                {
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
-                }
+                ( *it )->set_true_edge( );
                 ++it;
             }
             if( all_tasks )
@@ -1048,7 +1049,7 @@ namespace Analysis {
             bool all_tasks_then = true;
             for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
             {   // More than one exit edge means that some tasks are created within 'then' statement
-                ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
+                ( *it )->set_true_edge( );
                 if( !( *it )->is_task_edge( ) )
                     all_tasks_then = false;
             }
@@ -1064,7 +1065,7 @@ namespace Analysis {
             exit_edges = cond_node->get_exit_edges( );
             for( ; false_edge_it < cond_node->get_exit_edges( ).size( ); ++false_edge_it )
             {
-                exit_edges[false_edge_it]->set_data( _EDGE_TYPE, FALSE_EDGE );
+                exit_edges[false_edge_it]->set_false_edge( );
                 if( !exit_edges[false_edge_it]->is_task_edge( ) )
                     all_tasks_else = false;
             }
@@ -1109,7 +1110,7 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
     {
         Node* labeled_node = walk( n.get_statement( ) )[0];
-        labeled_node->set_data( _NODE_TYPE, LABELED );
+        labeled_node->set_type( LABELED );
         labeled_node->set_label( n.get_symbol( ) );
 
         for( ObjectList<Node*>::iterator it = _utils->_goto_nodes.begin( );
@@ -1320,7 +1321,22 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
     {
-        return visit_barrier( );
+        Node* environ_exit = _utils->_environ_entry_exit.top( ).second;
+        ObjectList<Node*> exit_parents = environ_exit->get_parents( );
+
+        // Save current info
+        _pcfg->disconnect_nodes( exit_parents, environ_exit );
+        ObjectList<Node*> actual_last_nodes = _utils->_last_nodes;
+        _utils->_last_nodes = exit_parents;
+
+        // Create the barrier node
+        visit_barrier( );
+        _pcfg->connect_nodes( _utils->_last_nodes[0], environ_exit );
+
+        // Restore current info
+        _utils->_last_nodes = actual_last_nodes;
+
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
@@ -1446,9 +1462,10 @@ namespace Analysis {
         int n_connects = entry_children.size( );
         _pcfg->connect_nodes( entry_flush, entry_children,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
-                              ObjectList<std::string>( n_connects, "" ));
+                              ObjectList<std::string>( n_connects, "" ) );
 
         // Restore current info
+        environ_entry = entry_flush;
         _utils->_last_nodes = actual_last_nodes;
 
         return ObjectList<Node*>( );
@@ -1563,7 +1580,6 @@ namespace Analysis {
 
         parallel_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, parallel_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1574,7 +1590,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node );
+
         return ObjectList<Node*>( 1, parallel_node );
     }
 
@@ -1728,10 +1746,8 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, single_entry );
         walk( n.get_statements( ) );
 
-
         single_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, single_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1742,7 +1758,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
+
         return ObjectList<Node*>( 1, single_node );
     }
 
@@ -1938,14 +1956,16 @@ namespace Analysis {
 
         // Compose the statements nodes
         _utils->_last_nodes.clear( );
-        _utils->_switch_condition_nodes.push( cond_node_l[0] );
+        _utils->_switch_nodes.push( new PCFGSwitch( cond_node_l[0], exit_node ) );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
+        _utils->_switch_nodes.pop( );
 
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
         exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+        _utils->_outer_nodes.pop( );
 
         // Finish computation of switch exit nodes
         if( cond_node_l[0]->get_exit_edges( ).empty( ) )
@@ -2035,8 +2055,8 @@ namespace Analysis {
                  it != current_tryblock->_handler_parents.end( ); ++it )
             {
                 Edge* catch_edge = ( *it )->get_exit_edges( ).back( );
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, Nodecl::NodeclBase::null( ) ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( "" );
             }
         }
 

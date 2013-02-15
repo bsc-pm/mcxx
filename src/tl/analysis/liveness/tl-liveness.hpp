@@ -51,7 +51,7 @@ namespace Analysis {
          * Live In (X) = Upper Exposed (X) + ( Live Out (X) - Killed (X) )
          */
         void solve_live_equations( Node* current );
-        void solve_live_equations_rec( Node* current, bool& changed );
+        void solve_live_equations_rec( Node* current, bool& changed, Node* container_task );
 
         void solve_specific_live_in_tasks( Node* current );
 

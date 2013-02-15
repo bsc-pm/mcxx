@@ -158,8 +158,9 @@ namespace Analysis {
                     if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                         // TODO
-                        std::cerr << "warning: Part of nodecl " << itk->get_nodecl( ).prettyprint( ) << " founded in the current var "
-                                << var.prettyprint( ) << " must be avoided. A subpart is killed." << std::endl;
+                        WARNING_MESSAGE( "Part of nodecl '%s' founded in the current var must be avoided. " \
+                                         "A subpart is killed.", itk->get_nodecl( ).prettyprint( ).c_str( ),
+                                         var.prettyprint( ).c_str( ) );
                         //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
                         killed.erase( itk );
                         if( compute_undef == '1' )
@@ -170,29 +171,30 @@ namespace Analysis {
                     }
                 }
 
-                if(!Utils::ext_sym_set_contains_englobing_nodecl(var, undef) )
+                if( !Utils::ext_sym_set_contains_englobing_nodecl( var, undef ) )
                 {   // No englobing variable in the avoiding list 2
                     // Look for variables in avoiding list 2 englobed by 'var'
-                    Utils::ext_sym_set aux_set_2; aux_set_2.insert(*it);
+                    Utils::ext_sym_set aux_set_2; aux_set_2.insert( *it );
                     Utils::ext_sym_set::iterator itu = undef.begin( );
-                    for (; itu != undef.end( ); ++itu)
+                    for( ; itu != undef.end( ); ++itu )
                     {
-                        if(Utils::ext_sym_set_contains_englobing_nodecl(itu->get_nodecl( ), aux_set_2) )
+                        if( Utils::ext_sym_set_contains_englobing_nodecl( itu->get_nodecl( ), aux_set_2 ) )
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
-                            std::cerr << "warning: Part of nodecl " << itu->get_nodecl( ).prettyprint( ) << " founded in the current var "
-                            << var.prettyprint( ) << " must be avoided. A subpart is undefined." << std::endl;
-                            undef.erase(itu);
-                            if(compute_undef == '1')
-                                new_l = insert_var_in_list(var, new_l);
+                            WARNING_MESSAGE( "Part of nodecl founded in the current var must be avoided. "\
+                                             "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ).c_str( ),
+                                             var.prettyprint( ).c_str( ) );
+                            undef.erase( itu );
+                            if( compute_undef == '1' )
+                                new_l = insert_var_in_list( var, new_l );
                             else
-                                undef.insert(var);
+                                undef.insert( var );
                             break;
                         }
                     }
-                    if(itk == killed.end( ) && itu == undef.end( ) )
+                    if( itk == killed.end( ) && itu == undef.end( ) )
                     {
-                        new_l = insert_var_in_list(var, new_l);
+                        new_l = insert_var_in_list( var, new_l );
                     }
                 }
             }
@@ -228,13 +230,12 @@ namespace Analysis {
             }
 
             // Append to current node info from children
-            Utils::ext_sym_set null_list;
-            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
-                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
             undef_vars = compute_use_def_with_children( undef_children, undef_vars,
                                                         killed_vars, undef_vars, /*compute_undef*/ '1' );
             killed_vars = compute_use_def_with_children( killed_children, killed_vars,
                                                          killed_vars, undef_vars, /*compute_undef*/ '0' );
+            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
+                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
 
             use_def.append( ue_vars );
             use_def.append( killed_vars );
@@ -327,7 +328,7 @@ namespace Analysis {
     }
 
     static sym_to_nodecl_map map_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
-                                                                      Nodecl::List arguments )
+                                                               Nodecl::List arguments )
     {
         sym_to_nodecl_map non_ref_params_to_args;
 
@@ -336,10 +337,18 @@ namespace Analysis {
         for( ; itp != parameters.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
-            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) &&
-                Nodecl::Utils::nodecl_is_modifiable_lvalue( *ita )  )
+            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )
             {
-                non_ref_params_to_args[*itp] = *ita;
+                // If some memory access in the argument is a symbol, then we add the tuple to the map
+                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
+                {
+                    if( it->has_symbol( ) )
+                    {
+                        non_ref_params_to_args[*itp] = *ita;
+                        break;
+                    }
+                }
             }
         }
 
@@ -442,16 +451,13 @@ namespace Analysis {
 
     void UsageVisitor::parse_parameter( std::string current_param, Nodecl::NodeclBase arg )
     {
-        std::cerr << "Current param: '" << current_param << "'" << std::endl;
         size_t first_slash_pos = current_param.find( "#" );
         if( first_slash_pos != std::string::npos )
         {   // Parameter is pointer
             // The address is used
-            std::cerr << " Set as used: " << arg.prettyprint( ) << std::endl;
             _node->set_ue_var( Utils::ExtendedSymbol( arg ) );
             size_t second_slash_pos = current_param.find( "#", first_slash_pos );
             std::string pointed_param_usage = current_param.substr( first_slash_pos, second_slash_pos - first_slash_pos );
-            std::cerr << "pointer param usage: " << pointed_param_usage << std::endl;
             // TODO: What do we want to do with the pointed value??
         }
         else
@@ -459,7 +465,6 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( arg );
             for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
             {
-                std::cerr << " Set as used: " << it_o->prettyprint( ) << std::endl;
                 _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
             }
         }
@@ -484,7 +489,6 @@ namespace Analysis {
                     if( func_sym.get_name( ) == func_name )
                     {   // No global variable is read / written
                         // Check for parameters usage
-                        std::cerr << "Matched func_name: '" << func_name << "'" << std::endl;
                         side_effects = false;
 
                         size_t comma_pos = func_decl.find( "," );
@@ -515,7 +519,6 @@ namespace Analysis {
                                     obj = Nodecl::Utils::get_all_memory_accesses( *it );
                                     for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o  != obj.end( ); ++it_o )
                                     {
-                                        std::cerr << " Set as used: " << it_o->prettyprint( ) << std::endl;
                                         _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
                                     }
                                     ++it;
@@ -529,7 +532,21 @@ namespace Analysis {
                     }
                 }
             }
+
+            if( side_effects )
+            {
+                WARNING_MESSAGE( "Function '%s' do not found in file '%s'. Usage of global variables and "\
+                                 "reference parameters will be limited. If you know the side effects of this function, "\
+                                 "add it to the file and recompile your code. \n(If you recompile the compiler, "\
+                                 "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
+                                 func_sym.get_name( ).c_str( ), cLibFuncsPath.c_str( ) );
+            }
             cLibFuncs.close();
+        }
+        else
+        {
+            WARNING_MESSAGE( "File containing C library calls Usage info cannot be opened. \n"\
+                             "Path tried: '%s'", cLibFuncsPath.c_str( ) );
         }
 
         return side_effects;
@@ -558,12 +575,11 @@ namespace Analysis {
                         map_reference_params_to_args( params, args );
 
                 // Rename the parameters with the arguments
-                Nodecl::NodeclBase stmts = copied_func.get_statements( );
                 RenameVisitor rv( renaming_map );
-                rv.rename_expressions( stmts );
+                rv.rename_expressions( copied_func );
 
                 // Create the PCFG for the renamed code
-                PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), called_func );
+                PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), copied_func );
                 ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
 
                 _visited_global_vars.insert( pcfg->get_global_variables( ) );
@@ -600,7 +616,7 @@ namespace Analysis {
                 // F.i.:   int b = foo(a, b)
                 //         PCFG:
                 //           ______________________________________________
-                //          |  [SPIT_STMT]                                 |
+                //          |  [SPLIT_STMT]                                |
                 //          |  __________________________________________  |
                 //          | | [FUNC_CALL]                              | |
                 //          | |  _______       ___________       ______  | |
@@ -641,20 +657,17 @@ namespace Analysis {
             }
             else
             {   // We do not have access to the called code
-
                 // Check whether we have enough attributes in the function symbol
                 // to determine the function side effects
                 bool side_effects = true;
 
                 if( func_sym.has_gcc_attributes( ) )
                 {   // Check for information synthesized by gcc
-//                     std::cerr << "Function " << func_sym.get_name( ) << " has gcc attributes" << std::endl;
                     ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
                     for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
                          it != gcc_attrs.end( ); ++it )
                     {
                         std::string attr_name = it->get_attribute_name( );
-//                         std::cerr << "   attr: '" << attr_name << "'" << std::endl;
                         if( attr_name == "const" || attr_name == "pure" )
                         {   // No side effects except the return value.
                             // Only examine the arguments ( and global variables in 'pure' case)
@@ -692,7 +705,6 @@ namespace Analysis {
 
                 if( side_effects )
                 {
-//                     std::cerr << "Function " << func_sym.get_name( ) << " checked in Mercurium decl list" << std::endl;
                     // Check in Mercurium function attributes data-base
                     side_effects = parse_c_functions_file( func_sym, args );
 
@@ -733,6 +745,26 @@ namespace Analysis {
                     }
                 }
             }
+        }
+        else
+        {   // We are in a recursive call
+            // Set the value passed parameters as upper exposed
+            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
+            Nodecl::List args = arguments.as<Nodecl::List>( );
+            sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                it != non_ref_params.end( ); ++it )
+            {
+                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                {
+                    _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                }
+            }
+
+            // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
+            // until the point we are currently
+            // TODO
         }
     }
 

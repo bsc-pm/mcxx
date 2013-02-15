@@ -143,14 +143,26 @@ namespace Analysis {
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
                                           bool is_back_edge, bool is_task_edge )
     {
-        Edge* new_edge;
+        Edge* edge;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
             {
-                new_edge = new Edge( parent, child, is_back_edge, is_task_edge, etype, label );
-                parent->set_exit_edge( new_edge );
-                child->set_entry_edge( new_edge );
+                edge = new Edge( parent, child, is_back_edge, is_task_edge, etype, label );
+                parent->set_exit_edge( edge );
+                child->set_entry_edge( edge );
+            }
+            else
+            {
+                ObjectList<Edge*> exit_edges = parent->get_exit_edges( );
+                for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
+                {
+                    if( ( *it )->get_target( )->get_id( ) == child->get_id( ) )
+                    {
+                        edge = *it;
+                        break;
+                    }
+                }
             }
         }
         else
@@ -158,7 +170,7 @@ namespace Analysis {
             internal_error( "Using a NULL node when connecting two nodes. Parent is NULL? '%s', Child is NULL? '%s'",
                             ( parent == NULL ) ? "true" : "false", ( child == NULL ) ? "true" : "false" );
         }
-        return new_edge;
+        return edge;
     }
 
     void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,

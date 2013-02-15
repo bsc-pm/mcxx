@@ -336,9 +336,16 @@ namespace Analysis {
         return analysis;
     }
 
+    Nodecl::NodeclBase AnalysisSingleton::get_nodecl_origin( )
+    {
+        return _node;
+    }
+
     ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( PCFGAnalysis_memento& memento,
                                                                                  Nodecl::NodeclBase ast )
     {
+        _node = ast;
+
         ObjectList<ExtensibleGraph*> result;
         ObjectList<Nodecl::NodeclBase> unique_asts;
 

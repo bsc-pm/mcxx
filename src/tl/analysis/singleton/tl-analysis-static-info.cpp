@@ -275,10 +275,6 @@ namespace Analysis {
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             ObjectList<ExtensibleGraph*> pcfgs = analysis.induction_variables( analysis_state, n );
-            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
-            {
-                analysis.print_pcfg( analysis_state, (*it)->get_name( ) );
-            }
         }
 
         // Save static analysis

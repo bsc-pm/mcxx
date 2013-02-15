@@ -28,6 +28,8 @@ include ../../Makefile.phases
 
 lib_LTLIBRARIES = libuse_def.la
 
+EXTRA_DIST=cLibraryFunctionList
+
 analysisdatadir = @datadir@/@PACKAGE@/analysisdata
 
 libuse_def_la_CFLAGS = $(tl_cflags)
