@@ -452,12 +452,8 @@ namespace Codegen
 
     void SSEModuleVisitor::visit(const Nodecl::VectorLogicalOr& node) 
     { 
-        fprintf(stderr, "Warning: Logical Or operation in '%s' is not "
-                "supported in SSE. Bitwise Or operation will be used instead. "
-                "This might change the expected behaviour of the application.\n",
-                node.get_locus().c_str()); 
-
-        visit(node.as<Nodecl::VectorBitwiseOr>());
+        running_error("SSE Codegen %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
+                node.get_locus().c_str());
     }                                                 
 
     void SSEModuleVisitor::visit(const Nodecl::VectorNeg& node) 
@@ -624,7 +620,7 @@ namespace Codegen
         }      
     }
 
-    void SSEModuleVisitor::visit(const Nodecl::ConstantVectorPromotion& node) 
+    void SSEModuleVisitor::visit(const Nodecl::VectorPromotion& node) 
     { 
         TL::Type type = node.get_type().basic_type();
 
@@ -667,6 +663,65 @@ namespace Codegen
         walk(node.get_rhs());
         file << ")"; 
     }        
+
+    void SSEModuleVisitor::visit(const Nodecl::VectorLiteral& node) 
+    { 
+        TL::Type type = node.get_type().basic_type();
+
+        // Intrinsic name
+        file << "_mm_set";
+        
+        // Postfix
+        if (type.is_float()) 
+        { 
+            file << "_ps"; 
+        } 
+        else if (type.is_double()) 
+        { 
+            file << "_pd"; 
+        } 
+        else if (type.is_signed_int() ||
+            type.is_unsigned_int()) 
+        { 
+            file << "_epi32"; 
+        } 
+        else if (type.is_signed_short_int() ||
+            type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16"; 
+        } 
+        else if (type.is_char() || 
+                type.is_signed_char() ||
+                type.is_unsigned_char()) 
+        { 
+            file << "_epi8"; 
+        } 
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }      
+
+        file << "(";
+
+        Nodecl::List scalar_values =
+            node.get_scalar_values().as<Nodecl::List>();
+
+        Nodecl::List::const_iterator it = scalar_values.begin();
+        walk((*it));
+        it++;
+
+        for (; it != scalar_values.end();
+            it++)
+        {
+            file << ", ";
+            walk((*it));
+        }
+
+        file << ")"; 
+    }        
+
 
     void SSEModuleVisitor::visit(const Nodecl::VectorConditionalExpression& node) 
     { 

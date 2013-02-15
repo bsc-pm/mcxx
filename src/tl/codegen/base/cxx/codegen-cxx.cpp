@@ -2924,7 +2924,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector())
+        if (type.no_ref().is_vector_type())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;
@@ -5878,7 +5878,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                     define_entities_in_tree);
         }
     }
-    else if (t.is_vector())
+    else if (t.is_vector_type())
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }

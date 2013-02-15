@@ -56,7 +56,8 @@ namespace Codegen
             
             void visit(const Nodecl::VectorConversion& node);
             void visit(const Nodecl::VectorConditionalExpression& node);
-            void visit(const Nodecl::ConstantVectorPromotion& node);
+            void visit(const Nodecl::VectorPromotion& node);
+            void visit(const Nodecl::VectorLiteral& node);
             void visit(const Nodecl::VectorAssignment& node);
             void visit(const Nodecl::VectorLoad& node);
             void visit(const Nodecl::VectorStore& node);

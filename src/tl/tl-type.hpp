@@ -572,7 +572,7 @@ namespace TL
             bool array_is_vla() const;
 
             //! States whether current type is a vector-type
-            bool is_vector() const;
+            bool is_vector_type() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type

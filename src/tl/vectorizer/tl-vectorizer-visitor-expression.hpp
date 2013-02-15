@@ -47,6 +47,8 @@ namespace TL
                 bool is_declared_in_scope(const scope_t *const target_scope , 
                         const scope_t *const symbol_scope) const;
 
+                //void vector_evolution(const Nodecl::NodeclBase& n) const;
+
             public:
                 VectorizerVisitorExpression(const std::string& device,
                         const unsigned int vector_length,

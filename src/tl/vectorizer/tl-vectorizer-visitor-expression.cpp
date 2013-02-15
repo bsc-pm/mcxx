@@ -113,8 +113,8 @@ namespace TL
             if (rhs.is<Nodecl::IntegerLiteral>() || // -1
                 rhs.is<Nodecl::FloatingLiteral>())
             {
-                const Nodecl::ConstantVectorPromotion vector_prom =
-                    Nodecl::ConstantVectorPromotion::make(
+                const Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
                             n.get_type().get_vector_to(_vector_length),
                             n.get_filename(),
@@ -282,7 +282,7 @@ namespace TL
                 else // Vector Scatter
                 {
                     //TODO
-                    std::cerr << "Warning: Vector gather is not supported yet!\n";
+                    std::cerr << "Warning: Vector scatter is not supported yet!\n";
                 }
             }
             else // Register
@@ -454,8 +454,20 @@ namespace TL
             }
             else // Vector Gather
             {
-                //TODO
-                std::cerr << "Warning: Vector gather is not supported yet!\n";
+                /*
+                const Nodecl::NodeclBase base = n.get_subscripted();
+                const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>(); 
+
+                const Nodecl::VectorGather vector_gather =
+                    Nodecl::VectorGather::make(
+                            base.shallow_copy(),
+                            strides,
+                            vector_type,
+                            n.get_filename(),
+                            n.get_line());
+
+                n.replace(vector_gather);
+                */
             }
         }
 
@@ -530,16 +542,49 @@ namespace TL
             TL::Symbol sym = n.get_symbol();
             TL::Type sym_type = sym.get_type();
 
-            if (!sym_type.is_vector())
+            if (!sym_type.is_vector_type())
             {
                // Vectorize BASIC induction variable
                if (Vectorizer::_analysis_info->is_basic_induction_variable(
                            Vectorizer::_analysis_scopes->back(),
                            n))
                {
-                    std::cerr << "This IV needs offset!: " << n.prettyprint();
-                    //TODO: Offset
-                }
+                   TL::ObjectList<Nodecl::NodeclBase> int_literal_list;
+
+                   const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
+                           Vectorizer::_analysis_scopes->back(), n);
+
+                   for(const_value_t *i = const_value_get_zero(4, 0); 
+                           const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
+                           i = const_value_add(i, ind_var_increment))
+                   {
+                       int_literal_list.append(const_value_to_nodecl(i));
+                   }
+
+                   Nodecl::List offset = Nodecl::List::make(int_literal_list);
+
+                   Nodecl::ParenthesizedExpression vector_induction_var =
+                       Nodecl::ParenthesizedExpression::make(
+                               Nodecl::VectorAdd::make(
+                                   Nodecl::VectorPromotion::make(
+                                       n.shallow_copy(),
+                                       n.get_type().get_vector_to(_vector_length),
+                                       n.get_filename(),
+                                       n.get_line()),
+                                   Nodecl::VectorLiteral::make(
+                                       offset,
+                                       n.get_type().get_vector_to(_vector_length),
+                                       n.get_filename(),
+                                       n.get_line()),
+                                   n.get_type().get_vector_to(_vector_length),
+                                   n.get_filename(),
+                                   n.get_line()),
+                               n.get_type().get_vector_to(_vector_length),
+                               n.get_filename(),
+                               n.get_line());
+
+                   n.replace(vector_induction_var);
+               }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
                             Vectorizer::_analysis_scopes->back(),
@@ -547,8 +592,8 @@ namespace TL
                 {
                     if (sym_type.is_scalar_type())
                     {
-                        const Nodecl::ConstantVectorPromotion vector_prom =
-                            Nodecl::ConstantVectorPromotion::make(
+                        const Nodecl::VectorPromotion vector_prom =
+                            Nodecl::VectorPromotion::make(
                                     n.shallow_copy(),
                                     sym_type.get_vector_to(_vector_length),
                                     n.get_filename(),
@@ -578,8 +623,8 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
         {
-            const Nodecl::ConstantVectorPromotion vector_prom =
-                Nodecl::ConstantVectorPromotion::make(
+            const Nodecl::VectorPromotion vector_prom =
+                Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         n.get_type().get_vector_to(_vector_length),
                         n.get_filename(),
@@ -590,8 +635,8 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::FloatingLiteral& n)
         {
-            const Nodecl::ConstantVectorPromotion vector_prom =
-                Nodecl::ConstantVectorPromotion::make(
+            const Nodecl::VectorPromotion vector_prom =
+                Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         n.get_type().get_vector_to(_vector_length),
                         n.get_filename(),
@@ -626,5 +671,19 @@ namespace TL
                 return false;
             }
         }
+
+/*
+        VectorizerVectorEvolution::VectorizerVectorEvolution()
+        {
+        }
+
+        void VectorizerVectorEvolution::visit(const Nodecl::Symbol& n) const
+        {
+        }
+
+        void VectorizerVectorEvolution::visit(const Nodecl::List& n) const
+        {
+        }
+        */
     }
 }
