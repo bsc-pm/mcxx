@@ -936,6 +936,7 @@ namespace Analysis {
         _utils->_continue_nodes.push( _utils->_nested_loop_nodes.top( )->_next );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );    // This list of nodes returned here will never be used
+
         _utils->_continue_nodes.pop();
         _utils->_break_nodes.pop();
 
@@ -1841,6 +1842,15 @@ namespace Analysis {
         PCFGClause current_clause( WAITON, n.get_environment( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
+    {
+        ObjectList<Node*> current_last_nodes = _utils->_last_nodes;
+        ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
+        Node* parenthesized_node = merge_nodes( n, expression_nodes );
+        _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
+        return ObjectList<Node*>( 1, parenthesized_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Plus& n )

@@ -484,7 +484,7 @@ namespace Nodecl
         {
             if( contained.is<Nodecl::ArraySubscript>( ) )
             {
-                Nodecl::NodeclBase container_rhs = contained.as<Nodecl::Reference>( ).get_rhs( );
+                Nodecl::NodeclBase container_rhs = container.as<Nodecl::Dereference>( ).get_rhs( );
                 Nodecl::ArraySubscript contained_array = contained.as<Nodecl::ArraySubscript>( );
                 Nodecl::NodeclBase contained_subscripted = contained_array.get_subscripted( );
                 if( Nodecl::Utils::equal_nodecls( container_rhs, contained_subscripted ) )
@@ -503,9 +503,19 @@ namespace Nodecl
         {
             if( contained.is<Nodecl::ArraySubscript>( ) )
             {   // Check the positions of the array that are accessed
-                Nodecl::List container_subscripted = container.as<Nodecl::ArraySubscript>( ).get_subscripted( ).as<Nodecl::List>( );
-                Nodecl::List contained_subscripted = contained.as<Nodecl::ArraySubscript>( ).get_subscripted( ).as<Nodecl::List>( );
-                internal_error( "Arrays subscripts comparison is not yet implemented", 0 );
+                Nodecl::ArraySubscript container_array = container.as<Nodecl::ArraySubscript>( );
+                Nodecl::ArraySubscript contained_array = contained.as<Nodecl::ArraySubscript>( );
+                if( equal_nodecls( container_array.get_subscripted( ), contained_array.get_subscripted( ) ) )
+                {
+                    Nodecl::List container_subscripts = container_array.get_subscripts( ).as<Nodecl::List>( );
+                    Nodecl::List contained_subscripts = contained_array.get_subscripts( ).as<Nodecl::List>( );
+                    Nodecl::List::iterator it1 = container_subscripts.begin( );
+                    Nodecl::List::iterator it2 = contained_subscripts.begin( );
+                    for( ; it1 != container_subscripts.end( ) && it2 != contained_subscripts.end( ) && !result; ++it1, ++it2 )
+                    {
+                        result = nodecl_contains_nodecl( *it1, *it2 );
+                    }
+                }
             }
         }
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
@@ -531,6 +541,7 @@ namespace Nodecl
                 result = nodecl_contains_nodecl( container, contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
             }
         }
+
 
         return result;
     }

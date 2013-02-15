@@ -184,10 +184,8 @@ namespace Analysis {
         Ret visit( const Nodecl::BitwiseShlAssignment& n );
         Ret visit( const Nodecl::BitwiseShrAssignment& n );
         Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit_pre( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit_pre( const Nodecl::Dereference& n );
-        Ret visit( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::MinusAssignment& n );
@@ -201,7 +199,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
         Ret visit_pre( const Nodecl::Reference& n );
-        Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };

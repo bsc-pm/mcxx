@@ -318,6 +318,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );

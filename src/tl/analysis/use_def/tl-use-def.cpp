@@ -230,12 +230,12 @@ namespace Analysis {
             }
 
             // Append to current node info from children
+            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
+                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
             undef_vars = compute_use_def_with_children( undef_children, undef_vars,
                                                         killed_vars, undef_vars, /*compute_undef*/ '1' );
             killed_vars = compute_use_def_with_children( killed_children, killed_vars,
                                                          killed_vars, undef_vars, /*compute_undef*/ '0' );
-            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
-                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
 
             use_def.append( ue_vars );
             use_def.append( killed_vars );
@@ -440,8 +440,8 @@ namespace Analysis {
     UsageVisitor::Ret UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
     {
         // Traverse the use of both the lhs and the rhs
-        walk( rhs );
         walk( lhs );
+        walk( rhs );
 
         // Traverse the definition of the lhs
         _define = true;
@@ -787,11 +787,10 @@ namespace Analysis {
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Assignment& n )
     {
-        Nodecl::NodeclBase assig = n;
-        walk( n.get_rhs( ) );
         _define = true;
         walk( n.get_lhs( ) );
         _define = false;
+        walk( n.get_rhs( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
@@ -819,13 +818,11 @@ namespace Analysis {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::ClassMemberAccess& n )
+    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
         if( _actual_nodecl.is_null( ) )
             _actual_nodecl = n;
-    }
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
-    {
+
         // walk( n.get_lhs( ) );  // In a member access, the use/definition is always of the member, not the base
         walk( n.get_member( ) );
     }
@@ -834,11 +831,6 @@ namespace Analysis {
     {
         if( _actual_nodecl.is_null( ) )
             _actual_nodecl = n;
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Dereference& n )
-    {
-        walk( n.get_rhs( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::DivAssignment& n )
@@ -927,11 +919,6 @@ namespace Analysis {
     {
         if( _actual_nodecl.is_null( ) )
             _actual_nodecl = n;
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Reference& n )
-    {
-        walk( n.get_rhs( ) );
     }
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Symbol& n )
