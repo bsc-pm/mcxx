@@ -201,6 +201,38 @@ namespace TL
             n.replace(vector_ba);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorBitwiseOr vector_bo =
+                Nodecl::VectorBitwiseOr::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(),
+                        n.get_line());
+
+            n.replace(vector_bo);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorLogicalAnd vector_lo =
+                Nodecl::VectorLogicalAnd::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        n.get_type().get_vector_to(_vector_length),
+                        n.get_filename(),
+                        n.get_line());
+
+            n.replace(vector_lo);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::LogicalOr& n)
         {
             walk(n.get_lhs());
