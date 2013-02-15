@@ -41,8 +41,6 @@ namespace TL
         {
             private:
 
-                  Nodecl::List _ocl_file_code;
-                  
                   void generate_ndrange_code(
                           const TL::Symbol& called_task,
                           const TL::Symbol& unpacked_function,

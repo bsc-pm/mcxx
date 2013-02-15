@@ -676,15 +676,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
     }
 
-    // Add the user function to the intermediate file
-    if (called_task.is_valid()
-            && !called_task.get_function_code().is_null())
-    {
-        //_ocl_file_code.append(Nodecl::Utils::deep_copy(
-        //            called_task.get_function_code(),
-        //            called_task.get_scope()));
-    }
-
     // Create the new unpacked function
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
@@ -878,59 +869,12 @@ bool DeviceOpenCL::allow_mandatory_creation()
 
 void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
 {
-//    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
-//            it != stuff_to_be_copied.end();
-//            ++it)
-//    {
-//        _ocl_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
-//    }
+    // Do nothing
 }
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
-    if (!_ocl_file_code.is_null())
-    {
-//        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
-//        std::string new_filename = "oclcc_" + original_filename.substr(0, original_filename.find("."))  + ".cu";
-//
-//        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
-//        if (ancillary_file == NULL)
-//        {
-//            running_error("%s: error: cannot open file '%s'. %s\n",
-//                    original_filename.c_str(),
-//                    new_filename.c_str(),
-//                    strerror(errno));
-//        }
-//
-//        CXX_LANGUAGE()
-//        {
-//            // Add to the new intermediate file the *.cu, *.cuh included files.
-//            // It must be done only in C++ language because the C++ codegen do
-//            // not deduce the set of used symbols
-//            add_included_opencl_files(ancillary_file);
-//        }
-
-//        compilation_configuration_t* configuration = ::get_compilation_configuration("cuda");
-//        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvcc/mnvcxx", 0);
-//
-//        // Make sure phases are loaded (this is needed for codegen)
-//        load_compiler_phases(configuration);
-//
-////        TL::CompilationProcess::add_file(new_filename, "cuda");
-//
-//        //Remove the intermediate source file
-//        ::mark_file_for_cleanup(new_filename.c_str());
-
-//        Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
-//
-//        phase->codegen_top_level(_ocl_file_code, ancillary_file);
-
-       // fclose(ancillary_file);
-
-        // Do not forget the clear the code for next files
-        _ocl_file_code.get_internal_nodecl() = nodecl_null();
-    }
-
+    // Do nothing
 }
 
 void DeviceOpenCL::pre_run(DTO& dto)
