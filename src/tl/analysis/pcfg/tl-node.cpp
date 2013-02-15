@@ -266,7 +266,7 @@ namespace Analysis {
     bool Node::node_is_enclosed_by( Node* potential_encloser )
     {
         Node* outer_node = get_outer_node( );
-        while( ( get_outer_node( ) != NULL )
+        while( ( outer_node != NULL )
                && ( outer_node->get_id( ) != potential_encloser->get_id( ) ) )
         {
             outer_node = outer_node->get_outer_node( );

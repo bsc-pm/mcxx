@@ -3,6 +3,7 @@
 [analysiscc : plaincc]
 options = --openmp
 {openmp} compiler_phase = libtlomp-base.so
+{openmp} compiler_phase = libcodegen-vector.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
@@ -16,6 +17,7 @@ options = --openmp
 
 [analysiscxx : plaincxx]
 {openmp} compiler_phase = libtlomp-base.so
+{openmp} compiler_phase = libcodegen-vector.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h

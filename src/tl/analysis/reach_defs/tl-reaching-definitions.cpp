@@ -69,7 +69,8 @@ namespace Analysis {
                     ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                     {
-                        rdv.walk( *it );
+                        Nodecl::NodeclBase it_copied = it->shallow_copy( );
+                        rdv.walk( it_copied );
                     }
                     current->set_generated_stmts( rdv.get_gen( ) );
                 }

@@ -1846,7 +1846,6 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
     {
-        std::cerr << "ParenthesizedExpression: " << n.prettyprint( ) << std::endl;
         ObjectList<Node*> current_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
         Node* parenthesized_node = merge_nodes( n, expression_nodes );
