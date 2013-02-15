@@ -761,8 +761,7 @@ namespace Codegen
 
         if (type.is_integral_type())
         {
-            // TODO
-            //file << "(__m
+            file << "(__m128i *)";
         }
 
         walk(node.get_rhs());

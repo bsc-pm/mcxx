@@ -212,27 +212,27 @@ namespace TL
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::Equal& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::LowerThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::LowerOrEqualThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterOrEqualThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
@@ -393,12 +393,12 @@ namespace TL
             else if (lhs_const_flag && rhs_const_flag)
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are constant.", node.get_locus().c_str());
+                        "condition. BOTH expressions are CONSTANT.", node.get_locus().c_str());
             }
             else
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are not constant.", node.get_locus().c_str());
+                        "condition. BOTH expressions are NOT CONSTANT.", node.get_locus().c_str());
             }
         }
 
