@@ -48,7 +48,6 @@ namespace TL
                           const std::string filename,
                           TL::Source& code_ndrange);
 
-                  void add_included_opencl_files(FILE* file);
             public:
 
                 // This phase does nothing

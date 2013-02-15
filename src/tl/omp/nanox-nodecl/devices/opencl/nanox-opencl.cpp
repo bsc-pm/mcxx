@@ -32,14 +32,11 @@
 #include "cxx-profile.h"
 // #include "fortran03-scope.h"
 
-//#include "cuda-aux.hpp"
 //#include "tl-declarationclosure.hpp"
 
-//#include "tl-cuda.hpp"
 //#include "tl-omp-nanox.hpp"
 
 #include "codegen-phase.hpp"
-//#include "codegen-cuda.hpp"
 #include "cxx-cexpr.h"
 //#include "codegen-fortran.hpp"
 
@@ -701,15 +698,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 ndrange_code);
     }
 
-    // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source and but It is defined
-    // in cudacc_filename.cu
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
-    if (IS_C_LANGUAGE)
-    {
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
-    }
-
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
     build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
@@ -726,15 +714,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_unpacked_body =
         unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
-
-//    if (called_task.is_valid()
-//            && info._target_info.get_ndrange().size() > 0)
-//    {
-//        generate_ndrange_kernel_call(
-//                outline_placeholder.retrieve_context(),
-//                original_statements,
-//                output_statements);
-//    }
 
     // Add the unpacked function
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
@@ -811,7 +790,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
 //
 DeviceOpenCL::DeviceOpenCL()
-    : DeviceProvider(/* device_name */ std::string("opencl")) //, _cudaFilename(""), _cudaHeaderFilename("")
+    : DeviceProvider(/* device_name */ std::string("opencl"))
 {
     set_phase_name("Nanox OpenCL support");
     set_phase_description("This phase is used by Nanox phases to implement OpenCL device support");
@@ -839,27 +818,6 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
     }
 
     device_descriptor << "{ &nanos_opencl_factory, &" << device_outline_name << "_args }";
-}
-
-
-void DeviceOpenCL::add_included_opencl_files(FILE* file)
-{
-    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-    std::string cuda_file_ext(".cu\"");
-    std::string cuda_header_ext(".cuh\"");
-
-    for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
-    {
-        std::string line = (*it).get_preprocessor_line();
-        std::string extension = line.substr(line.find_last_of("."));
-
-        if (extension == cuda_file_ext || extension == cuda_header_ext)
-        {
-            int output = fprintf(file, "%s\n", line.c_str());
-            if (output < 0)
-                internal_error("Error trying to write the intermediate opencl file\n", 0);
-        }
-    }
 }
 
 bool DeviceOpenCL::allow_mandatory_creation()
