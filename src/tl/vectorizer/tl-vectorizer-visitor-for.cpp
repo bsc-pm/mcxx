@@ -46,12 +46,21 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                    Nodecl::Utils::get_enclosing_function(for_statement).get_function_code()
-                        .as<Nodecl::FunctionCode>(),
-                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
+            Nodecl::NodeclBase enclosing_func = 
+                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
+
+            if ((Vectorizer::_analysis_info == 0) || 
+                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
+            {
+                if (Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                        enclosing_func.as<Nodecl::FunctionCode>(),
+                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                        Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
+            }
 
             // Push ForStatement as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -86,8 +95,9 @@ namespace TL
                     inner_scope_of_for);
             visitor_stmt.walk(for_statement.get_statement());
 
-            delete Vectorizer::_analysis_info;
+            Vectorizer::_analysis_scopes->pop_back();
             delete Vectorizer::_analysis_scopes;
+            Vectorizer::_analysis_scopes = 0;
 
             if (_remain_iterations)
             {

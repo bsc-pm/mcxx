@@ -52,6 +52,15 @@ namespace TL
         {
         }
 
+        Vectorizer::~Vectorizer()
+        {
+            if (_analysis_info != 0)
+                delete _analysis_info;
+
+            if (_analysis_scopes != 0)
+                delete _analysis_scopes;
+        }
+
         Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
                 const std::string& device,
                 const unsigned int vector_length,

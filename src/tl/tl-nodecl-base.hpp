@@ -120,6 +120,8 @@ namespace Nodecl {
 
             // Equality by pointer
             bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
+            bool operator!=(const NodeclBase& n) const { return nodecl_get_ast(this->_n) != nodecl_get_ast(n._n); }
+
 
             // Convenience
             NodeclBase(TL::RefPtr<TL::Object>);

@@ -44,9 +44,16 @@ namespace TL
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
             // Get analysis info
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
-                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+            if ((Vectorizer::_analysis_info == 0) || 
+                    (Vectorizer::_analysis_info->get_nodecl_origin() != function_code))
+            {
+                if(Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+            }
 
             // Push FunctionCode as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -98,7 +105,9 @@ namespace TL
                     function_code.get_statements().retrieve_context());
             visitor_stmt.walk(function_code.get_statements());
 
-            delete Vectorizer::_analysis_info;
+            Vectorizer::_analysis_scopes->pop_back();
+            delete Vectorizer::_analysis_scopes;
+            Vectorizer::_analysis_scopes = 0;
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 

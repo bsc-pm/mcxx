@@ -467,6 +467,9 @@ namespace TL
                     ast_print_node_type(called.get_kind()));
 
             Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
+            
+            // Vectorizing arguments
+            walk(n.get_arguments());
 
             // Special functions
             if (called_sym.get_symbol().get_name() == "fabsf")
@@ -507,9 +510,6 @@ namespace TL
                     running_error("Vectorizer: %s found as vector function version in function versioning.",
                             ast_print_node_type(best_version.get_kind()));
                 }
-
-                // Vectorizing arguments
-                walk(n.get_arguments());
 
                 const Nodecl::VectorFunctionCall vector_function_call =
                     Nodecl::VectorFunctionCall::make(
