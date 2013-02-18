@@ -8843,7 +8843,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             return 1;
         }
-        // void& -> T @ref@
+        // void @ref@ -> T @ref@
         else if (is_lvalue_reference_type(orig)
                 && is_void_type(no_ref(orig)))
         {
