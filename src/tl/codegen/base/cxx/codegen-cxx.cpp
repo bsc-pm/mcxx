@@ -467,7 +467,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     if (IS_C_LANGUAGE
             || cast_kind == "C")
     {
+        bool is_non_ref = is_non_language_reference_type(node.get_type());
+        if (is_non_ref)
+        {
+            // Here we assume that casts in C always yield rvalues
+            file << "(*";
+        }
         file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
+
+        if (is_non_ref)
+        {
+            file << "&(";
+        }
+
         char needs_parentheses = operand_has_lower_priority(node, nest);
         if (needs_parentheses)
         {
@@ -477,6 +489,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         if (needs_parentheses)
         {
             file << ")";
+        }
+
+        if (is_non_ref)
+        {
+            file << "))";
         }
     }
     else
