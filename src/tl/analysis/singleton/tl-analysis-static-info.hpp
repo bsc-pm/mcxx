@@ -121,6 +121,28 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
+    class LIBTL_CLASS InductionVarExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        ObjectList<Analysis::Utils::InductionVariableData*> _induction_variables;
+
+    public:
+        // *** Constructor *** //
+        InductionVarExpressionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs );
+
+        // *** Visiting methods *** //
+        Ret visit_post( const Nodecl::Add& n );
+        Ret visit_post( const Nodecl::Minus& n );
+    };
+
+    // ************************** END User interface for static analysis *************************** //
+    // ********************************************************************************************* //
+
+
+
+    // ********************************************************************************************* //
+    // **************************** User interface for static analysis ***************************** //
+
     typedef std::map<Nodecl::NodeclBase, NodeclStaticInfo> static_info_map_t;
     typedef std::pair<Nodecl::NodeclBase, NodeclStaticInfo> static_info_pair_t;
 

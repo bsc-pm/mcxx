@@ -87,9 +87,7 @@ namespace Analysis {
                 break;
                 case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED";
                 break;
-                default: std::cerr << " ** Edge.cpp :: get_label() ** "
-                                   << "warning: Unexpected type '" << etype << "' while getting "
-                                   << "the Edge type as a string" << std::endl;
+                default:                WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             }
         }
 
@@ -132,22 +130,18 @@ namespace Analysis {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
             switch ( etype )
             {
-                case TRUE_EDGE:     label = "TRUE";
-                break;
-                case FALSE_EDGE:    label = "FALSE";
-                break;
                 case ALWAYS:        // No label needed
                 break;
                 case CASE:
-                case CATCH:         {
-                                        label = get_data<std::string>( _EDGE_LABEL );
-                                        break;
-                                    }
+                case CATCH:         label = get_data<std::string>( _EDGE_LABEL );
+                break;
+                case FALSE_EDGE:    label = "FALSE";
+                break;
                 case GOTO_EDGE:     label = get_data<std::string>( _EDGE_LABEL );
-                                    break;
-                default:            std::cerr << " ** Edge.cpp :: get_label() ** "
-                                              << "warning: Unexpected type '" << etype << "' while getting "
-                                              << "the Edge label" << std::endl;
+                break;
+                case TRUE_EDGE:     label = "TRUE";
+                break;
+                default:            WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             };
         }
 

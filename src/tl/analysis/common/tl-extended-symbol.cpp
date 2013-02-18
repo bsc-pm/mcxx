@@ -121,7 +121,6 @@ namespace Utils {
         }
         else
         {
-            std::cerr << "Necesito una linea más" << std::endl;
             internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'",
                         ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
         }

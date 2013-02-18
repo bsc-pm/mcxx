@@ -96,9 +96,7 @@ namespace Analysis {
         }
         if( it == _entry_edges.end( ) )
         {
-            std::cerr << " ** Node.cpp :: erase_entry_edge( ) ** "
-                      << "Trying to delete an non-existent edge "
-                      << "between nodes '" << source->_id << "' and '" << _id << "'" << std::endl;
+            internal_error( "Trying to delete an non-existent edge between nodes '%d' and '%d'", source->_id, _id );
         }
     }
 
@@ -116,10 +114,7 @@ namespace Analysis {
         }
         if( it == _exit_edges.end( ) )
         {
-            std::cerr << " ** Node.cpp :: exit_entry_edge( ) ** "
-                      << "Trying to delete an non-existent edge "
-                      << "between nodes '" << _id << "' and '" << target->_id << "'" << std::endl;
-
+            internal_error( "Trying to delete an non-existent edge between nodes '%d' and '%d'", _id, target->_id );
         }
     }
 
@@ -558,7 +553,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
+            internal_error( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
                              get_type_as_string( ).c_str( ) );
         }
         return entry_node;
@@ -591,7 +586,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
+            internal_error( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
                              get_type_as_string( ).c_str( ) );
         }
         return exit_node;
@@ -762,7 +757,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
+            internal_error( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
             return Scope( );
         }
     }
@@ -1257,7 +1252,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+            internal_error( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
                              _id, get_type_as_string( ).c_str( ) );
         }
         return ivs;
@@ -1724,58 +1719,6 @@ namespace Analysis {
     // ****************************************************************************** //
     // *********************************** Utils ************************************ //
 
-    void Node::print_use_def_chains( )
-    {
-        if( VERBOSE )
-        {
-            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
-            std::cerr << std::endl << "      - UE VARS: ";
-            for(Utils::ext_sym_set::iterator it = ue_vars.begin( ); it != ue_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-            std::cerr << "      - KILLED VARS: ";
-            for(Utils::ext_sym_set::iterator it = killed_vars.begin( ); it != killed_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
-            std::cerr << "      - UNDEF VARS: ";
-            for(Utils::ext_sym_set::iterator it = undef_vars.begin( ); it != undef_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-        }
-    }
-
-    void Node::print_liveness( )
-    {
-        if( VERBOSE )
-        {
-            Utils::ext_sym_set live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-            std::cerr << std::endl << "      - LIVE IN VARS: ";
-            for(Utils::ext_sym_set::iterator it = live_in_vars.begin( ); it != live_in_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
-            std::cerr << "      - LIVE OUT VARS: ";
-            for(Utils::ext_sym_set::iterator it = live_out_vars.begin( ); it != live_out_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-        }
-    }
-
     static std::string print_set( Utils::ext_sym_set es_set )
     {
         std::string result;
@@ -1790,18 +1733,44 @@ namespace Analysis {
         return result;
     }
 
+    void Node::print_use_def_chains( )
+    {
+        if( VERBOSE )
+        {
+            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            std::cerr << " - Upper Exposed: " << print_set( ue_vars ) << std::endl;
+
+            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            std::cerr << " - Killed: " << print_set( killed_vars );
+
+            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            std::cerr << " - Undefined usage: " << print_set( undef_vars );
+        }
+    }
+
+    void Node::print_liveness( )
+    {
+        if( VERBOSE )
+        {
+            Utils::ext_sym_set live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
+            std::cerr << " - Live in: " << print_set( live_in_vars ) << std::endl;
+
+            Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
+            std::cerr << " - Live out: " << print_set( live_out_vars ) << std::endl;
+        }
+    }
+
     void Node::print_auto_scoping( )
     {
         if( VERBOSE )
         {
-            std::string private_s      = "     - Private: "      + print_set( get_sc_private_vars( ) );
-            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_sc_firstprivate_vars( ) );
-            std::string race_s         = "     - Race: "         + print_set( get_sc_race_vars( ) );
-            std::string shared_s       = "     - Shared: "       + print_set( get_sc_shared_vars( ) );
-            std::string undef_s        = "     - Undef: "        + print_set( get_sc_undef_vars( ) );
+            std::string private_s      = " - Private: "      + print_set( get_sc_private_vars( ) )      + "\n";
+            std::string firstprivate_s = " - Firstprivate: " + print_set( get_sc_firstprivate_vars( ) ) + "\n";
+            std::string race_s         = " - Race: "         + print_set( get_sc_race_vars( ) )         + "\n";
+            std::string shared_s       = " - Shared: "       + print_set( get_sc_shared_vars( ) )       + "\n";
+            std::string undef_s        = " - Undef: "        + print_set( get_sc_undef_vars( ) )        + "\n";
 
-            std::cerr << private_s << std::endl << firstprivate_s << std::endl << race_s << std::endl
-                      << shared_s << std::endl << undef_s << std::endl;
+            std::cerr << private_s << firstprivate_s << race_s << shared_s << undef_s << std::endl;
         }
     }
 
@@ -1809,16 +1778,16 @@ namespace Analysis {
     {
         if( VERBOSE )
         {
-            std::string private_s      = "     - Private: "      + print_set( get_deps_private_vars( ) );
-            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_deps_firstprivate_vars( ) );
-            std::string shared_s       = "     - Shared: "       + print_set( get_deps_shared_vars( ) );
-            std::string in_s           = "     - In deps: "      + print_set( get_deps_in_exprs( ) );
-            std::string out_s          = "     - Out deps: "     + print_set( get_deps_out_exprs( ) );
-            std::string inout_s        = "     - Inout deps: "   + print_set( get_deps_inout_exprs( ) );
-            std::string undef_s        = "     - Undef deps: "   + print_set( get_deps_undef_vars( ) );
+            std::string private_s      = " - Private: "      + print_set( get_deps_private_vars( ) )      + "\n";
+            std::string firstprivate_s = " - Firstprivate: " + print_set( get_deps_firstprivate_vars( ) ) + "\n";
+            std::string shared_s       = " - Shared: "       + print_set( get_deps_shared_vars( ) )       + "\n";
+            std::string in_s           = " - In deps: "      + print_set( get_deps_in_exprs( ) )          + "\n";
+            std::string out_s          = " - Out deps: "     + print_set( get_deps_out_exprs( ) )         + "\n";
+            std::string inout_s        = " - Inout deps: "   + print_set( get_deps_inout_exprs( ) )       + "\n";
+            std::string undef_s        = " - Undef deps: "   + print_set( get_deps_undef_vars( ) )        + "\n";
 
-            std::cerr << private_s << std::endl << firstprivate_s << std::endl << shared_s << std::endl
-                      << in_s << std::endl << out_s << std::endl << inout_s << std::endl << undef_s << std::endl;
+            std::cerr << private_s << firstprivate_s << shared_s
+                      << in_s << out_s << inout_s << undef_s << std::endl;
         }
     }
 
