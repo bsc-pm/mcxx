@@ -272,7 +272,7 @@ namespace Nodecl
         return obj_list;
     }
 
-    static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
+    static int cmp_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
         if (nodecl_is_null(n1) == nodecl_is_null(n2))
         {
@@ -281,31 +281,105 @@ namespace Nodecl
                 if(skip_conversion_nodes)
                 {
                     if(nodecl_get_kind(n1) == NODECL_CONVERSION)
-                        return equal_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
+                        return cmp_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
                     if(nodecl_get_kind(n2) == NODECL_CONVERSION)
-                        return equal_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
+                        return cmp_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
                 }
-
-                if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
-                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
-                    &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
+                if (nodecl_get_kind(n1) == nodecl_get_kind(n2)) // kind
                 {
-                    bool equal = true;
-
-                    for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
+                    if  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)) // symbol
                     {
-                        equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i), skip_conversion_nodes);
+                        if (nodecl_get_constant(n1) == nodecl_get_constant(n2)) // constant
+                        {
+                            // Everything looks equal in this single node, let's check our children
+                            int equal = 0;
+                            int i;
+                            while ((equal == 0)
+                                && (i < MCXX_MAX_AST_CHILDREN))
+                            {
+                                equal = cmp_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i),
+                                                      skip_conversion_nodes);
+                                i++;
+                            }
+                            return equal;
+                        }
+                        else if (nodecl_get_constant(n1) < nodecl_get_constant(n2)) // constant
+                        {
+                            return -1;
+                        }
+                        else // constant
+                        {
+                            return 1;
+                        }
                     }
-                    return equal;
+                    else if (nodecl_get_symbol(n1) < nodecl_get_symbol(n2)) // symbol
+                    {
+                        return -1;
+                    }
+                    else // symbol
+                    {
+                        return 1;
+                    }
+                }
+                else if (nodecl_get_kind(n1) < nodecl_get_kind(n2)) // kind
+                {
+                    return -1;
+                }
+                else // kind
+                {
+                    return 1;
                 }
             }
             else
             {
-                return true;
+                return 0;
             }
         }
+        else if (!nodecl_is_null(n1) && nodecl_is_null(n2))
+        {
+            return -1;
+        }
+        else
+        {
+            return 1;
+        }
+    }
 
-        return false;
+    static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
+    {
+        return (cmp_trees_rec(n1, n2, skip_conversion_nodes) == 0);
+//         if (nodecl_is_null(n1) == nodecl_is_null(n2))
+//         {
+//             if (!nodecl_is_null(n1))
+//             {
+//                 if(skip_conversion_nodes)
+//                 {
+//                     if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+//                         return equal_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
+//                     if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+//                         return equal_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
+//                 }
+//
+//                 if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
+//                     &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
+//                     &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
+//                 {
+//                     bool equal = true;
+//
+//                     for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
+//                     {
+//                         equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i), skip_conversion_nodes);
+//                     }
+//                     return equal;
+//                 }
+//             }
+//             else
+//             {
+//                 return true;
+//             }
+//         }
+//
+//         return false;
     }
 
     bool Utils::nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
@@ -474,6 +548,14 @@ namespace Nodecl
         }
 
         return equal_trees_rec(n1_, n2_, skip_conversion_nodes);
+    }
+
+    int Utils::cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
+    {
+        nodecl_t n1_ = n1.get_internal_nodecl();
+        nodecl_t n2_ = n2.get_internal_nodecl();
+
+        return cmp_trees_rec(n1_, n2_, skip_conversion_nodes);
     }
 
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const

@@ -2303,9 +2303,9 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     if (!const_value_is_signed(cval))
     {
         int bits = 8 * t.get_size();
-        unsigned long long int mask = ~0ULL;
+        unsigned long long int mask = 0;
         if (bits < 64)
-            mask <<= bits;
+            mask = ((~0ULL) << bits);
         v &= ~mask;
     }
 
@@ -4881,19 +4881,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         return;
     }
 
-    // Generate the template headers if needed
-    CXX_LANGUAGE()
-    {
-        if (symbol.is_member()
-                && !symbol.is_defined_inside_class()
-                && state.classes_being_defined.empty())
-        {
-            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
-        }
-    }
-
-
     std::string decl_specifiers;
     std::string gcc_attributes;
     std::string declarator;
@@ -4966,6 +4953,17 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     move_to_namespace_of_symbol(symbol);
 
+    // Generate the template headers if needed
+    CXX_LANGUAGE()
+    {
+        if (symbol.is_member()
+                && !symbol.is_defined_inside_class()
+                && state.classes_being_defined.empty())
+        {
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            codegen_template_headers_all_levels(template_parameters, false);
+        }
+    }
 
     declarator = this->get_declaration(symbol.get_type(),
             symbol.get_scope(),
@@ -5217,7 +5215,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         return;
     }
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    // If the symbol is already defined we should not change its codegen status
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_NONE)
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
     if (symbol.is_class())
     {

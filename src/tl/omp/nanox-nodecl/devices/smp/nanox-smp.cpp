@@ -1051,9 +1051,6 @@ namespace TL { namespace Nanox {
                             argument << "args % " << (*it)->get_field_name();
                         }
                         unpacked_arguments.append_with_separator(argument, ", ");
-
-                        std::string name = (*it)->get_symbol().get_name();
-
                         break;
                     }
                 default:

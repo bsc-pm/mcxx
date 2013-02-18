@@ -7020,7 +7020,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 {
                     result = strappend(result, "long ");
                 }
-                else if (simple_type->is_long >= 2)
+                else if (simple_type->is_long == 2)
                 {
                     result = strappend(result, "long long ");
                 }

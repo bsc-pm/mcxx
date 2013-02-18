@@ -264,6 +264,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x pragma_line
 %x inline_pragma
 %x unknown_pragma
+%x gcc_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
 %x pragma_custom_clause_first
@@ -366,8 +367,15 @@ type {
 	char matched = 0;
 
 	// Ignore gcc and ident
-    if ((strcasecmp(yytext, "gcc") == 0)
-                || (strcasecmp(yytext, "ident") == 0))
+    if (strcasecmp(yytext, "gcc") == 0)
+    {
+        // All the whole line may be handled as an unknown pragma
+		BEGIN(gcc_pragma);
+        // current yytext must be included in the "unknown pragma"
+		yymore();
+		matched = 1;
+    }
+    else if (strcasecmp(yytext, "ident") == 0)
 	{
         // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
@@ -407,8 +415,60 @@ type {
 	}
 }
 
+<gcc_pragma>{
+  /* This will catch #pragma gcc */
+
+[^\n]* {
+
+    const char* p = yytext;
+    // Skip blanks
+    while (*p == ' ' || *p == '\t')
+        p++;
+
+    char ignore_gcc_header = 0;
+
+    const char* system_header_str = "system_header";
+    if (strncmp(p, system_header_str, strlen(system_header_str)) == 0)
+    {
+        p += strlen(system_header_str);
+        // Whitespace
+        if (*p == '\0'
+                || *p == ' '
+                || *p == '\t')
+        {
+            // This is a #pragma GCC system_header
+            ignore_gcc_header = 1;
+        }
+    }
+
+    if (ignore_gcc_header)
+    {
+        parse_token_text();
+        BEGIN(preprocess);
+        return UNKNOWN_PRAGMA;
+    }
+}
+
+[\n] {
+
+    // Degenerate case. Our yytext is now "gcc\n". We do not want the "\n"
+    int len = strlen(yytext);
+    char c[len + 1];
+    strncpy(c, yytext, len);
+    c[len] = '\0';
+    ERROR_CONDITION(c[len - 1] != '\n', "There should be a newline here", 0);
+    c[len-1] = '\0';
+
+	parse_token_text_str(c);
+
+	BEGIN(INITIAL);
+	return UNKNOWN_PRAGMA;
+}
+
+}
+
 <unknown_pragma>{
-  /* This will also catch #pragma gcc and #pragma ident */
+  /* Besides unknown pragmas this will also catch #pragma ident */
 
 [^\n]* {
 	parse_token_text();
@@ -1117,6 +1177,10 @@ type {
 "__int32" |
 "__int64" {
     return lookup_keyword_in_table(ms_builtin_types, yytext, CURRENT_CONFIGURATION->enable_ms_builtin_types);
+}
+
+"__int128" {
+    parse_token_text(); return TOKEN_INT128;
 }
 
  /* Special tokens for subparsing */

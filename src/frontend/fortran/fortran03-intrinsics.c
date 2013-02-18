@@ -291,12 +291,16 @@ FORTRAN_GENERIC_INTRINSIC_2(NULL, besjn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, besy0, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, besy1, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(NULL, besyn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, chdir, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, fgetc, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
@@ -2748,6 +2752,62 @@ scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_hostnm(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (fortran_is_character_type(t0))
+    {
+        if (num_arguments == 2
+                && is_integer_type(t1))
+        {
+            return GET_INTRINSIC_IMPURE("hostnm",
+                    /* subroutine */ get_void_type(),
+                    t0, t1);
+        }
+        else if (num_arguments == 1)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("hostnm",
+                    fortran_get_default_integer_type(),
+                    t0);
+        }
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_getcwd(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (fortran_is_character_type(t0))
+    {
+        if (num_arguments == 2
+                && is_integer_type(t1))
+        {
+            return GET_INTRINSIC_IMPURE("getcwd",
+                    /* subroutine */ get_void_type(),
+                    t0, t1);
+        }
+        else if (num_arguments == 1)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("getcwd",
+                    fortran_get_default_integer_type(),
+                    t0);
+        }
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_getlog(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -4818,6 +4878,34 @@ scope_entry_t* compute_intrinsic_besyn_1(scope_entry_t* symbol UNUSED_PARAMETER,
     return compute_intrinsic_bessel_yn_1(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
+scope_entry_t* compute_intrinsic_chdir(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (fortran_is_character_type(t0))
+    {
+        if (num_arguments == 2
+                && is_integer_type(t1))
+        {
+            return GET_INTRINSIC_IMPURE("chdir",
+                    /* subroutine */ get_void_type(),
+                    t0, t1);
+        }
+        else if (num_arguments == 1)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("chdir",
+                    fortran_get_default_integer_type(),
+                    t0);
+        }
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5797,6 +5885,36 @@ scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_INQUIRY("fdate",
                 get_array_type(get_char_type(), nodecl_null(), symbol->decl_context));
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_fgetc(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+    type_t* t2 = no_ref(argument_types[2]);
+
+    if (is_integer_type(t0)
+            && fortran_is_character_type(t1))
+    {
+        if (num_arguments == 3
+                && is_integer_type(t2))
+        {
+            return GET_INTRINSIC_IMPURE("fgetc",
+                    /* subroutine */ get_void_type(),
+                    t0, t1, t2);
+        }
+        else if (num_arguments == 2)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("fgetc",
+                    fortran_get_default_integer_type(),
+                    t0, t1);
+        }
     }
     return NULL;
 }
