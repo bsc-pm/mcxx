@@ -293,7 +293,7 @@ namespace Nodecl
                         {
                             // Everything looks equal in this single node, let's check our children
                             int equal = 0;
-                            int i;
+                            int i = 0;
                             while ((equal == 0)
                                 && (i < MCXX_MAX_AST_CHILDREN))
                             {
@@ -348,38 +348,6 @@ namespace Nodecl
     static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
         return (cmp_trees_rec(n1, n2, skip_conversion_nodes) == 0);
-//         if (nodecl_is_null(n1) == nodecl_is_null(n2))
-//         {
-//             if (!nodecl_is_null(n1))
-//             {
-//                 if(skip_conversion_nodes)
-//                 {
-//                     if(nodecl_get_kind(n1) == NODECL_CONVERSION)
-//                         return equal_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
-//                     if(nodecl_get_kind(n2) == NODECL_CONVERSION)
-//                         return equal_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
-//                 }
-//
-//                 if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
-//                     &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
-//                     &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
-//                 {
-//                     bool equal = true;
-//
-//                     for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
-//                     {
-//                         equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i), skip_conversion_nodes);
-//                     }
-//                     return equal;
-//                 }
-//             }
-//             else
-//             {
-//                 return true;
-//             }
-//         }
-//
-//         return false;
     }
 
     bool Utils::nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
@@ -558,7 +526,8 @@ namespace Nodecl
             return false;
         }
 
-        return equal_trees_rec(n1_, n2_, skip_conversion_nodes);
+        bool equals = equal_trees_rec(n1_, n2_, skip_conversion_nodes);
+        return equals;
     }
 
     int Utils::cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)

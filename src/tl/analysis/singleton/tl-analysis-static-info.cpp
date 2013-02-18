@@ -197,25 +197,44 @@ namespace Analysis {
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
 
+                InductionVarExpressionVisitor iv_v( _induction_variables );
+                iv_v.walk( s );
 
                 if( !is_induction_variable( s ) )
                 {
-                    if( s.is<Nodecl::Add>( ) )
+                    if( s.is<Nodecl::Add>( ) || s.is<Nodecl::Minus>( ) )
                     {
-                        Nodecl::NodeclBase lhs = s.as<Nodecl::Add>( ).get_lhs( );
-                        Nodecl::NodeclBase rhs = s.as<Nodecl::Add>( ).get_rhs( );
-                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
-                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
+                        Nodecl::NodeclBase lhs, rhs;
+                        if( s.is<Nodecl::Add>( ) )
                         {
-                            result = false;
+                            lhs = s.as<Nodecl::Add>( ).get_lhs( );
+                            rhs = s.as<Nodecl::Add>( ).get_rhs( );
                         }
-                    }
-                    else if ( s.is<Nodecl::Minus>( ) )
-                    {
-                        Nodecl::NodeclBase lhs = s.as<Nodecl::Minus>( ).get_lhs( );
-                        Nodecl::NodeclBase rhs = s.as<Nodecl::Minus>( ).get_rhs( );
-                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
-                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
+                        else
+                        {
+                            lhs = s.as<Nodecl::Minus>( ).get_lhs( );
+                            rhs = s.as<Nodecl::Minus>( ).get_rhs( );
+                        }
+                        if( lhs.is<Nodecl::Neg>( ) )
+                        {
+                            lhs = lhs.as<Nodecl::Neg>( ).get_rhs( );
+                        }
+
+                        if( is_induction_variable( lhs ) && get_induction_variable( lhs )->is_increment_one( ) )
+                        {
+                            // All memory accesses in rhs must be constant within the context
+                            ObjectList<Nodecl::NodeclBase> rhs_mem_accesses = Nodecl::Utils::get_all_memory_accesses( rhs );
+                            for( ObjectList<Nodecl::NodeclBase>::iterator itm = rhs_mem_accesses.begin( );
+                                 itm != rhs_mem_accesses.end( ); ++itm )
+                            {
+                                if( Utils::ext_sym_set_contains_nodecl( *itm, _killed ) )
+                                {
+                                    result = false;
+                                    break;
+                                }
+                            }
+                        }
+                        else
                         {
                             result = false;
                         }
@@ -236,6 +255,66 @@ namespace Analysis {
     }
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
+    // ********************************************************************************************* //
+
+
+
+    // ********************************************************************************************* //
+    // **************************** User interface for static analysis ***************************** //
+
+    InductionVarExpressionVisitor::InductionVarExpressionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs )
+            : _induction_variables( ivs )
+    {}
+
+    void InductionVarExpressionVisitor::visit_post( const Nodecl::Add& n )
+    {
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+
+        bool iv_in_rhs = false;
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+             it != _induction_variables.end( ); ++it )
+        {
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), rhs, /* skip conversion nodes */ true ) )
+            {
+                iv_in_rhs = true;
+                break;
+            }
+        }
+
+        if( iv_in_rhs )
+        {
+            Nodecl::NodeclBase lhs = n.get_lhs( );
+            Nodecl::NodeclBase new_rhs = lhs.shallow_copy( );
+            Nodecl::NodeclBase new_lhs = rhs.shallow_copy( );
+            Nodecl::Utils::replace( rhs, new_rhs );
+            Nodecl::Utils::replace( lhs, new_lhs );
+        }
+    }
+
+    void InductionVarExpressionVisitor::visit_post( const Nodecl::Minus& n )
+    {
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+
+        bool iv_in_rhs = false;
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+            it != _induction_variables.end( ); ++it )
+        {
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), rhs, /* skip conversion nodes */ true ) )
+            {
+                iv_in_rhs = true;
+                break;
+            }
+        }
+
+        if( iv_in_rhs )
+        {
+            Nodecl::Neg new_lhs = Nodecl::Neg::make( rhs, rhs.get_type( ) );
+            Nodecl::Add reordered_minus = Nodecl::Add::make( new_lhs, n.get_lhs( ), rhs.get_type( ) );
+            Nodecl::Utils::replace( n, reordered_minus );
+        }
+    }
+
+    // ************************** END User interface for static analysis *************************** //
     // ********************************************************************************************* //
 
 

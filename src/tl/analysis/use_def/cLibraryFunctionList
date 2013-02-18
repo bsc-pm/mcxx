@@ -127,7 +127,7 @@ tmpnam ( char * ) ( char * );
 // rewind ( FILE * stream ) ( void );
 
 // I/O functions
-// fprintf ( FILE * stream, const char * format, ... ) ( int );
+fprintf ( FILE * stream #2#, const char * format, ... ) ( int );
 // fscanf ( FILE * stream, const char * format, ... ) ( int );
 printf ( const char *, ... ) ( int );
 // scanf ( const char * format, ... ) ( int );
@@ -187,7 +187,7 @@ strlen ( const char * ) ( size_t );
 
 
 // **************************************************************** //
-// ********************** INTEL INTRINSICS ************************ //
+// ************************* FLOAT MATH *************************** //
 
 acosf ( float ) ( float );
 asinf ( float ) ( float );
@@ -195,6 +195,7 @@ atanf ( float ) ( float );
 cosf ( float ) ( float );
 expf ( float ) ( float );
 fabsf ( float ) ( float );
+floorf ( float ) ( float );
 fmodf ( float ) (float );
 logf ( float ) ( float );
 log10f ( float ) ( float );
