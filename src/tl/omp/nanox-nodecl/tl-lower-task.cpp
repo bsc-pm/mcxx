@@ -171,9 +171,10 @@ Source LoweringVisitor::fill_const_wd_info(
     //     size_t num_copies;
     //     size_t num_devices;
     //     size_t num_dimensions; // copies_api >= 1000
+    //     const char *description; // master >= 5022
     // } nanos_const_wd_definition_t;
     // MultiMap with every implementation of the current function task
-    
+
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
     int num_copies=/* num_copies */ count_copies(outline_info);
     int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
@@ -221,6 +222,14 @@ Source LoweringVisitor::fill_const_wd_info(
     {
         result
             << /* ".num_dimensions = " */ num_copies_dimensions << ",\n"
+            ;
+    }
+
+    if (Nanos::Version::interface_is_at_least("master", 5022))
+    {
+        TL::Symbol first_implementor = implementation_table.begin()->first;
+        result
+            << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
             ;
     }
     result
