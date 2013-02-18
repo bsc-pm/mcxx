@@ -760,14 +760,21 @@ namespace Codegen
         {
             // TODO _ps
             file << "v_ps";
-            casting = "(__m128)";
+
+            casting = "(";
+            casting += print_type_str(TL::Type::get_float_type().get_vector_to(16).get_internal_type(),
+                    node.retrieve_context().get_decl_context());
+            casting += ")";
         }
         else if (true_type.is_double()
                 && false_type.is_double())
         {
             // TODO _pd
             file << "v_pd";
-            casting = "(__m128d)";
+            casting = "(";
+            casting += print_type_str(TL::Type::get_double_type().get_vector_to(16).get_internal_type(),
+                    node.retrieve_context().get_decl_context());
+            casting += ")";
         }
         else
         {
@@ -824,7 +831,8 @@ namespace Codegen
 
         if (type.is_integral_type())
         {
-            file << "(__m128i *)";
+            file << "(" << print_type_str(TL::Type::get_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                    node.retrieve_context().get_decl_context()) << ")";
         }
 
         walk(node.get_rhs());
@@ -849,7 +857,8 @@ namespace Codegen
         } 
         else if (type.is_integral_type()) 
         { 
-            file << "_si128((__m128i *)"; 
+            file << "_si128((" << print_type_str(TL::Type::get_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                    node.retrieve_context().get_decl_context()) << ")";
         } 
         else
         {
