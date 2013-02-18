@@ -508,7 +508,10 @@ then
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
+else
+   DISABLE_CUDA="\#do not uncomment"
 fi
+AC_SUBST([DISABLE_CUDA])
 
 # Use this if we want to conditionally disable compilation of GPU
 # DeviceProvider
@@ -522,19 +525,21 @@ dnl --------------------- End of Support for GPU tests in Nanox ----------------
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
 opencl_valid=no
+DISABLE_OPENCL=""
 AC_MSG_CHECKING([if nanox has opencl enabled])
 AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
 if test x$opencl_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
-   #if OpenCL+CPU, generate a profile which can compile for both devices
-   if test x$gpu_valid = xyes;
-   then
-       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-       COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
-   fi
+else
+   DISABLE_OPENCL="\#do not uncomment"
 fi
+AC_SUBST([DISABLE_OPENCL])
+
+#add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
