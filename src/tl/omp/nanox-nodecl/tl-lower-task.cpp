@@ -228,10 +228,24 @@ Source LoweringVisitor::fill_const_wd_info(
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
         TL::Symbol first_implementor = implementation_table.begin()->first;
-        result
-            << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
-            ;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            result
+                << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
+                ;
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            result
+                << /* ".description = " */ "0,\n"
+                ;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
+
     result
         << "}, "
         << /* ".devices = " << */ "{" << device_descriptions << "}"
@@ -314,6 +328,16 @@ Source LoweringVisitor::fill_const_wd_info(
             ancillary_device_descriptions << ancillary_device_description;
             opt_fortran_dynamic_init << aux_fortran_init;
         }
+    }
+
+    if (IS_FORTRAN_LANGUAGE &&
+            Nanos::Version::interface_is_at_least("master", 5022))
+    {
+        TL::Symbol first_implementor = implementation_table.begin()->first;
+        result
+            << "char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
+            ;
     }
 
     return result;
