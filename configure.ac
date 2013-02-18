@@ -617,7 +617,7 @@ AC_ARG_ENABLE([icc],
 )
 
 disable_ifort=no
-AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
 AC_ARG_ENABLE([ifort],
   AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
   [
@@ -655,7 +655,7 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   if test x$disable_ifort = xno;
+   if test x$disable_icc = xno;
    then
       dnl Check Intel Compiler C
       AC_PATH_PROG([ICC], [icc], [])

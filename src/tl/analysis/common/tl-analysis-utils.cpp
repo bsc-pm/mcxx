@@ -28,6 +28,7 @@
 
 #include "cxx-codegen.h"
 #include "cxx-process.h"
+#include "filename.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-nodecl.hpp"
 
@@ -40,7 +41,7 @@ namespace Utils {
 
     std::string generate_hashed_name(Nodecl::NodeclBase ast)
     {
-        std::string result = ast.get_filename();
+        std::string result = ::give_basename(ast.get_filename().c_str());
 
         int line = ast.get_line();
         size_t hash_value = nodecl_hash_table(ast.get_internal_nodecl());

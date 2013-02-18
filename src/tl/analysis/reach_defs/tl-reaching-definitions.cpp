@@ -126,7 +126,7 @@ namespace Analysis {
                             while( parent_is_entry )
                             {
                                 outer_parents = entry_outer_node->get_parents( );
-                                parent_is_entry = ( outer_parents.size( ) == 1 ) && outer_parents[0]->is_exit_node( );
+                                parent_is_entry = ( outer_parents.size( ) == 1 ) && outer_parents[0]->is_entry_node( );
                                 entry_outer_node = ( parent_is_entry ? outer_parents[0]->get_outer_node( ) : NULL );
                             }
                             // Get the Reach Def Out of the current predecessors
@@ -139,6 +139,10 @@ namespace Analysis {
                         else
                         {
                             pred_rd_out = ( *it )->get_reaching_definitions_out( );
+                        }
+                        if( current->get_id( ) == 37 )
+                        {
+
                         }
                         rd_in = Utils::ext_sym_map_union( rd_in, pred_rd_out );
                     }

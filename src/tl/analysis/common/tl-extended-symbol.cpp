@@ -338,20 +338,9 @@ namespace Utils {
     bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
         bool result;
-        if( Nodecl::Utils::equal_nodecls( _n, es._n, /* skip conversion nodes */ true ) )
-        {
-            result = false;
-        }
-        else
-        {
-            AST this_ast = nodecl_get_ast( _n.get_internal_nodecl( ) );
-            AST es_ast = nodecl_get_ast( es._n.get_internal_nodecl( ) );
-            result = this_ast < es_ast;
-        }
-
+        result = (Nodecl::Utils::cmp_nodecls(_n, es._n, /* skip conversion nodes */ true) == -1);
         return result;
     }
-
 }
 }
 }

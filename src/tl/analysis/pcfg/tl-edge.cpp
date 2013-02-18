@@ -157,14 +157,11 @@ namespace Analysis {
     void Edge::set_label( std::string label )
     {
         std::string new_label = "";
-        if( has_key( _EDGE_LABEL) )
+        if( get_data<std::string>( _EDGE_LABEL ) != "")
         {
-            new_label = get_data<std::string>( _EDGE_LABEL ) + ", " + label;
+            new_label = get_data<std::string>( _EDGE_LABEL ) + ", ";
         }
-        else
-        {
-            new_label = label;
-        }
+        new_label += label;
         set_data( _EDGE_LABEL, new_label );
     }
 
