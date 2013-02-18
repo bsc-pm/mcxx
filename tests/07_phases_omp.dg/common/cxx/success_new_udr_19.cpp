@@ -29,22 +29,23 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_noexec=yes
-test_compile_fail=yes
 </testinfo>
 */
+#include <stdlib.h>
 
-struct A
+#pragma omp declare reduction(myop: int: omp_out = omp_in * omp_out)
+
+namespace A {
+int foo;
+#pragma omp declare reduction(myop: int: omp_out = omp_in + omp_out)
+}
+
+int main(int argc, char* argv[])
 {
-  int x;
-};
+    int x;
+    using namespace A;
+    #pragma omp parallel reduction(A::myop : x)
+    x = rand();
 
-void foo ( struct A *a,  struct A *b );
-
-#pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
-
-void bar ()
-{
-  // illegal re-declaration
-  #pragma omp declare reduction ( foo : struct A : foo(&_out,&_in) )
+    return 0;
 }

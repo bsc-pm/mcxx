@@ -351,7 +351,7 @@ namespace Analysis {
     // ************************************************************************************** //
     // ********************************** Visiting methods ********************************** //
 
-    PCFGVisitor::Ret PCFGVisitor::visit_barrier( )
+    ObjectList<Node*> PCFGVisitor::visit_barrier( )
     {
         Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
 
@@ -369,7 +369,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, first_flush );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit_binary_node( const Nodecl::NodeclBase& n,
+    ObjectList<Node*> PCFGVisitor::visit_binary_node( const Nodecl::NodeclBase& n,
                                                      const Nodecl::NodeclBase& lhs,
                                                      const Nodecl::NodeclBase& rhs )
     {
@@ -378,21 +378,24 @@ namespace Analysis {
         return ObjectList<Node*>( 1, merge_nodes( n, left, right ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
+    ObjectList<Node*> PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
                                                          const Nodecl::NodeclBase& case_val )
     {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label;
+        std::string label = "dafault";
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
             Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
             if( e != NULL )
             {   // The edge between the nodes did not exist previously
-                label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                        nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
+                if( !case_val.is_null( ) )
+                {
+                    label = codegen_to_str( case_val.get_internal_nodecl( ),
+                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
+                }
                 e->set_label( label );
 
                 if( case_stmts.back( )->get_type( ) != BREAK )
@@ -425,7 +428,7 @@ namespace Analysis {
     }
 
     template <typename T>
-    PCFGVisitor::Ret PCFGVisitor::visit_function_call( const T& n )
+    ObjectList<Node*> PCFGVisitor::visit_function_call( const T& n )
     {
         // Add the current Function Call to the list of called functions
         _pcfg->add_func_call_symbol( n.get_called( ).get_symbol( ) );
@@ -462,13 +465,13 @@ namespace Analysis {
         return ObjectList<Node*>( 1, func_graph_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit_literal_node( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::visit_literal_node( const Nodecl::NodeclBase& n )
     {
         Node* basic_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), n );
         return ObjectList<Node*>( 1, basic_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit_taskwait( )
+    ObjectList<Node*> PCFGVisitor::visit_taskwait( )
     {
         Node* taskwait_node = new Node( _utils->_nid, OMP_TASKWAIT, _utils->_outer_nodes.top( ) );
         // Connect with the last nodes created
@@ -485,14 +488,14 @@ namespace Analysis {
         return ObjectList<Node*>();
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit_unary_node( const Nodecl::NodeclBase& n,
+    ObjectList<Node*> PCFGVisitor::visit_unary_node( const Nodecl::NodeclBase& n,
                                                     const Nodecl::NodeclBase& rhs )
     {
         Node* right = walk( rhs )[0];
         return ObjectList<Node*>( 1, merge_nodes( n, right, NULL ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         std::cerr << "Unhandled node while PCFG construction '"
                     << codegen_to_str( n.get_internal_nodecl( ),
@@ -501,32 +504,32 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Add& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Add& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::AddAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::AddAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Alignof& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Alignof& n )
     {
         return visit_unary_node( n, n.get_align_type( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ArithmeticShr& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArithmeticShr& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ArraySubscript& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         ObjectList<Node*> subscripted = walk( n.get_subscripted( ) );
         ObjectList<Node*> subscripts = walk( n.get_subscripts( ) );
@@ -536,72 +539,72 @@ namespace Analysis {
         return ObjectList<Node*>( 1, merge_nodes( n, nodes ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Assignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Assignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseAnd& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseAnd& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseNot& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseNot& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseOr& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseOr& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseShl& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShl& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseShr& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShr& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseXor& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseXor& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BooleanLiteral& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::BreakStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
         Node* break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
@@ -609,17 +612,17 @@ namespace Analysis {
         return ObjectList<Node*>( 1, break_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::CaseStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CaseStatement& n )
     {
         return visit_case_or_default( n.get_statement( ), n.get_case( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Cast& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::CatchHandler& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CatchHandler& n )
     {
         PCFGTryBlock* current_tryblock = _utils->_tryblock_nodes.back( );
         current_tryblock->_nhandlers++;
@@ -631,15 +634,19 @@ namespace Analysis {
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
-        Nodecl::NodeclBase label = n.get_name( );
+        std::string label;
+        if( n.get_name( ).is_null( ) )
+            label = "...";
+        else
+            label = n.get_name( ).prettyprint( );
         for( ObjectList<Node*>::iterator it = current_tryblock->_handler_parents.begin( );
               it != current_tryblock->_handler_parents.end( ); ++it )
         {
             Edge* catch_edge = ( *it )->get_exit_edge( catchs[0] );
             if( catch_edge != NULL )
             {
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, label ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( label );
             }
         }
 
@@ -649,12 +656,12 @@ namespace Analysis {
         return catchs;
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_member( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Comma& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Comma& n )
     {
         ObjectList<Node*> comma_nodes;
         comma_nodes.append( walk( n.get_rhs( ) ) );
@@ -662,22 +669,22 @@ namespace Analysis {
         return comma_nodes;
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ComplexLiteral& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::CompoundStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundStatement& n )
     {
         return walk( n.get_statements( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Concat& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Concat& n )
     {
         return visit_binary_node( n, n.get_lhs(), n.get_rhs() );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ConditionalExpression& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ConditionalExpression& n )
     {
         Node* cond_expr_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, COND_EXPR );
         Node* entry_node = cond_expr_node->get_graph_entry_node( );
@@ -706,7 +713,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, cond_expr_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Context& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Context& n )
     {
         _utils->_context_nodecl.push( n );
         ObjectList<Node*> in_context = walk( n.get_in_context( ) );
@@ -714,7 +721,7 @@ namespace Analysis {
         return in_context;
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
         Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, CONTINUE );
         _pcfg->connect_nodes( continue_node, _utils->_continue_nodes.top( ) );
@@ -722,52 +729,52 @@ namespace Analysis {
         return ObjectList<Node*>( 1, continue_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::CxxDef& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CxxDef& n )
     {   // Nothing to be done: this nodes are also represented with ObjectInits when necessary
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Conversion& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Conversion& n )
     {
         return walk( n.get_nest( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::DefaultStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DefaultStatement& n )
     {
         return visit_case_or_default( n.get_statement( ), Nodecl::NodeclBase::null( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Delete& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Delete& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::DeleteArray& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DeleteArray& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Dereference& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Dereference& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Different& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Different& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Div& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Div& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::DivAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DivAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::DoStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DoStatement& n )
     {
         // FIXME This is not correct:
         //             do
@@ -819,17 +826,17 @@ namespace Analysis {
         return ObjectList<Node*>( 1, condition_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::EmptyStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::EmptyStatement& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Equal& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Equal& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ExpressionStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ExpressionStatement& n )
     {
         ObjectList<Node*> expr_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
@@ -890,12 +897,12 @@ namespace Analysis {
         return expression_nodes;
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::FloatingLiteral& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FloatingLiteral& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ForStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ForStatement& n )
     {
         // Compute the information about the loop control and keep the results in the struct '_current_loop_ctrl'
         ObjectList<Node*> actual_last_nodes = _utils->_last_nodes;
@@ -948,12 +955,8 @@ namespace Analysis {
                 if( !( *it )->is_task_edge( ) )
                 {
                     all_tasks = false;
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
                 }
-                else
-                {
-                    ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
-                }
+                ( *it )->set_true_edge( );
                 ++it;
             }
             if( all_tasks )
@@ -982,19 +985,19 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_graph_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::FunctionCall& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FunctionCall& n )
     {
         return visit_function_call( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::FunctionCode& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FunctionCode& n )
     {
         _pcfg->_function_sym = n.get_symbol( );
 
         return walk( n.get_statements( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::GotoStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
     {
         Node* goto_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, GOTO );
         goto_node->set_label( n.get_symbol( ) );
@@ -1018,17 +1021,17 @@ namespace Analysis {
         return ObjectList<Node*>( 1, goto_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::GreaterOrEqualThan& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GreaterOrEqualThan& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::GreaterThan& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GreaterThan& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::IfElseStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IfElseStatement& n )
     {
         Node* if_else_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, IF_ELSE );
         _pcfg->connect_nodes( _utils->_last_nodes, if_else_graph_node );
@@ -1048,7 +1051,7 @@ namespace Analysis {
             bool all_tasks_then = true;
             for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
             {   // More than one exit edge means that some tasks are created within 'then' statement
-                ( *it )->set_data( _EDGE_TYPE, TRUE_EDGE );
+                ( *it )->set_true_edge( );
                 if( !( *it )->is_task_edge( ) )
                     all_tasks_then = false;
             }
@@ -1064,7 +1067,7 @@ namespace Analysis {
             exit_edges = cond_node->get_exit_edges( );
             for( ; false_edge_it < cond_node->get_exit_edges( ).size( ); ++false_edge_it )
             {
-                exit_edges[false_edge_it]->set_data( _EDGE_TYPE, FALSE_EDGE );
+                exit_edges[false_edge_it]->set_false_edge( );
                 if( !exit_edges[false_edge_it]->is_task_edge( ) )
                     all_tasks_else = false;
             }
@@ -1101,15 +1104,15 @@ namespace Analysis {
         return ObjectList<Node*>( 1, if_else_graph_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
     {
         Node* labeled_node = walk( n.get_statement( ) )[0];
-        labeled_node->set_data( _NODE_TYPE, LABELED );
+        labeled_node->set_type( LABELED );
         labeled_node->set_label( n.get_symbol( ) );
 
         for( ObjectList<Node*>::iterator it = _utils->_goto_nodes.begin( );
@@ -1137,22 +1140,22 @@ namespace Analysis {
         return ObjectList<Node*>( 1, labeled_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LogicalAnd& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalAnd& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LogicalNot& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalNot& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LogicalOr& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalOr& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LoopControl& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LoopControl& n )
     {
         PCFGLoopControl* current_loop_ctrl = new PCFGLoopControl( );
 
@@ -1200,57 +1203,57 @@ namespace Analysis {
         return ObjectList<Node*>( );   // No return required here. '_current_loop_ctrl' contains all information.
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LowerOrEqualThan& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LowerOrEqualThan& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::LowerThan& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LowerThan& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Minus& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Minus& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::MinusAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Mod& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Mod& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ModAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ModAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Mul& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Mul& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::MulAssignment& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MulAssignment& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Neg& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Neg& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::New& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::New& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ObjectInit& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ObjectInit& n )
     {
         if( _pcfg == NULL )
         {   // do nothing: A shared variable is declared
@@ -1259,10 +1262,8 @@ namespace Analysis {
         else
         {
             ObjectList<Node*> object_init_last_nodes = _utils->_last_nodes;
-            nodecl_t n_sym = nodecl_make_symbol( n.get_symbol( ).get_internal_symbol( ),
-                                                 n.get_filename( ).c_str( ), n.get_line( ) );
-            Nodecl::Symbol nodecl_symbol( n_sym );
-            ObjectList<Node*> init_sym = walk( nodecl_symbol );
+            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+            ObjectList<Node*> init_sym = walk( n_sym );
             ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
 
             if( init_expr.empty( ) )
@@ -1277,17 +1278,17 @@ namespace Analysis {
         }
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Offset& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Offset& n )
     {
         return visit_binary_node( n, n.get_base( ), n.get_offset( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Offsetof& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Offsetof& n )
     {
         return visit_binary_node( n, n.get_offset_type( ), n.get_designator( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Atomic& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Atomic& n )
     {
         // Create the new graph node containing the atomic
         Node* atomic_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_ATOMIC );
@@ -1313,61 +1314,61 @@ namespace Analysis {
         return ObjectList<Node*>( 1, atomic_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
     {
         PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierAtEnd& n )
     {
         return visit_barrier( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
     {
         return visit_barrier( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
     {
         internal_error( "BarrierSignal not yet implemented", 0 );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::BarrierWait& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierWait& n )
     {
         internal_error( "BarrierWait not yet implemented", 0 );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {   // No deeper Nodecls
         internal_error( "CombinedWorksharing not yet implemented ( %s )", codegen_to_str( n.get_internal_nodecl( ),
                                                                                           nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
     {
         PCFGClause current_clause( COPY_IN, n.get_input_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
     {
         PCFGClause current_clause( COPY_INOUT, n.get_inout_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
     {
         PCFGClause current_clause( COPY_OUT, n.get_output_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Critical& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Critical& n )
     {
         // Create the new graph node containing the critical
         Node* critical_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_CRITICAL );
@@ -1398,42 +1399,42 @@ namespace Analysis {
 
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::CriticalName& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CriticalName& n )
     {
         PCFGClause current_clause( NAME, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
     {
         PCFGClause current_clause( DEP_IN, n.get_in_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
     {
         PCFGClause current_clause( DEP_INOUT, n.get_inout_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
     {
         PCFGClause current_clause( DEP_OUT, n.get_out_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
         PCFGClause current_clause( FIRSTPRIVATE, n.get_firstprivate_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtEntry& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtEntry& n )
     {
         Node* environ_entry = _utils->_environ_entry_exit.top( ).first;
         ObjectList<Node*> entry_children = environ_entry->get_children( );
@@ -1456,7 +1457,7 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtExit& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FlushAtExit& n )
     {
         Node* environ_exit = _utils->_environ_entry_exit.top( ).second;
         ObjectList<Node*> exit_parents = environ_exit->get_parents( );
@@ -1476,12 +1477,12 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::FlushMemory& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FlushMemory& n )
     {
         return ObjectList<Node*>( 1, _pcfg->create_flush_node( _utils->_outer_nodes.top( ), n.get_expressions( ) ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::For& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::For& n )
     {
         // Not needed
         // walk( n.get_ranges( ) );
@@ -1515,7 +1516,7 @@ namespace Analysis {
     }
 
     // Currently not used since we don't traverse OpenMP::For::get_ranges
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
     {
         internal_error( "ForRange not yet implemented", 0 );
 //         walk( n.get_lower( ) );
@@ -1523,14 +1524,14 @@ namespace Analysis {
 //         walk( n.get_step( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( IF, n.get_condition( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Master& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Master& n )
     {
         // Create the new graph node containing the master
         Node* master_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_MASTER );
@@ -1550,7 +1551,7 @@ namespace Analysis {
 
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Parallel& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Parallel& n )
     {
         // Create the new graph node containing the parallel
         Node* parallel_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_PARALLEL );
@@ -1580,41 +1581,41 @@ namespace Analysis {
         return ObjectList<Node*>( 1, parallel_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
     {
         PCFGClause current_clause( PRIORITY, n.get_priority( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
         PCFGClause current_clause( PRIVATE, n.get_private_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
         internal_error( "Reduction not yet implemented", 0 );
 //         walk( n.get_reductions( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
         internal_error( "Reduction item not yet implemented", 0 );
 //         walk( n.get_reductor( ) );
 //         walk( n.get_reduced_symbol( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
     {
         PCFGClause current_clause( PRIVATE, n.get_chunk( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Section& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Section& n )
     {
         ObjectList<Node*> section_last_nodes = _utils->_last_nodes;
 
@@ -1638,7 +1639,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, section_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Sections& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Sections& n )
     {
         // Create the new graph node containing the sections
         Node* sections_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SECTIONS );
@@ -1672,14 +1673,52 @@ namespace Analysis {
         return ObjectList<Node*>( 1, sections_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
     {
         PCFGClause current_clause( SHARED, n.get_shared_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Simd& n )
+    {
+        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
+
+        // Compose the statements nodes
+        walk( n.get_statement( ) );
+
+        // Link properly the exit node
+        Node* exit_node = simd_node->get_graph_exit_node( );
+        exit_node->set_id( ++( _utils->_nid ) );
+        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
+        return ObjectList<Node*>( 1, simd_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
+    {
+        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD_FUNCTION );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
+
+        // Compose the statements nodes
+        walk( n.get_statement( ) );
+
+        // Link properly the exit node
+        Node* exit_node = simd_node->get_graph_exit_node( );
+        exit_node->set_id( ++( _utils->_nid ) );
+        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
+        return ObjectList<Node*>( 1, simd_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
     {
         // Create the new graph node containing the single
         Node* single_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SINGLE );
@@ -1710,14 +1749,14 @@ namespace Analysis {
         return ObjectList<Node*>( 1, single_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
     {
         PCFGClause current_clause( TARGET );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Task& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Task& n )
     {
         // Create the new graph node containing the task
         ObjectList<Node*> task_parents = _utils->_last_nodes;
@@ -1758,48 +1797,47 @@ namespace Analysis {
         return ObjectList<Node*>( 1, task_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
         internal_error( "TaskCall not yet implemented", 0 );
         walk( n.get_environment( ) );
         walk( n.get_call( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
     {
         return visit_taskwait( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitShallow& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitShallow& n )
     {
         return visit_taskwait( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::Untied& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Untied& n )
     {
         PCFGClause current_clause( UNTIED );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
         PCFGClause current_clause( WAITON, n.get_environment( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Plus& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Plus& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
     // FIXME This may not be correct
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PointerToMember& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PointerToMember& n )
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
@@ -1812,63 +1850,39 @@ namespace Analysis {
         return ObjectList<Node*>( 1, basic_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Postdecrement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Postdecrement& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Postincrement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Postincrement& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Power& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Power& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-        nodecl_t pragma_line = n.get_pragma_line( ).get_internal_nodecl( );
-        if( strcmp( codegen_to_str( pragma_line, nodecl_retrieve_context( pragma_line ) ),
-                    "simd " ) == 0 )
-        {
-            Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD );
-            _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
-            _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
-
-            // Compose the statements nodes
-            walk( n.get_statements( ) );
-
-            // Link properly the exit node
-            Node* exit_node = simd_node->get_graph_exit_node( );
-            exit_node->set_id( ++( _utils->_nid ) );
-            exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
-
-            _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
-            return ObjectList<Node*>( 1, simd_node );
-        }
-        else
-        {
-            WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
-                             codegen_to_str( pragma_line,
-                                             nodecl_retrieve_context( pragma_line ) ) );
-            return ObjectList<Node*>( );
-        }
+        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+                         n.prettyprint( ).c_str( ) );
+        return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Predecrement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Predecrement& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Preincrement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Preincrement& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Range& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Range& n )
     {
         ObjectList<Node*> lower = walk( n.get_lower( ) );
         ObjectList<Node*> upper = walk( n.get_upper( ) );
@@ -1881,12 +1895,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, merged );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Reference& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Reference& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::ReturnStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ReturnStatement& n )
     {
         ObjectList<Node*> return_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> returned_value = walk( n.get_value( ) );
@@ -1897,23 +1911,23 @@ namespace Analysis {
         return ObjectList<Node*>( 1, return_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Sizeof& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Sizeof& n )
     {
         return visit_unary_node( n, n.get_size_type( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::StringLiteral& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::StringLiteral& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::StructuredValue& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::StructuredValue& n )
     {
         ObjectList<Node*> items = walk( n.get_items( ) );
         return ObjectList<Node*>( 1, merge_nodes( n, items ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::SwitchStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::SwitchStatement& n )
     {
         Node* switch_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SWITCH );
         _pcfg->connect_nodes( _utils->_last_nodes, switch_node );
@@ -1950,23 +1964,24 @@ namespace Analysis {
         return ObjectList<Node*>( 1, switch_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Symbol& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Symbol& n )
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        Nodecl::NodeclBase n2 = n;
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
             Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
             if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
+            {
                 _pcfg->_global_vars.insert( glob_var_usage );
+            }
         }
 
         // Create the node
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Throw& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Throw& n )
     {
         ObjectList<Node*> right = walk( n.get_rhs( ) );
         Node* throw_node;
@@ -1995,7 +2010,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, throw_node );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::TryBlock& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::TryBlock& n )
     {
         PCFGTryBlock* new_try_block = new PCFGTryBlock( );
         _utils->_tryblock_nodes.append( new_try_block );
@@ -2023,8 +2038,8 @@ namespace Analysis {
                  it != current_tryblock->_handler_parents.end( ); ++it )
             {
                 Edge* catch_edge = ( *it )->get_exit_edges( ).back( );
-                catch_edge->set_data( _EDGE_TYPE, CATCH );
-                catch_edge->set_data( _EDGE_LABEL, ObjectList<Nodecl::NodeclBase>( 1, Nodecl::NodeclBase::null( ) ) );
+                catch_edge->set_catch_edge( );
+                catch_edge->set_label( "" );
             }
         }
 
@@ -2042,28 +2057,28 @@ namespace Analysis {
     }
 
     //TODO Test this kind of node
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Type& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Type& n )
     {
         return visit_literal_node( n );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::Typeid& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Typeid& n )
     {
         return visit_unary_node( n, n.get_arg( ) );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
     {
         WARNING_MESSAGE( "Ignoring unknown prama '%s' during PCFG construction", n.get_text( ).c_str( ) );
         return ObjectList<Node*>( );
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::VirtualFunctionCall& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
         return visit_function_call(n);
     }
 
-    PCFGVisitor::Ret PCFGVisitor::visit( const Nodecl::WhileStatement& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::WhileStatement& n )
     {
         Node* while_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_WHILE );
         _pcfg->connect_nodes( _utils->_last_nodes, while_graph_node );

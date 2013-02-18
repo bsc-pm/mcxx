@@ -29,7 +29,7 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-source.hpp"
-#include "tl-omp-udr.hpp"
+#include "tl-omp-reduction.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
@@ -41,9 +41,10 @@ namespace TL
     namespace OpenMP
     {
         bool Core::_already_registered(false);
+        bool Core::_silent_declare_reduction(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _udr_counter(0)
+            : PragmaCustomCompilerPhase("omp")
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -113,11 +114,8 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-            // FIXME - Remove once ticket #1089 is fixed
-            if (_do_not_init_udr == "0")
-            {
-                initialize_builtin_udr_reductions(global_scope);
-            }
+            // Initialize OpenMP reductions
+            initialize_builtin_reductions(global_scope);
 
             PragmaCustomCompilerPhase::run(dto);
 
@@ -1339,10 +1337,24 @@ namespace TL
         void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
         void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
-        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct) { }
-        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct) { }
-        void Core::simd_for_handler_pre(TL::PragmaCustomDeclaration construct) { }
-        void Core::simd_for_handler_post(TL::PragmaCustomDeclaration construct) { }
+        void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            for_handler_pre(construct);
+        }
+        void Core::simd_for_handler_post(TL::PragmaCustomStatement construct)
+        {
+            for_handler_post(construct);
+        }
+
+        void Core::parallel_simd_for_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            parallel_for_handler_pre(construct);
+        }
+
+        void Core::parallel_simd_for_handler_post(TL::PragmaCustomStatement construct)
+        {
+            parallel_for_handler_post(construct);
+        }
 
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -1379,14 +1391,6 @@ namespace TL
         {
         }
 
-        void Core::declare_reduction_handler_pre(TL::PragmaCustomDirective directive)
-        {
-        }
-
-        void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
-        {
-        }
-
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
@@ -1408,7 +1412,9 @@ namespace TL
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(simd_for)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)

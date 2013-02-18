@@ -33,6 +33,12 @@ test_compile_fail=yes
 </testinfo>
 */
 
+#if __GNUC__ == 4 && __GNUC_MINOR__ < 6
+
+#error "This compiler is too old, fail the compilation
+
+#else
+
 template <typename T1, typename T2>
  struct B
  {
@@ -51,3 +57,5 @@ template <typename T>
 
 A<int> a;
 A<float> b;
+
+#endif

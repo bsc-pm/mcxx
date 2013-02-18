@@ -91,6 +91,8 @@ namespace Analysis {
         void set_label( std::string label );
 
         void set_true_edge( );
+        void set_false_edge( );
+        void set_catch_edge( );
 
         // Getters for all edge types
         bool is_always_edge( );

@@ -1361,12 +1361,21 @@ static TL::Symbol new_function_symbol_unpacked(
                     private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
 
                     // Local variable (rdp stands for reduction private)
-                    // This variable must be initialized properly
                     scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                             ("rdp_" + name).c_str());
                     private_sym->kind = SK_VARIABLE;
                     private_sym->type_information = (*it)->get_private_type().get_internal_type();
                     private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+
+                    // This variable must be initialized properly.
+                    // Create a map for omp_orig and omp_priv
+                    OpenMP::Reduction* red = (*it)->get_reduction_info();
+                    Nodecl::Utils::SimpleSymbolMap reduction_init_map;
+                    reduction_init_map.add_map(red->get_omp_priv(), private_sym);
+                    reduction_init_map.add_map(red->get_omp_orig(), shared_reduction_sym);
+                    private_sym->value = Nodecl::Utils::deep_copy((*it)->get_reduction_info()->get_initializer(),
+                            Scope(function_context),
+                            reduction_init_map).get_internal_nodecl();
 
                     if (sym.is_valid())
                     {
@@ -1719,6 +1728,11 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         {
             case OutlineDataItem::SHARING_PRIVATE:
                 {
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        // We need the declarations of the private symbols!
+                        private_entities << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), (*it)->get_symbol()));
+                    }
                     break;
                 }
             case OutlineDataItem::SHARING_SHARED:
@@ -1770,13 +1784,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                         internal_error("running error", 0);
                     }
                     unpacked_arguments.append_with_separator(argument, ", ");
-
-                    std::string name = (*it)->get_symbol().get_name();
-
-                    private_entities
-                        << "rdp_" << name << " = " << as_expression( (*it)->get_reduction_info()->get_identity()) << ";"
-                        ;
-
                     break;
                 }
             default:

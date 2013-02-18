@@ -1,270 +1,132 @@
 /*!if GRAMMAR_PROLOGUE*/
+%token<token_atrib> SUBPARSE_OPENMP_DECLARE_REDUCTION "<omp-declare-reduction>"
 
-%token<token_atrib> SUBPARSE_OMP_UDR_DECLARE "<subparse-omp-udr-declare>"
-%token<token_atrib> SUBPARSE_OMP_UDR_DECLARE_2 "<subparse-omp-udr-declare-2>"
+%type<ast> omp_declare_reduction
+%type<ast> omp_dr_reduction_id
+%type<ast> omp_dr_typename_list
+%type<ast> omp_dr_typename
+%type<ast> omp_dr_combiner
+%type<ast> omp_dr_initializer
 
-%type<ast> omp_udr_operator_list
-%type<ast> omp_udr_operator
-%type<ast> omp_udr_operator_2
-/*!if CPLUSPLUS*/
-%type<ast> omp_udr_qualified_operator
-/*!endif*/
-%type<ast> omp_udr_unqualified_operator
-%type<ast> omp_udr_builtin_op
-%type<ast> omp_udr_type_specifier
-%type<ast> omp_udr_type_specifier_2
-%type<ast> omp_udr_declare_arg
-%type<ast> omp_udr_declare_arg_2
-%type<ast> omp_udr_expression
-
-%token<token_atrib> SUBPARSE_OMP_UDR_IDENTITY "<subparse-omp-udr-identity>"
-%token<token_atrib> OMP_UDR_CONSTRUCTOR "constructor"
-
-%token<token_atrib> SUBPARSE_OMP_OPERATOR_NAME "<subparse_omp_operator_name>"
-
-%type<ast> omp_udr_identity
-/*!if CPLUSPLUS*/
-%type<ast> omp_udr_constructor_arguments
-/*!endif*/
-
+%type<token_atrib> omp_dr_operator
+%type<ast> omp_dr_identifier
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
-omp_udr_declare_arg : omp_udr_operator_list ':' omp_udr_type_specifier
+subparsing : SUBPARSE_OPENMP_DECLARE_REDUCTION omp_declare_reduction
 {
-    $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG, NULL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = $2;
 }
-/*!if CPLUSPLUS*/
-| TEMPLATE '<' template_parameter_list '>' omp_udr_operator_list ':' omp_udr_type_specifier
-{
-    $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG, $3, $5, $7, $1.token_file, $1.token_line, NULL);
-}
-/*!endif*/
 ;
 
-
-omp_udr_declare_arg_2 : omp_udr_unqualified_operator ':' omp_udr_type_specifier_2 ':' omp_udr_expression
+omp_declare_reduction : omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner
 {
-    $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner ':' omp_dr_initializer
+{
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+omp_dr_reduction_id : omp_dr_operator
+{
+    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, $1.token_file, $1.token_line, $1.token_text);
+}
+| omp_dr_identifier
+{
+    $$ = $1;
+}
+;
+
+omp_dr_identifier : IDENTIFIER
+{
+    $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+omp_dr_typename_list : omp_dr_typename
+{
+    $$ = ASTListLeaf($1);
+}
+| omp_dr_typename_list ',' omp_dr_typename
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+omp_dr_operator : '+'
+| '-'
+| '*'
+| '&'
+| '|'
+| '^'
+| ANDAND
+| OROR
+;
+
+/*!if C99*/
+omp_dr_typename : type_specifier_seq
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+/*!if CPLUSPLUS*/
+omp_dr_typename : type_specifier_seq_0
+{
+    $$ = $1;
+}
+| type_specifier_seq_ended_with_identifier
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+omp_dr_combiner : expression
+{
+    $$ = $1;
 }
 ;
 
 /*!if C99*/
-omp_udr_type_specifier : type_id
+omp_dr_initializer : id_expression initializer %merge<ambiguityHandler>
 {
-    $$ = ASTListLeaf($1);
+    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTFileName($1), ASTLine($1), NULL);
+    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ASTFileName($1), ASTLine($1), NULL);
+
+    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| postfix_expression '(' ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| postfix_expression '(' expression_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 /*!endif*/
 /*!if CPLUSPLUS*/
-omp_udr_type_specifier : type_id
-{
-    $$ = ASTListLeaf($1);
-}
-| omp_udr_type_specifier ',' type_id
-{
-    $$ = ASTList($1, $3);
-}
-;
-/*!endif*/
 
-omp_udr_type_specifier_2 : type_id
+/* Here there is the usual T(x) ambiguity. Easily solvable checking if T is omp_priv or not */
+omp_dr_initializer : unqualified_name initializer %merge<ambiguityHandler>
 {
-    $$ = ASTListLeaf($1);
-}
-| omp_udr_type_specifier_2 ',' type_id
-{
-    $$ = ASTList($1, $3);
-}
+    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTFileName($1), ASTLine($1), NULL);
+    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ASTFileName($1), ASTLine($1), NULL);
 
-
-omp_udr_unqualified_operator :  IDENTIFIER
-{
-    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| omp_udr_builtin_op
+| postfix_expression '(' ')' %merge<ambiguityHandler>
 {
-	$$ = $1;
-// FIXME - Try to avoid this
-	struct { const char *op; const char *name; } map[] =
-    { 
-        { "+", "_plus_"},
-        { "-", "_minus_"},
-        { "*", "_mult_"},
-        { "/", "_div_"},
-        { "&", "_and_"},
-        { "|", "_or_"},
-        { "^", "_exp_"},
-        { "&&", "_andand_"},
-        { "||", "_oror_"},
-        { NULL, NULL }
-    };
-
-	int i; 
-	char found = 0;
-	for (i = 0; map[i].op != NULL && !found; i++)
-	{
-		if ((found = (strcmp(ast_get_text($$), map[i].op) == 0)))
-        {
-            ast_set_type($$, AST_SYMBOL);
-            ast_set_text($$, map[i].name);
-		    break;
-        }
-	}
-	if (!found)
-    {
-		internal_error("Unhandled operator '%s'", ast_get_text($$));
-    }
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-;
-
-omp_udr_expression : expression
+| postfix_expression '(' expression_list ')' %merge<ambiguityHandler>
 {
-    $$ = $1;
-}
-;
-
-omp_udr_operator_2 : omp_udr_unqualified_operator
-{
-    $$ = $1;
-}
-/*!if CPLUSPLUS*/
-| omp_udr_qualified_operator
-{
-    $$ = $1;
-}
-/*!endif*/
-;
-
-/*!if CPLUSPLUS*/
-omp_udr_qualified_operator : TWO_COLONS nested_name_specifier omp_udr_unqualified_operator
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, $1.token_file, $1.token_line, NULL);
-}
-| nested_name_specifier omp_udr_unqualified_operator
-{
-	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-;
-/*!endif*/
-
-omp_udr_operator_list : omp_udr_operator
-{
-    $$ = ASTListLeaf($1);
-}
-| omp_udr_operator_list ',' omp_udr_operator
-{
-    $$ = ASTList($1, $3);
-}
-;
-
-omp_udr_operator : id_expression
-{
-    $$ = $1;
-}
-/*!if CPLUSPLUS*/
-| omp_udr_builtin_op
-{
-    $$ = $1;
-}
-| '.' unqualified_id
-{
-    $$ = ASTMake1(AST_OMP_UDR_MEMBER_OP, $2, $1.token_file, $1.token_line, $1.token_text);
-}
-/*!endif*/
-;
-
-omp_udr_builtin_op : '+'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '-'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '*'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '/'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '&'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '|'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| '^'
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| ANDAND
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-| OROR
-{
-    $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
-}
-;
-
-subparsing : SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
-{
-    $$ = $2;
-}
-;
-
-subparsing : SUBPARSE_OMP_UDR_DECLARE_2 omp_udr_declare_arg_2
-{
-    $$ = $2;
-}
-;
-
-subparsing : SUBPARSE_OMP_UDR_IDENTITY omp_udr_identity
-{
-    $$ = $2;
-}
-;
-
-subparsing : SUBPARSE_OMP_OPERATOR_NAME omp_udr_operator_2
-{
-    $$ = $2;
-}
-;
-
-omp_udr_identity : initializer_clause
-{
-    $$ = $1;
-}
-/*!if CPLUSPLUS*/
-| OMP_UDR_CONSTRUCTOR omp_udr_constructor_arguments
-{
-    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR, $2, $1.token_file, $1.token_line, $1.token_text);
-}
-| OMP_UDR_CONSTRUCTOR 
-{
-    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR,
-            ASTMake1(AST_OMP_UDR_CONSTRUCTOR_ARGUMENTS, NULL, $1.token_file, $1.token_line, NULL),
-            $1.token_file, $1.token_line, $1.token_text);
-}
-/*!endif*/
-;
-
-/*!if CPLUSPLUS*/
-omp_udr_constructor_arguments : '(' ')'
-{
-    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR_ARGUMENTS, NULL, $1.token_file, $1.token_line, NULL);
-}
-| '(' expression_list ')'
-{
-    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR_ARGUMENTS, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 /*!endif*/

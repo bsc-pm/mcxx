@@ -34,7 +34,7 @@ test_generator=config/mercurium-omp
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma omp declare reduction(min:int: _out = _out > _in ? _in : _out ) identity(2147483647)
+#pragma omp declare reduction(mymin : int : omp_out = omp_out > omp_in ? omp_in : omp_out ) initializer(omp_priv = 2147483647)
 
 #define N 100
 
@@ -49,9 +49,9 @@ int main (int argc, char **argv)
    for ( i = 0; i < N ; i++ ) a[i] = i;
 
 #ifdef NANOX
-#pragma omp for reduction(min:x)
+#pragma omp for reduction(mymin:x)
 #else
-   #pragma omp parallel for reduction(min:x)
+   #pragma omp parallel for reduction(mymin:x)
 #endif
    for ( i = 0; i < N ; i++ )
    {
@@ -60,6 +60,6 @@ int main (int argc, char **argv)
 
    if ( x != 0 )
       abort();
-   
+
    return 0;
 }

@@ -283,13 +283,13 @@ namespace TL { namespace OpenMP {
                                 Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
-                
+
                 std::string file = target_info.get_file();
                 if (!file.empty())
                 {
                     target_items.append(
                             Nodecl::OpenMP::File::make(
-                                Nodecl::Text::make(file),                               
+                                Nodecl::Text::make(file),
                                 Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
@@ -344,9 +344,7 @@ namespace TL { namespace OpenMP {
     };
 
     Base::Base()
-        : PragmaCustomCompilerPhase("omp"), _core(), 
-        _vectorizer(TL::Vectorization::Vectorizer::getVectorizer()),
-        _simd_enabled(false), _svml_enabled(false), _ffast_math_enabled(false)
+        : PragmaCustomCompilerPhase("omp"), _core(), _simd_enabled(false)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -360,24 +358,6 @@ namespace TL { namespace OpenMP {
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
                 "0").connect(functor(&Base::set_simd, *this));
-
-
-        register_parameter("svml_enabled",
-                "If set to '1' enables svml math library, otherwise it is disabled",
-                _svml_enabled_str,
-                "0").connect(functor(&Base::set_svml, *this));
-
-        register_parameter("ffast_math_enabled",
-                "If set to '1' enables ffast_math operations, otherwise it is disabled",
-                _ffast_math_enabled_str,
-                "0").connect(functor(&Base::set_ffast_math, *this));
-
-        // FIXME - Remove once ticket #1089 is fixed
-        register_parameter("do_not_init_udr",
-                "Disable initialization of UDRs. This may be needed in some setups due to a bug",
-                _core._do_not_init_udr,
-                "0");
-
 
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
@@ -415,16 +395,6 @@ namespace TL { namespace OpenMP {
 
     void Base::run(TL::DTO& dto)
     {
-        if (_simd_enabled && _ffast_math_enabled)
-        {
-            _vectorizer.enable_ffast_math();
-        }
-
-        if (_simd_enabled && _svml_enabled)
-        {
-            _vectorizer.enable_svml();
-        }
-
         _core.run(dto);
 
         // Do nothing once we have analyzed everything
@@ -461,8 +431,10 @@ namespace TL { namespace OpenMP {
 
         INVALID_DECLARATION_HANDLER(parallel)
         INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(simd_for)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
@@ -492,22 +464,6 @@ namespace TL { namespace OpenMP {
         if (simd_enabled_str == "1")
         {
             _simd_enabled = true;
-        }
-    }
-
-    void Base::set_svml(const std::string svml_enabled_str)
-    {
-        if (svml_enabled_str == "1")
-        {
-            _svml_enabled = true;
-        }
-    }
-
-    void Base::set_ffast_math(const std::string ffast_math_enabled_str)
-    {
-        if (ffast_math_enabled_str == "1")
-        {
-            _ffast_math_enabled = true;
         }
     }
 
@@ -1160,56 +1116,50 @@ namespace TL { namespace OpenMP {
 
     // SIMD For Statement
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::simd_handler_post(TL::PragmaCustomStatement stmt) 
+    void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
-        // Skipping AST_LIST_NODE 
+        // Skipping AST_LIST_NODE
         Nodecl::NodeclBase statements = stmt.get_statements();
 
         if (_simd_enabled)
         {
-            ERROR_CONDITION(!statements.is<Nodecl::List>(), 
+            ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node.size() != 1, 
+            ERROR_CONDITION(ast_list_node.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
 
             // Skipping NODECL_CONTEXT
             Nodecl::NodeclBase context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(), 
+            ERROR_CONDITION(!context.is<Nodecl::Context>(),
                     "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
+            ERROR_CONDITION(!in_context.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
             Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1, 
+            ERROR_CONDITION(ast_list_node2.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
-                    ast_print_node_type(node.get_kind()));
+            Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
+                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
+                    ast_print_node_type(for_statement.get_kind()));
 
-            // Vectorize for
-            Nodecl::NodeclBase epilog = 
-                _vectorizer.vectorize(node.as<Nodecl::ForStatement>(), 
-                        "smp", 16, NULL); 
+            Nodecl::OpenMP::Simd omp_simd_node =
+               Nodecl::OpenMP::Simd::make(
+                       for_statement.shallow_copy(),
+                       for_statement.get_filename(),
+                       for_statement.get_line());
 
-            // Add epilog
-            if (!epilog.is_null())
-            {
-                node.append_sibling(epilog);
-            }
+            stmt.replace(Nodecl::List::make(omp_simd_node));
         }
-
-        // Remove #pragma
-        stmt.replace(statements);
     }
-    
+
     // SIMD Functions
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
-    void Base::simd_handler_post(TL::PragmaCustomDeclaration decl) 
+    void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
         if (_simd_enabled)
         {
@@ -1220,68 +1170,57 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase node = sym.get_function_code();
             ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
-            Nodecl::FunctionCode function_code = node.as<Nodecl::FunctionCode>();
 
-            Nodecl::FunctionCode vectorized_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
+            Nodecl::OpenMP::SimdFunction simd_func =
+                Nodecl::OpenMP::SimdFunction::make(
+                        node.shallow_copy(),
+                        node.get_filename(),
+                        node.get_line());
 
-            // Vectorize function
-            _vectorizer.vectorize(vectorized_func_code, 
-                    "smp", 16, NULL); 
+            node.replace(simd_func);
 
-            // Set new name
-            std::string vectorized_func_name = 
-                "__" + sym.get_name() + "_sse_16" ; // + device + vectorlength
-
-            vectorized_func_code.get_symbol().set_name(vectorized_func_name);
-
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(sym.get_name(), vectorized_func_code, 
-                    "smp", 16, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
-
-            // Append vectorized function code to scalar function
-            function_code.append_sibling(vectorized_func_code);
+            // Remove #pragma
+            Nodecl::Utils::remove_from_enclosing_list(decl);
         }
-        // Remove #pragma
-        Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
-    void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt) 
+    void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
-        // Skipping AST_LIST_NODE 
+        // Skipping AST_LIST_NODE
         Nodecl::NodeclBase statements = stmt.get_statements();
 
         if (_simd_enabled)
         {
-            ERROR_CONDITION(!statements.is<Nodecl::List>(), 
+            /*
+            ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node.size() != 1, 
+            ERROR_CONDITION(ast_list_node.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
 
             // Skipping NODECL_CONTEXT
             Nodecl::NodeclBase context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(), 
+            ERROR_CONDITION(!context.is<Nodecl::Context>(),
                     "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
+            ERROR_CONDITION(!in_context.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
             Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1, 
+            ERROR_CONDITION(ast_list_node2.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
             Nodecl::NodeclBase node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
+            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(),
+                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
                     ast_print_node_type(node.get_kind()));
 
             // Vectorize for
-            Nodecl::NodeclBase epilog = 
+            Nodecl::NodeclBase epilog =
                 _vectorizer.vectorize(node.as<Nodecl::ForStatement>(),
-                        "smp", 16, NULL); 
+                        "smp", 16, NULL);
 
             // Add epilog
             if (!epilog.is_null())
@@ -1289,19 +1228,16 @@ namespace TL { namespace OpenMP {
                 //node.append_sibling(epilog);
             }
 
-            // omp for
+            // for_handler_post
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
             Nodecl::NodeclBase code = loop_handler_post(
-                    stmt, node, barrier_at_end, /* is_combined_worksharing */ false);
-
-            //Nodecl::Utils::remove_from_enclosing_list(node);
-            //ast_list_node2.push_back(code);
+                    stmt, node, barrier_at_end, false);
 
             // Removing #pragma
-            stmt.replace(node);
-            //stmt.replace(statements);
+            stmt.replace(code);
+            */
         }
         else
         {
@@ -1310,8 +1246,10 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Base::simd_for_handler_pre(TL::PragmaCustomDeclaration decl) { }
-    void Base::simd_for_handler_post(TL::PragmaCustomDeclaration decl) { }
+    void Base::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt)
+    {
+    }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)
@@ -1527,7 +1465,7 @@ namespace TL { namespace OpenMP {
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
                 return Nodecl::OpenMP::ReductionItem::make(
-                        /* reductor */ Nodecl::Symbol::make(arg.get_udr().get_symbol_holder(), _filename, _line),
+                        /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _filename, _line),
                         /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _filename, _line),
                         _filename, _line);
             }
@@ -1623,17 +1561,17 @@ namespace TL { namespace OpenMP {
                         Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
-        
+
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
         if (!onto_exprs.empty())
         {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
-                        Nodecl::List::make(onto_exprs),                                
+                        Nodecl::List::make(onto_exprs),
                         Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
-                    
+
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
@@ -1799,13 +1737,13 @@ namespace TL { namespace OpenMP {
                 OpenMP::COPY_DIR_INOUT,
                 filename, line,
                 target_items);
-        
+
         ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
         if (!ndrange_exprs.empty())
         {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
-                        Nodecl::List::make(ndrange_exprs),                     
+                        Nodecl::List::make(ndrange_exprs),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
                         filename, line));
@@ -1816,23 +1754,23 @@ namespace TL { namespace OpenMP {
         {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
-                        Nodecl::List::make(onto_exprs), 
+                        Nodecl::List::make(onto_exprs),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
                         filename, line));
-        }        
-        
+        }
+
         std::string file = target_info.get_file();
         if (!file.empty())
         {
             target_items.append(
                     Nodecl::OpenMP::File::make(
-                        Nodecl::Text::make(file),                               
+                        Nodecl::Text::make(file),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
                         filename, line));
         }
-        
+
         result_list.append(
                 Nodecl::OpenMP::Target::make(
                     Nodecl::List::make(devices),

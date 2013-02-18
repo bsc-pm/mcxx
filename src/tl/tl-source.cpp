@@ -458,7 +458,7 @@ namespace TL
         CURRENT_CONFIGURATION->source_language = lang;
     }
 
-    Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
+    Nodecl::NodeclBase Source::parse_common(ReferenceScope ref_scope,
             ParseFlags parse_flags,
             const std::string& subparsing_prefix,
             prepare_lexer_fun_t prepare_lexer,
@@ -497,13 +497,58 @@ namespace TL
         return nodecl_output;
     }
 
+    // Public interface of parse_generic
+    Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
+            ParseFlags parse_flags,
+            const std::string& substring_prefix,
+            compute_nodecl_fun_t compute_nodecl,
+            decl_context_map_fun_t decl_context_map_fun)
+    {
+        switch ((int)this->source_language.get_language())
+        {
+            case SourceLanguage::C :
+            {
+                return parse_common(ref_scope, parse_flags, substring_prefix,
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        compute_nodecl,
+                        decl_context_map_fun);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_common(ref_scope, parse_flags, substring_prefix,
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        compute_nodecl,
+                        decl_context_map_fun);
+                break;
+            }
+            case SourceLanguage::Fortran :
+            {
+                return parse_common(ref_scope, parse_flags, substring_prefix,
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        compute_nodecl,
+                        decl_context_map_fun);
+                break;
+            }
+            default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
     Nodecl::NodeclBase Source::parse_global(ReferenceScope ref_scope, ParseFlags parse_flags)
     {
         switch ((int)this->source_language.get_language())
         {
             case SourceLanguage::C :
             {
-                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                return parse_common(ref_scope, parse_flags, "@DECLARATION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
                         build_scope_declaration_sequence,
@@ -512,7 +557,7 @@ namespace TL
             }
             case SourceLanguage::CPlusPlus :
             {
-                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                return parse_common(ref_scope, parse_flags, "@DECLARATION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
                         build_scope_declaration_sequence,
@@ -521,7 +566,7 @@ namespace TL
             }
             case SourceLanguage::Fortran :
             {
-                return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
+                return parse_common(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         build_scope_program_unit_seq,
@@ -544,7 +589,7 @@ namespace TL
         {
             case SourceLanguage::C :
             {
-                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                return parse_common(ref_scope, parse_flags, "@DECLARATION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
                         build_scope_declaration_sequence,
@@ -553,7 +598,7 @@ namespace TL
             }
             case SourceLanguage::CPlusPlus :
             {
-                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                return parse_common(ref_scope, parse_flags, "@DECLARATION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
                         build_scope_declaration_sequence,
@@ -562,7 +607,7 @@ namespace TL
             }
             case SourceLanguage::Fortran :
             {
-                return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
+                return parse_common(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         build_scope_program_unit_seq,
@@ -585,7 +630,7 @@ namespace TL
         {
             case SourceLanguage::C :
             {
-                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                return parse_common(ref_scope, parse_flags, "@STATEMENT@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
                         build_scope_statement,
@@ -594,7 +639,7 @@ namespace TL
             }
             case SourceLanguage::CPlusPlus :
             {
-                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                return parse_common(ref_scope, parse_flags, "@STATEMENT@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
                         build_scope_statement,
@@ -603,7 +648,7 @@ namespace TL
             }
             case SourceLanguage::Fortran :
             {
-                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                return parse_common(ref_scope, parse_flags, "@STATEMENT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         fortran_build_scope_statement,
@@ -652,7 +697,7 @@ namespace TL
         {
             case SourceLanguage::C :
             {
-                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
                         c_cxx_check_expression_adaptor_,
@@ -661,7 +706,7 @@ namespace TL
             }
             case SourceLanguage::CPlusPlus :
             {
-                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
                         c_cxx_check_expression_adaptor_,
@@ -670,11 +715,47 @@ namespace TL
             }
             case SourceLanguage::Fortran :
             {
-                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
                         fortran_check_expression_adaptor_,
                         decl_context_identity);
+                break;
+            }
+            default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
+    Nodecl::NodeclBase Source::parse_id_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
+    {
+        switch ((int)this->source_language.get_language())
+        {
+            case SourceLanguage::C :
+            {
+                return parse_common(ref_scope, parse_flags, "@ID_EXPRESSION@", 
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        compute_nodecl_name_from_id_expression,
+                        decl_context_identity);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_common(ref_scope, parse_flags, "@ID_EXPRESSION@", 
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        compute_nodecl_name_from_id_expression,
+                        decl_context_identity);
+                break;
+            }
+            case SourceLanguage::Fortran :
+            {
+                internal_error("Not valid for Fortran", 0);
                 break;
             }
             default:
@@ -721,7 +802,14 @@ namespace TL
 
     std::string as_statement(const Nodecl::NodeclBase& n)
     {
-        return nodecl_stmt_to_source(n.get_internal_nodecl());
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            return std::string(nodecl_stmt_to_source(n.get_internal_nodecl())) + "\n";
+        }
+        else
+        {
+            return nodecl_stmt_to_source(n.get_internal_nodecl());
+        }
     }
 
     std::string as_type(TL::Type t)

@@ -28,11 +28,19 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-test_noexec=yes
-test_compile_fail=yes
+test_generator=config/mercurium-run
 </testinfo>
 */
+#include <stdlib.h>
 
-// fail
-#pragma omp declare reduction( foo : float : _in *= _out )
+int main(int argc, char* argv[])
+{
+    unsigned long long int a;
+
+    a = 65536ULL;
+
+    if (a == 0)
+        abort();
+
+    return 0;
+}

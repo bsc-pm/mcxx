@@ -112,7 +112,7 @@ namespace Analysis {
             {
                 // Calculate the name of the new dot subgraph
                 std::stringstream node_id; node_id << current->get_id( );
-                std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( ) + "\n" + current->get_graph_label( ).prettyprint();
+                std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( )/* + "\n" + current->get_graph_label( ).prettyprint()*/;
 
                 std::stringstream ssgid; ssgid << subgraph_id;
                 std::string cluster_name = "cluster" + ssgid.str( );

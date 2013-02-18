@@ -114,6 +114,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> IF "if"
 %token<token_atrib> INLINE "inline"
 %token<token_atrib> TOKEN_INT "int"
+%token<token_atrib> TOKEN_INT128 "__int128"
 %token<token_atrib> LEFT "<<"
 %token<token_atrib> LEFT_ASSIGN "<<="
 %token<token_atrib> LESS_OR_EQUAL "<="
@@ -416,6 +417,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> qualified_id_type_expr
 %type<ast> unqualified_id_funct
 %type<ast> unqualified_id_type_name
+%type<ast> unqualified_name
 %type<ast> relational_expression
 %type<ast> selection_statement
 %type<ast> shift_expression
@@ -1488,6 +1490,10 @@ builtin_types : TOKEN_CHAR
 | TOKEN_VOID
 {
 	$$ = ASTLeaf(AST_VOID_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_INT128
+{
+	$$ = ASTLeaf(AST_GCC_INT128, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -3788,13 +3794,19 @@ unqualified_id : unqualified_id_type_name
 }
 ;
 
-unqualified_id_type_name : IDENTIFIER
+unqualified_id_type_name : unqualified_name
 {
-	$$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
+	$$ = $1;
 }
 | template_id
 {
 	$$ = $1;
+}
+;
+
+unqualified_name : IDENTIFIER
+{
+	$$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 

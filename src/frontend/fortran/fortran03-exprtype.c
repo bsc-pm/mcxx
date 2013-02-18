@@ -3746,6 +3746,25 @@ static char is_name_of_funtion_call(AST expr)
 }
 #endif
 
+static void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
+{
+    *entry = *intrinsic;
+
+    // The previous statement is not enough: we need to update some extra
+    // information because the related symbols may contain a pointer to the
+    // 'intrinsic' function.
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (symbol_is_parameter_of_function(current_sym, intrinsic))
+        {
+            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
+            symbol_set_as_parameter_of_function(current_sym, entry, position);
+        }
+    }
+}
+
 static void check_symbol_of_called_name(AST sym, 
         decl_context_t decl_context, 
         scope_entry_list_t** call_list, 
@@ -3917,14 +3936,14 @@ static void check_symbol_of_called_name(AST sym,
 
                     // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
-                    *entry = *intrinsic_symbol;
+                    copy_intrinsic_function_info(entry, intrinsic_symbol);
                 }
                 else if (intrinsic_sym != NULL
                         // Dummy arguments do not name intrinsics
                         && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
                 {
                     // From now, the symbol is an intrinsic
-                    *entry = *intrinsic_sym;
+                    copy_intrinsic_function_info(entry, intrinsic_sym);
                 }
                 else
                 {
@@ -4248,15 +4267,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
         else
         {
             *nodecl_output = nodecl_make_symbol(entry, ASTFileName(sym), ASTLine(sym));
-
-            if (!is_const_qualified_type(no_ref(entry->type_information)))
-            {
-                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
-            }
-            else
-            {
-                nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
-            }
+            nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
         }
     }
     else if (entry->kind == SK_FUNCTION)

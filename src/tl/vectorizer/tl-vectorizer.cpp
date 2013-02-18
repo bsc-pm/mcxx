@@ -33,10 +33,14 @@ namespace TL
 {
     namespace Vectorization
     {
-        Vectorizer* Vectorizer::_vectorizer = 0;
+        Vectorizer *Vectorizer::_vectorizer = 0;
+        
+        Analysis::AnalysisStaticInfo *Vectorizer::_analysis_info = 0;
+        std::list<Nodecl::NodeclBase> *Vectorizer::_analysis_scopes = 0;
+        
         FunctionVersioning Vectorizer::_function_versioning;
 
-        Vectorizer& Vectorizer::getVectorizer()
+        Vectorizer& Vectorizer::get_vectorizer()
         {
             if(_vectorizer == 0)
                 _vectorizer = new Vectorizer();
@@ -77,6 +81,8 @@ namespace TL
 
         void Vectorizer::enable_svml()
         {
+            fprintf(stderr, "Enabling SVML\n");
+
             if (!_ffast_math_enabled)
             {
                 fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");

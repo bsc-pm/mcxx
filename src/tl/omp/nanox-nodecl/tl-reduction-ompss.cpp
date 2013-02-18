@@ -31,6 +31,10 @@
 
 namespace TL { namespace Nanox {
 
+#if 0
+    extern std::string get_nanos_basic_reduction_function(OpenMP::Reduction *red);
+    extern std::string get_nanos_basic_reduction_function_cleanup(OpenMP::Reduction *red);
+
     Source LoweringVisitor::reduction_initialization_code(
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct)
@@ -78,8 +82,8 @@ namespace TL { namespace Nanox {
             {
                 std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
 
-                OpenMP::UDRInfoItem *udr_info = (*it)->get_reduction_info();
-                ERROR_CONDITION(udr_info == NULL, "Invalid reduction info", 0);
+                OpenMP::Reduction *reduction = (*it)->get_reduction_info();
+                ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
 
                 TL::Type reduction_type = (*it)->get_symbol().get_type();
                 if (reduction_type.is_any_reference())
@@ -99,7 +103,7 @@ namespace TL { namespace Nanox {
                     << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                     << allocate_private_buffer
                     << nanos_red_name << "->vop = 0;"
-                    << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
+                    << nanos_red_name << "->bop = " << get_nanos_basic_reduction_function(reduction) << ";"
                     << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
                     << cleanup_code
                     << "err = nanos_register_reduction(" << nanos_red_name << ");"
@@ -126,7 +130,7 @@ namespace TL { namespace Nanox {
                         << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                         ;
                     cleanup_code
-                        << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
+                        << nanos_red_name << "->cleanup = " << get_nanos_basic_reduction_function_cleanup(reduction) << ";"
                         ;
                 }
                 else
@@ -141,7 +145,7 @@ namespace TL { namespace Nanox {
                     allocate_private_buffer
                         << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]);"
                         << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
-                        << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), " 
+                        << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
                         << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                         << "if (err != NANOS_OK)"
                         <<     "nanos_handle_error(err);"
@@ -195,8 +199,8 @@ namespace TL { namespace Nanox {
             {
                 std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
 
-                OpenMP::UDRInfoItem *udr_info = (*it)->get_reduction_info();
-                ERROR_CONDITION(udr_info == NULL, "Invalid reduction info", 0);
+                OpenMP::UDRInfoItem *reduction = (*it)->get_reduction_info();
+                ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
 
                 TL::Type reduction_type = (*it)->get_symbol().get_type();
                 if (reduction_type.is_any_reference())
@@ -217,7 +221,7 @@ namespace TL { namespace Nanox {
                     << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                     << allocate_private_buffer
                     << nanos_red_name << "->vop = 0;"
-                    << nanos_red_name << "->bop = " << udr_info->get_basic_reductor_function().get_name() << ";"
+                    << nanos_red_name << "->bop = " << reduction->get_basic_reductor_function().get_name() << ";"
                     << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
                     << cleanup_code
                     << "err = nanos_register_reduction(" << nanos_red_name << ");"
@@ -236,7 +240,7 @@ namespace TL { namespace Nanox {
                         << "rdp_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
                         ;
                     cleanup_code
-                        << nanos_red_name << "->cleanup = " << udr_info->get_cleanup_function().get_name() << ";"
+                        << nanos_red_name << "->cleanup = " << reduction->get_cleanup_function().get_name() << ";"
                         ;
 
                     fill_outline_arguments
@@ -312,5 +316,6 @@ namespace TL { namespace Nanox {
 
         return reduction_code;
     }
+#endif
 
 } }

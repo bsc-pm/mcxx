@@ -2303,9 +2303,9 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
     if (!const_value_is_signed(cval))
     {
         int bits = 8 * t.get_size();
-        unsigned long long int mask = ~0ULL;
+        unsigned long long int mask = 0;
         if (bits < 64)
-            mask <<= bits;
+            mask = ((~0ULL) << bits);
         v &= ~mask;
     }
 
@@ -5217,7 +5217,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         return;
     }
 
-    set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
+    // If the symbol is already defined we should not change its codegen status
+    if (get_codegen_status(symbol) == CODEGEN_STATUS_NONE)
+        set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
 
     if (symbol.is_class())
     {

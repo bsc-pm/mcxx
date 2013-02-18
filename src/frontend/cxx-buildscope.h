@@ -150,6 +150,8 @@ LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, t
 LIBMCXX_EXTERN void push_vla_dimension_symbol(scope_entry_t* entry);
 LIBMCXX_EXTERN scope_entry_t* pop_vla_dimension_symbol(void);
 
+LIBMCXX_EXTERN int get_vla_counter();
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

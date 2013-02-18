@@ -29,15 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail=yes
-test_compile_faulty=yes
-
-# test_compile_fail_nanox_mercurium=yes
-# test_compile_faulty_nanox_mercurium=yes
-#
-# test_compile_fail_nanox_instrument=yes
-# test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -46,11 +37,11 @@ test_compile_faulty=yes
 #include <vector>
 
 #pragma omp declare reduction( + : std::vector<int> : \
-std::transform(_in.begin( ), _in.end( ), \
-_out.begin( ), _out.begin ( ), std::plus<int >() ) )
+std::transform(omp_in.begin( ), omp_in.end( ), \
+omp_out.begin( ), omp_out.begin ( ), std::plus<int >() ) )
 
 #pragma omp declare reduction( merge: std::vector<int>: \
-_out.insert(_out.end(), _in.begin(), _in.end() ) )
+omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end() ) )
 
 int main (int argc, char* argv[])
 {

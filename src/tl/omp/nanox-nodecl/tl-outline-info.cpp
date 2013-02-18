@@ -250,6 +250,57 @@ namespace TL { namespace Nanox {
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item)
     {
+        bool make_allocatable = false;
+        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item, make_allocatable);
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        if (t.is_array()
+                && outline_data_item != NULL
+                && outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+        {
+            while (t.is_array())
+            {
+                Nodecl::NodeclBase array_size = t.array_get_size();
+                if (array_size.is<Nodecl::Symbol>()
+                        && array_size.get_symbol().is_saved_expression())
+                {
+                    outline_data_item->set_allocation_policy(
+                            OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                    break;
+                }
+                t = t.array_element();
+            }
+        }
+        else
+        {
+            while (t.is_array() || t.is_pointer())
+            {
+                if (t.is_array())
+                {
+                    Nodecl::NodeclBase array_size = t.array_get_size();
+                    if (array_size.is<Nodecl::Symbol>()
+                            && array_size.get_symbol().is_saved_expression())
+                    {
+                        outline_data_item->set_field_type(
+                                TL::Type::get_void_type().get_pointer_to());
+                        break;
+                    }
+                    t = t.array_element();
+                }
+                else
+                {
+                    t = t.points_to();
+                }
+            }
+        }
+        return res;
+    }
+
+    TL::Type OutlineInfoRegisterEntities::add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
+            OutlineDataItem* outline_data_item,
+            bool &make_allocatable)
+    {
         if (t.is_array())
         {
             if (IS_C_LANGUAGE
@@ -261,22 +312,9 @@ namespace TL { namespace Nanox {
                         && array_size.get_symbol().is_saved_expression())
                 {
                     this->add_capture(array_size.get_symbol());
-
-                    if (outline_data_item != NULL)
-                    {
-                        if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-                        {
-                            outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
-                        }
-                        else
-                        {
-                            outline_data_item->set_field_type(TL::Type::get_void_type().get_pointer_to());
-                        }
-                    }
                 }
 
-                t = add_extra_dimensions(sym, t.array_element(), outline_data_item);
-
+                t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
                 return t.get_array_to(array_size, _sc);
             }
             else if (IS_FORTRAN_LANGUAGE)
@@ -286,8 +324,6 @@ namespace TL { namespace Nanox {
                 t.array_get_bounds(lower, upper);
 
                 Nodecl::NodeclBase result_lower, result_upper;
-
-                bool make_allocatable = false;
 
                 // If the symbol is a shared allocatable we want the original type
                 if (sym.is_allocatable()
@@ -421,7 +457,7 @@ namespace TL { namespace Nanox {
                     result_upper = upper;
                 }
 
-                TL::Type res = add_extra_dimensions(sym, t.array_element(), outline_data_item);
+                TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
                 if (make_allocatable)
                 {
                     res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
@@ -449,12 +485,12 @@ namespace TL { namespace Nanox {
         }
         else if (t.is_pointer())
         {
-            TL::Type res = add_extra_dimensions(sym, t.points_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
             return res.get_pointer_to();
         }
         else if (t.is_lvalue_reference())
         {
-            TL::Type res = add_extra_dimensions(sym, t.references_to(), outline_data_item);
+            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable);
             return res.get_lvalue_reference_to();
         }
         else if (t.is_function())
@@ -539,7 +575,6 @@ namespace TL { namespace Nanox {
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
-
         outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         Type t = sym.get_type();
@@ -582,6 +617,7 @@ namespace TL { namespace Nanox {
         {
             t = t.references_to();
         }
+        outline_info.set_field_type(t);
 
         if (is_new)
         {
@@ -593,16 +629,15 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_field_type(t);
         outline_info.set_captured_value(expr);
     }
 
-    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::UDRInfoItem& udr_info)
+    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
         outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
-        outline_info.set_reduction_info(&udr_info);
+        outline_info.set_reduction_info(reduction);
 
         TL::Type t = symbol.get_type();
         if (t.is_any_reference())
@@ -738,9 +773,9 @@ namespace TL { namespace Nanox {
             {
                 _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
-            
-            void visit(const Nodecl::OpenMP::File& file)   
-            { 
+
+            void visit(const Nodecl::OpenMP::File& file)
+            {
                 _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(),file.get_filename().get_text());
             }
 
@@ -800,12 +835,12 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)
             {
-                TL::Symbol udr_reductor = reduction.get_reductor().get_symbol();
+                TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
 
-                OpenMP::UDRInfoItem &udr_info = OpenMP::UDRInfoItem::get_udr_info_item_from_symbol_holder(udr_reductor);
-
-                add_reduction(symbol, udr_info);
+                OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
+                add_reduction(symbol, red);
             }
 
             void visit(const Nodecl::OpenMP::Target& target)

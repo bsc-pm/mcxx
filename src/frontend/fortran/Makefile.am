@@ -132,6 +132,7 @@ libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 
 ADDITIONAL_GRAMMARS_FORTRAN = 
 ADDITIONAL_GRAMMARS_FORTRAN += fortran03-subparse.y
+ADDITIONAL_GRAMMARS_FORTRAN += fortran03-omp.y
 
 ADDITIONAL_GRAMMARS = ../cxx-pragma.y \
 					  ../cxx-literal-nodes.y \

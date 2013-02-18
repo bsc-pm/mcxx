@@ -29,8 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -51,7 +49,7 @@ public:
    int getX() const { return x; }
 };
 
-#pragma omp declare reduction( + : myInt : _out += _in)
+#pragma omp declare reduction( + : myInt : omp_out += omp_in)
 
 int main (int argc, char **argv)
 {
