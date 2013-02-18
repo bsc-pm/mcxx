@@ -10596,7 +10596,13 @@ char type_is_runtime_sized(type_t* t)
     return 0;
 }
 
-char type_depends_on_nonconstant_values(type_t* t)
+struct type_set_t
+{
+    type_t* type;
+    struct type_set_t* prev;
+};
+
+static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t* type_set)
 {
     // This function is only valid in C but we could relax it a bit for C++
     CXX_LANGUAGE()
@@ -10606,6 +10612,17 @@ char type_depends_on_nonconstant_values(type_t* t)
         return 0;
     }
 
+    // Avoid infinite recursion
+    struct type_set_t* it_type = type_set;
+    while (it_type != NULL)
+    {
+        if (it_type->type == t)
+            return 0;
+        it_type = it_type->prev;
+    }
+
+    struct type_set_t new_type_set = { t, type_set };
+
     if (is_array_type(t))
     {
         return array_type_is_vla(t);
@@ -10613,7 +10630,7 @@ char type_depends_on_nonconstant_values(type_t* t)
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
-            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it);
@@ -10621,7 +10638,7 @@ char type_depends_on_nonconstant_values(type_t* t)
         {
             scope_entry_t* member = entry_list_iterator_current(it);
 
-            if (type_depends_on_nonconstant_values(member->type_information))
+            if (type_depends_on_nonconstant_values_rec(member->type_information, &new_type_set))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(nonstatic_data_members);
@@ -10633,14 +10650,19 @@ char type_depends_on_nonconstant_values(type_t* t)
     }
     else if (is_any_reference_type(t))
     {
-        return type_depends_on_nonconstant_values(get_lvalue_reference_type(t));
+        return type_depends_on_nonconstant_values_rec(get_lvalue_reference_type(t), &new_type_set);
     }
     else if (is_pointer_type(t))
     {
-        return type_depends_on_nonconstant_values(pointer_type_get_pointee_type(t));
+        return type_depends_on_nonconstant_values_rec(pointer_type_get_pointee_type(t), &new_type_set);
     }
 
     return 0;
+}
+
+char type_depends_on_nonconstant_values(type_t* t)
+{
+    return type_depends_on_nonconstant_values_rec(t, NULL);
 }
 
 _size_t type_get_size(type_t* t)
