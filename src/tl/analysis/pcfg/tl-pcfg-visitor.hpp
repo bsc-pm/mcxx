@@ -231,6 +231,7 @@ namespace Analysis {
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Comma& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
+        Ret visit( const Nodecl::CompoundExpression& n );
         Ret visit( const Nodecl::CompoundStatement& n );
         Ret visit( const Nodecl::Concat& n );
         Ret visit( const Nodecl::ConditionalExpression& n );

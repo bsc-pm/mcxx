@@ -672,6 +672,11 @@ namespace Analysis {
         return visit_literal_node( n );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundExpression& n )
+    {
+        return walk( n.get_nest( ) );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundStatement& n )
     {
         return walk( n.get_statements( ) );
