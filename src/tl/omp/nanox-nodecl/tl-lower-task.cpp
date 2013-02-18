@@ -335,7 +335,8 @@ Source LoweringVisitor::fill_const_wd_info(
     {
         TL::Symbol first_implementor = implementation_table.begin()->first;
         result
-            << "char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            // This \0 is required as we do not keep the 0 in the constant value
+            << "static char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
