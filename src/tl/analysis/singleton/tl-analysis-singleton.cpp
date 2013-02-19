@@ -426,7 +426,7 @@ namespace Analysis {
                     std::cerr << "- Use-Definition of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
                 UseDef ud( *it );
 
-                ObjectList<TL::Symbol> visited_functions;
+                std::set<TL::Symbol> visited_functions;
                 if( (*it)->get_function_symbol( ).is_valid( ) )
                     visited_functions.insert( (*it)->get_function_symbol( ) );
                 ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars =

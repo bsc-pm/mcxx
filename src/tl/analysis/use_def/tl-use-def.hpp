@@ -50,7 +50,7 @@ namespace Analysis {
          * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          */
-        void compute_usage_rec( Node* current, ObjectList<TL::Symbol>& visited_functions,
+        void compute_usage_rec( Node* current, std::set<TL::Symbol>& visited_functions,
                                 ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
                                 bool ipa, Utils::nodecl_set ipa_arguments );
 
@@ -74,7 +74,7 @@ namespace Analysis {
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          *                      Only necessary when \ipa is true
          */
-        void compute_usage( ObjectList<TL::Symbol> visited_functions,
+        void compute_usage( std::set<TL::Symbol> visited_functions,
                             ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                             bool ipa = false, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( )
 );
@@ -114,10 +114,10 @@ namespace Analysis {
          * This attribute stores the actual nodecl when we are traversing class member access.
          * It can be of type reference, dereference or array subscript
          */
-        Nodecl::NodeclBase _actual_nodecl;
+        Nodecl::NodeclBase _current_nodecl;
 
         //!List of functions visited
-        ObjectList<Symbol> _visited_functions;
+        std::set<Symbol> _visited_functions;
 
         //! List of global variables appeared until certain point of the analysis
         ObjectList<Utils::ExtendedSymbolUsage> _visited_global_vars;
@@ -144,10 +144,9 @@ namespace Analysis {
         //! This method implements the visitor for any Binary Assignment operation
         Ret binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
 
-        //! This method implements the visitor for any Unary operation
-        Ret unary_visit( Nodecl::NodeclBase rhs );
-
         void function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments );
+
+        Ret unary_in_de_crement_visit( Nodecl::NodeclBase rhs );
 
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
@@ -159,12 +158,12 @@ namespace Analysis {
     public:
         // *** Constructors *** //
         UsageVisitor( Node* n,
-                      ObjectList<Symbol> visited_functions,
+                      std::set<Symbol> visited_functions,
                       ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                       bool ipa, Scope sc, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
 
         // *** Getters and Setters *** //
-        ObjectList<Symbol> get_visited_functions( ) const;
+        std::set<Symbol> get_visited_functions( ) const;
         ObjectList<Utils::ExtendedSymbolUsage> get_visited_global_variables( ) const;
 
         // *** Utils *** //
@@ -176,7 +175,6 @@ namespace Analysis {
         // *** Visitors *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit_pre( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::Assignment& n );
         Ret visit( const Nodecl::BitwiseAndAssignment& n );
@@ -185,7 +183,7 @@ namespace Analysis {
         Ret visit( const Nodecl::BitwiseShrAssignment& n );
         Ret visit( const Nodecl::BitwiseXorAssignment& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit_pre( const Nodecl::Dereference& n );
+        Ret visit( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::MinusAssignment& n );
@@ -198,7 +196,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
-        Ret visit_pre( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };

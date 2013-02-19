@@ -153,10 +153,10 @@ namespace Analysis {
                 std::stringstream sss;
                 if( !current->is_graph_node( ) )
                 {
-                    if( (!current->has_key(_OUTER_NODE) ) ||
-                        (current->has_key(_OUTER_NODE) &&
-                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) ) ||
-                            current->is_entry_node( ) ) ) )
+                    if( ( !current->has_key( _OUTER_NODE ) ) ||
+                        ( current->has_key( _OUTER_NODE ) &&
+                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) )
+                              || current->is_entry_node( ) ) ) )
                     {
                         sss << current->get_id( );
                         get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
@@ -172,7 +172,6 @@ namespace Analysis {
                     if( !current->get_entry_edges( ).empty( ) && !exit_node->get_entry_edges( ).empty( ) )
                     {
                         sss << exit_node->get_id( );
-                        ObjectList<Edge*> exit_edges = current->get_exit_edges( );
                     }
                     else
                     {
@@ -216,10 +215,10 @@ namespace Analysis {
                         }
                         else
                         {
-                            if( !current->is_graph_node( ) )
-                            {
-                                get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-                            }
+//                             if( !current->is_graph_node( ) )
+//                             {
+//                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
+//                             }
                             std::string mes = sss.str( ) + " -> " + sst.str( ) +
                                               " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
@@ -236,6 +235,43 @@ namespace Analysis {
                                             std::string indent, int& subgraph_id,
                                             bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
+        switch( current->get_graph_type( ) )
+        {
+            case ASM_DEF:
+                dot_graph += "color=lightsteelblue;\n";
+                break;
+            case COND_EXPR:
+            case FUNC_CALL:
+            case IF_ELSE:
+            case SPLIT_STMT:
+            case SWITCH:
+                dot_graph += "color=grey45;\n";
+                break;
+            case LOOP_DOWHILE:
+            case LOOP_FOR:
+            case LOOP_WHILE:
+                dot_graph += "color=maroon4;\n";
+                break;
+            case EXTENSIBLE_GRAPH:
+                dot_graph += "color=white;\n";
+                break;
+            case OMP_ATOMIC:
+            case OMP_CRITICAL:
+            case OMP_LOOP:
+            case OMP_PARALLEL:
+            case OMP_SECTION:
+            case OMP_SECTIONS:
+            case OMP_SINGLE:
+            case OMP_TASK:
+                dot_graph += "color=red4;\nstyle=bold;\n";
+                break;
+            case SIMD:
+            case SIMD_FUNCTION:
+                dot_graph += "color=indianred2;\n";
+                break;
+            default:
+                internal_error( "Unexpected node type while printing dot\n", 0 );
+        };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );
         get_nodes_dot_data( entry_node, dot_graph, graph_analysis_info, outer_edges, outer_nodes, indent+"\t", subgraph_id,
@@ -295,6 +331,7 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " CONTINUE\", shape=diamond]\n";
                 break;
             }
+            case ASM_OP:
             case GOTO:
             case NORMAL:
             case LABELED:
@@ -309,15 +346,13 @@ namespace Analysis {
                     if( it->is<Nodecl::ObjectInit>( ) )
                     {
                         Symbol it_s = it->as<Nodecl::ObjectInit>( ).get_symbol( );
-                        aux_str = it_s.get_name( ) + " = " ;
-                        aux_str += codegen_to_str( it_s.get_value( ).get_internal_nodecl( ),
-                                                   nodecl_retrieve_context(it_s.get_value( ).get_internal_nodecl( ) ) );
+                        aux_str = it_s.get_name( ) + " = " + it_s.get_value( ).prettyprint( );
                     }
                     else
                     {
-                        aux_str = codegen_to_str(it->get_internal_nodecl( ),
-                                                    nodecl_retrieve_context(it->get_internal_nodecl( ) ));
+                        aux_str = it->prettyprint( );
                     }
+
                     makeup_dot_block(aux_str);
                     basic_block += aux_str + "\\n";
                 }

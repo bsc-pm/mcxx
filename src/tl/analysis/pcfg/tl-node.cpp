@@ -382,6 +382,16 @@ namespace Analysis {
         return ( get_type( ) == FUNCTION_CALL );
     }
 
+    bool Node::is_asm_def_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == ASM_DEF ) );
+    }
+
+    bool Node::is_asm_op_node( )
+    {
+        return ( get_type( ) == ASM_OP );
+    }
+
     bool Node::is_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
@@ -481,6 +491,7 @@ namespace Analysis {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
             switch( ntype )
             {
+                case ASM_OP:             type = "ASM_OP";           break;
                 case BREAK:              type = "BREAK";            break;
                 case CONTINUE:           type = "CONTINUE";         break;
                 case ENTRY:              type = "ENTRY";            break;
@@ -514,6 +525,7 @@ namespace Analysis {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
             switch( ntype )
             {
+                case ASM_DEF:           graph_type = "ASM_DEF";             break;
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
                 case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
                 case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
@@ -529,7 +541,6 @@ namespace Analysis {
                 case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
                 case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
                 case OMP_TASK:          graph_type = "OMP_TASK";            break;
-                case OTHER:             graph_type = "OTHER";               break;
                 case SIMD:              graph_type = "SIMD";                break;
                 case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
                 case SWITCH:            graph_type = "SWITCH";              break;
@@ -811,6 +822,36 @@ namespace Analysis {
         else
         {
             internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    ASM_node_info Node::get_asm_info( )
+    {
+        Node* outer_node = get_outer_node( );
+        if( get_type( ) == ASM_OP
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        {
+            return get_data<ASM_node_info>( _ASM_INFO );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the ASM info from node '%d'. ASM node expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    void Node::set_asm_info( ASM_node_info inf )
+    {
+        Node* outer_node = get_outer_node( );
+        if( get_type( ) == ASM_OP
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        {
+            set_data( _ASM_INFO, inf );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the ASM info to node '%d'. ASM node expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
