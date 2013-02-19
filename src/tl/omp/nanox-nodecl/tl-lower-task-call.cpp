@@ -613,14 +613,42 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         param_to_args_map.add_map(parameter, new_symbol);
     }
 
-    //Add this map to target information, so DeviceProviders can translate
-    //Clauses in case it's needed, now we only add the same for every task, but in a future?
-    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        arguments_outline_info.get_implementation_table();
     for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
             it != args_implementation_table.end();
             ++it)
     {
-       arguments_outline_info.set_param_arg_map(param_to_args_map, it->first);
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_sym)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
+        }
     }
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)

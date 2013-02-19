@@ -41,13 +41,14 @@ namespace TL
         {
             private:
 
-                  void generate_ndrange_code(
-                          const TL::Symbol& called_task,
-                          const TL::Symbol& unpacked_function,
-                          const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-                          const std::string filename,
-                          TL::Source& code_ndrange);
-
+                void generate_ndrange_code(
+                        const TL::Symbol& called_task,
+                        const TL::Symbol& unpacked_function,
+                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        const std::string filename,
+                        const Nodecl::Utils::SimpleSymbolMap* called_fun_param_to_args_map,
+                        Nodecl::Utils::SymbolMap* unpacked_fun_params_to_args_map,
+                        TL::Source& code_ndrange);
             public:
 
                 // This phase does nothing

@@ -430,6 +430,9 @@ void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& unpacked_function,
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
         const std::string filename,
+        const Nodecl::Utils::SimpleSymbolMap* called_fun_param_to_args_map,
+        Nodecl::Utils::SymbolMap* unpacked_fun_params_to_args_map,
+        // Out
         TL::Source& code_ndrange)
 {
     int num_args_ndrange = ndrange_args.size();
@@ -440,11 +443,18 @@ void DeviceOpenCL::generate_ndrange_code(
     ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
 
     int num_params = parameters_called.size();
-    for (int i = 0; i < num_params; ++i)
+
+    const std::map<TL::Symbol, TL::Symbol>* called_task_map = called_fun_param_to_args_map->get_simple_symbol_map();
+    for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = called_task_map->begin();
+            it != called_task_map->end();
+            it++)
     {
-        translate_parameters_map.add_map(
-                parameters_called[i],
-                parameters_unpacked[i]);
+        TL::Symbol key = it->first;
+        TL::Symbol value =
+            unpacked_fun_params_to_args_map->get_symbol_map()->map(
+                    unpacked_fun_params_to_args_map->get_symbol_map(), it->second.get_internal_symbol());
+
+        translate_parameters_map.add_map(key, value);
     }
 
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
@@ -679,22 +689,31 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             device_outline_name + "_unpacked",
             info,
             symbol_map);
-    
+
     //Get file clause, if not present, use global file
     std::string file=info._target_info.get_file();
-    if (file.empty()){
-        ERROR_CONDITION(CURRENT_CONFIGURATION->opencl_code_file==NULL,"No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag",called_task.get_name().c_str());
-        file=std::string(CURRENT_CONFIGURATION->opencl_code_file);
+    if (file.empty())
+    {
+        ERROR_CONDITION(CURRENT_CONFIGURATION->opencl_code_file == NULL,
+                "No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag",
+                called_task.get_name().c_str());
+
+        file = std::string(CURRENT_CONFIGURATION->opencl_code_file);
     }
 
     Source ndrange_code;
     if (called_task.is_valid()
             && info._target_info.get_ndrange().size() > 0)
     {
+        Nodecl::Utils::SimpleSymbolMap param_to_args_map =
+            info._target_info.get_param_arg_map();
+
         generate_ndrange_code(called_task,
                 unpacked_function,
                 info._target_info.get_ndrange(),
                 file,
+                &param_to_args_map,
+                symbol_map,
                 ndrange_code);
     }
 

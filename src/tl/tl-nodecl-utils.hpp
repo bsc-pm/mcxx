@@ -224,9 +224,14 @@ namespace Nodecl
                 _symbol_map[source] = target;
             }
 
+            const std::map<TL::Symbol, TL::Symbol>* get_simple_symbol_map() const
+            {
+                return &_symbol_map;
+            }
+
             private:
-            typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
-            symbol_map_t _symbol_map;
+                typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
+                symbol_map_t _symbol_map;
         };
 
         struct FortranProgramUnitSymbolMap : public SymbolMap
