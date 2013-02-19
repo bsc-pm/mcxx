@@ -189,6 +189,8 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepFunctionCall &);
 
             Ret visit(const Nodecl::Verbatim& node);
+            Ret visit(const Nodecl::VlaWildcard &);
+
             Ret visit(const Nodecl::UnknownPragma& node);
             Ret visit(const Nodecl::GxxTrait& node);
             Ret visit(const Nodecl::GccAsmDefinition& node);

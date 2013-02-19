@@ -7223,6 +7223,11 @@ static void set_array_type(type_t** declarator_type,
                 nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->file, new_vla_dim->line);
                 nodecl_set_type(nodecl_expr, new_vla_dim->type_information);
             }
+            else if (decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+            {
+                nodecl_expr = nodecl_make_vla_wildcard(get_signed_int_type(),
+                        ASTFileName(constant_expr), ASTLine(constant_expr));
+            }
         }
     }
 
@@ -9683,8 +9688,9 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             if (type_specifier != NULL
                     && ASTType(type_specifier) == AST_CLASS_SPECIFIER)
             {
-                AST first_init_declarator = ASTSon1(ast_list_head(init_declarator_list));
-                declarator = ASTSon0(first_init_declarator);
+                error_printf("%s: error: invalid declarator in class template definition\n",
+                        ast_location(init_declarator_list));
+                init_declarator_list = NULL;
             }
         }
 
@@ -9749,6 +9755,46 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                 &gather_info, new_decl_context, nodecl_output);
 
+        char ok = 1;
+        if (entry == NULL)
+        {
+            ok = 0;
+        }
+        else if (entry->kind == SK_VARIABLE)
+        {
+            if (!entry->entity_specs.is_member
+                    || !entry->entity_specs.is_static)
+            {
+                error_printf("%s: error: entity '%s' must be a static data member\n",
+                        ast_location(a),
+                        get_qualified_symbol_name(entry, decl_context));
+                ok = 0;
+            }
+        }
+        else if (entry->kind == SK_CLASS
+                || entry->kind == SK_TEMPLATE
+                || entry->kind == SK_FUNCTION)
+        {
+            // Fine
+            if (initializer != NULL)
+            {
+                error_printf("%s: error: cannot initialize non-data member '%s\n", 
+                        ast_location(a),
+                        get_qualified_symbol_name(entry, decl_context));
+                ok = 0;
+            }
+        }
+        else
+        {
+            error_printf("%s: error: invalid declaration of entity '%s'\n", 
+                    ast_location(a),
+                    get_qualified_symbol_name(entry, decl_context));
+            ok = 0;
+        }
+
+        if (!ok)
+            return;
+
         if (declared_symbols != NULL)
         {
             *declared_symbols = entry_list_new(entry);
@@ -9757,30 +9803,25 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         // This is a simple declaration, thus if it does not declare an
         // extern variable or function, the symbol is already defined here
-        if (!gather_info.is_extern
-                && !is_function_type(declarator_type))
+        if (entry->kind == SK_VARIABLE)
         {
             if (initializer != NULL)
             {
-                // Here the template scope is the one of the template declaration, 
+                // Here the template scope is the one of the template declaration,
                 // not for the symbol
                 decl_context_t initializer_context = entry->decl_context;
                 initializer_context.template_parameters = new_decl_context.template_parameters;
 
                 nodecl_t nodecl_expr = nodecl_null();
-                check_initialization(initializer, 
-                        initializer_context, 
+                check_initialization(initializer,
+                        initializer_context,
                         get_unqualified_type(declarator_type),
                         &nodecl_expr);
                 entry->value = nodecl_expr;
-                entry->defined = 1;
             }
+            // This is always a definition actually
+            entry->defined = 1;
         }
-        else if (is_function_type(declarator_type))
-        {
-            // Do nothing
-        }
-
 
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const char*, int) =
             (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
@@ -11001,6 +11042,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     C_LANGUAGE()
     {
+        // Ensure we use the type of the definition
+        entry->type_information = declarator_type;
+
         AST kr_parameter_declaration = ASTSon1(a);
         AST kr_parameter_list = get_function_declarator_parameter_list(function_declarator, decl_context);
 
