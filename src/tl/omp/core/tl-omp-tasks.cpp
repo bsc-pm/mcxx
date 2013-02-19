@@ -804,8 +804,8 @@ namespace TL
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.set_file(target_context.file);
-                target_info.append_to_ndrange(target_context.ndrange);
-                target_info.append_to_onto(target_context.onto);
+                target_info.append_to_ndrange(update_clauses(target_context.ndrange, function_sym));
+                target_info.append_to_onto(update_clauses(target_context.onto, function_sym));
 
                 target_info.append_to_device_list(target_context.device_list);
 
