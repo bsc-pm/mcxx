@@ -1154,14 +1154,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     std::cerr << construct.get_locus()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
 
-    // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    //OutlineInfo parameters_outline_info(parameters_environment,current_function);
-
-    // Fill arguments outline info using parameters
-    //OutlineInfo arguments_outline_info;
-
-    
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
@@ -1178,8 +1170,10 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             // out
             symbol_map,
             save_expressions);
+    
     // Add a map from the original called task to the adapter function
     symbol_map.add_map(called_task_function, adapter_function);
+
     if (called_task_function.is_from_module())
     {
         // If the symbol comes from a module, the environment 
@@ -1187,13 +1181,14 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
         symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
     }
 
+    // Get parameters outline info
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
             symbol_map,
             parameters_environment,
             save_expressions,
-
             // Out
             new_task_construct,
             new_statements,
@@ -1206,18 +1201,16 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
-    // Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
-
     emit_async_common(
             new_task_construct,
             adapter_function,
-            called_task_function, // Which one we want now?
+            called_task_function,
             new_statements,
             task_environment.priority,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
-            NULL);
+            /* parameter outline info */ NULL);
 
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
