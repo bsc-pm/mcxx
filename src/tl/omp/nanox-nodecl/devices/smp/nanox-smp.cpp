@@ -888,28 +888,13 @@ namespace TL { namespace Nanox {
         private:
             const TL::ObjectList<OutlineDataItem*> &_data_items;
             TL::Symbol &_args_symbol;
-            TL::ObjectList<TL::Symbol> _args_fields;
 
         public:
 
         RewriteExprOfVla(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
             : _data_items(data_items),
-            _args_symbol(args_symbol),
-            _args_fields(_args_symbol.get_type().no_ref().get_fields())
+            _args_symbol(args_symbol)
         { }
-
-        TL::Symbol get_field_symbol(const std::string& str)
-        {
-            for (TL::ObjectList<TL::Symbol>::iterator it = _args_fields.begin();
-                    it != _args_fields.end();
-                    it++)
-            {
-                if (it->get_name() == str)
-                    return *it;
-            }
-            // Invalid symbol
-            return TL::Symbol();
-        }
 
         virtual void visit(const Nodecl::Symbol& node)
         {
@@ -926,8 +911,7 @@ namespace TL { namespace Nanox {
                     // Should be a reference already
                     new_args_ref.set_type(_args_symbol.get_type());
 
-                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make(
-                            this->get_field_symbol((*it)->get_field_name()));
+                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make((*it)->get_field_symbol());
                     field_ref.set_type(field_ref.get_symbol().get_type());
 
                     new_class_member_access = Nodecl::ClassMemberAccess::make(
