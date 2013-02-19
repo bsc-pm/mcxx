@@ -1196,7 +1196,10 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function,_function_task_set);
+    // We create a new outline info using the 'adapter_function' as the first implementor.
+    // We use the adapter function instead of the called_task_function because the environment
+    // has been updated in the function call 'fill_adapter_function' using the symbol map information.
+    OutlineInfo new_outline_info(new_environment, adapter_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
