@@ -831,7 +831,7 @@ namespace Codegen
 
         if (type.is_integral_type())
         {
-            file << "(" << print_type_str(TL::Type::get_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+            file << "(" << print_type_str(TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
                     node.retrieve_context().get_decl_context()) << ")";
         }
 
@@ -857,7 +857,7 @@ namespace Codegen
         } 
         else if (type.is_integral_type()) 
         { 
-            file << "_si128((" << print_type_str(TL::Type::get_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+            file << "_si128((" << print_type_str(TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
                     node.retrieve_context().get_decl_context()) << ")";
         } 
         else
@@ -876,15 +876,30 @@ namespace Codegen
     void SSEModuleVisitor::visit(const Nodecl::VectorGather& node) 
     { 
         TL::Type type = node.get_type().basic_type();
+        TL::Type index_type = node.get_strides().get_type().basic_type();
 
         // Intrinsic name
         file << "_mm_set";
 
+        std::string extract;
+
         // Postfix
-        if (type.is_integral_type()) 
+        if (type.is_float()) 
         { 
-            file << "_epi32"; 
+            file << "_ps";
         } 
+        else if (type.is_signed_int() || type.is_unsigned_int()) 
+        { 
+            file << "_epi32";
+        }
+        else if (type.is_signed_short_int() || type.is_unsigned_short_int()) 
+        { 
+            file << "_epi16";
+        }
+        else if (type.is_signed_char() || type.is_char() || type.is_unsigned_char())
+        {
+            file << "_epi8";
+        }
         else
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
@@ -892,37 +907,54 @@ namespace Codegen
                     node.get_locus().c_str());
         }
 
+        // Indexes
+        if (index_type.is_signed_int() || index_type.is_unsigned_int()) 
+        { 
+            extract = "_mm_extract_epi32";
+        }
+        else if (index_type.is_signed_short_int() || index_type.is_unsigned_short_int()) 
+        { 
+            extract = "_mm_extract_epi16";
+        }
+        else if (index_type.is_signed_char() || index_type.is_char() || index_type.is_unsigned_char())
+        {
+            extract = "_mm_extract_epi8";
+        }
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }
+
+
         file << "("; 
 
-        int i = 0;
+        unsigned int i = 0;
         
         walk(node.get_base());
         file << "[";
 
-        file << "_mm_extract_epi32";
+        file << extract;
         file << "(";
         walk(node.get_strides());
-        file << ", ";
-        file << i;
-        file << ")";
+        file << ", " << i << ")";
 
         file << "]";
 
         i++;
 
-        for (; i < 4; i++)
+        for (; i < type.get_size(); i++)
         {
             file << ", ";
 
             walk(node.get_base());
             file << "[";
 
-            file << "_mm_extract_epi32";
+            file << extract;
             file << "(";
             walk(node.get_strides());
-            file << ", ";
-            file << i;
-            file << ")";
+            file << ", " << i << ")";
 
             file << "]";
         }
@@ -932,25 +964,63 @@ namespace Codegen
 
     void SSEModuleVisitor::visit(const Nodecl::VectorScatter& node) 
     { 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = node.get_source().get_type().basic_type();
+        TL::Type index_type = node.get_strides().get_type().basic_type();
 
-        // Postfix
-        if (type.is_integral_type()) 
+        std::string extract_index;
+        std::string extract_source;
+
+        // Indexes
+        if (index_type.is_signed_int() || index_type.is_unsigned_int()) 
         { 
-        } 
+            extract_index = "_mm_extract_epi32";
+        }
+        else if (index_type.is_signed_short_int() || index_type.is_unsigned_short_int()) 
+        { 
+            extract_index = "_mm_extract_epi16";
+        }
+        else if (index_type.is_signed_char() || index_type.is_char() || index_type.is_unsigned_char())
+        {
+            extract_index = "_mm_extract_epi8";
+        }
         else
         {
-            running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
+            running_error("SSE Codegen: Node %s at %s has an unsupported index type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
 
-        for (int i=0; i < 4; i++)
+        // Sourcei
+        if (type.is_float())
+        {
+            extract_source = "_mm_extract_ps";
+        }
+        else if (type.is_signed_int() || type.is_unsigned_int()) 
+        { 
+            extract_source = "_mm_extract_epi32";
+        }
+        else if (type.is_signed_short_int() || type.is_unsigned_short_int()) 
+        { 
+            extract_source = "_mm_extract_epi16";
+        }
+        else if (type.is_signed_char() || type.is_char() || type.is_unsigned_char())
+        {
+            extract_source = "_mm_extract_epi8";
+        }
+        else
+        {
+            running_error("SSE Codegen: Node %s at %s has an unsupported source type.", 
+                    ast_print_node_type(node.get_kind()),
+                    node.get_locus().c_str());
+        }
+
+
+        for (unsigned int i=0; i < type.get_size(); i++)
         {
             walk(node.get_base());
             file << "[";
 
-            file << "_mm_extract_epi32";
+            file << extract_index;
             file << "(";
             walk(node.get_strides());
             file << ", ";
@@ -959,7 +1029,7 @@ namespace Codegen
 
             file << "]";
 
-            file << " = _mm_extract_epi32(";
+            file << " = " << extract_source << "(";
             walk(node.get_source());
             file << ", ";
             file << i;
@@ -968,9 +1038,6 @@ namespace Codegen
             file << ";" << std::endl;
         }
     }
-
-
-
 
     void SSEModuleVisitor::visit(const Nodecl::VectorFunctionCall& node) 
     {
