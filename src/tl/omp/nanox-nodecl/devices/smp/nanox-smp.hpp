@@ -77,6 +77,11 @@ namespace TL
                         const std::string& outline_name,
                         TL::ObjectList<OutlineDataItem*> data_items,
                         Nodecl::NodeclBase parse_context);
+
+                TL::Type rewrite_type_of_vla_in_outline(
+                        TL::Type t,
+                        const TL::ObjectList<OutlineDataItem*> &data_items,
+                        TL::Symbol& arguments_symbol);
         };
     }
 }

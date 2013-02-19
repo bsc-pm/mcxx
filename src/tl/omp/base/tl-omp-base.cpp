@@ -1422,14 +1422,11 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
-    // Remove
-    void Base::declare_reduction_handler_pre(TL::PragmaCustomDirective)
+    void Base::declare_reduction_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
     {
-    }
-
-
-    void Base::declare_reduction_handler_post(TL::PragmaCustomDirective)
-    {
+        // Remove
+        Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
     struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>

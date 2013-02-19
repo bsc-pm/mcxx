@@ -17,6 +17,8 @@ config_edit = \
      -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
      -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
+     -e 's|@DISABLE_CUDA[@]|$(DISABLE_CUDA)|g' \
+     -e 's|@DISABLE_OPENCL[@]|$(DISABLE_OPENCL)|g' \
      -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
      -e 's|@prefix[@]|$(prefix)|g' \
      -e 's|@includedir[@]|$(includedir)|g' \

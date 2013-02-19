@@ -467,7 +467,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     if (IS_C_LANGUAGE
             || cast_kind == "C")
     {
+        bool is_non_ref = is_non_language_reference_type(node.get_type());
+        if (is_non_ref)
+        {
+            // Here we assume that casts in C always yield rvalues
+            file << "(*";
+        }
         file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
+
+        if (is_non_ref)
+        {
+            file << "&(";
+        }
+
         char needs_parentheses = operand_has_lower_priority(node, nest);
         if (needs_parentheses)
         {
@@ -477,6 +489,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         if (needs_parentheses)
         {
             file << ")";
+        }
+
+        if (is_non_ref)
+        {
+            file << "))";
         }
     }
     else
@@ -4881,19 +4898,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         return;
     }
 
-    // Generate the template headers if needed
-    CXX_LANGUAGE()
-    {
-        if (symbol.is_member()
-                && !symbol.is_defined_inside_class()
-                && state.classes_being_defined.empty())
-        {
-            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
-        }
-    }
-
-
     std::string decl_specifiers;
     std::string gcc_attributes;
     std::string declarator;
@@ -4966,6 +4970,17 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     move_to_namespace_of_symbol(symbol);
 
+    // Generate the template headers if needed
+    CXX_LANGUAGE()
+    {
+        if (symbol.is_member()
+                && !symbol.is_defined_inside_class()
+                && state.classes_being_defined.empty())
+        {
+            TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
+            codegen_template_headers_all_levels(template_parameters, false);
+        }
+    }
 
     declarator = this->get_declaration(symbol.get_type(),
             symbol.get_scope(),

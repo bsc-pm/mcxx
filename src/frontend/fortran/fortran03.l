@@ -3178,7 +3178,6 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
         char *c = malloc(sizeof(*c) * length);
         char *last_char = &c[length - 1];
         *last_char = '\0';
-        memset(c, 0, sizeof(c));
 
         char *q = c;
 
@@ -3212,6 +3211,11 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
             internal_error("Invalid line marker '%s'. Expecting a \"", str);
         }
         p++;
+
+        // Note that q >= last_char is fine if q == last_char since it would be *last_char = '\0'
+        ERROR_CONDITION(q > last_char, "Overflow", 0);
+        // Finish the temporary string
+        *q = '\0';
 
         *filename = uniquestr(c);
         free(c);

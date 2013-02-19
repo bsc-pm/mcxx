@@ -24,66 +24,70 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 /*
 <testinfo>
-test_generator=config/mercurium-serial-simd
-test_ignore=yes
+test_generator=config/mercurium-run
 </testinfo>
 */
-
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
-#define VECTOR_SIZE 16
+void *global = 0;
 
-void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int N)
+void f(int @ref@n, int @ref@m, int (*@ref@v)[m])
 {
-    int j;
-#pragma omp simd 
-        for (j=0; j<N; j++)
-        {
-            z[j] = a * x[j] + y[j];
-        }
-    }
+    // fprintf(stderr, "(1) n = %d | m = %d | %p\n", n, m, &(v[n-1][m-1]));
+    global = &(v[n-1][m-1]);
+    v[n-1][m-1] = 42;
 }
 
-
-int main (int argc, char * argv[])
+struct A
 {
-    const int N = 16;
-    const int iters = 1;
+    int n1;
+    int m1;
+    void *p;
+};
 
-    float *x, *y, *z; 
-    
-    posix_memalign((void **)&x, VECTOR_SIZE, N*sizeof(float));
-    posix_memalign((void **)&y, VECTOR_SIZE, N*sizeof(float));
-    posix_memalign((void **)&z, VECTOR_SIZE, N*sizeof(float));
-    
-    float a = 0.93f;
+void g(struct A@ref@ a)
+{
+    f(a.n1, a.m1, (int (*@ref@)[a.m1]) a.p);
+}
 
-    int i, j;
+void h(int n, int m)
+{
+    struct A a;
 
-    for (i=0; i<N; i++)
-    {
-        x[i] = i+1;
-        y[i] = i-1;
-        z[i] = 0.0f;
-    }
+    int b[n][m];
+    memset(b, 0, sizeof(b));
+    fprintf(stderr, "SIZEOF -> %zd\n", sizeof(b));
 
-    for (i=0; i<iters; i++)
-    {
-        saxpy(x, y, z, a, N);
-    }
+    a.n1 = n;
+    a.m1 = m;
+    a.p = b;
 
-    for (i=0; i<N; i++)
-    {
-        if (z[i] != (a * x[i] + y[i]))
-        {
-            printf("Error\n");
-            return (1);
-        }
-    }
+    g(a);
 
-    printf("SUCCESS!\n");
+    // fprintf(stderr, "(2) n = %d | m = %d | %p\n\n", n, m, &(b[n-1][m-1]));
+
+    if (b[n-1][m-1] != 42)
+        abort();
+
+    if (global != &(b[n-1][m-1]))
+        abort();
+}
+
+int main(int argc, char *argv[])
+{
+    h(11, 21);
+    h(12, 22);
+    h(11, 22);
+    h(23, 11);
+    h(12, 22);
+    h(23, 23);
+    h(24, 24);
+
     return 0;
 }
-

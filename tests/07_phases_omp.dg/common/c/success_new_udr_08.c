@@ -58,7 +58,7 @@ my_complex_t complex_mul (my_complex_t a, my_complex_t b)
 #define N 100
 my_complex_t vector[N];
 
-int main(my_complex_t x, my_complex_t y)
+int foo(my_complex_t x, my_complex_t y)
 {
     int i;
 
@@ -72,3 +72,10 @@ int main(my_complex_t x, my_complex_t y)
     return 0;
 }
 
+int main(int argc, char* argv[])
+{
+    my_complex_t c = { 0, 0 };
+    my_complex_t d = { 0, 0 };
+
+    return foo(c, d);
+}
