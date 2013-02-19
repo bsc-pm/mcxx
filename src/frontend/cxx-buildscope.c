@@ -11042,6 +11042,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     C_LANGUAGE()
     {
+        // Ensure we use the type of the definition
+        entry->type_information = declarator_type;
+
         AST kr_parameter_declaration = ASTSon1(a);
         AST kr_parameter_list = get_function_declarator_parameter_list(function_declarator, decl_context);
 
