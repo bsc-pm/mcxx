@@ -7223,6 +7223,11 @@ static void set_array_type(type_t** declarator_type,
                 nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->file, new_vla_dim->line);
                 nodecl_set_type(nodecl_expr, new_vla_dim->type_information);
             }
+            else if (decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+            {
+                nodecl_expr = nodecl_make_vla_wildcard(get_signed_int_type(),
+                        ASTFileName(constant_expr), ASTLine(constant_expr));
+            }
         }
     }
 

@@ -246,6 +246,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt module(vector)
+                  | NODECL_VLA_WILDCARD() type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
