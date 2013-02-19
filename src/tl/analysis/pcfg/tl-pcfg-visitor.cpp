@@ -321,29 +321,6 @@ namespace Analysis {
         return merge_nodes(n, previous_nodes);
     }
 
-//     Node* PCFGVisitor::merge_nodes(Node* subscripted, Node* subscript)
-//     {
-//         if(subscripted->get_data<Node_type>(_NODE_TYPE) || subscript->get_data<Node_type>(_NODE_TYPE))
-//         {
-//
-//         }
-//         else
-//         {
-//             ObjectList<Nodecl::NodeclBase> lhs = subscripted->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             ObjectList<Nodecl::NodeclBase> rhs = subscript->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             if(lhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscripted value not correct. It must have just one statement", 0);
-//             }
-//             if(rhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscript value not correct. It must have just one statement", 0);
-//             }
-//
-//
-//         }
-//     }
-
     // ************************************************************************************** //
     // ******************************** Non visiting methods ******************************** //
 
@@ -922,7 +899,7 @@ namespace Analysis {
             _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_init );
         }
 
-        // Create the natural loop graph node
+        // Create the loop graph node
         Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_FOR );
         int n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
@@ -999,6 +976,61 @@ namespace Analysis {
         _pcfg->_function_sym = n.get_symbol( );
 
         return walk( n.get_statements( ) );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
+    {
+        // Create the asm definition graph node
+        Node* asm_def_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, ASM_DEF );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_def_graph_node );
+
+        Node* entry_node = asm_def_graph_node->get_graph_entry_node( );
+        Node* exit_node = asm_def_graph_node->get_graph_exit_node( );
+
+        // Build the node containing the asm function text
+        Nodecl::Text text = Nodecl::Text::make( n.get_text( ) );
+        Node* text_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), text );
+        text_node->set_asm_info( ASM_DEF_TEXT );
+        _pcfg->connect_nodes( entry_node, text_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, text_node );
+
+        // Build the node containing the output operands
+        ObjectList<Node*> op0 = walk( n.get_operands0( ) );
+        if( !op0.empty( ) )
+        {
+            op0[0]->set_asm_info( ASM_DEF_OUTPUT_OPS );
+        }
+
+        // Build the node containing the input operands
+        ObjectList<Node*> op1 = walk( n.get_operands1( ) );
+        op1[0]->set_asm_info( ASM_DEF_INPUT_OPS );
+
+        // Build the node containing the clobbered registers
+        ObjectList<Node*> op2 = walk( n.get_operands2( ) );
+        if( !op2.empty( ) )
+        {
+            op2[0]->set_asm_info( ASM_DEF_CLOBBERED_REGS );
+        }
+
+//         walk( n.get_specs( ) );      // Specs are not used for any analysis
+
+        // Link properly the exit node
+        exit_node->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+        _utils->_outer_nodes.pop( );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_def_graph_node );
+        return ObjectList<Node*>( 1, asm_def_graph_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmOperand& n )
+    {
+        Node* asm_op_node = new Node( _utils->_nid, ASM_OP, _utils->_outer_nodes.top( ), n );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_op_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_op_node );
+
+        return ObjectList<Node*>( 1, asm_op_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
@@ -2010,6 +2042,11 @@ namespace Analysis {
         }
 
         // Create the node
+        return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Text& n )
+    {
         return visit_literal_node( n );
     }
 

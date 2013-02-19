@@ -254,6 +254,8 @@ namespace Analysis {
         Ret visit( const Nodecl::ForStatement& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::FunctionCode& n );
+        Ret visit( const Nodecl::GccAsmDefinition& n );
+        Ret visit( const Nodecl::GccAsmOperand& n );
         Ret visit( const Nodecl::GotoStatement& n );
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
@@ -336,6 +338,7 @@ namespace Analysis {
         Ret visit( const Nodecl::StructuredValue& n );
         Ret visit( const Nodecl::SwitchStatement& n );
         Ret visit( const Nodecl::Symbol& n );
+        Ret visit( const Nodecl::Text& n );
         Ret visit( const Nodecl::Throw& n );
 //      Ret visit( const Nodecl::TopLevel& n ); // This method is not implemented because PCFGVisitor must visit
                                                 // sections of code creating a unique PCFG.

@@ -246,6 +246,12 @@ namespace Analysis {
             //! Returns true when the node is a FUNCTION_CALL node
             bool is_function_call_node( );
 
+            //! Returns true when the node is an ASM_DEF node
+            bool is_asm_def_node( );
+
+            //! Returns true when the node is an ASM_OP node
+            bool is_asm_op_node( );
+
             //! Returns true when the node is a TASK node
             bool is_task_node( );
 
@@ -339,6 +345,12 @@ namespace Analysis {
             //! Returns the symbol of the statement label contained in the node
             //! If is only valid for Goto or Labeled nodes
             void set_label( Symbol s );
+
+            //! Returns the type of a node that is part of a GCC ASM function
+            ASM_node_info get_asm_info( );
+
+            //! Sets the type of a node that is part of a GCC ASM function
+            void set_asm_info( ASM_node_info inf );
 
             // ******** END Getters and setters for PCFG structural nodes and types ********* //
             // ****************************************************************************** //
