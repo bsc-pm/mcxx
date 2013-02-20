@@ -994,17 +994,6 @@ namespace TL { namespace Nanox {
         Source extra_declarations;
         Source final_statements, initial_statements;
 
-        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        if (IS_CXX_LANGUAGE
-                && !is_function_task
-                && current_function.is_member()
-                && !current_function.is_static()
-                && it != data_items.end())
-        {
-            ++it;
-        }
-
         // *** Unpacked (and forward in Fortran) function ***
         TL::Symbol unpacked_function, forward_function;
         if (IS_FORTRAN_LANGUAGE)
@@ -1184,6 +1173,17 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
 
         Source unpacked_arguments, cleanup_code;
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+        if (IS_CXX_LANGUAGE
+                && !is_function_task
+                && current_function.is_member()
+                && !current_function.is_static()
+                && it != data_items.end())
+        {
+            ++it;
+        }
+
         for (; it != data_items.end(); it++)
         {
             switch ((*it)->get_sharing())
