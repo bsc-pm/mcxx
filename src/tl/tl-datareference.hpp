@@ -150,7 +150,7 @@ namespace TL
                     Nodecl::NodeclBase reference_expr,
                     TL::Scope scope) const;
 
-            Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr) const;
+            Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr, bool reference) const;
     };
 }
 

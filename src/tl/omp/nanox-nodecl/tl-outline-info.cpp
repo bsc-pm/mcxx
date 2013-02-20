@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
 
         outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
 
-        outline_info.set_base_address_expression(data_ref.get_base_address());
+        outline_info.set_base_address_expression(data_ref.get_address_of_symbol());
 
         Type t = sym.get_type();
         if (t.is_any_reference())
