@@ -6921,6 +6921,19 @@ void vector_types_set_flavor(const char* c)
     }
 }
 
+const char* vector_types_get_vector_flavor(void)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
+        {
+            return vector_flavors[i];
+        }
+    }
+    return NULL;
+}
+
 const char* print_mask_type_intel(
         decl_context_t decl_context UNUSED_PARAMETER,
         type_t* t,

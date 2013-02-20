@@ -716,6 +716,7 @@ LIBMCXX_EXTERN char is_interoperable_variant_type(type_t* t);
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
+LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 
 // DO NOT USE THESE FUNCTIONS!
 // They are used solely for Fortran modules and type serialization

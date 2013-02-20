@@ -3428,6 +3428,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
     file << node.get_text();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VlaWildcard& node)
+{
+    file << "*";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
 {
     move_to_namespace(node.retrieve_context().get_decl_context().namespace_scope->related_entry);
@@ -5384,9 +5389,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             walk_type_for_symbols(
                     symbol.get_type(),
-                    &CxxBase::declare_symbol_if_nonlocal,
-                    &CxxBase::define_symbol_if_nonlocal,
-                    &CxxBase::define_nonprototype_entities_in_trees);
+                    &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                    &CxxBase::define_symbol_if_nonlocal_nonprototype,
+                    &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
         char is_primary_template = 0;
