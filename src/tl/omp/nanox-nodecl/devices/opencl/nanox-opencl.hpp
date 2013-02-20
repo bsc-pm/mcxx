@@ -41,6 +41,22 @@ namespace TL
         {
             private:
 
+                Nodecl::List _extra_c_code;
+
+                // Source emit_allocate_statement(
+                //         TL::Symbol sym,
+                //         int &lower_bound_index,
+                //         int &upper_bound_index);
+
+                void add_forward_code_to_extra_c_code(
+                        const std::string& outline_name,
+                        TL::ObjectList<OutlineDataItem*> data_items,
+                        Nodecl::NodeclBase parse_context);
+
+                TL::Type rewrite_type_of_vla_in_outline(
+                        TL::Type t,
+                        const TL::ObjectList<OutlineDataItem*> &data_items,
+                        TL::Symbol& arguments_symbol);
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
@@ -59,20 +75,20 @@ namespace TL
 
                 virtual ~DeviceOpenCL() { }
 
-             virtual void create_outline(CreateOutlineInfo &info,
-                     Nodecl::NodeclBase &outline_placeholder,
-                     Nodecl::NodeclBase &output_statements,
-                     Nodecl::Utils::SymbolMap* &symbol_map);
+                virtual void create_outline(CreateOutlineInfo &info,
+                        Nodecl::NodeclBase &outline_placeholder,
+                        Nodecl::NodeclBase &output_statements,
+                        Nodecl::Utils::SymbolMap* &symbol_map);
 
-             virtual void get_device_descriptor(DeviceDescriptorInfo& info,
-                     Source &ancillary_device_description,
-                     Source &device_descriptor,
-                     Source &fortran_dynamic_init);
+                virtual void get_device_descriptor(DeviceDescriptorInfo& info,
+                        Source &ancillary_device_description,
+                        Source &device_descriptor,
+                        Source &fortran_dynamic_init);
 
-            virtual void copy_stuff_to_device_file(
-                    const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
+                virtual void copy_stuff_to_device_file(
+                        const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
-             bool allow_mandatory_creation();
+                bool allow_mandatory_creation();
 
              virtual bool is_gpu_device() const;
 
