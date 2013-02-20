@@ -986,9 +986,6 @@ void DeviceOpenCL::generate_ndrange_code(
     Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
     
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-    ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
-
     int num_params = parameters_called.size();
 
     const std::map<TL::Symbol, TL::Symbol>* called_task_map = called_fun_param_to_args_map->get_simple_symbol_map();
@@ -1040,10 +1037,10 @@ void DeviceOpenCL::generate_ndrange_code(
     //Prepare setArgs
     for (int i = 0; i < num_params; ++i) {
         if (nonadjusted_params[i].is_pointer() && !nonadjusted_params[i].is_array()) {
-            code_ndrange << "nanos_opencl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(parameters_unpacked[i]) <<");";
+            code_ndrange << "nanos_opencl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
         } else {            
             code_ndrange << "nanos_opencl_set_arg(ompss_kernel_ocl," << i << ", "
-                "sizeof(" << as_type(nonadjusted_params[i]) << "),&" << as_symbol(parameters_unpacked[i]) <<");";
+                "sizeof(" << as_type(nonadjusted_params[i]) << "),&" << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
         }        
     }
     //Prepare ndrange calc pointers and arrays
