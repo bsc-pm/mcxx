@@ -1838,7 +1838,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     type_t* return_type = get_void_type();
     if (is_function)
     {
-        // The return type has been specified
+        // The return type has already been specified
         if (existing_name != NULL)
         {
             return_type = existing_name->type_information;
@@ -1946,7 +1946,12 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             
             remove_unknown_kind_symbol(decl_context, result_sym);
 
-            result_sym->type_information = get_lvalue_reference_type(return_type);
+            if (result_sym->entity_specs.is_implicit_basic_type)
+            {
+                // If the symbol does not have any type, use the computed return type so far
+                // (otherwise its type is the one we want!)
+                result_sym->type_information = get_lvalue_reference_type(return_type);
+            }
 
             return_type = get_indirect_type(result_sym);
 
@@ -1964,6 +1969,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 // Insert the entry-name only if they are different
                 insert_entry(decl_context.current_scope, entry);
             }
+
         }
     }
     else if (is_function)
@@ -1979,15 +1985,11 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         remove_unknown_kind_symbol(decl_context, result_sym);
 
-        char function_has_type_spec = 0;
-        result_sym->type_information = get_lvalue_reference_type(return_type);
-        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
-
-        if (!function_has_type_spec)
+        if (result_sym->entity_specs.is_implicit_basic_type)
         {
-            // Add it as an explicit unknown symbol because we want it to be
-            // updated with a later IMPLICIT
-            add_untyped_symbol(decl_context, result_sym);
+            // If the symbol does not have any type, use the computed return type so far
+            // (otherwise its type is the one we want!)
+            result_sym->type_information = get_lvalue_reference_type(return_type);
         }
 
         return_type = get_indirect_type(result_sym);

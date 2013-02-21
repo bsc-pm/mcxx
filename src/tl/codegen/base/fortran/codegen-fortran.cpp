@@ -2096,6 +2096,7 @@ OPERATOR_TABLE
              << entry.get_name() 
              << "(";
         
+        TL::Symbol result_var;
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -2103,7 +2104,10 @@ OPERATOR_TABLE
         {
             TL::Symbol &dummy(*it);
             if (dummy.is_result_variable())
+            {
+                result_var = dummy;
                 continue;
+            }
 
             if (it != related_symbols.begin())
                 file << ", ";
@@ -2118,7 +2122,13 @@ OPERATOR_TABLE
                 file << dummy.get_name();
             }
         }
-        file << ")\n";
+        file << ")";
+        if (result_var.is_valid()
+                && result_var.get_name() != entry.get_name())
+        {
+            file << " RESULT(" << result_var.get_name() << ")";
+        }
+        file << "\n";
     }
 
 
