@@ -5172,15 +5172,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (array_spec != NULL)
                 {
-                    if (current_attr_spec.is_dimension)
-                    {
-                        error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                    }
-                    else
-                    {
-                        current_attr_spec.is_dimension = 1;
-                        current_attr_spec.array_spec = array_spec;
-                    }
+                    // Override the DIMENSION attribute
+                    current_attr_spec.is_dimension = 1;
+                    current_attr_spec.array_spec = array_spec;
                 }
 
                 if (coarray_spec != NULL)
