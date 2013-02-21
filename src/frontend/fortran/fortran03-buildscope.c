@@ -170,7 +170,7 @@ nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_un
     return nodecl_program_units;
 }
 
-static void build_scope_program_unit_internal(AST program_unit, 
+static void build_scope_program_unit_internal(AST program_unit,
         decl_context_t decl_context,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
