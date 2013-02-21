@@ -175,7 +175,7 @@ static void build_scope_program_unit_internal(AST program_unit,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
-void build_scope_program_unit_seq(AST program_unit_seq, 
+void build_scope_program_unit_seq(AST program_unit_seq,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
