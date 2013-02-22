@@ -320,13 +320,13 @@ simd_flags=
 simd_includes=
 nanox_sse="no"
 
-  if test "$ax_cv_have_sse42_ext" = yes; 
+  if test "$ax_cv_have_sse42_ext" = yes;
   then
         simd_version="SSE4.2"
         simd_flags="-msse4.2"
         simd_includes="-msse4.2 -include nmmintrin.h"
         nanox_sse="yes"
-  else if test "$ax_cv_have_sse41_ext" = yes; 
+  else if test "$ax_cv_have_sse41_ext" = yes;
   then
         simd_version="SSE4.1"
         simd_flags="-msse4.1"
@@ -1196,6 +1196,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/liveness/Makefile
            src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
+           src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/vectorizer/Makefile
@@ -1213,6 +1214,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile

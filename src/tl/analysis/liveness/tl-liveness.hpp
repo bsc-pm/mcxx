@@ -56,8 +56,6 @@ namespace Analysis {
 
         void solve_specific_live_in_tasks( Node* current );
 
-        bool task_is_in_loop( Node* current );
-
         //! Computes Live Out information:
         //! Live Out (X) = Union of all Live In (Y), for all Y successors of X
         Utils::ext_sym_set compute_live_out( Node* current, Node* container_task );

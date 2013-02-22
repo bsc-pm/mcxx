@@ -1354,6 +1354,10 @@ namespace Analysis {
     {
         PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+
+        // Set the task related to this clause to have auto-scoping enabled
+        _utils->_environ_entry_exit.top( ).first->get_outer_node( )->set_auto_scoping_enabled( );
+
         return ObjectList<Node*>( );
     }
 

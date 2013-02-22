@@ -62,7 +62,7 @@ namespace Analysis {
                         Node* new_source = nodes_m[( *it )->get_source( )];
                         Node* new_target = nodes_m[old_node];
                         new_parents.append(new_source);
-                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_task_edge( ),
+                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_task_edge( ),
                                                         (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(new_parents, nodes_m[old_node], new_entry_edges);
@@ -76,7 +76,7 @@ namespace Analysis {
                         Node* new_source = nodes_m[old_node];
                         Node* new_target = nodes_m[(*it)->get_target( )];
                         new_children.append(new_target);
-                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_back_edge( ),
+                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_task_edge( ),
                                                         (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(nodes_m[old_node], new_children, new_exit_edges);
@@ -141,14 +141,14 @@ namespace Analysis {
     }
 
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
-                                          bool is_back_edge, bool is_task_edge )
+                                          bool is_task_edge )
     {
         Edge* edge;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
             {
-                edge = new Edge( parent, child, is_back_edge, is_task_edge, etype, label );
+                edge = new Edge( parent, child, is_task_edge, etype, label );
                 parent->set_exit_edge( edge );
                 child->set_entry_edge( edge );
             }
@@ -225,7 +225,7 @@ namespace Analysis {
         for( ; it != parents.end( ), itt != etypes.end( ), itl != labels.end( );
              ++it, ++itt, ++itl )
         {
-            connect_nodes( *it, child, *itt, *itl, /*is_back_edge*/ false, is_task_edge );
+            connect_nodes( *it, child, *itt, *itl, is_task_edge );
         }
 
         if( it != parents.end( ) || itt != etypes.end( ) || itl != labels.end( ) )
@@ -236,11 +236,11 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label, bool is_back_edge )
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            connect_nodes( *it, child, etype, label, is_back_edge );
+            connect_nodes( *it, child, etype, label );
         }
     }
 
@@ -749,6 +749,20 @@ namespace Analysis {
         }
     }
 
+    void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
+    {
+        if( current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( false );
+
+            ObjectList<Node*> parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            {
+                clear_visits_aux_backwards( *it );
+            }
+        }
+    }
+
     void ExtensibleGraph::clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited_aux( ) && ( current->get_outer_node( )->get_id( ) == outer_node->get_id( ) ) )
@@ -893,6 +907,41 @@ namespace Analysis {
         }
 
         return NULL;
+    }
+
+
+    bool ExtensibleGraph::is_in_loop( Node* current )
+    {
+        bool res = false;
+
+        Node* outer_node = current->get_outer_node( );
+        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
+        {
+            outer_node = outer_node->get_outer_node( );
+        }
+
+        if( ( outer_node != NULL ) && outer_node->is_loop_node( ) )
+        {
+            res = true;
+        }
+
+        return res;
+    }
+
+    bool ExtensibleGraph::is_in_conditional_branch( Node* current )
+    {
+        bool res = false;
+
+        Node* outer_node = current->get_outer_node( );
+        while( ( outer_node != NULL ) && !res )
+        {
+            if( outer_node->is_ifelse_statement( ) || outer_node->is_switch_statement( ) )
+            {
+                res = true;
+            }
+        }
+
+        return res;
     }
 
     void ExtensibleGraph::print_global_vars( ) const

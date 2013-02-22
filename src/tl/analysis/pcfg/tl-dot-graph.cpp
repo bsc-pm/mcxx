@@ -52,7 +52,11 @@ namespace Analysis {
         std::ofstream dot_pcfg;
 
         char buffer[1024];
-        getcwd(buffer, 1024);
+        char* err = getcwd(buffer, 1024);
+        if( err == NULL )
+        {
+            internal_error ( "An error occurred while getting the path of the current directory", 0 );
+        }
 
         // Create the directory of dot files if it has not been previously created
         struct stat st;
@@ -419,7 +423,7 @@ namespace Analysis {
                 dot_analysis_info += "[ltail=" + cluster_name + "]\n";
             dot_analysis_info += "\n";
         }
-        if( current->is_task_node( ) )
+        if( current->is_omp_task_node( ) )
         {
             std::string auto_scope_str = print_node_data_sharing( current, auto_scoping );
             if( !auto_scope_str.empty() )
@@ -608,21 +612,13 @@ namespace Analysis {
 
         for( Utils::ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            if( it->get_nodecl( ).is_null( ) )
-            {
-                result += it->get_name( ) + ", ";
-            }
-            else
-            {
-                nodecl_t n = it->get_nodecl( ).get_internal_nodecl( );
-                result += std::string( codegen_to_str( n, nodecl_retrieve_context( n ) ) ) + ", ";
-            }
+            result += it->get_nodecl( ).prettyprint( ) + ", ";
         }
 
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
-            makeup_dot_block(result);
+            makeup_dot_block( result );
         }
 
         return result;

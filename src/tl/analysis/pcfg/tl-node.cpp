@@ -311,6 +311,16 @@ namespace Analysis {
         return ( get_type( ) == CONTINUE );
     }
 
+    bool Node::is_ifelse_statement( )
+    {
+        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == IF_ELSE );
+    }
+
+    bool Node::is_switch_statement( )
+    {
+        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == SWITCH );
+    }
+
     bool Node::is_goto_node( )
     {
         return ( get_type( ) == GOTO );
@@ -392,9 +402,29 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
-    bool Node::is_task_node( )
+    bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
+    }
+
+    bool Node::is_omp_taskwait_node( )
+    {
+        return ( get_type( ) == OMP_TASKWAIT );
+    }
+
+    bool Node::is_omp_barrier_node( )
+    {
+        return ( get_type( ) == OMP_BARRIER );
+    }
+
+    bool Node::is_omp_atomic_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
+    }
+
+    bool Node::is_omp_critical_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
     }
 
     bool Node::is_connected( )
@@ -771,6 +801,11 @@ namespace Analysis {
             internal_error( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
             return Scope( );
         }
+    }
+
+    bool Node::has_statements( )
+    {
+        return ( has_key( _NODE_STMTS ) );
     }
 
     ObjectList<Nodecl::NodeclBase> Node::get_statements( )
@@ -1495,6 +1530,16 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for auto-scoping analysis **************** //
 
+    bool Node::is_auto_scoping_enabled( )
+    {
+        return ( has_key( _SC_AUTO ) );
+    }
+
+    void Node::set_auto_scoping_enabled( )
+    {
+        set_data( _SC_AUTO, true );
+    }
+
     Utils::ext_sym_set Node::get_sc_shared_vars( )
     {
         Utils::ext_sym_set sc_shared_vars;
@@ -1805,13 +1850,34 @@ namespace Analysis {
     {
         if( VERBOSE )
         {
-            std::string private_s      = " - Private: "      + print_set( get_sc_private_vars( ) )      + "\n";
-            std::string firstprivate_s = " - Firstprivate: " + print_set( get_sc_firstprivate_vars( ) ) + "\n";
-            std::string race_s         = " - Race: "         + print_set( get_sc_race_vars( ) )         + "\n";
-            std::string shared_s       = " - Shared: "       + print_set( get_sc_shared_vars( ) )       + "\n";
-            std::string undef_s        = " - Undef: "        + print_set( get_sc_undef_vars( ) )        + "\n";
+            Utils::ext_sym_set private_vars = get_sc_private_vars( );
+            Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+            Utils::ext_sym_set race_vars = get_sc_race_vars( );
+            Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+            Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
 
-            std::cerr << private_s << firstprivate_s << race_s << shared_s << undef_s << std::endl;
+//             if( !private_vars.empty( ) || !firstprivate_vars.empty( ) || !race_vars.empty( )
+//                 || !shared_vars.empty( ) || !undef_vars.empty( ) )
+//             {
+//                 std::cerr << "Task #pragma omp task '"
+//                           << get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).prettyprint( )
+//                           << "'" << std::endl;
+//             }
+
+            if( !private_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as private: "             << print_set( private_vars )      << std::endl;
+
+            if( !firstprivate_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as firstprivate: "        << print_set( firstprivate_vars ) << std::endl;
+
+            if( !race_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as race: "                << print_set( race_vars )         << std::endl;
+
+            if( !shared_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as shared: "              << print_set( shared_vars )            << std::endl;
+
+            if( !undef_vars.empty( ) )
+                std::cerr << " Variables that cannot be automatically scoped: " << print_set( undef_vars )        << std::endl;
         }
     }
 
