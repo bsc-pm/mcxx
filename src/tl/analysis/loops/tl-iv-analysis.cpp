@@ -45,7 +45,6 @@ namespace Analysis {
         }
         else
         {
-            std::cerr << "[is_constant_in_loop]  -->  " << c.prettyprint( );
             cs.append( c );
         }
 
@@ -57,7 +56,6 @@ namespace Analysis {
                 for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
                      itm != memory_accesses.end( ) && result; ++itm )
                 {
-                    std::cerr << "           " << itm->prettyprint( ) << std::endl;
                     if ( Utils::ext_sym_set_contains_nodecl( *itm, loop->get_killed_vars( ) )
                          || Utils::ext_sym_set_contains_nodecl( *itm, loop->get_undefined_behaviour_vars( ) ) )
                     {
@@ -66,7 +64,6 @@ namespace Analysis {
                 }
             }
         }
-        std::cerr << "   -> " << ( result ? "TRUE" : "FALSE" ) << std::endl;
 
         return result;
     }
@@ -92,7 +89,6 @@ namespace Analysis {
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
-                std::cerr << "Assignment: " << st_.prettyprint( ) << std::endl;
 
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
                     && is_constant_in_loop( loop, lhs_rhs )
@@ -126,7 +122,6 @@ namespace Analysis {
         else if( st.is<Nodecl::AddAssignment>( ) )
         {   // Expression accepted: iv += x;
             Nodecl::AddAssignment st_ = st.as<Nodecl::AddAssignment>( );
-            std::cerr << "Assign: " << st_.prettyprint( ) << std::endl;
             Nodecl::NodeclBase lhs = st_.get_lhs( );
             if( is_constant_in_loop( loop, st_.get_rhs( ) )
                 && ( !lhs.is<Nodecl::ArraySubscript>( )
