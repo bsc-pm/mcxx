@@ -1070,7 +1070,7 @@ void DeviceOpenCL::generate_ndrange_code(
             << "size_t* offset_ptr;"
             << "size_t* global_size_ptr;"
             << "size_t* final_local_size_ptr;"
-            << as_type(TL::Type::get_bool_type()) << " local_size_zero = false;"
+            << as_type(TL::Type::get_bool_type()) << " local_size_zero = 0;"
             << "int i = 0;"
             ;
 
@@ -1139,7 +1139,7 @@ void DeviceOpenCL::generate_ndrange_code(
             << "{"
             <<     "if (local_size_ptr[i] == 0)"
             <<     "{"
-            <<         "local_size_zero = true;"
+            <<         "local_size_zero = 1;"
             <<     "}"
             << " }"
             << "if (local_size_zero)"
@@ -1170,7 +1170,6 @@ void DeviceOpenCL::generate_ndrange_code(
                 ;
         }
 
-
         if (check_dim)
         {
             code_ndrange
@@ -1185,8 +1184,6 @@ void DeviceOpenCL::generate_ndrange_code(
                 //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
                 << "nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, final_local_size_ptr, global_size_arr);";
             ;
-
-
         }
         else
         {
@@ -1203,14 +1200,6 @@ void DeviceOpenCL::generate_ndrange_code(
                 ;
         }
     }
-
-
-
-
-
-
-
-
 }
 
 void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
