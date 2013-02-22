@@ -24,27 +24,31 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+include ../Makefile.phases
 
-include ../../../Makefile.phases
+SUBDIRS = sse knc .
 
-phases_LTLIBRARIES = libcodegen-sse-module.la
+
+phases_LTLIBRARIES = libtlvector-lowering.la
 
 END=
 
-libcodegen_sse_module_la_CFLAGS = $(tl_cflags) \
-    -I $(srcdir)/../../common \
-    $(END)
+libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
 
-libcodegen_sse_module_la_CXXFLAGS = $(tl_cflags) \
-    -I $(srcdir)/../../common \
-    $(END)
+libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
 
-libcodegen_sse_module_la_LDFLAGS = $(tl_ldflags)
-libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
-					       $(END)
+libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)
 
+libtlvector_lowering_la_SOURCES = \
+    tl-vector-lowering.cpp \
+    tl-vector-lowering.hpp \
+	$(END)
 
-libcodegen_sse_module_la_SOURCES = \
-	 codegen-sse-module.hpp \
-	 codegen-sse-module.cpp \
-  	 $(END)
+libtlvector_lowering_la_LIBADD = $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+                                 $(END)

@@ -24,4 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=common base gpu
+
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtl-vector-lowering-knc.la
+
+END=
+
+libtl_vector_lowering_knc_la_CFLAGS = $(tl_cflags) \
+    $(END)
+
+libtl_vector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+    $(END)
+
+libtl_vector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
+libtl_vector_lowering_knc_la_LIBADD = $(END)
+
+
+libtl_vector_lowering_knc_la_SOURCES = 
+#     tl_vector_lowering_knc.hpp 
+#     tl-vector-lowering-knc.cpp 

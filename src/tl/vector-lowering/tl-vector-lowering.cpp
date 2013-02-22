@@ -24,17 +24,27 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_VECTOR_PHASE_HPP
-#define CODEGEN_VECTOR_PHASE_HPP
+#include "tl-vector-lowering.hpp"
+#include "tl-vector-lowering-sse.hpp"
+//#include "tl-vector-lowering-knc.hpp"
 
-#include "tl-compilerphase.hpp"
-
-namespace Codegen
+namespace TL
 {
-    class CodegenVectorPhase : public TL::CompilerPhase
+    namespace Vectorization
     {
-        virtual void run(TL::DTO& dto);
-    };
+        VectorLoweringPhase::VectorLoweringPhase()
+        {
+        }
+
+        void VectorLoweringPhase::run(TL::DTO& dto)
+        {
+            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+
+            //TODO
+            SSEVectorLowering sse_vector_lowering;
+            sse_vector_lowering.walk(translation_unit);
+        }
+    }
 }
 
-#endif // CODEGEN_VECTOR_PHASE_HPP
+EXPORT_PHASE(TL::Vectorization::VectorLoweringPhase);

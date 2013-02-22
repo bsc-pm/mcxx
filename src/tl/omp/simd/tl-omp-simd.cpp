@@ -125,6 +125,9 @@ namespace TL {
             {
                 simd_node.append_sibling(epilog);
             }
+
+            // Remove Simd node
+            simd_node.replace(for_statement);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
