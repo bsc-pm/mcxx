@@ -34,8 +34,44 @@
 namespace TL {
 namespace Analysis {
 
+    static bool is_constant_in_loop( Node* loop, Nodecl::NodeclBase c )
+    {
+        bool result = true;
 
-    bool is_accepted_induction_variable_syntax( Nodecl::NodeclBase stmt,
+        Nodecl::List cs;
+        if( c.is<Nodecl::List>( ) )
+        {
+            cs = c.as<Nodecl::List>( );
+        }
+        else
+        {
+            std::cerr << "[is_constant_in_loop]  -->  " << c.prettyprint( );
+            cs.append( c );
+        }
+
+        for( Nodecl::List::iterator it = cs.begin( ); it != cs.end( ) && result; ++it )
+        {
+            if( !it->is_constant( ) )
+            {
+                ObjectList<Nodecl::NodeclBase> memory_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
+                     itm != memory_accesses.end( ) && result; ++itm )
+                {
+                    std::cerr << "           " << itm->prettyprint( ) << std::endl;
+                    if ( Utils::ext_sym_set_contains_nodecl( *itm, loop->get_killed_vars( ) )
+                         || Utils::ext_sym_set_contains_nodecl( *itm, loop->get_undefined_behaviour_vars( ) ) )
+                    {
+                        result = false;
+                    }
+                }
+            }
+        }
+        std::cerr << "   -> " << ( result ? "TRUE" : "FALSE" ) << std::endl;
+
+        return result;
+    }
+
+    bool is_accepted_induction_variable_syntax( Node* loop, Nodecl::NodeclBase stmt,
                                                 Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr )
     {
         bool is_iv = false;
@@ -56,9 +92,13 @@ namespace Analysis {
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
+                std::cerr << "Assignment: " << st_.prettyprint( ) << std::endl;
 
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && lhs_rhs.is_constant( ) )
+                    && is_constant_in_loop( loop, lhs_rhs )
+                    && ( !lhs.is<Nodecl::ArraySubscript>( )
+                         || ( lhs.is<Nodecl::ArraySubscript>( )
+                              && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
@@ -72,7 +112,10 @@ namespace Analysis {
                 rhs_rhs = _rhs.get_rhs( );
 
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && lhs_rhs.is_constant( ) )
+                    && is_constant_in_loop( loop, lhs_rhs )
+                    && ( !lhs.is<Nodecl::ArraySubscript>( )
+                         || ( lhs.is<Nodecl::ArraySubscript>( )
+                              && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
@@ -83,7 +126,12 @@ namespace Analysis {
         else if( st.is<Nodecl::AddAssignment>( ) )
         {   // Expression accepted: iv += x;
             Nodecl::AddAssignment st_ = st.as<Nodecl::AddAssignment>( );
-            if( st_.get_rhs( ).is_constant( ) )
+            std::cerr << "Assign: " << st_.prettyprint( ) << std::endl;
+            Nodecl::NodeclBase lhs = st_.get_lhs( );
+            if( is_constant_in_loop( loop, st_.get_rhs( ) )
+                && ( !lhs.is<Nodecl::ArraySubscript>( )
+                        || ( lhs.is<Nodecl::ArraySubscript>( )
+                            && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
             {
                 iv = st_.get_lhs( );
                 incr = st_.get_rhs( );
@@ -93,8 +141,12 @@ namespace Analysis {
         else if( st.is<Nodecl::MinusAssignment>( ) )
         {   // Expression accepted: iv -= x;
             Nodecl::MinusAssignment st_ = st.as<Nodecl::MinusAssignment>( );
+            Nodecl::NodeclBase lhs = st_.get_lhs( );
             Nodecl::NodeclBase rhs = st_.get_rhs( );
-            if( st_.get_rhs( ).is_constant( ) )
+            if( is_constant_in_loop( loop, st_.get_rhs( ) )
+                && ( !lhs.is<Nodecl::ArraySubscript>( )
+                        || ( lhs.is<Nodecl::ArraySubscript>( )
+                            && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
             {
                 Nodecl::NodeclBase new_rhs = Nodecl::Neg::make( rhs, rhs.get_type( ),
                                                                 rhs.get_filename( ), rhs.get_line( ) );
@@ -221,10 +273,7 @@ namespace Analysis {
     {
         Nodecl::NodeclBase iv = Nodecl::NodeclBase::null( );
 
-        Node* loop_entry = loop->get_graph_entry_node( );
-        int id_end = loop->get_graph_exit_node( )->get_id( );
-
-        if( is_accepted_induction_variable_syntax( st, iv, incr ) )
+        if( is_accepted_induction_variable_syntax( loop, st, iv, incr ) )
         {
             // Get a list from the IVs in the map corresponding to the current loop
             ObjectList<Utils::InductionVariableData*> ivs;
@@ -237,7 +286,7 @@ namespace Analysis {
 
             if( !Utils::induction_variable_list_contains_variable( ivs, iv ) )
             {
-                if( !check_potential_induction_variable( iv, incr, st, loop_entry, id_end ) )
+                if( !check_potential_induction_variable( iv, incr, st, loop ) )
                 {
                     iv = Nodecl::NodeclBase::null( );
                 }
@@ -350,19 +399,19 @@ namespace Analysis {
     }
 
     bool InductionVariableAnalysis::check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                        Nodecl::NodeclBase stmt, Node* node, int id_end )
+                                                                        Nodecl::NodeclBase stmt, Node* loop )
     {
-        bool res = check_potential_induction_variable_rec( iv, incr, stmt, node, id_end );
-        ExtensibleGraph::clear_visits_aux( node );
+        bool res = check_potential_induction_variable_rec( iv, incr, stmt, loop->get_graph_entry_node( ), loop );
+        ExtensibleGraph::clear_visits_aux( loop );
         return res;
     }
 
     bool InductionVariableAnalysis::check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                            Nodecl::NodeclBase stmt, Node* node, int id_end )
+                                                                            Nodecl::NodeclBase stmt, Node* node, Node* loop )
     {
         bool result = true;
 
-        if( ( node->get_id( ) != id_end ) && !node->is_visited_aux( ) )
+        if( ( node->get_id( ) != loop->get_graph_exit_node( )->get_id( ) ) && !node->is_visited_aux( ) )
         {
             node->set_visited_aux( true );
 
@@ -373,7 +422,7 @@ namespace Analysis {
                 // Check the statement only if it is not the statement where the potential IV was found
                 if( !Nodecl::Utils::equal_nodecls( stmt, *it, /* skip conversion nodes */ true ) )
                 {
-                    FalseInductionVariablesVisitor v( iv, &incr );
+                    FalseInductionVariablesVisitor v( iv, &incr, loop );
                     v.walk( *it );
                     if( !v.get_is_induction_variable( ) )
                     {
@@ -389,7 +438,7 @@ namespace Analysis {
                 ObjectList<Node*> children = node->get_children( );
                 for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    if( !check_potential_induction_variable_rec( iv, incr, stmt, *it, id_end ) )
+                    if( !check_potential_induction_variable_rec( iv, incr, stmt, *it, loop ) )
                     {
                         result = false;
                         break;
@@ -414,8 +463,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ****************** Visitor that checks whether a potential IV is a real IV ****************** //
 
-    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr )
-            : _iv( iv ), _incr( incr ), _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
+    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr, Node* loop )
+            : _iv( iv ), _incr( incr ), _loop( loop ), _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
     {}
 
     bool FalseInductionVariablesVisitor::get_is_induction_variable( ) const
@@ -447,7 +496,7 @@ namespace Analysis {
             {
                 Nodecl::NodeclBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( n, _iv, new_incr ) )
+                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
                 {
                     // Check if the increments are linear and can be combined
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
@@ -496,7 +545,7 @@ namespace Analysis {
             {
                 Nodecl::NodeclBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( n, _iv, new_incr ) )
+                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
                 {
                     // Check if the increments are linear and can be combined
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
@@ -609,7 +658,7 @@ namespace Analysis {
             {
                 Nodecl::NodeclBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( n, _iv, new_incr ) )
+                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
                 {
                     // Check if the increments are linear and can be combined
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
