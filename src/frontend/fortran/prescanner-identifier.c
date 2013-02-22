@@ -114,6 +114,8 @@ typedef struct statements_information_tag statements_information_t;
 	STATEMENT_INFO(ST_TYPESPEC, 1, 1, NULL) \
 	STATEMENT_INFO(ST_INITIALIZATION, 1, 0, NULL) \
 	STATEMENT_INFO(ST_TYPEDECL, 1, 1, NULL) \
+	STATEMENT_INFO(ST_PRIVATE, 1, 1, "private") \
+	STATEMENT_INFO(ST_PUBLIC, 1, 1, "public") \
 	STATEMENT_INFO(ST_PROGRAM, 1, 1, "program") \
 	STATEMENT_INFO(ST_SUBROUTINE, 1, 1, "subroutine") \
 	STATEMENT_INFO(ST_FUNCTION, 1, 1, "function") \
