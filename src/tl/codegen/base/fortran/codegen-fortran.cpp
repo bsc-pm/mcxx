@@ -3887,14 +3887,7 @@ OPERATOR_TABLE
             if (sym.is_from_module()
                     && sym.get_access_specifier() == AS_PRIVATE)
             {
-                if (sym.is_generic_specifier())
-                {
-                    private_names.insert(get_generic_specifier_str(sym.get_name()));
-                }
-                else
-                {
-                    private_names.insert(sym.get_name());
-                }
+                private_names.insert(sym.get_name());
             }
         }
 
@@ -4491,7 +4484,7 @@ OPERATOR_TABLE
                 UseStmtItem& item (*it2);
                 TL::Symbol entry = item.symbol;
 
-                // We cannot use the generic specifier of an interface if it has not any implementation
+                // We cannot use the generic specifier of an interface if it does not have any implementation
                 // Example:
                 //
                 //      MODULE M
