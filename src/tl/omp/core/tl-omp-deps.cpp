@@ -172,7 +172,7 @@ namespace TL { namespace OpenMP {
                 }
                 else if (dependency_type == "out")
                 {
-                    dep_attr = DEP_DIR_IN;
+                    dep_attr = DEP_DIR_OUT;
                 }
                 else if (dependency_type == "inout")
                 {
