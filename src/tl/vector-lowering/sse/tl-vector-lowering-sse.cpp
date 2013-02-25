@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-vector-lowering-sse.hpp"
+#include "tl-source.hpp"
 
 namespace TL 
 {
@@ -38,34 +39,34 @@ namespace TL
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
-            intrin_name << "_mm_add";
+            intrin_src << "_mm_add";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -77,56 +78,50 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
-            intrin_name << "_mm_sub";
+            intrin_src << "_mm_sub";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -138,22 +133,16 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorMul& node) 
@@ -162,47 +151,47 @@ namespace TL
             TL::Type first_op_type = node.get_rhs().get_type().basic_type();
             TL::Type second_op_type = node.get_lhs().get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
-            intrin_name << "_mm_mul";
+            intrin_src << "_mm_mul";
 
             // Postfix
             if (result_type.is_float() &&
                     first_op_type.is_float() &&
                     second_op_type.is_float())
             {
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (result_type.is_double() &&
                     first_op_type.is_double() &&
                     second_op_type.is_double())
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd"; 
             }
             else if (result_type.is_signed_int() &&
                     first_op_type.is_signed_int() &&
                     second_op_type.is_signed_int())
             {
-                intrin_name << "lo_epi32"; 
+                intrin_src << "lo_epi32"; 
             } 
             else if (result_type.is_unsigned_int() &&
                     first_op_type.is_unsigned_int() &&
                     second_op_type.is_unsigned_int())
             {
-                intrin_name << "lo_epi32"; 
+                intrin_src << "lo_epi32"; 
             } 
 
             /* 
                else if (type.is_signed_short_int() ||
                type.is_unsigned_short_int()) 
                { 
-               intrin_name << "_epi16"; 
+               intrin_src << "_epi16"; 
                } 
                else if (type.is_char() || 
                type.is_signed_char() ||
                type.is_unsigned_char()) 
                { 
-               intrin_name << "_epi8"; 
+               intrin_src << "_epi8"; 
                }
              */ 
             else
@@ -215,57 +204,45 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }    
 
         void SSEVectorLowering::visit(const Nodecl::VectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_div";
+            intrin_src << "_mm_div";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
-            } 
-            else if (type.is_char() || 
-                    type.is_signed_char() ||
-                    type.is_unsigned_char()) 
-            { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi16"; 
             } 
             else
             {
@@ -277,53 +254,47 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_cmplt";
+            intrin_src << "_mm_cmplt";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -335,53 +306,47 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorGreaterThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_cmpgt";
+            intrin_src << "_mm_cmpgt";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -393,53 +358,47 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorEqual& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_cmpeq";
+            intrin_src << "_mm_cmpeq";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -451,41 +410,35 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorBitwiseAnd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_and";
+            intrin_src << "_mm_and";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_integral_type())
             { 
-                intrin_name << "_si128"; 
+                intrin_src << "_si128"; 
             } 
             else
             {
@@ -496,42 +449,36 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
+            
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
-
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorBitwiseOr& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_or";
+            intrin_src << "_mm_or";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_integral_type())
             { 
-                intrin_name << "_si128"; 
+                intrin_src << "_si128"; 
             } 
             else
             {
@@ -543,41 +490,35 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorBitwiseXor& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_xor";
+            intrin_src << "_mm_xor";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_integral_type())
             { 
-                intrin_name << "_si128"; 
+                intrin_src << "_si128"; 
             }
             else
             {
@@ -589,22 +530,16 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_lhs(),
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-            node.replace(intrin_node);
+            node.replace(function_call);
         }   
 
         void SSEVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
@@ -615,44 +550,33 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorNeg& node) 
         {
-            /* 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             if (type.is_float()) 
             { 
-                intrin_name << "_mm_xor_ps(_mm_castsi128_ps(_mm_set1_epi32(0x80000000)), ";
-                walk(node.get_rhs());
-                intrin_name << ")";
+                intrin_src << "_mm_xor_ps(_mm_castsi128_ps(_mm_set1_epi32(0x80000000)), ";
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_mm_xor_pd(_mm_castsi128_pd(_mm_set1_epi64(0x8000000000000000LL)), ";
-                walk(node.get_rhs());
-                intrin_name << ")";
+                intrin_src << "_mm_xor_pd(_mm_castsi128_pd(_mm_set1_epi64(0x8000000000000000LL)), ";
             }
             else if (type.is_signed_int() ||
                     type.is_unsigned_int())
             {
-                intrin_name << "(_mm_sub_epi32( _mm_setzero_si128(),";
-                walk(node.get_rhs());
-                intrin_name << "))";
+                intrin_src << "_mm_sub_epi32( _mm_setzero_si128(),";
             }
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int())
             {
-                intrin_name << "(_mm_sub_epi16( _mm_setzero_si128(),";
-                walk(node.get_rhs());
-                intrin_name << "))";
+                intrin_src << "_mm_sub_epi16( _mm_setzero_si128(),";
             }
             else if (type.is_char() ||
                     type.is_signed_char() ||
                     type.is_unsigned_char())
             {
-                intrin_name << "(_mm_sub_epi8( _mm_setzero_si128(),";
-                walk(node.get_rhs());
-                intrin_name << "))";
+                intrin_src << "_mm_sub_epi8( _mm_setzero_si128(),";
             }
             else
             {
@@ -660,7 +584,16 @@ namespace TL
                         ast_print_node_type(node.get_kind()),
                         node.get_locus().c_str());
             } 
-       */     
+
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorConversion& node) 
@@ -668,9 +601,13 @@ namespace TL
             const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
             const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
 
+            TL::Source intrin_src;
+
+            walk(node.get_nest());
+
             if (src_type.is_same_type(dst_type))
             {
-                walk(node.get_nest());
+                node.replace(node.get_nest());
                 return;
             }
             else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
@@ -678,153 +615,154 @@ namespace TL
                     (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
                     (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
             {
-                walk(node.get_nest());
+                node.replace(node.get_nest());
                 return;
             }
-            /*
             else if (src_type.is_signed_int() &&
                     dst_type.is_float()) 
             { 
-                intrin_name << "_mm_cvtepi32_ps("; 
-                walk(node.get_nest());
-                intrin_name << ")"; 
+                intrin_src << "_mm_cvtepi32_ps("; 
+                intrin_src << as_expression(node.get_nest());
+                intrin_src << ")"; 
             } 
             else if (src_type.is_float() &&
                     dst_type.is_signed_int()) 
             { 
                 // C/C++ requires truncated conversion
-                intrin_name << "_mm_cvttps_epi32("; 
-                walk(node.get_nest());
-                intrin_name << ")"; 
+                intrin_src << "_mm_cvttps_epi32("; 
+                intrin_src << as_expression(node.get_nest());
+                intrin_src << ")"; 
+            }
+            /*
+            else if (src_type.is_float() &&
+                    dst_type.is_double()) 
+            { 
+                intrin_src << "ps_pd"; 
+            } 
+            else if (src_type.is_double() &&
+                    dst_type.is_float()) 
+            { 
+                intrin_src << "pd_ps"; 
             } 
             else if (src_type.is_float() &&
                     (dst_type.is_signed_char() ||
                      dst_type.is_char())) 
             {
                 // Saturated conversion
-                intrin_name << "_mm_packs_epi16("; 
-                intrin_name << "_mm_packs_epi32("; 
-                intrin_name << "_mm_cvttps_epi32("; 
+                intrin_src << "_mm_packs_epi16("; 
+                intrin_src << "_mm_packs_epi32("; 
+                intrin_src << "_mm_cvttps_epi32("; 
                 walk(node.get_nest());
-                intrin_name << "),"; 
-                intrin_name << "_mm_castps_si128(";
+                intrin_src << "),"; 
+                intrin_src << "_mm_castps_si128(";
                 walk(node.get_nest());
-                intrin_name << ")";
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << "),"; 
-                intrin_name << "_mm_castps_si128(";
+                intrin_src << ")";
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << "),"; 
+                intrin_src << "_mm_castps_si128(";
                 walk(node.get_nest());
-                intrin_name << ")";
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << ")"; 
+                intrin_src << ")";
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << ")"; 
             } 
             else if (src_type.is_float() &&
                     dst_type.is_unsigned_char()) 
             {
                 // Saturated conversion
-                intrin_name << "_mm_packus_epi16("; 
-                intrin_name << "_mm_packus_epi32("; 
-                intrin_name << "_mm_cvttps_epi32("; 
+                intrin_src << "_mm_packus_epi16("; 
+                intrin_src << "_mm_packus_epi32("; 
+                intrin_src << "_mm_cvttps_epi32("; 
                 walk(node.get_nest());
-                intrin_name << "),"; 
-                intrin_name << "_mm_castps_si128(";
+                intrin_src << "),"; 
+                intrin_src << "_mm_castps_si128(";
                 walk(node.get_nest());
-                intrin_name << ")";
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << "),"; 
-                intrin_name << "_mm_castps_si128(";
+                intrin_src << ")";
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << "),"; 
+                intrin_src << "_mm_castps_si128(";
                 walk(node.get_nest());
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << "))"; 
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << "))"; 
             } 
             else if (src_type.is_signed_int() &&
                     (dst_type.is_signed_char() ||
                      dst_type.is_char())) 
             {
                 // Saturated conversion
-                intrin_name << "_mm_packs_epi16("; 
-                intrin_name << "_mm_packs_epi32("; 
+                intrin_src << "_mm_packs_epi16("; 
+                intrin_src << "_mm_packs_epi32("; 
                 walk(node.get_nest());
-                intrin_name << ","; 
+                intrin_src << ","; 
                 walk(node.get_nest());
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << "),"; 
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << "),"; 
                 walk(node.get_nest());
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << ")"; 
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << ")"; 
             } 
             else if (src_type.is_signed_int() &&
                     dst_type.is_unsigned_char()) 
             {
                 // Saturated conversion
-                intrin_name << "_mm_packus_epi16("; 
-                intrin_name << "_mm_packus_epi32("; 
+                intrin_src << "_mm_packus_epi16("; 
+                intrin_src << "_mm_packus_epi32("; 
                 walk(node.get_nest());
-                intrin_name << ","; 
+                intrin_src << ","; 
                 walk(node.get_nest());
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << ")"; 
-                intrin_name << ",";
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << ")"; 
+                intrin_src << ",";
                 walk(node.get_nest());
-                //intrin_name << "_mm_undefined_si128()"; 
-                intrin_name << ")"; 
+                //intrin_src << "_mm_undefined_si128()"; 
+                intrin_src << ")"; 
             }
             */
-            /*
-               else if (src_type.is_float() &&
-               dst_type.is_double()) 
-               { 
-               intrin_name << "ps_pd"; 
-               } 
-               else if (src_type.is_double() &&
-               dst_type.is_float()) 
-               { 
-               intrin_name << "pd_ps"; 
-               } 
-             */
-/*
             else
             {
                 fprintf(stderr, "SSE Lowering: Conversion at '%s' is not supported yet: %s\n", 
                         node.get_locus().c_str(),
                         node.get_nest().prettyprint().c_str());
-            }      
-            */
+            }   
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorPromotion& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_set1";
+            intrin_src << "_mm_set";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps1"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "1_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "1_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "1_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "1_epi8"; 
             } 
             else
             {
@@ -834,22 +772,15 @@ namespace TL
             }      
 
             walk(node.get_rhs());
+            
+            intrin_src << "("; 
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
 
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
-
-            node.replace(intrin_node);
+            node.replace(function_call);
         }        
 
         void SSEVectorLowering::visit(const Nodecl::VectorLiteral& node) 
@@ -857,35 +788,35 @@ namespace TL
             /* 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_set";
+            intrin_src << "_mm_set";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_name << "_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -894,7 +825,7 @@ namespace TL
                         node.get_locus().c_str());
             }      
 
-            intrin_name << "(";
+            intrin_src << "(";
 
             Nodecl::List scalar_values =
                 node.get_scalar_values().as<Nodecl::List>();
@@ -906,11 +837,11 @@ namespace TL
             for (; it != scalar_values.end();
                     it++)
             {
-                intrin_name << ", ";
+                intrin_src << ", ";
                 walk((*it));
             }
 
-            intrin_name << ")"; 
+            intrin_src << ")"; 
             */
         }        
 
@@ -931,20 +862,20 @@ namespace TL
             std::string casting;
 
             // Intrinsic name
-            intrin_name << "_mm_blend";
+            intrin_src << "_mm_blend";
 
             // Postfix
             if (true_type.is_integral_type()
                     && false_type.is_integral_type())
             {
                 // TODO _epi16
-                intrin_name << "v_epi8";
+                intrin_src << "v_epi8";
             }
             else if (true_type.is_float()
                     && false_type.is_float())
             {
                 // TODO _ps
-                intrin_name << "v_ps";
+                intrin_src << "v_ps";
 
                 casting = "(";
                 casting += print_type_str(TL::Type::get_float_type().get_vector_to(16).get_internal_type(),
@@ -955,7 +886,7 @@ namespace TL
                     && false_type.is_double())
             {
                 // TODO _pd
-                intrin_name << "v_pd";
+                intrin_src << "v_pd";
                 casting = "(";
                 casting += print_type_str(TL::Type::get_double_type().get_vector_to(16).get_internal_type(),
                         node.retrieve_context().get_decl_context());
@@ -968,14 +899,14 @@ namespace TL
                         node.get_locus().c_str());
             }
 
-            intrin_name << "("; 
+            intrin_src << "("; 
             walk(false_node); // False first!
-            intrin_name << ", ";
+            intrin_src << ", ";
             walk(true_node);
-            intrin_name << ", "
+            intrin_src << ", "
                 << casting;
             walk(condition_node);
-            intrin_name << ")"; 
+            intrin_src << ")"; 
             */
         }        
 
@@ -999,23 +930,26 @@ namespace TL
         { 
             TL::Type type = node.get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_load";
+            intrin_src << "_mm_load";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps("; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd("; 
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_name << "_si128"; 
+                intrin_src << "_si128("; 
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
             } 
             else
             {
@@ -1026,61 +960,39 @@ namespace TL
 
             walk(node.get_rhs());
 
-            Nodecl::NodeclBase new_rhs;
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
 
-            if (type.is_integral_type())
-            {
-                new_rhs = Nodecl::Cast::make(
-                        node.get_rhs(),
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
-                        NULL,
-                        node.get_filename(),
-                        node.get_line());
-            }
-            else
-            {
-                new_rhs = node.get_rhs();
-            }
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
-
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            new_rhs),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
-
-            node.replace(intrin_node);
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            std::stringstream intrin_name;
+            TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_name << "_mm_store";
+            intrin_src << "_mm_store";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
+                intrin_src << "_ps("; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                intrin_src << "_pd("; 
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_name << "_si128";
+                intrin_src << "_si128(";
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
             } 
             else
             {
@@ -1089,72 +1001,48 @@ namespace TL
                         node.get_locus().c_str());
             }
 
-            
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::NodeclBase new_lhs;
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
 
-            if (type.is_integral_type())
-            {
-                new_lhs = Nodecl::Cast::make(
-                        node.get_lhs(),
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
-                        NULL,
-                        node.get_filename(),
-                        node.get_line());
-            }
-            else
-            {
-                new_lhs = node.get_lhs();
-            }
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
 
-
-            Nodecl::Symbol intrin_sym = node.retrieve_context().get_symbol_from_name(
-                    intrin_name.str()).make_nodecl(node.get_filename(), node.get_line());
-
-            Nodecl::FunctionCall intrin_node =
-                Nodecl::FunctionCall::make(
-                        intrin_sym,
-                        Nodecl::List::make( /*Arguments*/
-                            new_lhs,
-                            node.get_rhs()),
-                        nodecl_null(),
-                        nodecl_null(),
-                        intrin_sym.get_symbol().get_type(),
-                        node.get_filename(),
-                        node.get_line());
-
-            node.replace(intrin_node);
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorGather& node) 
         { 
-/*
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
 
+            TL::Source intrin_src;
+
             // Intrinsic name
-            intrin_name << "_mm_set";
+            intrin_src << "_mm_set";
 
             std::string extract;
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps";
+                intrin_src << "_ps";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32";
+                intrin_src << "_epi32";
             }
             else if (type.is_signed_short_int() || type.is_unsigned_short_int()) 
             { 
-                intrin_name << "_epi16";
+                intrin_src << "_epi16";
             }
             else if (type.is_signed_char() || type.is_char() || type.is_unsigned_char())
             {
-                intrin_name << "_epi8";
+                intrin_src << "_epi8";
             }
             else
             {
@@ -1184,47 +1072,55 @@ namespace TL
             }
 
 
-            intrin_name << "("; 
+            walk(node.get_base());
+            walk(node.get_strides());
+
+            intrin_src << "("; 
 
             unsigned int i = 0;
 
-            walk(node.get_base());
-            intrin_name << "[";
+            intrin_src << as_expression(node.get_base());
+            intrin_src << "[";
 
-            intrin_name << extract;
-            intrin_name << "(";
-            walk(node.get_strides());
-            intrin_name << ", " << i << ")";
+            intrin_src << extract;
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_strides());
+            intrin_src << ", " << i << ")";
 
-            intrin_name << "]";
+            intrin_src << "]";
 
             i++;
 
             for (; i < type.get_size(); i++)
             {
-                intrin_name << ", ";
+                intrin_src << ", ";
 
-                walk(node.get_base());
-                intrin_name << "[";
+                intrin_src << as_expression(node.get_base());
+                intrin_src << "[";
 
-                intrin_name << extract;
-                intrin_name << "(";
-                walk(node.get_strides());
-                intrin_name << ", " << i << ")";
+                intrin_src << extract;
+                intrin_src << "(";
 
-                intrin_name << "]";
+                intrin_src << as_expression(node.get_strides());
+                intrin_src << ", " << i << ")";
+
+                intrin_src << "]";
             }
 
-            intrin_name << ")"; 
-            */
+            intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorScatter& node) 
         { 
-            /*
             TL::Type type = node.get_source().get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
 
+            TL::Source intrin_src;
             std::string extract_index;
             std::string extract_source;
 
@@ -1248,7 +1144,7 @@ namespace TL
                         node.get_locus().c_str());
             }
 
-            // Sourcei
+            // Source
             if (type.is_float())
             {
                 extract_source = "_mm_extract_ps";
@@ -1272,30 +1168,38 @@ namespace TL
                         node.get_locus().c_str());
             }
 
+            walk(node.get_base());
+            walk(node.get_strides());
+            walk(node.get_source());
 
             for (unsigned int i=0; i < type.get_size(); i++)
             {
-                walk(node.get_base());
-                intrin_name << "[";
+                intrin_src << as_expression(node.get_base());
+                intrin_src << "[";
 
-                intrin_name << extract_index;
-                intrin_name << "(";
-                walk(node.get_strides());
-                intrin_name << ", ";
-                intrin_name << i;
-                intrin_name << ")";
+                intrin_src << extract_index;
+                intrin_src << "(";
 
-                intrin_name << "]";
+                intrin_src << as_expression(node.get_strides());
+                intrin_src << ", ";
+                intrin_src << i;
+                intrin_src << ")";
 
-                intrin_name << " = " << extract_source << "(";
-                walk(node.get_source());
-                intrin_name << ", ";
-                intrin_name << i;
-                intrin_name << ")";
+                intrin_src << "]";
 
-                intrin_name << ";" << std::endl;
+                intrin_src << " = " << extract_source << "(";
+                intrin_src << as_expression(node.get_source());
+                intrin_src << ", ";
+                intrin_src << i;
+                intrin_src << ")";
+
+                intrin_src << ";\n";
             }
-        */
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
@@ -1306,44 +1210,46 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorFabs& node) 
         {
-            /*
             TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            walk(node.get_arguments());
 
             // Handcoded implementations for float and double
             if (type.is_float()) 
             { 
-                intrin_name << "(_mm_and_ps(";
-                walk(node.get_arguments());
-                intrin_name << ", _mm_castsi128_ps(_mm_set1_epi32(0x7FFFFFFF))))"; 
+                intrin_src << "(_mm_and_ps(";
+                intrin_src << as_expression(node.get_arguments());
+                intrin_src << ", _mm_castsi128_ps(_mm_set1_epi32(0x7FFFFFFF))))"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "(_mm_and_pd(";
-                walk(node.get_arguments());
-                intrin_name << ", _mm_castsi128_pd(_mm_set1_epi64(0x7FFFFFFFFFFFFFFFLL))))"; 
+                intrin_src << "(_mm_and_pd(";
+                intrin_src << as_expression(node.get_arguments());
+                intrin_src << ", _mm_castsi128_pd(_mm_set1_epi64(0x7FFFFFFFFFFFFFFFLL))))"; 
             }
             else
             {
                 // Intrinsic name
-          
-                intrin_name << "_mm_abs";
+                intrin_src << "_mm_abs";
 
                 // Postfix
                 if (type.is_signed_int() ||
                         type.is_unsigned_int()) 
                 { 
-                    intrin_name << "_epi32"; 
+                    intrin_src << "_epi32"; 
                 } 
                 else if (type.is_signed_short_int() ||
                         type.is_unsigned_short_int()) 
                 { 
-                    intrin_name << "_epi16"; 
+                    intrin_src << "_epi16"; 
                 } 
                 else if (type.is_char() || 
                         type.is_signed_char() ||
                         type.is_unsigned_char()) 
                 { 
-                    intrin_name << "_epi8"; 
+                    intrin_src << "_epi8"; 
                 } 
                 else
                 {
@@ -1352,7 +1258,6 @@ namespace TL
                             node.get_locus().c_str());
                 }
             }
-            */
         }
 
         Nodecl::NodeclVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 

@@ -1,11 +1,13 @@
 # Intel Compiler
-[imcc : mcc]
+[imcc : omp-base]
+language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
 options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins
 
-[imcxx : mcxx]
+[imcxx : omp-base]
+language = C++
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
