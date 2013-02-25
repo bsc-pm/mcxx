@@ -1,5 +1,6 @@
 /*!if GRAMMAR_PROLOGUE*/
 %token<token_atrib> SUBPARSE_OPENMP_DECLARE_REDUCTION
+%token<token_atrib> SUBPARSE_OPENMP_DEPEND_ITEM
 
 %type<ast> omp_declare_reduction
 %type<ast> omp_dr_reduction_id
@@ -11,10 +12,16 @@
 %type<token_atrib> omp_dr_operator
 %type<ast> omp_dr_identifier
 
+%type<ast> omp_depend_item
+
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
 subparsing : SUBPARSE_OPENMP_DECLARE_REDUCTION omp_declare_reduction EOS
+{
+    $$ = $2;
+}
+| SUBPARSE_OPENMP_DEPEND_ITEM omp_depend_item EOS
 {
     $$ = $2;
 }
@@ -87,4 +94,11 @@ omp_dr_initializer : name '=' expr
     $$ = $1;
 }
 ;
+
+omp_depend_item : data_ref
+{
+    $$ = $1;
+}
+;
+
 /*!endif*/

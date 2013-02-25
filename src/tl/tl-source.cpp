@@ -664,12 +664,12 @@ namespace TL
         return Nodecl::NodeclBase::null();
     }
 
-    static void c_cxx_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+    void Source::c_cxx_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
         ::check_expression(a, decl_context, nodecl_output);
     }
 
-    static void fortran_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+    void Source::fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
         if (ASTType(a) == AST_COMMON_NAME)
         {
@@ -700,7 +700,7 @@ namespace TL
                 return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mc99_prepare_string_for_scanning,
                         mc99parse,
-                        c_cxx_check_expression_adaptor_,
+                        c_cxx_check_expression_adapter,
                         decl_context_identity);
                 break;
             }
@@ -709,7 +709,7 @@ namespace TL
                 return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mcxx_prepare_string_for_scanning,
                         mcxxparse,
-                        c_cxx_check_expression_adaptor_,
+                        c_cxx_check_expression_adapter,
                         decl_context_identity);
                 break;
             }
@@ -718,7 +718,7 @@ namespace TL
                 return parse_common(ref_scope, parse_flags, "@EXPRESSION@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        fortran_check_expression_adaptor_,
+                        fortran_check_expression_adapter,
                         decl_context_identity);
                 break;
             }
