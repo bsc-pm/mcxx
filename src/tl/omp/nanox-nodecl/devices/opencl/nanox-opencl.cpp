@@ -1782,24 +1782,48 @@ void DeviceOpenCL::add_forward_code_to_extra_c_code(
 void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
-        Source &fortran_dynamic_init UNUSED_PARAMETER)
+        Source &fortran_dynamic_init)
 {
     const std::string& device_outline_name = ocl_outline_name(info._outline_name);
     if (Nanos::Version::interface_is_at_least("master", 5012))
     {
-        ancillary_device_description
-            << comment("OpenCL device descriptor")
-            << "static nanos_opencl_args_t "
-            << device_outline_name << "_args;"                
-            << device_outline_name << "_args.outline = (void(*)(void*))" << device_outline_name << ";"
-            ;
+        if (!IS_FORTRAN_LANGUAGE)
+        {
+            ancillary_device_description
+                << comment("OpenCL device descriptor")
+                << "static nanos_opencl_args_t "
+                << device_outline_name << "_args;"
+                << device_outline_name << "_args.outline = (void(*)(void*))" << device_outline_name << ";"
+                ;
+
+            device_descriptor << "{ &nanos_opencl_factory, &" << device_outline_name << "_args }";
+        }
+        else
+        {
+            ancillary_device_description
+                << "static nanos_opencl_args_t " << device_outline_name << "_args;"
+                ;
+
+            device_descriptor
+                << "{"
+                // factory, arg
+                << "0, 0"
+                << "}"
+                ;
+
+            fortran_dynamic_init
+                << device_outline_name << "_args.outline = (void(*)(void*))&" << device_outline_name << ";"
+                << "nanos_wd_const_data.devices[0].factory = &nanos_opencl_factory;"
+                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;"
+                ;
+        }
     }
     else
     {
         internal_error("Unsupported Nanos version.", 0);
     }
 
-    device_descriptor << "{ &nanos_opencl_factory, &" << device_outline_name << "_args }";
+
 }
 
 bool DeviceOpenCL::allow_mandatory_creation()
