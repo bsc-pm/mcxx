@@ -688,6 +688,18 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 
+
+    // In a pure fortran example, this node never appear in the tree.
+    void FortranBase::visit(const Nodecl::Mod &node)
+    {
+        // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
+        file << "MOD(";
+        walk(node.get_rhs());
+        file << ", ";
+        walk(node.get_lhs());
+        file << ")";
+    }
+
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
     { 
         if (is_bitfield_access(node))

@@ -55,6 +55,7 @@ namespace Codegen
             void visit(const Nodecl::LogicalNot& node);
             void visit(const Nodecl::Mul& node);
             void visit(const Nodecl::Div& node);
+            void visit(const Nodecl::Mod& node);
             void visit(const Nodecl::Add& node);
             void visit(const Nodecl::Minus& node);
             void visit(const Nodecl::LowerThan& node);
