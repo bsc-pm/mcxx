@@ -1044,7 +1044,7 @@ x["][0-9a-f]+["] {
     length_hollerith_buffer = 0;
     count_hollerith_constant = atoi(q);
 
-    free(q);
+    free((void*)q);
 
     if (count_hollerith_constant == 0)
     {
