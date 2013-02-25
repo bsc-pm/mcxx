@@ -3927,6 +3927,23 @@ OPERATOR_TABLE
             }
         }
 
+        // Review again for generic specifiers that are actually PUBLIC
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            // If a generic specifier is PUBLIC but a specific interface with the same name
+            // is private, remove it from PRIVATE names
+            if (sym.is_generic_specifier()
+                    && sym.get_access_specifier() != AS_PRIVATE)
+            {
+                std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                if (same_name != private_names.end())
+                    private_names.erase(same_name);
+            }
+        }
+
         if (!private_names.empty())
         {
             indent();
