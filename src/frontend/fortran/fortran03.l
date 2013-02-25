@@ -1061,15 +1061,14 @@ x["][0-9a-f]+["] {
 <hollerith_constant>{
 
 . {
-    if (count_hollerith_constant > 0)
-    {
-        hollerith_buffer[length_hollerith_buffer] = *yytext;
-        length_hollerith_buffer++;
-        count_hollerith_constant--;
-    }
-    else
+    hollerith_buffer[length_hollerith_buffer] = *yytext;
+    length_hollerith_buffer++;
+    count_hollerith_constant--;
+
+    if (count_hollerith_constant == 0)
     {
         hollerith_buffer[length_hollerith_buffer] = '\0';
+
         BEGIN(INITIAL);
         parse_token_text_str(hollerith_buffer);
         return TOK_HOLLERITH_CONSTANT;
