@@ -198,56 +198,19 @@ namespace Analysis {
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
 
-                InductionVarExpressionVisitor iv_v( _induction_variables );
-                iv_v.walk( s );
-
-                if( !is_induction_variable( s ) )
+                AdjacentAccessVisitor iv_v( _induction_variables, _killed );
+                bool constant = iv_v.walk( s );
+                if( !constant )
                 {
-                    if( s.is<Nodecl::Add>( ) || s.is<Nodecl::Minus>( ) )
-                    {
-                        Nodecl::NodeclBase lhs, rhs;
-                        if( s.is<Nodecl::Add>( ) )
-                        {
-                            lhs = s.as<Nodecl::Add>( ).get_lhs( );
-                            rhs = s.as<Nodecl::Add>( ).get_rhs( );
-                        }
-                        else
-                        {
-                            lhs = s.as<Nodecl::Minus>( ).get_lhs( );
-                            rhs = s.as<Nodecl::Minus>( ).get_rhs( );
-                        }
-                        if( lhs.is<Nodecl::Neg>( ) )
-                        {
-                            lhs = lhs.as<Nodecl::Neg>( ).get_rhs( );
-                        }
-
-                        if( is_induction_variable( lhs ) && get_induction_variable( lhs )->is_increment_one( ) )
-                        {
-                            // All memory accesses in rhs must be constant within the context
-                            ObjectList<Nodecl::NodeclBase> rhs_mem_accesses = Nodecl::Utils::get_all_memory_accesses( rhs );
-                            for( ObjectList<Nodecl::NodeclBase>::iterator itm = rhs_mem_accesses.begin( );
-                                 itm != rhs_mem_accesses.end( ); ++itm )
-                            {
-                                if( Utils::ext_sym_set_contains_nodecl( *itm, _killed ) )
-                                {
-                                    result = false;
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            result = false;
-                        }
-                    }
-                    else
+                    result = false;
+                }
+                else
+                {
+                    Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+                    if( iv == NULL || !iv->is_increment_one( ) )
                     {
                         result = false;
                     }
-                }
-                else if ( /*is_induction_variable( s )*/ !get_induction_variable( s )->is_increment_one( ) )
-                {
-                    result = false;
                 }
             }
         }
@@ -269,56 +232,360 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
-    InductionVarExpressionVisitor::InductionVarExpressionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs )
-            : _induction_variables( ivs )
+    AdjacentAccessVisitor::AdjacentAccessVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, Utils::ext_sym_set killed )
+        : _induction_variables( ivs ), _killed( killed ), _iv( NULL ), _iv_found( false )
     {}
 
-    void InductionVarExpressionVisitor::visit_post( const Nodecl::Add& n )
+    Utils::InductionVariableData* AdjacentAccessVisitor::get_induction_variable( )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-
-        bool iv_in_rhs = false;
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
-             it != _induction_variables.end( ); ++it )
-        {
-            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), rhs, /* skip conversion nodes */ true ) )
-            {
-                iv_in_rhs = true;
-                break;
-            }
-        }
-
-        if( iv_in_rhs )
-        {
-            Nodecl::NodeclBase lhs = n.get_lhs( );
-            Nodecl::NodeclBase new_rhs = lhs.shallow_copy( );
-            Nodecl::NodeclBase new_lhs = rhs.shallow_copy( );
-            Nodecl::Utils::replace( rhs, new_rhs );
-            Nodecl::Utils::replace( lhs, new_lhs );
-        }
+        return _iv;
     }
 
-    void InductionVarExpressionVisitor::visit_post( const Nodecl::Minus& n )
+    Utils::InductionVariableData* AdjacentAccessVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-
-        bool iv_in_rhs = false;
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+        Utils::InductionVariableData* res = NULL;
+        for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
             it != _induction_variables.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), rhs, /* skip conversion nodes */ true ) )
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                iv_in_rhs = true;
+                res = *it;
                 break;
             }
         }
+        return res;
+    }
 
-        if( iv_in_rhs )
+    bool AdjacentAccessVisitor::visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
+    {
+        return ( walk( lhs ) && walk( rhs ) );
+    }
+
+    bool AdjacentAccessVisitor::visit_unary_node( const Nodecl::NodeclBase& rhs )
+    {
+        return walk( rhs );
+    }
+
+    bool AdjacentAccessVisitor::join_list( ObjectList<bool>& list )
+    {
+        bool result = true;
+        for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
-            Nodecl::Neg new_lhs = Nodecl::Neg::make( rhs, rhs.get_type( ) );
-            Nodecl::Add reordered_minus = Nodecl::Add::make( new_lhs, n.get_lhs( ), rhs.get_type( ) );
-            Nodecl::Utils::replace( n, reordered_minus );
+            result = result && ( *it );
         }
+        return result;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Add& n )
+    {
+        std::cerr << "Add: " << n.prettyprint( ) << std::endl;
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::AddAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArithmeticShr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArraySubscript& n )
+    {
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = walk( n.get_subscripts( ) );
+        }
+        return res;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Assignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseAnd& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseNot& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseOr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShrAssignment& n)
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseXor& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::BooleanLiteral& n )
+    {
+        return true;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Cast& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ComplexLiteral& n )
+    {
+        return true;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Conversion& n )
+    {
+        return visit_unary_node( n.get_nest( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Different& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Div& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Equal& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::FloatingLiteral& n )
+    {
+        return true;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::FunctionCall& n )
+    {
+        // FIXME We may do something more here...
+        return false;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::GreaterOrEqualThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::GreaterThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return true;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalAnd& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalNot& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalOr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::LowerOrEqualThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::LowerThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Minus& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::MinusAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Mod& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ModAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Mul& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::MulAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Neg& n )
+    {
+        return walk( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::ObjectInit& n )
+    {
+        return walk( n.get_symbol( ).get_value( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Plus& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::PointerToMember& n )
+    {
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        }
+        return res;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Postdecrement& n )
+    {
+        walk( n.get_rhs( ) );
+        return false;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Postincrement& n )
+    {
+        walk( n.get_rhs( ) );
+        return false;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Power& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Predecrement& n )
+    {
+        walk( n.get_rhs( ) );
+        return false;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Preincrement& n )
+    {
+        walk( n.get_rhs( ) );
+        return false;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Reference& n )
+    {
+        return walk( n.get_rhs( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Sizeof& n )
+    {
+        return walk( n.get_size_type( ) );
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::StringLiteral& n )
+    {
+        return true;
+    }
+
+    bool AdjacentAccessVisitor::visit( const Nodecl::Symbol& n )
+    {
+        std::cerr << "Symbol: " << n.prettyprint( ) << std::endl;
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            std::cerr << "    is IV" << std::endl;
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+            std::cerr << "    is " << ( res ? "NOT": "" ) << " in KILLEd vars" << std::endl;
+        }
+        return res;
     }
 
     // ************************** END User interface for static analysis *************************** //

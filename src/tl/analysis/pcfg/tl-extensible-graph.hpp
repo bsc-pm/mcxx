@@ -341,6 +341,8 @@ namespace Analysis {
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
 
+        //!Returns true if a given nodecl is not modified in a given context
+        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
 
         // *** DOT Graph *** //
 

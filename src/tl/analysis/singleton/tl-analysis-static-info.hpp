@@ -132,18 +132,83 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
-    class LIBTL_CLASS InductionVarExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
+    // The return value indicates whether the visit returns a constant value
+    class LIBTL_CLASS AdjacentAccessVisitor : public Nodecl::NodeclVisitor<bool>
     {
     private:
-        ObjectList<Analysis::Utils::InductionVariableData*> _induction_variables;
+        ObjectList<Utils::InductionVariableData*> _induction_variables;
+        Utils::ext_sym_set _killed;
+        Utils::InductionVariableData* _iv;
+        bool _iv_found;
+
+        Utils::InductionVariableData* variable_is_iv( const Nodecl::NodeclBase& n );
+        bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+        bool visit_unary_node( const Nodecl::NodeclBase& rhs );
 
     public:
         // *** Constructor *** //
-        InductionVarExpressionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs );
+        AdjacentAccessVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, Utils::ext_sym_set killed );
+
+        // *** Getters and Setters *** //
+        Utils::InductionVariableData* get_induction_variable( );
 
         // *** Visiting methods *** //
-        Ret visit_post( const Nodecl::Add& n );
-        Ret visit_post( const Nodecl::Minus& n );
+        Ret join_list( ObjectList<bool>& list );
+
+        Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShr& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAnd& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseNot& n );
+        Ret visit( const Nodecl::BitwiseOr& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShl& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShr& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n);
+        Ret visit( const Nodecl::BitwiseXor& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::BooleanLiteral& n );
+        Ret visit( const Nodecl::Cast& n );
+        Ret visit( const Nodecl::ComplexLiteral& n );
+        Ret visit( const Nodecl::Conversion& n );
+        Ret visit( const Nodecl::Different& n );
+        Ret visit( const Nodecl::Div& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::Equal& n );
+        Ret visit( const Nodecl::FloatingLiteral& n );
+        Ret visit( const Nodecl::FunctionCall& n );
+        Ret visit( const Nodecl::GreaterOrEqualThan& n );
+        Ret visit( const Nodecl::GreaterThan& n );
+        Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::LogicalAnd& n );
+        Ret visit( const Nodecl::LogicalNot& n );
+        Ret visit( const Nodecl::LogicalOr& n );
+        Ret visit( const Nodecl::LowerOrEqualThan& n );
+        Ret visit( const Nodecl::LowerThan& n );
+        Ret visit( const Nodecl::Minus& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::Mod& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::Mul& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::Neg& n );
+        Ret visit( const Nodecl::ObjectInit& n );
+        Ret visit( const Nodecl::Plus& n );
+        Ret visit( const Nodecl::PointerToMember& n );
+        Ret visit( const Nodecl::Postdecrement& n );
+        Ret visit( const Nodecl::Postincrement& n );
+        Ret visit( const Nodecl::Power& n );
+        Ret visit( const Nodecl::Predecrement& n );
+        Ret visit( const Nodecl::Preincrement& n );
+        Ret visit( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Sizeof& n );
+        Ret visit( const Nodecl::StringLiteral& n );
+        Ret visit( const Nodecl::Symbol& n );
     };
 
     // ************************** END User interface for static analysis *************************** //

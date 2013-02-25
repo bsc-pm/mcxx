@@ -34,40 +34,6 @@
 namespace TL {
 namespace Analysis {
 
-    static bool is_constant_in_loop( Node* loop, Nodecl::NodeclBase c )
-    {
-        bool result = true;
-
-        Nodecl::List cs;
-        if( c.is<Nodecl::List>( ) )
-        {
-            cs = c.as<Nodecl::List>( );
-        }
-        else
-        {
-            cs.append( c );
-        }
-
-        for( Nodecl::List::iterator it = cs.begin( ); it != cs.end( ) && result; ++it )
-        {
-            if( !it->is_constant( ) )
-            {
-                ObjectList<Nodecl::NodeclBase> memory_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
-                     itm != memory_accesses.end( ) && result; ++itm )
-                {
-                    if ( Utils::ext_sym_set_contains_nodecl( *itm, loop->get_killed_vars( ) )
-                         || Utils::ext_sym_set_contains_nodecl( *itm, loop->get_undefined_behaviour_vars( ) ) )
-                    {
-                        result = false;
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
     bool is_accepted_induction_variable_syntax( Node* loop, Nodecl::NodeclBase stmt,
                                                 Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr )
     {
@@ -91,10 +57,10 @@ namespace Analysis {
                 rhs_rhs = _rhs.get_rhs( );
 
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && is_constant_in_loop( loop, lhs_rhs )
+                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
                     && ( !lhs.is<Nodecl::ArraySubscript>( )
                          || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
@@ -108,10 +74,10 @@ namespace Analysis {
                 rhs_rhs = _rhs.get_rhs( );
 
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && is_constant_in_loop( loop, lhs_rhs )
+                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
                     && ( !lhs.is<Nodecl::ArraySubscript>( )
                          || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
@@ -123,10 +89,10 @@ namespace Analysis {
         {   // Expression accepted: iv += x;
             Nodecl::AddAssignment st_ = st.as<Nodecl::AddAssignment>( );
             Nodecl::NodeclBase lhs = st_.get_lhs( );
-            if( is_constant_in_loop( loop, st_.get_rhs( ) )
+            if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
                 && ( !lhs.is<Nodecl::ArraySubscript>( )
                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                            && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+                            && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
             {
                 iv = st_.get_lhs( );
                 incr = st_.get_rhs( );
@@ -138,10 +104,10 @@ namespace Analysis {
             Nodecl::MinusAssignment st_ = st.as<Nodecl::MinusAssignment>( );
             Nodecl::NodeclBase lhs = st_.get_lhs( );
             Nodecl::NodeclBase rhs = st_.get_rhs( );
-            if( is_constant_in_loop( loop, st_.get_rhs( ) )
+            if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
                 && ( !lhs.is<Nodecl::ArraySubscript>( )
                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                            && is_constant_in_loop( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+                            && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
             {
                 Nodecl::NodeclBase new_rhs = Nodecl::Neg::make( rhs, rhs.get_type( ),
                                                                 rhs.get_filename( ), rhs.get_line( ) );

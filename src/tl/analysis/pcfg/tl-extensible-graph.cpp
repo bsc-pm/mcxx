@@ -649,6 +649,40 @@ namespace Analysis {
         return result;
     }
 
+    bool ExtensibleGraph::is_constant_in_context( Node* context, Nodecl::NodeclBase c )
+    {
+        bool result = true;
+
+        Nodecl::List cs;
+        if( c.is<Nodecl::List>( ) )
+        {
+            cs = c.as<Nodecl::List>( );
+        }
+        else
+        {
+            cs.append( c );
+        }
+
+        for( Nodecl::List::iterator it = cs.begin( ); it != cs.end( ) && result; ++it )
+        {
+            if( !it->is_constant( ) )
+            {
+                ObjectList<Nodecl::NodeclBase> memory_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
+                    itm != memory_accesses.end( ) && result; ++itm )
+                    {
+                        if ( Utils::ext_sym_set_contains_nodecl( *itm, context->get_killed_vars( ) )
+                            || Utils::ext_sym_set_contains_nodecl( *itm, context->get_undefined_behaviour_vars( ) ) )
+                        {
+                            result = false;
+                        }
+                    }
+            }
+        }
+
+        return result;
+    }
+
     void ExtensibleGraph::clear_visits(Node* current)
     {
         if( current->is_visited( ) )
