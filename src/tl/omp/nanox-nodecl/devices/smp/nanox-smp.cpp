@@ -368,7 +368,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, vla_private_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -601,21 +601,6 @@ namespace TL { namespace Nanox {
                 type_deep_copy(it2->get_internal_symbol()->type_information,
                        function_context,
                        symbol_map->get_symbol_map());
-        }
-
-
-        // Update types of privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = vla_private_symbols.begin();
-                it2 != vla_private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                       function_context,
-                       symbol_map->get_symbol_map());
-
-            it2->get_internal_symbol()->value =
-                nodecl_deep_copy(it2->get_internal_symbol()->value, function_context, symbol_map->get_symbol_map());
         }
 
         // Build the function type

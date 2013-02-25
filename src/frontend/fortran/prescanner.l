@@ -95,6 +95,8 @@ GOTO goto
 INQUIRE inquire
 NULLIFY nullify
 PRINT print
+PRIVATE private
+PUBLIC public
 RETURN return
 REWIND rewind
 STOP stop
@@ -365,6 +367,14 @@ THEN then
 
 ^{PRINT} {
 	return (ST_PRINT);
+}
+
+^{PRIVATE} {
+    return (ST_PRIVATE);
+}
+
+^{PUBLIC} {
+    return (ST_PUBLIC);
 }
 
 ^{RETURN} {

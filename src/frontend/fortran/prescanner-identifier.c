@@ -106,79 +106,95 @@ struct statements_information_tag
 
 typedef struct statements_information_tag statements_information_t;
 
-#define STATEMENT_INFO(statement, is_decl, needs_space, keyword) \
-	[statement] = {is_decl, needs_space}
+// Note: ST_CONTAINS is marked as a non declaration because internal program
+// units should behave as if they were in the top level
+
+#define STATEMENT_SET \
+	STATEMENT_INFO(ST_ASSIGNMENT, 0, 0, NULL) \
+	STATEMENT_INFO(ST_TYPESPEC, 1, 1, NULL) \
+	STATEMENT_INFO(ST_INITIALIZATION, 1, 0, NULL) \
+	STATEMENT_INFO(ST_TYPEDECL, 1, 1, NULL) \
+	STATEMENT_INFO(ST_PRIVATE, 1, 1, "private") \
+	STATEMENT_INFO(ST_PUBLIC, 1, 1, "public") \
+	STATEMENT_INFO(ST_PROGRAM, 1, 1, "program") \
+	STATEMENT_INFO(ST_SUBROUTINE, 1, 1, "subroutine") \
+	STATEMENT_INFO(ST_FUNCTION, 1, 1, "function") \
+	STATEMENT_INFO(ST_MODULE, 1, 1, "module") \
+	STATEMENT_INFO(ST_MODULE_PROCEDURE, 1, 1, "module procedure") \
+	STATEMENT_INFO(ST_BLOCKDATA, 1, 1, "blockdata") \
+	STATEMENT_INFO(ST_USE, 1, 1, "use") \
+	STATEMENT_INFO(ST_IMPLICIT, 1, 1, "implicit") \
+	STATEMENT_INFO(ST_PARAMETER, 1, 0, "parameter") \
+	STATEMENT_INFO(ST_FORMAT, 1, 1, "format") \
+	STATEMENT_INFO(ST_ENTRY, 1, 1, "entry") \
+	STATEMENT_INFO(ST_ACCESS, 1, 1, "access") \
+	STATEMENT_INFO(ST_ALLOCATABLE, 1, 1, "allocatable") \
+	STATEMENT_INFO(ST_COMMON, 1, 1, "common") \
+	STATEMENT_INFO(ST_CONTAINS, 0, 0, "contains") \
+	STATEMENT_INFO(ST_DATA, 1, 1, "data") \
+	STATEMENT_INFO(ST_DIMENSION, 1, 1, "dimension") \
+	STATEMENT_INFO(ST_EQUIVALENCE, 1, 0, "equivalence") \
+	STATEMENT_INFO(ST_EXTERNAL, 1, 1, "external") \
+	STATEMENT_INFO(ST_INTENT, 1, 0, "intent") \
+	STATEMENT_INFO(ST_INTRINSIC, 1, 1, "intrinsic") \
+	STATEMENT_INFO(ST_NAMELIST, 1, 0, "namelist") \
+	STATEMENT_INFO(ST_OPTIONAL, 1, 1, "optional") \
+	STATEMENT_INFO(ST_POINTER, 1, 1, "pointer") \
+	STATEMENT_INFO(ST_SAVE, 1, 1, "save") \
+	STATEMENT_INFO(ST_VALUE, 1, 1, "value") \
+	STATEMENT_INFO(ST_VOLATILE, 1, 1, "volatile") \
+	STATEMENT_INFO(ST_TARGET, 1, 1, "target") \
+	STATEMENT_INFO(ST_DO, 0, 1, "do") \
+	STATEMENT_INFO(ST_LABELED_DO, 0, 1, "do") \
+	STATEMENT_INFO(ST_FORALL, 0, 0, "forall") \
+	STATEMENT_INFO(ST_ARITHMETIC_IF, 0, 0, "if") \
+	STATEMENT_INFO(ST_IF, 0, 0, "if") \
+	STATEMENT_INFO(ST_WHERE, 0, 0, "where") \
+	STATEMENT_INFO(ST_ALLOCATE, 0, 0, "allocate") \
+	STATEMENT_INFO(ST_BLOCK, 0, 1, "block") \
+	STATEMENT_INFO(ST_BACKSPACE, 0, 1, "backspace") \
+	STATEMENT_INFO(ST_CALL, 0, 1, "call") \
+	STATEMENT_INFO(ST_CLOSE, 0, 0, "close") \
+	STATEMENT_INFO(ST_CONTINUE, 0, 0, "continue") \
+	STATEMENT_INFO(ST_CYCLE, 0, 1, "cycle") \
+	STATEMENT_INFO(ST_DEALLOCATE, 0, 0, "deallocate") \
+	STATEMENT_INFO(ST_ENDFILE, 0, 1, "endfile") \
+	STATEMENT_INFO(ST_EXIT, 0, 1, "exit") \
+	STATEMENT_INFO(ST_GOTO, 0, 1, "goto") \
+	STATEMENT_INFO(ST_LABEL_ASSIGN, 0, 1, "assign") \
+	STATEMENT_INFO(ST_INQUIRE, 0, 0, "inquire") \
+	STATEMENT_INFO(ST_NULLIFY, 0, 0, "nullify") \
+	STATEMENT_INFO(ST_OPEN, 0, 0, "open") \
+	STATEMENT_INFO(ST_PRINT, 0, 1, "print") \
+	STATEMENT_INFO(ST_READ, 0, 0, "read") \
+	STATEMENT_INFO(ST_RETURN, 0, 1, "return") \
+	STATEMENT_INFO(ST_REWIND, 0, 1, "rewind") \
+	STATEMENT_INFO(ST_PAUSE, 0, 1, "pause") \
+	STATEMENT_INFO(ST_STOP, 0, 1, "stop") \
+	STATEMENT_INFO(ST_WRITE, 0, 0, "write") \
+	STATEMENT_INFO(ST_INTERFACE, 0, 1, "interface") \
+	STATEMENT_INFO(ST_ELSE, 0, 0, "else") \
+	STATEMENT_INFO(ST_ELSEIF, 0, 0, "elseif") \
+	STATEMENT_INFO(ST_SELECTCASE, 0, 0, "selectcase") \
+	STATEMENT_INFO(ST_CASE, 0, 1, "case") \
+	STATEMENT_INFO(ST_END, 0, 1, "end") \
+	STATEMENT_INFO(ST_IF_STMT, 0, 1, "if") \
+	STATEMENT_INFO(DC_INCLUDE, 0, 1, "include")
 
 statements_information_t statements_info[] =
 {
-	STATEMENT_INFO(ST_ASSIGNMENT, 0, 0, NULL),
-	STATEMENT_INFO(ST_TYPESPEC, 1, 1, NULL),
-	STATEMENT_INFO(ST_INITIALIZATION, 1, 0, NULL),
-	STATEMENT_INFO(ST_TYPEDECL, 1, 1, NULL),
-	STATEMENT_INFO(ST_PROGRAM, 1, 1, "program"),
-	STATEMENT_INFO(ST_SUBROUTINE, 1, 1, "subroutine"),
-	STATEMENT_INFO(ST_FUNCTION, 1, 1, "function"),
-	STATEMENT_INFO(ST_MODULE, 1, 1, "module"),
-	STATEMENT_INFO(ST_MODULE_PROCEDURE, 1, 1, "module procedure"),
-	STATEMENT_INFO(ST_BLOCKDATA, 1, 1, "blockdata"),
-	STATEMENT_INFO(ST_USE, 1, 1, "use"),
-	STATEMENT_INFO(ST_IMPLICIT, 1, 1, "implicit"),
-	STATEMENT_INFO(ST_PARAMETER, 1, 0, "parameter"),
-	STATEMENT_INFO(ST_FORMAT, 1, 1, "format"),
-	STATEMENT_INFO(ST_ENTRY, 1, 1, "entry"),
-	STATEMENT_INFO(ST_ACCESS, 1, 1, "access"),
-	STATEMENT_INFO(ST_ALLOCATABLE, 1, 1, "allocatable"),
-	STATEMENT_INFO(ST_COMMON, 1, 1, "common"),
-	STATEMENT_INFO(ST_CONTAINS, 1, 0, "contains"),
-	STATEMENT_INFO(ST_DATA, 1, 1, "data"),
-	STATEMENT_INFO(ST_DIMENSION, 1, 1, "dimension"),
-	STATEMENT_INFO(ST_EQUIVALENCE, 1, 0, "equivalence"),
-	STATEMENT_INFO(ST_EXTERNAL, 1, 1, "external"),
-	STATEMENT_INFO(ST_INTENT, 1, 0, "intent"),
-	STATEMENT_INFO(ST_INTRINSIC, 1, 1, "intrinsic"),
-	STATEMENT_INFO(ST_NAMELIST, 1, 0, "namelist"),
-	STATEMENT_INFO(ST_OPTIONAL, 1, 1, "optional"),
-	STATEMENT_INFO(ST_POINTER, 1, 1, "pointer"),
-	STATEMENT_INFO(ST_SAVE, 1, 1, "save"),
-	STATEMENT_INFO(ST_VALUE, 1, 1, "value"),
-	STATEMENT_INFO(ST_VOLATILE, 1, 1, "volatile"),
-	STATEMENT_INFO(ST_TARGET, 1, 1, "target"),
-	STATEMENT_INFO(ST_DO, 0, 1, "do"),
-	STATEMENT_INFO(ST_LABELED_DO, 0, 1, "do"),
-	STATEMENT_INFO(ST_FORALL, 0, 0, "forall"),
-	STATEMENT_INFO(ST_ARITHMETIC_IF, 0, 0, "if"),
-	STATEMENT_INFO(ST_IF, 0, 0, "if"),
-	STATEMENT_INFO(ST_WHERE, 0, 0, "where"),
-	STATEMENT_INFO(ST_ALLOCATE, 0, 0, "allocate"),
-	STATEMENT_INFO(ST_BLOCK, 0, 1, "block"),
-	STATEMENT_INFO(ST_BACKSPACE, 0, 1, "backspace"),
-	STATEMENT_INFO(ST_CALL, 0, 1, "call"),
-	STATEMENT_INFO(ST_CLOSE, 0, 0, "close"),
-	STATEMENT_INFO(ST_CONTINUE, 0, 0, "continue"),
-	STATEMENT_INFO(ST_CYCLE, 0, 1, "cycle"),
-	STATEMENT_INFO(ST_DEALLOCATE, 0, 0, "deallocate"),
-	STATEMENT_INFO(ST_ENDFILE, 0, 1, "endfile"),
-	STATEMENT_INFO(ST_EXIT, 0, 1, "exit"),
-	STATEMENT_INFO(ST_GOTO, 0, 1, "goto"),
-	STATEMENT_INFO(ST_LABEL_ASSIGN, 0, 1, "assign"),
-	STATEMENT_INFO(ST_INQUIRE, 0, 0, "inquire"),
-	STATEMENT_INFO(ST_NULLIFY, 0, 0, "nullify"),
-	STATEMENT_INFO(ST_OPEN, 0, 0, "open"),
-	STATEMENT_INFO(ST_PRINT, 0, 1, "print"),
-	STATEMENT_INFO(ST_READ, 0, 0, "read"),
-	STATEMENT_INFO(ST_RETURN, 0, 1, "return"),
-	STATEMENT_INFO(ST_REWIND, 0, 1, "rewind"),
-	STATEMENT_INFO(ST_PAUSE, 0, 1, "pause"),
-	STATEMENT_INFO(ST_STOP, 0, 1, "stop"),
-	STATEMENT_INFO(ST_WRITE, 0, 0, "write"),
-	STATEMENT_INFO(ST_INTERFACE, 0, 1, "interface"),
-	STATEMENT_INFO(ST_ELSE, 0, 0, "else"),
-	STATEMENT_INFO(ST_ELSEIF, 0, 0, "elseif"),
-	STATEMENT_INFO(ST_SELECTCASE, 0, 0, "selectcase"),
-	STATEMENT_INFO(ST_CASE, 0, 1, "case"),
-	STATEMENT_INFO(ST_END, 0, 1, "end"),
-	STATEMENT_INFO(ST_IF_STMT, 0, 1, "if"),
-	STATEMENT_INFO(DC_INCLUDE, 0, 1, "include")
+#define STATEMENT_INFO(statement, is_decl, needs_space, keyword) \
+	[statement] = {is_decl, needs_space},
+    STATEMENT_SET
+#undef STATEMENT_INFO
+};
+
+const char * statement_names[] =
+{
+#define STATEMENT_INFO(statement, _, __, ___) \
+	[statement] = #statement ,
+    STATEMENT_SET
+#undef STATEMENT_INFO
 };
 
 typedef struct line_information_tag line_information_t;
@@ -648,7 +664,9 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		{
 			DEBUG_CODE()
 			{
-				fprintf(stderr, "Switching to LANG_DECLARATION_PART (%s) (statement = %d)\n", li->statement_list[statement_index].statement, statement);
+				fprintf(stderr, "Switching to LANG_DECLARATION_PART (%s) (statement = %s)\n",
+						li->statement_list[statement_index].statement,
+						statement_names[statement]);
 			}
 			next = LANG_DECLARATION_PART;
 		}
@@ -656,7 +674,9 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		{
 			DEBUG_CODE()
 			{
-				fprintf(stderr, "Switching to LANG_INSTRUCTION_PART (%s) (statement = %d)\n", li->statement_list[statement_index].statement, statement);
+				fprintf(stderr, "Switching to LANG_INSTRUCTION_PART (%s) (statement = %s)\n",
+						li->statement_list[statement_index].statement,
+						statement_names[statement]);
 			}
 			next = LANG_INSTRUCTION_PART;
 		}

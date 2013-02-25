@@ -36,9 +36,9 @@ DISTCHECK_CONFIGURE_FLAGS =
 override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
 
 dist-hook:
-	if [ -n "$(gitpath)" ]; \
+	if [ -x "$(GIT)" ]; \
 	then \
-	    run_gitversion=`"$(gitpath)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \
+	    run_gitversion=`"$(GIT)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \
 	    build_version="git $${run_gitversion} distributed version"; \
 	    echo "$${build_version}" > $(distdir)/DIST_REVISION; \
 	elif [ -e $(srcdir)/DIST_REVISION ]; \
