@@ -24,21 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtl-vector-lowering-knc.la
+include ../../../Makefile.phases
+
+phases_LTLIBRARIES = libcodegen-knc-module.la
 
 END=
 
-libtl_vector_lowering_knc_la_CFLAGS = $(tl_cflags) \
+libcodegen_knc_module_la_CFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
     $(END)
 
-libtl_vector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+libcodegen_knc_module_la_CXXFLAGS = $(tl_cflags) \
+    -I $(srcdir)/../../common \
     $(END)
 
-libtl_vector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
-libtl_vector_lowering_knc_la_LIBADD = $(END)
+libcodegen_knc_module_la_LDFLAGS = $(tl_ldflags)
+libcodegen_knc_module_la_LIBADD = ../../common/libcodegen-common.la \
+					       $(END)
 
-libtl_vector_lowering_knc_la_SOURCES = 
-#     tl_vector_lowering_knc.hpp 
-#     tl-vector-lowering-knc.cpp 
+
+libcodegen_knc_module_la_SOURCES = \
+	 codegen-knc-module.hpp \
+	 codegen-knc-module.cpp \
+  	 $(END)

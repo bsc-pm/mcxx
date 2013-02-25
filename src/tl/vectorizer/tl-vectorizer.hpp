@@ -80,6 +80,8 @@ namespace TL
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
         };
+
+        TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
     }
 }
 

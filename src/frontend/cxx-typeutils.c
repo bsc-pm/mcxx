@@ -6742,15 +6742,15 @@ const char* print_intel_sse_avx_vector_type(
             {
                 if (is_float_type(element_type))
                 {
-                    return "__M512";
+                    return "__m512";
                 }
                 else if (is_double_type(element_type))
                 {
-                    return "__M512D";
+                    return "__m512D";
                 }
                 else if (is_integer_type(element_type))
                 {
-                    return "__M512I";
+                    return "__m512I";
                 }
             }
     }

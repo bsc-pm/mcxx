@@ -40,6 +40,8 @@ namespace TL
 
                 SSEVectorLowering();
 
+                void visit(const Nodecl::ObjectInit& node);
+                
                 void visit(const Nodecl::VectorAdd& node);
                 void visit(const Nodecl::VectorMinus& node);
                 void visit(const Nodecl::VectorMul& node);

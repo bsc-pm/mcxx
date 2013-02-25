@@ -8,6 +8,7 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 
 [imcxx : omp-base]
 language = C++
+{openmp} preprocessor_options = -include new 
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@

@@ -35,6 +35,23 @@ namespace TL
         {
         }
 
+        void SSEVectorLowering::visit(const Nodecl::ObjectInit& node) 
+        {
+            TL::Source intrin_src;
+            
+            if(node.has_symbol())
+            {
+                TL::Symbol sym = node.get_symbol();
+
+                // Vectorizing initialization
+                Nodecl::NodeclBase init = sym.get_value();
+                if(!init.is_null())
+                {
+                    walk(init);
+                }
+            }
+        }
+
         void SSEVectorLowering::visit(const Nodecl::VectorAdd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -785,7 +802,6 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorLiteral& node) 
         {
-            /* 
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
@@ -832,6 +848,7 @@ namespace TL
 
             Nodecl::List::const_iterator it = scalar_values.begin();
             walk((*it));
+            intrin_src << as_expression(*it);
             it++;
 
             for (; it != scalar_values.end();
@@ -839,17 +856,18 @@ namespace TL
             {
                 intrin_src << ", ";
                 walk((*it));
+                intrin_src << as_expression(*it);
             }
 
             intrin_src << ")"; 
-            */
         }        
 
 
         void SSEVectorLowering::visit(const Nodecl::VectorConditionalExpression& node) 
         { 
-            /*
             TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
 
             Nodecl::NodeclBase true_node = node.get_true();
             Nodecl::NodeclBase false_node = node.get_false();
@@ -899,31 +917,40 @@ namespace TL
                         node.get_locus().c_str());
             }
 
-            intrin_src << "("; 
-            walk(false_node); // False first!
-            intrin_src << ", ";
+            walk(false_node);
             walk(true_node);
+            walk(condition_node);
+
+            intrin_src << "("; 
+            intrin_src << as_expression(false_node); // False first!
+            intrin_src << ", ";
+            intrin_src << as_expression(true_node);
             intrin_src << ", "
                 << casting;
-            walk(condition_node);
+            intrin_src << as_expression(condition_node);
             intrin_src << ")"; 
-            */
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }        
 
         void SSEVectorLowering::visit(const Nodecl::VectorAssignment& node) 
         {
+            TL::Source intrin_src;
+
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            Nodecl::Assignment assig =
-                Nodecl::Assignment::make(
-                        node.get_lhs(),
-                        node.get_rhs(),
-                        node.get_rhs().get_type(),
-                        node.get_filename(),
-                        node.get_line());
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << " = ";
+            intrin_src << as_expression(node.get_rhs());
 
-            node.replace(assig);
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorLoad& node) 
@@ -1071,7 +1098,6 @@ namespace TL
                         node.get_locus().c_str());
             }
 
-
             walk(node.get_base());
             walk(node.get_strides());
 
@@ -1204,8 +1230,19 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
         {
-          //  ((CxxBase*)_modular_visitor)->visit_function_call(
-          //      node.as<Nodecl::FunctionCall>(), false);
+            walk(node.get_arguments());
+
+            Nodecl::FunctionCall function_call =
+                Nodecl::FunctionCall::make(
+                        node.get_called(),
+                        node.get_arguments(),
+                        node.get_alternate_name(),
+                        node.get_function_form(),
+                        node.get_type(),
+                        node.get_filename(),
+                        node.get_line());
+
+            node.replace(function_call);
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorFabs& node) 
@@ -1214,23 +1251,24 @@ namespace TL
 
             TL::Source intrin_src;
 
-            walk(node.get_arguments());
+            walk(node.get_argument());
 
             // Handcoded implementations for float and double
             if (type.is_float()) 
             { 
                 intrin_src << "(_mm_and_ps(";
-                intrin_src << as_expression(node.get_arguments());
+                intrin_src << as_expression(node.get_argument());
                 intrin_src << ", _mm_castsi128_ps(_mm_set1_epi32(0x7FFFFFFF))))"; 
             } 
             else if (type.is_double()) 
             { 
                 intrin_src << "(_mm_and_pd(";
-                intrin_src << as_expression(node.get_arguments());
+                intrin_src << as_expression(node.get_argument());
                 intrin_src << ", _mm_castsi128_pd(_mm_set1_epi64(0x7FFFFFFFFFFFFFFFLL))))"; 
             }
             else
             {
+                /*
                 // Intrinsic name
                 intrin_src << "_mm_abs";
 
@@ -1253,11 +1291,17 @@ namespace TL
                 } 
                 else
                 {
+                */
                     running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             node.get_locus().c_str());
-                }
+                //}
             }
+            
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+            
+            node.replace(function_call);
         }
 
         Nodecl::NodeclVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 

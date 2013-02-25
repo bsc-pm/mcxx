@@ -318,10 +318,10 @@ namespace TL
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
                     const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>(); 
 
+                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
+
                     ERROR_CONDITION(subscripts.size() > 1,
                             "Vectorizer: Scatter on multidimensional array is not supported yet!", 0);
-
-                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
 
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
@@ -547,7 +547,7 @@ namespace TL
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
-                            n.get_arguments().shallow_copy(),
+                            n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
                             n.get_type().get_vector_to(_vector_length),
                             n.get_filename(),
                             n.get_line());
@@ -598,8 +598,9 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
-            TL::Symbol sym = n.get_symbol();
-            TL::Type sym_type = sym.get_type();
+            TL::Type sym_type = n.get_type();
+
+            //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
             if (!sym_type.is_vector_type())
             {
@@ -646,38 +647,53 @@ namespace TL
 
                     n.replace(vector_induction_var);
                 }
+                // Vectorize symbols declared in the SIMD scope
+                else if (is_declared_in_scope(
+                            _simd_inner_scope.get_decl_context().current_scope,
+                            n.get_symbol().get_scope().get_decl_context().current_scope))
+                {
+                    //std::cerr << "NS scalar_type: " << n.prettyprint() << std::endl;
+
+                    TL::Symbol tl_sym = n.get_symbol();
+                    TL::Type tl_sym_type = tl_sym.get_type();
+
+                    //TL::Symbol
+                    if (tl_sym_type.is_scalar_type())
+                    {
+                        //std::cerr << "TS scalar_type: " << n.prettyprint() << std::endl;
+                        tl_sym.set_type(get_qualified_vector_to(tl_sym_type, _vector_length));
+                        tl_sym_type = tl_sym.get_type();
+                    }
+
+                    //Nodecl::Symbol
+                    Nodecl::Symbol new_sym =
+                        Nodecl::Symbol::make(tl_sym,
+                                n.get_filename(),
+                                n.get_line());
+
+                    new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
+
+                    n.replace(new_sym);
+                }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
                             Vectorizer::_analysis_scopes->back(),
                             n))
                 {
-                    if (sym_type.is_scalar_type())
-                    {
-                        const Nodecl::VectorPromotion vector_prom =
-                            Nodecl::VectorPromotion::make(
-                                    n.shallow_copy(),
-                                    sym_type.get_vector_to(_vector_length),
-                                    n.get_filename(),
-                                    n.get_line());
+                    const Nodecl::VectorPromotion vector_prom =
+                        Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                sym_type.get_vector_to(_vector_length),
+                                n.get_filename(),
+                                n.get_line());
 
-                        n.replace(vector_prom);
-                    }
-                }
-                // Vectorize symbols declared in the SIMD scope
-                else if (is_declared_in_scope(
-                            _simd_inner_scope.get_decl_context().current_scope,
-                            sym.get_scope().get_decl_context().current_scope))
-                {
-                    if (sym_type.is_scalar_type())
-                    {
-                        sym.set_type(sym_type.get_vector_to(_vector_length));
-                    }
+                    n.replace(vector_prom);
                 }
                 else
                 {
                     //TODO: If you are from outside of the loop -> Vector local copy.
                     running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV or Constant or Local.",
-                            sym.get_name().c_str());
+                            n.get_symbol().get_name().c_str());
                 }
             }
         }
