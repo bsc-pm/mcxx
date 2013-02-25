@@ -1081,8 +1081,11 @@ static void build_scope_subroutine_program_unit(AST program_unit,
             new_entry,
             ASTFileName(program_unit), ASTLine(program_unit));
 
-    new_entry->entity_specs.function_code = function_code;
 
+    if (!inside_interface(program_unit))
+    {
+        new_entry->entity_specs.function_code = function_code;
+    }
     *nodecl_output = nodecl_make_list_1(function_code);
 }
 
