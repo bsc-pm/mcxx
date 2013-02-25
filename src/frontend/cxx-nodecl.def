@@ -356,6 +356,7 @@ fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [value
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
                     | NODECL_FORTRAN_BIND_C([name] expression)
                     | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
+                    | NODECL_FORTRAN_HOLLERITH() type text const-value
 
 fortran-data-item : expression
                   | fortran-implied-do

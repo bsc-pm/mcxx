@@ -1006,6 +1006,11 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::visit(const Nodecl::FortranHollerith& node)
+    {
+        file << node.get_text().size() << "H" << node.get_text();
+    }
+
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());

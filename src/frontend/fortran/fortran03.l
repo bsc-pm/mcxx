@@ -40,6 +40,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-utils.h"
+#include "cxx-limits.h"
 #include "filename.h"
 #include "fortran03-utils.h"
 #include "fortran03-lexer.h"
@@ -124,6 +125,11 @@ static int is_format_statement(char* token);
 
 static char last_eos = 1;
 
+// Hollerith
+static char hollerith_buffer[MCXX_MAX_LENGTH_HOLLERITH_CONSTANT] = { };
+static int length_hollerith_buffer = 0;
+static int count_hollerith_constant = 0;
+
 #define RETURN_TOKEN(x) do { last_eos = 0; return (x); }  while(0)
 #define RETURN_EOS { if (!last_eos) { last_eos = 1; return (EOS); } }
 #define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; return (PRAGMA_CUSTOM_NEWLINE); } }
@@ -192,6 +198,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 %x pragma_custom_clause
 %x pragma_custom_var_list
 %x pragma_custom_comment
+%x hollerith_constant
 
 %%
 
@@ -1019,6 +1026,56 @@ x["][0-9a-f]+["] {
 	// 123.
 	parse_token_text();
 	RETURN_TOKEN(REAL_LITERAL);
+}
+
+[0-9]+H {
+
+    const char *q;
+    {
+        char* p = strdup(yytext);
+        q = p;
+
+        while (*p != 'H'
+                && *p != 'h')
+            p++;
+        *p = '\0';
+    }
+
+    length_hollerith_buffer = 0;
+    count_hollerith_constant = atoi(q);
+
+    free(q);
+
+    if (count_hollerith_constant == 0)
+    {
+        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0", 
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number);
+    }
+    else
+    {
+        BEGIN(hollerith_constant);
+    }
+}
+
+<hollerith_constant>{
+
+. {
+    if (count_hollerith_constant > 0)
+    {
+        hollerith_buffer[length_hollerith_buffer] = *yytext;
+        length_hollerith_buffer++;
+        count_hollerith_constant--;
+    }
+    else
+    {
+        hollerith_buffer[length_hollerith_buffer] = '\0';
+        BEGIN(INITIAL);
+        parse_token_text_str(hollerith_buffer);
+        return TOK_HOLLERITH_CONSTANT;
+    }
+}
+
 }
 
 ({kind}_)?["]([^"\n\r]|["]["])*["] {

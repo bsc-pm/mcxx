@@ -732,21 +732,60 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			{
 				add_blank_entry_statement(&li->statement_list[statement_index].statement, yytext);
 			}
-            else if (statement == ST_FORMAT)
+            else if (statement == ST_FORMAT
+                    || statement == ST_DATA)
             {
-                // Format requires a special treatment as we cannot wipe its blanks because
-                // of Hollerith constants.
-                // It can't be larger than that
-                int n = strlen(li->statement_list[statement_index].original_text) + 10;
-                char *c = malloc(n*sizeof(char));
-                c[0] = '\n';
+                // Format and Data require a special treatment as we cannot
+                // wipe its blanks because of Hollerith constants.
 
-                char* p = strchr(li->statement_list[statement_index].original_text, '(');
-                ERROR_CONDITION(p == NULL, "This cannot be null", 0);
+                const char* keyword = NULL;
+                switch (statement)
+                {
+                    case ST_FORMAT:
+                        keyword = "FORMAT";
+                        break;
+                    case ST_DATA:
+                        keyword = "DATA";
+                        break;
+                    default:
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                }
+
+                // +2 because of a blank we add after the keyword and the NULL terminator
+                int n = strlen(keyword) + strlen(li->statement_list[statement_index].original_text) + 2;
+
+                char *c = malloc(n*sizeof(char));
+                c[0] = '\0';
+
+                const char *p = li->statement_list[statement_index].original_text;
+                const char *current_letter = keyword;
+                while (*current_letter != '\0')
+                {
+                    // Ignore blanks as this is the original statement without blanks trimmed
+                    while (*p == ' ' || *p == '\t')
+                        p++;
+
+                    if (toupper(*p) == *current_letter)
+                    {
+                        p++;
+                        current_letter++;
+                    }
+                    else
+                    {
+                        internal_error("Invalid text '%s'\n", p);
+                    }
+                }
+
+                // Ignore blanks one more time
+                while (*p == ' ' || *p == '\t')
+                    p++;
 
                 free(li->statement_list[statement_index].statement);
 
-                snprintf(c, n, "FORMAT %s", p);
+                // Mind the blank
+                snprintf(c, n, "%s %s", keyword, p);
                 c[n-1] = '\0';
                 li->statement_list[statement_index].statement = c;
             }
