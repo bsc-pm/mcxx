@@ -3235,6 +3235,11 @@ static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUS
 static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     error_printf("%s: sorry: image references not supported\n", 
+
+static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    error_printf("%s: sorry: image references not supported\n",
             ast_location(expr));
     *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
 }
