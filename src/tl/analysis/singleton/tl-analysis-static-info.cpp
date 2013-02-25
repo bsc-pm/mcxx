@@ -185,7 +185,7 @@ namespace Analysis {
             Nodecl::List::iterator it = subscript.begin( );
             for( ; it != subscript.end( ) - 1; ++it )
             {   // All dimensions but the less significant must be constant
-                if( !it->is_constant( ) )
+                if( !is_constant( *it ) )
                 {
                     result = false;
                     break;
@@ -278,7 +278,6 @@ namespace Analysis {
 
     bool AdjacentAccessVisitor::visit( const Nodecl::Add& n )
     {
-        std::cerr << "Add: " << n.prettyprint( ) << std::endl;
         return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
     }
 
@@ -571,19 +570,16 @@ namespace Analysis {
 
     bool AdjacentAccessVisitor::visit( const Nodecl::Symbol& n )
     {
-        std::cerr << "Symbol: " << n.prettyprint( ) << std::endl;
         bool res = true;
         Utils::InductionVariableData* iv = variable_is_iv( n );
         if( !_iv_found && iv != NULL)
         {
-            std::cerr << "    is IV" << std::endl;
             _iv = iv;
             _iv_found = true;
         }
         else
         {
             res = !Utils::ext_sym_set_contains_nodecl( n, _killed );
-            std::cerr << "    is " << ( res ? "NOT": "" ) << " in KILLEd vars" << std::endl;
         }
         return res;
     }
