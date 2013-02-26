@@ -1170,15 +1170,12 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             // out
             symbol_map,
             save_expressions);
-    
-    // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
 
     if (called_task_function.is_from_module())
     {
-        // If the symbol comes from a module, the environment 
+        // If the symbol comes from a module, the environment
         // will use the original symbol of the module
-        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
+        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);
     }
 
     // Get parameters outline info
@@ -1196,13 +1193,73 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    // We create a new outline info using the 'adapter_function' as the first implementor.
-    // We use the adapter function instead of the called_task_function because the environment
-    // has been updated in the function call 'fill_adapter_function' using the symbol map information.
-    OutlineInfo new_outline_info(new_environment, adapter_function, _function_task_set);
+    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
+
+    Nodecl::Utils::SimpleSymbolMap params_to_data_items_map;
+    TL::ObjectList<OutlineDataItem*> data_items = new_outline_info.get_data_items();
+    TL::ObjectList<TL::Symbol> parameters = called_task_function.get_function_parameters();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
+            it != parameters.end();
+            ++it)
+    {
+        TL::Symbol parameter = *it;
+
+        // We search by parameter position here
+        ObjectList<OutlineDataItem*> found = data_items.find(
+                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                parameter.get_parameter_position_in(called_task_function));
+
+        if (found.empty())
+        {
+            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
+                    construct.get_locus().c_str(),
+                    parameter.get_name().c_str());
+        }
+
+        TL::Symbol outline_data_item_sym = (*found.begin())->get_symbol();
+        params_to_data_items_map.add_map(parameter, outline_data_item_sym);
+    }
+
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        new_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it)
+    {
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_task_function)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            new_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            new_outline_info.set_param_arg_map(params_to_data_items_map, current_implementor);
+        }
+    }
 
     emit_async_common(
             new_task_construct,

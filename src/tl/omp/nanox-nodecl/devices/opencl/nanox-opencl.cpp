@@ -982,6 +982,8 @@ void DeviceOpenCL::generate_ndrange_code(
         // Out
         TL::Source& code_ndrange)
 {
+    TL::Source code_ndrange_aux;
+
     Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
 
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
@@ -996,7 +998,6 @@ void DeviceOpenCL::generate_ndrange_code(
         TL::Symbol value =
             unpacked_fun_params_to_args_map->get_symbol_map()->map(
                     unpacked_fun_params_to_args_map->get_symbol_map(), it->second.get_internal_symbol());
-
         translate_parameters_map.add_map(key, value);
     }
 
@@ -1037,30 +1038,34 @@ void DeviceOpenCL::generate_ndrange_code(
         compiler_opts = std::string(CURRENT_CONFIGURATION->opencl_build_options);
     }
 
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
-    {
-        //Create OCL Kernel
-        code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
+    //Create OCL Kernel
+    code_ndrange_aux << "nanos_err_t err;";
+    code_ndrange_aux << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
 
-        //Check original function param types, with the adjusted ones, float[x] array types will be pointers
-        TL::ObjectList<TL::Type> nonadjusted_params = called_task.get_type().nonadjusted_parameters();
-        //Prepare setArgs
-        for (int i = 0; i < num_params; ++i)
+    //Check original function param types, with the adjusted ones, float[x] array types will be pointers
+    TL::ObjectList<TL::Type> nonadjusted_params = called_task.get_type().nonadjusted_parameters();
+    //Prepare setArgs
+    for (int i = 0; i < num_params; ++i)
+    {
+            std::cerr << parameters_called[i].get_name() << " " <<  parameters_called[i].get_internal_symbol() << std::endl;
+        if (nonadjusted_params[i].is_pointer()
+                && !nonadjusted_params[i].is_array())
         {
-            if (nonadjusted_params[i].is_pointer()
-                    && !nonadjusted_params[i].is_array())
-            {
-                code_ndrange << "nanos_opencl_set_bufferarg(ompss_kernel_ocl, " << i << ", " << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
-            }
-            else
-            {
-                code_ndrange << "nanos_opencl_set_arg(ompss_kernel_ocl, " << i << ", "
-                    "sizeof(" << as_type(nonadjusted_params[i]) << "), &" << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
-            }
+            code_ndrange_aux << "err = nanos_opencl_set_bufferarg(ompss_kernel_ocl, " << i << ", " << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
         }
+        else
+        {
+            code_ndrange_aux << "err = nanos_opencl_set_arg(ompss_kernel_ocl, " << i << ", "
+                "sizeof(" << as_type(nonadjusted_params[i]) << "), &" << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
+        }
+    }
+
+    int num_dim_offset = num_dim;
+    //Build arrays with information from ndrange clause or pointing to the ndrange pointers
+    if (!dim_const)
+    {
         //Prepare ndrange calc pointers and arrays
-        code_ndrange
+        code_ndrange_aux
             << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
             << "size_t offset_tmp[num_dim];"
             << "size_t offset_arr[num_dim];"
@@ -1073,68 +1078,33 @@ void DeviceOpenCL::generate_ndrange_code(
             << as_type(TL::Type::get_bool_type()) << " local_size_zero = 0;"
             << "int i = 0;"
             ;
-
-        int num_dim_offset = num_dim;
-        //Build arrays with information from ndrange clause or pointing to the ndrange pointers
-        if (!dim_const)
+        if (num_args_ndrange == 3)
         {
-            if (num_args_ndrange == 3)
-            {
-                code_ndrange
-                    << "for (i = 0; i < num_dim; ++i)"
-                    << "{"
-                    <<     "offset_tmp[i] = 0;"
-                    << "}"
-                    << "offset_ptr = offset_tmp;"
-                    << "global_size_ptr = " << as_expression(new_ndrange[1]) << ";"
-                    << "local_size_ptr = " << as_expression(new_ndrange[2]) << ";"
-                    ;
-            }
-            else if (num_args_ndrange == 4)
-            {
-                code_ndrange
-                    << "offset_ptr = " << as_expression(new_ndrange[1]) << ";"
-                    << "global_size_ptr = " << as_expression(new_ndrange[2]) << ";"
-                    << "local_size_ptr = " << as_expression(new_ndrange[3]) << ";"
-                    ;
-            }
-            else
-            {
-                WARNING_MESSAGE("Invalid number of parameters for ndrange, when number of dimensions is not const, it must be 3 or 4",0);
-            }
+            code_ndrange_aux
+                << "for (i = 0; i < num_dim; ++i)"
+                << "{"
+                <<     "offset_tmp[i] = 0;"
+                << "}"
+                << "offset_ptr = offset_tmp;"
+                << "global_size_ptr = " << as_expression(new_ndrange[1]) << ";"
+                << "local_size_ptr = " << as_expression(new_ndrange[2]) << ";"
+                ;
+        }
+        else if (num_args_ndrange == 4)
+        {
+            code_ndrange_aux
+                << "offset_ptr = " << as_expression(new_ndrange[1]) << ";"
+                << "global_size_ptr = " << as_expression(new_ndrange[2]) << ";"
+                << "local_size_ptr = " << as_expression(new_ndrange[3]) << ";"
+                ;
         }
         else
         {
-            code_ndrange
-                << "size_t local_size_tmp[num_dim];"
-                << "size_t global_size_tmp[num_dim];"
-                ;
-            for (int i = 1; i <= num_dim; ++i)
-            {
-                if (((num_dim * 3) + 1 + !check_dim) != num_args_ndrange)
-                {
-                    num_dim_offset = 0;
-                    code_ndrange << "offset_tmp[" << i-1 << "] = 0;";
-                }
-                else
-                {
-                    code_ndrange << "offset_tmp[" << i-1 << "] = (" << as_expression(new_ndrange[i]) << ");";
-                }
-                code_ndrange
-                    << "local_size_tmp[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";"
-                    << "global_size_tmp[" << i-1 << "] = " << as_expression(new_ndrange[num_dim_offset + i]) << ";"
-                    ;
-            }
-
-            code_ndrange
-                << "offset_ptr = offset_tmp;"
-                << "local_size_ptr = local_size_tmp;"
-                << "global_size_ptr = global_size_tmp;"
-                ;
+            WARNING_MESSAGE("Invalid number of parameters for ndrange, when number of dimensions is not const, it must be 3 or 4",0);
         }
 
         //Check if local_size has zeros
-        code_ndrange
+        code_ndrange_aux
             << "for (i = 0; i < num_dim; ++i)"
             << "{"
             <<     "if (local_size_ptr[i] == 0)"
@@ -1154,7 +1124,7 @@ void DeviceOpenCL::generate_ndrange_code(
         //Now do the rounding
         if (check_dim)
         {
-            code_ndrange
+            code_ndrange_aux
                 << "for (i = 0; i < num_dim; ++i)"
                 << "{"
                 <<     "offset_arr[i] = offset_ptr[i];"
@@ -1172,7 +1142,7 @@ void DeviceOpenCL::generate_ndrange_code(
 
         if (check_dim)
         {
-            code_ndrange
+            code_ndrange_aux
                 << "if (local_size_zero)"
                 << "{"
                 <<     "final_local_size_ptr = 0;"
@@ -1187,7 +1157,7 @@ void DeviceOpenCL::generate_ndrange_code(
         }
         else
         {
-            code_ndrange
+            code_ndrange_aux
                 << "if (local_size_zero)"
                 << "{"
                 <<     "final_local_size_ptr = 0;"
@@ -1199,6 +1169,93 @@ void DeviceOpenCL::generate_ndrange_code(
                 << "nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_ptr, final_local_size_ptr, global_size_ptr);"
                 ;
         }
+    }
+    else
+    {
+        //Prepare ndrange calc pointers and arrays
+        code_ndrange_aux
+            << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
+            << "size_t offset_arr[num_dim];"
+            << "size_t local_size_arr[num_dim];"
+            << "size_t global_size_arr[num_dim];"
+            << as_type(TL::Type::get_bool_type()) << " local_size_zero;"
+            << "local_size_zero = 0;"
+            ;
+
+        for (int i = 1; i <= num_dim; ++i)
+        {
+            if (((num_dim * 3) + 1 + !check_dim) != num_args_ndrange)
+            {
+                num_dim_offset = 0;
+                code_ndrange_aux << "offset_arr[" << i-1 << "] = 0;";
+            }
+            else
+            {
+                code_ndrange_aux << "offset_arr[" << i-1 << "] = " << as_expression(new_ndrange[i]) << ";";
+            }
+            code_ndrange_aux
+                << "local_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";"
+                << "if (local_size_arr[" << i - 1 << "] == 0)"
+                << "{"
+                <<      "local_size_zero = 1;"
+                << "}"
+                << "global_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim_offset + i]) << ";"
+                ;
+        }
+
+        //Now do the rounding
+        if (check_dim)
+        {
+            code_ndrange_aux
+                << "if (!local_size_zero)"
+                << "{"
+                <<      "int i;"
+                <<      "for (i = 0; i < num_dim; i = i + 1)"
+                <<      "{"
+                <<           "if (global_size_arr[i] < local_size_arr[i])"
+                <<           "{"
+                <<               "local_size_arr[i] = global_size_arr[i];"
+                <<           "}"
+                <<           "else"
+                <<           "{"
+                <<               "if (global_size_arr[i] % local_size_arr[i] != 0)"
+                <<               "{"
+                <<                   "global_size_arr[i] = global_size_arr[i]"
+                <<                       " + (local_size_arr[i] - global_size_arr[i] % local_size_arr[i]);"
+                <<               "}"
+                <<           "}"
+                <<      "}"
+                << "}"
+                ;
+        }
+
+        code_ndrange_aux
+            << "if (local_size_zero)"
+            << "{"
+            //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            <<      "err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, 0, global_size_arr);"
+            << "}"
+            << "else"
+            << "{"
+            //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            <<      "err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, local_size_arr, global_size_arr);"
+            << "}"
+            ;
+    }
+
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase code_ndrange_tree = code_ndrange_aux.parse_statement(unpacked_function.get_related_scope());
+
+        Source::source_language = SourceLanguage::Current;
+
+        code_ndrange << as_statement(code_ndrange_tree);
+    }
+    else
+    {
+        code_ndrange << code_ndrange_aux;
     }
 }
 
@@ -1638,7 +1695,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
 
         // Generate ancillary code in C
-        add_forward_code_to_extra_c_code(outline_name, data_items, outline_placeholder);
+         add_forward_code_to_extra_c_code(outline_name, data_items, outline_function_body);
     }
     else
     {
@@ -1661,8 +1718,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
     outline_function_body.replace(new_outline_body);
 
-    // Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
-    // outline_function_body.replace(new_outline_body);
     // Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
     //
      //Dummy function call placeholder
@@ -1838,7 +1893,41 @@ void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::Nodecl
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
-    // Do nothing
+    if (_extra_c_code.is_null())
+        return;
+
+    std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+    std::string new_filename = "aux_nanox_outline_file_" + original_filename  + ".c";
+
+    FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+    if (ancillary_file == NULL)
+    {
+        running_error("%s: error: cannot open file '%s'. %s\n",
+                original_filename.c_str(),
+                new_filename.c_str(),
+                strerror(errno));
+    }
+
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+    compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+    ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+    // Make sure phases are loaded (this is needed for codegen)
+    load_compiler_phases(configuration);
+
+    TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+    ::mark_file_for_cleanup(new_filename.c_str());
+
+    Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+    phase->codegen_top_level(_extra_c_code, ancillary_file);
+
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+    fclose(ancillary_file);
+    // Do not forget the clear the code for next files
+    _extra_c_code.get_internal_nodecl() = nodecl_null();
 }
 
 void DeviceOpenCL::pre_run(DTO& dto)
