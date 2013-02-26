@@ -1155,7 +1155,7 @@ intrinsic_type_spec : TOK_INTEGER kind_selector
 }
 | TOK_LOGICAL '*' decimal_literal
 {
-    $$ = ASTMake1(AST_INT_TYPE, $3, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_BOOL_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_VECTOR '(' vectorial_type ')'
 {
