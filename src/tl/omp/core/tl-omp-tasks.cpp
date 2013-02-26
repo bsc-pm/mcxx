@@ -112,7 +112,19 @@ namespace TL
         {
             return _ndrange;
         }
-        
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_shallow_copy_of_ndrange() const
+        {
+            ObjectList<Nodecl::NodeclBase> result;
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = _ndrange.begin();
+                    it != _ndrange.end();
+                    ++it)
+            {
+                result.append(it->shallow_copy());
+            }
+            return result;
+        }
+
         void TargetInfo::append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions)
         {
             _onto.append(expressions);
@@ -121,6 +133,18 @@ namespace TL
         ObjectList<Nodecl::NodeclBase> TargetInfo::get_onto() const
         {
             return _onto;
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_shallow_copy_of_onto() const
+        {
+            ObjectList<Nodecl::NodeclBase> result;
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = _onto.begin();
+                    it != _onto.end();
+                    ++it)
+            {
+                result.append(it->shallow_copy());
+            }
+            return result;
         }
 
         void TargetInfo::set_copy_deps(bool b)

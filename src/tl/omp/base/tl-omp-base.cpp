@@ -264,7 +264,7 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
-                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
                 if (!ndrange_exprs.empty())
                 {
                     target_items.append(
@@ -274,7 +274,7 @@ namespace TL { namespace OpenMP {
                                 filename, line));
                 }
 
-                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
                 if (!onto_exprs.empty())
                 {
                     target_items.append(
@@ -1602,7 +1602,7 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
 
-        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
         if (!ndrange_exprs.empty())
         {
             target_items.append(
@@ -1612,7 +1612,7 @@ namespace TL { namespace OpenMP {
                         filename, line));
         }
 
-        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
         if (!onto_exprs.empty())
         {
             target_items.append(
@@ -1788,7 +1788,7 @@ namespace TL { namespace OpenMP {
                 filename, line,
                 target_items);
 
-        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
         if (!ndrange_exprs.empty())
         {
             target_items.append(
@@ -1799,7 +1799,7 @@ namespace TL { namespace OpenMP {
                         filename, line));
         }
 
-        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
         if (!onto_exprs.empty())
         {
             target_items.append(
