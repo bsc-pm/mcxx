@@ -775,9 +775,11 @@ namespace TL
         {
             Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
-            TL::Type t = subscripted.get_type();
-            if (t.is_any_reference())
-                t = t.references_to();
+            TL::Type t = expr.get_type().no_ref();
+            if (!t.is_array() || !t.array_is_region())
+            {
+                t = subscripted.get_type().no_ref();
+            }
 
             Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
 
