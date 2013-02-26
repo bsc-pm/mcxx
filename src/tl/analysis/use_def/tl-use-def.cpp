@@ -798,6 +798,11 @@ namespace Analysis {
 
     }
 
+    void UsageVisitor::visit( const Nodecl::AddAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );

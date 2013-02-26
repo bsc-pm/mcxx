@@ -42,7 +42,8 @@ namespace Analysis {
 
     //! Parses a statement looking for syntactically accepted Induction Variables
     //! @return True when IV is an accepted induction variable
-    bool is_accepted_induction_variable_syntax( Nodecl::NodeclBase stmt,
+    bool is_accepted_induction_variable_syntax( Node* loop,
+                                                Nodecl::NodeclBase stmt,
                                                 Nodecl::NodeclBase& iv,
                                                 Nodecl::NodeclBase& incr );
 
@@ -72,11 +73,11 @@ namespace Analysis {
          * @return True, when the variable ends up being a real Induction Variable
          */
         bool check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                 Nodecl::NodeclBase stmt, Node* node, int id_end );
+                                                 Nodecl::NodeclBase stmt, Node* loop );
 
         //! This method is overloaded to deal with graph visits
         bool check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                     Nodecl::NodeclBase stmt, Node* node, int id_end );
+                                                     Nodecl::NodeclBase stmt, Node* node, Node* loop );
 
         /*!Deletes those induction variables included in the list during a previous traverse through the loop control
          * that are redefined within the loop
@@ -123,6 +124,7 @@ namespace Analysis {
         // Input info
         Nodecl::NodeclBase _iv;
         Nodecl::NodeclBase* _incr;
+        Node* _loop;
 
         // Output info
         bool _is_induction_var;
@@ -137,7 +139,7 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase *incr );
+        FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase *incr, Node* loop );
 
         // *** Getters and Setters*** //
         bool get_is_induction_variable( ) const;

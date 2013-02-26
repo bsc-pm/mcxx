@@ -619,14 +619,15 @@ namespace TL
         }
     }
 
-    Nodecl::NodeclBase DataReference::get_address_of_symbol_helper(Nodecl::NodeclBase expr) const
+    Nodecl::NodeclBase DataReference::get_address_of_symbol_helper(Nodecl::NodeclBase expr, bool reference) const
     {
         if (expr.is<Nodecl::Symbol>())
         {
             TL::Symbol sym = expr.as<Nodecl::Symbol>().get_symbol();
-            if (sym.get_type().is_array()
-                    || (sym.get_type().is_any_reference()
-                        && sym.get_type().references_to().is_array()))
+            if (!reference
+                    || (sym.get_type().is_array()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_array())))
             {
                 return expr.shallow_copy();
             }
@@ -647,50 +648,27 @@ namespace TL
         {
             Nodecl::NodeclBase subscripted = expr.as<Nodecl::ArraySubscript>().get_subscripted();
 
-            if ((IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                    && (subscripted.get_type().is_pointer()
-                        || (subscripted.get_type().is_any_reference()
-                            && subscripted.get_type().references_to().is_pointer())))
-            {
-                return subscripted.shallow_copy();
-            }
-            else
-            {
-                return get_address_of_symbol_helper(subscripted);
-            }
+            return get_address_of_symbol_helper(subscripted, /* reference */ false);
         }
         else if (expr.is<Nodecl::Reference>())
         {
-            return expr.as<Nodecl::Reference>().get_rhs();
+            return get_address_of_symbol_helper(expr.as<Nodecl::Reference>().get_rhs(), /* reference */ false);
         }
         else if (expr.is<Nodecl::Shaping>())
         {
-            Nodecl::NodeclBase postfix = expr.as<Nodecl::Shaping>().get_postfix();
-
-            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    && (postfix.get_type().is_pointer()
-                        || (postfix.get_type().is_any_reference()
-                            && postfix.get_type().references_to().is_pointer())))
-            {
-                return postfix.shallow_copy();
-            }
-            else
-            {
-                return get_address_of_symbol_helper(postfix);
-            }
+            return get_address_of_symbol_helper(expr.as<Nodecl::Shaping>().get_postfix(), /* reference */ false);
         }
         else if (expr.is<Nodecl::Dereference>())
         {
-            return expr.as<Nodecl::Dereference>().get_rhs();
+            return get_address_of_symbol_helper(expr.as<Nodecl::Dereference>().get_rhs(), /* reference */ false);
         }
         else if (expr.is<Nodecl::ParenthesizedExpression>())
         {
-            return get_address_of_symbol_helper(expr.as<Nodecl::ParenthesizedExpression>().get_nest());
+            return get_address_of_symbol_helper(expr.as<Nodecl::ParenthesizedExpression>().get_nest(), reference);
         }
         else if (expr.is<Nodecl::ClassMemberAccess>())
         {
-            return get_address_of_symbol_helper(expr.as<Nodecl::ClassMemberAccess>().get_lhs());
+            return get_address_of_symbol_helper(expr.as<Nodecl::ClassMemberAccess>().get_lhs(), /* reference */ true);
         }
         else
         {
@@ -703,7 +681,7 @@ namespace TL
         if (!_is_valid)
             return Nodecl::NodeclBase::null();
 
-        return get_address_of_symbol_helper(*this);
+        return get_address_of_symbol_helper(*this, /* reference */ true);
     }
 
     Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const

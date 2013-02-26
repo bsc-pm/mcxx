@@ -126,174 +126,127 @@ namespace Utils {
         }
     }
 
-    ObjectList<Symbol> ExtendedSymbol::get_nodecl_symbols( const Nodecl::NodeclBase& n ) const
-    {
-        ObjectList<Symbol> syms;
-        ObjectList<Nodecl::NodeclBase> base_nodecls = get_nodecls_base(n);
-        for (ObjectList<Nodecl::NodeclBase>::iterator it = base_nodecls.begin(); it != base_nodecls.end(); ++it)
-        {
-            if (!it->is<Nodecl::FunctionCall>())
-            {
-                syms.insert(it->get_symbol());
-            }
-        }
-        return syms;
-    }
-
     ObjectList<Symbol> ExtendedSymbol::get_symbols() const
     {
-        return get_nodecl_symbols(_n);
+        return Nodecl::Utils::get_all_symbols( _n );
     }
 
     Nodecl::NodeclBase ExtendedSymbol::get_nodecl_base( const Nodecl::NodeclBase& n )
     {
-        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
+        Nodecl::NodeclBase nodecl;
+        if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::PointerToMember>( ) || n.is<Nodecl::ObjectInit>( ) )
         {
-            return n;
+            nodecl = n;
         }
-        else if (n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>()
-                || n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>())
+        else if( Nodecl::Utils::nodecl_is_literal( n ) )
         {
-            return Nodecl::NodeclBase::null();
+            nodecl = Nodecl::NodeclBase::null();
         }
         else if (n.is<Nodecl::ClassMemberAccess>())
         {
-            Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
-            return get_nodecl_base(aux.get_lhs());
+            nodecl = get_nodecl_base( n.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
         }
         else if (n.is<Nodecl::ArraySubscript>())
         {
-            Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
-            return get_nodecl_base(aux.get_subscripted());
+            nodecl = get_nodecl_base( n.as<Nodecl::ArraySubscript>( ).get_subscripted( ) );
         }
         else if (n.is<Nodecl::Reference>())
         {
-            Nodecl::Reference aux = n.as<Nodecl::Reference>();
-            Nodecl::NodeclBase ref = get_nodecl_base(aux.get_rhs());
-            if (ref.is_null())
-                return n;
-            else
-                return ref;
+            nodecl = get_nodecl_base( n.as<Nodecl::Reference>( ).get_rhs( ) );
         }
         else if (n.is<Nodecl::Dereference>())
         {
-            Nodecl::Dereference aux = n.as<Nodecl::Dereference>();
-            Nodecl::NodeclBase derref = get_nodecl_base(aux.get_rhs());
-            if (derref.is_null())
-                return n;
-            else
-                return derref;
+            nodecl = get_nodecl_base( n.as<Nodecl::Dereference>( ).get_rhs( ) );
         }
-        else if (n.is<Nodecl::Conversion>())
+        else if( n.is<Nodecl::Conversion>( ) )
         {
-            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
-            return get_nodecl_base(aux.get_nest());
+            nodecl = get_nodecl_base( n.as<Nodecl::Conversion>( ).get_nest( ) );
         }
-        else if (n.is<Nodecl::Cast>())
+        else if( n.is<Nodecl::Cast>( ) )
         {
-            Nodecl::Cast aux = n.as<Nodecl::Cast>();
-            return get_nodecl_base(aux.get_rhs());
+            nodecl = get_nodecl_base( n.as<Nodecl::Cast>( ).get_rhs( ) );
         }
-        /*!
-        * We can have (pre- post-) in- de-crements and other arithmetic operations
-        * Example:
-        * T *curr_high = ...;
-        * *curr_high-- = l;
-        * "*curr_high--" is a _KILLED_VAR
-        */
+        else if( n.is<Nodecl::Postdecrement>( ) )
+        {
+            nodecl = get_nodecl_base( n.as<Nodecl::Postdecrement>( ).get_rhs( ) );
+        }
+        else if( n.is<Nodecl::Postincrement>( ) )
+        {
+            nodecl = get_nodecl_base( n.as<Nodecl::Postincrement>( ).get_rhs( ) );
+        }
         else if (n.is<Nodecl::Predecrement>())
         {
-            Nodecl::Predecrement aux = n.as<Nodecl::Predecrement>();
-            return get_nodecl_base(aux.get_rhs());
+            nodecl = get_nodecl_base( n.as<Nodecl::Predecrement>( ).get_rhs( ) );
         }
-        else if (n.is<Nodecl::Postdecrement>())
+        else if( n.is<Nodecl::Preincrement>( ) )
         {
-            Nodecl::Postdecrement aux = n.as<Nodecl::Postdecrement>();
-            return get_nodecl_base(aux.get_rhs());
-        }
-        else if (n.is<Nodecl::Preincrement>())
-        {
-            Nodecl::Preincrement aux = n.as<Nodecl::Preincrement>();
-            return get_nodecl_base(aux.get_rhs());
-        }
-        else if (n.is<Nodecl::Postincrement>())
-        {
-            Nodecl::Postincrement aux = n.as<Nodecl::Postincrement>();
-            return get_nodecl_base(aux.get_rhs());
-        }
-        else if (n.is<Nodecl::Add>())
-        {
-            return Nodecl::NodeclBase::null();
+            nodecl = get_nodecl_base( n.as<Nodecl::Preincrement>( ).get_rhs( ) );
         }
         else
         {
-            internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol '%s'",
-                        ast_print_node_type(n.get_kind()), n.prettyprint().c_str());
+            nodecl = Nodecl::NodeclBase::null( );
         }
+
+        return nodecl;
     }
 
-    Symbol ExtendedSymbol::get_nodecl_symbol( const Nodecl::NodeclBase& n ) const
+    Symbol ExtendedSymbol::get_symbol( ) const
     {
-        Nodecl::NodeclBase base_nodecl = get_nodecl_base(n);
-        if (!n.is<Nodecl::FunctionCall>())
-        {
-            return n.get_symbol();
-        }
-        else
-        {
-            return Symbol();
-        }
-    }
+        Symbol s;
 
-    Symbol ExtendedSymbol::get_symbol() const
-    {
-        return get_nodecl_symbol(_n);
-    }
-
-    std::string ExtendedSymbol::get_name() const
-    {
-        std::string name = "";
-
-        ObjectList<Symbol> syms = get_nodecl_symbols(_n);
-        for (ObjectList<Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+        Nodecl::NodeclBase base_nodecl = get_nodecl_base( _n );
+        if ( !base_nodecl.is_null( ) )
         {
-            if (it->is_valid())
-                name += (it->get_name() + "  ");
+            s = base_nodecl.get_symbol( );
         }
 
-        return name;
+        return s;
     }
 
-    Type ExtendedSymbol::get_type() const
-    {
-        Type res(NULL);
+//     std::string ExtendedSymbol::get_name( ) const
+//     {
+//         std::string name = "";
+//
+//         ObjectList<Symbol> syms = Nodecl::Utils::get_all_symbols( _n );
+//         for(ObjectList<Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+//         {
+//             if( it->is_valid( ) )
+//                 name += ( it->get_name( ) + "  " );
+//         }
+//
+//         return name;
+//     }
 
-        ObjectList<Symbol> syms = get_nodecl_symbols(_n);
-        for (ObjectList<Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
-        {
-            if (it->is_valid())
-            {
-                res = it->get_type();
-                break;
-            }
-        }
+//     Type ExtendedSymbol::get_type() const
+//     {
+//         Type res( NULL );
+//
+//         ObjectList<Symbol> syms = Nodecl::Utils::get_all_symbols( _n );
+//         for( ObjectList<Symbol>::iterator it = syms.begin( ); it != syms.end( ); ++it )
+//         {
+//             if( it->is_valid( ) )
+//             {
+//                 res = it->get_type( );
+//                 break;
+//             }
+//         }
+//
+//         return res;
+//     }
 
-        return res;
-    }
-
-    Nodecl::NodeclBase ExtendedSymbol::get_nodecl() const
+    Nodecl::NodeclBase ExtendedSymbol::get_nodecl( ) const
     {
         return _n;
     }
 
-    bool ExtendedSymbol::is_simple_symbol() const
+    bool ExtendedSymbol::is_simple_symbol( ) const
     {
-        return (_n.is<Nodecl::Symbol>());
+        return ( _n.is<Nodecl::Symbol>( ) );
     }
 
-    bool ExtendedSymbol::is_array() const
+    bool ExtendedSymbol::is_array( ) const
     {
-        if (_n.is<Nodecl::ArraySubscript>())
+        if( _n.is<Nodecl::ArraySubscript>( ) )
             return true;
         else if (_n.is<Nodecl::ClassMemberAccess>())
         {

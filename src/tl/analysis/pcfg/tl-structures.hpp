@@ -301,6 +301,11 @@ namespace Analysis {
     // ************************************************************************************************* //
     // ****************************************** Auto-scoping ***************************************** //
 
+    /*! \def _SC_AUTO
+     * This value is set when a task has the clause default(AUTO)
+     */
+    #define _SC_AUTO                        "sc_auto"
+
     /*! \def _SHARED
     * Set of symbols with shared auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
@@ -417,12 +422,6 @@ namespace Analysis {
     * Available and mandatory in all edges but those with 'Always' type.
     */
     #define _EDGE_LABEL     "edge_label"
-
-    /*! \def _IS_BACK_EDGE
-    * Boolean indicating whether an edge connects a source with a target with a back edge (loop)
-    * Available and mandatory in all edges.
-    */
-    #define _IS_BACK_EDGE     "is_back_edge"
 
     /*! \def _IS_TASK_EDGE
     * Boolean indicating whether an edge connects a target being a Task

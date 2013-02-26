@@ -26,22 +26,29 @@
 
 include ../../Makefile.phases
 
-lib_LTLIBRARIES= libanalysis_singleton.la
+phases_LTLIBRARIES = libtlomp_auto_scope.la
 
 END=
 
-libanalysis_singleton_la_CFLAGS= $(tl_cflags)
-libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
-				    -I $(srcdir)/../.. -I $(srcdir)/../common -I $(srcdir)/../pcfg \
-				    -I $(srcdir)/../use_def -I $(srcdir)/../liveness -I $(srcdir)/../reach_defs \
-				    -I $(srcdir)/../loops -I $(srcdir)/../auto-scope
-libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
-libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
-					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la \
-					        ../loops/libloops_analysis.la ../auto-scope/libauto_scope.la
+libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(srcdir)/../../analysis/common \
+                          -I $(srcdir)/../../analysis/pcfg \
+                          $(END)
 
-libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
-                                  tl-analysis-static-info.hpp \
-				   tl-analysis-singleton.hpp \
-                                  tl-analysis-singleton.cpp \
-                                  $(END)
+libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
+                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(srcdir)/../../analysis/common \
+                          -I $(srcdir)/../../analysis/pcfg \
+                          $(END)
+
+libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)
+libtlomp_auto_scope_la_LIBADD = $(tl_libadd) \
+				 $(builddir)/../../analysis/singleton/libanalysis_singleton.la
+
+
+libtlomp_auto_scope_la_SOURCES = \
+			    tl-omp-auto-scope.hpp \
+			    tl-omp-auto-scope.cpp \
+			    $(END)
+

@@ -37,12 +37,13 @@
 #include "tl-reaching-definitions.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-loop-analysis.hpp"
+#include "tl-auto-scope.hpp"
 
 namespace TL {
 namespace Analysis {
 
-    // ************************************************************************ //
-    // ************************ Analysis Memento class ************************ //
+    // ************************************************************************************ //
+    // *************** Class containing all analysis related to a given AST *************** //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
         : _pcfgs( ), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
@@ -172,7 +173,7 @@ namespace Analysis {
                 // When calling to analysis with a non-TopLevel node, both the EXTENSIBLE_GRAPH and
                 // the non-TopLevel node, have the same label, so we have to look for the one that
                 // is not the EXTENSIBLE_GRAPH node.
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n )
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n, /* skip conversion nodes */ true )
                     && ( n.is<Nodecl::FunctionCode>( )
                          || n.is<Nodecl::OpenMP::SimdFunction>( )
                          || ( !n.is<Nodecl::FunctionCode>() && !current->is_extended_graph_node( ) ) ) )
@@ -212,6 +213,7 @@ namespace Analysis {
                 }
             }
         }
+
         return result;
     }
 
@@ -304,6 +306,20 @@ namespace Analysis {
         return result;
     }
 
+    Node* PCFGAnalysis_memento::get_autoscoped_task( const Nodecl::NodeclBase& n )
+    {
+        Node* result = NULL;
+
+        Node* n_pcfg_node = node_enclosing_nodecl( n );
+        if( n_pcfg_node != NULL )
+        {
+            if( n_pcfg_node->is_auto_scoping_enabled( ) )
+                result = n_pcfg_node;
+        }
+
+        return result;
+    }
+
     void PCFGAnalysis_memento::reset_state( )
     {
         _constants_propagation = false;
@@ -317,8 +333,8 @@ namespace Analysis {
         _auto_deps = false;
     }
 
-    // ********************** END Analysis Memento class ********************** //
-    // ************************************************************************ //
+    // ************* END class containing all analysis related to a given AST ************* //
+    // ************************************************************************************ //
 
 
 
@@ -365,7 +381,7 @@ namespace Analysis {
             if( memento.get_pcfg( pcfg_name ) == NULL )
             {
                 if( VERBOSE )
-                    std::cerr << "- Generating PCFG '" << pcfg_name << "'" << std::endl;
+                    printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
 
                 // Create the PCFG
                 PCFGVisitor v( pcfg_name, *it );
@@ -397,7 +413,7 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Constants propagation of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+                    printf( "Constants Propagation of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 std::cerr << "Constants Propagation is not yet implemented" << std::endl;
                 // ConditionalConstantAnalysis ca( ipa );
                 // ca.conditional_constant_propagation( pcfg );
@@ -423,7 +439,7 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Use-Definition of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
+                    printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 UseDef ud( *it );
 
                 std::set<TL::Symbol> visited_functions;
@@ -449,7 +465,7 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Liveness of PCFG '" << ( *it )->get_name( ) << "'" << std::endl;
+                    printf( "Liveness of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 Liveness l( *it );
                 l.compute_liveness( );
             }
@@ -469,7 +485,7 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Reaching Definitions of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+                    printf( "Reaching Definitions of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 ReachingDefinitions rd( *it );
                 rd.compute_reaching_definitions( );
             }
@@ -489,7 +505,7 @@ namespace Analysis {
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
-                    std::cerr << "- Induction Variables of PCFG '" << (*it )->get_name( ) << "'" << std::endl;
+                    printf( "Induction Variables of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
 
                 // Compute the induction variables of all loops of each PCFG
                 InductionVariableAnalysis iva( *it );
@@ -508,8 +524,32 @@ namespace Analysis {
         return pcfgs;
     }
 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
+
+        if( !memento.is_auto_scoping_computed( ) )
+        {
+            memento.set_auto_scoping_computed( );
+
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    printf( "Auto-Scoping of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                print_pcfg( memento, ( *it )->get_name( ) );
+
+                AutoScoping as( *it );
+                as.compute_auto_scoping( );
+            }
+        }
+
+        return pcfgs;
+    }
+
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
+        if( VERBOSE )
+            printf( "Printing to DOT  PCFG '%s'\n", pcfg_name.c_str( ) );
         ExtensibleGraph* pcfg = memento.get_pcfg( pcfg_name );
         pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                   memento.is_reaching_definitions_computed( ),

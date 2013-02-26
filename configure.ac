@@ -309,63 +309,6 @@ AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 
 
-dnl Region support. This is only used in tests!
-nanox_regions="no"
-AC_MSG_CHECKING([if Nanos++ regions support is enabled])
-AC_ARG_ENABLE([nanox-regions],
-  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in tests of Nanos++]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        nanox_regions="yes"
-        AC_MSG_RESULT([yes, --enable-nanox-regions=yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no, --enable-nanox-regions=no])
-            nanox_regions="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    # Autodetect by checking headers
-    nanos_h_interface_is_at_least_6000=no
-    nanos_h=$nanox_include/nanos.h
-    if test -e $nanos_h ;
-    then
-        pragma_nanos_interface=`$SED -ne '/^\s*#\s*pragma\s\+nanos\s\+interface\s\+family\s*(\s*master\s*)/p' $nanos_h`
-        nanox_family_version=`echo $pragma_nanos_interface | sed -e 's/^.*version(\(@<:@0-9@:>@\+\)).*$/\1/'`
-        if test "$nanox_family_version" -ge 6000;
-        then
-            nanos_h_interface_is_at_least_6000=yes
-        fi
-
-        if test x$nanos_h_interface_is_at_least_6000 = xyes;
-        then
-             nanox_regions="yes"
-             AC_MSG_RESULT([yes (Supported by Nanos++)])
-        else
-             AC_MSG_RESULT([no (Not supported by Nanos++, master API $nanox_family_version is <6000)])
-             if test x$is_enabled_openmpt = xyes;
-             then
-                 AC_MSG_WARN([ENCORE support requested but could not ensure regions are supported by Nanos++])
-             fi
-        fi
-    else
-        nanox_regions="no"
-        if test x$nanox_include = x;
-        then
-              AC_MSG_RESULT([no, disabled by default])
-        else
-              AC_MSG_RESULT([no, nanos.h not found in Nanos++ include directory])
-        fi
-    fi
-  ]
-)
-NANOX_REGIONS=$nanox_regions
-AC_SUBST([NANOX_REGIONS])
-
 dnl SIMD Support
 
 AX_EXT
@@ -377,13 +320,13 @@ simd_flags=
 simd_includes=
 nanox_sse="no"
 
-  if test "$ax_cv_have_sse42_ext" = yes; 
+  if test "$ax_cv_have_sse42_ext" = yes;
   then
         simd_version="SSE4.2"
         simd_flags="-msse4.2"
         simd_includes="-msse4.2 -include nmmintrin.h"
         nanox_sse="yes"
-  else if test "$ax_cv_have_sse41_ext" = yes; 
+  else if test "$ax_cv_have_sse41_ext" = yes;
   then
         simd_version="SSE4.1"
         simd_flags="-msse4.1"
@@ -486,7 +429,10 @@ then
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
+else
+   DISABLE_CUDA="\#do not uncomment"
 fi
+AC_SUBST([DISABLE_CUDA])
 
 # Use this if we want to conditionally disable compilation of GPU
 # DeviceProvider
@@ -500,19 +446,21 @@ dnl --------------------- End of Support for GPU tests in Nanox ----------------
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
 opencl_valid=no
+DISABLE_OPENCL=""
 AC_MSG_CHECKING([if nanox has opencl enabled])
 AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
 if test x$opencl_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
-   #if OpenCL+CPU, generate a profile which can compile for both devices
-   if test x$gpu_valid = xyes;
-   then
-       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-       COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
-   fi
+else
+   DISABLE_OPENCL="\#do not uncomment"
 fi
+AC_SUBST([DISABLE_OPENCL])
+
+#add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -617,7 +565,7 @@ AC_ARG_ENABLE([icc],
 )
 
 disable_ifort=no
-AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
 AC_ARG_ENABLE([ifort],
   AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
   [
@@ -655,7 +603,7 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   if test x$disable_ifort = xno;
+   if test x$disable_icc = xno;
    then
       dnl Check Intel Compiler C
       AC_PATH_PROG([ICC], [icc], [])
@@ -1248,6 +1196,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/liveness/Makefile
            src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
+           src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/vectorizer/Makefile
@@ -1266,6 +1215,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile

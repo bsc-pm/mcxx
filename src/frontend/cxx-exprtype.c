@@ -13101,28 +13101,11 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
     check_sizeof_type(declarator_type, /* nodecl_expr */ nodecl_null(), decl_context, filename, line, nodecl_output);
 }
 
-
-static void check_vla_expression(AST expression UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void check_vla_expression(AST expression,
+        decl_context_t decl_context UNUSED_PARAMETER,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    // This is not actually an expression per se, but it appears in
-    // a place where 99% of the time an expression is used instead,
-    // so instead of filling the code with checks for this node
-    // type, accept it in the club of expressions as a reference
-    // to a fake symbol called '*'
-    static scope_entry_t* star_symbol = NULL;
-    if (star_symbol == NULL)
-    {
-        star_symbol = counted_calloc(1, sizeof(*star_symbol), &_bytes_used_expr_check);
-        star_symbol->symbol_name = "*";
-        star_symbol->decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        star_symbol->do_not_print = 1;
-        star_symbol->type_information = get_signed_int_type();
-        star_symbol->entity_specs.is_builtin = 1;
-    }
-    *nodecl_output = nodecl_make_symbol(star_symbol, ASTFileName(expression), ASTLine(expression));
-    nodecl_set_type(*nodecl_output, star_symbol->type_information);
+    *nodecl_output = nodecl_make_vla_wildcard(get_signed_int_type(), ASTFileName(expression), ASTLine(expression));
 }
 
 static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator, 

@@ -45,7 +45,7 @@ void f(void)
         v[n-1][m-1] = 3;
     }
 #pragma omp taskwait
-    
+
     if (v[9][19] != 3)
     {
         fprintf(stderr, "v[9][19] != 3\n");

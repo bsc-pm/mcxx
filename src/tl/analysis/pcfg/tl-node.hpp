@@ -210,6 +210,12 @@ namespace Analysis {
             //! Returns true when the node is a GOTO node
             bool is_goto_node( );
 
+            //! Returns true when the node is an IF_ELSE node
+            bool is_ifelse_statement( );
+
+            //! Returns true when the node is a SWITCH node
+            bool is_switch_statement( );
+
             //! Returns true when the node is a composed node because the statement it contains has been split
             bool is_split_statement( );
 
@@ -253,7 +259,19 @@ namespace Analysis {
             bool is_asm_op_node( );
 
             //! Returns true when the node is a TASK node
-            bool is_task_node( );
+            bool is_omp_task_node( );
+
+            //! Returns true when the node is a TASKWAIT node
+            bool is_omp_taskwait_node( );
+
+            //! Returns true when the node is a BARRIER node
+            bool is_omp_barrier_node( );
+
+            //! Returns true when the node is an ATOMIC node
+            bool is_omp_atomic_node( );
+
+            //! Returns true when the node is a CRITICAL node
+            bool is_omp_critical_node( );
 
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected( );
@@ -329,6 +347,9 @@ namespace Analysis {
             //! Returns the scope of a node containing a block of code.
             //! If no block is contained, then returns an empty scope
             Scope get_node_scope( );
+
+            //! Returns true when the node contains statements with variables involved
+            bool has_statements( );
 
             //! Returns the list of statements contained in the node
             //! If the node does not contain statements, an empty list is returned
@@ -521,6 +542,10 @@ namespace Analysis {
 
             // ****************************************************************************** //
             // *************** Getters and setters for auto-scoping analysis **************** //
+
+            // Auto-scoping enabled
+            bool is_auto_scoping_enabled( );
+            void set_auto_scoping_enabled( );
 
             // Shared variables
             Utils::ext_sym_set get_sc_shared_vars( );

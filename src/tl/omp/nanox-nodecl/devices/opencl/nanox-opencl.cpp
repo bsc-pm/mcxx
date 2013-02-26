@@ -437,7 +437,7 @@ void DeviceOpenCL::generate_ndrange_code(
 {
     int num_args_ndrange = ndrange_args.size();
     Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-
+    
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
     ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
@@ -480,14 +480,16 @@ void DeviceOpenCL::generate_ndrange_code(
     }
     //Create OCL Kernel
     code_ndrange << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
+
+    //Check original function param types, with the adjusted ones, float[x] array types will be pointers       
+    TL::ObjectList<TL::Type> nonadjusted_params = called_task.get_type().nonadjusted_parameters();
     //Prepare setArgs
     for (int i = 0; i < num_params; ++i) {
-        //Check original function type
-        if (parameters_called[i].get_type().is_pointer()) {
+        if (nonadjusted_params[i].is_pointer() && !nonadjusted_params[i].is_array()) {
             code_ndrange << "nanos_opencl_set_bufferarg(ompss_kernel_ocl," << i << "," << as_symbol(parameters_unpacked[i]) <<");";
         } else {            
             code_ndrange << "nanos_opencl_set_arg(ompss_kernel_ocl," << i << ", "
-                    "sizeof(" << as_symbol(parameters_unpacked[i]) << "),&" << as_symbol(parameters_unpacked[i]) <<");";
+                    "sizeof(" << as_type(nonadjusted_params[i]) << "),&" << as_symbol(parameters_unpacked[i]) <<");";
         }        
     }
     //Prepare ndrange calc pointers and arrays

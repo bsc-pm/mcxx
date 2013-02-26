@@ -174,6 +174,7 @@ namespace Analysis {
 
         // *** Visitors *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
+        Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::Assignment& n );

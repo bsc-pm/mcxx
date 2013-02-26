@@ -137,7 +137,7 @@ namespace Analysis {
 
                 if( current->is_graph_node( ) )
                 {
-                    if( current->is_task_node( ) )
+                    if( current->is_omp_task_node( ) )
                     {
                         if( container_task != NULL )
                         {
@@ -147,7 +147,7 @@ namespace Analysis {
                     }
                     solve_live_equations_rec( current->get_graph_entry_node(), changed, container_task );
                     set_graph_node_liveness( current, container_task );
-                    if( current->is_task_node( ) )
+                    if( current->is_omp_task_node( ) )
                     {
                         container_task = NULL;
                     }
@@ -189,9 +189,9 @@ namespace Analysis {
             current->set_visited( true );
             if( current->is_graph_node( ) )
             {
-                if( current->is_task_node( ) )
+                if( current->is_omp_task_node( ) )
                 {
-                    if( task_is_in_loop( current ) )
+                    if( ExtensibleGraph::is_in_loop( current ) )
                     {
                         Utils::ext_sym_set task_li = current->get_live_in_vars( );
                         Utils::ext_sym_set task_lo = current->get_live_out_vars( );
@@ -219,26 +219,6 @@ namespace Analysis {
                 solve_specific_live_in_tasks( *it );
             }
         }
-    }
-
-    bool Liveness::task_is_in_loop( Node* current )
-    {
-        bool res = false;
-
-        ObjectList<Edge*> entries = current->get_entry_edges( );
-        for( ObjectList<Edge*>::iterator it = entries.begin( ); it != entries.end( ); ++it )
-        {
-            if( ( *it )->is_back_edge( ) )
-                return true;
-        }
-
-        ObjectList<Node*> parents = current->get_parents( );
-        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-        {
-            res = res || task_is_in_loop( *it );
-        }
-
-        return res;
     }
 
     Utils::ext_sym_set Liveness::compute_live_out( Node* current, Node* container_task )

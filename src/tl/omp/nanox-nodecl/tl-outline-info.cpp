@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
 
         outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
 
-        outline_info.set_base_address_expression(data_ref.get_base_address());
+        outline_info.set_base_address_expression(data_ref.get_address_of_symbol());
 
         Type t = sym.get_type();
         if (t.is_any_reference())
@@ -259,39 +259,19 @@ namespace TL { namespace Nanox {
                 && outline_data_item != NULL
                 && outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
         {
-            while (t.is_array())
+            if (!IS_FORTRAN_LANGUAGE // Fortran never overallocates in the struct
+                    && t.array_is_vla())
             {
-                Nodecl::NodeclBase array_size = t.array_get_size();
-                if (array_size.is<Nodecl::Symbol>()
-                        && array_size.get_symbol().is_saved_expression())
-                {
-                    outline_data_item->set_allocation_policy(
-                            OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
-                    break;
-                }
-                t = t.array_element();
+                outline_data_item->set_allocation_policy(
+                        OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
             }
         }
         else
         {
-            while (t.is_array() || t.is_pointer())
+            if (t.depends_on_nonconstant_values())
             {
-                if (t.is_array())
-                {
-                    Nodecl::NodeclBase array_size = t.array_get_size();
-                    if (array_size.is<Nodecl::Symbol>()
-                            && array_size.get_symbol().is_saved_expression())
-                    {
-                        outline_data_item->set_field_type(
-                                TL::Type::get_void_type().get_pointer_to());
-                        break;
-                    }
-                    t = t.array_element();
-                }
-                else
-                {
-                    t = t.points_to();
-                }
+                outline_data_item->set_field_type(
+                        TL::Type::get_void_type().get_pointer_to());
             }
         }
         return res;

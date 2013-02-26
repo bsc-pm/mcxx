@@ -1304,6 +1304,7 @@ int parse_arguments(int argc, const char* argv[],
                         {
                             CURRENT_CONFIGURATION->opencl_build_options = parameter_info.argument;
                         }
+                        break;
                     }
                 case OPTION_OPENCL_FILE:
                     {
@@ -1313,6 +1314,7 @@ int parse_arguments(int argc, const char* argv[],
                         {
                             CURRENT_CONFIGURATION->opencl_code_file = parameter_info.argument;
                         }
+                        break;
                     }
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
