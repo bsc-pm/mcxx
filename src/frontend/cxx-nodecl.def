@@ -108,7 +108,9 @@ pragma-context : NODECL_PRAGMA_CONTEXT() context
 pragma-statement : NODECL_PRAGMA_CUSTOM_STATEMENT([pragma_line]pragma-line, [statements]statement-seq) text
 
 pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt, [end_clauses]pragma-custom-clause-seq-opt) text
-pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
+# The type of a NODECL_PRAGMA_CUSTOM_CLAUSE can be used to mark this clause as "used"
+# this is needed for diagnostics
+pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
