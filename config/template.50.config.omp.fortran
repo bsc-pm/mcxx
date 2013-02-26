@@ -22,3 +22,6 @@ target_options[ifort-mfc] = no_sublink embed
 # xlf
 target_options[xlmfc] = no_sublink embed
 target_options[xlmf95] = no_sublink embed
+# opencl
+target_options[oclmfc] = no_sublink embed
+target_options[oclmf95] = no_sublink embed
