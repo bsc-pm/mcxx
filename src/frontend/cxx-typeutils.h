@@ -97,6 +97,8 @@ LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_hollerith_type(void);
+LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
 
@@ -716,6 +718,7 @@ LIBMCXX_EXTERN char is_interoperable_variant_type(type_t* t);
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
+LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 
 // DO NOT USE THESE FUNCTIONS!
 // They are used solely for Fortran modules and type serialization

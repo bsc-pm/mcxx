@@ -28,52 +28,41 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
-
-#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-void f(void)
+#pragma omp task
+void f(int n, int m, int v[n][m]);
+
+int g(int n1, int m1)
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
+    int v[n1][m1];
 
-#pragma omp task shared(v)
-    {
-        v[n-1][m-1] = 3;
-    }
+    memset(v, 0, sizeof(v));
+
+    fprintf(stderr, "g: %p -> [%d][%d] -> %p\n", v, n1-1, m1-1, &v[n1-1][m1-1]);
+
+    f(n1, m1, v);
 #pragma omp taskwait
-
-    if (v[9][19] != 3)
+    if (v[n1-1][m1-1] != 42)
     {
-        fprintf(stderr, "v[9][19] != 3\n");
+        fprintf(stderr, "%d != 42\n", v[n1-1][m1-1]);
         abort();
     }
 }
 
-void g(void)
+void f(int n1, int m1, int v[n1][m1])
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
-
-#pragma omp parallel shared(v) firstprivate(n, m)
-    {
-        v[n-1][m-1] = 4;
-    }
-
-    if (v[9][19] != 4)
-    {
-        fprintf(stderr, "v[9][19] != 4\n");
-        abort();
-    }
+    fprintf(stderr, "f: %p -> [%d][%d] -> %p\n", v, n1-1, m1-1, &v[n1-1][m1-1]);
+    v[n1-1][m1-1] = 42;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    f();
-    g();
-
+    g(10, 20);
     return 0;
 }

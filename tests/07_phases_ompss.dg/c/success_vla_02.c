@@ -28,52 +28,29 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<assert.h>
+int** global;
 
-#include <stdlib.h>
-#include <stdio.h>
-
-void f(void)
+#pragma omp task
+void f(int n, int v[n][n])
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
+    assert(global == (int**)v);
 
-#pragma omp task shared(v)
+    if (n > 0)
     {
-        v[n-1][m-1] = 3;
+        f(n-1, v);
     }
+}
+
+int main()
+{
+    int n = 10;
+    int v[n][n];
+    global = (int**) v;
+    f(n, v);
 #pragma omp taskwait
-
-    if (v[9][19] != 3)
-    {
-        fprintf(stderr, "v[9][19] != 3\n");
-        abort();
-    }
-}
-
-void g(void)
-{
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
-
-#pragma omp parallel shared(v) firstprivate(n, m)
-    {
-        v[n-1][m-1] = 4;
-    }
-
-    if (v[9][19] != 4)
-    {
-        fprintf(stderr, "v[9][19] != 4\n");
-        abort();
-    }
-}
-
-int main(int argc, char *argv[])
-{
-    f();
-    g();
-
     return 0;
 }

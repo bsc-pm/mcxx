@@ -596,6 +596,15 @@ namespace TL { namespace OpenMP {
             expr_list = on_clause.get_arguments_as_expressions();
         }
 
+        Nodecl::List environment;
+        PragmaCustomClause noflush_clause = pragma_line.get_clause("noflush");
+
+        if (noflush_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::NoFlush::make(directive.get_filename(), directive.get_line()));
+        }
+
         if (!expr_list.empty())
         {
             Nodecl::OpenMP::DepInout dep_inout = Nodecl::OpenMP::DepInout::make(
@@ -603,9 +612,11 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line());
 
+            environment.append(dep_inout);
+
             directive.replace(
                     Nodecl::OpenMP::WaitOnDependences::make(
-                        Nodecl::List::make(dep_inout),
+                        environment,
                         directive.get_filename(), directive.get_line())
                     );
         }
@@ -613,6 +624,7 @@ namespace TL { namespace OpenMP {
         {
             directive.replace(
                     Nodecl::OpenMP::TaskwaitShallow::make(
+                        environment,
                         directive.get_filename(),
                         directive.get_line())
                     );

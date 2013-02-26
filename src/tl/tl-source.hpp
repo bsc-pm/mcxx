@@ -402,6 +402,9 @@ namespace TL
             bool operator<(const Source& src) const;
             Source& operator=(const Source& src);
 
+            // Adapters for expressions
+            static void c_cxx_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+            static void fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
     };
 
     //! Creates an inner comment in the code

@@ -28,52 +28,66 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-run
 </testinfo>
 */
-
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
-void f(void)
+void *global = 0;
+
+void f(int @ref@n, int @ref@m, int (*@ref@v)[m])
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
-
-#pragma omp task shared(v)
-    {
-        v[n-1][m-1] = 3;
-    }
-#pragma omp taskwait
-
-    if (v[9][19] != 3)
-    {
-        fprintf(stderr, "v[9][19] != 3\n");
-        abort();
-    }
+    // fprintf(stderr, "(1) n = %d | m = %d | %p\n", n, m, &(v[n-1][m-1]));
+    global = &(v[n-1][m-1]);
+    v[n-1][m-1] = 42;
 }
 
-void g(void)
+struct A
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
+    int n1;
+    int m1;
+    void *p;
+};
 
-#pragma omp parallel shared(v) firstprivate(n, m)
-    {
-        v[n-1][m-1] = 4;
-    }
+void g(struct A@ref@ a)
+{
+    f(a.n1, a.m1, (int (*@ref@)[a.m1]) a.p);
+}
 
-    if (v[9][19] != 4)
-    {
-        fprintf(stderr, "v[9][19] != 4\n");
+void h(int n, int m)
+{
+    struct A a;
+
+    int b[n][m];
+    memset(b, 0, sizeof(b));
+    fprintf(stderr, "SIZEOF -> %zd\n", sizeof(b));
+
+    a.n1 = n;
+    a.m1 = m;
+    a.p = b;
+
+    g(a);
+
+    // fprintf(stderr, "(2) n = %d | m = %d | %p\n\n", n, m, &(b[n-1][m-1]));
+
+    if (b[n-1][m-1] != 42)
         abort();
-    }
+
+    if (global != &(b[n-1][m-1]))
+        abort();
 }
 
 int main(int argc, char *argv[])
 {
-    f();
-    g();
+    h(11, 21);
+    h(12, 22);
+    h(11, 22);
+    h(23, 11);
+    h(12, 22);
+    h(23, 23);
+    h(24, 24);
 
     return 0;
 }

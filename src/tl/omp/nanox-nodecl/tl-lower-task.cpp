@@ -170,9 +170,10 @@ Source LoweringVisitor::fill_const_wd_info(
     //     size_t num_copies;
     //     size_t num_devices;
     //     size_t num_dimensions; // copies_api >= 1000
+    //     const char *description; // master >= 5022
     // } nanos_const_wd_definition_t;
     // MultiMap with every implementation of the current function task
-    
+
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
     int num_copies=/* num_copies */ count_copies(outline_info);
     int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
@@ -222,6 +223,28 @@ Source LoweringVisitor::fill_const_wd_info(
             << /* ".num_dimensions = " */ num_copies_dimensions << ",\n"
             ;
     }
+
+    if (Nanos::Version::interface_is_at_least("master", 5022))
+    {
+        TL::Symbol first_implementor = implementation_table.begin()->first;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            result
+                << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
+                ;
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            result
+                << /* ".description = " */ "0,\n"
+                ;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
     result
         << "}, "
         << /* ".devices = " << */ "{" << device_descriptions << "}"
@@ -304,6 +327,17 @@ Source LoweringVisitor::fill_const_wd_info(
             ancillary_device_descriptions << ancillary_device_description;
             opt_fortran_dynamic_init << aux_fortran_init;
         }
+    }
+
+    if (IS_FORTRAN_LANGUAGE &&
+            Nanos::Version::interface_is_at_least("master", 5022))
+    {
+        TL::Symbol first_implementor = implementation_table.begin()->first;
+        result
+            // This \0 is required as we do not keep the 0 in the constant value
+            << "static char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
+            ;
     }
 
     return result;

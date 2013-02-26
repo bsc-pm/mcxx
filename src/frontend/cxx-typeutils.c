@@ -113,6 +113,8 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    // Fortran
+    STK_HOLLERITH,
 } simple_type_kind_t;
 
 // Information of enums
@@ -6921,6 +6923,19 @@ void vector_types_set_flavor(const char* c)
     }
 }
 
+const char* vector_types_get_vector_flavor(void)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
+        {
+            return vector_flavors[i];
+        }
+    }
+    return NULL;
+}
+
 const char* print_mask_type_intel(
         decl_context_t decl_context UNUSED_PARAMETER,
         type_t* t,
@@ -8112,12 +8127,15 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_BYTE:
+                        result = strappend(result, "byte");
+                        break;
                     case BT_VOID :
                         result = strappend(result, "void");
                         break;
                     case BT_UNKNOWN :
                     default :
-                        result = strappend(result, "���unknown builtin type???");
+                        result = strappend(result, "???unknown builtin type???");
                         break;
                 }
                 break;
@@ -8843,7 +8861,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             return 1;
         }
-        // void& -> T @ref@
+        // void @ref@ -> T @ref@
         else if (is_lvalue_reference_type(orig)
                 && is_void_type(no_ref(orig)))
         {
@@ -10596,7 +10614,13 @@ char type_is_runtime_sized(type_t* t)
     return 0;
 }
 
-char type_depends_on_nonconstant_values(type_t* t)
+struct type_set_t
+{
+    type_t* type;
+    struct type_set_t* prev;
+};
+
+static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t* type_set)
 {
     // This function is only valid in C but we could relax it a bit for C++
     CXX_LANGUAGE()
@@ -10606,6 +10630,17 @@ char type_depends_on_nonconstant_values(type_t* t)
         return 0;
     }
 
+    // Avoid infinite recursion
+    struct type_set_t* it_type = type_set;
+    while (it_type != NULL)
+    {
+        if (it_type->type == t)
+            return 0;
+        it_type = it_type->prev;
+    }
+
+    struct type_set_t new_type_set = { t, type_set };
+
     if (is_array_type(t))
     {
         return array_type_is_vla(t);
@@ -10613,7 +10648,7 @@ char type_depends_on_nonconstant_values(type_t* t)
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
-            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it);
@@ -10621,7 +10656,7 @@ char type_depends_on_nonconstant_values(type_t* t)
         {
             scope_entry_t* member = entry_list_iterator_current(it);
 
-            if (type_depends_on_nonconstant_values(member->type_information))
+            if (type_depends_on_nonconstant_values_rec(member->type_information, &new_type_set))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(nonstatic_data_members);
@@ -10633,14 +10668,19 @@ char type_depends_on_nonconstant_values(type_t* t)
     }
     else if (is_any_reference_type(t))
     {
-        return type_depends_on_nonconstant_values(get_lvalue_reference_type(t));
+        return type_depends_on_nonconstant_values_rec(get_lvalue_reference_type(t), &new_type_set);
     }
     else if (is_pointer_type(t))
     {
-        return type_depends_on_nonconstant_values(pointer_type_get_pointee_type(t));
+        return type_depends_on_nonconstant_values_rec(pointer_type_get_pointee_type(t), &new_type_set);
     }
 
     return 0;
+}
+
+char type_depends_on_nonconstant_values(type_t* t)
+{
+    return type_depends_on_nonconstant_values_rec(t, NULL);
 }
 
 _size_t type_get_size(type_t* t)
@@ -11425,4 +11465,25 @@ unsigned int mask_type_get_num_bits(type_t* t)
     ERROR_CONDITION(!is_mask_type(t), "This is not a mask type", 0);
 
     return t->type->vector_size;
+}
+
+static type_t* _hollerith_type = NULL;
+
+type_t* get_hollerith_type(void)
+{
+    if (_hollerith_type == NULL)
+    {
+        _hollerith_type = get_simple_type();
+        _hollerith_type->type->kind = STK_HOLLERITH;
+    }
+
+    return _hollerith_type;
+}
+
+char is_hollerith_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_HOLLERITH);
 }

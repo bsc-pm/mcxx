@@ -3771,7 +3771,18 @@ scope_entry_t* compute_intrinsic_max_min_aux(
     else if (input_type != NULL
             && !equivalent_types(get_unqualified_type(input_type), get_unqualified_type(t0)))
     {
-        return NULL;
+        if ((is_integer_type(input_type)
+                    && is_integer_type(t0))
+                || (is_floating_type(input_type)
+                    && is_floating_type(t0))
+                || (fortran_is_character_type(input_type)
+                    && fortran_is_character_type(t0)))
+        {
+            // Well, the input type does not match, but it is a common extension to
+            // allow different kinds for the same type
+        }
+        // Neither the type nor the kind match, this is wrong
+        else return NULL;
     }
 
     type_t* ranked_0[num_arguments + 1];

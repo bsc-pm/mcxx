@@ -91,6 +91,9 @@ enum
 
     // Max file name length
     MCXX_MAX_FILENAME = 4096,
+
+    // Max Hollerith length
+    MCXX_MAX_LENGTH_HOLLERITH_CONSTANT = 256,
 };
 
 #endif // CXX_LIMITS_H

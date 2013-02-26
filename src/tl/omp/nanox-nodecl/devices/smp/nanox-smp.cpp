@@ -368,7 +368,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, vla_private_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -460,66 +460,12 @@ namespace TL { namespace Nanox {
                             }
                         }
 
-                        bool found = false;
-                        Type sym_type = (*it)->get_symbol().get_type();
-                        while (!found
-                                && (sym_type.is_array() || sym_type.is_pointer()))
-                        {
-                            if (sym_type.is_array())
-                            {
-                                Nodecl::NodeclBase array_size = sym_type.array_get_size();
-
-                                if (array_size.is<Nodecl::Symbol>()
-                                        && array_size.get_symbol().is_saved_expression())
-                                {
-                                    found = true;
-
-                                    private_sym->type_information =
-                                        TL::Type::get_void_type().get_pointer_to().get_internal_type();
-
-                                    //FIXME: This name is not completely safe
-                                    std::string vla_private_sym_name = name + "_aux";
-
-                                    scope_entry_t* vla_private_sym = ::new_symbol(
-                                            function_context, function_context.current_scope, vla_private_sym_name.c_str());
-
-                                    vla_private_sym->kind = SK_VARIABLE;
-                                    vla_private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                                    vla_private_sym->defined = vla_private_sym->entity_specs.is_user_declared = 1;
-
-                                    vla_private_sym->value = Nodecl::Cast::make(
-                                            Nodecl::Symbol::make(private_sym),
-                                            vla_private_sym->type_information,
-                                            "C", current_function.get_filename(),
-                                            current_function.get_line()).get_internal_nodecl();
-
-
-                                    if (sym.is_valid())
-                                    {
-                                        vla_private_sym->entity_specs.is_optional = sym.is_optional();
-                                        vla_private_sym->entity_specs.is_allocatable =
-                                            !sym.is_member() && sym.is_allocatable();
-
-                                        symbol_map->add_map(sym, vla_private_sym);
-                                    }
-
-                                    vla_private_symbols.append(vla_private_sym);
-                                }
-                                sym_type = sym_type.array_element();
-                            }
-                            else
-                            {
-                                sym_type = sym_type.points_to();
-                            }
-                        }
-
                         private_sym->entity_specs.is_allocatable =
                             sym.is_allocatable() ||
                             (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                              == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
 
                         parameter_symbols.append(private_sym);
-
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
@@ -655,21 +601,6 @@ namespace TL { namespace Nanox {
                 type_deep_copy(it2->get_internal_symbol()->type_information,
                        function_context,
                        symbol_map->get_symbol_map());
-        }
-
-
-        // Update types of privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = vla_private_symbols.begin();
-                it2 != vla_private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                       function_context,
-                       symbol_map->get_symbol_map());
-
-            it2->get_internal_symbol()->value =
-                nodecl_deep_copy(it2->get_internal_symbol()->value, function_context, symbol_map->get_symbol_map());
         }
 
         // Build the function type
@@ -936,14 +867,97 @@ namespace TL { namespace Nanox {
         }
     }
 
+    // Rewrite inline
+    struct RewriteExprOfVla : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            const TL::ObjectList<OutlineDataItem*> &_data_items;
+            TL::Symbol &_args_symbol;
 
+        public:
+
+        RewriteExprOfVla(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
+            : _data_items(data_items),
+            _args_symbol(args_symbol)
+        { }
+
+        virtual void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            for (TL::ObjectList<OutlineDataItem*>::const_iterator it = _data_items.begin();
+                    it != _data_items.end();
+                    it++)
+            {
+                if (sym == (*it)->get_symbol())
+                {
+                    Nodecl::NodeclBase new_class_member_access;
+                    // x -> args.x
+                    Nodecl::NodeclBase new_args_ref = Nodecl::Symbol::make(_args_symbol);
+                    // Should be a reference already
+                    new_args_ref.set_type(_args_symbol.get_type());
+
+                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make((*it)->get_field_symbol());
+                    field_ref.set_type(field_ref.get_symbol().get_type());
+
+                    new_class_member_access = Nodecl::ClassMemberAccess::make(
+                            new_args_ref,
+                            field_ref,
+                            // The type of this node should be the same
+                            node.get_type());
+
+                    node.replace(new_class_member_access);
+                    break;
+                }
+            }
+        }
+    };
+
+    TL::Type DeviceSMP::rewrite_type_of_vla_in_outline(
+            TL::Type t,
+            const TL::ObjectList<OutlineDataItem*> &data_items,
+            TL::Symbol &arguments_symbol)
+    {
+        if (t.is_pointer())
+        {
+            TL::Type p = rewrite_type_of_vla_in_outline(
+                    t.points_to(),
+                    data_items,
+                    arguments_symbol);
+
+            return p.get_pointer_to();
+        }
+        else if (t.is_lvalue_reference())
+        {
+            TL::Type item = rewrite_type_of_vla_in_outline(
+                    t.references_to(),
+                    data_items,
+                    arguments_symbol);
+
+            return item.get_lvalue_reference_to();
+        }
+        else if (t.is_array())
+        {
+            TL::Type elem = rewrite_type_of_vla_in_outline(
+                    t.array_element(),
+                    data_items,
+                    arguments_symbol);
+
+            Nodecl::NodeclBase new_size = t.array_get_size().shallow_copy();
+            RewriteExprOfVla rewrite_expr_of_vla(data_items, arguments_symbol);
+            rewrite_expr_of_vla.walk(new_size);
+
+            return elem.get_array_to(new_size, new_size.retrieve_context());
+        }
+        // Do nothing
+        else return t;
+    }
 
     void DeviceSMP::create_outline(CreateOutlineInfo& info,
             Nodecl::NodeclBase& outline_placeholder,
             Nodecl::NodeclBase& output_statements,
             Nodecl::Utils::SymbolMap* &symbol_map)
     {
-        //Unpack DTO
+        // Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
         const Nodecl::NodeclBase& original_statements = info._original_statements;
         bool is_function_task = info._called_task.is_valid();
@@ -962,7 +976,7 @@ namespace TL { namespace Nanox {
                         original_statements.get_locus().c_str());
         }
 
-        Source unpacked_arguments, cleanup_code, extra_declarations;
+        Source extra_declarations;
         Source final_statements, initial_statements;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -976,90 +990,7 @@ namespace TL { namespace Nanox {
             ++it;
         }
 
-        // Prepare arguments for the call to the unpack (or forward in Fortran)
-        for (; it != data_items.end(); it++)
-        {
-            switch ((*it)->get_sharing())
-            {
-                case OutlineDataItem::SHARING_PRIVATE:
-                    {
-                        // Do nothing
-                        break;
-                    }
-                case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_CAPTURE:
-                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                    {
-                        TL::Type param_type = (*it)->get_in_outline_type();
-
-                        Source argument;
-                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        {
-                            // Normal shared items are passed by reference from a pointer,
-                            // derreference here
-                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                    && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this")
-                                    && !param_type.no_ref().depends_on_nonconstant_values())
-                            {
-                                argument << "*(args." << (*it)->get_field_name() << ")";
-                            }
-                            // Any other thing is passed by value
-                            else
-                            {
-                                argument << "args." << (*it)->get_field_name();
-                            }
-
-                            if (IS_CXX_LANGUAGE
-                                    && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                            {
-                                internal_error("Not yet implemented: call the destructor", 0);
-                            }
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            argument << "args % " << (*it)->get_field_name();
-
-                            bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
-                            bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
-
-                            if (is_allocatable
-                                    || is_pointer)
-                            {
-                                cleanup_code
-                                    << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
-                                    ;
-                            }
-                        }
-                        else
-                        {
-                            internal_error("running error", 0);
-                        }
-
-                        unpacked_arguments.append_with_separator(argument, ", ");
-                        break;
-                    }
-                case OutlineDataItem::SHARING_REDUCTION:
-                    {
-                        // // Pass the original reduced variable as if it were a shared
-                        Source argument;
-                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        {
-                            argument << "*(args." << (*it)->get_field_name() << ")";
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            argument << "args % " << (*it)->get_field_name();
-                        }
-                        unpacked_arguments.append_with_separator(argument, ", ");
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Unexpected data sharing kind", 0);
-                    }
-            }
-        }
-
+        // *** Unpacked (and forward in Fortran) function ***
         TL::Symbol unpacked_function, forward_function;
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -1088,43 +1019,8 @@ namespace TL { namespace Nanox {
                     final_statements);
         }
 
-        ObjectList<std::string> structure_name;
-        structure_name.append("args");
-        ObjectList<TL::Type> structure_type;
-        structure_type.append(
-                TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
-                );
-
-        TL::Symbol outline_function = new_function_symbol(
-                current_function,
-                outline_name,
-                TL::Type::get_void_type(),
-                structure_name,
-                structure_type);
-
-        if (IS_FORTRAN_LANGUAGE
-                && current_function.is_in_module())
-        {
-            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-            unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
-                    unpacked_function.get_internal_symbol());
-
-            unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-            outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
-                    outline_function.get_internal_symbol());
-            outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-        }
-
         Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-        build_empty_body_for_function(unpacked_function, 
+        build_empty_body_for_function(unpacked_function,
                 unpacked_function_code,
                 unpacked_function_body);
 
@@ -1225,11 +1121,153 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.replace(new_unpacked_body);
 
+        // **** Outline function *****
+        ObjectList<std::string> structure_name;
+        structure_name.append("args");
+        ObjectList<TL::Type> structure_type;
+        structure_type.append(
+                TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
+                );
+
+        TL::Symbol outline_function = new_function_symbol(
+                current_function,
+                outline_name,
+                TL::Type::get_void_type(),
+                structure_name,
+                structure_type);
+
+        if (IS_FORTRAN_LANGUAGE
+                && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+
+            unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    unpacked_function.get_internal_symbol());
+
+            unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
+
+            outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    outline_function.get_internal_symbol());
+            outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
+        }
+
         Nodecl::NodeclBase outline_function_code, outline_function_body;
         build_empty_body_for_function(outline_function,
                 outline_function_code,
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
+
+        // Prepare arguments for the call to the unpack (or forward in Fortran)
+        TL::Scope outline_function_scope(outline_function_body.retrieve_context());
+        TL::Symbol structure_symbol = outline_function_scope.get_symbol_from_name("args");
+        ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
+
+        Source unpacked_arguments, cleanup_code;
+        for (; it != data_items.end(); it++)
+        {
+            switch ((*it)->get_sharing())
+            {
+                case OutlineDataItem::SHARING_PRIVATE:
+                    {
+                        // Do nothing
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_CAPTURE:
+                case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                    {
+                        TL::Type param_type = (*it)->get_in_outline_type();
+
+                        Source argument;
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            // Normal shared items are passed by reference from a pointer,
+                            // derreference here
+                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                                    && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
+                            {
+                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                {
+                                    argument << "*(args." << (*it)->get_field_name() << ")";
+                                }
+                                else
+                                {
+                                    TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+
+                                    argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                }
+                            }
+                            // Any other parameter is bound to the storage of the struct
+                            else
+                            {
+                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                {
+                                    argument << "args." << (*it)->get_field_name();
+                                }
+                                else
+                                {
+                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                    argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                }
+                            }
+
+                            if (IS_CXX_LANGUAGE
+                                    && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                            {
+                                internal_error("Not yet implemented: call the destructor", 0);
+                            }
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            argument << "args % " << (*it)->get_field_name();
+
+                            bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
+                            bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
+
+                            if (is_allocatable
+                                    || is_pointer)
+                            {
+                                cleanup_code
+                                    << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
+                                    ;
+                            }
+                        }
+                        else
+                        {
+                            internal_error("running error", 0);
+                        }
+
+                        unpacked_arguments.append_with_separator(argument, ", ");
+                        break;
+                    }
+                case OutlineDataItem::SHARING_REDUCTION:
+                    {
+                        // // Pass the original reduced variable as if it were a shared
+                        Source argument;
+                        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        {
+                            argument << "*(args." << (*it)->get_field_name() << ")";
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            argument << "args % " << (*it)->get_field_name();
+                        }
+                        unpacked_arguments.append_with_separator(argument, ", ");
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected data sharing kind", 0);
+                    }
+            }
+        }
 
         Source outline_src,
                instrument_before,
@@ -1288,9 +1326,7 @@ namespace TL { namespace Nanox {
                 outline_function_addr << ", ";
             }
 
-            TL::ReferenceScope ref_scope(outline_function_body);
-            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
-
+            decl_context_t decl_context = outline_function_scope.get_decl_context();
             // Copy USEd information
             scope_entry_t* original_used_modules_info
                 = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();

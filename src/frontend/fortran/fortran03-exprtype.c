@@ -137,6 +137,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_GREATER_OR_EQUAL_THAN, check_greater_or_equal_than) \
  STATEMENT_HANDLER(AST_GREATER_THAN, check_greater_than) \
  STATEMENT_HANDLER(AST_HEXADECIMAL_LITERAL, check_hexadecimal_literal) \
+ STATEMENT_HANDLER(AST_HOLLERITH_CONSTANT, check_hollerith_constant) \
  STATEMENT_HANDLER(AST_IMAGE_REF, check_image_ref) \
  STATEMENT_HANDLER(AST_LOGICAL_AND, check_logical_and) \
  STATEMENT_HANDLER(AST_LOGICAL_EQUAL, check_logical_equal) \
@@ -3232,9 +3233,19 @@ static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUS
     compute_boz_literal(expr, "xz", 16, nodecl_output);
 }
 
-static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void check_hollerith_constant(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    error_printf("%s: sorry: image references not supported\n", 
+    const char* str = ast_get_text(expr);
+    *nodecl_output = nodecl_make_fortran_hollerith(get_hollerith_type(),
+            ASTText(expr),
+            const_value_make_string(str, strlen(str)),
+            ASTFileName(expr), ASTLine(expr));
+}
+
+static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    error_printf("%s: sorry: image references not supported\n",
             ast_location(expr));
     *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
 }

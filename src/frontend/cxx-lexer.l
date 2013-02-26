@@ -1192,6 +1192,7 @@ type {
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
 @ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
 @OMP-DECLARE-REDUCTION@ { parse_token_text(); return SUBPARSE_OPENMP_DECLARE_REDUCTION; }
+@OMP-DEPEND-ITEM@ { parse_token_text(); return SUBPARSE_OPENMP_DEPEND_ITEM; }
 @NODECL-LITERAL-EXPR@ { parse_token_text(); return NODECL_LITERAL_EXPR; }
 @NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
 @SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }

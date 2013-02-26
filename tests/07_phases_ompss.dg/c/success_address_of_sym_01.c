@@ -28,52 +28,33 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
 #include <stdlib.h>
-#include <stdio.h>
 
-void f(void)
+void g(int **a)
 {
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
-
-#pragma omp task shared(v)
+    int ** b = a;
+#pragma omp task inout([10](a[3])) firstprivate(b)
     {
-        v[n-1][m-1] = 3;
+        if (a != b)
+        {
+            abort();
+        }
     }
+}
+
+int main(int argc, char* argv[])
+{
+    int a0[2] = {0,1};
+    int a1[2] = {2,3};
+
+    int *a[2] = { a0, a1 };
+
+    g(a);
+
 #pragma omp taskwait
-
-    if (v[9][19] != 3)
-    {
-        fprintf(stderr, "v[9][19] != 3\n");
-        abort();
-    }
-}
-
-void g(void)
-{
-    int n = 10, m = 20;
-    int v[n + 1][m * 2];
-
-#pragma omp parallel shared(v) firstprivate(n, m)
-    {
-        v[n-1][m-1] = 4;
-    }
-
-    if (v[9][19] != 4)
-    {
-        fprintf(stderr, "v[9][19] != 4\n");
-        abort();
-    }
-}
-
-int main(int argc, char *argv[])
-{
-    f();
-    g();
-
     return 0;
 }
