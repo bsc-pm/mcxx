@@ -8127,6 +8127,9 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_BYTE:
+                        result = strappend(result, "byte");
+                        break;
                     case BT_VOID :
                         result = strappend(result, "void");
                         break;
