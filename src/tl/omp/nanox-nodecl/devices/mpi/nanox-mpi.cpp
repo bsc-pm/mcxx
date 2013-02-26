@@ -779,6 +779,11 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
     _currTaskId++;    
 }
 
+bool DeviceMPI::remove_function_task_from_original_source() const
+{
+    return false;
+}
+
 bool DeviceMPI::allow_mandatory_creation() {
     return true;
 }

@@ -856,6 +856,10 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
     device_descriptor << "{ &nanos_opencl_factory, &" << device_outline_name << "_args }";
 }
 
+bool DeviceOpenCL::remove_function_task_from_original_source() const
+{
+    return true;
+}
 
 void DeviceOpenCL::add_included_opencl_files(FILE* file)
 {

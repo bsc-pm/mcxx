@@ -324,7 +324,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
 
-        void remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table);
+        void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
         reduction_map_t _reduction_map;

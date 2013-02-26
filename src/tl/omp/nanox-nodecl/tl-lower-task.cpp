@@ -587,7 +587,7 @@ void LoweringVisitor::emit_async_common(
 
     if (is_function_task)
     {
-        remove_non_smp_functions(implementation_table);
+        remove_fun_tasks_from_source_as_possible(implementation_table);
     }
 
     Source err_name;
@@ -2353,20 +2353,28 @@ void LoweringVisitor::fill_dimensions(
     }
 }
 
-void LoweringVisitor::remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table)
+void LoweringVisitor::remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table)
 {
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
     {
-        ObjectList<std::string> devices=it->second.get_device_names();
-        if (!devices.contains("smp"))
+        bool remove_function_code = true;
+        TL::Symbol implementor = it->first;
+        ObjectList<std::string> devices = it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end() && remove_function_code;
+                ++it2)
         {
-            TL::Symbol implementor = it->first;
-            if (!implementor.get_function_code().is_null())
-            {
-                Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
-            }
+            DeviceProvider* device = device_handler.get_device(*it2);
+            remove_function_code = device->remove_function_task_from_original_source();
+        }
+
+        if (remove_function_code
+                && !implementor.get_function_code().is_null())
+        {
+            Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
         }
     }
 }
