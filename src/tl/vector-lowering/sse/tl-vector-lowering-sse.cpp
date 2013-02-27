@@ -91,6 +91,7 @@ namespace TL
                         ast_print_node_type(node.get_kind()),
                         node.get_locus().c_str());
             }      
+            //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
 
             walk(node.get_lhs());
             walk(node.get_rhs());
@@ -973,10 +974,12 @@ namespace TL
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_src << "_si128("; 
+                intrin_src << "_si128(("; 
                 intrin_src << print_type_str(
                         TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
+
+                intrin_src << ")"; 
             } 
             else
             {
@@ -1016,10 +1019,11 @@ namespace TL
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_src << "_si128(";
+                intrin_src << "_si128((";
                 intrin_src << print_type_str(
                         TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
+                intrin_src << ")";
             } 
             else
             {

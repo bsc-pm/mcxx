@@ -73,31 +73,14 @@ namespace TL
             TL::ObjectList<TL::Type>::iterator it_type;
             TL::ObjectList<TL::Symbol>::iterator it_param_sym;
             
-            //All Nodecl::Symbol in FunctionCode
-            TL::ObjectList<Nodecl::Symbol> syms_occurrences = 
-                Nodecl::Utils::get_all_symbols_occurrences(function_code);
-
             for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
                 TL::Type sym_type = get_qualified_vector_to((*it_type), _vector_length);
+
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
-
-                for (TL::ObjectList<Nodecl::Symbol>::iterator it_occurrence = syms_occurrences.begin();
-                        it_occurrence != syms_occurrences.end();
-                        it_occurrence++)
-                {
-                    // Occurrence == Parameter Ocurrence
-                    if ((*it_occurrence).get_symbol() == (*it_param_sym))
-                    {
-                        if((*it_type).is_scalar_type())
-                        {
-                            (*it_occurrence).set_type(sym_type);
-                        }
-                    }
-                }
 
                 parameters_vector_type.append(sym_type);
             }
