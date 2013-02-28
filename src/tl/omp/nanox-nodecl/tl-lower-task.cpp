@@ -207,6 +207,9 @@ Source LoweringVisitor::fill_const_wd_info(
            device_descriptions,
            opt_fortran_dynamic_init;
 
+    // In Fortran, the copies are filled in the function 'setCopies',
+    // after the creation of the WorkDescriptor. For this reason,
+    // we initialize the 'num_copies' and the 'num_dimensions' to zero
     Source result;
     result
         << ancillary_device_descriptions
@@ -218,10 +221,11 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
         << /* ".num_devices = " << */ num_devices << ",\n"
         ;
+
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
         result
-            << /* ".num_dimensions = " */ num_copies_dimensions << ",\n"
+            << /* ".num_dimensions = " */ (!IS_FORTRAN_LANGUAGE ? num_copies_dimensions : 0) << ",\n"
             ;
     }
 
