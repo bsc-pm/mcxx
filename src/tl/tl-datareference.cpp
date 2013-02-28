@@ -981,6 +981,12 @@ namespace TL
             return result;
             //internal_error("Not yet implemented", 0);
         }
+        else if (expr.is<Nodecl::Shaping>())
+        {
+            return Nodecl::Cast::make(
+                    expr.as<Nodecl::Shaping>().get_postfix().shallow_copy(),
+                    get_ptrdiff_t_type(), "C");
+        }
 
         return const_value_to_nodecl(const_value_get_signed_int(0));
     }
