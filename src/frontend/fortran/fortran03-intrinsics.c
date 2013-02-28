@@ -1709,6 +1709,24 @@ scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+static char entity_is_target(nodecl_t n)
+{
+    if (nodecl_get_kind(n) == NODECL_SYMBOL)
+    {
+        return nodecl_get_symbol(n)->entity_specs.is_target;
+    }
+    else if (nodecl_get_kind(n) == NODECL_ARRAY_SUBSCRIPT)
+    {
+        return entity_is_target(nodecl_get_child(n, 0));
+    }
+    else if (nodecl_get_kind(n) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        return entity_is_target(nodecl_get_child(n, 1))
+            || entity_is_target(nodecl_get_child(n, 0));
+    }
+    return 0;
+}
+
 scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -1738,6 +1756,19 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
                 if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), pointer_type_get_pointee_type(target_type)))
                 {
                     return GET_INTRINSIC_INQUIRY("associated", 
+                            fortran_get_default_logical_type(),
+                            get_lvalue_reference_type(ptr_type),
+                            get_lvalue_reference_type(target_type));
+                }
+            }
+            // Associated to some target, this should be a lvalue to a target entity
+            else if (nodecl_get_kind(argument_expressions[1]) != NODECL_DEREFERENCE
+                    && entity_is_target(argument_expressions[1])
+                    && (target_type = no_ref(nodecl_get_type(argument_expressions[1]))))
+            {
+                if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), target_type))
+                {
+                    return GET_INTRINSIC_INQUIRY("associated",
                             fortran_get_default_logical_type(),
                             get_lvalue_reference_type(ptr_type),
                             get_lvalue_reference_type(target_type));
