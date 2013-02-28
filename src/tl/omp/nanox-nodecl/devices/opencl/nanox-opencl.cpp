@@ -1047,7 +1047,6 @@ void DeviceOpenCL::generate_ndrange_code(
     //Prepare setArgs
     for (int i = 0; i < num_params; ++i)
     {
-            std::cerr << parameters_called[i].get_name() << " " <<  parameters_called[i].get_internal_symbol() << std::endl;
         if (nonadjusted_params[i].is_pointer()
                 && !nonadjusted_params[i].is_array())
         {
