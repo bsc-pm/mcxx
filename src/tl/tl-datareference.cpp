@@ -932,9 +932,9 @@ namespace TL
                                 Nodecl::Mul::make(
                                     Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
                                     Nodecl::ParenthesizedExpression::make(result, result.get_type()),
-                                    TL::Type::get_int_type()), TL::Type::get_int_type()),
+                                    get_ptrdiff_t_type()), get_ptrdiff_t_type()),
                             Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
-                            TL::Type::get_int_type());
+                            get_ptrdiff_t_type());
                 }
 
                 it_indexes++;
@@ -942,9 +942,11 @@ namespace TL
             }
 
             result = Nodecl::Mul::make(
-                    const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.get_internal_type()))),
+                    const_value_to_nodecl(
+                        const_value_get_integer(type_get_size(t.get_internal_type()),
+                                type_get_size(get_ptrdiff_t_type()), 1)),
                     Nodecl::ParenthesizedExpression::make(result, result.get_type()),
-                    TL::Type::get_int_type(),
+                    get_ptrdiff_t_type(),
                     result.get_filename(),
                     result.get_line());
 
@@ -974,7 +976,7 @@ namespace TL
                             expr.get_filename(), expr.get_line()),
                         get_ptrdiff_t_type(),
                         "C", expr.get_filename(), expr.get_line()),
-                    TL::Type::get_int_type(),
+                    get_ptrdiff_t_type(),
                     expr.get_filename(),
                     expr.get_line());
 
