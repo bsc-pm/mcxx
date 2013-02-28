@@ -143,28 +143,38 @@ namespace TL
 
                 TL::Type t = subscripted_type;
 
-                if (t.is_pointer())
+                for (Nodecl::List::iterator it = subscripts.begin();
+                        it != subscripts.end();
+                        it++)
                 {
-                    t = t.points_to();
-                    ERROR_CONDITION(subscripts.size() != 1, "Invalid number of subscript items (%d) for a pointer subscript",
-                            subscripts.size());
+                    Nodecl::NodeclBase index = *it;
 
-                    Nodecl::NodeclBase first = subscripts[0];
+                    if (t.is_pointer())
+                    {
+                        // We do not really know the size, so normalize the region from 0
+                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        if (index.is<Nodecl::Range>())
+                        {
+                            // compute the new upper bound normalized to 0
+                            upper_bounds.push_back(
+                                    Nodecl::Minus::make(
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_upper().shallow_copy(),
+                                            get_signed_int_type()),
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_lower().shallow_copy(),
+                                            get_signed_int_type()),
+                                        get_signed_int_type()));
+                        }
+                        else
+                        {
+                            // A single element of this region
+                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_one(4, 1)));
+                        }
 
-                    if (first.is<Nodecl::Range>())
-                    {
-                        lower_bounds.push_back(first.as<Nodecl::Range>().get_lower().shallow_copy());
-                        upper_bounds.push_back(first.as<Nodecl::Range>().get_upper().shallow_copy());
+                        t = t.points_to();
                     }
-                    else
-                    {
-                        lower_bounds.push_back(first.shallow_copy());
-                        upper_bounds.push_back(first.shallow_copy());
-                    }
-                }
-                else
-                {
-                    while (t.is_array())
+                    else if (t.is_array())
                     {
                         Nodecl::NodeclBase lb, ub;
 
@@ -175,7 +185,12 @@ namespace TL
 
                         t = t.array_element();
                     }
+                    else
+                    {
+                        internal_error("Mismatch between types and indexes", 0);
+                    }
                 }
+
                 TL::Type rebuilt_type = t;
 
                 ERROR_CONDITION(lower_bounds.size() != subscripts.size()
@@ -239,8 +254,6 @@ namespace TL
 
                 // Accesses like a[1][2] look like scalars but we want them to behave
                 // as if they were a[1:1][2:2]
-                bool have_to_rebuild_type = false;
-
                 TL::Type t = array.get_type();
                 if (t.is_any_reference())
                     t = t.references_to();
@@ -248,61 +261,51 @@ namespace TL
                 Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
                 Nodecl::List low_subscripts_list;
 
-                TL::ObjectList<Nodecl::NodeclBase> low_subscripts;
+                _data_ref._data_type = extend_array_type_to_regions(array);
 
-                for (Nodecl::List::iterator it = subscripts.begin();
-                        it != subscripts.end();
-                        it++)
+                if (array.get_subscripted().is<Nodecl::Symbol>())
                 {
-                    if (it->is<Nodecl::Range>())
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
-                        low_subscripts.push_back(it->as<Nodecl::Range>().get_lower().shallow_copy());
-                    }
-                    else
-                    {
-                        low_subscripts.push_back(it->shallow_copy());
-                        have_to_rebuild_type = true;
+                        // float x[10][20]       x[1][2]      (we are in [1][2])
+                        // float *p              p[3]         (we are in [3])
+                        //
+                        // Use x (or p) directly
+                        _data_ref._base_address = array.get_subscripted();
                     }
                 }
-
-                if (have_to_rebuild_type)
+                else if (array.get_subscripted().is<Nodecl::ClassMemberAccess>())
                 {
-                    _data_ref._data_type = extend_array_type_to_regions(array);
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        // struct A { float x[10][20]; float *p; } a;
+                        //                      a.x[1][2]     (we are in [1][2])
+                        //                      a.p[3]        (we are in [3])
+                        // Use a.x or (a.p) directly
+                        _data_ref._base_address = array.get_subscripted();
+                    }
+                }
+                else if (array.get_subscripted().is<Nodecl::Shaping>())
+                {
+                    // ([10][20]x)[30][40]          (we are in [30][40])
+                    // Use the address of the shaping expression itself
+                    // Do nothing
+                }
+                else if (array.get_subscripted().is<Nodecl::ArraySubscript>())
+                {
+                    // float (*p)[20][30]    (p[1])[2][3]  (we are in [2][3])
+                    // Do nothing
+                }
+                else if (array.get_subscripted().is<Nodecl::Dereference>())
+                {
+                    // float (*p)[20][30]    (*p)[2][3]    (we are in [2][3])
+                    // This is like p[0][2][3] so the base address is p.
+                    // Do nothing
                 }
                 else
                 {
-                    _data_ref._data_type = t;
-                }
-
-                // The base address type must be a pointer to the element, not
-                // to the range of the array
-                TL::Type scalar_type = t;
-                while (scalar_type.is_array()) 
-                {
-                    scalar_type = scalar_type.array_element();
-                }
-
-                if (array.get_subscripted().is<Nodecl::Shaping>())
-                {
-                    // The base address of a shaping expression is itself
-                }
-                else
-                {
-                    ERROR_CONDITION(!_data_ref._base_address.is<Nodecl::Reference>(), 
-                            "Invalid address for the subscripted expression", 0);
-
-                    _data_ref._base_address =
-                        Nodecl::Reference::make(
-                                Nodecl::ArraySubscript::make(
-                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                    Nodecl::List::make(low_subscripts),
-                                    scalar_type,
-                                    array.get_filename(),
-                                    array.get_line()
-                                    ),
-                                scalar_type.get_pointer_to(),
-                                array.get_filename(),
-                                array.get_line());
+                    internal_error("Unexpected subscripted tree %s\n",
+                            ast_print_node_type(array.get_subscripted().get_kind()));
                 }
             }
 
@@ -780,12 +783,7 @@ namespace TL
             // Note that E[X:Y] and E[X;Y] will have array (with region) type
             // while E may have array (with or without region) or pointer type
             Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
-            TL::Type t = expr.get_type().no_ref();
-
-            if (!t.is_array())
-            {
-                t = array_subscript.get_subscripted().get_type().no_ref();
-            }
+            TL::Type t = _data_type;
 
             Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
             Nodecl::List::iterator it = subscripts.begin(), first = it;
@@ -950,10 +948,41 @@ namespace TL
                     result.get_filename(),
                     result.get_line());
 
+            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
             // a.b[e]
-            if (array_subscript.get_subscripted().is<Nodecl::ClassMemberAccess>())
+            if (subscripted.is<Nodecl::ClassMemberAccess>())
             {
-                internal_error("Not yet implemented", 0);
+                internal_error("Form a.b[e] not yet implemented", 0);
+            }
+            // ([shape]p])[e]
+            else if (subscripted.is<Nodecl::Shaping>())
+            {
+                Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
+                result = Nodecl::Add::make(
+                        result,
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Cast::make(
+                                shaping.get_postfix().shallow_copy(),
+                                get_ptrdiff_t_type(),
+                                "C"),
+                            get_ptrdiff_t_type()),
+                        get_ptrdiff_t_type());
+            }
+            // This only happens when indexing a pointer p
+            // (p[e1])[e]
+            else if (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                internal_error("Form (p[e1])[e] not yet implemented", 0);
+            }
+            // a[e]
+            else if (subscripted.is<Nodecl::Symbol>())
+            {
+                // Do nothing
+            }
+            else
+            {
+                internal_error("Unexpected node %s",
+                        ast_print_node_type(subscripted.get_kind()));
             }
 
             return result;
@@ -981,16 +1010,13 @@ namespace TL
                     expr.get_line());
 
             return result;
-            //internal_error("Not yet implemented", 0);
         }
         else if (expr.is<Nodecl::Shaping>())
         {
-            return Nodecl::Cast::make(
-                    expr.as<Nodecl::Shaping>().get_postfix().shallow_copy(),
-                    get_ptrdiff_t_type(), "C");
+            // A shaping itself does not imply any offset
         }
 
-        return const_value_to_nodecl(const_value_get_signed_int(0));
+        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
     }
 
     Nodecl::NodeclBase DataReference::get_offsetof() const
