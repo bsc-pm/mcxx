@@ -342,7 +342,7 @@ namespace TL
                     _data_ref._base_address =
                         Nodecl::Reference::make(
                                 Nodecl::ClassMemberAccess::make(
-                                    _data_ref._base_address,
+                                    member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
                                     t,
                                     member.get_filename(),
