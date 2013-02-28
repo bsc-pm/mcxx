@@ -388,9 +388,9 @@ namespace TL
 
     DataReference::DataReference(Nodecl::NodeclBase expr)
         : Nodecl::NodeclBase(expr),
-        _is_valid(true), 
-        _base_symbol(NULL), 
-        _data_type(NULL), 
+        _is_valid(true),
+        _base_symbol(NULL),
+        _data_type(NULL),
         _error_log("")
     {
         if (expr.is_null()
