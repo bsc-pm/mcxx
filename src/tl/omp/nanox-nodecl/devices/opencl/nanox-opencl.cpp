@@ -1358,9 +1358,11 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     std::string file = info._target_info.get_file();
     if (file.empty())
     {
-        ERROR_CONDITION(CURRENT_CONFIGURATION->opencl_code_file == NULL,
-                "No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag",
-                called_task.get_name().c_str());
+        if (CURRENT_CONFIGURATION->opencl_code_file == NULL)
+        {
+            running_error("No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag\n",
+                    called_task.get_name().c_str());
+        }
 
         file = std::string(CURRENT_CONFIGURATION->opencl_code_file);
     }
