@@ -33,23 +33,30 @@ test_generator=config/mercurium-ompss
 */
 
 
-#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #pragma omp target device(smp)
-#pragma omp task inout(a[n])
-void f1(int *a, int n)
+#pragma omp task out(a[n])
+void generator(int *a, int n)
 {
+    fprintf(stderr, "%s: a -> %p | a[%d] -> %p\n", __FUNCTION__, a, n, &a[n]);
     a[n] = n;
 }
 
 #pragma omp target device(smp)
 #pragma omp task in(*a)
-void f(int *a, int n)
+void consumer(int *a, int n)
 {
-    assert(*a == n);
+    fprintf(stderr, "%s a[%d] -> %p\n", __FUNCTION__, n, &a[n]);
+    if (*a != n)
+    {
+        fprintf(stderr, "%d != %d\n", *a, n);
+        abort();
+    }
 }
 
-#define SIZE 1000
+#define SIZE 10
 int k[SIZE] = { 0 };
 
 int main(int argc, char* argv[])
@@ -60,9 +67,9 @@ int main(int argc, char* argv[])
     int *p;
     for (i = 0; i < SIZE; i++)
     {
-        f1(k, i); // k[i] <- i
+        generator(k, i); // k[i] = i
         p = &k[i];
-        f(p, i);
+        consumer(p, i);
     }
 
 #pragma omp taskwait

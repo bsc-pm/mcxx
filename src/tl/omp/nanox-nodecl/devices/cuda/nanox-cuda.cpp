@@ -2532,6 +2532,11 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
     device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
 }
 
+bool DeviceCUDA::remove_function_task_from_original_source() const
+{
+    return true;
+}
+
 //void DeviceCUDA::do_replacements(
 //		DataEnvironInfo& data_environ,
 //		AST_t body,

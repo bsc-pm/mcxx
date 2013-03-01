@@ -1550,6 +1550,11 @@ namespace TL { namespace Nanox {
         }
     }
 
+    bool DeviceSMP::remove_function_task_from_original_source() const
+    {
+        return false;
+    }
+
     void DeviceSMP::copy_stuff_to_device_file(
             const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
     {

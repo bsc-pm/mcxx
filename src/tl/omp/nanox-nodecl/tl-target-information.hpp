@@ -71,7 +71,7 @@ namespace TL
                 std::string get_outline_name() const;
 
                 void add_device_name(std::string device_name);
-                ObjectList<std::string>& get_device_names();   
+                ObjectList<std::string> get_device_names() const;
 
                 void set_file(std::string file);
                 std::string get_file();
