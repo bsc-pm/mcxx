@@ -11167,6 +11167,8 @@ const char* type_to_source(type_t* t)
 type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, 
         symbol_map_t* symbol_map)
 {
+    // Note that this function does not copy class types
+
     if (orig == NULL)
         return NULL;
 
