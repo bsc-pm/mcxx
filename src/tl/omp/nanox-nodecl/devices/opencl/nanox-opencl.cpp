@@ -972,44 +972,44 @@ TL::Type DeviceOpenCL::rewrite_type_of_vla_in_outline(
     // Do nothing
     else return t;
 }
+
 void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
         const std::string filename,
-        const Nodecl::Utils::SimpleSymbolMap* called_fun_param_to_args_map,
-        Nodecl::Utils::SymbolMap* unpacked_fun_params_to_args_map,
+        const TL::ObjectList<OutlineDataItem*>& data_items,
+        const Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+        Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
         // Out
         TL::Source& code_ndrange)
 {
     TL::Source code_ndrange_aux;
+    Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
 
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-
-    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    int num_params = parameters_called.size();
-
-    const std::map<TL::Symbol, TL::Symbol>* called_task_map = called_fun_param_to_args_map->get_simple_symbol_map();
+    symbol_map_t* outline_data_to_unpacked_fun_map_internal = outline_data_to_unpacked_fun_map->get_symbol_map();
+    const std::map<TL::Symbol, TL::Symbol>* called_task_map = called_fun_to_outline_data_map->get_simple_symbol_map();
     for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = called_task_map->begin();
             it != called_task_map->end();
             it++)
     {
         TL::Symbol key = it->first;
         TL::Symbol value =
-            unpacked_fun_params_to_args_map->get_symbol_map()->map(
-                    unpacked_fun_params_to_args_map->get_symbol_map(), it->second.get_internal_symbol());
-        translate_parameters_map.add_map(key, value);
+            outline_data_to_unpacked_fun_map_internal->map(
+                    outline_data_to_unpacked_fun_map_internal, it->second.get_internal_symbol());
+        called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
+   // The arguments of the clause 'ndrange' must be updated because they are
+   // expressed in terms of the outline data
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
     int num_args_ndrange = ndrange_args.size();
     for (int i = 0; i < num_args_ndrange; ++i)
     {
-
         new_ndrange.append(Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                    translate_parameters_map));
+                    *outline_data_to_unpacked_fun_map));
     }
 
     bool dim_const = new_ndrange[0].is_constant();
@@ -1042,20 +1042,52 @@ void DeviceOpenCL::generate_ndrange_code(
     code_ndrange_aux << "nanos_err_t err;";
     code_ndrange_aux << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
 
-    //Check original function param types, with the adjusted ones, float[x] array types will be pointers
-    TL::ObjectList<TL::Type> nonadjusted_params = called_task.get_type().nonadjusted_parameters();
     //Prepare setArgs
-    for (int i = 0; i < num_params; ++i)
+    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
+    for (unsigned int i = 0; i < parameters_called.size(); ++i)
     {
-        if (nonadjusted_params[i].is_pointer()
-                && !nonadjusted_params[i].is_array())
+        TL::Symbol unpacked_argument = called_fun_to_unpacked_fun_map.map(parameters_called[i]);
+
+        bool is_global = false;
+        if (unpacked_argument.get_type().no_ref().is_pointer()
+                || unpacked_argument.get_type().no_ref().is_array())
         {
-            code_ndrange_aux << "err = nanos_opencl_set_bufferarg(ompss_kernel_ocl, " << i << ", " << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
+            for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                    it != data_items.end() && !is_global;
+                    ++it)
+            {
+                TL::Symbol outline_data_item_sym = (*it)->get_symbol();
+
+                // If the outline data item has not a valid symbol, skip it
+                if (!outline_data_item_sym.is_valid())
+                    continue;
+
+                // If the symbol of the current outline data item is not the
+                // same as the unpacked_argument, skip it
+                if(TL::Symbol(outline_data_to_unpacked_fun_map_internal->map(
+                                outline_data_to_unpacked_fun_map_internal,
+                                outline_data_item_sym.get_internal_symbol())) != unpacked_argument)
+                    continue;
+
+                is_global = !((*it)->get_copies().empty());
+            }
+        }
+
+        if (is_global)
+        {
+            code_ndrange_aux
+                << "err = nanos_opencl_set_bufferarg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      as_symbol(unpacked_argument) <<");";
         }
         else
         {
-            code_ndrange_aux << "err = nanos_opencl_set_arg(ompss_kernel_ocl, " << i << ", "
-                "sizeof(" << as_type(nonadjusted_params[i]) << "), &" << as_symbol(translate_parameters_map.map(parameters_called[i])) <<");";
+            code_ndrange_aux << "err = nanos_opencl_set_arg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      "sizeof(" << as_type(unpacked_argument.get_type().no_ref()) << "), "
+                <<      "&" << as_symbol(unpacked_argument) <<");";
         }
     }
 
@@ -1190,8 +1222,10 @@ void DeviceOpenCL::generate_ndrange_code(
             }
             else
             {
-                code_ndrange_aux << "offset_arr[" << i-1 << "] = " << as_expression(new_ndrange[i]) << ";";
+                code_ndrange_aux
+                    << "offset_arr[" << i-1 << "] = " << as_expression(new_ndrange[i]) << ";";
             }
+
             code_ndrange_aux
                 << "local_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";"
                 << "if (local_size_arr[" << i - 1 << "] == 0)"
@@ -1378,6 +1412,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 unpacked_function,
                 info._target_info.get_ndrange(),
                 file,
+                info._data_items,
                 &param_to_args_map,
                 symbol_map,
                 ndrange_code);
