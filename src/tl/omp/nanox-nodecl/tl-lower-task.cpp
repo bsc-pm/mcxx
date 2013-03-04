@@ -589,7 +589,11 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    if (is_function_task)
+    // In Fortran we don't need to remove the function task from the original source because:
+    //  - The function task is a smp task, or
+    //  - The function task is not a smp task and we only have it's declaration
+    if (!IS_FORTRAN_LANGUAGE
+            && is_function_task)
     {
         remove_fun_tasks_from_source_as_possible(implementation_table);
     }

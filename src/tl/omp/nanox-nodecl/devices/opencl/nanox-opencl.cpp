@@ -1002,8 +1002,6 @@ void DeviceOpenCL::generate_ndrange_code(
 
    // The arguments of the clause 'ndrange' must be updated because they are not
    // expressed in terms of the unpacked arguments
-   //   - In C/C++ this arguments are expressed in terms of the original called function
-   //   - In Forran this arguments are expressed in terms of the outline data
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
     int num_args_ndrange = ndrange_args.size();
     for (int i = 0; i < num_args_ndrange; ++i)
@@ -1011,8 +1009,7 @@ void DeviceOpenCL::generate_ndrange_code(
         new_ndrange.append(Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                    (!IS_FORTRAN_LANGUAGE)
-                        ? called_fun_to_unpacked_fun_map : *outline_data_to_unpacked_fun_map));
+                        called_fun_to_unpacked_fun_map));
     }
 
     bool dim_const = new_ndrange[0].is_constant();
