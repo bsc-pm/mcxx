@@ -283,6 +283,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, abort, "", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, access, "NAME,MODE", I, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, besj0, "X", E, NULL) \
@@ -4831,6 +4832,19 @@ scope_entry_t* compute_intrinsic_access(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_abort(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 0)
+        return NULL;
+
+    return GET_INTRINSIC_IMPURE("abort",
+            /* subroutine */ get_void_type());
 }
 
 scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
