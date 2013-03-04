@@ -113,6 +113,8 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    // Fortran
+    STK_HOLLERITH,
 } simple_type_kind_t;
 
 // Information of enums
@@ -8125,12 +8127,15 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_BYTE:
+                        result = strappend(result, "byte");
+                        break;
                     case BT_VOID :
                         result = strappend(result, "void");
                         break;
                     case BT_UNKNOWN :
                     default :
-                        result = strappend(result, "���unknown builtin type???");
+                        result = strappend(result, "???unknown builtin type???");
                         break;
                 }
                 break;
@@ -11460,4 +11465,25 @@ unsigned int mask_type_get_num_bits(type_t* t)
     ERROR_CONDITION(!is_mask_type(t), "This is not a mask type", 0);
 
     return t->type->vector_size;
+}
+
+static type_t* _hollerith_type = NULL;
+
+type_t* get_hollerith_type(void)
+{
+    if (_hollerith_type == NULL)
+    {
+        _hollerith_type = get_simple_type();
+        _hollerith_type->type->kind = STK_HOLLERITH;
+    }
+
+    return _hollerith_type;
+}
+
+char is_hollerith_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_HOLLERITH);
 }

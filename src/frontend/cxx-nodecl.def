@@ -108,7 +108,9 @@ pragma-context : NODECL_PRAGMA_CONTEXT() context
 pragma-statement : NODECL_PRAGMA_CUSTOM_STATEMENT([pragma_line]pragma-line, [statements]statement-seq) text
 
 pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt, [end_clauses]pragma-custom-clause-seq-opt) text
-pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
+# The type of a NODECL_PRAGMA_CUSTOM_CLAUSE can be used to mark this clause as "used"
+# this is needed for diagnostics
+pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
@@ -356,6 +358,7 @@ fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [value
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
                     | NODECL_FORTRAN_BIND_C([name] expression)
                     | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
+                    | NODECL_FORTRAN_HOLLERITH() type text const-value
 
 fortran-data-item : expression
                   | fortran-implied-do
@@ -461,6 +464,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
+                 | NODECL_OPEN_M_P*NO_FLUSH()
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -489,7 +493,7 @@ section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
 synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environment-seq-opt)
 # First level of async
-                | NODECL_OPEN_M_P*TASKWAIT_SHALLOW()
+                | NODECL_OPEN_M_P*TASKWAIT_SHALLOW([environment]exec-environment-seq-opt)
 # All levels of async
                 | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)

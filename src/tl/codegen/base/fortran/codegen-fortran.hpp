@@ -123,6 +123,7 @@ namespace Codegen
             void visit(const Nodecl::FortranForall& node);
             void visit(const Nodecl::FortranWhere& node);
             void visit(const Nodecl::FortranBozLiteral& node);
+            void visit(const Nodecl::FortranHollerith& node);
             void visit(const Nodecl::FieldDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);

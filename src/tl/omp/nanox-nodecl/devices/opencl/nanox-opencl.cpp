@@ -1913,8 +1913,11 @@ void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,
     {
         internal_error("Unsupported Nanos version.", 0);
     }
+}
 
-
+bool DeviceOpenCL::remove_function_task_from_original_source() const
+{
+    return true;
 }
 
 bool DeviceOpenCL::allow_mandatory_creation()

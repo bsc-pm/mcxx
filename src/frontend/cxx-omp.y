@@ -1,5 +1,6 @@
 /*!if GRAMMAR_PROLOGUE*/
 %token<token_atrib> SUBPARSE_OPENMP_DECLARE_REDUCTION "<omp-declare-reduction>"
+%token<token_atrib> SUBPARSE_OPENMP_DEPEND_ITEM "<omp-depend-item>"
 
 %type<ast> omp_declare_reduction
 %type<ast> omp_dr_reduction_id
@@ -8,6 +9,8 @@
 %type<ast> omp_dr_combiner
 %type<ast> omp_dr_initializer
 
+%type<ast> omp_depend_item
+
 %type<token_atrib> omp_dr_operator
 %type<ast> omp_dr_identifier
 
@@ -15,6 +18,10 @@
 /*!if GRAMMAR_RULES*/
 
 subparsing : SUBPARSE_OPENMP_DECLARE_REDUCTION omp_declare_reduction
+{
+    $$ = $2;
+}
+| SUBPARSE_OPENMP_DEPEND_ITEM omp_depend_item
 {
     $$ = $2;
 }
@@ -130,5 +137,17 @@ omp_dr_initializer : unqualified_name initializer %merge<ambiguityHandler>
 }
 ;
 /*!endif*/
+
+omp_depend_item : id_expression
+{
+    $$ = $1;
+}
+| omp_depend_item '[' expression ':' expression ']'
+{
+    // Note that this is to be interpreted as a [lower:size] (not [lower:upper]),
+    // so we create an AST_ARRAY_SECTION_SIZE here
+    $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
 
 /*!endif*/

@@ -6325,9 +6325,14 @@ static void build_scope_interface_block(AST a,
         const char* name = get_name_of_generic_spec(generic_spec);
         generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
 
+        scope_entry_t* previous_generic_spec_sym = NULL;
+
         if (generic_spec_sym == NULL
                 || generic_spec_sym->entity_specs.from_module)
         {
+            // Keep the seen generic specifier, we may need it later
+            previous_generic_spec_sym = generic_spec_sym;
+
             generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
 
             // If this name is not related to a specific interface, make it void
@@ -6347,6 +6352,7 @@ static void build_scope_interface_block(AST a,
             return;
         }
 
+
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
 
@@ -6354,6 +6360,13 @@ static void build_scope_interface_block(AST a,
         generic_spec_sym->entity_specs.is_generic_spec = 1;
         generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
+
+        // Set the access properly if the symbol has already been seen and we already know its access
+        if (previous_generic_spec_sym != NULL
+                && previous_generic_spec_sym->entity_specs.access != AS_UNKNOWN)
+        {
+            generic_spec_sym->entity_specs.access = previous_generic_spec_sym->entity_specs.access;
+        }
     }
 
     if (interface_specification_seq != NULL)

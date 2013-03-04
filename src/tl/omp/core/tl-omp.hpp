@@ -275,19 +275,21 @@ namespace TL
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
                 ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_ndrange() const;
 
                 void append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions);
                 ObjectList<Nodecl::NodeclBase> get_onto() const;
+                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_onto() const;
 
                 void set_copy_deps(bool b);
                 bool has_copy_deps() const;
-                                                
+
                 void set_target_symbol(Symbol funct_symbol);
                 Symbol get_target_symbol() const;
 
                 void append_to_device_list(const ObjectList<std::string>& device_list);
                 ObjectList<std::string> get_device_list();
-                
+
                 void set_file(std::string filename);
                 std::string get_file() const;
 

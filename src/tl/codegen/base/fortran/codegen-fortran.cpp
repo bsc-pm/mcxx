@@ -1018,6 +1018,11 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::visit(const Nodecl::FortranHollerith& node)
+    {
+        file << node.get_text().size() << "H" << node.get_text();
+    }
+
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
@@ -3899,14 +3904,7 @@ OPERATOR_TABLE
             if (sym.is_from_module()
                     && sym.get_access_specifier() == AS_PRIVATE)
             {
-                if (sym.is_generic_specifier())
-                {
-                    private_names.insert(get_generic_specifier_str(sym.get_name()));
-                }
-                else
-                {
-                    private_names.insert(sym.get_name());
-                }
+                private_names.insert(sym.get_name());
             }
         }
 
@@ -3938,6 +3936,23 @@ OPERATOR_TABLE
             {
                 // If it has a private access specifier, state so
                 private_names.insert(sym.get_name());
+            }
+        }
+
+        // Review again for generic specifiers that are actually PUBLIC
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            // If a generic specifier is PUBLIC but a specific interface with the same name
+            // is private, remove it from PRIVATE names
+            if (sym.is_generic_specifier()
+                    && sym.get_access_specifier() != AS_PRIVATE)
+            {
+                std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                if (same_name != private_names.end())
+                    private_names.erase(same_name);
             }
         }
 
@@ -4503,7 +4518,7 @@ OPERATOR_TABLE
                 UseStmtItem& item (*it2);
                 TL::Symbol entry = item.symbol;
 
-                // We cannot use the generic specifier of an interface if it has not any implementation
+                // We cannot use the generic specifier of an interface if it does not have any implementation
                 // Example:
                 //
                 //      MODULE M

@@ -767,142 +767,186 @@ namespace TL
         }
     }
 
-    Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr, 
+    Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr,
             Nodecl::NodeclBase reference_expr,
             TL::Scope scope) const
     {
         if (expr.is<Nodecl::ArraySubscript>())
         {
+            // E[X]
+            // E[X:Y]
+            // E[X;Y]
+            //
+            // Note that E[X:Y] and E[X;Y] will have array (with region) type
+            // while E may have array (with or without region) or pointer type
             Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
-            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
-            TL::Type t = subscripted.get_type();
-            if (t.is_any_reference())
-                t = t.references_to();
+            TL::Type t = expr.get_type().no_ref();
+
+            if (!t.is_array())
+            {
+                t = array_subscript.get_subscripted().get_type().no_ref();
+            }
 
             Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
+            Nodecl::List::iterator it = subscripts.begin(), first = it;
 
-            Nodecl::NodeclBase result;
+            TL::ObjectList<Nodecl::NodeclBase> indexes;
+            TL::ObjectList<Nodecl::NodeclBase> sizes;
 
-            if (t.is_array())
+            while (it != subscripts.end())
             {
-                Nodecl::List::iterator it = subscripts.begin(), first = it;
-
-                while (t.is_array()
-                        && it != subscripts.end())
+                Nodecl::NodeclBase lower_bound;
+                if (t.is_array())
                 {
-                    Nodecl::NodeclBase lower_bound, upper_bound;
-
+                    Nodecl::NodeclBase upper_bound;
                     t.array_get_bounds(lower_bound, upper_bound);
+                }
+                else if (t.is_pointer())
+                {
+                    lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+                }
+                else
+                {
+                    internal_error("Unexpected type %s", print_declarator(t.get_internal_type()));
+                }
 
-                    Nodecl::NodeclBase lower = *it;
-                    if (it->is<Nodecl::Range>())
-                    {
-                        lower = it->as<Nodecl::Range>().get_lower();
+                Nodecl::NodeclBase lower = *it;
+                if (it->is<Nodecl::Range>())
+                {
+                    lower = it->as<Nodecl::Range>().get_lower();
+                }
+
+                if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
+                {
+                    /*if (t.array_requires_descriptor()
+                      && _base_symbol.is_parameter())
+                      {
+                    // This is an assumed shape of 1
+                    lower_bound = const_value_to_nodecl(const_value_get_one(4, 1));
                     }
-
-                    if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
+                    else */ if (reference_expr.is_null())
                     {
-                        /*if (t.array_requires_descriptor()
-                            && _base_symbol.is_parameter())
-                        {
-                            // This is an assumed shape of 1
-                            lower_bound = const_value_to_nodecl(const_value_get_one(4, 1));
-                        }
-                        else */ if (reference_expr.is_null())
-                        {
-                            return Nodecl::NodeclBase::null();
-                        }
-                        else
-                        {
-                            DataReference data_ref(reference_expr);
-                            if (data_ref.is_valid())
-                            {
-                                Source lbound_src;
-                                lbound_src << "LBOUND(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
-                                    ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
-
-                                lower_bound = lbound_src.parse_expression(scope);
-                            }
-                            else
-                            {
-                                return Nodecl::NodeclBase::null();
-                            }
-                        }
-                    }
-
-                    Nodecl::NodeclBase current_index =
-                        Nodecl::ParenthesizedExpression::make(
-                                Nodecl::Minus::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        lower.shallow_copy(),
-                                        TL::Type::get_int_type(),
-                                        lower.get_filename(),
-                                        lower.get_line()),
-                                    Nodecl::ParenthesizedExpression::make(
-                                        lower_bound.shallow_copy(),
-                                        TL::Type::get_int_type(),
-                                        lower_bound.get_filename(),
-                                        lower_bound.get_line()),
-                                    TL::Type::get_int_type(),
-                                    lower.get_filename(),
-                                    lower.get_line()),
-                                TL::Type::get_int_type(),
-                                lower.get_filename(),
-                                lower.get_line());
-
-                    if (it == first)
-                    {
-                        result = current_index;
+                        return Nodecl::NodeclBase::null();
                     }
                     else
                     {
-                        result = Nodecl::Mul::make(
+                        DataReference data_ref(reference_expr);
+                        if (data_ref.is_valid())
+                        {
+                            Source lbound_src;
+                            lbound_src << "LBOUND(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
+                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                            lower_bound = lbound_src.parse_expression(scope);
+                        }
+                        else
+                        {
+                            return Nodecl::NodeclBase::null();
+                        }
+                    }
+                }
+
+                Nodecl::NodeclBase current_index =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Minus::make(
                                 Nodecl::ParenthesizedExpression::make(
-                                    result,
-                                    result.get_type(),
-                                    result.get_filename(),
-                                    result.get_line()),
-                                current_index,
+                                    lower.shallow_copy(),
+                                    TL::Type::get_int_type(),
+                                    lower.get_filename(),
+                                    lower.get_line()),
+                                Nodecl::ParenthesizedExpression::make(
+                                    lower_bound.shallow_copy(),
+                                    TL::Type::get_int_type(),
+                                    lower_bound.get_filename(),
+                                    lower_bound.get_line()),
                                 TL::Type::get_int_type(),
                                 lower.get_filename(),
-                                lower.get_line());
-                    }
+                                lower.get_line()),
+                            TL::Type::get_int_type(),
+                            lower.get_filename(),
+                            lower.get_line());
 
-                    t = t.array_element();
-                    it++;
-                }
-
-                ERROR_CONDITION( (!t.is_array() != (it == subscripts.end())), "Mismatch between array type and subscripts", 0);
-
-                result = Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.get_internal_type()))),
-                        result,
-                        TL::Type::get_int_type(),
-                        result.get_filename(),
-                        result.get_line());
-            }
-            else if (t.is_pointer())
-            {
-                // In C/C++ one can index a pointer using array notation
-                Nodecl::NodeclBase current_subscript = subscripts[0];
-
-                if (current_subscript.is<Nodecl::Range>())
+                indexes.append(current_index);
+                if (t.is_array())
                 {
-                    current_subscript = current_subscript.as<Nodecl::Range>().get_lower();
+                    Nodecl::NodeclBase current_size = t.array_get_size();
+                    if (current_size.is_null())
+                    {
+                        if (IS_FORTRAN_LANGUAGE && !reference_expr.is_null())
+                        {
+                            DataReference data_ref(reference_expr);
+                            if (!data_ref.is_valid())
+                                return Nodecl::NodeclBase::null();
+
+                            Source lbound_src;
+                            lbound_src << "SIZE(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
+                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                            current_size = lbound_src.parse_expression(scope);
+                        }
+                        else
+                        {
+                            return Nodecl::NodeclBase::null();
+                        }
+                    }
+                    sizes.append(current_size.shallow_copy());
+                }
+                else
+                {
+                    // This way it will have the same length as indexes
+                    sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
                 }
 
-                result = Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.points_to().get_internal_type()))),
-                        current_subscript.shallow_copy(),
-                        TL::Type::get_int_type(),
-                        current_subscript.get_filename(),
-                        current_subscript.get_line());
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
+
+                if (t.is_array())
+                {
+                    t = t.array_element();
+                }
+                else if (t.is_pointer())
+                {
+                    t = t.points_to();
+                }
+
+                it++;
             }
 
+            ERROR_CONDITION(indexes.size() != sizes.size(), "Mismatch between indexes and sizes", 0);
+
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it_indexes = indexes.begin();
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it_sizes = sizes.begin();
+
+            Nodecl::NodeclBase result;
+
+            // Horner algorithm
+            while (it_indexes != indexes.end())
+            {
+                // First one is special
+                if (it_indexes == indexes.begin())
+                {
+                    result = *it_indexes;
+                }
+                else
+                {
+                    result = Nodecl::Add::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Mul::make(
+                                    Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
+                                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                                    TL::Type::get_int_type()), TL::Type::get_int_type()),
+                            Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
+                            TL::Type::get_int_type());
+                }
+
+                it_indexes++;
+                it_sizes++;
+            }
+
+            result = Nodecl::Mul::make(
+                    const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.get_internal_type()))),
+                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                    TL::Type::get_int_type(),
+                    result.get_filename(),
+                    result.get_line());
 
             // a.b[e]
             if (array_subscript.get_subscripted().is<Nodecl::ClassMemberAccess>())

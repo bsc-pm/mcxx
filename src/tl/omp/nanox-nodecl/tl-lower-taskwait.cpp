@@ -32,6 +32,22 @@
 
 namespace TL { namespace Nanox {
 
+struct TaskWaitVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    public:
+        bool is_noflush;
+
+        TaskWaitVisitor()
+            : is_noflush(false)
+        {
+        }
+
+        void visit(const Nodecl::OpenMP::NoFlush&)
+        {
+            is_noflush = true;
+        }
+};
+
 void LoweringVisitor::fill_dependences_taskwait(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -42,9 +58,10 @@ void LoweringVisitor::fill_dependences_taskwait(
     fill_dependences_internal(ctr, outline_info, Source(""), /* on_wait */ true, result_src);
 }
 
-void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct, 
+void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
         bool has_dependences,
-        OutlineInfo& outline_info)
+        OutlineInfo& outline_info,
+        bool is_noflush)
 {
     Source src;
 
@@ -53,7 +70,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
         src << "{"
             <<     "nanos_wd_t nanos_wd_ = nanos_current_wd();"
             <<     "nanos_err_t err;"
-            <<     "err = nanos_wg_wait_completion(nanos_wd_, 0);"
+            <<     "err = nanos_wg_wait_completion(nanos_wd_, " << (is_noflush ? "1" : "0") << ");"
             <<     "if (err != NANOS_OK) nanos_handle_error(err);"
             << "}"
             ;
@@ -96,15 +113,21 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 {
     OutlineInfo outline_info(Nodecl::NodeclBase::null());
-    emit_wait_async(construct, /* has_dependences */ false, outline_info);
+    TaskWaitVisitor taskwait_info;
+    taskwait_info.walk(construct.get_environment());
+
+    emit_wait_async(construct, /* has_dependences */ false, outline_info, taskwait_info.is_noflush);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
-
     OutlineInfo outline_info(environment);
-    emit_wait_async(construct, /* has_dependences */ true, outline_info);
+
+    TaskWaitVisitor taskwait_info;
+    taskwait_info.walk(construct.get_environment());
+
+    emit_wait_async(construct, /* has_dependences */ true, outline_info, taskwait_info.is_noflush);
 }
 
 } }

@@ -260,6 +260,8 @@ namespace TL { namespace Nanox {
                      Source& instrumentation_before,
                      Source& instrumentation_after);
 
+             virtual bool remove_function_task_from_original_source() const = 0;
+
              /*!
                This function returns true if the current device is a gpu
                accelerator. Otherwise It returns false.  The gpu devices
