@@ -209,6 +209,11 @@ namespace Nodecl
 
         struct SimpleSymbolMap : public SymbolMap
         {
+            SimpleSymbolMap() 
+                : _symbol_map(), _enclosing(NULL) { }
+            SimpleSymbolMap(SymbolMap* enclosing) 
+                : _symbol_map(), _enclosing(enclosing) { }
+
             virtual TL::Symbol map(TL::Symbol s)
             {
                 if (!s.is_valid())
@@ -217,6 +222,8 @@ namespace Nodecl
                 symbol_map_t::iterator it = _symbol_map.find(s);
                 if (it != _symbol_map.end())
                     return it->second;
+                else if (_enclosing != NULL)
+                    return _enclosing->map(s);
                 else
                     return s;
             }
@@ -229,6 +236,7 @@ namespace Nodecl
             private:
             typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
             symbol_map_t _symbol_map;
+            SymbolMap* _enclosing;
         };
 
         struct FortranProgramUnitSymbolMap : public SymbolMap
