@@ -1997,30 +1997,30 @@ void LoweringVisitor::fill_dependences_internal(
 
                 Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
 
-                if (!(*it)->get_base_address_expression().is_null())
-                {
-                    // This is only for function task dependences
-                    // Outline tasks do not need any of this
-                    dep_source_expr = base_address = (*it)->get_base_address_expression();
+                // if (!(*it)->get_base_address_expression().is_null())
+                // {
+                //     // This is only for function task dependences
+                //     // Outline tasks do not need any of this
+                //     dep_source_expr = base_address = (*it)->get_base_address_expression();
 
-                    if ((IS_CXX_LANGUAGE
-                                || IS_FORTRAN_LANGUAGE)
-                            && (*it)->get_symbol().get_type().is_lvalue_reference())
-                    {
-                        // If the parameter type
-                        TL::Type t = base_address.get_type();
-                        if (t.is_any_reference())
-                            t = t.references_to();
-                        t = t.get_pointer_to();
-                        // Create a reference here
-                        base_address = Nodecl::Reference::make(
-                                base_address.shallow_copy(),
-                                t,
-                                base_address.get_filename(),
-                                base_address.get_line());
-                    }
-                }
-                else
+                //     if ((IS_CXX_LANGUAGE
+                //                 || IS_FORTRAN_LANGUAGE)
+                //             && (*it)->get_symbol().get_type().is_lvalue_reference())
+                //     {
+                //         // If the parameter type
+                //         TL::Type t = base_address.get_type();
+                //         if (t.is_any_reference())
+                //             t = t.references_to();
+                //         t = t.get_pointer_to();
+                //         // Create a reference here
+                //         base_address = Nodecl::Reference::make(
+                //                 base_address.shallow_copy(),
+                //                 t,
+                //                 base_address.get_filename(),
+                //                 base_address.get_line());
+                //     }
+                // }
+                // else
                 {
                     base_address = dep_expr.get_base_address().shallow_copy();
                 }
@@ -2213,12 +2213,9 @@ void LoweringVisitor::fill_dependences_internal(
                         dependency_init << ", ";
                     }
 
-                    Source dep_address;
-                    dep_address << as_expression(dep_expr.get_address_of_symbol());
-
                     dependency_init
                         << "{"
-                        << dep_address << ", "
+                        << as_expression(base_address) << ", "
                         << dependency_flags << ", "
                         << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num << ","
