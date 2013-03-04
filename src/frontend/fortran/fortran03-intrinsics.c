@@ -956,6 +956,13 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_intrinsic_subroutine = is_void_type(result_type);
         new_entry->entity_specs.is_intrinsic_function = !is_void_type(result_type);
 
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            new_entry->decl_context.current_scope->related_entry =
+                decl_context.current_scope->related_entry;
+        }
+
         rb_tree_insert(intrinsic_map, p, new_entry);
 
         DEBUG_CODE()
@@ -6285,6 +6292,8 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
                 entry->entity_specs.is_module_procedure = symbol->entity_specs.is_module_procedure;
                 entry->entity_specs.in_module = symbol->entity_specs.in_module;
                 entry->entity_specs.from_module = symbol->entity_specs.from_module;
+                entry->decl_context.current_scope->related_entry =
+                    symbol->decl_context.current_scope->related_entry;
 
                 return entry;
             }
