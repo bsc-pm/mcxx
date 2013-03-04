@@ -104,7 +104,20 @@ namespace Codegen
 
             return result;
         }
+
+        bool first_scope_is_enclosed_in_second(scope_t* first, scope_t* second)
+        {
+            if (first == NULL
+                    // Everyone may be enclosed in the global scope
+                    || first == CURRENT_COMPILED_FILE->global_decl_context.current_scope)
+                return false;
+            else if (first == second)
+                return true;
+            else
+                return first_scope_is_enclosed_in_second(first->contained_in, second);
+        }
     }
+
 
     class PreCodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
@@ -3083,8 +3096,8 @@ OPERATOR_TABLE
                 return true;
         }
 
-        // Maybe the symbol is not declared in the current scope but it lives in the current scope
-        // (because of an insertion)
+        // Maybe the symbol is not declared in the current scope but its name
+        // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
 
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
@@ -4531,6 +4544,8 @@ OPERATOR_TABLE
                 {
                     file << get_generic_specifier_str(entry.get_name())
                         ;
+                    // file << " {{" << entry.get_internal_symbol() << "}} " 
+                    //     ;
                 }
                 else
                 {
@@ -4553,7 +4568,11 @@ OPERATOR_TABLE
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
         // Has the symbol 'entry' been declared as USEd in the current context?
-        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+        if (!entry_is_in_scope(entry, sc)
+                // No it has not. But if it is found in an enclosing scope we will not emit it
+                && first_scope_is_enclosed_in_second(
+                    sc.get_related_symbol().get_scope().get_decl_context().current_scope,
+                    entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
             return;
 
         TL::Symbol module = entry.from_module();
@@ -4859,6 +4878,10 @@ OPERATOR_TABLE
 
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
+
+            // std::stringstream ss;
+            // ss << " {{" << entry.get_internal_symbol() << "}} ";
+            // real_name += ss.str();
 
             type_specifier = "TYPE(" + real_name + ")";
         }
