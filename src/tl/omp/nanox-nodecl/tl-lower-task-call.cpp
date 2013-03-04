@@ -32,6 +32,7 @@
 #include "tl-datareference.hpp"
 #include "tl-devices.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
@@ -895,59 +896,6 @@ static void handle_save_expressions(decl_context_t function_context,
     }
 }
 
-// Inserts USEd symbols
-struct FortranInsertUsedSymbols : Nodecl::NodeclVisitor<void>
-{
-    private:
-        scope_t* _scope;
-    public:
-        FortranInsertUsedSymbols(Scope sc)
-                : _scope(sc.get_decl_context().current_scope)
-        {
-        }
-
-        // Any node
-        virtual void unhandled_node(const Nodecl::NodeclBase& n)
-        {
-            if (n.get_symbol().is_valid()
-                    && n.get_symbol().is_from_module())
-            {
-                ::insert_entry(_scope, n.get_symbol().get_internal_symbol());
-            }
-            if (n.get_type().is_valid())
-            {
-                insert_type(n.get_type());
-            }
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                    it != children.end();
-                    it++)
-            {
-                walk(*it);
-            }
-        }
-    private:
-        void insert_type(TL::Type t)
-        {
-            if (t.is_named_class() && t.get_symbol().is_from_module())
-            {
-                ::insert_entry(_scope, t.get_symbol().get_internal_symbol());
-            }
-            else if (t.is_lvalue_reference())
-            {
-                insert_type(t.references_to());
-            }
-            else if (t.is_pointer())
-            {
-                insert_type(t.points_to());
-            }
-            else if (t.is_array())
-            {
-                insert_type(t.array_element());
-            }
-        }
-};
-
 static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
@@ -1041,22 +989,12 @@ static TL::Symbol new_function_symbol_adapter(
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
-    scope_entry_t* original_used_modules_info
-        = current_function.get_used_modules().get_internal_symbol();
-    if (original_used_modules_info != NULL)
-    {
-        scope_entry_t* new_used_modules_info
-            = get_or_create_used_modules_symbol_info(new_function_sym->related_decl_context);
-        for (int i = 0; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
-        {
-            P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
-                    new_used_modules_info->entity_specs.num_related_symbols,
-                    original_used_modules_info->entity_specs.related_symbols[i]);
-        }
-    }
+    Nodecl::Utils::Fortran::copy_used_modules(
+            current_function.get_related_scope(),
+            new_function_sym->related_decl_context);
 
     // Add USEd symbols
-    FortranInsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
+    Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
     insert_used_symbols.walk(current_function.get_function_code());
 
     // If the current function is a module, make this new function a sibling of it
