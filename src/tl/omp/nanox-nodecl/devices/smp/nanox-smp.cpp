@@ -45,6 +45,7 @@
 
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
+#include "cxx-symbol-deep-copy.h"
 
 #include <errno.h>
 #include <string.h>
@@ -55,9 +56,22 @@ namespace TL { namespace Nanox {
 
     struct FortranExtraDeclsVisitor : Nodecl::ExhaustiveVisitor<void>
     {
-        public:
+        private:
+            // Symbols that is enough to insert
+            TL::ObjectList<TL::Symbol> _extra_insert_sym;
+            // Symbols that require a full duplication
+            TL::ObjectList<TL::Symbol> _extra_new_sym;
 
-            TL::ObjectList<TL::Symbol> extra_decl_sym;
+            Nodecl::Utils::SimpleSymbolMap *_symbol_map;
+            TL::Scope _scope;
+
+        public:
+            FortranExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map, TL::Scope new_scope)
+                : _scope(new_scope)
+            {
+                _symbol_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+                symbol_map = _symbol_map;
+            }
 
             virtual void visit(const Nodecl::FunctionCall &function_call)
             {
@@ -82,7 +96,11 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = node_sym.get_symbol();
                 if (sym.is_function())
                 {
-                    extra_decl_sym.insert(sym);
+                    _extra_insert_sym.insert(sym);
+                }
+                else if (sym.is_fortran_namelist())
+                {
+                    _extra_new_sym.insert(sym);
                 }
             }
 
@@ -93,7 +111,39 @@ namespace TL { namespace Nanox {
 
                 if (t.is_named_class())
                 {
-                    extra_decl_sym.insert(t.get_symbol());
+                    _extra_insert_sym.insert(t.get_symbol());
+                }
+            }
+
+            void insert_extra_symbols(const Nodecl::NodeclBase &statements)
+            {
+                walk(statements);
+
+                decl_context_t decl_context = _scope.get_decl_context();
+                for (ObjectList<TL::Symbol>::iterator it2 = _extra_insert_sym.begin();
+                        it2 != _extra_insert_sym.end();
+                        it2++)
+                {
+                    ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
+                }
+
+                // New symbols
+                // First register them
+                TL::ObjectList<TL::Symbol> new_symbols;
+                for (ObjectList<TL::Symbol>::iterator it2 = _extra_new_sym.begin();
+                        it2 != _extra_new_sym.end();
+                        it2++)
+                {
+                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, it2->get_name().c_str());
+                    new_symbols.append(new_sym);
+                    _symbol_map->add_map(*it2, new_sym);
+                }
+                // Second fill them
+                for (unsigned int i = 0; i < _extra_new_sym.size(); i++)
+                {
+                    ::symbol_deep_copy(new_symbols[i].get_internal_symbol(), _extra_new_sym[i].get_internal_symbol(),
+                            decl_context,
+                            _symbol_map->get_symbol_map());
                 }
             }
     };
@@ -126,6 +176,21 @@ namespace TL { namespace Nanox {
                 }
             }
     };
+
+    static void fortran_copy_used_modules(TL::Scope orig_scope, 
+            TL::Scope new_scope)
+    {
+        // Copy USEd modules symbol
+        scope_entry_t* original_used_modules_info
+            = orig_scope.get_related_symbol().get_used_modules().get_internal_symbol();
+        if (original_used_modules_info != NULL)
+        {
+            scope_entry_t* new_used_modules_info
+                = get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
+            new_used_modules_info->entity_specs.related_symbols = original_used_modules_info->entity_specs.related_symbols;
+            new_used_modules_info->entity_specs.num_related_symbols = original_used_modules_info->entity_specs.num_related_symbols;
+        }
+    }
 
     static std::string smp_outline_name(const std::string &task_name)
     {
@@ -1031,7 +1096,8 @@ namespace TL { namespace Nanox {
             internal_functions.walk(info._original_statements);
 
             Nodecl::List l;
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                    it2 = internal_functions.function_codes.begin();
                     it2 != internal_functions.function_codes.end();
                     it2++)
             {
@@ -1066,24 +1132,19 @@ namespace TL { namespace Nanox {
         // Fortran may require more symbols
         if (IS_FORTRAN_LANGUAGE)
         {
+            // Insert extra symbols
+            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
+            FortranExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
+            fun_visitor.insert_extra_symbols(original_statements);
 
+            fortran_copy_used_modules(
+                    original_statements.retrieve_context(),
+                    unpacked_function_scope);
 
+            extra_declarations
+                << "IMPLICIT NONE\n";
 
-            // Copy USEd information
-            scope_entry_t* original_used_modules_info
-                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
-            if (original_used_modules_info != NULL)
-            {
-                scope_entry_t* new_used_modules_info
-                    = get_or_create_used_modules_symbol_info(decl_context);
-                for (int i = 0; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
-                {
-                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
-                            new_used_modules_info->entity_specs.num_related_symbols,
-                            original_used_modules_info->entity_specs.related_symbols[i]);
-                }
-            }
         }
         else if (IS_CXX_LANGUAGE)
         {
@@ -1306,21 +1367,15 @@ namespace TL { namespace Nanox {
                 outline_function_addr << ", ";
             }
 
-            decl_context_t decl_context = outline_function_scope.get_decl_context();
-            // Copy USEd information
-            scope_entry_t* original_used_modules_info
-                = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
+            // Copy USEd information to the outline and forward functions
+            TL::Symbol *functions[] = { &outline_function, &forward_function, NULL };
 
-            if (original_used_modules_info != NULL)
+            for (int i = 0; functions[i] != NULL; i++)
             {
-                scope_entry_t* new_used_modules_info
-                    = get_or_create_used_modules_symbol_info(decl_context);
-                for (int i = 0 ; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
-                {
-                    P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
-                            new_used_modules_info->entity_specs.num_related_symbols,
-                            original_used_modules_info->entity_specs.related_symbols[i]);
-                }
+                TL::Symbol &function(*functions[i]);
+
+                fortran_copy_used_modules(original_statements.retrieve_context(),
+                        function.get_related_scope());
             }
 
             // Generate ancillary code in C
