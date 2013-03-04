@@ -1026,11 +1026,6 @@ namespace TL { namespace Nanox {
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Copy FUNCTIONs and other local stuff
-            symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                    current_function,
-                    unpacked_function);
-
             // Now get all the needed internal functions and replicate them in the outline
             FortranInternalFunctions internal_functions;
             internal_functions.walk(info._original_statements);
@@ -1071,24 +1066,9 @@ namespace TL { namespace Nanox {
         // Fortran may require more symbols
         if (IS_FORTRAN_LANGUAGE)
         {
-            FortranExtraDeclsVisitor fun_visitor;
-            fun_visitor.walk(original_statements);
 
-            extra_declarations
-                << "IMPLICIT NONE\n";
 
-            // Insert extra symbols
-            TL::ReferenceScope ref_scope(unpacked_function_body);
-            decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
-            for (ObjectList<Symbol>::iterator it2 = fun_visitor.extra_decl_sym.begin();
-                    it2 != fun_visitor.extra_decl_sym.end();
-                    it2++)
-            {
-                // Insert the name in the context...
-                TL::Scope sc = ref_scope.get_scope();
-                ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
-            }
 
             // Copy USEd information
             scope_entry_t* original_used_modules_info

@@ -239,38 +239,6 @@ namespace Nodecl
             SymbolMap* _enclosing;
         };
 
-        struct FortranProgramUnitSymbolMap : public SymbolMap
-        {
-            private:
-                symbol_map_t* _out_map_info;
-
-            public:
-                FortranProgramUnitSymbolMap(SymbolMap* original_symbol_map,
-                        TL::Symbol source_program_unit,
-                        TL::Symbol target_program_unit)
-                    : _out_map_info(NULL)
-                {
-                    // Copy Fortran functions
-                    copy_fortran_program_unit(
-                            target_program_unit.get_internal_symbol(),
-                            source_program_unit.get_internal_symbol(),
-                            original_symbol_map->get_symbol_map(),
-                            &_out_map_info);
-                }
-
-                virtual ~FortranProgramUnitSymbolMap() { }
-
-                virtual TL::Symbol map(TL::Symbol s)
-                {
-                    TL::Symbol m = s;
-                    if (_out_map_info != NULL)
-                    {
-                        m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
-                    }
-                    return m;
-                }
-        };
-
         struct LabelSymbolMap : public SymbolMap
         {
             private:

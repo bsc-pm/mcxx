@@ -209,26 +209,12 @@ static char any_symbols(scope_entry_t* entry UNUSED_PARAMETER)
     return 1;
 }
 
-static char symbols_of_fortran_program_unit(scope_entry_t* entry)
-{
-    return ((entry->kind == SK_FUNCTION
-            && !entry->entity_specs.is_nested_function)
-            // Should we copy SK_COMMON as well?
-            || entry->kind == SK_NAMELIST);
-}
-
 static void register_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
 {
     register_symbols_generic(name, entry_list, data, any_symbols);
 }
 
-static void register_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
-{
-    register_symbols_generic(name, entry_list, data, symbols_of_fortran_program_unit);
-}
-
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
-static void fill_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
 
 void free_closure_info(nested_symbol_map_t* nested_symbol_map UNUSED_PARAMETER)
 {
@@ -299,33 +285,6 @@ static decl_context_t copy_block_scope(decl_context_t new_decl_context,
     return new_decl_context;
 }
 
-static void register_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
-
-void copy_fortran_program_unit(scope_entry_t* new_program_unit,
-        scope_entry_t* original_program_unit,
-        symbol_map_t* original_map,
-        symbol_map_t** out_symbol_map)
-{
-    nested_symbol_map_t *nested_symbol_map = new_nested_symbol_map(original_map);
-
-    decl_context_t new_block_context_ = new_program_unit->related_decl_context;
-    scope_t* block_scope = original_program_unit->related_decl_context.block_scope;
-
-    // - Block scope
-    closure_hash_t *closure_info = calloc(1, sizeof(*closure_info));
-    memset(closure_info, 0, sizeof(*closure_info));
-
-    closure_info->new_decl_context = new_block_context_;
-    closure_info->nested_symbol_map = nested_symbol_map;
-
-    // First walk, sign in all the names but leave them empty
-    rb_tree_walk(block_scope->hash, (void (*)(const void*, void*, void*))register_symbols_of_fortran_program_unit, closure_info);
-    // Fill the created symbols
-    rb_tree_walk(block_scope->hash, (void (*)(const void*, void*, void*))fill_symbols_of_fortran_program_unit, closure_info);
-
-    *out_symbol_map = (symbol_map_t*)nested_symbol_map;
-}
-
 static void fill_symbols_generic(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data,
         char (*filter)(scope_entry_t*))
 {
@@ -360,11 +319,6 @@ static void fill_symbols_generic(const char* name, scope_entry_list_t* entry_lis
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
 {
     fill_symbols_generic(name, entry_list, data, any_symbols);
-}
-
-static void fill_symbols_of_fortran_program_unit(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
-{
-    fill_symbols_generic(name, entry_list, data, symbols_of_fortran_program_unit);
 }
 
 nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
