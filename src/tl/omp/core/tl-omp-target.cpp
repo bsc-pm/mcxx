@@ -34,7 +34,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
+        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line,
                 TargetContext& target_ctx,
                 TL::Scope scope)
         {
@@ -77,13 +77,13 @@ namespace TL
             {
                 target_ctx.ndrange = ndrange.get_arguments_as_expressions(scope);
             }
-            
+
             PragmaCustomClause onto = pragma_line.get_clause("onto");
             if (onto.is_defined())
             {
                 target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
-            
+
             PragmaCustomClause file = pragma_line.get_clause("file");
             if (file.is_defined())
             {
@@ -91,7 +91,9 @@ namespace TL
                 if (file_list.size() != 1)
                 {
                     std::cerr << pragma_line.get_locus() << ": warning: clause 'file' expects one identifier, skipping" << std::endl;
-                } else { 
+                }
+                else
+                {
                     target_ctx.file = file_list[0];
                 }
             }

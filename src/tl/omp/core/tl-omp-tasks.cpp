@@ -171,16 +171,17 @@ namespace TL
             }
             return _device_list;
         }
-        
+
         void TargetInfo::set_file(std::string filename)
         {
             _file=filename;
         }
-        
-        std::string TargetInfo::get_file() const{
+
+        std::string TargetInfo::get_file() const
+        {
             return _file;
         }
-        
+  
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
             _target_symbol=funct_symbol;
