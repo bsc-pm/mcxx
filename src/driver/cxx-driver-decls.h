@@ -427,6 +427,10 @@ typedef struct compilation_configuration_tag
     // __int8, __int16, __int32 and __int64
     char enable_ms_builtin_types;
 
+    // Enable special vector types for Intel SSE/AVX
+    // struct __m128, struct __m256
+    char enable_intel_vector_types;
+
     // Enable explicit instantiation
     char explicit_instantiation;
 
