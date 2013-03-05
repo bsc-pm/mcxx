@@ -107,20 +107,19 @@ namespace TL
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions(scope);
+                Symbol function_symbol (NULL);
+                if (IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                {
+                    ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions(scope);
 
-                if (implements_list.size() != 1)
-                {
-                    std::cerr << pragma_line.get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
-                }
-                else
-                {
+                    ERROR_CONDITION(implements_list.size() != 1, "clause 'implements' expects one identifier", 0);
+
                     Nodecl::NodeclBase implements_name = implements_list[0];
 
-                    Symbol sym (NULL);
                     if (implements_name.is<Nodecl::Symbol>())
                     {
-                        sym = implements_name.get_symbol();
+                        function_symbol = implements_name.get_symbol();
                     }
                     else if (implements_name.is<Nodecl::CxxDepNameSimple>())
                     {
@@ -129,26 +128,48 @@ namespace TL
                         ERROR_CONDITION(symbols.size() != 1,
                                 "The argument of the clause 'implements' cannot be an overloaded function identifier", 0);
 
-                        sym = symbols[0];
+                        function_symbol = symbols[0];
                     }
                     else
                     {
                         internal_error("Unexpected node", 0);
                     }
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    ObjectList<std::string> implements_list = implements.get_tokenized_arguments();
 
-                    if (sym.is_valid()
-                            && sym.is_function())
-                    {
-                        target_ctx.has_implements = true;
-                        target_ctx.implements = sym;
-                    }
-                    else
-                    {
-                        std::cerr << implements_name.get_locus() << ": warning: '"
-                            << implements_name.prettyprint()
-                            << "' is not a valid identifier, skipping"
-                            << std::endl;
-                    }
+                    ERROR_CONDITION(implements_list.size() != 1, "clause 'implements' expects one identifier", 0);
+
+                    // Restore the scope chain we broke in an INTERFACE block
+                    decl_context_t decl_context = scope.get_decl_context();
+                    TL::Symbol current_procedure = scope.get_related_symbol();
+                    decl_context.current_scope->contained_in = current_procedure.get_internal_symbol()->decl_context.current_scope;
+
+                    TL::Scope fixed_scope = TL::Scope(decl_context);
+
+                    ObjectList<TL::Symbol> symbols = fixed_scope.get_symbols_from_name(strtolower(implements_list[0].c_str()));
+
+                    ERROR_CONDITION(symbols.size() != 1,"Unreachable code", 0);
+
+                    function_symbol = symbols[0];
+                }
+                else
+                {
+                    internal_error("Unreachable code", 0);
+                }
+
+                if (function_symbol.is_valid()
+                        && function_symbol.is_function())
+                {
+                    target_ctx.has_implements = true;
+                    target_ctx.implements = function_symbol;
+                }
+                else
+                {
+                    std::cerr << pragma_line.get_locus() << ": warning: '"
+                        << "' The argument of the clause 'implements' is not a valid identifier, skipping"
+                        << std::endl;
                 }
             }
         }
