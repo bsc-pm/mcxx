@@ -214,13 +214,15 @@ namespace TL
                             it != target_ctx.device_list.end();
                             it++)
                     {
-                        if (!devices_with_impl.contains(std::make_pair(*it, function_sym)))
+                        const char* current_device_lowercase = strtolower(it->c_str());
+                        if (!devices_with_impl.contains(std::make_pair(current_device_lowercase, function_sym)))
                         {
-                            std::cerr << ctr.get_locus() << 
+                            std::cerr << ctr.get_locus() <<
                                 ": note: adding function '" << function_sym.get_qualified_name() << "'"
                                 << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
-                                << " for device '" << *it << "'" << std::endl;
-                            function_task_info.add_device_with_implementation(*it, function_sym);
+                                << " for device '" << current_device_lowercase << "'" << std::endl;
+
+                            function_task_info.add_device_with_implementation(current_device_lowercase, function_sym);
                         }
                     }
                 }
