@@ -1029,8 +1029,10 @@ namespace TL { namespace Nanox {
             ti.add_device_name(device_name);
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
+
             if (_function_task_set.valid())
             {
+                set_file(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
                 append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
                 append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
             }
