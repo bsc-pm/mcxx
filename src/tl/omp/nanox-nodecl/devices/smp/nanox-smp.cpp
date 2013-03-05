@@ -1544,8 +1544,8 @@ namespace TL { namespace Nanox {
 
             fortran_dynamic_init
                 << outline_name << "_args.outline = (void(*)(void*))&" << outline_name << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_smp_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << outline_name << "_args;"
+                << "nanos_wd_const_data.devices[" << info._fortran_device_index << "].factory = &nanos_smp_factory;"
+                << "nanos_wd_const_data.devices[" << info._fortran_device_index << "].arg = &" << outline_name << "_args;"
                 ;
         }
     }

@@ -85,16 +85,21 @@ namespace TL { namespace Nanox {
         const TL::Symbol& _current_function;
         TargetInformation& _target_info;
 
+        // Only used in Fortran
+        int _fortran_device_index;
+
         DeviceDescriptorInfo(
                 const std::string& outline_name,
                 const std::string& arguments_struct,
                 const TL::Symbol& current_function,
-                TargetInformation& target_info)
+                TargetInformation& target_info,
+                int fortran_device_index)
             :
             _outline_name(outline_name),
             _arguments_struct(arguments_struct),
             _current_function(current_function),
-            _target_info(target_info) { }
+            _target_info(target_info),
+            _fortran_device_index(fortran_device_index) { }
     };
 
     // This DTO stores information used in 'create_outline' function

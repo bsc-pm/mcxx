@@ -289,6 +289,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
+    int fortran_device_index = 0;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
@@ -300,7 +301,7 @@ Source LoweringVisitor::fill_const_wd_info(
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
-                ++it2)
+                ++it2, ++fortran_device_index)
         {
             Source ancillary_device_description, device_description, aux_fortran_init;
 
@@ -320,7 +321,8 @@ Source LoweringVisitor::fill_const_wd_info(
                     implementor_outline_name,
                     arguments_structure,
                     current_function,
-                    target_info);
+                    target_info,
+                    fortran_device_index);
 
             device->get_device_descriptor(
                     info_implementor,

@@ -37,7 +37,6 @@
 #include "fortran03-scope.h"
 
 #include "tl-lower-task-common.hpp"
-
 namespace TL { namespace Nanox {
 
 typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
