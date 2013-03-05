@@ -3826,9 +3826,9 @@ static void check_symbol_of_called_name(AST sym,
             // It names an intrinsic
             entry_is_an_intrinsic = 1;
 
-            // Make sure this intrinsic can be CALLed
-            if (is_call_stmt
-                    && !entry->entity_specs.is_intrinsic_subroutine)
+            // Make sure this intrinsic can be invoked as we intend to do
+            if (is_call_stmt != entry->entity_specs.is_intrinsic_subroutine
+                    && (!is_call_stmt) != entry->entity_specs.is_intrinsic_function)
             {
                 entry_is_an_intrinsic = 0;
                 entry = NULL;
