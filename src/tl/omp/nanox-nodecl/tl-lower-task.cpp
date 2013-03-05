@@ -160,6 +160,7 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
         bool mandatory_creation,
+        const std::string& wd_description,
         OutlineInfo& outline_info,
         Nodecl::NodeclBase construct)
 {
@@ -176,8 +177,8 @@ Source LoweringVisitor::fill_const_wd_info(
     // MultiMap with every implementation of the current function task
 
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    int num_copies=/* num_copies */ count_copies(outline_info);
-    int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
+    int num_copies = count_copies(outline_info);
+    int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
     int num_devices;
@@ -227,11 +228,10 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             result
-                << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
+                << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
         else if (IS_FORTRAN_LANGUAGE)
@@ -333,10 +333,9 @@ Source LoweringVisitor::fill_const_wd_info(
     if (IS_FORTRAN_LANGUAGE &&
             Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         result
             // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
@@ -453,7 +452,7 @@ void LoweringVisitor::emit_async_common(
                      &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
          << structure_symbol.get_qualified_name(function_scope);
 
-     // MultiMap with every implementation of the current function task
+     // Map with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
 
@@ -486,10 +485,14 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
+    std::string wd_description  = (is_function_task) ?
+        called_task.get_name() : current_function.get_name();
+
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             is_untied,
             mandatory_creation,
+            wd_description,
             outline_info,
             construct);
 
