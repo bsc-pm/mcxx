@@ -1936,7 +1936,7 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
         return;
 
     std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
-    std::string new_filename = "aux_nanox_outline_file_" + original_filename  + ".c";
+    std::string new_filename = "ocl_aux_nanox_outline_file_" + original_filename  + ".c";
 
     FILE* ancillary_file = fopen(new_filename.c_str(), "w");
     if (ancillary_file == NULL)
