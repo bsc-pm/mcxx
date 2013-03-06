@@ -5921,6 +5921,21 @@ static const_value_t* const_bin_mult(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
     return const_bin_(nodecl_lhs, nodecl_rhs, const_value_mul);
 }
 
+static char const_value_is_zero_or_array_contains_zero(const_value_t* cval)
+{
+    if (const_value_is_array(cval))
+    {
+        int i;
+        for (i = 0; i < const_value_get_num_elements(cval); i++)
+        {
+            return const_value_is_zero_or_array_contains_zero(
+                    const_value_get_element_num(cval, i));
+        }
+        return false;
+    }
+    else return const_value_is_zero(cval);
+}
+
 static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
     if (nodecl_is_constant(nodecl_lhs)
@@ -5929,7 +5944,7 @@ static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
         const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
         const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
 
-        if (const_value_is_zero(rhs_value))
+        if (const_value_is_zero_or_array_contains_zero(rhs_value))
         {
             error_printf("%s: error: right hand side of intrinsic operator / cannot be a zero constant expression\n", 
                     nodecl_get_locus(nodecl_lhs));
@@ -5941,6 +5956,7 @@ static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
     return NULL;
 }
 
+
 static const_value_t* const_bin_power(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
     if (nodecl_is_constant(nodecl_lhs)
@@ -5949,7 +5965,9 @@ static const_value_t* const_bin_power(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
         const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
         const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
 
-        if (const_value_is_floating(rhs_value)
+        if (!const_value_is_array(rhs_value)
+                && !const_value_is_array(lhs_value)
+                && const_value_is_floating(rhs_value)
                 && const_value_is_negative(lhs_value))
         {
             error_printf("%s: error: left hand side of intrinsic operator ** cannot be a negative constant expression\n", 
