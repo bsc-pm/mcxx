@@ -24,31 +24,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
 #include "nanox-opencl.hpp"
+
+#include "cxx-profile.h"
+#include "cxx-cexpr.h"
+#include "cxx-driver-utils.h"
+
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
-#include "cxx-profile.h"
-// #include "fortran03-scope.h"
-
-//#include "tl-declarationclosure.hpp"
-
-//#include "tl-omp-nanox.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 
 #include "codegen-phase.hpp"
-//#include "codegen-fortran.hpp"
 
-#include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
 
-//#include <iostream>
-//#include <fstream>
-
 #include <errno.h>
-#include "cxx-driver-utils.h"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -57,85 +52,6 @@ static std::string ocl_outline_name(const std::string & name)
 {
     return "ocl_" + name;
 }
-
-bool DeviceOpenCL::is_gpu_device() const
-{
-    return true;
-}
-
-struct FortranExtraDeclsVisitor : Nodecl::ExhaustiveVisitor<void>
-{
-    public:
-
-        TL::ObjectList<TL::Symbol> extra_decl_sym;
-
-        virtual void visit(const Nodecl::FunctionCall &function_call)
-        {
-            Nodecl::NodeclBase function_name = function_call.get_called();
-            Nodecl::NodeclBase alternate_name = function_call.get_alternate_name();
-            Nodecl::NodeclBase argument_seq = function_call.get_arguments();
-
-            if (alternate_name.is_null())
-            {
-                walk(function_name);
-            }
-            else
-            {
-                walk(alternate_name);
-            }
-
-            walk(argument_seq);
-        }
-
-        virtual void visit(const Nodecl::Symbol &node_sym)
-        {
-            TL::Symbol sym = node_sym.get_symbol();
-            if (sym.is_function())
-            {
-                extra_decl_sym.insert(sym);
-            }
-        }
-
-        virtual void visit(const Nodecl::StructuredValue &node)
-        {
-            TL::Type t = node.get_type();
-            walk(node.get_items());
-
-            if (t.is_named_class())
-            {
-                extra_decl_sym.insert(t.get_symbol());
-            }
-        }
-};
-
-struct FortranInternalFunctions : Nodecl::ExhaustiveVisitor<void>
-{
-    private:
-        std::set<TL::Symbol> _already_visited;
-    public:
-        TL::ObjectList<Nodecl::NodeclBase> function_codes;
-
-        FortranInternalFunctions()
-            : _already_visited(), function_codes()
-        {
-        }
-
-        virtual void visit(const Nodecl::Symbol& node_sym)
-        {
-            TL::Symbol sym = node_sym.get_symbol();
-
-            if (sym.is_function()
-                    && sym.is_nested_function())
-            {
-                if (_already_visited.find(sym) == _already_visited.end())
-                {
-                    _already_visited.insert(sym);
-                    function_codes.append(sym.get_function_code());
-                    walk(sym.get_function_code());
-                }
-            }
-        }
-};
 
 // This is only for Fortran!
 static TL::Symbol new_function_symbol_forward(
@@ -1364,17 +1280,13 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     if (IS_FORTRAN_LANGUAGE)
     {
-        // Copy FUNCTIONs and other local stuff
-        symbol_map = new Nodecl::Utils::FortranProgramUnitSymbolMap(symbol_map,
-                current_function,
-                unpacked_function);
-
         // Now get all the needed internal functions and replicate them in the outline
-        FortranInternalFunctions internal_functions;
+        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
         internal_functions.walk(info._original_statements);
 
         Nodecl::List l;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                it2 = internal_functions.function_codes.begin();
                 it2 != internal_functions.function_codes.end();
                 it2++)
         {
@@ -1385,7 +1297,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
     }
-
+    
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
     //Get file clause, if not present, use global file
@@ -1439,43 +1351,23 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         unpacked_source
             << "}";
     }
-
+    
     // Fortran may require more symbols
     if (IS_FORTRAN_LANGUAGE)
     {
-        FortranExtraDeclsVisitor fun_visitor;
-        fun_visitor.walk(original_statements);
+        // Insert extra symbols
+        TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+
+        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
+        fun_visitor.insert_extra_symbols(original_statements);
+
+        Nodecl::Utils::Fortran::copy_used_modules(
+                original_statements.retrieve_context(),
+                unpacked_function_scope);
 
         extra_declarations
             << "IMPLICIT NONE\n";
 
-        // Insert extra symbols
-        TL::ReferenceScope ref_scope(unpacked_function_body);
-        decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
-
-        for (ObjectList<Symbol>::iterator it2 = fun_visitor.extra_decl_sym.begin();
-                it2 != fun_visitor.extra_decl_sym.end();
-                it2++)
-        {
-            // Insert the name in the context...
-            TL::Scope sc = ref_scope.get_scope();
-            ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
-        }
-
-        // Copy USEd information
-        scope_entry_t* original_used_modules_info
-            = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
-        if (original_used_modules_info != NULL)
-        {
-            scope_entry_t* new_used_modules_info
-                = get_or_create_used_modules_symbol_info(decl_context);
-            for (int i = 0; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
-            {
-                P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
-                        new_used_modules_info->entity_specs.num_related_symbols,
-                        original_used_modules_info->entity_specs.related_symbols[i]);
-            }
-        }
     }
     else if (IS_CXX_LANGUAGE)
     {
@@ -1492,8 +1384,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
     unpacked_function_body.replace(new_unpacked_body);
-
-
 
 
     // **** Outline function *****
@@ -1975,6 +1865,11 @@ void DeviceOpenCL::pre_run(DTO& dto)
 
 void DeviceOpenCL::run(DTO& dto)
 {
+}
+
+bool DeviceOpenCL::is_gpu_device() const
+{
+    return true;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceOpenCL);

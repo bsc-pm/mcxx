@@ -266,6 +266,9 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
+"  --enable-intel-vector-types\n" \
+"                           Enables special support for SIMD types\n" \
+"                           __m128, __m256 and __M512 as struct types\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -336,6 +339,7 @@ typedef enum
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_ENABLE_MS_BUILTIN,
+    OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_PASS_THROUGH,
     OPTION_DISABLE_SIZEOF,
     OPTION_SET_ENVIRONMENT,
@@ -451,6 +455,7 @@ struct command_line_long_options command_line_long_options[] =
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
+    {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1206,6 +1211,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_ENABLE_MS_BUILTIN:
                     {
                         CURRENT_CONFIGURATION->enable_ms_builtin_types = 1;
+                        break;
+                    }
+                case OPTION_ENABLE_INTEL_VECTOR_TYPES:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_vector_types = 1;
                         break;
                     }
                 case OPTION_PASS_THROUGH:

@@ -31,10 +31,13 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-devices.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
+#include "fortran03-buildscope.h"
 
 #include "tl-lower-task-common.hpp"
 namespace TL { namespace Nanox {
@@ -920,7 +923,6 @@ static void handle_save_expressions(decl_context_t function_context,
     }
 }
 
-
 static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
@@ -1013,8 +1015,14 @@ static TL::Symbol new_function_symbol_adapter(
     // Add the called symbol in the scope of the function
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
-    // Propagate USE information
-    new_function_sym->entity_specs.used_modules = current_function.get_internal_symbol()->entity_specs.used_modules;
+    // Propagate USEd information
+    Nodecl::Utils::Fortran::copy_used_modules(
+            current_function.get_related_scope(),
+            new_function_sym->related_decl_context);
+
+    // Add USEd symbols
+    Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
+    insert_used_symbols.walk(current_function.get_function_code());
 
     // If the current function is a module, make this new function a sibling of it
     if (current_function.is_in_module()

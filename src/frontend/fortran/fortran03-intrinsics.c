@@ -283,6 +283,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, abort, "", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, access, "NAME,MODE", I, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, besj0, "X", E, NULL) \
@@ -955,6 +956,13 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         // A specific symbol can't have both bits enabled. Only the generic one
         new_entry->entity_specs.is_intrinsic_subroutine = is_void_type(result_type);
         new_entry->entity_specs.is_intrinsic_function = !is_void_type(result_type);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            new_entry->decl_context.current_scope->related_entry =
+                decl_context.current_scope->related_entry;
+        }
 
         rb_tree_insert(intrinsic_map, p, new_entry);
 
@@ -4826,6 +4834,19 @@ scope_entry_t* compute_intrinsic_access(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_abort(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 0)
+        return NULL;
+
+    return GET_INTRINSIC_IMPURE("abort",
+            /* subroutine */ get_void_type());
+}
+
 scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6285,6 +6306,8 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
                 entry->entity_specs.is_module_procedure = symbol->entity_specs.is_module_procedure;
                 entry->entity_specs.in_module = symbol->entity_specs.in_module;
                 entry->entity_specs.from_module = symbol->entity_specs.from_module;
+                entry->decl_context.current_scope->related_entry =
+                    symbol->decl_context.current_scope->related_entry;
 
                 return entry;
             }

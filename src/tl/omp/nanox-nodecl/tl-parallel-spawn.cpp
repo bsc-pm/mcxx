@@ -109,6 +109,7 @@ namespace TL { namespace Nanox {
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
+                /* wd_description */ current_function.get_name(),
                 outline_info,
                 construct);
 

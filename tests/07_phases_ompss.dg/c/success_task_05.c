@@ -26,29 +26,62 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include <stdlib.h>
+#include <stdio.h>
 
-#ifndef CXX_GCCBUILTINS_H
-#define CXX_GCCBUILTINS_H
+void foo (unsigned sizex, unsigned sizey, int u[sizex][sizey])
+{
+    int (*check)[sizey] = calloc(sizex * sizey, sizeof(check[0][0]));
 
-#include "libmcxx-common.h"
-#include "cxx-buildscope-decls.h"
+    int i, j;
+    for (i = 0; i < sizex; i++)
+    {
+        for (j = 0; j < sizey; j++)
+        {
+            u[i][j] = j - i;
+            check[i][j] = j - i;
+        }
+    }
 
-MCXX_BEGIN_DECLS
+    for (i = sizex-1; i >= 1; i--)
+    {
+        for (j = sizey-1; j >= 1; j--)
+        {
+#pragma omp task in(u[i-1][j-1]) inout(u[i][j])
+            {
+                u[i][j] += u[i-1][j-1];
+            }
+        }
+    }
+#pragma omp taskwait
 
-LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
+    for (i = 1; j < sizex; i++)
+    {
+        for (j = 1; j < sizey; j++)
+        {
+            if (u[i][j] != (check[i][j] + check[i-1][j-1]))
+            {
+                fprintf(stderr, "%d != %d\n", u[i][j], (check[i][j] + check[i-1][j-1]));
+                abort();
+            }
+        }
+    }
 
-LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
+    free(check);
+}
 
-LIBMCXX_EXTERN type_t* get_m256_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
+int main(int argc, char *argv[])
+{
+    int (*k)[10] = calloc(10 * 10, sizeof(*k));
 
-LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+    foo(10, 10, k);
 
-MCXX_END_DECLS
+    free(k);
 
-#endif // CXX_GCCBUILTINS_H
+    return 0;
+}
