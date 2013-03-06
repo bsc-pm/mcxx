@@ -239,6 +239,26 @@ namespace TL
         return get_arguments_as_expressions(this->retrieve_context(), tokenizer);
     }
 
+    void PragmaCustomSingleClause::mark_as_used()
+    {
+        this->set_type(TL::Type::get_void_type());
+    }
+
+    void PragmaCustomSingleClause::mark_as_unused()
+    {
+        this->set_type(TL::Type());
+    }
+
+    bool PragmaCustomSingleClause::is_marked_as_used() const
+    {
+        return this->get_type().is_valid();
+    }
+
+    bool PragmaCustomSingleClause::is_marked_as_unused() const
+    {
+        return !this->is_marked_as_used();
+    }
+
     ObjectList<std::string> PragmaCustomClause::get_raw_arguments() const
     {
         ObjectList<std::string> result;
@@ -251,11 +271,32 @@ namespace TL
         return result;
     }
 
-    PragmaCustomClause::PragmaCustomClause(Nodecl::PragmaCustomLine pragma_line, 
+    PragmaCustomClause::PragmaCustomClause(Nodecl::PragmaCustomLine pragma_line,
             ObjectList<Nodecl::PragmaCustomClause> pragma_clauses)
-        : _pragma_line(pragma_line), 
+        : _pragma_line(pragma_line),
           _pragma_clauses(pragma_clauses)
     {
+        mark_as_used();
+    }
+
+    void PragmaCustomClause::mark_as_used()
+    {
+        for (PragmaCustomClauseList::const_iterator it = _pragma_clauses.begin();
+                it != _pragma_clauses.end();
+                it++)
+        {
+            TL::PragmaCustomSingleClause(*it).mark_as_used();
+        }
+    }
+
+    void PragmaCustomClause::mark_as_unused()
+    {
+        for (PragmaCustomClauseList::const_iterator it = _pragma_clauses.begin();
+                it != _pragma_clauses.end();
+                it++)
+        {
+            TL::PragmaCustomSingleClause(*it).mark_as_unused();
+        }
     }
 
     bool PragmaCustomClause::is_defined() const
@@ -415,6 +456,24 @@ namespace TL
     PragmaCustomParameter PragmaCustomLine::get_parameter() const
     {
         return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
+    }
+
+    void PragmaCustomLine::diagnostic_unused_clauses() const
+    {
+        ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
+        for (ObjectList<Nodecl::PragmaCustomClause>::iterator it = nodes.begin();
+                it != nodes.end();
+                it++)
+        {
+            TL::PragmaCustomSingleClause current_clause(*it);
+
+            if (current_clause.is_marked_as_unused())
+            {
+                warn_printf("%s: warning: ignoring clause '%s'\n",
+                        it->get_locus().c_str(),
+                        current_clause.get_text().c_str());
+            }
+        }
     }
 
     TL::PragmaCustomLine TL::PragmaCustomDeclaration::get_pragma_line() const

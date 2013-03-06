@@ -229,6 +229,8 @@ namespace TL
                      Source &device_descriptor,
                      Source &fortran_dynamic_init);
 
+             virtual bool remove_function_task_from_original_source() const;
+
              virtual void copy_stuff_to_device_file(
                      const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 

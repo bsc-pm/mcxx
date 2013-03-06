@@ -102,6 +102,8 @@ enum statement_type_t {
 	ST_NULLIFY,
 	ST_OPEN,
 	ST_PRINT,
+	ST_PRIVATE,
+	ST_PUBLIC,
 	ST_READ,
 	ST_RETURN,
 	ST_REWIND,

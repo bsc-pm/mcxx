@@ -170,12 +170,12 @@ nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_un
     return nodecl_program_units;
 }
 
-static void build_scope_program_unit_internal(AST program_unit, 
+static void build_scope_program_unit_internal(AST program_unit,
         decl_context_t decl_context,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
-void build_scope_program_unit_seq(AST program_unit_seq, 
+void build_scope_program_unit_seq(AST program_unit_seq,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -1838,7 +1838,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     type_t* return_type = get_void_type();
     if (is_function)
     {
-        // The return type has been specified
+        // The return type has already been specified
         if (existing_name != NULL)
         {
             return_type = existing_name->type_information;
@@ -1946,7 +1946,12 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             
             remove_unknown_kind_symbol(decl_context, result_sym);
 
-            result_sym->type_information = get_lvalue_reference_type(return_type);
+            if (result_sym->entity_specs.is_implicit_basic_type)
+            {
+                // If the symbol does not have any type, use the computed return type so far
+                // (otherwise its type is the one we want!)
+                result_sym->type_information = get_lvalue_reference_type(return_type);
+            }
 
             return_type = get_indirect_type(result_sym);
 
@@ -1964,6 +1969,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 // Insert the entry-name only if they are different
                 insert_entry(decl_context.current_scope, entry);
             }
+
         }
     }
     else if (is_function)
@@ -1979,15 +1985,11 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         remove_unknown_kind_symbol(decl_context, result_sym);
 
-        char function_has_type_spec = 0;
-        result_sym->type_information = get_lvalue_reference_type(return_type);
-        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
-
-        if (!function_has_type_spec)
+        if (result_sym->entity_specs.is_implicit_basic_type)
         {
-            // Add it as an explicit unknown symbol because we want it to be
-            // updated with a later IMPLICIT
-            add_untyped_symbol(decl_context, result_sym);
+            // If the symbol does not have any type, use the computed return type so far
+            // (otherwise its type is the one we want!)
+            result_sym->type_information = get_lvalue_reference_type(return_type);
         }
 
         return_type = get_indirect_type(result_sym);
@@ -5172,15 +5174,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (array_spec != NULL)
                 {
-                    if (current_attr_spec.is_dimension)
-                    {
-                        error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                    }
-                    else
-                    {
-                        current_attr_spec.is_dimension = 1;
-                        current_attr_spec.array_spec = array_spec;
-                    }
+                    // Override the DIMENSION attribute
+                    current_attr_spec.is_dimension = 1;
+                    current_attr_spec.array_spec = array_spec;
                 }
 
                 if (coarray_spec != NULL)
@@ -6326,9 +6322,14 @@ static void build_scope_interface_block(AST a,
         const char* name = get_name_of_generic_spec(generic_spec);
         generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
 
+        scope_entry_t* previous_generic_spec_sym = NULL;
+
         if (generic_spec_sym == NULL
                 || generic_spec_sym->entity_specs.from_module)
         {
+            // Keep the seen generic specifier, we may need it later
+            previous_generic_spec_sym = generic_spec_sym;
+
             generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
 
             // If this name is not related to a specific interface, make it void
@@ -6348,6 +6349,7 @@ static void build_scope_interface_block(AST a,
             return;
         }
 
+
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
 
@@ -6355,6 +6357,13 @@ static void build_scope_interface_block(AST a,
         generic_spec_sym->entity_specs.is_generic_spec = 1;
         generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
+
+        // Set the access properly if the symbol has already been seen and we already know its access
+        if (previous_generic_spec_sym != NULL
+                && previous_generic_spec_sym->entity_specs.access != AS_UNKNOWN)
+        {
+            generic_spec_sym->entity_specs.access = previous_generic_spec_sym->entity_specs.access;
+        }
     }
 
     if (interface_specification_seq != NULL)

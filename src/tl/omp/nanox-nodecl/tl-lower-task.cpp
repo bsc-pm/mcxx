@@ -160,6 +160,7 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
         bool mandatory_creation,
+        const std::string& wd_description,
         OutlineInfo& outline_info,
         Nodecl::NodeclBase construct)
 {
@@ -176,8 +177,8 @@ Source LoweringVisitor::fill_const_wd_info(
     // MultiMap with every implementation of the current function task
 
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    int num_copies=/* num_copies */ count_copies(outline_info);
-    int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
+    int num_copies = count_copies(outline_info);
+    int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
     int num_devices;
@@ -227,11 +228,10 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             result
-                << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
+                << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
         else if (IS_FORTRAN_LANGUAGE)
@@ -333,10 +333,9 @@ Source LoweringVisitor::fill_const_wd_info(
     if (IS_FORTRAN_LANGUAGE &&
             Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         result
             // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
@@ -453,7 +452,7 @@ void LoweringVisitor::emit_async_common(
                      &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
          << structure_symbol.get_qualified_name(function_scope);
 
-     // MultiMap with every implementation of the current function task
+     // Map with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
 
@@ -486,10 +485,14 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
+    std::string wd_description  = (is_function_task) ?
+        called_task.get_name() : current_function.get_name();
+
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             is_untied,
             mandatory_creation,
+            wd_description,
             outline_info,
             construct);
 
@@ -587,7 +590,7 @@ void LoweringVisitor::emit_async_common(
 
     if (is_function_task)
     {
-        remove_non_smp_functions(implementation_table);
+        remove_fun_tasks_from_source_as_possible(implementation_table);
     }
 
     Source err_name;
@@ -1993,30 +1996,30 @@ void LoweringVisitor::fill_dependences_internal(
 
                 Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
 
-                if (!(*it)->get_base_address_expression().is_null())
-                {
-                    // This is only for function task dependences
-                    // Outline tasks do not need any of this
-                    dep_source_expr = base_address = (*it)->get_base_address_expression();
+                // if (!(*it)->get_base_address_expression().is_null())
+                // {
+                //     // This is only for function task dependences
+                //     // Outline tasks do not need any of this
+                //     dep_source_expr = base_address = (*it)->get_base_address_expression();
 
-                    if ((IS_CXX_LANGUAGE
-                                || IS_FORTRAN_LANGUAGE)
-                            && (*it)->get_symbol().get_type().is_lvalue_reference())
-                    {
-                        // If the parameter type
-                        TL::Type t = base_address.get_type();
-                        if (t.is_any_reference())
-                            t = t.references_to();
-                        t = t.get_pointer_to();
-                        // Create a reference here
-                        base_address = Nodecl::Reference::make(
-                                base_address.shallow_copy(),
-                                t,
-                                base_address.get_filename(),
-                                base_address.get_line());
-                    }
-                }
-                else
+                //     if ((IS_CXX_LANGUAGE
+                //                 || IS_FORTRAN_LANGUAGE)
+                //             && (*it)->get_symbol().get_type().is_lvalue_reference())
+                //     {
+                //         // If the parameter type
+                //         TL::Type t = base_address.get_type();
+                //         if (t.is_any_reference())
+                //             t = t.references_to();
+                //         t = t.get_pointer_to();
+                //         // Create a reference here
+                //         base_address = Nodecl::Reference::make(
+                //                 base_address.shallow_copy(),
+                //                 t,
+                //                 base_address.get_filename(),
+                //                 base_address.get_line());
+                //     }
+                // }
+                // else
                 {
                     base_address = dep_expr.get_base_address().shallow_copy();
                 }
@@ -2209,12 +2212,9 @@ void LoweringVisitor::fill_dependences_internal(
                         dependency_init << ", ";
                     }
 
-                    Source dep_address;
-                    dep_address << as_expression(dep_expr.get_address_of_symbol());
-
                     dependency_init
                         << "{"
-                        << dep_address << ", "
+                        << as_expression(base_address) << ", "
                         << dependency_flags << ", "
                         << num_dimension_items << ", "
                         << "dimensions_" << current_dep_num << ","
@@ -2353,20 +2353,28 @@ void LoweringVisitor::fill_dimensions(
     }
 }
 
-void LoweringVisitor::remove_non_smp_functions(OutlineInfo::implementation_table_t& implementation_table)
+void LoweringVisitor::remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table)
 {
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+    DeviceHandler device_handler = DeviceHandler::get_device_handler();
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
     {
-        ObjectList<std::string> devices=it->second.get_device_names();
-        if (!devices.contains("smp"))
+        bool remove_function_code = true;
+        TL::Symbol implementor = it->first;
+        ObjectList<std::string> devices = it->second.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end() && remove_function_code;
+                ++it2)
         {
-            TL::Symbol implementor = it->first;
-            if (!implementor.get_function_code().is_null())
-            {
-                Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
-            }
+            DeviceProvider* device = device_handler.get_device(*it2);
+            remove_function_code = device->remove_function_task_from_original_source();
+        }
+
+        if (remove_function_code
+                && !implementor.get_function_code().is_null())
+        {
+            Nodecl::Utils::remove_from_enclosing_list(implementor.get_function_code());
         }
     }
 }

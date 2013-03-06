@@ -214,16 +214,6 @@ namespace TL
         }
     }
 
-    ObjectList<Symbol> Scope::cascade_lookup(const std::string& str, const std::string& filename, int line)
-    {
-        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), DF_NONE, filename.c_str(), line);
-        ObjectList<Symbol> result;
-        convert_to_vector(entry_list, result);
-        entry_list_free(entry_list);
-
-        return result;
-    }
-
     Symbol Scope::get_class_of_scope()
     {
         return _decl_context.class_scope->related_entry;
@@ -233,7 +223,7 @@ namespace TL
     {
         return _decl_context.current_scope->related_entry;
     }
-    
+
     template_parameter_list_t* Scope::get_template_parameters() const
     {
        return _decl_context.template_parameters;

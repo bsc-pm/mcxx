@@ -143,28 +143,38 @@ namespace TL
 
                 TL::Type t = subscripted_type;
 
-                if (t.is_pointer())
+                for (Nodecl::List::iterator it = subscripts.begin();
+                        it != subscripts.end();
+                        it++)
                 {
-                    t = t.points_to();
-                    ERROR_CONDITION(subscripts.size() != 1, "Invalid number of subscript items (%d) for a pointer subscript",
-                            subscripts.size());
+                    Nodecl::NodeclBase index = *it;
 
-                    Nodecl::NodeclBase first = subscripts[0];
+                    if (t.is_pointer())
+                    {
+                        // We do not really know the size, so normalize the region from 0
+                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        if (index.is<Nodecl::Range>())
+                        {
+                            // compute the new upper bound normalized to 0
+                            upper_bounds.push_back(
+                                    Nodecl::Minus::make(
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_upper().shallow_copy(),
+                                            get_signed_int_type()),
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_lower().shallow_copy(),
+                                            get_signed_int_type()),
+                                        get_signed_int_type()));
+                        }
+                        else
+                        {
+                            // A single element of this region
+                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_one(4, 1)));
+                        }
 
-                    if (first.is<Nodecl::Range>())
-                    {
-                        lower_bounds.push_back(first.as<Nodecl::Range>().get_lower().shallow_copy());
-                        upper_bounds.push_back(first.as<Nodecl::Range>().get_upper().shallow_copy());
+                        t = t.points_to();
                     }
-                    else
-                    {
-                        lower_bounds.push_back(first.shallow_copy());
-                        upper_bounds.push_back(first.shallow_copy());
-                    }
-                }
-                else
-                {
-                    while (t.is_array())
+                    else if (t.is_array())
                     {
                         Nodecl::NodeclBase lb, ub;
 
@@ -175,7 +185,12 @@ namespace TL
 
                         t = t.array_element();
                     }
+                    else
+                    {
+                        internal_error("Mismatch between types and indexes", 0);
+                    }
                 }
+
                 TL::Type rebuilt_type = t;
 
                 ERROR_CONDITION(lower_bounds.size() != subscripts.size()
@@ -239,8 +254,6 @@ namespace TL
 
                 // Accesses like a[1][2] look like scalars but we want them to behave
                 // as if they were a[1:1][2:2]
-                bool have_to_rebuild_type = false;
-
                 TL::Type t = array.get_type();
                 if (t.is_any_reference())
                     t = t.references_to();
@@ -248,61 +261,51 @@ namespace TL
                 Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
                 Nodecl::List low_subscripts_list;
 
-                TL::ObjectList<Nodecl::NodeclBase> low_subscripts;
+                _data_ref._data_type = extend_array_type_to_regions(array);
 
-                for (Nodecl::List::iterator it = subscripts.begin();
-                        it != subscripts.end();
-                        it++)
+                if (array.get_subscripted().is<Nodecl::Symbol>())
                 {
-                    if (it->is<Nodecl::Range>())
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
-                        low_subscripts.push_back(it->as<Nodecl::Range>().get_lower().shallow_copy());
-                    }
-                    else
-                    {
-                        low_subscripts.push_back(it->shallow_copy());
-                        have_to_rebuild_type = true;
+                        // float x[10][20]       x[1][2]      (we are in [1][2])
+                        // float *p              p[3]         (we are in [3])
+                        //
+                        // Use x (or p) directly
+                        _data_ref._base_address = array.get_subscripted();
                     }
                 }
-
-                if (have_to_rebuild_type)
+                else if (array.get_subscripted().is<Nodecl::ClassMemberAccess>())
                 {
-                    _data_ref._data_type = extend_array_type_to_regions(array);
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        // struct A { float x[10][20]; float *p; } a;
+                        //                      a.x[1][2]     (we are in [1][2])
+                        //                      a.p[3]        (we are in [3])
+                        // Use a.x or (a.p) directly
+                        _data_ref._base_address = array.get_subscripted();
+                    }
+                }
+                else if (array.get_subscripted().is<Nodecl::Shaping>())
+                {
+                    // ([10][20]x)[30][40]          (we are in [30][40])
+                    // Use the address of the shaping expression itself
+                    // Do nothing
+                }
+                else if (array.get_subscripted().is<Nodecl::ArraySubscript>())
+                {
+                    // float (*p)[20][30]    (p[1])[2][3]  (we are in [2][3])
+                    // Do nothing
+                }
+                else if (array.get_subscripted().is<Nodecl::Dereference>())
+                {
+                    // float (*p)[20][30]    (*p)[2][3]    (we are in [2][3])
+                    // This is like p[0][2][3] so the base address is p.
+                    // Do nothing
                 }
                 else
                 {
-                    _data_ref._data_type = t;
-                }
-
-                // The base address type must be a pointer to the element, not
-                // to the range of the array
-                TL::Type scalar_type = t;
-                while (scalar_type.is_array()) 
-                {
-                    scalar_type = scalar_type.array_element();
-                }
-
-                if (array.get_subscripted().is<Nodecl::Shaping>())
-                {
-                    // The base address of a shaping expression is itself
-                }
-                else
-                {
-                    ERROR_CONDITION(!_data_ref._base_address.is<Nodecl::Reference>(), 
-                            "Invalid address for the subscripted expression", 0);
-
-                    _data_ref._base_address =
-                        Nodecl::Reference::make(
-                                Nodecl::ArraySubscript::make(
-                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                    Nodecl::List::make(low_subscripts),
-                                    scalar_type,
-                                    array.get_filename(),
-                                    array.get_line()
-                                    ),
-                                scalar_type.get_pointer_to(),
-                                array.get_filename(),
-                                array.get_line());
+                    internal_error("Unexpected subscripted tree %s\n",
+                            ast_print_node_type(array.get_subscripted().get_kind()));
                 }
             }
 
@@ -342,7 +345,7 @@ namespace TL
                     _data_ref._base_address =
                         Nodecl::Reference::make(
                                 Nodecl::ClassMemberAccess::make(
-                                    _data_ref._base_address,
+                                    member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
                                     t,
                                     member.get_filename(),
@@ -388,9 +391,9 @@ namespace TL
 
     DataReference::DataReference(Nodecl::NodeclBase expr)
         : Nodecl::NodeclBase(expr),
-        _is_valid(true), 
-        _base_symbol(NULL), 
-        _data_type(NULL), 
+        _is_valid(true),
+        _base_symbol(NULL),
+        _data_type(NULL),
         _error_log("")
     {
         if (expr.is_null()
@@ -767,147 +770,219 @@ namespace TL
         }
     }
 
-    Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr, 
+    Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr,
             Nodecl::NodeclBase reference_expr,
             TL::Scope scope) const
     {
         if (expr.is<Nodecl::ArraySubscript>())
         {
+            // E[X]
+            // E[X:Y]
+            // E[X;Y]
+            //
+            // Note that E[X:Y] and E[X;Y] will have array (with region) type
+            // while E may have array (with or without region) or pointer type
             Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
-            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
-            TL::Type t = subscripted.get_type();
-            if (t.is_any_reference())
-                t = t.references_to();
+            TL::Type t = _data_type;
 
             Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
+            Nodecl::List::iterator it = subscripts.begin(), first = it;
 
-            Nodecl::NodeclBase result;
+            TL::ObjectList<Nodecl::NodeclBase> indexes;
+            TL::ObjectList<Nodecl::NodeclBase> sizes;
 
-            if (t.is_array())
+            while (it != subscripts.end())
             {
-                Nodecl::List::iterator it = subscripts.begin(), first = it;
-
-                while (t.is_array()
-                        && it != subscripts.end())
+                Nodecl::NodeclBase lower_bound;
+                if (t.is_array())
                 {
-                    Nodecl::NodeclBase lower_bound, upper_bound;
-
+                    Nodecl::NodeclBase upper_bound;
                     t.array_get_bounds(lower_bound, upper_bound);
+                }
+                else if (t.is_pointer())
+                {
+                    lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+                }
+                else
+                {
+                    internal_error("Unexpected type %s", print_declarator(t.get_internal_type()));
+                }
 
-                    Nodecl::NodeclBase lower = *it;
-                    if (it->is<Nodecl::Range>())
-                    {
-                        lower = it->as<Nodecl::Range>().get_lower();
+                Nodecl::NodeclBase lower = *it;
+                if (it->is<Nodecl::Range>())
+                {
+                    lower = it->as<Nodecl::Range>().get_lower();
+                }
+
+                if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
+                {
+                    /*if (t.array_requires_descriptor()
+                      && _base_symbol.is_parameter())
+                      {
+                    // This is an assumed shape of 1
+                    lower_bound = const_value_to_nodecl(const_value_get_one(4, 1));
                     }
-
-                    if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
+                    else */ if (reference_expr.is_null())
                     {
-                        /*if (t.array_requires_descriptor()
-                            && _base_symbol.is_parameter())
-                        {
-                            // This is an assumed shape of 1
-                            lower_bound = const_value_to_nodecl(const_value_get_one(4, 1));
-                        }
-                        else */ if (reference_expr.is_null())
-                        {
-                            return Nodecl::NodeclBase::null();
-                        }
-                        else
-                        {
-                            DataReference data_ref(reference_expr);
-                            if (data_ref.is_valid())
-                            {
-                                Source lbound_src;
-                                lbound_src << "LBOUND(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
-                                    ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
-
-                                lower_bound = lbound_src.parse_expression(scope);
-                            }
-                            else
-                            {
-                                return Nodecl::NodeclBase::null();
-                            }
-                        }
-                    }
-
-                    Nodecl::NodeclBase current_index =
-                        Nodecl::ParenthesizedExpression::make(
-                                Nodecl::Minus::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        lower.shallow_copy(),
-                                        TL::Type::get_int_type(),
-                                        lower.get_filename(),
-                                        lower.get_line()),
-                                    Nodecl::ParenthesizedExpression::make(
-                                        lower_bound.shallow_copy(),
-                                        TL::Type::get_int_type(),
-                                        lower_bound.get_filename(),
-                                        lower_bound.get_line()),
-                                    TL::Type::get_int_type(),
-                                    lower.get_filename(),
-                                    lower.get_line()),
-                                TL::Type::get_int_type(),
-                                lower.get_filename(),
-                                lower.get_line());
-
-                    if (it == first)
-                    {
-                        result = current_index;
+                        return Nodecl::NodeclBase::null();
                     }
                     else
                     {
-                        result = Nodecl::Mul::make(
+                        DataReference data_ref(reference_expr);
+                        if (data_ref.is_valid())
+                        {
+                            Source lbound_src;
+                            lbound_src << "LBOUND(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
+                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                            lower_bound = lbound_src.parse_expression(scope);
+                        }
+                        else
+                        {
+                            return Nodecl::NodeclBase::null();
+                        }
+                    }
+                }
+
+                Nodecl::NodeclBase current_index =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Minus::make(
                                 Nodecl::ParenthesizedExpression::make(
-                                    result,
-                                    result.get_type(),
-                                    result.get_filename(),
-                                    result.get_line()),
-                                current_index,
+                                    lower.shallow_copy(),
+                                    TL::Type::get_int_type(),
+                                    lower.get_filename(),
+                                    lower.get_line()),
+                                Nodecl::ParenthesizedExpression::make(
+                                    lower_bound.shallow_copy(),
+                                    TL::Type::get_int_type(),
+                                    lower_bound.get_filename(),
+                                    lower_bound.get_line()),
                                 TL::Type::get_int_type(),
                                 lower.get_filename(),
-                                lower.get_line());
-                    }
+                                lower.get_line()),
+                            TL::Type::get_int_type(),
+                            lower.get_filename(),
+                            lower.get_line());
 
-                    t = t.array_element();
-                    it++;
-                }
-
-                ERROR_CONDITION( (!t.is_array() != (it == subscripts.end())), "Mismatch between array type and subscripts", 0);
-
-                result = Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.get_internal_type()))),
-                        result,
-                        TL::Type::get_int_type(),
-                        result.get_filename(),
-                        result.get_line());
-            }
-            else if (t.is_pointer())
-            {
-                // In C/C++ one can index a pointer using array notation
-                Nodecl::NodeclBase current_subscript = subscripts[0];
-
-                if (current_subscript.is<Nodecl::Range>())
+                indexes.append(current_index);
+                if (t.is_array())
                 {
-                    current_subscript = current_subscript.as<Nodecl::Range>().get_lower();
+                    Nodecl::NodeclBase current_size = t.array_get_size();
+                    if (current_size.is_null())
+                    {
+                        if (IS_FORTRAN_LANGUAGE && !reference_expr.is_null())
+                        {
+                            DataReference data_ref(reference_expr);
+                            if (!data_ref.is_valid())
+                                return Nodecl::NodeclBase::null();
+
+                            Source lbound_src;
+                            lbound_src << "SIZE(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
+                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                            current_size = lbound_src.parse_expression(scope);
+                        }
+                        else
+                        {
+                            return Nodecl::NodeclBase::null();
+                        }
+                    }
+                    sizes.append(current_size.shallow_copy());
+                }
+                else
+                {
+                    // This way it will have the same length as indexes
+                    sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
                 }
 
-                result = Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(type_get_size(t.points_to().get_internal_type()))),
-                        current_subscript.shallow_copy(),
-                        TL::Type::get_int_type(),
-                        current_subscript.get_filename(),
-                        current_subscript.get_line());
+
+                if (t.is_array())
+                {
+                    t = t.array_element();
+                }
+                else if (t.is_pointer())
+                {
+                    t = t.points_to();
+                }
+
+                it++;
+            }
+
+            ERROR_CONDITION(indexes.size() != sizes.size(), "Mismatch between indexes and sizes", 0);
+
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it_indexes = indexes.begin();
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it_sizes = sizes.begin();
+
+            Nodecl::NodeclBase result;
+
+            // Horner algorithm
+            while (it_indexes != indexes.end())
+            {
+                // First one is special
+                if (it_indexes == indexes.begin())
+                {
+                    result = *it_indexes;
+                }
+                else
+                {
+                    result = Nodecl::Add::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Mul::make(
+                                    Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
+                                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                                    get_ptrdiff_t_type()), get_ptrdiff_t_type()),
+                            Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
+                            get_ptrdiff_t_type());
+                }
+
+                it_indexes++;
+                it_sizes++;
+            }
+
+            result = Nodecl::Mul::make(
+                    const_value_to_nodecl(
+                        const_value_get_integer(type_get_size(t.get_internal_type()),
+                                type_get_size(get_ptrdiff_t_type()), 1)),
+                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                    get_ptrdiff_t_type(),
+                    result.get_filename(),
+                    result.get_line());
+
+            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
+            // a.b[e]
+            if (subscripted.is<Nodecl::ClassMemberAccess>())
+            {
+                internal_error("Form a.b[e] not yet implemented", 0);
+            }
+            // ([shape]p])[e]
+            else if (subscripted.is<Nodecl::Shaping>())
+            {
+                Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
+                result = Nodecl::Add::make(
+                        result,
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Cast::make(
+                                shaping.get_postfix().shallow_copy(),
+                                get_ptrdiff_t_type(),
+                                "C"),
+                            get_ptrdiff_t_type()),
+                        get_ptrdiff_t_type());
+            }
+            // This only happens when indexing a pointer p
+            // (p[e1])[e]
+            else if (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                internal_error("Form (p[e1])[e] not yet implemented", 0);
+            }
+            // a[e]
+            else if (subscripted.is<Nodecl::Symbol>())
+            {
+                // Do nothing
             }
             else
             {
-                internal_error("Code unreachable", 0);
-            }
-
-
-            // a.b[e]
-            if (array_subscript.get_subscripted().is<Nodecl::ClassMemberAccess>())
-            {
-                internal_error("Not yet implemented", 0);
+                internal_error("Unexpected node %s",
+                        ast_print_node_type(subscripted.get_kind()));
             }
 
             return result;
@@ -930,15 +1005,18 @@ namespace TL
                             expr.get_filename(), expr.get_line()),
                         get_ptrdiff_t_type(),
                         "C", expr.get_filename(), expr.get_line()),
-                    TL::Type::get_int_type(),
+                    get_ptrdiff_t_type(),
                     expr.get_filename(),
                     expr.get_line());
 
             return result;
-            //internal_error("Not yet implemented", 0);
+        }
+        else if (expr.is<Nodecl::Shaping>())
+        {
+            // A shaping itself does not imply any offset
         }
 
-        return const_value_to_nodecl(const_value_get_signed_int(0));
+        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
     }
 
     Nodecl::NodeclBase DataReference::get_offsetof() const

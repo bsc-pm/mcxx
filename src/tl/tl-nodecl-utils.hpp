@@ -209,6 +209,11 @@ namespace Nodecl
 
         struct SimpleSymbolMap : public SymbolMap
         {
+            SimpleSymbolMap() 
+                : _symbol_map(), _enclosing(NULL) { }
+            SimpleSymbolMap(SymbolMap* enclosing) 
+                : _symbol_map(), _enclosing(enclosing) { }
+
             virtual TL::Symbol map(TL::Symbol s)
             {
                 if (!s.is_valid())
@@ -217,6 +222,8 @@ namespace Nodecl
                 symbol_map_t::iterator it = _symbol_map.find(s);
                 if (it != _symbol_map.end())
                     return it->second;
+                else if (_enclosing != NULL)
+                    return _enclosing->map(s);
                 else
                     return s;
             }
@@ -229,38 +236,7 @@ namespace Nodecl
             private:
             typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
             symbol_map_t _symbol_map;
-        };
-
-        struct FortranProgramUnitSymbolMap : public SymbolMap
-        {
-            private:
-                symbol_map_t* _out_map_info;
-
-            public:
-                FortranProgramUnitSymbolMap(SymbolMap* original_symbol_map,
-                        TL::Symbol source_program_unit,
-                        TL::Symbol target_program_unit)
-                    : _out_map_info(NULL)
-                {
-                    // Copy Fortran functions
-                    copy_fortran_program_unit(
-                            target_program_unit.get_internal_symbol(),
-                            source_program_unit.get_internal_symbol(),
-                            original_symbol_map->get_symbol_map(),
-                            &_out_map_info);
-                }
-
-                virtual ~FortranProgramUnitSymbolMap() { }
-
-                virtual TL::Symbol map(TL::Symbol s)
-                {
-                    TL::Symbol m = s;
-                    if (_out_map_info != NULL)
-                    {
-                        m = _out_map_info->map(_out_map_info, s.get_internal_symbol());
-                    }
-                    return m;
-                }
+            SymbolMap* _enclosing;
         };
 
         struct LabelSymbolMap : public SymbolMap

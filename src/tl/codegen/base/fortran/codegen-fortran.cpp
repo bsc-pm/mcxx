@@ -104,7 +104,20 @@ namespace Codegen
 
             return result;
         }
+
+        bool first_scope_is_enclosed_in_second(scope_t* first, scope_t* second)
+        {
+            if (first == NULL
+                    // Everyone may be enclosed in the global scope
+                    || first == CURRENT_COMPILED_FILE->global_decl_context.current_scope)
+                return false;
+            else if (first == second)
+                return true;
+            else
+                return first_scope_is_enclosed_in_second(first->contained_in, second);
+        }
     }
+
 
     class PreCodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
@@ -1004,6 +1017,11 @@ OPERATOR_TABLE
         {
             file << ".TRUE.";
         }
+    }
+
+    void FortranBase::visit(const Nodecl::FortranHollerith& node)
+    {
+        file << node.get_text().size() << "H" << node.get_text();
     }
 
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
@@ -2096,6 +2114,7 @@ OPERATOR_TABLE
              << entry.get_name() 
              << "(";
         
+        TL::Symbol result_var;
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -2103,7 +2122,10 @@ OPERATOR_TABLE
         {
             TL::Symbol &dummy(*it);
             if (dummy.is_result_variable())
+            {
+                result_var = dummy;
                 continue;
+            }
 
             if (it != related_symbols.begin())
                 file << ", ";
@@ -2118,7 +2140,13 @@ OPERATOR_TABLE
                 file << dummy.get_name();
             }
         }
-        file << ")\n";
+        file << ")";
+        if (result_var.is_valid()
+                && result_var.get_name() != entry.get_name())
+        {
+            file << " RESULT(" << result_var.get_name() << ")";
+        }
+        file << "\n";
     }
 
 
@@ -3068,8 +3096,8 @@ OPERATOR_TABLE
                 return true;
         }
 
-        // Maybe the symbol is not declared in the current scope but it lives in the current scope
-        // (because of an insertion)
+        // Maybe the symbol is not declared in the current scope but its name
+        // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
 
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
@@ -3877,14 +3905,7 @@ OPERATOR_TABLE
             if (sym.is_from_module()
                     && sym.get_access_specifier() == AS_PRIVATE)
             {
-                if (sym.is_generic_specifier())
-                {
-                    private_names.insert(get_generic_specifier_str(sym.get_name()));
-                }
-                else
-                {
-                    private_names.insert(sym.get_name());
-                }
+                private_names.insert(sym.get_name());
             }
         }
 
@@ -3916,6 +3937,23 @@ OPERATOR_TABLE
             {
                 // If it has a private access specifier, state so
                 private_names.insert(sym.get_name());
+            }
+        }
+
+        // Review again for generic specifiers that are actually PUBLIC
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
+            TL::Symbol &sym(*it);
+            // If a generic specifier is PUBLIC but a specific interface with the same name
+            // is private, remove it from PRIVATE names
+            if (sym.is_generic_specifier()
+                    && sym.get_access_specifier() != AS_PRIVATE)
+            {
+                std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                if (same_name != private_names.end())
+                    private_names.erase(same_name);
             }
         }
 
@@ -4481,7 +4519,7 @@ OPERATOR_TABLE
                 UseStmtItem& item (*it2);
                 TL::Symbol entry = item.symbol;
 
-                // We cannot use the generic specifier of an interface if it has not any implementation
+                // We cannot use the generic specifier of an interface if it does not have any implementation
                 // Example:
                 //
                 //      MODULE M
@@ -4506,6 +4544,8 @@ OPERATOR_TABLE
                 {
                     file << get_generic_specifier_str(entry.get_name())
                         ;
+                    // file << " {{" << entry.get_internal_symbol() << "}} " 
+                    //     ;
                 }
                 else
                 {
@@ -4528,7 +4568,11 @@ OPERATOR_TABLE
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
         // Has the symbol 'entry' been declared as USEd in the current context?
-        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+        if (!entry_is_in_scope(entry, sc)
+                // No it has not. But if it is found in an enclosing scope we will not emit it
+                && first_scope_is_enclosed_in_second(
+                    sc.get_related_symbol().get_scope().get_decl_context().current_scope,
+                    entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
             return;
 
         TL::Symbol module = entry.from_module();
@@ -4834,6 +4878,10 @@ OPERATOR_TABLE
 
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
+
+            // std::stringstream ss;
+            // ss << " {{" << entry.get_internal_symbol() << "}} ";
+            // real_name += ss.str();
 
             type_specifier = "TYPE(" + real_name + ")";
         }

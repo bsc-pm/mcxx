@@ -87,6 +87,7 @@ enum standard_conversion_item_tag
     SCI_COMPLEX_CONVERSION,
     SCI_COMPLEX_PROMOTION,
     SCI_COMPLEX_TO_FLOAT_CONVERSION,
+    SCI_SCALAR_TO_VECTOR_CONVERSION,
     // Zero or one of this
     SCI_QUALIFICATION_CONVERSION,
 } standard_conversion_item_t;

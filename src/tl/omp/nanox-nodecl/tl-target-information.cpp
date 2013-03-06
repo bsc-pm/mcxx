@@ -53,7 +53,7 @@ namespace TL { namespace Nanox {
         _device_names.append(device_name);
     }
 
-    ObjectList<std::string>& TargetInformation::get_device_names()
+    ObjectList<std::string> TargetInformation::get_device_names() const
     {
         return _device_names;
     }

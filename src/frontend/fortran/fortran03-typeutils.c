@@ -41,6 +41,11 @@ const char* fortran_print_type_str(type_t* t)
         return "<error-type>";
     }
 
+    if (is_hollerith_type(t))
+    {
+        return "HOLLERITH";
+    }
+
     const char* result = "";
     char is_pointer = 0;
     if (is_pointer_type(t))

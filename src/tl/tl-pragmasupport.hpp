@@ -144,6 +144,15 @@ namespace TL
              * given ReferenceScope to perform the parse of the expressions
              */
             ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+            //! Marks this clause as "used". Use this for diagnotics
+            void mark_as_used();
+            //! Remove "used" mark of this clause. Use this for diagnostics
+            void mark_as_unused();
+            //! States if this clause was marked as "used". Use this for diagnostics
+            bool is_marked_as_used() const;
+            //! States if this clause was not marked as "used". Use this for diagnostics
+            bool is_marked_as_unused() const;
     };
 
     //! This is a helper class not related to a specific Nodecl
@@ -206,6 +215,11 @@ namespace TL
 
             //! Use this when you need a real nodecl
             Nodecl::PragmaCustomLine get_pragma_line() const;
+
+            //! Marks all the related clause as used. Use this for diagnotics
+            void mark_as_used();
+            //! Removes the "used" mark of all the related clauses. Use this for diagnotics
+            void mark_as_unused();
     };
 
     class LIBTL_CLASS PragmaCustomParameter : public TL::PragmaClauseArgList
@@ -255,6 +269,9 @@ namespace TL
              * right after the pragma. You can perform the same operations as a PragmaCustomSingleClause
              */
             PragmaCustomParameter get_parameter() const;
+
+            //! Emits a diagnostic warning about unused clauses
+            void diagnostic_unused_clauses() const;
 
             private:
                 ObjectList<Nodecl::PragmaCustomClause> get_all_clauses_nodes() const;

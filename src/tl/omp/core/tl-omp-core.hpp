@@ -123,6 +123,11 @@ namespace TL
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);
 
+                void get_dependences_info_std_clause(
+                        TL::PragmaCustomLine construct,
+                        TL::PragmaCustomClause clause,
+                        DataSharingEnvironment& data_sharing);
+
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing);
 
