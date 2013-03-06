@@ -101,7 +101,6 @@ namespace TL { namespace Nanox {
                     << "int nanos_step = " << slicer_descriptor.get_name() << ".step;"
                     ;
                 for_code
-                    << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
                     <<       instrument_loop_opt
