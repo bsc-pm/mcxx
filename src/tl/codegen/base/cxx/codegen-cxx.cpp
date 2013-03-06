@@ -1998,9 +1998,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         walk_type_for_symbols(
                 symbol_type,
-                &CxxBase::declare_symbol_if_nonlocal,
-                &CxxBase::define_symbol_if_nonlocal,
-                &CxxBase::define_nonlocal_entities_in_trees);
+                &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
     }
 
     TL::Scope symbol_scope = symbol.get_scope();
@@ -2053,10 +2053,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             walk_type_for_symbols(*it,
                     &CxxBase::declare_symbol_always,
                     &CxxBase::define_symbol_always,
-                    &CxxBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        define_nonlocal_entities_in_trees(statement);
+        define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
     int num_parameters = symbol.get_related_symbols().size();
