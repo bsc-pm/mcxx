@@ -925,7 +925,8 @@ void DeviceOpenCL::generate_ndrange_code(
         new_ndrange.append(Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                        called_fun_to_unpacked_fun_map));
+                        (!IS_FORTRAN_LANGUAGE) ?
+                            called_fun_to_unpacked_fun_map : *outline_data_to_unpacked_fun_map));
     }
 
     bool dim_const = new_ndrange[0].is_constant();

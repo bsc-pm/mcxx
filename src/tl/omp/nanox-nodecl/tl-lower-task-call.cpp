@@ -38,7 +38,7 @@
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "fortran03-buildscope.h"
-
+#include "cxx-graphviz.h"
 #include "tl-lower-task-common.hpp"
 namespace TL { namespace Nanox {
 
@@ -1178,7 +1178,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             save_expressions);
 
     // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
+    // symbol_map.add_map(called_task_function, adapter_function);
 
     if (called_task_function.is_from_module())
     {
@@ -1202,24 +1202,25 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, adapter_function, _function_task_set);
+    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
     Nodecl::Utils::SimpleSymbolMap params_to_data_items_map;
     TL::ObjectList<OutlineDataItem*> data_items = new_outline_info.get_data_items();
-    TL::ObjectList<TL::Symbol> parameters = adapter_function.get_function_parameters();
+    TL::ObjectList<TL::Symbol> parameters = called_task_function.get_function_parameters();
     for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
             it != parameters.end();
             ++it)
     {
+
         TL::Symbol parameter = *it;
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
                 lift_pointer(functor(outline_data_item_get_parameter_position)),
-                parameter.get_parameter_position_in(adapter_function));
+                parameter.get_parameter_position_in(called_task_function));
 
         if (found.empty())
         {
@@ -1241,7 +1242,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             ++it)
     {
         TL::Symbol current_implementor = it->first;
-        if (current_implementor != adapter_function)
+        if (current_implementor != called_task_function)
         {
             // We need to create a new map
             Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
@@ -1273,7 +1274,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     emit_async_common(
             new_task_construct,
             adapter_function,
-            adapter_function,
+            called_task_function,
             new_statements,
             task_environment.priority,
             task_environment.task_label,
@@ -1281,6 +1282,9 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             new_outline_info,
             /* parameter outline info */ NULL);
 
+    // Add a map from the original called task to the adapter function
+     symbol_map.add_map(called_task_function, adapter_function);
+    
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
