@@ -687,7 +687,7 @@ namespace TL
         return get_address_of_symbol_helper(*this, /* reference */ true);
     }
 
-    Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const
+    Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type, bool ignore_regions) const
     {
         if (relevant_type.is_any_reference())
             relevant_type = relevant_type.references_to();
@@ -695,7 +695,7 @@ namespace TL
         if (relevant_type.is_array())
         {
             Nodecl::NodeclBase lower_bound, upper_bound;
-            if (!relevant_type.array_is_region())
+            if (!relevant_type.array_is_region() || ignore_regions)
             {
                 relevant_type.array_get_bounds(lower_bound, upper_bound);
             }
@@ -742,7 +742,7 @@ namespace TL
                         lower_bound.get_line());
             }
 
-            Nodecl::NodeclBase element_size = compute_sizeof_of_type(relevant_type.array_element());
+            Nodecl::NodeclBase element_size = compute_sizeof_of_type(relevant_type.array_element(), ignore_regions);
 
             return Nodecl::Mul::make(
                     Nodecl::ParenthesizedExpression::make(
@@ -940,9 +940,7 @@ namespace TL
             }
 
             result = Nodecl::Mul::make(
-                    const_value_to_nodecl(
-                        const_value_get_integer(type_get_size(t.get_internal_type()),
-                                type_get_size(get_ptrdiff_t_type()), 1)),
+                    compute_sizeof_of_type(t, /* ignore regions */ true),
                     Nodecl::ParenthesizedExpression::make(result, result.get_type()),
                     get_ptrdiff_t_type(),
                     result.get_filename(),

@@ -144,7 +144,7 @@ namespace TL
 
             Nodecl::NodeclBase _base_address;
 
-            Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type) const;
+            Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type, bool ignore_regions = false) const;
             Nodecl::NodeclBase compute_offsetof(Nodecl::NodeclBase expr, Nodecl::NodeclBase reference_expr, TL::Scope sc) const;
             Nodecl::NodeclBase compute_offsetof_integer(Nodecl::NodeclBase expr, 
                     Nodecl::NodeclBase reference_expr,
