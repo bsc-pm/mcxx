@@ -3324,7 +3324,7 @@ OPERATOR_TABLE
 
             if (!entry.get_value().is_null())
             {
-                declare_everything_needed(entry.get_value());
+                declare_everything_needed(entry.get_value(), sc);
 
                 if (entry.is_static()
                         || entry.is_member()
