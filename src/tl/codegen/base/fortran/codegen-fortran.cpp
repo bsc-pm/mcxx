@@ -707,9 +707,9 @@ OPERATOR_TABLE
     {
         // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
         file << "MOD(";
-        walk(node.get_rhs());
-        file << ", ";
         walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
         file << ")";
     }
 
