@@ -472,6 +472,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         {
             // Here we assume that casts in C always yield rvalues
             file << "(*";
+
+            // This avoids a warning in some compilers which complain on (T* const)e
+            t = t.get_unqualified_type();
         }
         file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 
