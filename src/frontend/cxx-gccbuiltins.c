@@ -2663,7 +2663,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         { "union __m512",   &__m512_struct_type,  TT_UNION },
         { "union __m512d",  &__m512d_struct_type, TT_UNION },
         { "union __m512i",  &__m512i_struct_type, TT_UNION },
-        { NULL, NULL }
+        { NULL, NULL, TT_INVALID }
     };
 
     if (CURRENT_CONFIGURATION->enable_intel_vector_types)
