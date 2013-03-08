@@ -696,6 +696,30 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.home_directory = find_home(argv[0]);
 }
 
+static void ensure_codegen_is_loaded(void)
+{
+    if (CURRENT_CONFIGURATION->codegen_phase == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
+        }
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+}
+
 static void help_message(void)
 {
     fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
@@ -704,6 +728,7 @@ static void help_message(void)
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
     phases_help(CURRENT_CONFIGURATION);
+    ensure_codegen_is_loaded();
 
     fprintf(stdout, "\n");
 }
@@ -2798,26 +2823,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
                
                 // Load codegen if not yet loaded
-                if (CURRENT_CONFIGURATION->codegen_phase == NULL)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
-                    }
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
-                    }
-                    else if (IS_FORTRAN_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
-                    }
-                    else
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
-                }
+                ensure_codegen_is_loaded();
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
