@@ -26,7 +26,7 @@
 
 #include "tl-vector-lowering.hpp"
 #include "tl-vector-lowering-sse.hpp"
-//#include "tl-vector-lowering-knc.hpp"
+#include "tl-vector-lowering-knc.hpp"
 
 namespace TL
 {
@@ -43,6 +43,9 @@ namespace TL
             //TODO
             SSEVectorLowering sse_vector_lowering;
             sse_vector_lowering.walk(translation_unit);
+
+            //KNCVectorLowering knc_vector_lowering;
+            //knc_vector_lowering.walk(translation_unit);
         }
     }
 }

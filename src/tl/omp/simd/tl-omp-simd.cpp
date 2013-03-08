@@ -116,9 +116,10 @@ namespace TL {
             Nodecl::NodeclBase for_statement = simd_node.get_statement();
 
             // Vectorize for
+            unsigned int vector_size = 16; //Bytes
             Nodecl::NodeclBase epilog = 
                 _vectorizer.vectorize(for_statement.as<Nodecl::ForStatement>(), 
-                        "smp", 16, NULL); 
+                        "smp", vector_size, NULL); 
 
             // Add epilog
             if (!epilog.is_null())

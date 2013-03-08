@@ -4,7 +4,9 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+{mic} preprocessor_options = -mmic
+{mic} compiler_options = -mmic
 
 [imcxx : omp-base]
 language = C++
@@ -12,4 +14,8 @@ language = C++
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+{mic} preprocessor_options = -mmic
+{mic} compiler_options = -mmic
+
+

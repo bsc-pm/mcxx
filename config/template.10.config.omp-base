@@ -18,13 +18,15 @@ linker_options = -Xlinker --add-needed
 # nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
-{simd} preprocessor_options = @SIMD_INCLUDES@
-{simd} compiler_options = @SIMD_FLAGS@
+{simd, !mic} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mic} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {ffast-math} options = --variable=ffast_math_enabled:1
 {ffast-math} compiler_options = -ffast-math
+{mic} options = --variable=mic_enabled:1
+{mic} preprocessor_options = -include immintrin.h
 {ompss} options = --variable=ompss_mode:1
 linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance

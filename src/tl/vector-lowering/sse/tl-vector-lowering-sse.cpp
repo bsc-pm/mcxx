@@ -192,13 +192,6 @@ namespace TL
             {
                 intrin_src << "lo_epi32"; 
             } 
-            else if (result_type.is_unsigned_int() &&
-                    first_op_type.is_unsigned_int() &&
-                    second_op_type.is_unsigned_int())
-            {
-                intrin_src << "lo_epi32"; 
-            } 
-
             /* 
                else if (type.is_signed_short_int() ||
                type.is_unsigned_short_int()) 

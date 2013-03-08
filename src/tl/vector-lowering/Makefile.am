@@ -50,5 +50,7 @@ libtlvector_lowering_la_SOURCES = \
     tl-vector-lowering.hpp \
 	$(END)
 
-libtlvector_lowering_la_LIBADD = $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
-                                 $(END)
+libtlvector_lowering_la_LIBADD = \
+    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
+    $(END)

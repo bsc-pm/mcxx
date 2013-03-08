@@ -26,19 +26,20 @@
 
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtl-vector-lowering-knc.la
+phases_LTLIBRARIES = libtlvector-lowering-knc.la
 
 END=
 
-libtl_vector_lowering_knc_la_CFLAGS = $(tl_cflags) \
+libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) \
     $(END)
 
-libtl_vector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
     $(END)
 
-libtl_vector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
-libtl_vector_lowering_knc_la_LIBADD = $(END)
+libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
+libtlvector_lowering_knc_la_LIBADD = $(END)
 
-libtl_vector_lowering_knc_la_SOURCES = 
-#     tl_vector_lowering_knc.hpp 
-#     tl-vector-lowering-knc.cpp 
+libtlvector_lowering_knc_la_SOURCES = \
+     tl-vector-lowering-knc.hpp \
+     tl-vector-lowering-knc.cpp \
+     $(END)
