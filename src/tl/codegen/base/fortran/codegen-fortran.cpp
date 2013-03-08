@@ -305,28 +305,12 @@ namespace Codegen
     {
         inc_indent();
 
-        UseStmtInfo use_stmt_info;
-        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-        declare_use_statements(statement_seq, use_stmt_info);
-        // Declare USEs that may affect internal subprograms but appear at the
-        // enclosing program unit
-        declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
-
-        // Check every related entries lest they required stuff coming from other modules
-        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
-        {
-            emit_use_statement_if_symbol_comes_from_module(*it, entry.get_related_scope(), use_stmt_info);
-        }
-
-        emit_collected_use_statements(use_stmt_info);
+        declare_use_statements_of_procedure(entry, statement_seq, internal_subprograms);
 
         indent();
         file << "IMPLICIT NONE\n";
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
         if (entry.is_function())
         {
@@ -2307,6 +2291,56 @@ OPERATOR_TABLE
         file << node.get_text();
     }
 
+    void FortranBase::emit_only_list(Nodecl::List only_items)
+    {
+        for (Nodecl::List::iterator it = only_items.begin();
+                it != only_items.end();
+                it++)
+        {
+            TL::Symbol sym = it->get_symbol();
+
+            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            {
+                file << get_generic_specifier_str(sym.get_name());
+            }
+            else
+            {
+                file << sym.get_name()
+                    << " => "
+                    << get_generic_specifier_str(sym.get_from_module_name());
+                ;
+            }
+
+            if ((it + 1) != only_items.end())
+            {
+                file << ", ";
+            }
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::FortranUse& node)
+    {
+        indent();
+        file << "USE " << node.get_module().get_symbol().get_name();
+        if (!node.get_renamed_items().is_null())
+        {
+            file << ", ";
+            Nodecl::List only_items = node.get_renamed_items().as<Nodecl::List>();
+            // We can use the same code since all will be renamed
+            emit_only_list(only_items);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranUseOnly& node)
+    {
+        indent();
+        file << "USE " << node.get_module().get_symbol().get_name() << ", ONLY: ";
+        Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
+        emit_only_list(only_items);
+        file << "\n";
+    }
+
     void FortranBase::visit(const Nodecl::FieldDesignator& node)
     {
         // Nodecl::NodeclBase name = node.get_name();
@@ -2898,21 +2932,39 @@ OPERATOR_TABLE
 
         inc_indent();
 
-        UseStmtInfo use_stmt_info;
+        TL::Symbol used_modules = entry.get_used_modules();
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-        // Check every related entries lest they required stuff coming from other modules
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
+        if (used_modules.is_valid())
         {
-            TL::Symbol &sym(*it);
-            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            UseStmtInfo use_stmt_info;
+
+            // Check every related entries lest they require stuff coming from other modules
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            }
+
+            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
+
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                if (use_stmt_info.emit_iso_c_binding)
+                {
+                    indent();
+                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                }
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                emit_collected_use_statements(use_stmt_info);
+            }
         }
-
-        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-        emit_collected_use_statements(use_stmt_info);
 
         // Import statements
         std::set<TL::Symbol> already_imported;
@@ -3888,38 +3940,55 @@ OPERATOR_TABLE
         inc_indent(2);
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        std::set<std::string> private_names;
+
+        // Note that we only emit automatic USE statements if .used_modules has a NULL
+        // value, otherwise just blindly believe that value
+        TL::Symbol used_modules = entry.get_used_modules();
 
         UseStmtInfo use_stmt_info;
 
-        // Check every related entries lest they required stuff coming from other modules
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
+        if (used_modules.is_valid())
         {
-            TL::Symbol &sym(*it);
-            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
-        }
+            // Note that we may discard the collected info but we want the symbols be marked
+            // as defined anyways
+            // Check every related entries lest they required stuff coming from other modules
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            }
 
-        emit_collected_use_statements(use_stmt_info);
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                emit_collected_use_statements(use_stmt_info);
+
+                // Now remember additional access-statements that might be needed for these
+                // USEd symbols
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &sym(*it);
+                    if (sym.is_from_module()
+                            && sym.get_access_specifier() == AS_PRIVATE)
+                    {
+                        private_names.insert(sym.get_name());
+                    }
+                }
+            }
+        }
 
         indent();
         file << "IMPLICIT NONE\n";
 
-        std::set<std::string> private_names;
-
-        // Now remember additional access-statements that might be needed for these
-        // USEd symbols
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
-        {
-            TL::Symbol &sym(*it);
-            if (sym.is_from_module()
-                    && sym.get_access_specifier() == AS_PRIVATE)
-            {
-                private_names.insert(sym.get_name());
-            }
-        }
 
         if (entry.is_saved_program_unit())
         {
@@ -4052,6 +4121,55 @@ OPERATOR_TABLE
         DoDeclareSymFromModuleInfo info(sc, use_stmt_info);
 
         traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol_from_module, &info);
+    }
+
+    void FortranBase::declare_use_statements_of_procedure(
+            TL::Symbol entry,
+            Nodecl::List statement_seq,
+            Nodecl::List internal_subprograms)
+    {
+        // Notet that we only emit automatic USE statements if .used_modules has a NULL
+        // value, otherwise just blindly believe that value
+        UseStmtInfo use_stmt_info;
+        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
+
+        TL::Symbol used_modules = entry.get_used_modules();
+
+        if (used_modules.is_valid())
+        {
+            // Note that we traverse the tree even if we are going to discard this info
+            // because we want the symbols be appropiately marked as defined
+            declare_use_statements(statement_seq, use_stmt_info);
+            // Declare USEs that may affect internal subprograms but appear at the
+            // enclosing program unit
+            declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
+            
+            // Check every related entries lest they required stuff coming from other modules
+            TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                emit_use_statement_if_symbol_comes_from_module(*it, entry.get_related_scope(), use_stmt_info);
+            }
+
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                if (use_stmt_info.emit_iso_c_binding)
+                {
+                    indent();
+                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                }
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                // This DOES emit all collected USE symbols
+                emit_collected_use_statements(use_stmt_info);
+            }
+        }
     }
 
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node, UseStmtInfo& use_stmt_info)
@@ -4452,7 +4570,10 @@ OPERATOR_TABLE
             return true;
 
         TL::Symbol used_modules = current_module.get_used_modules();
-        if (!used_modules.is_valid())
+        if (!used_modules.is_valid()
+                // When .used_modules has a non null value we do not attempt
+                // anything automatic
+                || (!used_modules.get_value().is_null() && !_deduce_use_statements))
             return false;
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
@@ -4591,7 +4712,10 @@ OPERATOR_TABLE
 
         // Is this a module actually used in this program unit?
         TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
-        if (!used_modules.is_valid())
+        if (!used_modules.is_valid()
+                // When .used_modules has a non null value we do not attempt
+                // anything automatic
+                || (!used_modules.get_value().is_null() && !_deduce_use_statements))
             return;
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
@@ -5487,11 +5611,22 @@ OPERATOR_TABLE
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
                 _emit_fun_loc_str,
                 "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+
+        _deduce_use_statements = false;
+        register_parameter("deduce_use_statements",
+                "Tries to deduce use statements regardless of the information in the scope",
+                _deduce_use_statements_str,
+                "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)
     {
         TL::parse_boolean_option("emit_fun_loc", str, _emit_fun_loc, "Assuming false.");
+    }
+
+    void FortranBase::set_deduce_use_statements(const std::string& str)
+    {
+        TL::parse_boolean_option("deduce_use_statements", str, _deduce_use_statements, "Assuming false.");
     }
 }
 

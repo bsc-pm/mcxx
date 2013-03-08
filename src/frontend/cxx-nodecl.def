@@ -353,12 +353,18 @@ where-pair: NODECL_FORTRAN_WHERE_PAIR([mask] expression-opt, [statement] stateme
 # NODECL_FORTRAN_EQUIVALENCE
 #   This is used only for .equivalence variable which holds the equivalence of
 #   data storage
+# NODECL_FORTRAN_USE
+# NODECL_FORTRAN_USE_ONLY
+#   These are used only for .used_modules needed to faithfully regenerate the
+#   USE statements in each program unit.
 fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
                     | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
                     | NODECL_FORTRAN_BIND_C([name] expression)
                     | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
                     | NODECL_FORTRAN_HOLLERITH() type text const-value
+                    | NODECL_FORTRAN_USE([module]name, [renamed_items]name-seq-opt)
+                    | NODECL_FORTRAN_USE_ONLY([module]name, [only_items]name-seq)
 
 fortran-data-item : expression
                   | fortran-implied-do
