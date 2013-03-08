@@ -42,6 +42,8 @@ namespace Codegen
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
         public:
+            CxxBase();
+
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 

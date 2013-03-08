@@ -5479,6 +5479,9 @@ OPERATOR_TABLE
 
     FortranBase::FortranBase()
     {
+        set_phase_name("Fortran codegen");
+        set_phase_description("This phase emits in Fortran the intermediate representation of the compiler");
+
         _emit_fun_loc = false;
         register_parameter("emit_fun_loc",
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",

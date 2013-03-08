@@ -7306,6 +7306,12 @@ bool CxxBase::cuda_emit_always_extern_linkage()
     return false;
 }
 
+CxxBase::CxxBase()
+{
+    set_phase_name("C/C++ codegen");
+    set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
+}
+
 } // Codegen
 
 EXPORT_PHASE(Codegen::CxxBase)
