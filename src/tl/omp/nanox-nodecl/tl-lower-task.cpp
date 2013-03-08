@@ -160,6 +160,7 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
         bool mandatory_creation,
+        bool is_function_task,
         const std::string& wd_description,
         OutlineInfo& outline_info,
         Nodecl::NodeclBase construct)
@@ -298,6 +299,12 @@ Source LoweringVisitor::fill_const_wd_info(
         TargetInformation target_info = it->second;
         std::string implementor_outline_name = target_info.get_outline_name();
 
+        // The symbol 'real_called_task' will be invalid if the current task is
+        // a inline task. Otherwise, It will be the implementor symbol
+        TL::Symbol real_called_task =
+            (is_function_task) ?
+            implementor_symbol : TL::Symbol::invalid();
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
@@ -322,7 +329,9 @@ Source LoweringVisitor::fill_const_wd_info(
                     arguments_structure,
                     current_function,
                     target_info,
-                    fortran_device_index);
+                    fortran_device_index,
+                    outline_info.get_data_items(),
+                    real_called_task);
 
             device->get_device_descriptor(
                     info_implementor,
@@ -498,6 +507,7 @@ void LoweringVisitor::emit_async_common(
             struct_arg_type_name,
             is_untied,
             mandatory_creation,
+            is_function_task,
             wd_description,
             outline_info,
             construct);

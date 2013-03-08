@@ -189,6 +189,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source &struct_arg_type_name,
                 bool is_untied,
                 bool mandatory_creation,
+                bool is_function_task,
                 const std::string& wd_description,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct);
