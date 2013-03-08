@@ -715,7 +715,7 @@ static void ensure_codegen_is_loaded(void)
         }
         else
         {
-            internal_error("Code unreachable", 0);
+            internal_error("This compiler is not configured for C/C++/Fortran so a suitable codegen cannot be loaded", 0);
         }
     }
 }
@@ -727,8 +727,9 @@ static void help_message(void)
 
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
-    phases_help(CURRENT_CONFIGURATION);
     ensure_codegen_is_loaded();
+
+    phases_help(CURRENT_CONFIGURATION);
 
     fprintf(stdout, "\n");
 }
