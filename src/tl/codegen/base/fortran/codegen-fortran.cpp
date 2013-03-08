@@ -3561,25 +3561,29 @@ OPERATOR_TABLE
                 }
                 return;
             }
-            if (entry.is_intrinsic()
-                    && !entry.is_from_module())
+            if (entry.is_intrinsic())
             {
-                // Improve this
-                TL::Symbol generic_entry = 
-                    ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                if ( (!sc.get_related_symbol().is_valid()
+                            // Do not emit INTRINSIC at module level
+                            || (sc.get_related_symbol().is_fortran_module() == entry.in_module().is_valid())))
+                {
+                    // Improve this
+                    TL::Symbol generic_entry = 
+                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
-                if (TL::Symbol(generic_entry) == entry)
-                {
-                    indent();
-                    file << "INTRINSIC :: " << entry.get_name() << "\n";
-                }
-                else if (generic_entry.is_valid())
-                {
-                    declare_symbol(generic_entry, generic_entry.get_scope());
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
+                    if (TL::Symbol(generic_entry) == entry)
+                    {
+                        indent();
+                        file << "INTRINSIC :: " << entry.get_name() << "\n";
+                    }
+                    else if (generic_entry.is_valid())
+                    {
+                        declare_symbol(generic_entry, generic_entry.get_scope());
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
                 }
             }
             else if (entry.is_generic_specifier())
