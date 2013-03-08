@@ -135,9 +135,9 @@ namespace TL { namespace Nanox {
                     << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
                     << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
 
+                    << "nanos_err_t err;"
                     << "if (nanos_loop_init == 0)"
                     << "{"
-                    <<     "nanos_err_t err;"
                     <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
 
@@ -180,14 +180,16 @@ namespace TL { namespace Nanox {
                         ;
                 }
                 instrument_loop_opt
-                    << "nanos_instrument_events(3, loop_events);"
+                    << "err = nanos_instrument_events(3, loop_events);"
+                    << "if (err != NANOS_OK) nanos_handle_error(err);"
                     ;
 
                 instrument_after_opt
                     << "loop_events[0].value = 0;"
                     << "loop_events[1].value = 0;"
                     << "loop_events[2].value = 1;"
-                    << "nanos_instrument_events(3, loop_events);"
+                    << "err = nanos_instrument_events(3, loop_events);"
+                    << "if (err != NANOS_OK) nanos_handle_error(err);"
                     ;
             }
         }
