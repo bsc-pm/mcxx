@@ -3757,25 +3757,6 @@ static char is_name_of_funtion_call(AST expr)
 }
 #endif
 
-static void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
-{
-    *entry = *intrinsic;
-
-    // The previous statement is not enough: we need to update some extra
-    // information because the related symbols may contain a pointer to the
-    // 'intrinsic' function.
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
-        if (symbol_is_parameter_of_function(current_sym, intrinsic))
-        {
-            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
-            symbol_set_as_parameter_of_function(current_sym, entry, position);
-        }
-    }
-}
-
 static void check_symbol_of_called_name(AST sym, 
         decl_context_t decl_context, 
         scope_entry_list_t** call_list, 

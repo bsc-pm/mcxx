@@ -6409,6 +6409,26 @@ static void build_scope_interface_block(AST a,
     }
 }
 
+void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
+{
+    *entry = *intrinsic;
+
+    // The previous statement is not enough: we need to update some extra
+    // information because the related symbols may contain a pointer to the
+    // 'intrinsic' function.
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (symbol_is_parameter_of_function(current_sym, intrinsic))
+        {
+            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
+            symbol_set_as_parameter_of_function(current_sym, entry, position);
+        }
+    }
+}
+
+
 static void build_scope_intrinsic_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -6470,8 +6490,7 @@ static void build_scope_intrinsic_stmt(AST a,
                 }
 
                 entry->kind = SK_FUNCTION;  
-                entry->entity_specs = entry_intrinsic->entity_specs;
-                entry->type_information = entry_intrinsic->type_information;
+                copy_intrinsic_function_info(entry, entry_intrinsic);
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }
@@ -6486,7 +6505,10 @@ static void build_scope_intrinsic_stmt(AST a,
                         ASTText(name));
                 continue;
             }
-            insert_alias(decl_context.current_scope, entry_intrinsic, strtolower(ASTText(name)));
+
+            entry = get_symbol_for_name(decl_context, name, ASTText(name));
+            copy_intrinsic_function_info(entry, entry_intrinsic);
+            remove_unknown_kind_symbol(decl_context, entry);
         }
     }
 }
