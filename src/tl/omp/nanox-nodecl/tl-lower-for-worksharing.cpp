@@ -147,7 +147,6 @@ namespace TL { namespace Nanox {
                     << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
                     << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
 
-                    << "nanos_err_t err;"
                     << "if (nanos_loop_init == 0)"
                     << "{"
                     <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
