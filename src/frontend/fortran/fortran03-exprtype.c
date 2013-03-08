@@ -3852,7 +3852,7 @@ static void check_symbol_of_called_name(AST sym,
             }
         }
 
-        if (!entry_is_an_intrinsic) 
+        if (!entry_is_an_intrinsic)
         {
             // Well, it does not name an intrinsic either (_or_ it does name
             // one but it does not match its usage) (i.e. CALLing an INTRINSIC
@@ -3868,7 +3868,7 @@ static void check_symbol_of_called_name(AST sym,
                 entry->file = ASTFileName(sym);
                 entry->line = ASTLine(sym);
                 entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-                
+
                 remove_unknown_kind_symbol(decl_context, entry);
             }
             else
@@ -3890,7 +3890,7 @@ static void check_symbol_of_called_name(AST sym,
                     entry->kind = SK_FUNCTION;
                     entry->type_information = 
                         get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
-                    
+
                     remove_unknown_kind_symbol(decl_context, entry);
                 }
             }

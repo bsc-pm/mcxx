@@ -6449,7 +6449,7 @@ static void build_scope_intrinsic_stmt(AST a,
                     continue;
                 }
                 // We have seen an EXTERNAL statement before for the same symbol
-                else 
+                else
                 {
                     error_printf("%s: error: entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
                             ast_location(name),
