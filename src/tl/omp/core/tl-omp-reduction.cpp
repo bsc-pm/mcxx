@@ -145,7 +145,8 @@ namespace TL { namespace OpenMP {
                     continue;
                 }
 
-                if (!symbols_in_construct.contains(var_sym))
+                if (_discard_unused_data_sharings
+                        && !symbols_in_construct.contains(var_sym))
                 {
                     warn_printf("%s: warning: skipping reduction variable '%s' "
                             "since it does not appear in the construct\n",
