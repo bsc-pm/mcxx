@@ -384,39 +384,39 @@ namespace TL { namespace Nanox {
 
         struct Aux
         {
-            static void aux_rec(Source &array_shape, TL::Type t, int rank, int current_rank,
-                    int &lower_bound_index, int &upper_bound_index)
+            static void aux_rec(Source &array_shape, TL::Type t_aux, int rank, int current_rank,
+                    int &lower_bound_index_aux, int &upper_bound_index_aux)
             {
                 Source current_arg;
-                if (t.is_array())
+                if (t_aux.is_array())
                 {
-                    aux_rec(array_shape, t.array_element(), rank-1, current_rank, lower_bound_index, upper_bound_index);
+                    aux_rec(array_shape, t_aux.array_element(), rank-1, current_rank, lower_bound_index_aux, upper_bound_index_aux);
 
                     Source curent_arg;
                     Nodecl::NodeclBase lower, upper;
-                    t.array_get_bounds(lower, upper);
+                    t_aux.array_get_bounds(lower, upper);
 
                     if (lower.is_null())
                     {
-                        current_arg << "mcc_lower_bound_" << lower_bound_index << ":";
-                        lower_bound_index++;
+                        current_arg << "mcc_lower_bound_" << lower_bound_index_aux << ":";
+                        lower_bound_index_aux++;
                     }
 
                     if (upper.is_null())
                     {
-                        current_arg << "mcc_upper_bound_" << upper_bound_index;
-                        upper_bound_index++;
+                        current_arg << "mcc_upper_bound_" << upper_bound_index_aux;
+                        upper_bound_index_aux++;
                     }
 
                     array_shape.append_with_separator(current_arg, ",");
                 }
             }
 
-            static void fill_array_shape(Source &array_shape, TL::Type t, int &lower_bound_index, int &upper_bound_index)
+            static void fill_array_shape(Source &array_shape, TL::Type t_aux, int &lower_bound_index_aux, int &upper_bound_index_aux)
             {
                 aux_rec(array_shape,
-                        t, t.get_num_dimensions(), t.get_num_dimensions(),
-                        lower_bound_index, upper_bound_index);
+                        t_aux, t_aux.get_num_dimensions(), t_aux.get_num_dimensions(),
+                        lower_bound_index_aux, upper_bound_index_aux);
             }
         };
 
