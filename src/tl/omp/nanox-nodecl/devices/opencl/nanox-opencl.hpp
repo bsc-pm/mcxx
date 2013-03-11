@@ -36,21 +36,26 @@ namespace TL
 
     namespace Nanox
     {
-
         class DeviceOpenCL : public DeviceProvider
         {
             private:
 
-                  Nodecl::List _ocl_file_code;
-                  
-                  void generate_ndrange_code(
-                          const TL::Symbol& called_task,
-                          const TL::Symbol& unpacked_function,
-                          const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-                          const std::string filename,
-                          TL::Source& code_ndrange);
+                Nodecl::List _extra_c_code;
 
-                  void add_included_opencl_files(FILE* file);
+                void add_forward_code_to_extra_c_code(
+                        const std::string& outline_name,
+                        TL::ObjectList<OutlineDataItem*> data_items,
+                        Nodecl::NodeclBase parse_context);
+
+                void generate_ndrange_code(
+                        const TL::Symbol& called_task,
+                        const TL::Symbol& unpacked_function,
+                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        const std::string filename,
+                        const TL::ObjectList<OutlineDataItem*>& data_items,
+                        const Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+                        Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
+                        TL::Source& code_ndrange);
             public:
 
                 // This phase does nothing
@@ -61,22 +66,22 @@ namespace TL
 
                 virtual ~DeviceOpenCL() { }
 
-             virtual void create_outline(CreateOutlineInfo &info,
-                     Nodecl::NodeclBase &outline_placeholder,
-                     Nodecl::NodeclBase &output_statements,
-                     Nodecl::Utils::SymbolMap* &symbol_map);
+                virtual void create_outline(CreateOutlineInfo &info,
+                        Nodecl::NodeclBase &outline_placeholder,
+                        Nodecl::NodeclBase &output_statements,
+                        Nodecl::Utils::SymbolMap* &symbol_map);
 
-             virtual void get_device_descriptor(DeviceDescriptorInfo& info,
-                     Source &ancillary_device_description,
-                     Source &device_descriptor,
-                     Source &fortran_dynamic_init);
+                virtual void get_device_descriptor(DeviceDescriptorInfo& info,
+                        Source &ancillary_device_description,
+                        Source &device_descriptor,
+                        Source &fortran_dynamic_init);
 
             virtual bool remove_function_task_from_original_source() const;
 
             virtual void copy_stuff_to_device_file(
                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
-             bool allow_mandatory_creation();
+                bool allow_mandatory_creation();
 
              virtual bool is_gpu_device() const;
 

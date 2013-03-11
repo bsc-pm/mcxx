@@ -1081,8 +1081,11 @@ static void build_scope_subroutine_program_unit(AST program_unit,
             new_entry,
             ASTFileName(program_unit), ASTLine(program_unit));
 
-    new_entry->entity_specs.function_code = function_code;
 
+    if (!inside_interface(program_unit))
+    {
+        new_entry->entity_specs.function_code = function_code;
+    }
     *nodecl_output = nodecl_make_list_1(function_code);
 }
 
@@ -6406,6 +6409,26 @@ static void build_scope_interface_block(AST a,
     }
 }
 
+void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
+{
+    *entry = *intrinsic;
+
+    // The previous statement is not enough: we need to update some extra
+    // information because the related symbols may contain a pointer to the
+    // 'intrinsic' function.
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (symbol_is_parameter_of_function(current_sym, intrinsic))
+        {
+            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
+            symbol_set_as_parameter_of_function(current_sym, entry, position);
+        }
+    }
+}
+
+
 static void build_scope_intrinsic_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -6446,7 +6469,7 @@ static void build_scope_intrinsic_stmt(AST a,
                     continue;
                 }
                 // We have seen an EXTERNAL statement before for the same symbol
-                else 
+                else
                 {
                     error_printf("%s: error: entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
                             ast_location(name),
@@ -6467,8 +6490,7 @@ static void build_scope_intrinsic_stmt(AST a,
                 }
 
                 entry->kind = SK_FUNCTION;  
-                entry->entity_specs = entry_intrinsic->entity_specs;
-                entry->type_information = entry_intrinsic->type_information;
+                copy_intrinsic_function_info(entry, entry_intrinsic);
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }
@@ -6483,7 +6505,10 @@ static void build_scope_intrinsic_stmt(AST a,
                         ASTText(name));
                 continue;
             }
-            insert_alias(decl_context.current_scope, entry_intrinsic, strtolower(ASTText(name)));
+
+            entry = get_symbol_for_name(decl_context, name, ASTText(name));
+            copy_intrinsic_function_info(entry, entry_intrinsic);
+            remove_unknown_kind_symbol(decl_context, entry);
         }
     }
 }
@@ -8264,6 +8289,9 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             used_modules->entity_specs.num_related_symbols,
             module_symbol);
 
+    nodecl_t nodecl_fortran_use = nodecl_null();
+    nodecl_t nodecl_used_symbols = nodecl_null();
+
     if (!is_only)
     {
         int num_renamed_symbols = 0;
@@ -8298,15 +8326,21 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                 {
                     scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
 
-                    insert_symbol_from_module(sym_in_module, 
+                    scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                             decl_context, 
                             get_name_of_generic_spec(local_name), 
                             module_symbol, 
                             ASTFileName(local_name), 
                             ASTLine(local_name));
 
+                    nodecl_used_symbols = nodecl_append_to_list(
+                            nodecl_used_symbols,
+                            nodecl_make_symbol(inserted_symbol, 
+                                ASTFileName(local_name), 
+                                ASTLine(local_name)));
+
                     // "USE M, C => A, D => A" is valid so we avoid adding twice
-                    // 'A' in the list (entry_list_it would be harmless, though)
+                    // 'A' in the list (it would be harmless, though)
                     char found = 0;
                     int i;
                     for (i = 0; i < num_renamed_symbols && found; i++)
@@ -8349,6 +8383,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         ASTLine(a));
             }
         }
+
+        nodecl_fortran_use = nodecl_make_fortran_use(
+                nodecl_make_symbol(module_symbol, ASTFileName(a), ASTLine(a)),
+                nodecl_used_symbols, ASTFileName(a), ASTLine(a));
     }
     else // is_only
     {
@@ -8383,12 +8421,18 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         {
                             scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
 
-                            insert_symbol_from_module(sym_in_module, 
+                            scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                                     decl_context, 
                                     get_name_of_generic_spec(local_name), 
                                     module_symbol, 
                                     ASTFileName(local_name), 
                                     ASTLine(local_name));
+
+                            nodecl_used_symbols = nodecl_append_to_list(
+                                    nodecl_used_symbols,
+                                    nodecl_make_symbol(inserted_symbol, 
+                                        ASTFileName(local_name), 
+                                        ASTLine(local_name)));
                         }
                         entry_list_iterator_free(entry_list_it);
 
@@ -8417,12 +8461,19 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                 entry_list_iterator_next(entry_list_it))
                         {
                             scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
-                            insert_symbol_from_module(sym_in_module, 
+
+                            scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                                     decl_context, 
                                     sym_in_module->symbol_name, 
                                     module_symbol,
                                     ASTFileName(sym_in_module_name), 
                                     ASTLine(sym_in_module_name));
+
+                            nodecl_used_symbols = nodecl_append_to_list(
+                                    nodecl_used_symbols,
+                                    nodecl_make_symbol(inserted_symbol,
+                                        ASTFileName(sym_in_module_name),
+                                        ASTLine(sym_in_module_name)));
                         }
                         entry_list_iterator_free(entry_list_it);
 
@@ -8430,7 +8481,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                     }
             }
         }
+
+        nodecl_fortran_use = nodecl_make_fortran_use_only(
+                nodecl_make_symbol(module_symbol, ASTFileName(a), ASTLine(a)),
+                nodecl_used_symbols, ASTFileName(a), ASTLine(a));
     }
+
+    used_modules->value = nodecl_append_to_list(used_modules->value, nodecl_fortran_use);
 }
 
 static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)

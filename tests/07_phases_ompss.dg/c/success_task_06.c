@@ -26,29 +26,50 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+test_nolink=yes
+</testinfo>
+*/
 
-#ifndef CXX_GCCBUILTINS_H
-#define CXX_GCCBUILTINS_H
+extern int me;
+extern int nodes;
 
-#include "libmcxx-common.h"
-#include "cxx-buildscope-decls.h"
+void matmul ( int m, int n, double (*A)[m], double (*B)[n], double (*C)[n] )
+{
+    double (*a)[m];
+    double (*rbuf)[m];
+    double (*orig_rbuf)[m];
+    void   *ptmp;
+    int up, down;
+    int i;
+    int it;
+    int tag = 1000;
+    int size = m*n;
 
-MCXX_BEGIN_DECLS
+    int stats;
 
-LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
+    for( it = 0; it < nodes; it++ ) {
 
-LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
+      #pragma omp task input (a[0:n-1], B[0:m-1]) inout (C[i:i+n-1][0:n-1]) firstprivate (n,m)
+        {
+              // Dummy references
+            n, n, m, 1.0, (double *)a, m, (double *)B, n, 1.0, (double *)&C[i][0], n;
+        }
 
-LIBMCXX_EXTERN type_t* get_m256_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
+      if (it < nodes-1) {
+         #pragma omp task input (a[0:n-1]) output (rbuf[0:n-1]) inout(stats) firstprivate (size,m,n,tag,down,up)
+          {
+              // Dummy references
+            a, size, down, tag, rbuf, size, up, tag, &stats;
+          }
 
-LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+      }
 
-MCXX_END_DECLS
+      i = (i+n)%m;                 //next C block circular
+      ptmp=a; a=rbuf; rbuf=ptmp;   //swap pointers
+    }
 
-#endif // CXX_GCCBUILTINS_H
+#pragma omp taskwait
+}

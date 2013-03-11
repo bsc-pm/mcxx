@@ -171,16 +171,17 @@ namespace TL
             }
             return _device_list;
         }
-        
+
         void TargetInfo::set_file(std::string filename)
         {
             _file=filename;
         }
-        
-        std::string TargetInfo::get_file() const{
+
+        std::string TargetInfo::get_file() const
+        {
             return _file;
         }
-        
+  
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
             _target_symbol=funct_symbol;
@@ -602,7 +603,7 @@ namespace TL
         }
 
         // This visitor constructs a set with all the symbols of the tree
-        class GetAllSymbolsVisitor : public Nodecl::ExhaustiveVisitor<void>
+        class GetAllSymbolsVisitor : public Nodecl::NodeclVisitor<void>
         {
             private:
                 std::set<TL::Symbol> _symbols;
@@ -610,14 +611,46 @@ namespace TL
             public:
                 GetAllSymbolsVisitor() {}
 
-                void visit(const Nodecl::Symbol& node)
+                // Any node
+                void unhandled_node(const Nodecl::NodeclBase& node)
                 {
-                    _symbols.insert(node.get_symbol());
+                    if (node.get_symbol().is_valid())
+                    {
+                        _symbols.insert(node.get_symbol());
+                    }
+                    if (node.get_type().is_valid())
+                    {
+                        walk_types(node.get_type());
+                    }
+
+                    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                            it != children.end();
+                            it++)
+                    {
+                        walk(*it);
+                    }
                 }
 
                 const std::set<TL::Symbol>& get_all_symbols()
                 {
                     return _symbols;
+                }
+
+                void walk_types(TL::Type t)
+                {
+                    if (t.is_array())
+                    {
+                        walk(t.array_get_size());
+                    }
+                    else if (t.is_pointer())
+                    {
+                        walk_types(t.points_to());
+                    }
+                    else if (t.is_any_reference())
+                    {
+                        walk_types(t.references_to());
+                    }
                 }
         };
 
@@ -629,7 +662,8 @@ namespace TL
         //
         //  void foo(int* c) { }
         //
-        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses, Symbol function_symbol)
+        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+                Symbol function_symbol)
         {
             ObjectList<Nodecl::NodeclBase> updated_clauses;
             ObjectList<Symbol> function_parameters = function_symbol.get_function_parameters();
@@ -828,8 +862,8 @@ namespace TL
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.set_file(target_context.file);
-                target_info.append_to_ndrange(target_context.ndrange);
-                target_info.append_to_onto(target_context.onto);
+                target_info.append_to_ndrange(update_clauses(target_context.ndrange, function_sym));
+                target_info.append_to_onto(update_clauses(target_context.onto, function_sym));
 
                 target_info.append_to_device_list(target_context.device_list);
 

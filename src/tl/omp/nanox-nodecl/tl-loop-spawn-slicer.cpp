@@ -46,6 +46,8 @@ namespace TL { namespace Nanox {
             internal_error("Only ranges of 1 dimension implemented", 0);
         }
 
+        Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+
         Nodecl::OpenMP::Schedule schedule = distribute_environment.find_first<Nodecl::OpenMP::Schedule>();
         ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
 
@@ -97,6 +99,8 @@ namespace TL { namespace Nanox {
             << fill_const_wd_info(struct_arg_type_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
+                    /* is_function_task */ false,
+                    /* wd_description */ enclosing_function.get_name(),
                     outline_info,
                     construct);
 

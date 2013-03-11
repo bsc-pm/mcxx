@@ -792,6 +792,9 @@ namespace TL
             //! Convenience function that returns a wrapped 'void'
             static Type get_void_type(void);
 
+            //! Convenience function that returns a wrapped 'bool'
+            static Type get_bool_type(void);
+
             //! Convenience function that returns a wrapped 'signed char'
             static Type get_char_type(void);
             

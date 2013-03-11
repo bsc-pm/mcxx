@@ -494,7 +494,7 @@ AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
 if test x$opencl_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
-   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
    DISABLE_OPENCL="\#do not uncomment"
 fi

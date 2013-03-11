@@ -3757,25 +3757,6 @@ static char is_name_of_funtion_call(AST expr)
 }
 #endif
 
-static void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
-{
-    *entry = *intrinsic;
-
-    // The previous statement is not enough: we need to update some extra
-    // information because the related symbols may contain a pointer to the
-    // 'intrinsic' function.
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
-        if (symbol_is_parameter_of_function(current_sym, intrinsic))
-        {
-            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
-            symbol_set_as_parameter_of_function(current_sym, entry, position);
-        }
-    }
-}
-
 static void check_symbol_of_called_name(AST sym, 
         decl_context_t decl_context, 
         scope_entry_list_t** call_list, 
@@ -3826,9 +3807,9 @@ static void check_symbol_of_called_name(AST sym,
             // It names an intrinsic
             entry_is_an_intrinsic = 1;
 
-            // Make sure this intrinsic can be CALLed
-            if (is_call_stmt
-                    && !entry->entity_specs.is_intrinsic_subroutine)
+            // Make sure this intrinsic can be invoked as we intend to do
+            if (is_call_stmt != entry->entity_specs.is_intrinsic_subroutine
+                    && (!is_call_stmt) != entry->entity_specs.is_intrinsic_function)
             {
                 entry_is_an_intrinsic = 0;
                 entry = NULL;
@@ -3852,7 +3833,7 @@ static void check_symbol_of_called_name(AST sym,
             }
         }
 
-        if (!entry_is_an_intrinsic) 
+        if (!entry_is_an_intrinsic)
         {
             // Well, it does not name an intrinsic either (_or_ it does name
             // one but it does not match its usage) (i.e. CALLing an INTRINSIC
@@ -3868,7 +3849,7 @@ static void check_symbol_of_called_name(AST sym,
                 entry->file = ASTFileName(sym);
                 entry->line = ASTLine(sym);
                 entry->type_information = get_nonproto_function_type(get_void_type(), 0);
-                
+
                 remove_unknown_kind_symbol(decl_context, entry);
             }
             else
@@ -3890,7 +3871,7 @@ static void check_symbol_of_called_name(AST sym,
                     entry->kind = SK_FUNCTION;
                     entry->type_information = 
                         get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
-                    
+
                     remove_unknown_kind_symbol(decl_context, entry);
                 }
             }
@@ -5921,6 +5902,21 @@ static const_value_t* const_bin_mult(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
     return const_bin_(nodecl_lhs, nodecl_rhs, const_value_mul);
 }
 
+static char const_value_is_zero_or_array_contains_zero(const_value_t* cval)
+{
+    if (const_value_is_array(cval))
+    {
+        int i;
+        for (i = 0; i < const_value_get_num_elements(cval); i++)
+        {
+            return const_value_is_zero_or_array_contains_zero(
+                    const_value_get_element_num(cval, i));
+        }
+        return false;
+    }
+    else return const_value_is_zero(cval);
+}
+
 static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
     if (nodecl_is_constant(nodecl_lhs)
@@ -5929,7 +5925,7 @@ static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
         const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
         const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
 
-        if (const_value_is_zero(rhs_value))
+        if (const_value_is_zero_or_array_contains_zero(rhs_value))
         {
             error_printf("%s: error: right hand side of intrinsic operator / cannot be a zero constant expression\n", 
                     nodecl_get_locus(nodecl_lhs));
@@ -5941,6 +5937,7 @@ static const_value_t* const_bin_div(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
     return NULL;
 }
 
+
 static const_value_t* const_bin_power(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
 {
     if (nodecl_is_constant(nodecl_lhs)
@@ -5949,7 +5946,9 @@ static const_value_t* const_bin_power(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs)
         const_value_t* lhs_value = nodecl_get_constant(nodecl_lhs);
         const_value_t* rhs_value = nodecl_get_constant(nodecl_rhs);
 
-        if (const_value_is_floating(rhs_value)
+        if (!const_value_is_array(rhs_value)
+                && !const_value_is_array(lhs_value)
+                && const_value_is_floating(rhs_value)
                 && const_value_is_negative(lhs_value))
         {
             error_printf("%s: error: left hand side of intrinsic operator ** cannot be a negative constant expression\n", 

@@ -159,6 +159,8 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
         bool mandatory_creation,
+        bool is_function_task,
+        const std::string& wd_description,
         OutlineInfo& outline_info,
         Nodecl::NodeclBase construct)
 {
@@ -175,8 +177,8 @@ Source LoweringVisitor::fill_const_wd_info(
     // MultiMap with every implementation of the current function task
 
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    int num_copies=/* num_copies */ count_copies(outline_info);
-    int num_copies_dimensions=/* num_copies_dimensions */ count_copies_dimensions(outline_info);
+    int num_copies = count_copies(outline_info);
+    int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
     int num_devices;
@@ -206,6 +208,9 @@ Source LoweringVisitor::fill_const_wd_info(
            device_descriptions,
            opt_fortran_dynamic_init;
 
+    // In Fortran, the copies are filled in the function 'setCopies',
+    // after the creation of the WorkDescriptor. For this reason,
+    // we initialize the 'num_copies' and the 'num_dimensions' to zero
     Source result;
     result
         << ancillary_device_descriptions
@@ -217,20 +222,20 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
         << /* ".num_devices = " << */ num_devices << ",\n"
         ;
+
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
         result
-            << /* ".num_dimensions = " */ num_copies_dimensions << ",\n"
+            << /* ".num_dimensions = " */ (!IS_FORTRAN_LANGUAGE ? num_copies_dimensions : 0) << ",\n"
             ;
     }
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             result
-                << /* ".description = " */ "\"" << first_implementor.get_qualified_name() << "\",\n"
+                << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
         else if (IS_FORTRAN_LANGUAGE)
@@ -284,6 +289,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
+    int fortran_device_index = 0;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
@@ -292,10 +298,16 @@ Source LoweringVisitor::fill_const_wd_info(
         TargetInformation target_info = it->second;
         std::string implementor_outline_name = target_info.get_outline_name();
 
+        // The symbol 'real_called_task' will be invalid if the current task is
+        // a inline task. Otherwise, It will be the implementor symbol
+        TL::Symbol real_called_task =
+            (is_function_task) ?
+            implementor_symbol : TL::Symbol::invalid();
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
-                ++it2)
+                ++it2, ++fortran_device_index)
         {
             Source ancillary_device_description, device_description, aux_fortran_init;
 
@@ -315,7 +327,10 @@ Source LoweringVisitor::fill_const_wd_info(
                     implementor_outline_name,
                     arguments_structure,
                     current_function,
-                    target_info);
+                    target_info,
+                    fortran_device_index,
+                    outline_info.get_data_items(),
+                    real_called_task);
 
             device->get_device_descriptor(
                     info_implementor,
@@ -332,10 +347,9 @@ Source LoweringVisitor::fill_const_wd_info(
     if (IS_FORTRAN_LANGUAGE &&
             Nanos::Version::interface_is_at_least("master", 5022))
     {
-        TL::Symbol first_implementor = implementation_table.begin()->first;
         result
             // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << first_implementor.get_qualified_name() << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
@@ -452,7 +466,7 @@ void LoweringVisitor::emit_async_common(
                      &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
          << structure_symbol.get_qualified_name(function_scope);
 
-     // MultiMap with every implementation of the current function task
+     // Map with every implementation of the current function task
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
 
@@ -485,10 +499,15 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
+    std::string wd_description  = (is_function_task) ?
+        called_task.get_name() : current_function.get_name();
+
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
             is_untied,
             mandatory_creation,
+            is_function_task,
+            wd_description,
             outline_info,
             construct);
 
@@ -584,7 +603,11 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    if (is_function_task)
+    // In Fortran we don't need to remove the function task from the original source because:
+    //  - The function task is a smp task, or
+    //  - The function task is not a smp task and we only have it's declaration
+    if (!IS_FORTRAN_LANGUAGE
+            && is_function_task)
     {
         remove_fun_tasks_from_source_as_possible(implementation_table);
     }

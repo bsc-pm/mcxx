@@ -266,6 +266,9 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
+"  --enable-intel-vector-types\n" \
+"                           Enables special support for SIMD types\n" \
+"                           __m128, __m256 and __M512 as struct types\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -336,6 +339,7 @@ typedef enum
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_ENABLE_MS_BUILTIN,
+    OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_PASS_THROUGH,
     OPTION_DISABLE_SIZEOF,
     OPTION_SET_ENVIRONMENT,
@@ -451,6 +455,7 @@ struct command_line_long_options command_line_long_options[] =
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
+    {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     // sentinel
     {NULL, 0, 0}
 };
@@ -691,6 +696,30 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.home_directory = find_home(argv[0]);
 }
 
+static void ensure_codegen_is_loaded(void)
+{
+    if (CURRENT_CONFIGURATION->codegen_phase == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
+        }
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
+        }
+        else
+        {
+            internal_error("This compiler is not configured for C/C++/Fortran so a suitable codegen cannot be loaded", 0);
+        }
+    }
+}
+
 static void help_message(void)
 {
     fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
@@ -698,6 +727,8 @@ static void help_message(void)
 
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
+    ensure_codegen_is_loaded();
+
     phases_help(CURRENT_CONFIGURATION);
 
     fprintf(stdout, "\n");
@@ -1206,6 +1237,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_ENABLE_MS_BUILTIN:
                     {
                         CURRENT_CONFIGURATION->enable_ms_builtin_types = 1;
+                        break;
+                    }
+                case OPTION_ENABLE_INTEL_VECTOR_TYPES:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_vector_types = 1;
                         break;
                     }
                 case OPTION_PASS_THROUGH:
@@ -2788,26 +2824,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
                
                 // Load codegen if not yet loaded
-                if (CURRENT_CONFIGURATION->codegen_phase == NULL)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
-                    }
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
-                    }
-                    else if (IS_FORTRAN_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
-                    }
-                    else
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
-                }
+                ensure_codegen_is_loaded();
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 

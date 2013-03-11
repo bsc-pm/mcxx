@@ -31,6 +31,7 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-scope.h"
 #include "cxx-exprtype.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
@@ -1358,6 +1359,11 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
             result = insert_type_ref_to_symbol(handle, t, TKT_NAMED, 0, sym_oid);
         }
     }
+    else if (is_computed_function_type(t))
+    {
+        // We do not store this case (it is actually a pointer to a function)
+        result = insert_type_simple(handle, t, TKT_VOID, 0);
+    }
     else
     {
         internal_error("Invalid type '%s'\n", print_declarator(t));
@@ -2112,6 +2118,16 @@ static int get_symbol(void *datum,
         }
         entry_list_iterator_free(it);
         entry_list_free(members);
+    }
+    // Intrinsic functions require a bit more of work
+    else if ((*result)->kind == SK_FUNCTION
+            && (*result)->entity_specs.is_builtin)
+    {
+        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(CURRENT_COMPILED_FILE->global_decl_context,
+                (*result)->symbol_name);
+        ERROR_CONDITION(entry_intrinsic == NULL, "Invalid intrinsic '%s'\n", (*result)->symbol_name);
+
+        (*result)->type_information = entry_intrinsic->type_information;
     }
 
     // This is a (top-level) module. Keep in the module symbol cache

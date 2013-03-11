@@ -593,6 +593,10 @@ namespace TL
         return Type(::get_void_type());
     }
     
+    Type Type::get_bool_type(void)
+    {
+        return Type(::get_bool_type());
+    }
     Type Type::get_char_type(void)
     {
         return Type(::get_char_type());

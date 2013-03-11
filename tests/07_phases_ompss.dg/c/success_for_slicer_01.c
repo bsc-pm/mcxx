@@ -26,29 +26,36 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include <stdio.h>
+#include <omp.h>
 
-#ifndef CXX_GCCBUILTINS_H
-#define CXX_GCCBUILTINS_H
+#define SIZE 100
 
-#include "libmcxx-common.h"
-#include "cxx-buildscope-decls.h"
+int main ( int argc, char* argv[] )
+{
+   int i, error = 0, step = 1;
+   int A[SIZE];
 
-MCXX_BEGIN_DECLS
+   for (i = 0; i<SIZE; i++) A[i]=0;
 
-LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
+#pragma omp for schedule(ompss_dynamic)
+   for (i = 0; i<SIZE; i+=1)
+      A[i]++;
 
-LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
+#pragma omp for schedule(ompss_dynamic)
+   for (i = 0; i<SIZE; i+=step)
+      A[i]--;
 
-LIBMCXX_EXTERN type_t* get_m256_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
+   for (i = 0; i<SIZE; i++) if (A[i]!= 0) error++;
 
-LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+   fprintf(stdout,"Result with %d threads is %s\n",
+             omp_get_num_threads(),
+             error?"UNSUCCESSFUL":"Successful");
 
-MCXX_END_DECLS
-
-#endif // CXX_GCCBUILTINS_H
+   return error;
+}
