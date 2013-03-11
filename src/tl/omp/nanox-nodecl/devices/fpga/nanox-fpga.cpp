@@ -395,6 +395,11 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 
 }
 
+bool DeviceFPGA::remove_function_task_from_original_source() const
+{
+    return true;
+}
+
 //write/close intermediate files, free temporal nodes, etc.
 void DeviceFPGA::phase_cleanup(DTO& data_flow)
 {
