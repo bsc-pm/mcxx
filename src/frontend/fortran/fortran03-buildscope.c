@@ -6420,11 +6420,12 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         access = entry->entity_specs.access;
     }
 
-    *entry = *intrinsic;
+    entry->kind = intrinsic->kind;
+    entry->type_information = intrinsic->type_information;
+    entry->entity_specs = intrinsic->entity_specs;
 
-    // The previous statement is not enough: we need to update some extra
-    // information because the related symbols may contain a pointer to the
-    // 'intrinsic' function.
+    // We need to update some extra information because the related symbols may
+    // contain a pointer to the 'intrinsic' function.
     int i;
     for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
     {
