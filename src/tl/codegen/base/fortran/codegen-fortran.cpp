@@ -4069,33 +4069,48 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
-            // Here we do not consider symbols USEd from other modules
-            if (it->is_from_module())
-                continue;
-
             TL::Symbol &sym(*it);
-            // We emit everything but module procedures
-            if (!sym.is_module_procedure())
+            if (sym.is_from_module())
             {
-                declare_symbol(sym, sym.get_scope());
-            }
+                // This name comes from another module
+                std::set<std::string>* access_set = NULL;
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    access_set = &private_names;
+                }
+                else if (sym.get_access_specifier() == AS_PUBLIC
+                        || sym.get_access_specifier() == AS_UNKNOWN)
+                {
+                    access_set = &public_names;
+                }
 
-            std::set<std::string>* access_set = NULL;
-            if (sym.get_access_specifier() == AS_PRIVATE)
-            {
-                access_set = &private_names;
-            }
-            else if (sym.get_access_specifier() == AS_PUBLIC
-                    || sym.get_access_specifier() == AS_UNKNOWN)
-            {
-                access_set = &public_names;
-            }
-
-            if (sym.is_module_procedure()
-                    || sym.is_generic_specifier()
-                    || sym.is_function())
-            {
                 access_set->insert(sym.get_name());
+            }
+            else
+            {
+                // We emit everything but module procedures
+                if (!sym.is_module_procedure())
+                {
+                    declare_symbol(sym, sym.get_scope());
+                }
+
+                std::set<std::string>* access_set = NULL;
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    access_set = &private_names;
+                }
+                else if (sym.get_access_specifier() == AS_PUBLIC
+                        || sym.get_access_specifier() == AS_UNKNOWN)
+                {
+                    access_set = &public_names;
+                }
+
+                if (sym.is_module_procedure()
+                        || sym.is_generic_specifier()
+                        || sym.is_function())
+                {
+                    access_set->insert(sym.get_name());
+                }
             }
         }
 
