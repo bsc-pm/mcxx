@@ -351,6 +351,18 @@ namespace TL { namespace Nanox {
                  return false;
              }
 
+             virtual TL::Symbol new_function_symbol_forward(
+                     TL::Symbol current_function,
+                     const std::string& function_name,
+                     CreateOutlineInfo& info);
+
+             virtual TL::Symbol new_function_symbol_unpacked(
+                     TL::Symbol current_function,
+                     const std::string& function_name,
+                     CreateOutlineInfo& info,
+                     Nodecl::Utils::SymbolMap*& out_symbol_map,
+                     Source &initial_statements,
+                     Source &final_statements);
 
      };
 
