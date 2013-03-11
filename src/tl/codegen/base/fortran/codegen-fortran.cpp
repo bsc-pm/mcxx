@@ -104,7 +104,20 @@ namespace Codegen
 
             return result;
         }
+
+        bool first_scope_is_enclosed_in_second(scope_t* first, scope_t* second)
+        {
+            if (first == NULL
+                    // Everyone may be enclosed in the global scope
+                    || first == CURRENT_COMPILED_FILE->global_decl_context.current_scope)
+                return false;
+            else if (first == second)
+                return true;
+            else
+                return first_scope_is_enclosed_in_second(first->contained_in, second);
+        }
     }
+
 
     class PreCodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
@@ -292,28 +305,12 @@ namespace Codegen
     {
         inc_indent();
 
-        UseStmtInfo use_stmt_info;
-        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-        declare_use_statements(statement_seq, use_stmt_info);
-        // Declare USEs that may affect internal subprograms but appear at the
-        // enclosing program unit
-        declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
-
-        // Check every related entries lest they required stuff coming from other modules
-        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
-        {
-            emit_use_statement_if_symbol_comes_from_module(*it, entry.get_related_scope(), use_stmt_info);
-        }
-
-        emit_collected_use_statements(use_stmt_info);
+        declare_use_statements_of_procedure(entry, statement_seq, internal_subprograms);
 
         indent();
         file << "IMPLICIT NONE\n";
+
+        TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
         if (entry.is_function())
         {
@@ -688,6 +685,18 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 
+
+    // In a pure fortran example, this node never appear in the tree.
+    void FortranBase::visit(const Nodecl::Mod &node)
+    {
+        // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
+        file << "MOD(";
+        walk(node.get_lhs());
+        file << ", ";
+        walk(node.get_rhs());
+        file << ")";
+    }
+
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
     { 
         if (is_bitfield_access(node))
@@ -1004,6 +1013,11 @@ OPERATOR_TABLE
         {
             file << ".TRUE.";
         }
+    }
+
+    void FortranBase::visit(const Nodecl::FortranHollerith& node)
+    {
+        file << node.get_text().size() << "H" << node.get_text();
     }
 
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
@@ -2096,6 +2110,7 @@ OPERATOR_TABLE
              << entry.get_name() 
              << "(";
         
+        TL::Symbol result_var;
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -2103,7 +2118,10 @@ OPERATOR_TABLE
         {
             TL::Symbol &dummy(*it);
             if (dummy.is_result_variable())
+            {
+                result_var = dummy;
                 continue;
+            }
 
             if (it != related_symbols.begin())
                 file << ", ";
@@ -2118,7 +2136,13 @@ OPERATOR_TABLE
                 file << dummy.get_name();
             }
         }
-        file << ")\n";
+        file << ")";
+        if (result_var.is_valid()
+                && result_var.get_name() != entry.get_name())
+        {
+            file << " RESULT(" << result_var.get_name() << ")";
+        }
+        file << "\n";
     }
 
 
@@ -2265,6 +2289,56 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranBozLiteral& node)
     {
         file << node.get_text();
+    }
+
+    void FortranBase::emit_only_list(Nodecl::List only_items)
+    {
+        for (Nodecl::List::iterator it = only_items.begin();
+                it != only_items.end();
+                it++)
+        {
+            TL::Symbol sym = it->get_symbol();
+
+            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            {
+                file << get_generic_specifier_str(sym.get_name());
+            }
+            else
+            {
+                file << sym.get_name()
+                    << " => "
+                    << get_generic_specifier_str(sym.get_from_module_name());
+                ;
+            }
+
+            if ((it + 1) != only_items.end())
+            {
+                file << ", ";
+            }
+        }
+    }
+
+    void FortranBase::visit(const Nodecl::FortranUse& node)
+    {
+        indent();
+        file << "USE " << node.get_module().get_symbol().get_name();
+        if (!node.get_renamed_items().is_null())
+        {
+            file << ", ";
+            Nodecl::List only_items = node.get_renamed_items().as<Nodecl::List>();
+            // We can use the same code since all will be renamed
+            emit_only_list(only_items);
+        }
+        file << "\n";
+    }
+
+    void FortranBase::visit(const Nodecl::FortranUseOnly& node)
+    {
+        indent();
+        file << "USE " << node.get_module().get_symbol().get_name() << ", ONLY: ";
+        Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
+        emit_only_list(only_items);
+        file << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FieldDesignator& node)
@@ -2858,21 +2932,39 @@ OPERATOR_TABLE
 
         inc_indent();
 
-        UseStmtInfo use_stmt_info;
+        TL::Symbol used_modules = entry.get_used_modules();
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-        // Check every related entries lest they required stuff coming from other modules
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
+        if (used_modules.is_valid())
         {
-            TL::Symbol &sym(*it);
-            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            UseStmtInfo use_stmt_info;
+
+            // Check every related entries lest they require stuff coming from other modules
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            }
+
+            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
+
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                if (use_stmt_info.emit_iso_c_binding)
+                {
+                    indent();
+                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                }
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                emit_collected_use_statements(use_stmt_info);
+            }
         }
-
-        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-        emit_collected_use_statements(use_stmt_info);
 
         // Import statements
         std::set<TL::Symbol> already_imported;
@@ -3068,8 +3160,8 @@ OPERATOR_TABLE
                 return true;
         }
 
-        // Maybe the symbol is not declared in the current scope but it lives in the current scope
-        // (because of an insertion)
+        // Maybe the symbol is not declared in the current scope but its name
+        // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
 
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
@@ -3182,7 +3274,7 @@ OPERATOR_TABLE
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
-            if (entry.is_parameter() 
+            if (entry.is_parameter()
                     && !entry.get_type().is_any_reference()
                     && !fortran_is_character_type(entry.get_type().get_internal_type()))
             {
@@ -3227,10 +3319,24 @@ OPERATOR_TABLE
             {
                 TL::Symbol sym = entry.get_scope().get_decl_context().current_scope->related_entry;
                 // Avoid redundant SAVEs due to a global SAVE
-                if (!sym.is_valid() 
+                if (!sym.is_valid()
                         || !sym.is_saved_program_unit())
                 {
                     attribute_list += ", SAVE";
+                }
+            }
+            if (!_deduce_use_statements)
+            {
+                if (entry.in_module().is_valid())
+                {
+                    if (entry.get_access_specifier() == AS_PRIVATE)
+                    {
+                        attribute_list += ", PRIVATE";
+                    }
+                    else if (entry.get_access_specifier() == AS_PUBLIC)
+                    {
+                        attribute_list += ", PUBLIC";
+                    }
                 }
             }
             if (entry.get_type().is_volatile()
@@ -3284,7 +3390,7 @@ OPERATOR_TABLE
 
             if (!entry.get_value().is_null())
             {
-                declare_everything_needed(entry.get_value());
+                declare_everything_needed(entry.get_value(), sc);
 
                 if (entry.is_static()
                         || entry.is_member()
@@ -3425,6 +3531,20 @@ OPERATOR_TABLE
                 symbol_name = entry.get_name().substr(strlen(".common."));
                 file << "SAVE / " << symbol_name << " /\n";
             }
+
+            if (!_deduce_use_statements)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    indent();
+                    file << "PRIVATE :: " << symbol_name << std::endl;
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    indent();
+                    file << "PUBLIC :: " << symbol_name << std::endl;
+                }
+            }
         }
         else if (entry.is_function())
         {
@@ -3469,25 +3589,29 @@ OPERATOR_TABLE
                 }
                 return;
             }
-            if (entry.is_intrinsic()
-                    && !entry.is_from_module())
+            if (entry.is_intrinsic())
             {
-                // Improve this
-                TL::Symbol generic_entry = 
-                    ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                if ( (!sc.get_related_symbol().is_valid()
+                            // Do not emit INTRINSIC at module level
+                            || (sc.get_related_symbol().is_fortran_module() == entry.in_module().is_valid())))
+                {
+                    // Improve this
+                    TL::Symbol generic_entry = 
+                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
-                if (TL::Symbol(generic_entry) == entry)
-                {
-                    indent();
-                    file << "INTRINSIC :: " << entry.get_name() << "\n";
-                }
-                else if (generic_entry.is_valid())
-                {
-                    declare_symbol(generic_entry, generic_entry.get_scope());
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
+                    if (TL::Symbol(generic_entry) == entry)
+                    {
+                        indent();
+                        file << "INTRINSIC :: " << entry.get_name() << "\n";
+                    }
+                    else if (generic_entry.is_valid())
+                    {
+                        declare_symbol(generic_entry, generic_entry.get_scope());
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
                 }
             }
             else if (entry.is_generic_specifier())
@@ -3627,6 +3751,21 @@ OPERATOR_TABLE
                     }
                 }
             }
+
+            if (_deduce_use_statements
+                    && !state.in_interface)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    indent();
+                    file << "PRIVATE :: " << entry.get_name() << std::endl;
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    indent();
+                    file << "PUBLIC :: " << entry.get_name() << std::endl;
+                }
+            }
         }
         else if (entry.is_class())
         {
@@ -3668,7 +3807,7 @@ OPERATOR_TABLE
                     break;
                 }
             }
-            
+
             // Keep the rename info
             name_set_t old_name_set;
             rename_map_t old_rename_map;
@@ -3679,7 +3818,19 @@ OPERATOR_TABLE
             clear_renames();
 
             indent();
-            file << "TYPE :: " << real_name;
+            file << "TYPE";
+
+            if (!_deduce_use_statements)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    file << ", PRIVATE";
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    file << ", PUBLIC";
+                }
+            }
 
             if (entry.is_bind_c())
             {
@@ -3696,7 +3847,7 @@ OPERATOR_TABLE
                 }
             }
 
-            file << "\n";
+            file << " :: " << real_name << "\n";
 
             bool previous_was_bitfield = false;
             int first_bitfield_offset = 0;
@@ -3782,7 +3933,6 @@ OPERATOR_TABLE
                 file << "! DERVIVED TYPE WITHOUT MEMBERS\n";
             }
 
-
             dec_indent();
             pop_declaring_entity();
 
@@ -3848,44 +3998,61 @@ OPERATOR_TABLE
         inc_indent(2);
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        std::set<std::string> private_names;
+        std::set<std::string> public_names; // Only used if !_deduce_use_statements
+
+        // Note that we only emit automatic USE statements if .used_modules has a NULL
+        // value, otherwise just blindly believe that value
+        TL::Symbol used_modules = entry.get_used_modules();
 
         UseStmtInfo use_stmt_info;
 
-        // Check every related entries lest they required stuff coming from other modules
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
+        if (used_modules.is_valid())
         {
-            TL::Symbol &sym(*it);
-            emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
-        }
+            // Note that we may discard the collected info but we want the symbols be marked
+            // as defined anyways
+            // Check every related entries lest they required stuff coming from other modules
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
+            }
 
-        emit_collected_use_statements(use_stmt_info);
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                emit_collected_use_statements(use_stmt_info);
+
+                // Now remember additional access-statements that might be needed for these
+                // USEd symbols
+                for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                        it != related_symbols.end();
+                        it++)
+                {
+                    TL::Symbol &sym(*it);
+                    if (sym.is_from_module()
+                            && sym.get_access_specifier() == AS_PRIVATE)
+                    {
+                        private_names.insert(sym.get_name());
+                    }
+                }
+            }
+        }
 
         indent();
         file << "IMPLICIT NONE\n";
 
-        std::set<std::string> private_names;
-
-        // Now remember additional access-statements that might be needed for these
-        // USEd symbols
-        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
-                it != related_symbols.end();
-                it++)
+        if (!_deduce_use_statements
+                && entry.get_access_specifier() == AS_PRIVATE)
         {
-            TL::Symbol &sym(*it);
-            if (sym.is_from_module()
-                    && sym.get_access_specifier() == AS_PRIVATE)
-            {
-                if (sym.is_generic_specifier())
-                {
-                    private_names.insert(get_generic_specifier_str(sym.get_name()));
-                }
-                else
-                {
-                    private_names.insert(sym.get_name());
-                }
-            }
+            indent();
+            file << "PRIVATE\n";
         }
 
         if (entry.is_saved_program_unit())
@@ -3902,37 +4069,155 @@ OPERATOR_TABLE
                 it != related_symbols.end();
                 it++)
         {
+            TL::Symbol &sym(*it);
+            if (sym.is_from_module())
+            {
+                // This name comes from another module
+                std::set<std::string>* access_set = NULL;
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    access_set = &private_names;
+                }
+                else if (sym.get_access_specifier() == AS_PUBLIC
+                        || sym.get_access_specifier() == AS_UNKNOWN)
+                {
+                    access_set = &public_names;
+                }
+
+                access_set->insert(sym.get_name());
+            }
+            else
+            {
+                // We emit everything but module procedures
+                if (!sym.is_module_procedure())
+                {
+                    declare_symbol(sym, sym.get_scope());
+                }
+
+                std::set<std::string>* access_set = NULL;
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    access_set = &private_names;
+                }
+                else if (sym.get_access_specifier() == AS_PUBLIC
+                        || sym.get_access_specifier() == AS_UNKNOWN)
+                {
+                    access_set = &public_names;
+                }
+
+                if (sym.is_module_procedure()
+                        || sym.is_generic_specifier()
+                        || sym.is_function())
+                {
+                    access_set->insert(sym.get_name());
+                }
+            }
+        }
+
+        // Review symbols again
+        for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                it != related_symbols.end();
+                it++)
+        {
             // Here we do not consider symbols USEd from other modules
             if (it->is_from_module())
                 continue;
 
             TL::Symbol &sym(*it);
-            // We emit everything but module procedures
-            if (!sym.is_module_procedure())
+            // If a generic specifier is PUBLIC but a specific interface with the same name
+            // is private, remove it from PRIVATE names
+            if (sym.is_generic_specifier()
+                    && sym.get_access_specifier() != AS_PRIVATE)
             {
-                declare_symbol(sym, sym.get_scope());
-            }
-            if (sym.get_access_specifier() == AS_PRIVATE)
-            {
-                // If it has a private access specifier, state so
-                private_names.insert(sym.get_name());
+                std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                if (same_name != private_names.end())
+                    private_names.erase(same_name);
             }
         }
 
-        if (!private_names.empty())
+        if (_deduce_use_statements)
         {
-            indent();
-            file << "PRIVATE :: ";
-            for (std::set<std::string>::iterator it = private_names.begin();
-                    it != private_names.end();
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
                     it++)
             {
-                if (it != private_names.begin())
-                    file << ", ";
-
-                file << get_generic_specifier_str(*it);
+                TL::Symbol &sym(*it);
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    // If it has a private access specifier, state so
+                    private_names.insert(sym.get_name());
+                }
             }
-            file << std::endl;
+            // Review again for generic specifiers that are actually PUBLIC
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                // If a generic specifier is PUBLIC but a specific interface with the same name
+                // is private, remove it from PRIVATE names
+                if (sym.is_generic_specifier()
+                        && sym.get_access_specifier() != AS_PRIVATE)
+                {
+                    std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                    if (same_name != private_names.end())
+                        private_names.erase(same_name);
+                }
+            }
+
+            if (!private_names.empty())
+            {
+                indent();
+                file << "PRIVATE :: ";
+                for (std::set<std::string>::iterator it = private_names.begin();
+                        it != private_names.end();
+                        it++)
+                {
+                    if (it != private_names.begin())
+                        file << ", ";
+
+                    file << get_generic_specifier_str(*it);
+                }
+                file << std::endl;
+            }
+        }
+        else
+        {
+            std::set<std::string>* access_set = NULL;
+            std::string access_spec;
+            if (entry.get_access_specifier() == AS_PRIVATE)
+            {
+                // The module has a PRIVATE, so we only need to emit PUBLIC things
+                access_set = &public_names;
+                access_spec = "PUBLIC";
+            }
+            else if (entry.get_access_specifier() == AS_PUBLIC
+                    || entry.get_access_specifier() == AS_UNKNOWN)
+            {
+                // The module does not have a PRIVATE, so emit only PRIVATE things
+                access_set = &private_names;
+                access_spec = "PRIVATE";
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (!access_set->empty())
+            {
+                indent();
+                file << access_spec << " :: ";
+                for (std::set<std::string>::iterator it = access_set->begin();
+                        it != access_set->end();
+                        it++)
+                {
+                    if (it != access_set->begin())
+                        file << ", ";
+
+                    file << get_generic_specifier_str(*it);
+                }
+                file << std::endl;
+            }
         }
 
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
@@ -4002,6 +4287,55 @@ OPERATOR_TABLE
         DoDeclareSymFromModuleInfo info(sc, use_stmt_info);
 
         traverse_looking_for_symbols(node, &FortranBase::do_declare_symbol_from_module, &info);
+    }
+
+    void FortranBase::declare_use_statements_of_procedure(
+            TL::Symbol entry,
+            Nodecl::List statement_seq,
+            Nodecl::List internal_subprograms)
+    {
+        // Notet that we only emit automatic USE statements if .used_modules has a NULL
+        // value, otherwise just blindly believe that value
+        UseStmtInfo use_stmt_info;
+        use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
+
+        TL::Symbol used_modules = entry.get_used_modules();
+
+        if (used_modules.is_valid())
+        {
+            // Note that we traverse the tree even if we are going to discard this info
+            // because we want the symbols be appropiately marked as defined
+            declare_use_statements(statement_seq, use_stmt_info);
+            // Declare USEs that may affect internal subprograms but appear at the
+            // enclosing program unit
+            declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
+            
+            // Check every related entries lest they required stuff coming from other modules
+            TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                emit_use_statement_if_symbol_comes_from_module(*it, entry.get_related_scope(), use_stmt_info);
+            }
+
+            if (!used_modules.get_value().is_null()
+                    && !_deduce_use_statements)
+            {
+                if (use_stmt_info.emit_iso_c_binding)
+                {
+                    indent();
+                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                }
+                walk(used_modules.get_value());
+            }
+            else
+            {
+                // This DOES emit all collected USE symbols
+                emit_collected_use_statements(use_stmt_info);
+            }
+        }
     }
 
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node, UseStmtInfo& use_stmt_info)
@@ -4402,7 +4736,10 @@ OPERATOR_TABLE
             return true;
 
         TL::Symbol used_modules = current_module.get_used_modules();
-        if (!used_modules.is_valid())
+        if (!used_modules.is_valid()
+                // When .used_modules has a non null value we do not attempt
+                // anything automatic
+                || (!used_modules.get_value().is_null() && !_deduce_use_statements))
             return false;
 
         TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
@@ -4481,7 +4818,7 @@ OPERATOR_TABLE
                 UseStmtItem& item (*it2);
                 TL::Symbol entry = item.symbol;
 
-                // We cannot use the generic specifier of an interface if it has not any implementation
+                // We cannot use the generic specifier of an interface if it does not have any implementation
                 // Example:
                 //
                 //      MODULE M
@@ -4506,6 +4843,8 @@ OPERATOR_TABLE
                 {
                     file << get_generic_specifier_str(entry.get_name())
                         ;
+                    // file << " {{" << entry.get_internal_symbol() << "}} " 
+                    //     ;
                 }
                 else
                 {
@@ -4528,14 +4867,21 @@ OPERATOR_TABLE
                 "Symbol '%s' must be from module\n", entry.get_name().c_str());
 
         // Has the symbol 'entry' been declared as USEd in the current context?
-        if (entry.get_scope().get_related_symbol() != sc.get_related_symbol())
+        if (!entry_is_in_scope(entry, sc)
+                // No it has not. But if it is found in an enclosing scope we will not emit it
+                && first_scope_is_enclosed_in_second(
+                    sc.get_related_symbol().get_scope().get_decl_context().current_scope,
+                    entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
             return;
 
         TL::Symbol module = entry.from_module();
 
         // Is this a module actually used in this program unit?
         TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
-        if (!used_modules.is_valid())
+        if (!used_modules.is_valid()
+                // When .used_modules has a non null value we do not attempt
+                // anything automatic
+                || (!used_modules.get_value().is_null() && !_deduce_use_statements))
             return;
 
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
@@ -4834,6 +5180,10 @@ OPERATOR_TABLE
 
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
+
+            // std::stringstream ss;
+            // ss << " {{" << entry.get_internal_symbol() << "}} ";
+            // real_name += ss.str();
 
             type_specifier = "TYPE(" + real_name + ")";
         }
@@ -5419,16 +5769,30 @@ OPERATOR_TABLE
 
     FortranBase::FortranBase()
     {
+        set_phase_name("Fortran codegen");
+        set_phase_description("This phase emits in Fortran the intermediate representation of the compiler");
+
         _emit_fun_loc = false;
         register_parameter("emit_fun_loc",
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
                 _emit_fun_loc_str,
                 "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+
+        _deduce_use_statements = false;
+        register_parameter("deduce_use_statements",
+                "Tries to deduce use statements regardless of the information in the scope",
+                _deduce_use_statements_str,
+                "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)
     {
         TL::parse_boolean_option("emit_fun_loc", str, _emit_fun_loc, "Assuming false.");
+    }
+
+    void FortranBase::set_deduce_use_statements(const std::string& str)
+    {
+        TL::parse_boolean_option("deduce_use_statements", str, _deduce_use_statements, "Assuming false.");
     }
 }
 

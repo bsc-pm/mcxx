@@ -61,6 +61,8 @@ namespace TL
                         Source &device_descriptor,
                         Source &fortran_dynamic_init);
 
+                virtual bool remove_function_task_from_original_source() const;
+
                 virtual void copy_stuff_to_device_file(
                         const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
@@ -68,20 +70,10 @@ namespace TL
 
                 Nodecl::List _extra_c_code;
 
-                // Source emit_allocate_statement(
-                //         TL::Symbol sym,
-                //         int &lower_bound_index,
-                //         int &upper_bound_index);
-
                 void add_forward_code_to_extra_c_code(
                         const std::string& outline_name,
                         TL::ObjectList<OutlineDataItem*> data_items,
                         Nodecl::NodeclBase parse_context);
-
-                TL::Type rewrite_type_of_vla_in_outline(
-                        TL::Type t,
-                        const TL::ObjectList<OutlineDataItem*> &data_items,
-                        TL::Symbol& arguments_symbol);
         };
     }
 }

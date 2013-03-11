@@ -44,6 +44,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 #include "cxx-nodecl-deep-copy.h"
+#include "cxx-gccbuiltins.h"
 
 #include "fortran03-scope.h"
 
@@ -113,6 +114,8 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    // Fortran
+    STK_HOLLERITH,
 } simple_type_kind_t;
 
 // Information of enums
@@ -6742,15 +6745,15 @@ const char* print_intel_sse_avx_vector_type(
             {
                 if (is_float_type(element_type))
                 {
-                    return "__M512";
+                    return "__m512";
                 }
                 else if (is_double_type(element_type))
                 {
-                    return "__M512D";
+                    return "__m512d";
                 }
                 else if (is_integer_type(element_type))
                 {
-                    return "__M512I";
+                    return "__m512i";
                 }
             }
     }
@@ -8125,12 +8128,15 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_BYTE:
+                        result = strappend(result, "byte");
+                        break;
                     case BT_VOID :
                         result = strappend(result, "void");
                         break;
                     case BT_UNKNOWN :
                     default :
-                        result = strappend(result, "���unknown builtin type???");
+                        result = strappend(result, "???unknown builtin type???");
                         break;
                 }
                 break;
@@ -8740,6 +8746,43 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest)
     return 1;
 }
 
+static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
+{
+    orig = no_ref(orig);
+    dest = no_ref(dest);
+
+    if (!is_vector_type(orig)
+                || is_vector_type(dest))
+        return 0;
+
+    int vector_size = vector_type_get_vector_size(no_ref(orig));
+    type_t* element_type = vector_type_get_element_type(no_ref(orig));
+    type_t* dest_struct = get_unqualified_type(no_ref(dest));
+
+    return (((vector_size == 16)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m128_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m128d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
+            || ((vector_size == 32)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m256_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m256d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
+            || ((vector_size == 64)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m512_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m512d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
+
+}
+
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
@@ -8932,18 +8975,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_LVALUE_TO_RVALUE;
         orig = reference_type_get_referenced_type(orig);
-    }
-
-    //Vector types
-    //scalar -->__attribute_((vector_size(X)))  
-    if(is_vector_type(no_ref(dest)) 
-            && is_arithmetic_type(no_ref(orig)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
-        }
-        dest = vector_type_get_element_type(dest);
     }
 
     // Second kind of conversion
@@ -9305,16 +9336,38 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+        // Vector conversions
+        // scalar -->__attribute_((vector_size(X)))  
+        else if (is_vector_type(no_ref(dest)) 
+                && is_arithmetic_type(no_ref(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
+            }
+            (*result).conv[1] = SCI_SCALAR_TO_VECTOR_CONVERSION;
+            dest = vector_type_get_element_type(dest);
+        }
+        // Vector conversions
+        // vector type -> struct __m128 / struct __m256 / struct __M512
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && (vector_type_to_vector_struct_type(orig, dest)
+                    || vector_type_to_vector_struct_type(dest, orig)))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
     }
 
     // Third kind of conversion
     //
     //  qualification-conversion
     //
-    if (!equivalent_types(orig, dest) 
-            && ((is_pointer_type(orig) 
+    if (!equivalent_types(orig, dest)
+            && ((is_pointer_type(orig)
                     && is_pointer_type(dest))
-                || (is_pointer_to_member_type(orig) 
+                || (is_pointer_to_member_type(orig)
                     && is_pointer_to_member_type(dest))))
     {
         if (pointer_types_can_be_converted(orig, dest))
@@ -9384,7 +9437,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         dest = get_cv_qualified_type(dest, get_cv_qualifier(dest) & (~CV_VOLATILE));
     }
-    
+
     // Drop any cv-qualification of the original since it does not prevent
     // from converting it to a less qualified one dest
     //
@@ -11162,6 +11215,8 @@ const char* type_to_source(type_t* t)
 type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, 
         symbol_map_t* symbol_map)
 {
+    // Note that this function does not copy class types
+
     if (orig == NULL)
         return NULL;
 
@@ -11460,4 +11515,25 @@ unsigned int mask_type_get_num_bits(type_t* t)
     ERROR_CONDITION(!is_mask_type(t), "This is not a mask type", 0);
 
     return t->type->vector_size;
+}
+
+static type_t* _hollerith_type = NULL;
+
+type_t* get_hollerith_type(void)
+{
+    if (_hollerith_type == NULL)
+    {
+        _hollerith_type = get_simple_type();
+        _hollerith_type->type->kind = STK_HOLLERITH;
+    }
+
+    return _hollerith_type;
+}
+
+char is_hollerith_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_HOLLERITH);
 }

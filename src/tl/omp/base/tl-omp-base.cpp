@@ -264,7 +264,7 @@ namespace TL { namespace OpenMP {
                         filename, line,
                         target_items);
 
-                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+                ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
                 if (!ndrange_exprs.empty())
                 {
                     target_items.append(
@@ -274,7 +274,7 @@ namespace TL { namespace OpenMP {
                                 filename, line));
                 }
 
-                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+                ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
                 if (!onto_exprs.empty())
                 {
                     target_items.append(
@@ -353,6 +353,12 @@ namespace TL { namespace OpenMP {
                 "Disables OpenMP transformation",
                 _openmp_dry_run,
                 "0");
+
+        register_parameter("discard_unused_data_sharings",
+                "Discards unused data sharings in the body of the construct. "
+                "This behaviour may cause wrong code be emitted, use at your own risk",
+                _discard_unused_data_sharings_str,
+                "0").connect(functor(&Base::set_discard_unused_data_sharings, *this));
 
         register_parameter("simd_enabled",
                 "If set to '1' enables simd constructs, otherwise it is disabled",
@@ -459,17 +465,29 @@ namespace TL { namespace OpenMP {
 
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
-    void Base::set_simd(const std::string simd_enabled_str)
+    void Base::set_simd(const std::string &simd_enabled_str)
     {
-        if (simd_enabled_str == "1")
-        {
-            _simd_enabled = true;
-        }
+        parse_boolean_option("simd_enabled",
+                simd_enabled_str,
+                _simd_enabled,
+                "Assuming false");
+    }
+
+    void Base::set_discard_unused_data_sharings(const std::string& str)
+    {
+        bool b = false;
+        parse_boolean_option("discard_unused_data_sharings",
+                str,
+                b,
+                "Assuming false");
+        _core.set_discard_unused_data_sharings(b);
     }
 
     void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }
     void Base::atomic_handler_post(TL::PragmaCustomStatement directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+
         Nodecl::List execution_environment = Nodecl::List::make(
                 Nodecl::OpenMP::FlushAtEntry::make(
                         directive.get_filename(),
@@ -486,6 +504,7 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line());
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(atomic);
     }
 
@@ -525,6 +544,7 @@ namespace TL { namespace OpenMP {
             execution_environment = Nodecl::List::make(entry_flush, exit_flush);
         }
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::Critical::make(
                         execution_environment,
@@ -537,6 +557,8 @@ namespace TL { namespace OpenMP {
     void Base::barrier_handler_pre(TL::PragmaCustomDirective) { }
     void Base::barrier_handler_post(TL::PragmaCustomDirective directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+
         Nodecl::List execution_environment = Nodecl::List::make(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_filename(),
@@ -546,6 +568,7 @@ namespace TL { namespace OpenMP {
                     directive.get_line())
                 );
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::BarrierFull::make(
                     execution_environment,
@@ -557,6 +580,7 @@ namespace TL { namespace OpenMP {
     void Base::flush_handler_pre(TL::PragmaCustomDirective) { }
     void Base::flush_handler_post(TL::PragmaCustomDirective directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
 
         TL::ObjectList<Nodecl::NodeclBase> expr_list;
@@ -565,6 +589,7 @@ namespace TL { namespace OpenMP {
             expr_list = parameter.get_arguments_as_expressions();
         }
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::FlushMemory::make(
                     Nodecl::List::make(expr_list),
@@ -576,6 +601,8 @@ namespace TL { namespace OpenMP {
     void Base::master_handler_pre(TL::PragmaCustomStatement) { }
     void Base::master_handler_post(TL::PragmaCustomStatement directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::Master::make(
                     directive.get_statements().shallow_copy(),
@@ -596,6 +623,16 @@ namespace TL { namespace OpenMP {
             expr_list = on_clause.get_arguments_as_expressions();
         }
 
+        Nodecl::List environment;
+        PragmaCustomClause noflush_clause = pragma_line.get_clause("noflush");
+
+        if (noflush_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::NoFlush::make(directive.get_filename(), directive.get_line()));
+        }
+
+        pragma_line.diagnostic_unused_clauses();
         if (!expr_list.empty())
         {
             Nodecl::OpenMP::DepInout dep_inout = Nodecl::OpenMP::DepInout::make(
@@ -603,9 +640,11 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line());
 
+            environment.append(dep_inout);
+
             directive.replace(
                     Nodecl::OpenMP::WaitOnDependences::make(
-                        Nodecl::List::make(dep_inout),
+                        environment,
                         directive.get_filename(), directive.get_line())
                     );
         }
@@ -613,6 +652,7 @@ namespace TL { namespace OpenMP {
         {
             directive.replace(
                     Nodecl::OpenMP::TaskwaitShallow::make(
+                        environment,
                         directive.get_filename(),
                         directive.get_line())
                     );
@@ -698,6 +738,7 @@ namespace TL { namespace OpenMP {
 
         async_code = honour_if_clause(pragma_line, directive, async_code);
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(async_code);
     }
 
@@ -743,6 +784,7 @@ namespace TL { namespace OpenMP {
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
     }
 
@@ -776,6 +818,7 @@ namespace TL { namespace OpenMP {
                     directive.get_filename(),
                     directive.get_line()));
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
 
@@ -795,6 +838,7 @@ namespace TL { namespace OpenMP {
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
 
@@ -1003,6 +1047,7 @@ namespace TL { namespace OpenMP {
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
 
@@ -1053,6 +1098,7 @@ namespace TL { namespace OpenMP {
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
     }
 
@@ -1060,6 +1106,8 @@ namespace TL { namespace OpenMP {
     void Base::task_handler_pre(TL::PragmaCustomDeclaration declaration) { }
     void Base::task_handler_post(TL::PragmaCustomDeclaration decl)
     {
+        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
+        pragma_line.diagnostic_unused_clauses();
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
@@ -1068,11 +1116,14 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
     {
+        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
+        pragma_line.diagnostic_unused_clauses();
         stmt.replace(stmt.get_statements());
     }
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
+        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
         if (decl.get_nested_pragma().is_null())
         {
             Nodecl::NodeclBase result;
@@ -1082,7 +1133,6 @@ namespace TL { namespace OpenMP {
             int line = decl.get_line();
             std::string file = decl.get_filename();
 
-            PragmaCustomLine pragma_line = decl.get_pragma_line();
             PragmaCustomClause device_clause = pragma_line.get_clause("device");
             if (device_clause.is_defined())
             {
@@ -1106,10 +1156,12 @@ namespace TL { namespace OpenMP {
                     Nodecl::List::make(symbols),
                     file, line);
 
+            pragma_line.diagnostic_unused_clauses();
             decl.replace(result);
         }
         else
         {
+            pragma_line.diagnostic_unused_clauses();
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
     }
@@ -1118,6 +1170,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
+        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         // Skipping AST_LIST_NODE
         Nodecl::NodeclBase statements = stmt.get_statements();
 
@@ -1153,6 +1206,7 @@ namespace TL { namespace OpenMP {
                        for_statement.get_filename(),
                        for_statement.get_line());
 
+            pragma_line.diagnostic_unused_clauses();
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
     }
@@ -1161,6 +1215,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
     void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
+        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
         if (_simd_enabled)
         {
             ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
@@ -1179,6 +1234,7 @@ namespace TL { namespace OpenMP {
 
             node.replace(simd_func);
 
+            pragma_line.diagnostic_unused_clauses();
             // Remove #pragma
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
@@ -1187,6 +1243,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
+        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         // Skipping AST_LIST_NODE
         Nodecl::NodeclBase statements = stmt.get_statements();
 
@@ -1236,12 +1293,14 @@ namespace TL { namespace OpenMP {
                     stmt, node, barrier_at_end, false);
 
             // Removing #pragma
+            pragma_line.diagnostic_unused_clauses();
             stmt.replace(code);
             */
         }
         else
         {
             // Remove #pragma
+            pragma_line.diagnostic_unused_clauses();
             stmt.replace(statements);
         }
     }
@@ -1249,6 +1308,9 @@ namespace TL { namespace OpenMP {
     void Base::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
+        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
+        pragma_line.diagnostic_unused_clauses();
+        // FIXME - What is supposed to happen here?
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
@@ -1262,6 +1324,7 @@ namespace TL { namespace OpenMP {
                 directive.get_statements(),
                 barrier_at_end,
                 /* is_combined_worksharing */ false);
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(sections_code);
     }
 
@@ -1341,6 +1404,7 @@ namespace TL { namespace OpenMP {
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
     }
 
@@ -1396,12 +1460,14 @@ namespace TL { namespace OpenMP {
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
+        pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
     }
 
     void Base::threadprivate_handler_pre(TL::PragmaCustomDirective) { }
     void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
 
         TL::ObjectList<Symbol> threadprivate_symbols;
@@ -1419,13 +1485,16 @@ namespace TL { namespace OpenMP {
             entry->entity_specs.is_thread = 1;
         }
 
+        pragma_line.diagnostic_unused_clauses();
         Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
     void Base::declare_reduction_handler_pre(TL::PragmaCustomDirective) { }
     void Base::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
     {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
         // Remove
+        pragma_line.diagnostic_unused_clauses();
         Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
@@ -1549,7 +1618,7 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
 
-        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
         if (!ndrange_exprs.empty())
         {
             target_items.append(
@@ -1559,7 +1628,7 @@ namespace TL { namespace OpenMP {
                         filename, line));
         }
 
-        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
         if (!onto_exprs.empty())
         {
             target_items.append(
@@ -1735,7 +1804,7 @@ namespace TL { namespace OpenMP {
                 filename, line,
                 target_items);
 
-        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_ndrange();
+        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
         if (!ndrange_exprs.empty())
         {
             target_items.append(
@@ -1746,7 +1815,7 @@ namespace TL { namespace OpenMP {
                         filename, line));
         }
 
-        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_onto();
+        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
         if (!onto_exprs.empty())
         {
             target_items.append(

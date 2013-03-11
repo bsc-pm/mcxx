@@ -31,13 +31,15 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-devices.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
-
+#include "fortran03-buildscope.h"
+#include "cxx-graphviz.h"
 #include "tl-lower-task-common.hpp"
-
 namespace TL { namespace Nanox {
 
 typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
@@ -613,14 +615,42 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         param_to_args_map.add_map(parameter, new_symbol);
     }
 
-    //Add this map to target information, so DeviceProviders can translate
-    //Clauses in case it's needed, now we only add the same for every task, but in a future?
-    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        arguments_outline_info.get_implementation_table();
     for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
             it != args_implementation_table.end();
             ++it)
     {
-       arguments_outline_info.set_param_arg_map(param_to_args_map, it->first);
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_sym)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
+        }
     }
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
@@ -893,7 +923,6 @@ static void handle_save_expressions(decl_context_t function_context,
     }
 }
 
-
 static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
@@ -986,8 +1015,14 @@ static TL::Symbol new_function_symbol_adapter(
     // Add the called symbol in the scope of the function
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
-    // Propagate USE information
-    new_function_sym->entity_specs.used_modules = current_function.get_internal_symbol()->entity_specs.used_modules;
+    // Propagate USEd information
+    Nodecl::Utils::Fortran::copy_used_modules(
+            current_function.get_related_scope(),
+            new_function_sym->related_decl_context);
+
+    // Add USEd symbols
+    Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
+    insert_used_symbols.walk(current_function.get_function_code());
 
     // If the current function is a module, make this new function a sibling of it
     if (current_function.is_in_module()
@@ -1126,14 +1161,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     std::cerr << construct.get_locus()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
 
-    // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    //OutlineInfo parameters_outline_info(parameters_environment,current_function);
-
-    // Fill arguments outline info using parameters
-    //OutlineInfo arguments_outline_info;
-
-    
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
@@ -1146,26 +1173,28 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             current_function,
             called_task_function,
             ss.str(),
-
             // out
             symbol_map,
             save_expressions);
+
     // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
+    // symbol_map.add_map(called_task_function, adapter_function);
+
     if (called_task_function.is_from_module())
     {
-        // If the symbol comes from a module, the environment 
+        // If the symbol comes from a module, the environment
         // will use the original symbol of the module
-        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
+        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);
     }
 
+    // Get parameters outline info
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
             symbol_map,
             parameters_environment,
             save_expressions,
-
             // Out
             new_task_construct,
             new_statements,
@@ -1173,30 +1202,92 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function,_function_task_set);
+    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
-    // Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+    Nodecl::Utils::SimpleSymbolMap params_to_data_items_map;
+    TL::ObjectList<OutlineDataItem*> data_items = new_outline_info.get_data_items();
+    TL::ObjectList<TL::Symbol> parameters = called_task_function.get_function_parameters();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
+            it != parameters.end();
+            ++it)
+    {
+
+        TL::Symbol parameter = *it;
+
+        // We search by parameter position here
+        ObjectList<OutlineDataItem*> found = data_items.find(
+                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                parameter.get_parameter_position_in(called_task_function));
+
+        if (found.empty())
+        {
+            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
+                    construct.get_locus().c_str(),
+                    parameter.get_name().c_str());
+        }
+
+        TL::Symbol outline_data_item_sym = (*found.begin())->get_symbol();
+        params_to_data_items_map.add_map(parameter, outline_data_item_sym);
+    }
+
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        new_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it)
+    {
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_task_function)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            new_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            new_outline_info.set_param_arg_map(params_to_data_items_map, current_implementor);
+        }
+    }
 
     emit_async_common(
             new_task_construct,
             adapter_function,
-            called_task_function, // Which one we want now?
+            called_task_function,
             new_statements,
             task_environment.priority,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
-            NULL);
+            /* parameter outline info */ NULL);
 
+    // Add a map from the original called task to the adapter function
+     symbol_map.add_map(called_task_function, adapter_function);
+    
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
-
-    // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
 
     // And replace everything with a call to the adapter function
     construct.replace(

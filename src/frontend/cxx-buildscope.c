@@ -7225,8 +7225,7 @@ static void set_array_type(type_t** declarator_type,
             }
             else if (decl_context.current_scope->kind == PROTOTYPE_SCOPE)
             {
-                nodecl_expr = nodecl_make_vla_wildcard(get_signed_int_type(),
-                        ASTFileName(constant_expr), ASTLine(constant_expr));
+                // Do nothing, keep the expression as is, this is what we want, actually
             }
         }
     }

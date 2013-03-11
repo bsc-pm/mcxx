@@ -123,6 +123,11 @@ namespace TL
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);
 
+                void get_dependences_info_std_clause(
+                        TL::PragmaCustomLine construct,
+                        TL::PragmaCustomClause clause,
+                        DataSharingEnvironment& data_sharing);
+
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing);
 
@@ -148,6 +153,8 @@ namespace TL
 
                 ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
                            TL::Symbol function_symbol);
+
+                bool _discard_unused_data_sharings;
             public:
                 Core();
 
@@ -160,9 +167,10 @@ namespace TL
 
                 RefPtr<OpenMP::Info> get_openmp_info();
 
-
                 //! Used when parsing declare reduction
                 static bool _silent_declare_reduction;
+
+                void set_discard_unused_data_sharings(bool b) { _discard_unused_data_sharings = b; }
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

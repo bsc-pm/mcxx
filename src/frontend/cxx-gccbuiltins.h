@@ -37,6 +37,18 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
 
+LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
+
+LIBMCXX_EXTERN type_t* get_m256_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m256d_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
+
+LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
+LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCBUILTINS_H

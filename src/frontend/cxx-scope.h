@@ -156,12 +156,6 @@ LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         const char* filename,
         int line);
 
-// Other stuff
-LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, 
-        const char* name, 
-        decl_flags_t decl_flags,
-        const char* filename, int line);
-
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 

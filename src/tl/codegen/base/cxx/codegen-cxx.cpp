@@ -472,6 +472,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         {
             // Here we assume that casts in C always yield rvalues
             file << "(*";
+
+            // This avoids a warning in some compilers which complain on (T* const)e
+            t = t.get_unqualified_type();
         }
         file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 
@@ -1998,9 +2001,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         walk_type_for_symbols(
                 symbol_type,
-                &CxxBase::declare_symbol_if_nonlocal,
-                &CxxBase::define_symbol_if_nonlocal,
-                &CxxBase::define_nonlocal_entities_in_trees);
+                &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
     }
 
     TL::Scope symbol_scope = symbol.get_scope();
@@ -2053,10 +2056,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             walk_type_for_symbols(*it,
                     &CxxBase::declare_symbol_always,
                     &CxxBase::define_symbol_always,
-                    &CxxBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        define_nonlocal_entities_in_trees(statement);
+        define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
     int num_parameters = symbol.get_related_symbols().size();
@@ -7301,6 +7304,12 @@ bool CxxBase::cuda_print_special_attributes()
 bool CxxBase::cuda_emit_always_extern_linkage()
 {
     return false;
+}
+
+CxxBase::CxxBase()
+{
+    set_phase_name("C/C++ codegen");
+    set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
 }
 
 } // Codegen

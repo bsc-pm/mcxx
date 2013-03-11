@@ -97,6 +97,8 @@ LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
 
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_hollerith_type(void);
+LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
 

@@ -283,6 +283,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dmin1, NULL, E, simplify_dmin1) \
 \
+FORTRAN_GENERIC_INTRINSIC(NULL, abort, "", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, access, "NAME,MODE", I, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, and, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, besj0, "X", E, NULL) \
@@ -955,6 +956,13 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         // A specific symbol can't have both bits enabled. Only the generic one
         new_entry->entity_specs.is_intrinsic_subroutine = is_void_type(result_type);
         new_entry->entity_specs.is_intrinsic_function = !is_void_type(result_type);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            new_entry->decl_context.current_scope->related_entry =
+                decl_context.current_scope->related_entry;
+        }
 
         rb_tree_insert(intrinsic_map, p, new_entry);
 
@@ -1709,6 +1717,24 @@ scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+static char entity_is_target(nodecl_t n)
+{
+    if (nodecl_get_kind(n) == NODECL_SYMBOL)
+    {
+        return nodecl_get_symbol(n)->entity_specs.is_target;
+    }
+    else if (nodecl_get_kind(n) == NODECL_ARRAY_SUBSCRIPT)
+    {
+        return entity_is_target(nodecl_get_child(n, 0));
+    }
+    else if (nodecl_get_kind(n) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        return entity_is_target(nodecl_get_child(n, 1))
+            || entity_is_target(nodecl_get_child(n, 0));
+    }
+    return 0;
+}
+
 scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -1738,6 +1764,19 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
                 if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), pointer_type_get_pointee_type(target_type)))
                 {
                     return GET_INTRINSIC_INQUIRY("associated", 
+                            fortran_get_default_logical_type(),
+                            get_lvalue_reference_type(ptr_type),
+                            get_lvalue_reference_type(target_type));
+                }
+            }
+            // Associated to some target, this should be a lvalue to a target entity
+            else if (nodecl_get_kind(argument_expressions[1]) != NODECL_DEREFERENCE
+                    && entity_is_target(argument_expressions[1])
+                    && (target_type = no_ref(nodecl_get_type(argument_expressions[1]))))
+            {
+                if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), target_type))
+                {
+                    return GET_INTRINSIC_INQUIRY("associated",
                             fortran_get_default_logical_type(),
                             get_lvalue_reference_type(ptr_type),
                             get_lvalue_reference_type(target_type));
@@ -3771,7 +3810,18 @@ scope_entry_t* compute_intrinsic_max_min_aux(
     else if (input_type != NULL
             && !equivalent_types(get_unqualified_type(input_type), get_unqualified_type(t0)))
     {
-        return NULL;
+        if ((is_integer_type(input_type)
+                    && is_integer_type(t0))
+                || (is_floating_type(input_type)
+                    && is_floating_type(t0))
+                || (fortran_is_character_type(input_type)
+                    && fortran_is_character_type(t0)))
+        {
+            // Well, the input type does not match, but it is a common extension to
+            // allow different kinds for the same type
+        }
+        // Neither the type nor the kind match, this is wrong
+        else return NULL;
     }
 
     type_t* ranked_0[num_arguments + 1];
@@ -4782,6 +4832,19 @@ scope_entry_t* compute_intrinsic_access(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_abort(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 0)
+        return NULL;
+
+    return GET_INTRINSIC_IMPURE("abort",
+            /* subroutine */ get_void_type());
 }
 
 scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -6243,6 +6306,8 @@ scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
                 entry->entity_specs.is_module_procedure = symbol->entity_specs.is_module_procedure;
                 entry->entity_specs.in_module = symbol->entity_specs.in_module;
                 entry->entity_specs.from_module = symbol->entity_specs.from_module;
+                entry->decl_context.current_scope->related_entry =
+                    symbol->decl_context.current_scope->related_entry;
 
                 return entry;
             }

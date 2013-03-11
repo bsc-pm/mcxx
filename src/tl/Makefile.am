@@ -102,6 +102,8 @@ libtl_la_SOURCES = \
     tl-nodecl.cpp \
     tl-nodecl-utils.hpp \
     tl-nodecl-utils.cpp \
+    tl-nodecl-utils-fortran.hpp \
+    tl-nodecl-utils-fortran.cpp \
     tl-nodecl-calc.hpp \
     tl-nodecl-calc.cpp \
     tl-nodecl-replace.hpp \

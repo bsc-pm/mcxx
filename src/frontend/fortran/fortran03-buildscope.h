@@ -74,6 +74,8 @@ LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scop
 LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name,
         const char* filename, int line);
 
+LIBMF03_EXTERN void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_BUILDSCOPE_H

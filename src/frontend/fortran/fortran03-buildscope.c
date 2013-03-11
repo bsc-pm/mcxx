@@ -170,12 +170,12 @@ nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_un
     return nodecl_program_units;
 }
 
-static void build_scope_program_unit_internal(AST program_unit, 
+static void build_scope_program_unit_internal(AST program_unit,
         decl_context_t decl_context,
         scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
-void build_scope_program_unit_seq(AST program_unit_seq, 
+void build_scope_program_unit_seq(AST program_unit_seq,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -1081,8 +1081,11 @@ static void build_scope_subroutine_program_unit(AST program_unit,
             new_entry,
             ASTFileName(program_unit), ASTLine(program_unit));
 
-    new_entry->entity_specs.function_code = function_code;
 
+    if (!inside_interface(program_unit))
+    {
+        new_entry->entity_specs.function_code = function_code;
+    }
     *nodecl_output = nodecl_make_list_1(function_code);
 }
 
@@ -1838,7 +1841,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     type_t* return_type = get_void_type();
     if (is_function)
     {
-        // The return type has been specified
+        // The return type has already been specified
         if (existing_name != NULL)
         {
             return_type = existing_name->type_information;
@@ -1946,7 +1949,12 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             
             remove_unknown_kind_symbol(decl_context, result_sym);
 
-            result_sym->type_information = get_lvalue_reference_type(return_type);
+            if (result_sym->entity_specs.is_implicit_basic_type)
+            {
+                // If the symbol does not have any type, use the computed return type so far
+                // (otherwise its type is the one we want!)
+                result_sym->type_information = get_lvalue_reference_type(return_type);
+            }
 
             return_type = get_indirect_type(result_sym);
 
@@ -1964,6 +1972,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 // Insert the entry-name only if they are different
                 insert_entry(decl_context.current_scope, entry);
             }
+
         }
     }
     else if (is_function)
@@ -1979,15 +1988,11 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         remove_unknown_kind_symbol(decl_context, result_sym);
 
-        char function_has_type_spec = 0;
-        result_sym->type_information = get_lvalue_reference_type(return_type);
-        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
-
-        if (!function_has_type_spec)
+        if (result_sym->entity_specs.is_implicit_basic_type)
         {
-            // Add it as an explicit unknown symbol because we want it to be
-            // updated with a later IMPLICIT
-            add_untyped_symbol(decl_context, result_sym);
+            // If the symbol does not have any type, use the computed return type so far
+            // (otherwise its type is the one we want!)
+            result_sym->type_information = get_lvalue_reference_type(return_type);
         }
 
         return_type = get_indirect_type(result_sym);
@@ -5172,15 +5177,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (array_spec != NULL)
                 {
-                    if (current_attr_spec.is_dimension)
-                    {
-                        error_printf("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-                    }
-                    else
-                    {
-                        current_attr_spec.is_dimension = 1;
-                        current_attr_spec.array_spec = array_spec;
-                    }
+                    // Override the DIMENSION attribute
+                    current_attr_spec.is_dimension = 1;
+                    current_attr_spec.array_spec = array_spec;
                 }
 
                 if (coarray_spec != NULL)
@@ -6326,9 +6325,14 @@ static void build_scope_interface_block(AST a,
         const char* name = get_name_of_generic_spec(generic_spec);
         generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
 
+        scope_entry_t* previous_generic_spec_sym = NULL;
+
         if (generic_spec_sym == NULL
                 || generic_spec_sym->entity_specs.from_module)
         {
+            // Keep the seen generic specifier, we may need it later
+            previous_generic_spec_sym = generic_spec_sym;
+
             generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
 
             // If this name is not related to a specific interface, make it void
@@ -6348,6 +6352,7 @@ static void build_scope_interface_block(AST a,
             return;
         }
 
+
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
 
@@ -6355,6 +6360,13 @@ static void build_scope_interface_block(AST a,
         generic_spec_sym->entity_specs.is_generic_spec = 1;
         generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
+
+        // Set the access properly if the symbol has already been seen and we already know its access
+        if (previous_generic_spec_sym != NULL
+                && previous_generic_spec_sym->entity_specs.access != AS_UNKNOWN)
+        {
+            generic_spec_sym->entity_specs.access = previous_generic_spec_sym->entity_specs.access;
+        }
     }
 
     if (interface_specification_seq != NULL)
@@ -6397,6 +6409,26 @@ static void build_scope_interface_block(AST a,
     }
 }
 
+void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
+{
+    *entry = *intrinsic;
+
+    // The previous statement is not enough: we need to update some extra
+    // information because the related symbols may contain a pointer to the
+    // 'intrinsic' function.
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
+        if (symbol_is_parameter_of_function(current_sym, intrinsic))
+        {
+            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
+            symbol_set_as_parameter_of_function(current_sym, entry, position);
+        }
+    }
+}
+
+
 static void build_scope_intrinsic_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -6437,7 +6469,7 @@ static void build_scope_intrinsic_stmt(AST a,
                     continue;
                 }
                 // We have seen an EXTERNAL statement before for the same symbol
-                else 
+                else
                 {
                     error_printf("%s: error: entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
                             ast_location(name),
@@ -6458,8 +6490,7 @@ static void build_scope_intrinsic_stmt(AST a,
                 }
 
                 entry->kind = SK_FUNCTION;  
-                entry->entity_specs = entry_intrinsic->entity_specs;
-                entry->type_information = entry_intrinsic->type_information;
+                copy_intrinsic_function_info(entry, entry_intrinsic);
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }
@@ -6474,7 +6505,10 @@ static void build_scope_intrinsic_stmt(AST a,
                         ASTText(name));
                 continue;
             }
-            insert_alias(decl_context.current_scope, entry_intrinsic, strtolower(ASTText(name)));
+
+            entry = get_symbol_for_name(decl_context, name, ASTText(name));
+            copy_intrinsic_function_info(entry, entry_intrinsic);
+            remove_unknown_kind_symbol(decl_context, entry);
         }
     }
 }
@@ -8255,6 +8289,9 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             used_modules->entity_specs.num_related_symbols,
             module_symbol);
 
+    nodecl_t nodecl_fortran_use = nodecl_null();
+    nodecl_t nodecl_used_symbols = nodecl_null();
+
     if (!is_only)
     {
         int num_renamed_symbols = 0;
@@ -8289,15 +8326,21 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                 {
                     scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
 
-                    insert_symbol_from_module(sym_in_module, 
+                    scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                             decl_context, 
                             get_name_of_generic_spec(local_name), 
                             module_symbol, 
                             ASTFileName(local_name), 
                             ASTLine(local_name));
 
+                    nodecl_used_symbols = nodecl_append_to_list(
+                            nodecl_used_symbols,
+                            nodecl_make_symbol(inserted_symbol, 
+                                ASTFileName(local_name), 
+                                ASTLine(local_name)));
+
                     // "USE M, C => A, D => A" is valid so we avoid adding twice
-                    // 'A' in the list (entry_list_it would be harmless, though)
+                    // 'A' in the list (it would be harmless, though)
                     char found = 0;
                     int i;
                     for (i = 0; i < num_renamed_symbols && found; i++)
@@ -8340,6 +8383,10 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         ASTLine(a));
             }
         }
+
+        nodecl_fortran_use = nodecl_make_fortran_use(
+                nodecl_make_symbol(module_symbol, ASTFileName(a), ASTLine(a)),
+                nodecl_used_symbols, ASTFileName(a), ASTLine(a));
     }
     else // is_only
     {
@@ -8374,12 +8421,18 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                         {
                             scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
 
-                            insert_symbol_from_module(sym_in_module, 
+                            scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                                     decl_context, 
                                     get_name_of_generic_spec(local_name), 
                                     module_symbol, 
                                     ASTFileName(local_name), 
                                     ASTLine(local_name));
+
+                            nodecl_used_symbols = nodecl_append_to_list(
+                                    nodecl_used_symbols,
+                                    nodecl_make_symbol(inserted_symbol, 
+                                        ASTFileName(local_name), 
+                                        ASTLine(local_name)));
                         }
                         entry_list_iterator_free(entry_list_it);
 
@@ -8408,12 +8461,19 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                 entry_list_iterator_next(entry_list_it))
                         {
                             scope_entry_t* sym_in_module = entry_list_iterator_current(entry_list_it);
-                            insert_symbol_from_module(sym_in_module, 
+
+                            scope_entry_t* inserted_symbol = insert_symbol_from_module(sym_in_module, 
                                     decl_context, 
                                     sym_in_module->symbol_name, 
                                     module_symbol,
                                     ASTFileName(sym_in_module_name), 
                                     ASTLine(sym_in_module_name));
+
+                            nodecl_used_symbols = nodecl_append_to_list(
+                                    nodecl_used_symbols,
+                                    nodecl_make_symbol(inserted_symbol,
+                                        ASTFileName(sym_in_module_name),
+                                        ASTLine(sym_in_module_name)));
                         }
                         entry_list_iterator_free(entry_list_it);
 
@@ -8421,7 +8481,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                     }
             }
         }
+
+        nodecl_fortran_use = nodecl_make_fortran_use_only(
+                nodecl_make_symbol(module_symbol, ASTFileName(a), ASTLine(a)),
+                nodecl_used_symbols, ASTFileName(a), ASTLine(a));
     }
+
+    used_modules->value = nodecl_append_to_list(used_modules->value, nodecl_fortran_use);
 }
 
 static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)

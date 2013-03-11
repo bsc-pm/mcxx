@@ -2624,7 +2624,76 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
     return NULL;
 }
 
+#define GET_MXX_STRUCT_TYPE(n) \
+    static type_t* __m##n##_struct_type = NULL; \
+    type_t* get_m##n##_struct_type(void) \
+    { \
+        return __m##n##_struct_type; \
+    } \
+    static type_t* __m##n##d_struct_type = NULL; \
+    type_t* get_m##n##d_struct_type(void) \
+    { \
+        return __m##n##d_struct_type; \
+    } \
+    static type_t* __m##n##i_struct_type = NULL; \
+    type_t* get_m##n##i_struct_type(void) \
+    { \
+        return __m##n##i_struct_type; \
+    }
+
+GET_MXX_STRUCT_TYPE(128)
+GET_MXX_STRUCT_TYPE(256)
+GET_MXX_STRUCT_TYPE(512)
+
 static void sign_in_sse_builtins(decl_context_t decl_context)
 {
+    struct {
+       const char* name;
+       type_t** field;
+       enum type_tag_t type_tag;
+    } vector_names[] = {
+        { "struct __m128",  &__m128_struct_type,   TT_STRUCT },
+        { "struct __m128d", &__m128d_struct_type,  TT_STRUCT },
+        { "union __m128i",  &__m128i_struct_type,  TT_UNION },
+
+        { "union __m256",   &__m256_struct_type,   TT_UNION },
+        { "struct __m256d", &__m256d_struct_type,  TT_STRUCT },
+        { "union __m256i",  &__m256i_struct_type,  TT_UNION },
+
+        { "union __m512",   &__m512_struct_type,  TT_UNION },
+        { "union __m512d",  &__m512d_struct_type, TT_UNION },
+        { "union __m512i",  &__m512i_struct_type, TT_UNION },
+        { NULL, NULL, TT_INVALID }
+    };
+
+    if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+    {
+        int i;
+        for (i = 0; vector_names[i].name != NULL; i++)
+        {
+            const char* name = vector_names[i].name;
+            CXX_LANGUAGE()
+            {
+                // Skip "struct "
+                name += strlen("struct ");
+                name = uniquestr(name);
+            }
+
+            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            sym->kind = SK_CLASS;
+            sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
+
+            *(vector_names[i].field) = get_user_defined_type(sym);
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; vector_names[i].name != NULL; i++)
+        {
+            *(vector_names[i].field) = NULL;
+        }
+    }
+
 #include "cxx-gccbuiltins-sse.h"
 }

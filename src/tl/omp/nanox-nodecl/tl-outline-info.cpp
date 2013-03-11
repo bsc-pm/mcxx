@@ -162,21 +162,21 @@ namespace TL { namespace Nanox {
 
         outline_info.set_base_address_expression(data_ref.get_address_of_symbol());
 
-        Type t = sym.get_type();
-        if (t.is_any_reference())
-        {
-            t = t.references_to();
-        }
-
-        if (t.is_array())
-        {
-            t = t.array_element().get_pointer_to();
-        }
-
-        outline_info.set_field_type(t.get_unqualified_type());
-
         if (is_new)
         {
+            Type t = sym.get_type();
+            if (t.is_any_reference())
+            {
+                t = t.references_to();
+            }
+
+            if (t.is_array())
+            {
+                t = t.array_element().get_pointer_to();
+            }
+
+            outline_info.set_field_type(t.get_unqualified_type());
+
             TL::Type in_outline_type = t.get_unqualified_type();
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
@@ -1029,8 +1029,10 @@ namespace TL { namespace Nanox {
             ti.add_device_name(device_name);
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
+
             if (_function_task_set.valid())
             {
+                set_file(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
                 append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
                 append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
             }

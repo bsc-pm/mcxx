@@ -55,6 +55,7 @@ namespace Codegen
             void visit(const Nodecl::LogicalNot& node);
             void visit(const Nodecl::Mul& node);
             void visit(const Nodecl::Div& node);
+            void visit(const Nodecl::Mod& node);
             void visit(const Nodecl::Add& node);
             void visit(const Nodecl::Minus& node);
             void visit(const Nodecl::LowerThan& node);
@@ -122,6 +123,9 @@ namespace Codegen
             void visit(const Nodecl::FortranForall& node);
             void visit(const Nodecl::FortranWhere& node);
             void visit(const Nodecl::FortranBozLiteral& node);
+            void visit(const Nodecl::FortranHollerith& node);
+            void visit(const Nodecl::FortranUse& node);
+            void visit(const Nodecl::FortranUseOnly& node);
             void visit(const Nodecl::FieldDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
@@ -336,6 +340,9 @@ namespace Codegen
             void do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase node, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq, UseStmtInfo&);
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo&);
+            void declare_use_statements_of_procedure(
+                    TL::Symbol entry,
+                    Nodecl::List statement_seq, Nodecl::List internal_subprograms);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo&);
 
             void declare_module_level_entities(Nodecl::NodeclBase node);
@@ -415,9 +422,15 @@ namespace Codegen
 
             void emit_floating_constant(const_value_t* value, TL::Type t);
 
+            void emit_only_list(Nodecl::List only_items);
+
             std::string _emit_fun_loc_str;
             bool _emit_fun_loc;
             void set_emit_fun_loc(const std::string& str);
+
+            std::string _deduce_use_statements_str;
+            bool _deduce_use_statements;
+            void set_deduce_use_statements(const std::string& str);
     };
 }
 
