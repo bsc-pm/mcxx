@@ -70,20 +70,10 @@ namespace TL
 
                 Nodecl::List _extra_c_code;
 
-                // Source emit_allocate_statement(
-                //         TL::Symbol sym,
-                //         int &lower_bound_index,
-                //         int &upper_bound_index);
-
                 void add_forward_code_to_extra_c_code(
                         const std::string& outline_name,
                         TL::ObjectList<OutlineDataItem*> data_items,
                         Nodecl::NodeclBase parse_context);
-
-                TL::Type rewrite_type_of_vla_in_outline(
-                        TL::Type t,
-                        const TL::ObjectList<OutlineDataItem*> &data_items,
-                        TL::Symbol& arguments_symbol);
         };
     }
 }

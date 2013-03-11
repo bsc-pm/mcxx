@@ -87,19 +87,6 @@ namespace TL { namespace Nanox {
     {
         return _enable_instrumentation;
     }
-    //
-    //
-    // bool DeviceProvider::do_not_create_translation_function()
-    // {
-    //     return !Nanos::Version::interface_is_at_least("master", 5003)
-    //         || _do_not_create_translation_fun;
-    // }
-    // 
-    // bool DeviceProvider::create_translation_function()
-    // {
-    //     return !do_not_create_translation_function();
-    // }
-    // 
 
     void DeviceProvider::common_constructor_code()
     {
@@ -804,4 +791,256 @@ namespace TL { namespace Nanox {
         out_symbol_map = symbol_map;
         return new_function_sym;
     }
+
+    TL::Symbol DeviceProvider::new_function_symbol(
+            TL::Symbol current_function,
+            const std::string& name,
+            TL::Type return_type,
+            ObjectList<std::string> parameter_names,
+            ObjectList<TL::Type> parameter_types)
+    {
+        decl_context_t decl_context = current_function.get_scope().get_decl_context();
+        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
+
+        decl_context_t function_context;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+
+        // Build the function type
+        int num_parameters = 0;
+        scope_entry_t** parameter_list = NULL;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
+        for (ObjectList<std::string>::iterator it = parameter_names.begin();
+                it != parameter_names.end();
+                it++, it_ptypes++, type_it++)
+        {
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            param->entity_specs.is_user_declared = 1;
+            param->kind = SK_VARIABLE;
+            param->file = "";
+            param->line = 0;
+
+            param->defined = 1;
+
+            param->type_information = get_unqualified_type(type_it->get_internal_type());
+
+            P_LIST_ADD(parameter_list, num_parameters, param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+            it_ptypes->type_info = get_indirect_type(param);
+        }
+
+        type_t *function_type = get_new_function_type(
+                return_type.get_internal_type(),
+                p_types,
+                parameter_types.size());
+
+        delete[] p_types;
+
+        // Now, we can create the new function symbol
+        scope_entry_t* new_function_sym = NULL;
+        if (!current_function.get_type().is_template_specialized_type())
+        {
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+            new_function_sym->entity_specs.is_user_declared = 1;
+            new_function_sym->kind = SK_FUNCTION;
+            new_function_sym->file = "";
+            new_function_sym->line = 0;
+            new_function_sym->type_information = function_type;
+        }
+        else
+        {
+            scope_entry_t* new_template_sym = new_symbol(
+                    decl_context, decl_context.current_scope, name.c_str());
+            new_template_sym->kind = SK_TEMPLATE;
+            new_template_sym->file = "";
+            new_template_sym->line = 0;
+
+            new_template_sym->type_information = get_new_template_type(
+                    decl_context.template_parameters,
+                    function_type,
+                    uniquestr(name.c_str()),
+                    decl_context, 0, "");
+
+            template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            // The new function is the primary template specialization
+            new_function_sym = named_type_get_symbol(
+                    template_type_get_primary_type(
+                        new_template_sym->type_information));
+        }
+
+        function_context.function_scope->related_entry = new_function_sym;
+        function_context.block_scope->related_entry = new_function_sym;
+
+        new_function_sym->related_decl_context = function_context;
+
+        new_function_sym->entity_specs.related_symbols = parameter_list;
+        new_function_sym->entity_specs.num_related_symbols = num_parameters;
+        for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
+        {
+            symbol_set_as_parameter_of_function(
+                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+        }
+
+        // Make it static
+        new_function_sym->entity_specs.is_static = 1;
+
+        // Make it member if the enclosing function is member
+        if (current_function.is_member())
+        {
+            new_function_sym->entity_specs.is_member = 1;
+            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+            new_function_sym->entity_specs.access = AS_PUBLIC;
+
+            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
+        }
+        return new_function_sym;
+    }
+
+    void DeviceProvider::build_empty_body_for_function(
+            TL::Symbol function_symbol,
+            Nodecl::NodeclBase &function_code,
+            Nodecl::NodeclBase &empty_stmt
+            )
+    {
+        empty_stmt = Nodecl::EmptyStatement::make("", 0);
+        Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::CompoundStatement compound_statement =
+                Nodecl::CompoundStatement::make(stmt_list,
+                        /* destructors */ Nodecl::NodeclBase::null(),
+                        "", 0);
+            stmt_list = Nodecl::List::make(compound_statement);
+        }
+
+        Nodecl::NodeclBase context = Nodecl::Context::make(
+                stmt_list,
+                function_symbol.get_related_scope(), "", 0);
+
+        function_symbol.get_internal_symbol()->defined = 1;
+
+        if (function_symbol.is_dependent_function())
+        {
+            function_code = Nodecl::TemplateFunctionCode::make(context,
+                    // Initializers
+                    Nodecl::NodeclBase::null(),
+                    // Internal functions
+                    Nodecl::NodeclBase::null(),
+                    function_symbol,
+                    "", 0);
+        }
+        else
+        {
+            function_code = Nodecl::FunctionCode::make(context,
+                    // Initializers
+                    Nodecl::NodeclBase::null(),
+                    // Internal functions
+                    Nodecl::NodeclBase::null(),
+                    function_symbol,
+                    "", 0);
+        }
+    }
+
+    // Rewrite inline
+    struct RewriteExprOfVla : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            const TL::ObjectList<OutlineDataItem*> &_data_items;
+            TL::Symbol &_args_symbol;
+
+        public:
+
+        RewriteExprOfVla(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
+            : _data_items(data_items),
+            _args_symbol(args_symbol)
+        { }
+
+        virtual void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            for (TL::ObjectList<OutlineDataItem*>::const_iterator it = _data_items.begin();
+                    it != _data_items.end();
+                    it++)
+            {
+                if (sym == (*it)->get_symbol())
+                {
+                    Nodecl::NodeclBase new_class_member_access;
+                    // x -> args.x
+                    Nodecl::NodeclBase new_args_ref = Nodecl::Symbol::make(_args_symbol);
+                    // Should be a reference already
+                    new_args_ref.set_type(_args_symbol.get_type());
+
+                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make((*it)->get_field_symbol());
+                    field_ref.set_type(field_ref.get_symbol().get_type());
+
+                    new_class_member_access = Nodecl::ClassMemberAccess::make(
+                            new_args_ref,
+                            field_ref,
+                            // The type of this node should be the same
+                            node.get_type());
+
+                    node.replace(new_class_member_access);
+                    break;
+                }
+            }
+        }
+    };
+
+    TL::Type DeviceProvider::rewrite_type_of_vla_in_outline(
+            TL::Type t,
+            const TL::ObjectList<OutlineDataItem*> &data_items,
+            TL::Symbol &arguments_symbol)
+    {
+        if (t.is_pointer())
+        {
+            TL::Type p = rewrite_type_of_vla_in_outline(
+                    t.points_to(),
+                    data_items,
+                    arguments_symbol);
+
+            return p.get_pointer_to();
+        }
+        else if (t.is_lvalue_reference())
+        {
+            TL::Type item = rewrite_type_of_vla_in_outline(
+                    t.references_to(),
+                    data_items,
+                    arguments_symbol);
+
+            return item.get_lvalue_reference_to();
+        }
+        else if (t.is_array())
+        {
+            TL::Type elem = rewrite_type_of_vla_in_outline(
+                    t.array_element(),
+                    data_items,
+                    arguments_symbol);
+
+            Nodecl::NodeclBase new_size = t.array_get_size().shallow_copy();
+            RewriteExprOfVla rewrite_expr_of_vla(data_items, arguments_symbol);
+            rewrite_expr_of_vla.walk(new_size);
+
+            return elem.get_array_to(new_size, new_size.retrieve_context());
+        }
+        // Do nothing
+        else return t;
+    }
+
+
+
 } }
