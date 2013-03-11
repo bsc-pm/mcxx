@@ -6411,6 +6411,15 @@ static void build_scope_interface_block(AST a,
 
 void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
 {
+    // Symbols from modules need a bit more of care
+    scope_entry_t* in_module = NULL;
+    access_specifier_t access = AS_UNKNOWN;
+    if (entry->entity_specs.in_module != NULL)
+    {
+        in_module = entry->entity_specs.in_module;
+        access = entry->entity_specs.access;
+    }
+
     *entry = *intrinsic;
 
     // The previous statement is not enough: we need to update some extra
@@ -6425,6 +6434,12 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
             int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
             symbol_set_as_parameter_of_function(current_sym, entry, position);
         }
+    }
+
+    if (in_module != NULL)
+    {
+        entry->entity_specs.in_module = in_module;
+        entry->entity_specs.access = access;
     }
 }
 
