@@ -3274,7 +3274,7 @@ OPERATOR_TABLE
                 attribute_list += ", ALLOCATABLE";
             if (entry.is_target())
                 attribute_list += ", TARGET";
-            if (entry.is_parameter() 
+            if (entry.is_parameter()
                     && !entry.get_type().is_any_reference()
                     && !fortran_is_character_type(entry.get_type().get_internal_type()))
             {
@@ -3319,10 +3319,24 @@ OPERATOR_TABLE
             {
                 TL::Symbol sym = entry.get_scope().get_decl_context().current_scope->related_entry;
                 // Avoid redundant SAVEs due to a global SAVE
-                if (!sym.is_valid() 
+                if (!sym.is_valid()
                         || !sym.is_saved_program_unit())
                 {
                     attribute_list += ", SAVE";
+                }
+            }
+            if (!_deduce_use_statements)
+            {
+                if (entry.in_module().is_valid())
+                {
+                    if (entry.get_access_specifier() == AS_PRIVATE)
+                    {
+                        attribute_list += ", PRIVATE";
+                    }
+                    else if (entry.get_access_specifier() == AS_PUBLIC)
+                    {
+                        attribute_list += ", PUBLIC";
+                    }
                 }
             }
             if (entry.get_type().is_volatile()
@@ -3516,6 +3530,20 @@ OPERATOR_TABLE
                 indent();
                 symbol_name = entry.get_name().substr(strlen(".common."));
                 file << "SAVE / " << symbol_name << " /\n";
+            }
+
+            if (!_deduce_use_statements)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    indent();
+                    file << "PRIVATE :: " << symbol_name << std::endl;
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    indent();
+                    file << "PUBLIC :: " << symbol_name << std::endl;
+                }
             }
         }
         else if (entry.is_function())
@@ -3723,6 +3751,21 @@ OPERATOR_TABLE
                     }
                 }
             }
+
+            if (_deduce_use_statements
+                    && !state.in_interface)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    indent();
+                    file << "PRIVATE :: " << entry.get_name() << std::endl;
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    indent();
+                    file << "PUBLIC :: " << entry.get_name() << std::endl;
+                }
+            }
         }
         else if (entry.is_class())
         {
@@ -3764,7 +3807,7 @@ OPERATOR_TABLE
                     break;
                 }
             }
-            
+
             // Keep the rename info
             name_set_t old_name_set;
             rename_map_t old_rename_map;
@@ -3775,7 +3818,19 @@ OPERATOR_TABLE
             clear_renames();
 
             indent();
-            file << "TYPE :: " << real_name;
+            file << "TYPE";
+
+            if (!_deduce_use_statements)
+            {
+                if (entry.get_access_specifier() == AS_PRIVATE)
+                {
+                    file << ", PRIVATE";
+                }
+                else if (entry.get_access_specifier() == AS_PUBLIC)
+                {
+                    file << ", PUBLIC";
+                }
+            }
 
             if (entry.is_bind_c())
             {
@@ -3792,7 +3847,7 @@ OPERATOR_TABLE
                 }
             }
 
-            file << "\n";
+            file << " :: " << real_name << "\n";
 
             bool previous_was_bitfield = false;
             int first_bitfield_offset = 0;
@@ -3878,7 +3933,6 @@ OPERATOR_TABLE
                 file << "! DERVIVED TYPE WITHOUT MEMBERS\n";
             }
 
-
             dec_indent();
             pop_declaring_entity();
 
@@ -3945,6 +3999,7 @@ OPERATOR_TABLE
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         std::set<std::string> private_names;
+        std::set<std::string> public_names; // Only used if !_deduce_use_statements
 
         // Note that we only emit automatic USE statements if .used_modules has a NULL
         // value, otherwise just blindly believe that value
@@ -3993,6 +4048,12 @@ OPERATOR_TABLE
         indent();
         file << "IMPLICIT NONE\n";
 
+        if (!_deduce_use_statements
+                && entry.get_access_specifier() == AS_PRIVATE)
+        {
+            indent();
+            file << "PRIVATE\n";
+        }
 
         if (entry.is_saved_program_unit())
         {
@@ -4018,18 +4079,35 @@ OPERATOR_TABLE
             {
                 declare_symbol(sym, sym.get_scope());
             }
+
+            std::set<std::string>* access_set = NULL;
             if (sym.get_access_specifier() == AS_PRIVATE)
             {
-                // If it has a private access specifier, state so
-                private_names.insert(sym.get_name());
+                access_set = &private_names;
+            }
+            else if (sym.get_access_specifier() == AS_PUBLIC
+                    || sym.get_access_specifier() == AS_UNKNOWN)
+            {
+                access_set = &public_names;
+            }
+
+            if (sym.is_module_procedure()
+                    || sym.is_generic_specifier()
+                    || sym.is_function())
+            {
+                access_set->insert(sym.get_name());
             }
         }
 
-        // Review again for generic specifiers that are actually PUBLIC
+        // Review symbols again
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
         {
+            // Here we do not consider symbols USEd from other modules
+            if (it->is_from_module())
+                continue;
+
             TL::Symbol &sym(*it);
             // If a generic specifier is PUBLIC but a specific interface with the same name
             // is private, remove it from PRIVATE names
@@ -4042,20 +4120,89 @@ OPERATOR_TABLE
             }
         }
 
-        if (!private_names.empty())
+        if (_deduce_use_statements)
         {
-            indent();
-            file << "PRIVATE :: ";
-            for (std::set<std::string>::iterator it = private_names.begin();
-                    it != private_names.end();
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
                     it++)
             {
-                if (it != private_names.begin())
-                    file << ", ";
-
-                file << get_generic_specifier_str(*it);
+                TL::Symbol &sym(*it);
+                if (sym.get_access_specifier() == AS_PRIVATE)
+                {
+                    // If it has a private access specifier, state so
+                    private_names.insert(sym.get_name());
+                }
             }
-            file << std::endl;
+            // Review again for generic specifiers that are actually PUBLIC
+            for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
+                    it != related_symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                // If a generic specifier is PUBLIC but a specific interface with the same name
+                // is private, remove it from PRIVATE names
+                if (sym.is_generic_specifier()
+                        && sym.get_access_specifier() != AS_PRIVATE)
+                {
+                    std::set<std::string>::iterator same_name = private_names.find(sym.get_name());
+                    if (same_name != private_names.end())
+                        private_names.erase(same_name);
+                }
+            }
+
+            if (!private_names.empty())
+            {
+                indent();
+                file << "PRIVATE :: ";
+                for (std::set<std::string>::iterator it = private_names.begin();
+                        it != private_names.end();
+                        it++)
+                {
+                    if (it != private_names.begin())
+                        file << ", ";
+
+                    file << get_generic_specifier_str(*it);
+                }
+                file << std::endl;
+            }
+        }
+        else
+        {
+            std::set<std::string>* access_set = NULL;
+            std::string access_spec;
+            if (entry.get_access_specifier() == AS_PRIVATE)
+            {
+                // The module has a PRIVATE, so we only need to emit PUBLIC things
+                access_set = &public_names;
+                access_spec = "PUBLIC";
+            }
+            else if (entry.get_access_specifier() == AS_PUBLIC
+                    || entry.get_access_specifier() == AS_UNKNOWN)
+            {
+                // The module does not have a PRIVATE, so emit only PRIVATE things
+                access_set = &private_names;
+                access_spec = "PRIVATE";
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (!access_set->empty())
+            {
+                indent();
+                file << access_spec << " :: ";
+                for (std::set<std::string>::iterator it = access_set->begin();
+                        it != access_set->end();
+                        it++)
+                {
+                    if (it != access_set->begin())
+                        file << ", ";
+
+                    file << get_generic_specifier_str(*it);
+                }
+                file << std::endl;
+            }
         }
 
         for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nodes_before_contains.begin();
