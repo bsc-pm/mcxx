@@ -3926,7 +3926,6 @@ static void check_symbol_of_called_name(AST sym,
 
                     remove_untyped_symbol(decl_context, entry);
 
-                    // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     copy_intrinsic_function_info(entry, intrinsic_symbol);
                 }
