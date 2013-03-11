@@ -55,7 +55,7 @@ void DeviceOpenCL::generate_ndrange_code(
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
         const std::string filename,
         const TL::ObjectList<OutlineDataItem*>& data_items,
-        const Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
         Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
         // Out
         TL::Source& code_ndrange)
@@ -76,17 +76,34 @@ void DeviceOpenCL::generate_ndrange_code(
         called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
-   // The arguments of the clause 'ndrange' must be updated because they are not
-   // expressed in terms of the unpacked arguments
+    // The arguments of the clause 'ndrange' must be updated because they are not
+    // expressed in terms of the unpacked arguments
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
     int num_args_ndrange = ndrange_args.size();
-    for (int i = 0; i < num_args_ndrange; ++i)
+    if (IS_FORTRAN_LANGUAGE)
     {
-        new_ndrange.append(Nodecl::Utils::deep_copy(
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                        (!IS_FORTRAN_LANGUAGE) ?
-                            called_fun_to_unpacked_fun_map : *outline_data_to_unpacked_fun_map));
+                    *called_fun_to_outline_data_map);
+
+            new_ndrange.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
+    }
+    else
+    {
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+            new_ndrange.append(Nodecl::Utils::deep_copy(
+                        ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        called_fun_to_unpacked_fun_map));
+        }
     }
 
     bool dim_const = new_ndrange[0].is_constant();
