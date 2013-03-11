@@ -44,7 +44,8 @@ namespace TL
         bool Core::_silent_declare_reduction(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp")
+            : PragmaCustomCompilerPhase("omp"),
+            _discard_unused_data_sharings(false)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -52,7 +53,6 @@ namespace TL
 
             register_omp_constructs();
         }
-
 
         void Core::pre_run(TL::DTO& dto)
         {
@@ -209,7 +209,8 @@ namespace TL
                     {
                         Symbol base_sym = data_ref.get_base_symbol();
 
-                        if (!symbols_in_construct.contains(base_sym))
+                        if (_discard_unused_data_sharings
+                                && !symbols_in_construct.contains(base_sym))
                         {
                             std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
                                 << "' since it does not appear in the construct" << std::endl;
