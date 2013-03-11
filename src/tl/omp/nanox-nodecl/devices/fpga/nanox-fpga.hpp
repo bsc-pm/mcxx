@@ -68,24 +68,6 @@ namespace TL
                 Nodecl::List _fpga_file_code;
                 std::string _dump_ast;
 
-                TL::Symbol new_function_symbol_unpacked(
-                        TL::Symbol current_function,
-                        const std::string& function_name,
-                        TL::ObjectList<OutlineDataItem*>& data_items,
-                        Nodecl::Utils::SymbolMap*& out_symbol_map);
-
-                void build_empty_body_for_function(
-                        TL::Symbol function_symbol,
-                        Nodecl::NodeclBase &function_code,
-                        Nodecl::NodeclBase &empty_stmt);
-            
-                TL::Symbol new_function_symbol(
-                            TL::Symbol current_function,
-                        const std::string& name,
-                        TL::Type return_type,
-                        ObjectList<std::string> parameter_names,
-                        ObjectList<TL::Type> parameter_types);
-
                 TL::Source fpga_param_code(
                         TL::ObjectList<OutlineDataItem*> &data_items,
                         Nodecl::Utils::SymbolMap *,
