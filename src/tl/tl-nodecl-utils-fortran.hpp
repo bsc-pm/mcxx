@@ -214,6 +214,8 @@ namespace Nodecl { namespace Utils { namespace Fortran {
     void copy_used_modules(TL::Scope orig_scope,
             TL::Scope new_scope);
 
+    void append_used_modules(TL::Scope orig_scope,
+            TL::Scope new_scope);
 } } }
 
 #endif // TL_NODECL_UTILS_FORTRAN_HPP

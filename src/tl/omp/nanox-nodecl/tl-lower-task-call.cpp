@@ -1019,6 +1019,10 @@ static TL::Symbol new_function_symbol_adapter(
             current_function.get_related_scope(),
             new_function_sym->related_decl_context);
 
+    Nodecl::Utils::Fortran::append_used_modules(
+            called_function.get_related_scope(),
+            new_function_sym->related_decl_context);
+
     // Add USEd symbols
     Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
     insert_used_symbols.walk(current_function.get_function_code());

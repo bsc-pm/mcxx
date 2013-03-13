@@ -171,6 +171,13 @@ namespace TL { namespace Nanox {
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
 
+            if (is_function_task)
+            {
+                Nodecl::Utils::Fortran::append_used_modules(
+                        info._called_task.get_related_scope(),
+                        unpacked_function_scope);
+            }
+
             extra_declarations
                 << "IMPLICIT NONE\n";
 
