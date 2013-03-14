@@ -192,6 +192,11 @@ void DeviceOpenCL::generate_ndrange_code(
     //Build arrays with information from ndrange clause or pointing to the ndrange pointers
     if (!dim_const)
     {
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            internal_error("The number of dimensions is non-constant. This feature is not implemented yet in Fortran.", 0);
+        }
+
         //Prepare ndrange calc pointers and arrays
         code_ndrange_aux
             << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
