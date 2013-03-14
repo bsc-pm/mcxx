@@ -3930,7 +3930,7 @@ OPERATOR_TABLE
             if (members.empty())
             {
                 indent();
-                file << "! DERVIVED TYPE WITHOUT MEMBERS\n";
+                file << "! DERIVED TYPE WITHOUT MEMBERS\n";
             }
 
             dec_indent();
