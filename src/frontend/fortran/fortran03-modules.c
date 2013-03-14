@@ -2127,7 +2127,7 @@ static int get_symbol(void *datum,
                 (*result)->symbol_name);
         ERROR_CONDITION(entry_intrinsic == NULL, "Invalid intrinsic '%s'\n", (*result)->symbol_name);
 
-        (*result)->type_information = entry_intrinsic->type_information;
+        copy_intrinsic_function_info(*result, entry_intrinsic);
     }
 
     // This is a (top-level) module. Keep in the module symbol cache

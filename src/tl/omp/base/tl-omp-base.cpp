@@ -354,6 +354,12 @@ namespace TL { namespace OpenMP {
                 _openmp_dry_run,
                 "0");
 
+        register_parameter("discard_unused_data_sharings",
+                "Discards unused data sharings in the body of the construct. "
+                "This behaviour may cause wrong code be emitted, use at your own risk",
+                _discard_unused_data_sharings_str,
+                "0").connect(functor(&Base::set_discard_unused_data_sharings, *this));
+
         register_parameter("simd_enabled",
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
@@ -459,12 +465,22 @@ namespace TL { namespace OpenMP {
 
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
-    void Base::set_simd(const std::string simd_enabled_str)
+    void Base::set_simd(const std::string &simd_enabled_str)
     {
-        if (simd_enabled_str == "1")
-        {
-            _simd_enabled = true;
-        }
+        parse_boolean_option("simd_enabled",
+                simd_enabled_str,
+                _simd_enabled,
+                "Assuming false");
+    }
+
+    void Base::set_discard_unused_data_sharings(const std::string& str)
+    {
+        bool b = false;
+        parse_boolean_option("discard_unused_data_sharings",
+                str,
+                b,
+                "Assuming false");
+        _core.set_discard_unused_data_sharings(b);
     }
 
     void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }

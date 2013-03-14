@@ -55,7 +55,7 @@ void DeviceOpenCL::generate_ndrange_code(
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
         const std::string filename,
         const TL::ObjectList<OutlineDataItem*>& data_items,
-        const Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
         Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
         // Out
         TL::Source& code_ndrange)
@@ -76,17 +76,34 @@ void DeviceOpenCL::generate_ndrange_code(
         called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
-   // The arguments of the clause 'ndrange' must be updated because they are not
-   // expressed in terms of the unpacked arguments
+    // The arguments of the clause 'ndrange' must be updated because they are not
+    // expressed in terms of the unpacked arguments
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
     int num_args_ndrange = ndrange_args.size();
-    for (int i = 0; i < num_args_ndrange; ++i)
+    if (IS_FORTRAN_LANGUAGE)
     {
-        new_ndrange.append(Nodecl::Utils::deep_copy(
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                        (!IS_FORTRAN_LANGUAGE) ?
-                            called_fun_to_unpacked_fun_map : *outline_data_to_unpacked_fun_map));
+                    *called_fun_to_outline_data_map);
+
+            new_ndrange.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
+    }
+    else
+    {
+        for (int i = 0; i < num_args_ndrange; ++i)
+        {
+            new_ndrange.append(Nodecl::Utils::deep_copy(
+                        ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        called_fun_to_unpacked_fun_map));
+        }
     }
 
     bool dim_const = new_ndrange[0].is_constant();
@@ -96,7 +113,6 @@ void DeviceOpenCL::generate_ndrange_code(
             && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
 
     int num_dim = 0;
-
     if (dim_const)
     {
         num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
@@ -116,8 +132,11 @@ void DeviceOpenCL::generate_ndrange_code(
     }
 
     //Create OCL Kernel
-    code_ndrange_aux << "nanos_err_t err;";
-    code_ndrange_aux << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
+    code_ndrange_aux << "nanos_err_t err;"
+                     << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
+                     <<         called_task.get_name() << "\",\""
+                     <<         filename << "\",\""
+                     <<         compiler_opts << "\");";
 
     //Prepare setArgs
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
@@ -125,6 +144,7 @@ void DeviceOpenCL::generate_ndrange_code(
     {
         TL::Symbol unpacked_argument = called_fun_to_unpacked_fun_map.map(parameters_called[i]);
 
+        // The attribute __global is deduced: the current argument will be __global if it has any copies
         bool is_global = false;
         if (unpacked_argument.get_type().no_ref().is_pointer()
                 || unpacked_argument.get_type().no_ref().is_array())
@@ -168,10 +188,15 @@ void DeviceOpenCL::generate_ndrange_code(
         }
     }
 
-    int num_dim_offset = num_dim;
+
     //Build arrays with information from ndrange clause or pointing to the ndrange pointers
     if (!dim_const)
     {
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            internal_error("The number of dimensions is non-constant. This feature is not implemented yet in Fortran.", 0);
+        }
+
         //Prepare ndrange calc pointers and arrays
         code_ndrange_aux
             << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
@@ -280,6 +305,8 @@ void DeviceOpenCL::generate_ndrange_code(
     }
     else
     {
+        int num_dim_offset = num_dim;
+
         //Prepare ndrange calc pointers and arrays
         code_ndrange_aux
             << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
