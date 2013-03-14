@@ -1985,6 +1985,12 @@ static int get_symbol(void *datum,
 
     (*result) = NULL;
 
+    // We need to load the bits for the early checks in the loaded symbol
+    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
+    entity_specifiers_t entity_specs;
+    memset(&entity_specs, 0, sizeof(entity_specs));
+    unpack_bits(&entity_specs, packed_bits);
+
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
     {
@@ -2037,9 +2043,11 @@ static int get_symbol(void *datum,
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
                         && member->entity_specs.from_module == from_module
-                        && member->entity_specs.alias_to == alias_to)
+                        && member->entity_specs.alias_to == alias_to
+                        // A name can be repeated if one of them is a generic
+                        // specifier, so the name and module coordenates will be the same
+                        && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
                 {
-                    // fprintf(stderr, "SYMBOL %lld '%s.%s' WAS ALREADY LOADED IN ITS MODULE\n", 
                     //         oid,
                     //         in_module->symbol_name, member->symbol_name);
                     (*result) = member;
@@ -2090,8 +2098,9 @@ static int get_symbol(void *datum,
 
     (*result)->value = load_nodecl(handle, value_oid);
 
-    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
-    unpack_bits((*result), packed_bits);
+    // Unpack bits again (we cannot directly write entity specs because we
+    // would be overwriting non-bits as well)
+    unpack_bits(&(*result)->entity_specs, packed_bits);
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 

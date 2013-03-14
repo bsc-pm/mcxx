@@ -448,7 +448,7 @@ def print_fortran_modules_functions(lines):
     print "return result;"
     print "}"
 
-    print "static void unpack_bits(scope_entry_t* sym, module_packed_bits_t bitpack)"
+    print "static void unpack_bits(entity_specifiers_t *entity_specs, module_packed_bits_t bitpack)"
     print "{"
     for l in lines:
       fields = l.split("|");
@@ -456,7 +456,7 @@ def print_fortran_modules_functions(lines):
       if name[1] == "*":
           continue;
       if _type == "bool":
-          print "sym->entity_specs.%s = bitpack.%s;" % (name, name)
+          print "entity_specs->%s = bitpack.%s;" % (name, name)
     print "}"
 
     print "#endif // FORTRAN03_MODULES_BITS_H"
