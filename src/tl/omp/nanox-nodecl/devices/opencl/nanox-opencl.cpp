@@ -113,7 +113,6 @@ void DeviceOpenCL::generate_ndrange_code(
             && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
 
     int num_dim = 0;
-
     if (dim_const)
     {
         num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
@@ -133,8 +132,11 @@ void DeviceOpenCL::generate_ndrange_code(
     }
 
     //Create OCL Kernel
-    code_ndrange_aux << "nanos_err_t err;";
-    code_ndrange_aux << "void* ompss_kernel_ocl = nanos_create_current_kernel(\"" << called_task.get_name() << "\",\"" << filename << "\",\"" <<  compiler_opts << "\");";
+    code_ndrange_aux << "nanos_err_t err;"
+                     << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
+                     <<         called_task.get_name() << "\",\""
+                     <<         filename << "\",\""
+                     <<         compiler_opts << "\");";
 
     //Prepare setArgs
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
@@ -142,6 +144,7 @@ void DeviceOpenCL::generate_ndrange_code(
     {
         TL::Symbol unpacked_argument = called_fun_to_unpacked_fun_map.map(parameters_called[i]);
 
+        // The attribute __global is deduced: the current argument will be __global if it has any copies
         bool is_global = false;
         if (unpacked_argument.get_type().no_ref().is_pointer()
                 || unpacked_argument.get_type().no_ref().is_array())
@@ -185,7 +188,7 @@ void DeviceOpenCL::generate_ndrange_code(
         }
     }
 
-    int num_dim_offset = num_dim;
+
     //Build arrays with information from ndrange clause or pointing to the ndrange pointers
     if (!dim_const)
     {
@@ -297,6 +300,8 @@ void DeviceOpenCL::generate_ndrange_code(
     }
     else
     {
+        int num_dim_offset = num_dim;
+
         //Prepare ndrange calc pointers and arrays
         code_ndrange_aux
             << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
