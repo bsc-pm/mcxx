@@ -41,10 +41,10 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
+TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodecl::NodeclBase construct)
 {
     //FIXME: The 'construct' parameter is only used to obtain the line and the filename
-    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
+    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_implementations);
     if (it == _declared_const_wd_type_map.end())
     {
         std::stringstream ss;
@@ -52,7 +52,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
         {
             ss << "struct ";
         }
-        ss << "nanos_const_wd_definition_" << num_devices;
+        ss << "nanos_const_wd_definition_" << num_implementations;
 
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
@@ -67,7 +67,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        _declared_const_wd_type_map[num_devices] = new_class_symbol;
+        _declared_const_wd_type_map[num_implementations] = new_class_symbol;
 
         TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
         ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
@@ -110,7 +110,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
                         ::get_user_defined_type(devices_class.get_internal_symbol()),
-                        const_value_to_nodecl( const_value_get_signed_int(num_devices)),
+                        const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -182,26 +182,8 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_devices;
-    {
-        std::set<std::string> used_devices;
-        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-                it != implementation_table.end();
-                ++it)
-        {
-            TargetInformation target_info = it->second;
-            ObjectList<std::string> devices = target_info.get_device_names();
-            for (ObjectList<std::string>::iterator it2 = devices.begin();
-                    it2 != devices.end();
-                    ++it2)
-            {
-                used_devices.insert(*it2);
-            }
-        }
-        num_devices = used_devices.size();
-    }
-
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
+    int num_implementations = implementation_table.size();
+    TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
 
@@ -221,7 +203,7 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".data_alignment = " << */ alignment << ", \n"
         // We do not register copies at creation in Fortran
         << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
-        << /* ".num_devices = " << */ num_devices << ",\n"
+        << /* ".num_devices = " << */ num_implementations << ",\n"
         ;
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
