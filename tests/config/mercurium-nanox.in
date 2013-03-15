@@ -49,6 +49,7 @@ test_FC_nanox_mercurium="\${MFC}"
 
 test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} -std=gnu99 ${COMMON_NANOX_CFLAGS}"
 test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_FFLAGS_nanox_mercurium="${PROGRAMMING_MODEL}"
 
 test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
 
@@ -112,6 +113,7 @@ cat <<EOF
 IMFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${IMFC}"
+test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL}"
 test_LDFLAGS_nanox_imfc="-L@abs_top_builddir@/lib -lperish"
 EOF
   fi
@@ -122,6 +124,7 @@ cat <<EOF
 XLMFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanox_xlmfc"
 test_FC_nanox_xlmfc="\${XLMFC}"
+test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL}"
 test_LDFLAGS_nanox_xlmfc="-L@abs_top_builddir@/lib -lperish"
 EOF
   fi
