@@ -59,7 +59,7 @@ INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
     do \
-       cp "$(srcdir)/template.$${i}" "$(distdir)" ; \
+       cp -v "$(srcdir)/template.$${i}" "$(distdir)" || exit $?; \
     done
 
 CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)

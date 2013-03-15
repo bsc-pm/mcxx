@@ -439,7 +439,7 @@ dnl --------------------- End of Support for GPU tests in Nanox ----------------
 
 dnl --------------------- Support for FPGA tests in Nanox --------------------------------
 
-fpga_enabled=no
+fpga_enabled=yes
 AC_MSG_CHECKING([if the use of FPGA devices was disabled])
 AC_ARG_ENABLE([nanox-fpga-device],
   AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the use of FPGA devices]),
@@ -477,7 +477,7 @@ AC_SUBST([FPGA_CC])
 
 if test x$fpga_enabled = xyes;
 then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.fpga"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc"
 fi
 dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
