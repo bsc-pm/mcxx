@@ -10685,6 +10685,7 @@ static char update_stack_to_designator(type_t* declared_type,
             (*type_stack_idx)++;
             ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
             type_stack[*type_stack_idx].item = 0;
+            type_stack[*type_stack_idx].max_item = 0;
             type_stack[*type_stack_idx].type = next_type;
             type_stack[*type_stack_idx].fields = NULL;
 
@@ -10937,6 +10938,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 type_stack[type_stack_idx].fields = NULL;
                 if (is_array_type(declared_type))
                 {
+                    type_stack[type_stack_idx].max_item = 0;
                     if (array_type_is_unknown_size(declared_type))
                         type_stack[type_stack_idx].num_items = -1;
                     else
@@ -11119,6 +11121,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             || is_vector_type(type_to_be_initialized))
                     {
                         type_stack[type_stack_idx].item = type_stack_idx;
+                        type_stack[type_stack_idx].max_item = 0;
                         type_stack[type_stack_idx].fields = NULL;
                         if (is_array_type(type_to_be_initialized))
                         {
