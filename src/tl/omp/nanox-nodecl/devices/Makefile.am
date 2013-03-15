@@ -24,5 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-#SUBDIRS= smp smp_numa cuda smp_ocl gpu common
-SUBDIRS= smp cuda fpga
+# Note: SUBDIRS should always be a subset of DIST_SUBDIRS
+SUBDIRS=smp cuda fpga
+
+DIST_SUBDIRS=smp cuda fpga opencl mpi
