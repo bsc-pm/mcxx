@@ -449,12 +449,12 @@ AC_ARG_ENABLE([nanox-fpga-device],
   [
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
-        gpu_enabled="yes"
+        fpga_enabled="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
             AC_MSG_RESULT([yes])
-            gpu_enabled="no"
+            fpga_enabled="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
