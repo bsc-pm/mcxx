@@ -43,6 +43,7 @@ CONFIG_FILES =  \
        50.config.omp.mercurium \
        50.config.omp.profiling \
        50.config.omp.fortran \
+       50.config.omp.fpga \
        55.config.omp.intel \
        55.config.omp.intel.fortran \
        55.config.omp.ibm \
