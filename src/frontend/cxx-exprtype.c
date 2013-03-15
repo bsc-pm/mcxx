@@ -6970,10 +6970,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         decl_context_t decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
-static void check_nodecl_designated_initializer(nodecl_t braced_initializer, 
-        decl_context_t decl_context, 
-        type_t* declared_type, 
-        nodecl_t* nodecl_output);
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
         decl_context_t decl_context, 
         type_t* declared_type, 
@@ -10655,9 +10651,212 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* n
             nodecl_output);
 }
 
-static void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
-        decl_context_t decl_context, 
-        type_t* declared_type, 
+struct type_init_stack_t
+{
+    type_t* type;
+    int item; // index or ith-member
+    int num_items; // size of the array or number of members in this struct
+    int max_item; // arrays only: maximum index seen so far
+    // For classes only
+    scope_entry_t** fields;
+};
+
+#define MAX_ITEM(a, b) ((a) > (b) ? (a) : (b))
+static char update_stack_to_designator(type_t* declared_type,
+        struct type_init_stack_t *type_stack,
+        int* type_stack_idx,
+        nodecl_t designator_list)
+{
+    int i, designator_list_length = 0;
+    nodecl_t* designators = nodecl_unpack_list(designator_list, &designator_list_length);
+
+    type_t* next_type = declared_type;
+    *type_stack_idx = -1;
+
+    for (i = 0; i < designator_list_length; i++)
+    {
+        if (is_array_type(next_type))
+        {
+            // When returning back to this type we want it to continue _after_
+            // the previously designated one
+            if (*type_stack_idx > 0)
+                type_stack[*type_stack_idx].item++;
+
+            (*type_stack_idx)++;
+            ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
+            type_stack[*type_stack_idx].item = 0;
+            type_stack[*type_stack_idx].type = next_type;
+            type_stack[*type_stack_idx].fields = NULL;
+
+            if (!array_type_is_unknown_size(next_type))
+            {
+                ERROR_CONDITION(!nodecl_is_constant(array_type_get_array_size_expr(next_type)), "Invalid array type", 0);
+                const_value_t* size = nodecl_get_constant(array_type_get_array_size_expr(next_type));
+                type_stack[*type_stack_idx].num_items = const_value_cast_to_signed_int(size);
+            }
+            else
+            {
+                type_stack[*type_stack_idx].num_items = -1;
+            }
+        }
+        else if (is_class_type(next_type))
+        {
+            // When returning back to this type we want it to continue _after_
+            // the previously designated one
+            if (*type_stack_idx > 0)
+                type_stack[*type_stack_idx].item++;
+
+            (*type_stack_idx)++;
+            ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
+            type_stack[*type_stack_idx].item = 0;
+            type_stack[*type_stack_idx].type = next_type;
+            scope_entry_list_t* fields = class_type_get_nonstatic_data_members(next_type);
+            entry_list_to_symbol_array(fields, &type_stack[*type_stack_idx].fields, &type_stack[*type_stack_idx].num_items);
+            entry_list_free(fields);
+        }
+
+        type_t* type_to_be_initialized = type_stack[*type_stack_idx].type;
+        nodecl_t current_designator = designators[i];
+
+        if (is_array_type(type_to_be_initialized)
+                && nodecl_get_kind(current_designator) == NODECL_C99_INDEX_DESIGNATOR)
+        {
+            nodecl_t expr = nodecl_get_child(current_designator, 0);
+            if (!nodecl_is_constant(expr))
+            {
+                error_printf("%s: error: index designator [%s] is not constant", nodecl_get_locus(expr),
+                        codegen_to_str(expr, nodecl_retrieve_context(expr)));
+            }
+            else
+            {
+                const_value_t* designator_index = nodecl_get_constant(expr);
+                if (!array_type_is_unknown_size(type_to_be_initialized))
+                {
+                    ERROR_CONDITION (!nodecl_is_constant(array_type_get_array_size_expr(type_to_be_initialized)), "Invalid array type", 0);
+                    const_value_t* size = nodecl_get_constant(array_type_get_array_size_expr(type_to_be_initialized));
+                    if (const_value_is_zero(const_value_lt(designator_index, size)))
+                    {
+                        warn_printf("%s: warning: index designator [%s] is out of bounds of elements of type %s\n",
+                                nodecl_get_locus(expr),
+                                codegen_to_str(expr, nodecl_retrieve_context(expr)),
+                                print_type_str(type_to_be_initialized, nodecl_retrieve_context(expr)));
+                    }
+                }
+                // Move the current item to be the one after the designated index
+                type_stack[*type_stack_idx].item = const_value_cast_to_signed_int(designator_index);
+                type_stack[*type_stack_idx].max_item = MAX_ITEM(type_stack[*type_stack_idx].max_item, type_stack[*type_stack_idx].item);
+                // Move on to the element type only if it is an array or class
+                next_type = array_type_get_element_type(type_to_be_initialized);
+            }
+        }
+        else if (is_class_type(type_to_be_initialized)
+                && nodecl_get_kind(current_designator) == NODECL_C99_FIELD_DESIGNATOR)
+        {
+            nodecl_t name = nodecl_get_child(current_designator, 0);
+            const char* field_name = nodecl_get_text(name);
+
+            int j;
+            for (j = 0; j < type_stack[*type_stack_idx].num_items; j++)
+            {
+                if (strcmp(type_stack[*type_stack_idx].fields[j]->symbol_name, field_name) == 0)
+                {
+                    // Move to that field
+                    type_stack[*type_stack_idx].item = j;
+                    next_type = type_stack[*type_stack_idx].fields[j]->type_information;
+                    if (is_union_type(type_to_be_initialized))
+                        type_stack[*type_stack_idx].num_items = j+1;
+                    break;
+                }
+            }
+            if (j == type_stack[*type_stack_idx].num_items)
+            {
+                error_printf("%s: error: designator '.%s' does not name a field of type '%s'\n",
+                        nodecl_get_locus(current_designator),
+                        field_name,
+                        print_type_str(type_stack[*type_stack_idx].type, nodecl_retrieve_context(current_designator)));
+                return 0;
+            }
+        }
+        else
+        {
+            error_printf("%s: error: invalid designator for type '%s'\n",
+                    nodecl_get_locus(current_designator),
+                    print_type_str(type_stack[*type_stack_idx].type, nodecl_retrieve_context(current_designator)));
+            return 0;
+        }
+    }
+
+    free(designators);
+
+    return 1;
+}
+
+static void nodecl_make_designator_rec(nodecl_t *nodecl_output, 
+        type_t* designated_type, 
+        nodecl_t *designators,
+        int current_designator,
+        int num_designators)
+{
+    if (current_designator >= num_designators)
+        return;
+
+    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const char*, int line);
+
+    nodecl_t child_0 = nodecl_null();
+
+    if (nodecl_get_kind(designators[current_designator]) == NODECL_C99_FIELD_DESIGNATOR)
+    {
+        ERROR_CONDITION(!is_class_type(designated_type), "Invalid type", 0);
+
+        nodecl_ptr_fun = nodecl_make_field_designator;
+
+        nodecl_t nodecl_name = nodecl_get_child(designators[current_designator], 0);
+        scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
+                nodecl_retrieve_context(designators[current_designator]),
+                designated_type,
+                nodecl_name);
+        ERROR_CONDITION(entry_list == NULL, "Invalid designator", 0);
+        scope_entry_t* entry = entry_list_head(entry_list);
+        designated_type  = entry->type_information;
+        entry_list_free(entry_list);
+
+        child_0 = nodecl_make_symbol(entry, 
+                nodecl_get_filename(designators[current_designator]), 
+                nodecl_get_line(designators[current_designator]));
+    }
+    else if (nodecl_get_kind(designators[current_designator]) == NODECL_C99_INDEX_DESIGNATOR)
+    {
+        ERROR_CONDITION(!is_array_type(designated_type), "Invalid type", 0);
+
+        nodecl_ptr_fun = nodecl_make_index_designator;
+
+        child_0 = nodecl_shallow_copy(nodecl_get_child(designators[current_designator], 0));
+
+        designated_type = array_type_get_element_type(designated_type);
+    }
+    else
+        internal_error("Code unreachable", 0);
+
+    nodecl_make_designator_rec(nodecl_output, designated_type, designators, current_designator + 1, num_designators);
+
+    *nodecl_output = (nodecl_ptr_fun)(
+            child_0,
+            *nodecl_output,
+            nodecl_get_filename(*nodecl_output),
+            nodecl_get_line(*nodecl_output));
+}
+
+static void nodecl_make_designator(nodecl_t *nodecl_output, type_t* declared_type, nodecl_t designator)
+{
+    int num_designators = 0;
+    nodecl_t* designators = nodecl_unpack_list(designator, &num_designators);
+
+    nodecl_make_designator_rec(nodecl_output, declared_type, designators, 0, num_designators);
+}
+
+static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
+        decl_context_t decl_context,
+        type_t* declared_type,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_get_kind(braced_initializer) != NODECL_CXX_BRACED_INITIALIZER, "Invalid nodecl", 0);
@@ -10688,8 +10887,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         {
             if (!is_array_type(declared_type)
                     && !is_class_type(declared_type)
-                    && !is_vector_type(declared_type)
-                    && !is_dependent_type(declared_type))
+                    && !is_vector_type(declared_type))
             {
                 if (!checking_ambiguity())
                 {
@@ -10709,7 +10907,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
-                    && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
                     && (is_array_type(no_ref(type_element))
                         && (is_char_type(array_type_get_element_type(no_ref(type_element)))
                             || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
@@ -10719,7 +10916,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 // Attempt an interpretation like char a[] = "hello";
                 enter_test_expression();
-                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0), 
+                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
                         decl_context,
                         declared_type,
                         nodecl_output);
@@ -10729,15 +10926,51 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     return;
             }
 
-            // We precalculate some useful information beforehand. This
-            // information will be used only when the declared type is a class type
-            scope_entry_list_t* nonstatic_data_members = NULL;
-            scope_entry_list_iterator_t* next_nonstatic_data_member = NULL;
-            if (is_class_type(declared_type))
+            struct type_init_stack_t type_stack[MCXX_MAX_UNBRACED_AGGREGATES];
+            int type_stack_idx = 0;
+
+            type_stack[type_stack_idx].type = declared_type;
+            if (is_array_type(declared_type)
+                    || is_vector_type(declared_type))
             {
-                type_t* actual_class_type = get_actual_class_type(declared_type);
-                nonstatic_data_members = class_type_get_nonstatic_data_members(actual_class_type);
-                next_nonstatic_data_member = entry_list_iterator_begin(nonstatic_data_members);
+                type_stack[type_stack_idx].item = 0;
+                type_stack[type_stack_idx].fields = NULL;
+                if (is_array_type(declared_type))
+                {
+                    if (array_type_is_unknown_size(declared_type))
+                        type_stack[type_stack_idx].num_items = -1;
+                    else
+                        type_stack[type_stack_idx].num_items =
+                            const_value_cast_to_signed_int(nodecl_get_constant(array_type_get_array_size_expr(declared_type)));
+                }
+                else if (is_vector_type(declared_type))
+                {
+                    if (is_generic_vector_type(declared_type))
+                        type_stack[type_stack_idx].num_items = -1;
+                    else
+                        type_stack[type_stack_idx].num_items = vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
+                }
+            }
+            else if (is_class_type(declared_type))
+            {
+                scope_entry_list_t* fields = class_type_get_nonstatic_data_members(declared_type);
+
+                type_stack[type_stack_idx].item = 0;
+                entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
+
+                if (is_union_type(declared_type))
+                        type_stack[type_stack_idx].num_items = 1;
+
+                entry_list_free(fields);
+            }
+            else
+            {
+                internal_error("Code unreachable", type_stack_idx);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Top level declaration type %s\n", print_declarator(declared_type));
             }
 
             int i = 0, num_items = 0;
@@ -10746,29 +10979,74 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 nodecl_t nodecl_initializer_clause = list[i];
 
-                type_t* type_in_context = declared_type;
-                if (nodecl_get_kind(nodecl_initializer_clause) != NODECL_C99_DESIGNATED_INITIALIZER)
+                char designator_is_ok = 1;
+                if (nodecl_get_kind(nodecl_initializer_clause) == NODECL_C99_DESIGNATED_INITIALIZER)
                 {
-                    if (is_class_type(declared_type))
+                    designator_is_ok = update_stack_to_designator(declared_type,
+                            type_stack,
+                            &type_stack_idx,
+                            nodecl_get_child(nodecl_initializer_clause, 0));
+                    // Once the designation has been handled, proceed to use the initializer
+                    nodecl_initializer_clause = nodecl_get_child(nodecl_initializer_clause, 1);
+                }
+                else
+                {
+                    char too_many_initializers = 0;
+                    while ((type_stack[type_stack_idx].num_items != -1)
+                            && type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items)
                     {
-                        scope_entry_t* data_member = entry_list_iterator_current(next_nonstatic_data_member);
-                        type_in_context = data_member->type_information;
+                        if (type_stack_idx > 0)
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "EXPRTYPE: Type %s if fully initialized now\n",
+                                        print_declarator(type_stack[type_stack_idx].type));
+                            }
+                            free(type_stack[type_stack_idx].fields);
+                            type_stack_idx--;
+                        }
+                        else
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
+                                        nodecl_get_locus(nodecl_initializer_clause),
+                                        print_type_str(type_stack[type_stack_idx].type, decl_context));
+                            }
+                            // We are at the top level object of this braced initializer, give up
+                            too_many_initializers = 1;
+                            break;
+                        }
+                    }
 
-                        // Advance the iterator to the next nonstatic data member
-                        entry_list_iterator_next(next_nonstatic_data_member);
-                    }
-                    else if (is_array_type(declared_type))
+                    if (too_many_initializers)
+                        break;
+                }
+
+                type_t* current_type = type_stack[type_stack_idx].type;
+                type_t* type_to_be_initialized = NULL;
+
+                if (is_array_type(current_type))
+                {
+                    DEBUG_CODE()
                     {
-                        type_in_context = array_type_get_element_type(declared_type);
+                        fprintf(stderr, "EXPRTYPE: Initialization of array element at index %d\n", type_stack[type_stack_idx].item);
                     }
-                    else if (is_vector_type(declared_type))
-                    {
-                        type_in_context = vector_type_get_element_type(declared_type);
-                    }
-                    else
-                    {
-                        internal_error("Invalid aggregated type '%s'", print_decl_type_str(declared_type, decl_context, ""));
-                    }
+                    type_stack[type_stack_idx].max_item = MAX_ITEM(type_stack[type_stack_idx].max_item, type_stack[type_stack_idx].item);
+                    type_to_be_initialized = array_type_get_element_type(current_type);
+                }
+                else if (is_vector_type(current_type))
+                {
+                    type_to_be_initialized = vector_type_get_element_type(current_type);
+                }
+                else if (is_class_type(current_type))
+                {
+                    int item = type_stack[type_stack_idx].item;
+                    type_to_be_initialized = type_stack[type_stack_idx].fields[item]->type_information;
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
 
                 // if the initializer-list for a subaggregate does not begin with a left brace,
@@ -10779,124 +11057,128 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 //
                 // C++ Standard 2003
 
-                if (!is_aggregate_type(type_in_context)
+                if (!is_aggregate_type(type_to_be_initialized)
                         || nodecl_get_kind(nodecl_initializer_clause) == NODECL_CXX_BRACED_INITIALIZER
-                        || nodecl_get_kind(nodecl_initializer_clause) == NODECL_C99_DESIGNATED_INITIALIZER
                         // A array of chars can be initialized only by one string literal
-                        || (is_array_type(type_in_context)
-                            && is_char_type(array_type_get_element_type(type_in_context))
+                        || (is_array_type(type_to_be_initialized)
+                            && is_char_type(array_type_get_element_type(type_to_be_initialized))
                             && nodecl_get_kind(nodecl_get_child(nodecl_initializer_clause, 0)) == NODECL_STRING_LITERAL))
                 {
+                    DEBUG_CODE()
+                    {
+                        if ( nodecl_get_kind(nodecl_initializer_clause) == NODECL_CXX_BRACED_INITIALIZER )
+                        {
+                            fprintf(stderr, "EXPRTYPE: Braced initializer %s\n", print_declarator(type_to_be_initialized));
+                        }
+                        else
+                        {
+                            fprintf(stderr, "EXPRTYPE: Simple initializer %s\n", print_declarator(type_to_be_initialized));
+                        }
+                    }
+
                     // In this case, we only handle one element of the list
                     nodecl_t nodecl_init_output = nodecl_null();
-                    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_in_context, &nodecl_init_output);
+                    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_to_be_initialized, &nodecl_init_output);
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
                         *nodecl_output = nodecl_make_err_expr(filename, line);
                         return;
                     }
 
+                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER
+                            && designator_is_ok)
+                    {
+                        // Keep the designator
+                        nodecl_t designator = nodecl_get_child(list[i], 0);
+                        nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                    }
+
                     init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                    // This item has been consumed
                     i++;
+                    type_stack[type_stack_idx].item++;
                 }
                 else
                 {
-                    // In this case, we may handle more than one element of the list
-                    if (is_array_type(type_in_context))
+                    DEBUG_CODE()
                     {
-                        int j;
-                        type_t* element_type = array_type_get_element_type(type_in_context);
-                        int number_of_elements = array_type_get_total_number_of_elements(type_in_context);
-                        for (j = 0; j < number_of_elements && i < num_items; ++j)
+                        fprintf(stderr, "EXPRTYPE: Unbraced initialization of aggregated type %s\n", print_declarator(type_to_be_initialized));
+                    }
+                    // Now we have to initialize an aggregate but the syntax lacks braces, so we have to push this item
+                    // to the type stack and continue from here
+
+                    // When we come back to the previous type (if any) it will be to fill the next subaggregate, not the current one
+                    if (type_stack_idx > 0)
+                        type_stack[type_stack_idx - 1].item++;
+
+                    type_stack_idx++;
+                    ERROR_CONDITION(type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
+
+                    type_stack[type_stack_idx].type = type_to_be_initialized;
+                    if (is_array_type(type_to_be_initialized)
+                            || is_vector_type(type_to_be_initialized))
+                    {
+                        type_stack[type_stack_idx].item = type_stack_idx;
+                        type_stack[type_stack_idx].fields = NULL;
+                        if (is_array_type(type_to_be_initialized))
                         {
-                            nodecl_initializer_clause = list[i];
-                            nodecl_t nodecl_init_output = nodecl_null();
-
-                            check_nodecl_initializer_clause(nodecl_initializer_clause,
-                                    decl_context, element_type, &nodecl_init_output);
-
-                            if (nodecl_is_err_expr(nodecl_init_output))
+                            if (array_type_is_unknown_size(type_to_be_initialized))
                             {
-                                *nodecl_output = nodecl_make_err_expr(filename, line);
-                                return;
+                                if (type_stack_idx > 0)
+                                {
+                                    if (!checking_ambiguity())
+                                    {
+                                        warn_printf("%s: warning: initialization of flexible array member without braces\n",
+                                                nodecl_get_locus(nodecl_initializer_clause));
+                                    }
+                                }
+                                type_stack[type_stack_idx].num_items = -1;
                             }
-
-                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
-                            i++;
+                            else
+                                type_stack[type_stack_idx].num_items =
+                                    const_value_cast_to_signed_int(nodecl_get_constant(array_type_get_array_size_expr(
+                                                    type_to_be_initialized)));
                         }
                     }
-                    else if (is_class_type(type_in_context))
+                    else if (is_class_type(type_to_be_initialized))
                     {
-                        type_t* inner_class_type = get_actual_class_type(type_in_context);
+                        scope_entry_list_t* fields = class_type_get_nonstatic_data_members(type_to_be_initialized);
 
-                        scope_entry_list_t* inner_nonstatic_data_members =
-                            class_type_get_nonstatic_data_members(inner_class_type);
+                        type_stack[type_stack_idx].item = 0;
+                        entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
 
-                        scope_entry_list_iterator_t* it;
-                        for (it = entry_list_iterator_begin(inner_nonstatic_data_members);
-                                !entry_list_iterator_end(it) && i < num_items;
-                                entry_list_iterator_next(it))
-                        {
-                            nodecl_initializer_clause = list[i];
-                            scope_entry_t* data_member = entry_list_iterator_current(it);
-                            nodecl_t nodecl_init_output = nodecl_null();
+                        if (is_union_type(type_to_be_initialized))
+                                type_stack[type_stack_idx].num_items = 1;
 
-                            check_nodecl_initializer_clause(nodecl_initializer_clause,
-                                    decl_context, data_member->type_information, &nodecl_init_output);
-
-                            if (nodecl_is_err_expr(nodecl_init_output))
-                            {
-                                *nodecl_output = nodecl_make_err_expr(filename, line);
-                                return;
-                            }
-
-                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
-                            i++;
-                        }
-                        entry_list_iterator_free(it);
-                        entry_list_free(inner_nonstatic_data_members);
+                        entry_list_free(fields);
                     }
                     else
                     {
-                        internal_error("Unexpected type '%s'", print_decl_type_str(type_in_context, decl_context, ""));
+                        internal_error("Code unreachable", type_stack_idx);
                     }
+
+                    // Note that we are not consuming any item here
+                    continue;
                 }
             }
-
-            // Deallocate nonstatic data members if needed
-            entry_list_iterator_free(next_nonstatic_data_member);
-            entry_list_free(nonstatic_data_members);
 
             // Deallocate nodecl list
             free(list);
 
 
-            if (is_class_type(declared_type))
+            initializer_type = declared_type;
+            if (is_array_type(declared_type)
+                    && type_stack[0].num_items == -1)
             {
-                initializer_type = declared_type;
-            }
-            else if (is_array_type(declared_type))
-            {
-                char c[64];
-                snprintf(c, 63, "%d", num_items);
-                c[63] = '\0';
 
                 nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
-                        const_value_get_unsigned_int(num_items), 
-                        filename, 
+                        const_value_get_unsigned_int(type_stack[0].max_item + 1),
+                        filename,
                         line);
 
                 initializer_type = get_array_type(
                         array_type_get_element_type(declared_type),
                         length, decl_context);
-            }
-            else if (is_vector_type(declared_type))
-            {
-                initializer_type = declared_type;
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
             }
         }
 
@@ -10982,7 +11264,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     num_args,
                     /* is_explicit */ 0,
                     decl_context,
-                    filename, 
+                    filename,
                     line,
                     conversors,
                     &candidates);
@@ -10992,7 +11274,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: invalid initializer for type '%s'\n", 
+                    error_printf("%s: error: invalid initializer for type '%s'\n",
                             nodecl_get_locus(braced_initializer),
                             print_type_str(declared_type, decl_context));
                 }
@@ -11195,10 +11477,10 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         if (!nodecl_is_null(initializer_clause_list))
         {
             // C++ does not accept things like this: int x = {1, 2}
-            CXX_LANGUAGE()
+            int num_items = nodecl_list_length(initializer_clause_list);
+            if (num_items != 1)
             {
-                int num_items = nodecl_list_length(initializer_clause_list);
-                if (num_items != 1)
+                CXX_LANGUAGE()
                 {
                     if (!checking_ambiguity())
                     {
@@ -11209,6 +11491,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             filename, 
                             line);
                     return;
+                }
+                C_LANGUAGE()
+                {
+                    if (!checking_ambiguity())
+                    {
+                        warn_printf("%s: warning: brace initializer with more than one element initializing a scalar\n",
+                                nodecl_get_locus(braced_initializer));
+                    }
+                }
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    warn_printf("%s: warning: redundant brace initializer of scalar\n",
+                            nodecl_get_locus(braced_initializer));
                 }
             }
 
@@ -11225,6 +11523,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
             else
             {
+                // Should we simply return nodecl_expr_out as we clearly know
+                // that this structured value is redundant?
                 *nodecl_output = nodecl_make_structured_value(
                         nodecl_make_list_1(nodecl_expr_out),
                         declared_type,
@@ -11253,6 +11553,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
     internal_error("Code unreachable", 0);
 }
+#undef MAX_ITEM
 
 typedef
 struct designator_path_item_tag
@@ -11366,7 +11667,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                         if (designator_path != NULL)
                         {
                             designator_path->items[i].kind = NODECL_INDEX_DESIGNATOR;
-                            designator_path->items[i].value = 
+                            designator_path->items[i].value =
                                 nodecl_shallow_copy(nodecl_get_child(nodecl_current_designator, 0));
                         }
                     }
@@ -11389,56 +11690,9 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     }
 }
 
-static void check_nodecl_designated_initializer(nodecl_t designated_initializer, 
-        decl_context_t decl_context, 
-        type_t* declared_type, 
-        nodecl_t* nodecl_output)
-{
-    type_t* designated_type  = NULL;
-    nodecl_t error_designation = nodecl_null();
-
-    designator_path_t designated_path;
-
-    check_nodecl_designation_type(nodecl_get_child(designated_initializer, 0), 
-            decl_context, declared_type, &designated_type, 
-            &error_designation,
-            &designated_path);
-    
-    if(!nodecl_is_null(error_designation) && nodecl_is_err_expr(error_designation)) 
-    {
-        *nodecl_output = nodecl_make_err_expr(
-                nodecl_get_filename(error_designation),
-                nodecl_get_line(error_designation));
-        return;
-    }
-
-    nodecl_t nodecl_initializer_clause = nodecl_get_child(designated_initializer, 1);
-    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, designated_type, nodecl_output);
-
-    // Now build the designation, it must be built backwards
-    int i; 
-    for (i = designated_path.num_items - 1; i >= 0; i--)
-    {
-        nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const char*, int line);
-
-        if (designated_path.items[i].kind == NODECL_FIELD_DESIGNATOR)
-            nodecl_ptr_fun = nodecl_make_field_designator;
-        else if (designated_path.items[i].kind == NODECL_INDEX_DESIGNATOR)
-            nodecl_ptr_fun = nodecl_make_index_designator;
-        else
-            internal_error("Code unreachable", 0);
-
-        *nodecl_output = (nodecl_ptr_fun)(
-                designated_path.items[i].value,
-                *nodecl_output, 
-                nodecl_get_filename(*nodecl_output),
-                nodecl_get_line(*nodecl_output));
-    }
-}
-
-static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
-        decl_context_t decl_context, 
-        type_t* declared_type, 
+static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
+        decl_context_t decl_context,
+        type_t* declared_type,
         char is_explicit,
         nodecl_t* nodecl_output)
 {
@@ -11547,7 +11801,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: too many initializers when initializing '%s' type\n", 
+                error_printf("%s: error: too many initializers when initializing '%s' type\n", 
                         nodecl_get_locus(direct_initializer),
                         print_type_str(declared_type, decl_context));
             }
@@ -12505,12 +12759,6 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
                 check_nodecl_braced_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
                 break;
             }
-        case NODECL_C99_DESIGNATED_INITIALIZER:
-            {
-                // Note: GCC-style designated initializers are subsumed in NODECL_C99_DESIGNATED_INITIALIZER
-                check_nodecl_designated_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
-                break;
-            }
         default:
             {
                 internal_error("Unexpected nodecl '%s'\n", ast_print_node_type(nodecl_get_kind(initializer_clause)));
@@ -13134,6 +13382,7 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
 
     designator_path_t designated_path;
 
+    // FIXME - Remove this function and make a check here
     check_nodecl_designation_type(nodecl_designator, decl_context, 
             accessed_type, &designated_type, &error_designation, &designated_path);
 
@@ -13525,8 +13774,8 @@ static void check_gcc_postfix_expression(AST expression,
     check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t, nodecl_output);
 }
 
-static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const char* filename, int line,
         nodecl_t* nodecl_output)
 {

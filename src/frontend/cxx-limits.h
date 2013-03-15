@@ -94,6 +94,9 @@ enum
 
     // Max Hollerith length
     MCXX_MAX_LENGTH_HOLLERITH_CONSTANT = 256,
+
+    // Max unparenthesized aggregates in initializers
+    MCXX_MAX_UNBRACED_AGGREGATES = 64,
 };
 
 #endif // CXX_LIMITS_H
