@@ -3591,11 +3591,16 @@ OPERATOR_TABLE
             }
             if (entry.is_intrinsic())
             {
-                if ( (!sc.get_related_symbol().is_valid()
-                            // Do not emit INTRINSIC at module level
-                            || (sc.get_related_symbol().is_fortran_module() == entry.in_module().is_valid())))
+                // Intrinsic symbols are inserted in the scope but the symbol at the call usually refers
+                // to the ".fortran_intrinsics" namespace, thus we have to make an extra check for this symbol
+                // in this scope. If the names come from a module we do not have to emit anything
+                TL::Symbol name_in_context = sc.get_symbol_from_name(entry.get_name());
+
+                if (name_in_context.is_valid()
+                        && !name_in_context.is_from_module()
+                        && name_in_context.is_intrinsic())
                 {
-                    // Improve this
+                    // Get the generic symbol
                     TL::Symbol generic_entry = 
                         ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
