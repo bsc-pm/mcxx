@@ -8097,8 +8097,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         int line)
 {
     ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
-    
-    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, local_name);
+
+    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, DF_ONLY_CURRENT_SCOPE); 
 
     if (check_repeated_name != NULL)
     {
