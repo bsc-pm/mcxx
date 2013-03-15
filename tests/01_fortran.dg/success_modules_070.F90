@@ -5,11 +5,14 @@
 ! test_FFLAGS_mod2="-DWRITE_MOD_B"
 ! test_FFLAGS_all="-DWRITE_MOD_A -DWRITE_MOD_B"
 ! </testinfo>
+#ifdef WRITE_MOD_A
 MODULE M1
     PRIVATE
     INTRINSIC :: NULL
 END MODULE M1
+#endif
 
+#ifdef WRITE_MOD_B
 MODULE M2
 
 CONTAINS
@@ -21,3 +24,4 @@ CONTAINS
         P => NULL()
     END SUBROUTINE S2
 END MODULE M2
+#endif
