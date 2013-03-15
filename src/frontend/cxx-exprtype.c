@@ -11120,7 +11120,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (is_array_type(type_to_be_initialized)
                             || is_vector_type(type_to_be_initialized))
                     {
-                        type_stack[type_stack_idx].item = type_stack_idx;
+                        type_stack[type_stack_idx].item = 0;
                         type_stack[type_stack_idx].max_item = 0;
                         type_stack[type_stack_idx].fields = NULL;
                         if (is_array_type(type_to_be_initialized))
