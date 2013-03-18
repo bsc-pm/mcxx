@@ -478,7 +478,7 @@ AC_SUBST([FPGA_CC])
 if test x$fpga_enabled = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
-    COMPILER_NAMES="${COMPILER_NAMES} fpgacc"
+    COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
 fi
 dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
 

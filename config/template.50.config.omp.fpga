@@ -1,38 +1,29 @@
 # fpgacc (FPGA-Zynq)
-# ripped from nvidia (55.config.omp.nvidia) profile
 [fpgacc: omp-base]
 language = C
 options =
-preprocessor_name = arm-linux-gnueabi-gcc
-preprocessor_options =-E -I/home/afilguer/Zynq/mnanox_fpga/include -include nanos-fpga.h -include nanos.h -include nanos_omp.h
-#-include sys/mman.h -include sys/types.h -include sys/stat.h -include sys/fcntl.h 
-compiler_name = arm-linux-gnueabi-gcc
-linker_name = arm-linux-gnueabi-gcc
-linker_options = -L/home/afilguer/Zynq/mnanox_fpga/lib -lnanox
+preprocessor_options =-include nanos-fpga.h
+linker_options = -lnanox-fpga-api
 compiler_phase = libtlnanox-fpga.so
-
-
 
 [fpgacxx: omp-base]
 language = C++
 options =
-preprocessor_name = arm-linux-gnueabi-g++
-preprocessor_options = -E
-compiler_name = arm-linux-gnueabi-g++
-linker_name = arm-linux-gnueabi-ld
+preprocessor_options =-include nanos-fpga.h
+linker_options = -lnanox-fpga-api
 compiler_phase = libtlnanox-fpga.so
 
 # FPGA profile
 [fpga]
 language = C
 options =
-#cross compile for arm
-preprocessor_name = arm-linux-gnueabi-gcc
+# cross compile for arm: ato some point, this is going to call a hardware build script
+preprocessor_name = @GCC@
 preprocessor_options = -E
-compiler_name = arm-linux-gnueabi-gcc 
-#include mininanos
-compiler_options = 
-linker_name = arm-linux-gnueabi-ld
-linker_options = 
+compiler_name = @GCC@
+compiler_options =
+linker_name = @GCC@
+linker_options = -Xlinker --add-needed
 target_options[fpgacc] = no_sublink no_embed
+target_options[fpgacc-dev] = no_sublink no_embed
 target_options[fpgacxx] = no_sublink no_embed
