@@ -52,7 +52,7 @@ namespace TL
 
                 void generate_ndrange_kernel_call(
                         const TL::Scope& scope,
-                        const Nodecl::NodeclBase& original_statements,
+                        const Nodecl::NodeclBase& task_statements,
                         Nodecl::NodeclBase& output_statements);
 
                 void add_included_cuda_files(FILE* file);

@@ -408,7 +408,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
 
-    output_statements = original_statements;
+    output_statements = task_statements;
 
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());

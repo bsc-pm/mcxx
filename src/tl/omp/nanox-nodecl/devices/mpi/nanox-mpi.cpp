@@ -165,6 +165,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
 
     // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
+    const Nodecl::NodeclBase& task_statements = info._task_statements;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     //OutlineInfo& outline_info = info._outline_info;
@@ -392,7 +393,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     device_function_body.replace(new_device_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
     
-    output_statements = original_statements;
+    output_statements = task_statements;
 }
 
 //

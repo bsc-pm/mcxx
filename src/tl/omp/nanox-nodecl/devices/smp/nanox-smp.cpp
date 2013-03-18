@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
         const Nodecl::NodeclBase& original_statements = info._original_statements;
         bool is_function_task = info._called_task.is_valid();
 
-        output_statements = original_statements;
+        output_statements = task_statements;
 
         TL::Symbol current_function =
             original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
