@@ -25,6 +25,6 @@
 ##########################################################################
 
 # Note: SUBDIRS should always be a subset of DIST_SUBDIRS
-SUBDIRS=smp cuda fpga
+SUBDIRS=smp cuda fpga opencl mpi
 
 DIST_SUBDIRS=smp cuda fpga opencl mpi
