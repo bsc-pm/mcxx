@@ -3144,7 +3144,7 @@ OPERATOR_TABLE
         // If both are BLOCK_CONTEXT check if entry_context is accessible from sc
         if (sc_context.current_scope->kind == BLOCK_SCOPE
                 && entry_context.current_scope->kind == BLOCK_SCOPE)
-        { 
+        {
             scope_t* sc_scope = sc_context.current_scope;
             scope_t* entry_scope = entry_context.current_scope;
 
@@ -3153,6 +3153,21 @@ OPERATOR_TABLE
                     && sc_scope != entry_scope)
             {
                 sc_scope = sc_scope->contained_in;
+
+                // Maybe the symbol is not declared in the current scope but its name 
+                // is in one of the enclosing ones (due to an insertion)
+                decl_context_t current_context = CURRENT_COMPILED_FILE->global_decl_context;
+                current_context.current_scope = sc_scope;
+                current_context.block_scope = sc_scope;
+
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str());
+
+                if (query != NULL
+                        && entry_list_contains(query, entry.get_internal_symbol()))
+                {
+                    entry_list_free(query);
+                    return true;
+                }
             }
 
             // We reached entry_scope from sc_scope
@@ -3163,7 +3178,6 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
 
         if (query != NULL
