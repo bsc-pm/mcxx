@@ -403,6 +403,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 {
     // Unpack DTO
     const std::string& outline_name = ocl_outline_name(info._outline_name);
+    const Nodecl::NodeclBase& task_statements = info._task_statements;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
@@ -547,7 +548,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
         Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
-        fun_visitor.insert_extra_symbols(original_statements);
+        fun_visitor.insert_extra_symbols(task_statements);
 
         Nodecl::Utils::Fortran::copy_used_modules(
                 original_statements.retrieve_context(),

@@ -77,15 +77,36 @@ namespace TL { namespace Nanox {
         const std::string& _outline_name;
         ObjectList<OutlineDataItem*> _data_items;
         TargetInformation& _target_info;
+
+        // The original statements are the statements written by the user
         const Nodecl::NodeclBase& _original_statements;
-        Nodecl::NodeclBase _task_label;
+
+        // The task statements are the updated version of the statements written by the user.
+        // For example:
+        //      #pragma omp target device(smp)
+        //      #pragma omp task
+        //      void foo(int i) {}
+        //
+        //      #pragma omp target device(smp) implements(foo)
+        //      void fii(int i) {}
+        //      int main()
+        //      {
+        //          foo(2);
+        //      }
+        //
+        // The task call "foo(2)" has two possible implementors:
+        //  - The foo function: In this case the original statements and the task statements are the same: "foo(2)".
+        //  - The fii function: The original statements are "foo(2)", but the task statements are: "fii(2)".
+        const Nodecl::NodeclBase& _task_statements;
+        const Nodecl::NodeclBase& _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task;
 
         CreateOutlineInfo(std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
                 TargetInformation& target_info,
-                Nodecl::NodeclBase& statements,
+                Nodecl::NodeclBase& original_statements,
+                Nodecl::NodeclBase& task_statements,
                 Nodecl::NodeclBase task_label,
                 TL::Symbol& args_struct,
                 TL::Symbol& called_task)
@@ -93,7 +114,8 @@ namespace TL { namespace Nanox {
                 _outline_name(outline_name),
                 _data_items(data_items),
                 _target_info(target_info),
-                _original_statements(statements),
+                _original_statements(original_statements),
+                _task_statements(task_statements),
                 _task_label(task_label),
                 _arguments_struct(args_struct),
                 _called_task(called_task)

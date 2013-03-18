@@ -64,6 +64,7 @@ namespace TL { namespace Nanox {
     {
         // Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
+        const Nodecl::NodeclBase& task_statements = info._task_statements;
         const Nodecl::NodeclBase& original_statements = info._original_statements;
         bool is_function_task = info._called_task.is_valid();
 
@@ -165,7 +166,7 @@ namespace TL { namespace Nanox {
             TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
             Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
-            fun_visitor.insert_extra_symbols(original_statements);
+            fun_visitor.insert_extra_symbols(task_statements);
 
             Nodecl::Utils::Fortran::copy_used_modules(
                     original_statements.retrieve_context(),

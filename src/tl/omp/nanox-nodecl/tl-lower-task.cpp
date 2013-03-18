@@ -532,6 +532,19 @@ void LoweringVisitor::emit_async_common(
             (is_function_task) ?
             implementor_symbol : TL::Symbol::invalid();
 
+        Nodecl::NodeclBase task_statements = statements;
+        if (is_function_task
+                && called_task != implementor_symbol)
+        {
+            Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
+            symbol_map_copy_statements.add_map(called_task, implementor_symbol);
+
+            task_statements = Nodecl::Utils::deep_copy(
+                    statements,
+                    implementor_symbol.get_related_scope(),
+                    symbol_map_copy_statements);
+        }
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
@@ -547,6 +560,7 @@ void LoweringVisitor::emit_async_common(
                     outline_info.get_data_items(),
                     target_info,
                     statements,
+                    task_statements,
                     task_label,
                     structure_symbol,
                     real_called_task);
@@ -561,24 +575,24 @@ void LoweringVisitor::emit_async_common(
             // copy the tree and we replace the called task symbol with the
             // implementor symbol
             Nodecl::NodeclBase outline_statements_code;
-            if (is_function_task
-                    && called_task != implementor_symbol)
-            {
-                Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-                symbol_map_copy_statements.add_map(called_task, implementor_symbol);
+            // if (is_function_task
+            //         && called_task != implementor_symbol)
+            // {
+            //     Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
+            //     symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
-                Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
-                        output_statements,
-                        implementor_symbol.get_related_scope(),
-                        symbol_map_copy_statements);
-                outline_statements_code =
-                    Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
-            }
-            else
-            {
+            //     Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
+            //             output_statements,
+            //             implementor_symbol.get_related_scope(),
+            //             symbol_map_copy_statements);
+            //     outline_statements_code =
+            //         Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
+            // }
+            // else
+            // {
                 outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-            }
+            //}
 
             delete symbol_map;
 
