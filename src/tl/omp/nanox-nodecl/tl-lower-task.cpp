@@ -1183,12 +1183,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (lower.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_lower_bound_" << lower_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_lower_bound_" << lower_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 
@@ -1197,12 +1197,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (upper.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_upper_bound_" << upper_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_upper_bound_" << upper_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 

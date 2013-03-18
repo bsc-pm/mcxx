@@ -1,0 +1,30 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
+PROGRAM MAIN
+    IMPLICIT NONE
+    INTEGER, EXTERNAL :: OMP_GET_MAX_THREADS
+    INTEGER, POINTER, DIMENSION(:, :) :: A
+
+    ALLOCATE(A(10, 20))
+
+    A = 42
+
+    !$OMP PARALLEL FIRSTPRIVATE(A)
+    !$OMP CRITICAL
+    A = A + 1
+    !$OMP END CRITICAL
+    !$OMP END PARALLEL
+
+    IF (ANY(A /= (42 + OMP_GET_MAX_THREADS()))) STOP 1
+
+    !$OMP PARALLEL SHARED(A)
+    !$OMP CRITICAL
+    IF (ASSOCIATED(A)) THEN
+      DEALLOCATE(A)
+    END IF
+    !$OMP END CRITICAL
+    !$OMP END PARALLEL
+
+    IF (ASSOCIATED(A)) STOP 2
+END PROGRAM MAIN
