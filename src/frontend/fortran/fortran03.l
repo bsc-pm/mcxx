@@ -79,7 +79,7 @@ static int nonblock_do_stack_idx = 0;
 
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
-static char check_continued_sentinel_line(const char* line, const char** sentinel);
+static char check_continued_sentinel_line(const char* line, const char** sentinel, int continuation_kind);
 static char is_valid_pragma_custom_prefix(const char* sentinel);
 static const char* get_real_second_line(const char* second_line, 
         const char** filename, 
@@ -326,7 +326,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	// !$SENTINEL &R :: A=3
 
 	const char* sentinel = NULL;
-	if (check_continued_sentinel_line(yytext, &sentinel))
+	if (check_continued_sentinel_line(yytext, &sentinel, DOUBLE_CONTINUATION))
 	{
 	    reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, sentinel);
 	}
@@ -364,7 +364,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	// !$SENTINEL :: A=3
 
 	const char* sentinel = NULL;
-	if (check_continued_sentinel_line(yytext, &sentinel))
+	if (check_continued_sentinel_line(yytext, &sentinel, SINGLE_CONTINUATION))
 	{
 	    reintroduce_continued_line(yytext, SINGLE_CONTINUATION, sentinel);
 	}
@@ -2799,7 +2799,7 @@ static void trim_inline_comment(char* line)
 	}
 }
 
-static char check_continued_sentinel_line(const char* line, const char** sentinel)
+static char check_continued_sentinel_line(const char* line, const char** sentinel, int continuation_kind)
 {
     *sentinel = NULL;
 
@@ -2838,7 +2838,10 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++;
     ERROR_CONDITION(*p != '!', "Invalid regex (3)\n", 0);
 
-    while (*p != ' ' && *p != '\t')
+    while (*p != ' '
+            && *p != '\t'
+            && (continuation_kind != DOUBLE_CONTINUATION
+                || *p != '&'))
     {
         *q = *p;
         p++; q++;
