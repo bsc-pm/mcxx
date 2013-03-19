@@ -702,6 +702,12 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
+            //! Qualifies current type with the qualifier of t
+            Type get_as_qualified_as(TL::Type t);
+
+            //! Adds the qualification of t to the current type
+            Type get_added_qualification_of(TL::Type t);
+
             //! States that the type is a template type
             /*!
               A template type is the type of a template-name like A and f
