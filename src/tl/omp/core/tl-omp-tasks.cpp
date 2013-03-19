@@ -662,7 +662,7 @@ namespace TL
         //
         //  void foo(int* c) { }
         //
-        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+        static ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
                 Symbol function_symbol)
         {
             ObjectList<Nodecl::NodeclBase> updated_clauses;
