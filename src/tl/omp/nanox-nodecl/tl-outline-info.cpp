@@ -489,7 +489,7 @@ namespace TL { namespace Nanox {
         else if (t.is_pointer())
         {
             TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
-            return res.get_pointer_to();
+            return res.get_pointer_to().get_as_qualified_as(t);
         }
         else if (t.is_lvalue_reference())
         {
