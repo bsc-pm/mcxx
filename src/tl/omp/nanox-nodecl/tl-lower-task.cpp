@@ -536,6 +536,9 @@ void LoweringVisitor::emit_async_common(
         if (is_function_task
                 && called_task != implementor_symbol)
         {
+            // We cannot use the original statements because they contain a
+            // function call to the original function task instead of a call to
+            // the function specified in the 'implements' clause.
             Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
             symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
@@ -569,30 +572,9 @@ void LoweringVisitor::emit_async_common(
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
-            // We cannot use the original statements because It contains a function
-            // call to the original function task and we really want to call to the
-            // function specified in the 'implements' clause. For this reason, we
-            // copy the tree and we replace the called task symbol with the
-            // implementor symbol
-            Nodecl::NodeclBase outline_statements_code;
-            // if (is_function_task
-            //         && called_task != implementor_symbol)
-            // {
-            //     Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-            //     symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
-            //     Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
-            //             output_statements,
-            //             implementor_symbol.get_related_scope(),
-            //             symbol_map_copy_statements);
-            //     outline_statements_code =
-            //         Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
-            // }
-            // else
-            // {
-                outline_statements_code =
+            Nodecl::NodeclBase outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-            //}
 
             delete symbol_map;
 

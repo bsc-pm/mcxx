@@ -1179,9 +1179,6 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             *symbol_map,
             save_expressions);
 
-    // Add a map from the original called task to the adapter function
-    // symbol_map.add_map(called_task_function, adapter_function);
-
     if (called_task_function.is_from_module())
     {
         // If the symbol comes from a module, the environment
