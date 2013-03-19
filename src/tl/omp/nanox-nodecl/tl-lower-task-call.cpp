@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-diagnostic.h"
+#include "cxx-cexpr.h"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
@@ -33,13 +35,11 @@
 #include "tl-devices.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-lower-task-common.hpp"
 #include "fortran03-typeutils.h"
-#include "cxx-diagnostic.h"
-#include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "fortran03-buildscope.h"
-#include "cxx-graphviz.h"
-#include "tl-lower-task-common.hpp"
+
 namespace TL { namespace Nanox {
 
 typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
