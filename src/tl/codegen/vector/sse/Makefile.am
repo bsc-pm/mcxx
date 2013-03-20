@@ -25,21 +25,21 @@
 ##########################################################################
 
 
-include ../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libcodegen-sse-module.la
 
 END=
 
-libcodegen_sse_module_la_CFLAGS = $(tl_cflags) \
+libcodegen_sse_module_la_CFLAGS = $(phases_cflags) \
     -I $(srcdir)/../../common \
     $(END)
 
-libcodegen_sse_module_la_CXXFLAGS = $(tl_cflags) \
+libcodegen_sse_module_la_CXXFLAGS = $(phases_cflags) \
     -I $(srcdir)/../../common \
     $(END)
 
-libcodegen_sse_module_la_LDFLAGS = $(tl_ldflags)
+libcodegen_sse_module_la_LDFLAGS = $(phases_ldflags)
 libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
 					       $(END)
 

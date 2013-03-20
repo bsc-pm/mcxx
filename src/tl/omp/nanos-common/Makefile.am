@@ -26,7 +26,7 @@
 
 noinst_LTLIBRARIES = libtlnanos-common.la
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlnanos-version.la
 
@@ -39,15 +39,15 @@ libtlnanos_version_la_SOURCES = \
 	tl-nanos.cpp \
 	$(END)
 
-libtlnanos_version_la_CFLAGS = $(tl_cflags)
-libtlnanos_version_la_CXXFLAGS = $(tl_cxxflags)
+libtlnanos_version_la_CFLAGS = $(phases_cflags)
+libtlnanos_version_la_CXXFLAGS = $(phases_cxxflags)
 
-libtlnanos_version_la_LDFLAGS = $(tl_ldflags)
-libtlnanos_version_la_LIBADD = $(tl_libadd)
+libtlnanos_version_la_LDFLAGS = $(phases_ldflags)
+libtlnanos_version_la_LIBADD = $(phases_libadd)
 
 #### libtlnanos-common.la
 
-libtlnanos_common_la_CXXFLAGS=$(tl_cxxflags)
+libtlnanos_common_la_CXXFLAGS=$(phases_cxxflags)
 
 libtlnanos_common_la_SOURCES=\
            tl-nanos-atomic.hpp \
