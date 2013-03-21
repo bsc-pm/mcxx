@@ -11406,8 +11406,11 @@ type_t* get_interoperable_variant_type(type_t* t)
         result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
         *result = *t;
 
+        // The unqualified type must point to itself
+        result->unqualified_type = result;
+
         result->info = counted_calloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
-        result->info = t->info;
+        *result->info = *t->info;
 
         result->info->is_interoperable = 1;
 
