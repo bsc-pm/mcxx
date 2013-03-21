@@ -343,7 +343,7 @@ static void join_continuated_lines(prescanner_t* prescanner)
 	line_t* previous_line = NULL;
 
 	// First we prepare a regex to match continuated lines
-	if ((code = regcomp(&match_continuated, "^(([ ]{5})|(![$](omp))|(![$][ ]{3}))[^0 ]", REG_EXTENDED | REG_NOSUB | REG_ICASE)) != 0)
+	if ((code = regcomp(&match_continuated, "^(([ ]{5})|(![$](omp))|(![$][ ]{3}))[^0[:blank:]]", REG_EXTENDED | REG_NOSUB | REG_ICASE)) != 0)
 	{
 		char error_message[120];
 		regerror(code, &match_continuated, error_message, 120);
