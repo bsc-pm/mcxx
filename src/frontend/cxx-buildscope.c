@@ -637,6 +637,9 @@ void build_scope_declaration_sequence(AST list,
     }
 }
 
+// We need to keep some state here
+static char gcc_extension = 0;
+
 // Build scope for a declaration
 static void build_scope_declaration(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output, 
@@ -801,9 +804,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             // GCC Extensions
         case AST_GCC_EXTENSION : // __extension__
             {
-                build_scope_declaration(ASTSon0(a), decl_context, nodecl_output, 
+                gcc_extension = 1;
+
+                build_scope_declaration(ASTSon0(a), decl_context, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
-                // FIXME Enable a gcc_extension bit for these symbols
+
+                gcc_extension = 0;
                 break;
             }
         case AST_GCC_ASM_DEFINITION :
@@ -1607,6 +1613,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             // Copy gcc attributes
             keep_gcc_attributes_in_symbol(entry, &current_gather_info);
             keep_ms_declspecs_in_symbol(entry, &current_gather_info);
+
+            // Propagate the __extension__ attribute to the symbol
+            entry->entity_specs.gcc_extension = gcc_extension;
 
             // Only variables can be initialized
             if (initializer != NULL)
@@ -6719,6 +6728,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);
 
+    // Propagate the __extension__ attribute to the symbol
+    class_entry->entity_specs.gcc_extension = gcc_extension;
+
     CXX_LANGUAGE()
     {
         nodecl_t nodecl_context =
@@ -10935,6 +10947,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
 
+    // Propagate the __extension__ attribute to the symbol
+    entry->entity_specs.gcc_extension = gcc_extension;
+
     if (declared_symbols != NULL)
     {
         *declared_symbols = entry_list_new(entry);
@@ -11247,9 +11262,12 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_GCC_EXTENSION : // __extension__
             {
+                gcc_extension = 1;
+
                 build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info,
                         nodecl_output, declared_symbols, gather_decl_spec_list);
-                // FIXME Enable a gcc_extension bit for these symbols
+
+                gcc_extension = 0;
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
@@ -11843,6 +11861,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
 
+    // Propagate the __extension__ attribute to the symbol
+    entry->entity_specs.gcc_extension = gcc_extension;
+    
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
     return entry;
@@ -11933,6 +11954,9 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     // Copy gcc attributes
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
+
+    // Propagate the __extension__ attribute to the symbol
+    entry->entity_specs.gcc_extension = gcc_extension;
 }
 
 void build_scope_friend_declarator(decl_context_t decl_context, 
@@ -12452,6 +12476,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         keep_gcc_attributes_in_symbol(entry, &current_gather_info);
                         keep_ms_declspecs_in_symbol(entry, &current_gather_info);
+
+                        // Propagate the __extension__ attribute to the symbol
+                        entry->entity_specs.gcc_extension = gcc_extension;
+
                         break;
                     }
                 default :
