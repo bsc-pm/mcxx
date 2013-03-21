@@ -562,7 +562,7 @@ static void define_schema(sqlite3* handle)
 
     {
         char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(INTEGER oid PRIMARY KEY, decl_context, name, kind, type, file, line, "
-                "value, bit_entity_specs, %s);", attr_field_names);
+                "value, bit_entity_specs, related_decl_context, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
@@ -718,7 +718,8 @@ static void prepare_statements(sqlite3* handle)
     } while (0)
 
     char* load_symbol_stmt_str = sqlite3_mprintf(
-            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line, value, bit_entity_specs, %s "
+            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line,"
+            " value, bit_entity_specs, related_decl_context, %s "
             "FROM symbol s, string_table str1, string_table str2 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.file;", 
             attr_field_names);
     DO_PREPARE_STATEMENT(_load_symbol_stmt, load_symbol_stmt_str);
@@ -1898,6 +1899,7 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     sqlite3_uint64 type_id = insert_type(handle, symbol->type_information);
     sqlite3_uint64 value_oid = insert_nodecl(handle, symbol->value);
     sqlite3_uint64 decl_context_oid = insert_decl_context(handle, symbol->decl_context);
+    sqlite3_uint64 related_decl_context_oid = insert_decl_context(handle, symbol->related_decl_context);
 
     // module_packed_bits_t is declared in fortran03-modules-bits.h
     module_packed_bits_t module_packed_bits = synthesize_packed_bits(symbol);
@@ -1906,8 +1908,8 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
     // FIXME - Devise ways to make this a prepared statement
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
-            "bit_entity_specs, %s) "
-            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %s);",
+            "bit_entity_specs, related_decl_context, %s) "
+            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %llu, %s);",
             attr_field_names,
             P2ULL(symbol), // oid
             decl_context_oid, // decl_context
@@ -1918,6 +1920,7 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
             symbol->line, // line
             value_oid,
             bit_str,
+            related_decl_context_oid,
             attribute_values);
     sqlite3_free(attribute_values);
 
@@ -1982,8 +1985,15 @@ static int get_symbol(void *datum,
     int line = safe_atoi(values[6]);
     sqlite3_uint64 value_oid = safe_atoull(values[7]);
     const char* bitfield_pack_str = uniquestr(values[8]);
+    sqlite3_uint64 related_decl_context_oid = safe_atoull(values[9]);
 
     (*result) = NULL;
+
+    // We need to load the bits for the early checks in the loaded symbol
+    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
+    entity_specifiers_t entity_specs;
+    memset(&entity_specs, 0, sizeof(entity_specs));
+    unpack_bits(&entity_specs, packed_bits);
 
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
@@ -2037,9 +2047,11 @@ static int get_symbol(void *datum,
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
                         && member->entity_specs.from_module == from_module
-                        && member->entity_specs.alias_to == alias_to)
+                        && member->entity_specs.alias_to == alias_to
+                        // A name can be repeated if one of them is a generic
+                        // specifier, so the name and module coordenates will be the same
+                        && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
                 {
-                    // fprintf(stderr, "SYMBOL %lld '%s.%s' WAS ALREADY LOADED IN ITS MODULE\n", 
                     //         oid,
                     //         in_module->symbol_name, member->symbol_name);
                     (*result) = member;
@@ -2082,6 +2094,8 @@ static int get_symbol(void *datum,
     (*result)->type_information = load_type(handle, type_oid);
 
     (*result)->decl_context = load_decl_context(handle, decl_context_oid);
+
+    (*result)->related_decl_context = load_decl_context(handle, related_decl_context_oid);
     // Add it to its scope
     if ((*result)->symbol_name != NULL)
     {
@@ -2090,8 +2104,9 @@ static int get_symbol(void *datum,
 
     (*result)->value = load_nodecl(handle, value_oid);
 
-    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
-    unpack_bits((*result), packed_bits);
+    // Unpack bits again (we cannot directly write entity specs because we
+    // would be overwriting non-bits as well)
+    unpack_bits(&(*result)->entity_specs, packed_bits);
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 

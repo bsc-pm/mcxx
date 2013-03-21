@@ -19,5 +19,48 @@ namespace Nodecl { namespace Utils {
         }
     }
 
+    void Fortran::append_used_modules(TL::Scope orig_scope,
+            TL::Scope new_scope)
+    {
+        scope_entry_t* original_used_modules_info
+            = orig_scope.get_related_symbol().get_used_modules().get_internal_symbol();
+
+        if (original_used_modules_info != NULL &&
+                original_used_modules_info->entity_specs.num_related_symbols != 0)
+        {
+            scope_entry_t* new_used_modules_info
+                = ::get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
+
+            int total_related_symbols = new_used_modules_info->entity_specs.num_related_symbols
+                + original_used_modules_info->entity_specs.num_related_symbols;
+
+            //FIXME: Memory leaks
+            scope_entry_t**  list_related_symbols = (scope_entry_t**)
+                malloc(total_related_symbols * sizeof(*new_used_modules_info->entity_specs.related_symbols));
+
+            int index = 0;
+            // Copy all the symbols of the new_used_modules_info to the new list
+            for (int j = 0; j < new_used_modules_info->entity_specs.num_related_symbols; j++, index++)
+            {
+                list_related_symbols[index] = new_used_modules_info->entity_specs.related_symbols[j];
+
+                // Make sure the module has been loaded...
+                if (!list_related_symbols[index]->entity_specs.is_builtin)
+                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
+            }
+            // Append all the symbols of the original_used_modules_info  to the new list
+            for (int j = 0; j < original_used_modules_info->entity_specs.num_related_symbols; j++, index++)
+            {
+                list_related_symbols[index] = original_used_modules_info->entity_specs.related_symbols[j];
+
+                // Make sure the module has been loaded...
+                if (!list_related_symbols[index]->entity_specs.is_builtin)
+                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
+            }
+
+            new_used_modules_info->entity_specs.related_symbols = list_related_symbols;
+            new_used_modules_info->entity_specs.num_related_symbols = total_related_symbols;
+        }
+    }
 
 } }

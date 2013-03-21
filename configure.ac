@@ -437,6 +437,51 @@ AC_SUBST([gpu_valid])
 
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
+dnl --------------------- Support for FPGA tests in Nanox --------------------------------
+
+fpga_enabled=yes
+AC_MSG_CHECKING([if the use of FPGA devices was disabled])
+AC_ARG_ENABLE([nanox-fpga-device],
+  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the use of FPGA devices]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        fpga_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            fpga_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    fpga_enabled="yes"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+FPGA_CC=""
+AC_ARG_WITH([fpga-cc],
+AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler for arm]),
+	[
+		FPGA_CC="${withval}"
+	],
+	[
+		FPGA_CC="arm-linux-gnueabi-"
+	])
+
+AC_SUBST([FPGA_CC])
+
+if test x$fpga_enabled = xyes;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
+    COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
+fi
+dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
+
 
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
@@ -1215,6 +1260,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/Makefile
            src/tl/omp/nanox-nodecl/devices/Makefile
            src/tl/omp/nanox-nodecl/devices/smp/Makefile
+           src/tl/omp/nanox-nodecl/devices/fpga/Makefile
            src/tl/omp/nanox-nodecl/devices/cuda/Makefile
            src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/omp/nanox-nodecl/devices/mpi/Makefile

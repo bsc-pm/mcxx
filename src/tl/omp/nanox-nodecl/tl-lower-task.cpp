@@ -41,10 +41,10 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
+TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodecl::NodeclBase construct)
 {
     //FIXME: The 'construct' parameter is only used to obtain the line and the filename
-    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
+    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_implementations);
     if (it == _declared_const_wd_type_map.end())
     {
         std::stringstream ss;
@@ -52,7 +52,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
         {
             ss << "struct ";
         }
-        ss << "nanos_const_wd_definition_" << num_devices;
+        ss << "nanos_const_wd_definition_" << num_implementations;
 
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
@@ -67,7 +67,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        _declared_const_wd_type_map[num_devices] = new_class_symbol;
+        _declared_const_wd_type_map[num_implementations] = new_class_symbol;
 
         TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
         ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
@@ -110,7 +110,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
                         ::get_user_defined_type(devices_class.get_internal_symbol()),
-                        const_value_to_nodecl( const_value_get_signed_int(num_devices)),
+                        const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -182,26 +182,8 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_devices;
-    {
-        std::set<std::string> used_devices;
-        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-                it != implementation_table.end();
-                ++it)
-        {
-            TargetInformation target_info = it->second;
-            ObjectList<std::string> devices = target_info.get_device_names();
-            for (ObjectList<std::string>::iterator it2 = devices.begin();
-                    it2 != devices.end();
-                    ++it2)
-            {
-                used_devices.insert(*it2);
-            }
-        }
-        num_devices = used_devices.size();
-    }
-
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
+    int num_implementations = implementation_table.size();
+    TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
 
@@ -221,7 +203,7 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".data_alignment = " << */ alignment << ", \n"
         // We do not register copies at creation in Fortran
         << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
-        << /* ".num_devices = " << */ num_devices << ",\n"
+        << /* ".num_devices = " << */ num_implementations << ",\n"
         ;
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
@@ -550,6 +532,22 @@ void LoweringVisitor::emit_async_common(
             (is_function_task) ?
             implementor_symbol : TL::Symbol::invalid();
 
+        Nodecl::NodeclBase task_statements = statements;
+        if (is_function_task
+                && called_task != implementor_symbol)
+        {
+            // We cannot use the original statements because they contain a
+            // function call to the original function task instead of a call to
+            // the function specified in the 'implements' clause.
+            Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
+            symbol_map_copy_statements.add_map(called_task, implementor_symbol);
+
+            task_statements = Nodecl::Utils::deep_copy(
+                    statements,
+                    implementor_symbol.get_related_scope(),
+                    symbol_map_copy_statements);
+        }
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
@@ -565,6 +563,7 @@ void LoweringVisitor::emit_async_common(
                     outline_info.get_data_items(),
                     target_info,
                     statements,
+                    task_statements,
                     task_label,
                     structure_symbol,
                     real_called_task);
@@ -573,30 +572,9 @@ void LoweringVisitor::emit_async_common(
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
-            // We cannot use the original statements because It contains a function
-            // call to the original function task and we really want to call to the
-            // function specified in the 'implements' clause. For this reason, we
-            // copy the tree and we replace the called task symbol with the
-            // implementor symbol
-            Nodecl::NodeclBase outline_statements_code;
-            if (is_function_task
-                    && called_task != implementor_symbol)
-            {
-                Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-                symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
-                Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
-                        output_statements,
-                        implementor_symbol.get_related_scope(),
-                        symbol_map_copy_statements);
-                outline_statements_code =
-                    Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
-            }
-            else
-            {
-                outline_statements_code =
+            Nodecl::NodeclBase outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-            }
 
             delete symbol_map;
 
@@ -1187,12 +1165,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (lower.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_lower_bound_" << lower_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_lower_bound_" << lower_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 
@@ -1201,12 +1179,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (upper.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_upper_bound_" << upper_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_upper_bound_" << upper_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 

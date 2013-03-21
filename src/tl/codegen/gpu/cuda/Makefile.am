@@ -25,18 +25,18 @@
 ##########################################################################
 
 
-include ../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libcodegen-cuda.la
 
-libcodegen_cuda_la_CFLAGS = $(tl_cflags) -I$(srcdir)/../../common
-libcodegen_cuda_la_CXXFLAGS = $(tl_cflags) -I$(srcdir)/../../common
+libcodegen_cuda_la_CFLAGS = $(phases_cflags) -I$(srcdir)/../../common
+libcodegen_cuda_la_CXXFLAGS = $(phases_cflags) -I$(srcdir)/../../common
 
 END=
 
-libcodegen_cuda_la_LDFLAGS = $(tl_ldflags)
+libcodegen_cuda_la_LDFLAGS = $(phases_ldflags)
 libcodegen_cuda_la_LIBADD = ../../common/libcodegen-common.la \
-						   $(tl_libadd) \
+						   $(phases_libadd) \
 					       $(quadmath_LIBS) \
 					       $(END)
 

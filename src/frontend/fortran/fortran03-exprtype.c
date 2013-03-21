@@ -1347,6 +1347,7 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
 
     char is_integer_complex = 0;
 
+    type_t* element_type = NULL;
     type_t* result_type = NULL;
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
@@ -1357,7 +1358,6 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     else if (is_floating_type(real_part_type)
             || is_floating_type(imag_part_type))
     {
-        type_t* element_type = NULL;
         if (is_floating_type(real_part_type))
         {
             element_type = real_part_type;
@@ -1427,6 +1427,28 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
             cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
         }
         else if (equivalent_types(fortran_get_default_real_type(), get_long_double_type()))
+        {
+            cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+    else
+    {
+        if (equivalent_types(element_type, get_float_type()))
+        {
+            cval_real_part = const_value_cast_to_float_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_float_value(cval_imag_part);
+        }
+        else if (equivalent_types(element_type, get_double_type()))
+        {
+            cval_real_part = const_value_cast_to_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
+        }
+        else if (equivalent_types(element_type, get_long_double_type()))
         {
             cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
             cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);

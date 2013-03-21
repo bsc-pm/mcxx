@@ -24,14 +24,14 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libmultifile-test.la
 
-libmultifile_test_la_CFLAGS = $(tl_cflags)
-libmultifile_test_la_CXXFLAGS = $(tl_cxxflags)
-libmultifile_test_la_LDFLAGS = $(tl_ldflags)
-libmultifile_test_la_LIBADD = $(tl_libadd)
+libmultifile_test_la_CFLAGS = $(phases_cflags)
+libmultifile_test_la_CXXFLAGS = $(phases_cxxflags)
+libmultifile_test_la_LDFLAGS = $(phases_ldflags)
+libmultifile_test_la_LIBADD = $(phases_libadd)
 
 libmultifile_test_la_SOURCES = \
                          multifile.cpp

@@ -342,8 +342,20 @@ namespace TL { namespace Nanox {
 
                         Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
                         TL::Type sym_type = sym.get_type();
-                        if (!sym_type.is_any_reference()) sym_type = sym_type.get_lvalue_reference_to();
-                        symbol_ref.set_type(sym_type);
+                        if (!sym_type.no_ref().is_pointer())
+                        {
+                            if (!sym_type.is_any_reference())
+                                sym_type = sym_type.get_lvalue_reference_to();
+                            symbol_ref.set_type(sym_type);
+                        }
+                        else
+                        {
+                            symbol_ref.set_type(sym_type);
+                            symbol_ref = Nodecl::Dereference::make(
+                                    symbol_ref,
+                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
+                        }
+
 
                         Source lbound_src;
                         lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
@@ -355,7 +367,7 @@ namespace TL { namespace Nanox {
                         result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
                         result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
-                        make_allocatable = true;
+                        make_allocatable = !sym_type.no_ref().is_pointer();
                     }
                 }
                 else if (lower.is<Nodecl::Symbol>()
@@ -391,8 +403,19 @@ namespace TL { namespace Nanox {
 
                         Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
                         TL::Type sym_type = sym.get_type();
-                        if (!sym_type.is_any_reference()) sym_type = sym_type.get_lvalue_reference_to();
-                        symbol_ref.set_type(sym_type);
+                        if (!sym_type.no_ref().is_pointer())
+                        {
+                            if (!sym_type.is_any_reference())
+                                sym_type = sym_type.get_lvalue_reference_to();
+                            symbol_ref.set_type(sym_type);
+                        }
+                        else
+                        {
+                            symbol_ref.set_type(sym_type);
+                            symbol_ref = Nodecl::Dereference::make(
+                                    symbol_ref,
+                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
+                        }
 
                         Source ubound_src;
                         ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
@@ -404,7 +427,7 @@ namespace TL { namespace Nanox {
                         result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
                         result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
-                        make_allocatable = true;
+                        make_allocatable = !sym_type.no_ref().is_pointer();
                     }
                     else
                     {
@@ -466,7 +489,7 @@ namespace TL { namespace Nanox {
         else if (t.is_pointer())
         {
             TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
-            return res.get_pointer_to();
+            return res.get_pointer_to().get_as_qualified_as(t);
         }
         else if (t.is_lvalue_reference())
         {

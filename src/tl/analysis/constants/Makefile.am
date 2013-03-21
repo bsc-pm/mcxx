@@ -24,14 +24,14 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libconstants_analysis.la
 
-libconstants_analysis_la_CFLAGS = $(tl_cflags)
-libconstants_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
-libconstants_analysis_la_LDFLAGS = $(tl_ldflags)
-libconstants_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
+libconstants_analysis_la_CFLAGS = $(phases_cflags)
+libconstants_analysis_la_CXXFLAGS = $(phases_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libconstants_analysis_la_LDFLAGS = $(phases_ldflags)
+libconstants_analysis_la_LIBADD = $(phases_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 

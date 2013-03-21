@@ -365,6 +365,20 @@ static char mean_the_same_entity(scope_entry_list_t* entry_list)
     return result;
 }
 
+static void diagnostic_ambiguity(scope_entry_list_t* entry_list)
+{
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        info_printf("%s:%d: info: name '%s' first bound here\n",
+                entry->file, entry->line, entry->symbol_name);
+    }
+    entry_list_iterator_free(it);
+}
+
 scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
         const char* filename, 
@@ -387,6 +401,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
                 if (!checking_ambiguity())
                 {
                     error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                    diagnostic_ambiguity(result_list);
                 }
             }
 
@@ -526,6 +541,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                         if (!checking_ambiguity())
                         {
                             error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                            diagnostic_ambiguity(entry_list);
                         }
                     }
 

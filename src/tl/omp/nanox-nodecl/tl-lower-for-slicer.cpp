@@ -257,7 +257,11 @@ namespace TL { namespace Nanox {
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info, statements,
+        CreateOutlineInfo info(outline_name,
+                outline_info.get_data_items(),
+                target_info,
+                /* original task statements */ statements,
+                /* current task statements */ statements,
                 /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names

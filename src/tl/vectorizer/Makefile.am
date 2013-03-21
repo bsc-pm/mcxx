@@ -24,27 +24,27 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlvectorizer.la
 
 END=
 
 
-libtlvectorizer_la_CFLAGS = $(tl_cflags) -Wall \
+libtlvectorizer_la_CFLAGS = $(phases_cflags) -Wall \
                             -I $(top_srcdir)/src/tl/analysis/singleton/ \
                             -I $(top_srcdir)/src/tl/analysis/common/ \
                             -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                             $(END)
 
-libtlvectorizer_la_CXXFLAGS = $(tl_cflags) -Wall \
+libtlvectorizer_la_CXXFLAGS = $(phases_cflags) -Wall \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                               $(END)
 
-libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
-libtlvectorizer_la_LIBADD = $(tl_libadd) \
+libtlvectorizer_la_LDFLAGS = $(phases_ldflags)
+libtlvectorizer_la_LIBADD = $(phases_libadd) \
                           $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
                           $(END)
 
