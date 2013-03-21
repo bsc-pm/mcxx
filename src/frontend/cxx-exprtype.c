@@ -12471,6 +12471,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         return;
     }
 
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
     // Now we have to check whether this can be converted to the declared entity
     C_LANGUAGE()
     {
