@@ -76,6 +76,9 @@ LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, con
 
 LIBMF03_EXTERN void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic);
 
+LIBMF03_EXTERN scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_intrinsic_module,
+        const char* filename, int line);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_BUILDSCOPE_H
