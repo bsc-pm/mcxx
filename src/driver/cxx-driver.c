@@ -2947,15 +2947,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 driver_fortran_hide_mercurium_modules();
             }
 
-            // * Native compilation
-            if (!file_not_processed)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_COMPILE))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
-            }
-            else
-            {
-                // Do not process
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                // * Native compilation
+                if (!file_not_processed)
+                {
+                    native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
+                }
+                else
+                {
+                    // Do not process
+                    native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                }
             }
 
             // * Restore all the wrap modules for subsequent uses
@@ -4070,7 +4073,7 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker command arguments
-    for(j = 0; j < num_args_linker_command; j++, i++)
+    for(j = 0; j < num_args_linker_command; j++)
     {
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
@@ -4081,6 +4084,10 @@ static void link_files(const char** file_list, int num_files,
                 get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = 
                 fileextensions_lookup(extension, strlen(extension));
+
+            if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                continue;
+
             if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
             {
                 linker_args[i] = current_translation_unit->input_filename;
@@ -4095,6 +4102,7 @@ static void link_files(const char** file_list, int num_files,
         {
             linker_args[i] = compilation_configuration->linker_command[j]->argument;    
         }
+        i++;
     }
     //Adding multifile list or additional file list 
     for (j = 0; j < num_files; j++, i++)

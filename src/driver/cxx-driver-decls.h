@@ -55,6 +55,8 @@ typedef enum source_kind_tag
     SOURCE_KIND_FIXED_FORM = BITMAP(2),
     SOURCE_KIND_FREE_FORM = BITMAP(3),
     SOURCE_KIND_DO_NOT_PROCESS = BITMAP(4),
+    SOURCE_KIND_DO_NOT_COMPILE = BITMAP(5),
+    SOURCE_KIND_DO_NOT_LINK = BITMAP(6),
 } source_kind_t;
 #undef BITMAP
 
