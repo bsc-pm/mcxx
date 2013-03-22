@@ -186,8 +186,6 @@
 "                           number of THREADS.\n" \
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
-"  --opencl-code-file=<options> Default file for OpenCL code,\n" \
-"                           can be overriden inside code by using the file clause\n" \
 "  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
@@ -350,7 +348,6 @@ typedef enum
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_OPENCL,
     OPTION_OPENCL_OPTIONS,
-    OPTION_OPENCL_FILE,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
@@ -423,8 +420,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
-    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},    
-    {"opencl-code-file",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_FILE},
+    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
@@ -1326,12 +1322,12 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->enable_cuda = 1;
                         break;
-                    }                
+                    }
                 case OPTION_ENABLE_OPENCL:
                     {
                         CURRENT_CONFIGURATION->enable_opencl = 1;
                         break;
-                    }                
+                    }
                 case OPTION_OPENCL_OPTIONS:
                     {
                         //If we have build options, we also enable opencl
@@ -1339,16 +1335,6 @@ int parse_arguments(int argc, const char* argv[],
                         if (parameter_info.argument != NULL)
                         {
                             CURRENT_CONFIGURATION->opencl_build_options = parameter_info.argument;
-                        }
-                        break;
-                    }
-                case OPTION_OPENCL_FILE:
-                    {
-                        //If we have build options, we also enable opencl
-                        CURRENT_CONFIGURATION->enable_opencl = 1;
-                        if (parameter_info.argument != NULL)
-                        {
-                            CURRENT_CONFIGURATION->opencl_code_file = parameter_info.argument;
                         }
                         break;
                     }
