@@ -3922,9 +3922,11 @@ static void embed_files(void)
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
         // We do not have to embed linker data
-        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                || current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+        {
             continue;
-
+        }
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
 
         if (CURRENT_CONFIGURATION->verbose)
@@ -4325,9 +4327,23 @@ static void link_objects(void)
     if (CURRENT_CONFIGURATION->do_not_link)
         return;
 
-    const char * file_list[compilation_process.num_translation_units + 1];
-
     int j;
+    int num_link_files = 0;
+    for (j = 0; j < compilation_process.num_translation_units; j++)
+    {
+        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
+        const char* extension = get_extension_filename(translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
+        num_link_files++;
+    }
+
+    const char * file_list[num_link_files + 1];
+
+    int index = 0;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
         translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
@@ -4335,20 +4351,25 @@ static void link_objects(void)
         const char* extension = get_extension_filename(translation_unit->input_filename);
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
         {
-            file_list[j] = translation_unit->input_filename;
+            file_list[index] = translation_unit->input_filename;
         }
         else
         {
-            file_list[j] = translation_unit->output_filename;
-            mark_file_as_temporary(file_list[j]);
+            file_list[index] = translation_unit->output_filename;
+            mark_file_as_temporary(file_list[index]);
         }
+
+        index++;
     }
 
     int num_additional_files = 0;
     const char** additional_files = NULL;
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+    extract_files_and_sublink(file_list, num_link_files,
             &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
     // Additional files are those coming from secondary profiles
