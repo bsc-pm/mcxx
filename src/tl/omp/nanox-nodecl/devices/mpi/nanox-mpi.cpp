@@ -149,6 +149,7 @@ void DeviceMPI::add_forward_code_to_extra_c_code(
     ancillary_source << "}\n\n";
 
     // Parse in C
+    if (IS_FORTRAN_LANGUAGE)
     Source::source_language = SourceLanguage::C;
 
     Nodecl::List n = ancillary_source.parse_global(parse_context).as<Nodecl::List>();
@@ -284,7 +285,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Source search_function;
         search_function << "typedef float(*ptrToFunc)(float, float);";
         search_function << "extern int ompss_mpi_get_function_index_host(void* func);";
-        Source::source_language = SourceLanguage::C;
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
         Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
         Source::source_language = SourceLanguage::Current;
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, search_function_tree);
@@ -626,7 +628,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             << "}";
     
     
-    Source::source_language = SourceLanguage::C;
+    if (IS_FORTRAN_LANGUAGE)
+       Source::source_language = SourceLanguage::C;
     Nodecl::NodeclBase new_unpacked_body =
             unpacked_source.parse_statement(unpacked_function_body);    
     Source::source_language = SourceLanguage::Current;
@@ -657,7 +660,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     
     host_src << "}";
 
-    Source::source_language = SourceLanguage::C;
+    if (IS_FORTRAN_LANGUAGE)
+       Source::source_language = SourceLanguage::C;
     Nodecl::NodeclBase new_host_body = host_src.parse_statement(host_function_body);
     Source::source_language = SourceLanguage::Current;
 
@@ -964,7 +968,8 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 << _sectionCodeDevice
                 << "}; ";
         
-        Source::source_language = SourceLanguage::C;
+        if (IS_FORTRAN_LANGUAGE)
+           Source::source_language = SourceLanguage::C;
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
         Source::source_language = SourceLanguage::Current;
         if (IS_FORTRAN_LANGUAGE){
@@ -1011,11 +1016,12 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                         << "}}"
                         ;
             }
-
-            Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());
-            Source::source_language = SourceLanguage::C;
+        
+            if (IS_FORTRAN_LANGUAGE)
+               Source::source_language = SourceLanguage::C;
             Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
             Source::source_language = SourceLanguage::Current;
+            Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());    
             
             if (IS_FORTRAN_LANGUAGE){
                _extra_c_code.prepend(newompss_main); 
@@ -1044,7 +1050,8 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                            "return i;"
                            "}";       
 
-        Source::source_language = SourceLanguage::C;
+        if (IS_FORTRAN_LANGUAGE)
+          Source::source_language = SourceLanguage::C;
         Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
         Source::source_language = SourceLanguage::Current;    
 
