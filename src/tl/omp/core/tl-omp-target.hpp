@@ -50,16 +50,23 @@ namespace TL
 
             bool has_implements;
             Symbol implements;
+
+            // The name of the file where the kernels are defined
             std::string file;
+
+            // The real name of the kernel
+            std::string name;
 
             bool copy_deps;
 
             TargetContext()
-                : device_list(), 
-                copy_in(), 
-                copy_out(), 
-                has_implements(), 
-                implements(), 
+                : device_list(),
+                copy_in(),
+                copy_out(),
+                has_implements(),
+                implements(),
+                file(),
+                name(),
                 copy_deps()
             {
             }
