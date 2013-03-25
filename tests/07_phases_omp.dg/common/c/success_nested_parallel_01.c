@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+test_ignore=yes
 </testinfo>
 */
 
