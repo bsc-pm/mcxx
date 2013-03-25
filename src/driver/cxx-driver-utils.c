@@ -117,6 +117,20 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
+static char name_is_in_temporal_files(const char* name)
+{
+    temporal_file_list_t it = temporal_file_list;
+
+    while (it != NULL)
+    {
+        if (strcmp(it->info->name, name) == 0)
+            return 1;
+        it = it->next;
+    }
+
+    return 0;
+}
+
 static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary, char is_dir)
 {
     temporal_file_t result = calloc(sizeof(*result), 1);
@@ -132,24 +146,33 @@ static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_t
     return result;
 }
 
+static void add_to_list_of_temporal_files_(const char* name, char is_temporary, char is_dir)
+{
+    // Do not add it twice
+    if (name_is_in_temporal_files(name))
+        return;
+
+    add_to_list_of_temporal_files(name, is_temporary, is_dir);
+}
+
 void mark_file_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 0);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 0, /* is_dir */ 0);
 }
 
 void mark_dir_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
 void mark_file_as_temporary(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 0);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 1, /* is_dir */ 0);
 }
 
 void mark_dir_as_temporary(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 1);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 1, /* is_dir */ 1);
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
