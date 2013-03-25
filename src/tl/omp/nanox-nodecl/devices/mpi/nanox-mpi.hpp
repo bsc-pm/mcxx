@@ -50,153 +50,9 @@ namespace TL
                   bool _mpi_task_processed;
                   Source _sectionCodeHost;
                   Source _sectionCodeDevice;
+                  Source _extraFortranDecls;
                   Nodecl::NodeclBase _root;
                   unsigned int _currTaskId;
-
-//                std::string _cudaFilename;
-//                std::string _cudaHeaderFilename;
-//                AST_t _root;
-//                std::set<Symbol> _taskSymbols;
-//                std::set<Symbol> _fwdSymbols;
-//                std::set<type_tag *> _localDecls;
-//
-//                // Multimap containing identifier and two Sources:
-//                // - first is the ndrange part of a cuda call
-//                // - second is the kernell call
-//                // Translation code (if exists) will be between them
-//                std::multimap<std::string, std::pair<Source,Source> > _implementCalls;
-//
-//                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
-//
-//
-//                bool is_wrapper_needed(PragmaCustomConstruct ctr);
-//
-//                bool is_wrapper_needed(const Symbol& symbol);
-//
-//                bool is_wrapper_needed(Symbol& symbol);
-//
-//                bool is_wrapper_needed(PragmaCustomConstruct ctr, Symbol& symbol);
-//
-//                std::string get_header_macro();
-//
-//                void char_replace_all_occurrences(std::string &str, std::string original, std::string replaced);
-//
-//                void replace_all_kernel_configs(AST_t& function_code_tree, ScopeLink sl);
-//
-//                void replace_kernel_config(AST_t &kernel_call, ScopeLink sl);
-//
-//                void generateNDrangeCode(
-//                        Declaration &kernel_decl,
-//                        Source &code_ndrange,
-//                        std::string &ndrange,
-//                        std::map<std::string, int> &param_positions,
-//                        ObjectList<std::string> &param_names);
-//
-//                void generateParametersCall(
-//                        Source &cuda_call,
-//                        Declaration& kernel_decl,
-//                        std::string calls,
-//                        std::map<std::string, int> &param_positions,
-//                        ObjectList<std::string> &param_names,
-//                        ObjectList<ParameterDeclaration> &parameters_impl,
-//                        Declaration &implements_decl);
-//
-//                void generate_wrapper_code(
-//                        Declaration implements_decl,
-//                        Declaration kernel_decl,
-//                        std::string ndrange,
-//                        std::string calls);
-//
-//                void do_cuda_inline_get_addresses(
-//                        const Scope& sc,
-//                        const DataEnvironInfo& data_env_info,
-//                        Source &copy_setup,
-//                        ReplaceSrcIdExpression& replace_src,
-//                        bool &err_declared);
-//
-//                void do_cuda_outline_replacements(
-//                        AST_t body,
-//                        ScopeLink scope_link,
-//                        const DataEnvironInfo& data_env_info,
-//                        Source &initial_code,
-//                        Source &replaced_outline);
-//
-//                void get_output_file(std::ofstream& cudaFile);
-//
-//                void get_output_file(std::ofstream& cudaFile, std::ofstream& cudaHeaderFile);
-//
-//                void process_wrapper(
-//                        PragmaCustomConstruct ctr,
-//                        AST_t& decl,
-//                        bool& needs_device,
-//                        bool& needs_global,
-//                        bool& is_global_defined,
-//                        bool& needs_extern_c);
-//
-//                void check_needs_device(
-//                		AST_t& decl,
-//                		ScopeLink sl,
-//                		bool& needs_device);
-//
-//                void check_global_kernel(AST_t& decl, ScopeLink sl, bool& needs_global, bool& is_global_defined);
-//
-//                void insert_declaration_device_side(
-//                        AST_t& decl,
-//                        bool needs_device,
-//                        bool needs_global,
-//                        bool is_global_defined,
-//                        bool needs_extern_c);
-//
-//                void insert_instrumentation_code(Symbol function_symbol,
-//                        const FunctionDefinition& enclosing_function,
-//                        const std::string& task_name,
-//                        Source& outline_name,
-//                        const OutlineFlags& outline_flags,
-//                        AST_t& reference_tree,
-//                        Source& instrument_before,
-//                        Source& instrument_after);
-//
-//                void create_wrapper_code(
-//                        PragmaCustomConstruct pragma_construct,
-//                        const OutlineFlags &outline_flags,
-//                        ScopeLink sl,
-//                        std::string& implemented_name);
-//
-//                void process_local_symbols(AST_t& decl, ScopeLink sl, Source& forward_declaration);
-//
-//                void process_extern_symbols(AST_t& decl, ScopeLink sl, Source& forward_declaration);
-//
-//                void process_outline_task(const OutlineFlags& outline_flags, AST_t& function_tree, ScopeLink& sl,
-//                		Source& forward_declaration);
-//
-//                void do_wrapper_code_replacements(
-//                        std::string implemented_name,
-//                        DataEnvironInfo& data_environ,
-//                        const OutlineFlags& outline_flags,
-//                        Source& initial_setup,
-//                        Source& implements);
-//
-//                AST_t generate_task_code(Source& outline_name, const std::string& task_name,
-//                        const std::string& struct_typename, Source& parameter_list, DataEnvironInfo& data_environ,
-//                        const OutlineFlags& outline_flags, Source& initial_setup, Source& outline_body,
-//                        AST_t& reference_tree, ScopeLink& sl);
-//
-//                void process_device_side_code(Source &outline_name, const std::string& task_name,
-//                        const std::string& struct_typename, Source& parameter_list, DataEnvironInfo& data_environ,
-//                        const OutlineFlags& outline_flags, Source& initial_setup, Source& outline_body, AST_t& reference_tree, ScopeLink& sl);
-//
-//                void insert_device_side_code(Source &forward_declaration);
-//
-//                void insert_device_side_code(AST_t &code_tree);
-//
-//                void insert_device_side_code(
-//                        Source &forward_declaration,
-//                        AST_t& outline_code_tree);
-//
-//                void insert_host_side_code(Source &outline_name, const OutlineFlags& outline_flags,
-//                        const std::string& struct_typename, Source &parameter_list, AST_t &reference_tree,
-//                        ScopeLink &sl);
-
 
                   void generate_additional_mpi_code(
                     const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
@@ -208,6 +64,12 @@ namespace TL
 
 //                  void add_included_cuda_files(FILE* file);                  
                   std::string get_ompss_mpi_type(Type type);
+                  Nodecl::List _extra_c_code;
+
+                  void add_forward_code_to_extra_c_code(
+                    const std::string& outline_name,
+                    TL::ObjectList<OutlineDataItem*> data_items,
+                    Nodecl::NodeclBase parse_context);
                   
             public:
 

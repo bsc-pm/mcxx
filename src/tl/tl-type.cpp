@@ -812,6 +812,19 @@ namespace TL
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
+    Type Type::get_as_qualified_as(TL::Type t)
+    {
+        cv_qualifier_t cv = get_cv_qualifier(t._type_info);
+        return get_cv_qualified_type(this->_type_info, cv);
+    }
+
+    Type Type::get_added_qualification_of(TL::Type t)
+    {
+        cv_qualifier_t cv = get_cv_qualifier(t._type_info);
+        return get_cv_qualified_type(this->_type_info,
+                (cv_qualifier_t)(cv | get_cv_qualifier(this->_type_info)));
+    }
+
     Type Type::no_ref()
     {
         if (::is_lvalue_reference_type(this->_type_info)

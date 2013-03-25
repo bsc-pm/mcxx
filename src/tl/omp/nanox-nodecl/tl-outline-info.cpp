@@ -489,7 +489,7 @@ namespace TL { namespace Nanox {
         else if (t.is_pointer())
         {
             TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
-            return res.get_pointer_to();
+            return res.get_pointer_to().get_as_qualified_as(t);
         }
         else if (t.is_lvalue_reference())
         {
@@ -779,7 +779,12 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::File& file)
             {
-                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(),file.get_filename().get_text());
+                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(), file.get_filename().get_text());
+            }
+
+            void visit(const Nodecl::OpenMP::Name& name)
+            {
+                _outline_info.set_name(name.get_function_name().as<Nodecl::Symbol>().get_symbol(), name.get_name().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
@@ -974,19 +979,41 @@ namespace TL { namespace Nanox {
 
        return _implementation_table[function_symbol].get_device_names();
     }
-    
+
     void OutlineInfo::set_file(TL::Symbol function_symbol,std::string file)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol '%s' not found in outline info implementation table",function_symbol.get_name().c_str())
-       _implementation_table[function_symbol].set_file(file);   
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        _implementation_table[function_symbol].set_file(file);
     }
 
     std::string OutlineInfo::get_file(TL::Symbol function_symbol)
     {
-       if (function_symbol==NULL) function_symbol=Symbol::invalid();
-       ERROR_CONDITION(_implementation_table.count(function_symbol)==0,"Function symbol not found in outline info implementation table",0)
-       return _implementation_table[function_symbol].get_file();   
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        return _implementation_table[function_symbol].get_file();
+    }
+
+    void OutlineInfo::set_name(TL::Symbol function_symbol,std::string name)
+    {
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        _implementation_table[function_symbol].set_name(name);
+    }
+
+    std::string OutlineInfo::get_name(TL::Symbol function_symbol)
+    {
+        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+                "Function symbol '%s' not found in outline info implementation table",
+                function_symbol.get_name().c_str());
+
+        return _implementation_table[function_symbol].get_name();
     }
 
     void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)

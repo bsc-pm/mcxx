@@ -174,7 +174,7 @@ namespace TL
 
         void TargetInfo::set_file(std::string filename)
         {
-            _file=filename;
+            _file = filename;
         }
 
         std::string TargetInfo::get_file() const
@@ -182,6 +182,15 @@ namespace TL
             return _file;
         }
   
+        void TargetInfo::set_name(std::string name)
+        {
+            _name = name;
+        }
+
+        std::string TargetInfo::get_name() const
+        {
+            return _name;
+        }
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
             _target_symbol=funct_symbol;
@@ -862,6 +871,7 @@ namespace TL
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.set_file(target_context.file);
+                target_info.set_name(target_context.name);
                 target_info.append_to_ndrange(update_clauses(target_context.ndrange, function_sym));
                 target_info.append_to_onto(update_clauses(target_context.onto, function_sym));
 

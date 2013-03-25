@@ -54,6 +54,7 @@ void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& unpacked_function,
         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
         const std::string filename,
+        const std::string kernel_name,
         const TL::ObjectList<OutlineDataItem*>& data_items,
         Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
         Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
@@ -134,7 +135,7 @@ void DeviceOpenCL::generate_ndrange_code(
     //Create OCL Kernel
     code_ndrange_aux << "nanos_err_t err;"
                      << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
-                     <<         called_task.get_name() << "\",\""
+                     <<         kernel_name << "\",\""
                      <<         filename << "\",\""
                      <<         compiler_opts << "\");";
 
@@ -486,20 +487,67 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
     }
-    
+
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-    //Get file clause, if not present, use global file
+    //Get file clause, if not present, use the files passed in the command line (if any)
     std::string file = info._target_info.get_file();
-    if (file.empty())
+    if (!file.empty())
     {
-        if (CURRENT_CONFIGURATION->opencl_code_file == NULL)
+        bool found = false;
+        for (int i = 0; i < ::compilation_process.num_translation_units && !found; ++i)
         {
-            running_error("No file specified for kernel '%s', use file clause or --opencl-code-file mercurium flag\n",
-                    called_task.get_name().c_str());
+            compilation_file_process_t* file_process = ::compilation_process.translation_units[i];
+            translation_unit_t* current_translation_unit = file_process->translation_unit;
+            const char* extension = get_extension_filename(current_translation_unit->input_filename);
+            struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            {
+                found = (file == std::string(current_translation_unit->input_filename));
+            }
         }
 
-        file = std::string(CURRENT_CONFIGURATION->opencl_code_file);
+        if (!found)
+        {
+            running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
+                    original_statements.get_locus().c_str());
+        }
+    }
+    else
+    {
+        int ocl_files = 0;
+        for (int i = 0; i < ::compilation_process.num_translation_units; ++i)
+        {
+            compilation_file_process_t* file_process = ::compilation_process.translation_units[i];
+            translation_unit_t* current_translation_unit = file_process->translation_unit;
+            const char* extension = get_extension_filename(current_translation_unit->input_filename);
+            struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            {
+                if (ocl_files > 0)
+                    file += ",";
+
+                file += std::string(current_translation_unit->input_filename);
+                ocl_files++;
+            }
+        }
+
+        if (ocl_files == 0)
+        {
+            running_error("%s: error: No file specified for kernel '%s'\n",
+                    original_statements.get_locus().c_str(),
+                    called_task.get_name().c_str());
+        }
+    }
+
+    // Get the name of the kernel
+    std::string kernel_name = info._target_info.get_name();
+    if (kernel_name.empty())
+    {
+        // If the clause name is not present, use the name of the called task
+        kernel_name = called_task.get_name();
     }
 
     Source ndrange_code;
@@ -513,6 +561,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 unpacked_function,
                 info._target_info.get_ndrange(),
                 file,
+                kernel_name,
                 info._data_items,
                 &param_to_args_map,
                 symbol_map,

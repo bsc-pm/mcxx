@@ -27,11 +27,11 @@
 
 EXTRA_DIST=README
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtl_example_parameters.la
 
-COMMON_CFLAGS= -Wall $(tl_cflags)
+COMMON_CFLAGS= -Wall $(phases_cflags)
 
 libtl_example_parameters_la_CXXFLAGS = $(COMMON_CFLAGS)
 
@@ -40,5 +40,5 @@ libtl_example_parameters_la_SOURCES = \
 						tl-example-parameters.cpp
 
 
-libtl_example_parameters_la_LIBADD = $(tl_libadd)
-libtl_example_parameters_la_LDFLAGS = $(tl_ldflags)
+libtl_example_parameters_la_LIBADD = $(phases_libadd)
+libtl_example_parameters_la_LDFLAGS = $(phases_ldflags)

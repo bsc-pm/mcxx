@@ -7942,11 +7942,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             {
                 error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
             {
                 error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else
             {
@@ -8192,45 +8194,10 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     return current_symbol;
 }
 
-static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_intrinsic_module,
+        const char* filename, int line)
 {
-    AST module_nature = NULL;
-    AST module_name = NULL;
-    AST rename_list = NULL;
-    AST only_list = NULL;
-
-    char is_only = 0;
-
-    if (ASTType(a) == AST_USE_STATEMENT)
-    {
-        module_nature = ASTSon0(a);
-        module_name = ASTSon1(a);
-        rename_list = ASTSon2(a);
-    }
-    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
-    {
-        module_nature = ASTSon0(a);
-        module_name = ASTSon1(a);
-        only_list = ASTSon2(a);
-        is_only = 1;
-    }
-    else
-    {
-        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
-    }
-
-    char must_be_intrinsic_module = 0;
-    if (module_nature != NULL)
-    {
-        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
-    }
-
-    const char* module_name_str = strtolower(ASTText(module_name));
-
     scope_entry_t* module_symbol = NULL;
-
-    // Query first in the module cache
-
     DEBUG_CODE()
     {
         fprintf(stderr, "BUILDSCOPE: Loading module '%s'\n", module_name_str);
@@ -8273,19 +8240,18 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             fprintf(stderr, "BUILDSCOPE: Loading module '%s' from the filesystem\n", module_name_str);
         }
         // Load the file
-        load_module_info(strtolower(ASTText(module_name)), &module_symbol);
+        load_module_info(module_name_str, &module_symbol);
 
         if (module_symbol == NULL)
         {
             if (must_be_intrinsic_module)
             {
-                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+                error_printf("%s:%d: error: module '%s' is not an INTRINSIC module\n", filename, line, module_name_str);
             }
             else
             {
-                running_error("%s: error: cannot load module '%s'\n",
-                        ast_location(a),
-                        module_name_str);
+                running_error("%s:%d: error: cannot load module '%s'\n",
+                        filename, line, module_name_str);
             }
         }
 
@@ -8297,8 +8263,50 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     if (must_be_intrinsic_module
             && !module_symbol->entity_specs.is_builtin)
     {
-        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+        error_printf("%s:%d: error: loaded module '%s' is not an INTRINSIC module\n", filename, line, module_name_str);
     }
+
+    return module_symbol;
+}
+
+static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    AST module_nature = NULL;
+    AST module_name = NULL;
+    AST rename_list = NULL;
+    AST only_list = NULL;
+
+    char is_only = 0;
+
+    if (ASTType(a) == AST_USE_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        rename_list = ASTSon2(a);
+    }
+    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        only_list = ASTSon2(a);
+        is_only = 1;
+    }
+    else
+    {
+        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
+    }
+
+    char must_be_intrinsic_module = 0;
+    if (module_nature != NULL)
+    {
+        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
+    }
+
+    const char* module_name_str = strtolower(ASTText(module_name));
+    scope_entry_t* module_symbol = fortran_load_module(module_name_str, must_be_intrinsic_module,
+            ASTFileName(a), ASTLine(a));
+
+    // Query first in the module cache
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
     P_LIST_ADD_ONCE(used_modules->entity_specs.related_symbols,

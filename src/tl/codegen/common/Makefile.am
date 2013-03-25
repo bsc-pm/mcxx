@@ -26,7 +26,7 @@
 
 lib_LTLIBRARIES = libcodegen-common.la
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
 libcodegen_common_la_CFLAGS=$(tl_cflags)

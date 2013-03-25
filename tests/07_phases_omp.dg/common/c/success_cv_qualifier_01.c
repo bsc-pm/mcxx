@@ -26,52 +26,45 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
+#include <assert.h>
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
-
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-
-namespace TL
+struct A
 {
-    namespace OpenMP
+    int x;
+};
+
+typedef struct A* AA;
+
+void f(const AA a)
+{
+    int i;
+    AA b = 0;
+#pragma omp parallel private(i)
     {
-        struct TargetContext
+        for (i = 0; i < 1; i++)
         {
-            ObjectList<std::string> device_list;
-
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
-
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> onto;
-
-            bool has_implements;
-            Symbol implements;
-
-            // The name of the file where the kernels are defined
-            std::string file;
-
-            // The real name of the kernel
-            std::string name;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(),
-                copy_in(),
-                copy_out(),
-                has_implements(),
-                implements(),
-                file(),
-                name(),
-                copy_deps()
-            {
-            }
-        };
+            b = a;
+        }
     }
+
+    assert(b->x == 42);
+
+#pragma omp for
+    for (i = 0; i < 1; i++)
+    {
+        b = a;
+    }
+
+    assert(b->x == 42);
 }
 
-#endif // TL_OMP_TARGET_HPP
+int main(int argc, char* argv[])
+{
+    struct A a = { 42 };
+    f(&a);
+}

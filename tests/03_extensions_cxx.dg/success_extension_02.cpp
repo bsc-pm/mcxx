@@ -26,52 +26,27 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-extensions
+</testinfo>
+*/
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
-
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-
-namespace TL
+__extension__ struct A
 {
-    namespace OpenMP
+    int x;
+    struct B
     {
-        struct TargetContext
-        {
-            ObjectList<std::string> device_list;
+        int f[];
+    };
 
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
+    int f[];
+};
 
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> onto;
-
-            bool has_implements;
-            Symbol implements;
-
-            // The name of the file where the kernels are defined
-            std::string file;
-
-            // The real name of the kernel
-            std::string name;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(),
-                copy_in(),
-                copy_out(),
-                has_implements(),
-                implements(),
-                file(),
-                name(),
-                copy_deps()
-            {
-            }
-        };
-    }
+__extension__ void foo()
+{
+    struct B
+    {
+        int f[];
+    };
 }
-
-#endif // TL_OMP_TARGET_HPP
