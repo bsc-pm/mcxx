@@ -775,6 +775,11 @@ namespace TL
         return (_symbol->entity_specs.num_gcc_attributes > 0);
     }
 
+    bool Symbol::has_gcc_extension() const
+    {
+        return _symbol->entity_specs.gcc_extension;
+    }
+
     ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
     {
         ObjectList<GCCAttribute> result;

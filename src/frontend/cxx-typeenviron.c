@@ -1119,11 +1119,12 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
     layout_info->bit_within_bitfield = initial_bit + filled_bits;
 }
 
-static void cxx_abi_lay_member_out(type_t* t, 
-        scope_entry_t* member, 
+static void cxx_abi_lay_member_out(type_t* t,
+        scope_entry_t* member,
         layout_info_t* layout_info,
         char is_base_class,
-        char is_virtual_base_class)
+        char is_virtual_base_class,
+        char is_last_member)
 {
     if (member->entity_specs.is_bitfield)
     {
@@ -1198,17 +1199,33 @@ static void cxx_abi_lay_member_out(type_t* t,
             // Start at offset dsize(C) incremented for alignment to nvalign(D)
             // or align(D) for data members
             _size_t offset = layout_info->dsize;
-            // Compute this this to ensure that this member has its sizeof already computed
-            _size_t sizeof_member = type_get_size(member->type_information);
+            _size_t sizeof_member, alignment;
+
+            if (is_last_member
+                    && is_array_type(member->type_information)
+                    && nodecl_is_null(array_type_get_array_size_expr(member->type_information)))
+            {
+                // The member is a flexible member in C++
+                sizeof_member = 0;
+
+                type_t* element_type = array_type_get_element_type(member->type_information);
+                alignment = type_get_alignment(element_type);
+            }
+            else
+            {
+                // Compute this this to ensure that this member has its sizeof already computed
+                sizeof_member = type_get_size(member->type_information);
+                alignment = type_get_alignment(member->type_information);
+            }
+
             if (is_base_class)
             {
-                next_offset_with_align(&offset, 
+                next_offset_with_align(&offset,
                         class_type_get_non_virtual_align(member->type_information));
             }
             else
             {
-                next_offset_with_align(&offset, 
-                        type_get_alignment(member->type_information));
+                next_offset_with_align(&offset, alignment);
             }
 
             while (cxx_abi_conflicting_member(layout_info, member, offset))
@@ -1219,7 +1236,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 }
                 else
                 {
-                    offset += type_get_alignment(member->type_information);
+                    offset += alignment;
                 }
             }
 
@@ -1258,8 +1275,6 @@ static void cxx_abi_lay_member_out(type_t* t,
 
                 // Otherwise, if D is a data member, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
                 layout_info->size = MAX(layout_info->size, offset + sizeof_member);
-
-                _size_t alignment = type_get_alignment(member->type_information);
 
                 // Update dsize(C) to offset(D) + sizeof(D), align(C) to max(align(C), align(D))
                 layout_info->dsize = offset + sizeof_member;
@@ -1392,9 +1407,10 @@ static void cxx_abi_class_sizeof(type_t* class_type)
             }
             cxx_abi_lay_member_out(class_type,
                     primary_base_class,
-                    &layout_info, 
+                    &layout_info,
                     /* is_base_class */ 1,
-                    /* is_virtual_base_class */ primary_base_class_is_virtual);
+                    /* is_virtual_base_class */ primary_base_class_is_virtual,
+                    /* is_last_member */ 0);
             DEBUG_SIZEOF_CODE()
             {
                 fprintf(stderr, "Finished laying out primary base class '%s'\n",
@@ -1420,9 +1436,10 @@ static void cxx_abi_class_sizeof(type_t* class_type)
             {
                 cxx_abi_lay_member_out(class_type,
                         base_class,
-                        &layout_info, 
+                        &layout_info,
                         /* is_base_class */ 1,
-                        /* is_virtual_base_class */ 0);
+                        /* is_virtual_base_class */ 0,
+                        /* is_last_member */ 0);
             }
         }
     }
@@ -1432,17 +1449,23 @@ static void cxx_abi_class_sizeof(type_t* class_type)
         // Nonstatic data members
         scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
         scope_entry_list_iterator_t* it = NULL;
+
+        int i = 0;
+        int num_fields = entry_list_size(nonstatic_data_members);
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
+                entry_list_iterator_next(it), i++)
         {
             scope_entry_t* nonstatic_data_member = entry_list_iterator_current(it);
 
+            char is_last_member = (i == (num_fields - 1));
+
             cxx_abi_lay_member_out(class_type,
                     nonstatic_data_member,
-                    &layout_info, 
+                    &layout_info,
                     /* is_base_class */ 0,
-                    /* is_virtual_base_class */ 0);
+                    /* is_virtual_base_class */ 0,
+                    is_last_member);
         }
         entry_list_iterator_free(it);
         entry_list_free(nonstatic_data_members);
@@ -1506,9 +1529,10 @@ static void cxx_abi_class_sizeof(type_t* class_type)
                         fprintf(stderr, "Laying out virtual base '%s'\n", base_info[i].entry->symbol_name);
                     }
                     cxx_abi_lay_member_out(class_type, base_info[i].entry,
-                            &layout_info, 
+                            &layout_info,
                             /* is_base_class */ 1,
-                            /* is_virtual_base_class */ 1);
+                            /* is_virtual_base_class */ 1,
+                            /* is_last_member */ 0);
                     DEBUG_SIZEOF_CODE()
                     {
                         fprintf(stderr, "Finished laying out virtual base '%s'\n", base_info[i].entry->symbol_name);

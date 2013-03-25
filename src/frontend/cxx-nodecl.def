@@ -477,6 +477,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*FILE([filename]text, [function_name]name)
+                 | NODECL_OPEN_M_P*NAME([name]text, [function_name]name)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 

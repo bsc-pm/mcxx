@@ -1847,11 +1847,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -1924,11 +1929,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -2110,11 +2115,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -2202,11 +2212,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
 
     if (!initializers.is_null())
@@ -3771,6 +3781,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             internal_error("Invalid class kind", 0);
     }
 
+    std::string gcc_attributes;
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     // 1. Declaration of the class key part
     C_LANGUAGE()
     {
@@ -3779,7 +3801,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             // The symbol is called 'struct/union X' in C. We should ignore the
@@ -3898,7 +3920,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             file << " " << qualified_name;
@@ -4999,10 +5021,16 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
     }
 
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     if (!state.in_condition)
         indent();
 
-    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+    file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
@@ -5090,10 +5118,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             {
                 gcc_attributes = gcc_attributes_to_str(symbol) + " ";
             }
+            std::string gcc_extension;
+            if (symbol.has_gcc_extension())
+            {
+                gcc_extension = "__extension__ ";
+            }
 
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << "typedef "
+            file << gcc_extension
+                << "typedef "
                 << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),

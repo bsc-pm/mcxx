@@ -294,6 +294,16 @@ namespace TL { namespace OpenMP {
                                 filename, line));
                 }
 
+                std::string name = target_info.get_name();
+                if (!name.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Name::make(
+                                Nodecl::Text::make(name),
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+
                 ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
                     function_task_info.get_devices_with_implementation();
                 for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
@@ -1834,6 +1844,16 @@ namespace TL { namespace OpenMP {
                         Nodecl::Text::make(file),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
+                        filename, line));
+        }
+
+        std::string name = target_info.get_name();
+        if (!name.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Name::make(
+                        Nodecl::Text::make(name),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
 

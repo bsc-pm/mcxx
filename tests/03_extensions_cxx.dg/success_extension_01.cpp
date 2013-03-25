@@ -28,22 +28,15 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-test_ignore=yes
+test_generator=config/mercurium-extensions
 </testinfo>
 */
-
-int main(int argc, char* argv[])
+__extension__ struct A
 {
-    int k = 1;
-#pragma omp parallel private(k)
-    {
-        k = 1;
-#pragma omp parallel firstprivate(k)
-        { 
-            k = 2;
-        }
-    }
+     unsigned char foo[];
+};
 
-    return 0;
+int main()
+{
+    sizeof (struct A);
 }

@@ -499,6 +499,9 @@ namespace TL
             //! States whether this symbol has gcc attributes
             bool has_gcc_attributes() const;
 
+            //! States whether this symbol has the gcc  __extension__
+            bool has_gcc_extension() const;
+
             //! States whether this symbol has ms attributes
             bool has_ms_attributes() const;
 

@@ -7942,11 +7942,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             {
                 error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
             {
                 error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else
             {
