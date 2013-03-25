@@ -371,6 +371,9 @@ typedef struct compilation_configuration_tag
     const char* lock_dir;
     char enable_locking;
 
+    // Directory where we extract multifile info
+    const char* multifile_dir;
+
     // Fortran default kinds
     int default_integer_kind;
     int default_real_kind;
