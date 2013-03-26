@@ -622,6 +622,13 @@ namespace TL
                     continue;
                 }
 
+                // Saved expressions must be, as their name says, saved
+                if (sym.is_saved_expression())
+                {
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE);
+                    continue;
+                }
+
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
