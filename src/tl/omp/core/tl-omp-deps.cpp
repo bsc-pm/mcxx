@@ -58,6 +58,12 @@ namespace TL { namespace OpenMP {
                     std::cerr << node.get_locus() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
                 }
             }
+
+            void visit(const Nodecl::ClassMemberAccess& node)
+            {
+                walk(node.get_lhs());
+                // Do not walk the rhs
+            }
         };
 
         ExtraDataSharing _extra_data_sharing;
