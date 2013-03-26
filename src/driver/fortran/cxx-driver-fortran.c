@@ -163,7 +163,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
     *fd = -1;
     *out_filename = NULL;
 
-    if (!CURRENT_CONFIGURATION->enable_locking)
+    if (CURRENT_CONFIGURATION->disable_locking)
         return;
 
     if (CURRENT_CONFIGURATION->lock_dir == NULL)

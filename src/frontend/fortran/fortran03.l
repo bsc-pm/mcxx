@@ -471,7 +471,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     }
 }
 
-^[[blank:]]*{empty_sentinel}/[ \t] {
+^[[:blank:]]*{empty_sentinel}/[ \t] {
     // !$ foo
     // This is a zero-length sentinel used for conditional compilation in OpenMP
     if (!CURRENT_CONFIGURATION->disable_empty_sentinels)

@@ -266,9 +266,12 @@
 "                           __int64 builtin types\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
-"                           __m128, __m256 and __M512 as struct types\n" \
-"  --enable-locking         Enables locking when compiling.\n" \
-"                           Use this when building files in parallel.\n" \
+"                           __m128, __m256 and __m512 as struct types\n" \
+"  --disable-locking        Disable locking when compiling.\n" \
+"                           Use this if your filesystem does not\n" \
+"                           support locking at file level. This \n" \
+"                           option is incompatible with parallel\n" \
+"                           compilation\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -375,7 +378,7 @@ typedef enum
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
-    OPTION_ENABLE_FILE_LOCKING,
+    OPTION_DISABLE_FILE_LOCKING,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -455,7 +458,7 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
-    {"enable-locking", CLP_NO_ARGUMENT, OPTION_ENABLE_FILE_LOCKING },
+    {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1467,9 +1470,9 @@ int parse_arguments(int argc, const char* argv[],
                             (SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_PREPROCESSED);
                         break;
                     }
-                case OPTION_ENABLE_FILE_LOCKING:
+                case OPTION_DISABLE_FILE_LOCKING:
                     {
-                        CURRENT_CONFIGURATION->enable_locking = 1;
+                        CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
                 default:
