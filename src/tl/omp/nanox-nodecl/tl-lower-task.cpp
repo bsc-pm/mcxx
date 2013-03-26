@@ -34,6 +34,7 @@
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
+#include "tl-compilerpipeline.hpp"
 
 #include "tl-lower-task-common.hpp"
 
@@ -1683,6 +1684,10 @@ struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
 
 };
 
+bool is_not_alnum(int charact) {
+    return !std::isalnum(charact);
+}
+
 void LoweringVisitor::emit_translation_function_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -1695,7 +1700,10 @@ void LoweringVisitor::emit_translation_function_nonregion(
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
     Source fun_name;
-    fun_name << "nanos_xlate_fun_" << fun_num;
+    std::string filename = TL::CompilationProcess::get_current_file().get_filename();
+    //Remove non-alphanumeric characters from the string
+    filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
+    fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
     xlate_function_name = fun_name;
 
@@ -1826,8 +1834,11 @@ void LoweringVisitor::emit_translation_function_region(
         )
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
+    std::string filename = TL::CompilationProcess::get_current_file().get_filename();
+    //Remove non-alphanumeric characters from the string
+    filename.erase(std::remove_if(filename.begin(), filename.end(), (int(*)(int))is_not_alnum), filename.end());
     Source fun_name;
-    fun_name << "nanos_xlate_fun_" << fun_num;
+    fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
     xlate_function_name = fun_name;
 
