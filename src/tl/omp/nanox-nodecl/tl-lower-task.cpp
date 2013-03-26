@@ -1836,7 +1836,7 @@ void LoweringVisitor::emit_translation_function_region(
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
     std::string filename = TL::CompilationProcess::get_current_file().get_filename();
     //Remove non-alphanumeric characters from the string
-    filename.erase(std::remove_if(filename.begin(), filename.end(), (int(*)(int))is_not_alnum), filename.end());
+    filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
     Source fun_name;
     fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
