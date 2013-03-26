@@ -159,6 +159,13 @@ namespace TL { namespace OpenMP {
                         line,
                         result_list);
 
+                make_dependency_list<Nodecl::OpenMP::DepInValue>(
+                        task_dependences,
+                        OpenMP::DEP_DIR_IN_VALUE,
+                        filename,
+                        line,
+                        result_list);
+
                 make_dependency_list<Nodecl::OpenMP::DepOut>(
                         task_dependences,
                         OpenMP::DEP_DIR_OUT,

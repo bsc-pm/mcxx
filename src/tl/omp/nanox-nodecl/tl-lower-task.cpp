@@ -896,6 +896,19 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
+
+                 case OutlineDataItem::SHARING_SHARED_SPECIAL:
+                    {
+                        fill_outline_arguments
+                            << "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            << "ol_args->" << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            ;
+                        fill_immediate_arguments
+                            << "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            << "imm_args." << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            ;
+                        break;
+                    }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
@@ -2036,12 +2049,14 @@ void LoweringVisitor::fill_dependences_internal(
 
                 int num_dimensions = dependency_type.get_num_dimensions();
 
-                int concurrent = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-                int commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+                bool input       = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+                bool input_value = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+                bool concurrent  = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+                bool commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-                dependency_flags_in << (((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN) 
-                        || concurrent || commutative);
-                dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT) 
+                dependency_flags_in << ( input || input_value || concurrent || commutative);
+
+                dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
                         || concurrent || commutative);
                 dependency_flags_concurrent << concurrent;
                 dependency_flags_commutative << commutative;

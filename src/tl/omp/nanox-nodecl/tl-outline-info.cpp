@@ -151,6 +151,21 @@ namespace TL { namespace Nanox {
         }
     }
 
+    void OutlineInfoRegisterEntities::add_shared_special(Symbol symbol)
+    {
+        add_shared(symbol);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_SPECIAL);
+
+        Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(symbol);
+        symbol_nodecl.set_type(symbol.get_type());
+
+        TL::DataReference data_ref(symbol_nodecl);
+        outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
+    }
+
     void OutlineInfoRegisterEntities::add_capture_address(Symbol sym, TL::DataReference& data_ref)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
@@ -608,6 +623,7 @@ namespace TL { namespace Nanox {
         }
     }
 
+
     void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr)
     {
         bool is_new = false;
@@ -723,6 +739,11 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
                 add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
+            }
+
+            void visit(const Nodecl::OpenMP::DepInValue& dep_in_value)
+            {
+                add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)

@@ -55,6 +55,7 @@ namespace TL
                 {
                     SHARING_UNDEFINED = 0,
                     SHARING_SHARED,
+                    SHARING_SHARED_SPECIAL,
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -69,10 +70,11 @@ namespace TL
                 {
                     DEP_NONE = 0,
                     DEP_IN =   1 << 0,
-                    DEP_OUT =  1 << 1,
+                    DEP_IN_VALUE =   1 << 1,
+                    DEP_OUT =  1 << 2,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 2,
-                    DEP_COMMUTATIVE = 1 << 3
+                    DEP_CONCURRENT = 1 << 3,
+                    DEP_COMMUTATIVE = 1 << 4
                 };
                 struct DependencyItem
                 {
@@ -327,6 +329,23 @@ namespace TL
                 {
                     return _base_symbol_of_argument;
                 }
+
+                bool has_an_input_value_dependence() const
+                {
+                    bool has_input_value = false;
+                    for (ObjectList<DependencyItem>::const_iterator it = _dependences.begin();
+                            it != _dependences.end() && !has_input_value;
+                            it++)
+                    {
+                        DependencyItem current_item = *it;
+                        has_input_value = current_item.directionality == DEP_IN_VALUE;
+                    }
+
+                    ERROR_CONDITION(has_input_value && _dependences.size() > 1,
+                            "Invalid number of input dependencies passed by value", 0);
+
+                    return has_input_value;
+                }
         };
 
         //Symbold::invalid it's theorically used when the outline has no symbol
@@ -427,6 +446,7 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
+                void add_shared_special(Symbol sym);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);

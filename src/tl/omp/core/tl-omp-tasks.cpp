@@ -587,14 +587,6 @@ namespace TL
                                         expr.prettyprint().c_str());
                                 return true;
                             }
-                            else
-                            {
-                                std::cerr << expr.get_locus() << ": warning: "
-                                    "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                    "is always copied and cannot define an input dependence"
-                                    << std::endl;
-                                return true;
-                            }
                         }
                     }
                     return false;
@@ -712,6 +704,37 @@ namespace TL
             return updated_clauses;
         }
 
+        static void separate_input_arguments(
+                const ObjectList<Nodecl::NodeclBase>& all_input_args,
+                ObjectList<Nodecl::NodeclBase>& input_args,
+                ObjectList<Nodecl::NodeclBase>& input_value_args,
+                Symbol function_symbol)
+        {
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = all_input_args.begin();
+                    it != all_input_args.end();
+                    it++)
+            {
+                Nodecl::NodeclBase input_argument = *it;
+                if (input_argument.is<Nodecl::Symbol>())
+                {
+                    Symbol sym = input_argument.get_symbol();
+                    if (sym.is_parameter()
+                            && !sym.get_type().is_any_reference())
+                    {
+                        input_value_args.append(input_argument);
+                    }
+                    else
+                    {
+                        input_args.append(input_argument);
+                    }
+                }
+                else
+                {
+                    input_args.append(input_argument);
+                }
+            }
+        }
+
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
             Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
@@ -757,10 +780,14 @@ namespace TL
             PragmaCustomClause input_clause = pragma_line.get_clause("in",
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
+            ObjectList<Nodecl::NodeclBase> input_value_arguments;
             if (input_clause.is_defined())
             {
-                input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
-                input_arguments = update_clauses(input_arguments, function_sym);
+                ObjectList<Nodecl::NodeclBase> all_input_arguments;
+                all_input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
+                all_input_arguments = update_clauses(all_input_arguments, function_sym);
+
+               separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
             }
 
             PragmaCustomClause output_clause = pragma_line.get_clause("out",
@@ -826,6 +853,9 @@ namespace TL
 
             dependence_list_check(input_arguments, DEP_DIR_IN);
             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
+
+            dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
+            dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
