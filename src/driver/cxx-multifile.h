@@ -39,12 +39,9 @@ MCXX_BEGIN_DECLS
 #define MULTIFILE_SECTION ".mercurium"
 #define MULTIFILE_TAR_FILE "multifile.tar"
 
-// Directory handling
-char multifile_dir_exists(void);
-void multifile_remove_dir(void);
+// Extended info handling
 void multifile_init_dir(void);
 
-// Extended info handling
 char multifile_object_has_extended_info(const char* filename);
 void multifile_extract_extended_info(const char* filename);
 

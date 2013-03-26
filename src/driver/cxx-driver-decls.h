@@ -367,6 +367,13 @@ typedef struct compilation_configuration_tag
     // Directory where we unwrap the native modules
     const char* module_native_dir;
 
+    // Directory where we hold module locks
+    const char* lock_dir;
+    char enable_locking;
+
+    // Directory where we extract multifile info
+    const char* multifile_dir;
+
     // Fortran default kinds
     int default_integer_kind;
     int default_real_kind;

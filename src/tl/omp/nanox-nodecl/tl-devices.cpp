@@ -471,8 +471,8 @@ namespace TL { namespace Nanox {
             it++;
         }
 
-        int lower_bound_index = 0;
-        int upper_bound_index = 0;
+        int lower_bound_index = 1;
+        int upper_bound_index = 1;
 
         for (; it != data_items.end(); it++)
         {
