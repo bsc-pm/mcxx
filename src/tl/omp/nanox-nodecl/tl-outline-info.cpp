@@ -221,7 +221,6 @@ namespace TL { namespace Nanox {
 
         outline_info.set_private_type(t);
         outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
-
     }
 
     void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
@@ -853,12 +852,6 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     add_private(sym);
-
-                    if (sym.is_allocatable())
-                    {
-                        error_printf("%s: error: setting a PRIVATE data-sharing to ALLOCATABLE arrays are not supported\n",
-                                private_.get_locus().c_str());
-                    }
                 }
             }
 

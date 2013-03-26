@@ -50,58 +50,22 @@
 
 // int stat(const char *restrict path, struct stat *restrict buf);
 
-char multifile_dir_exists(void)
+static const char* get_multifile_dir(void)
 {
-    struct stat buf;
-    memset(&buf, 0, sizeof(buf));
-
-    if (stat(MULTIFILE_DIRECTORY, &buf) != 0)
+    if (CURRENT_CONFIGURATION->multifile_dir == NULL)
     {
-        return 0;
+        temporal_file_t temporal_dir = new_temporal_dir();
+        CURRENT_CONFIGURATION->multifile_dir = temporal_dir->name;
     }
-    else
-    {
-        return S_ISDIR(buf.st_mode);
-    }
+    return CURRENT_CONFIGURATION->multifile_dir;
 }
 
 void multifile_init_dir(void)
 {
-    if (multifile_dir_exists())
-    {
-        multifile_remove_dir();
-    }
-
-    mkdir(MULTIFILE_DIRECTORY, 0700);
-
-    // Remove it, even if we are passed -k (-K would keep it)
-    mark_dir_as_temporary(MULTIFILE_DIRECTORY);
+    // This ensures it is initialized at the next get_multifile_dir
+    CURRENT_CONFIGURATION->multifile_dir = NULL;
 }
 
-void multifile_remove_dir(void)
-{
-    int result = 0;
-#ifndef WIN32_BUILD
-    // This is a bit lame but it is far easier than using nftw
-    char c[256];
-    snprintf(c, 255, "rm -r %s", MULTIFILE_DIRECTORY);
-    result = (system(c) != 0);
-#else
-    SHFILEOPSTRUCT op_struct;
-    memset(&op_struct, 0, sizeof(op_struct));
-    op_struct.wFunc = FO_DELETE;
-    char from[strlen(MULTIFILE_DIRECTORY) + 2];
-    memset(from, 0, sizeof(from));
-    strcpy(from, MULTIFILE_DIRECTORY);
-    op_struct.pFrom = from;
-    op_struct.fFlags = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
-    result = SHFileOperation(&op_struct);
-#endif
-    if (result != 0)
-    {
-        running_error("There was a problem when removing multifile temporal directory", 0);
-    }
-}
 
 static void multifile_extract_extended_info_single_object(const char* filename)
 {
@@ -110,7 +74,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
     only_section[255] = '\0';
 
     char output_filename[1024] = { 0 };
-    snprintf(output_filename, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, MULTIFILE_TAR_FILE);
+    snprintf(output_filename, 1023, "%s%s%s", get_multifile_dir(), DIR_SEPARATOR, MULTIFILE_TAR_FILE);
     output_filename[1023] = '\0';
 
     const char* arguments_objcopy[] = {
@@ -132,7 +96,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
         "xf",
         output_filename,
         "-C",
-        MULTIFILE_DIRECTORY,
+        get_multifile_dir(),
         ".",
         NULL
     };
@@ -229,7 +193,7 @@ char multifile_object_has_extended_info(const char* filename)
 
     const char* arguments[] =
     {
-        "-w", 
+        "-w",
         "-h",
         filename,
         NULL
@@ -317,14 +281,14 @@ char multifile_object_has_extended_info(const char* filename)
 
 void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num_multifile_profiles)
 {
-    // Profiles are stored in MULTIFILE_DIRECTORY/<directory>, each directory being a profile
-    DIR* multifile_dir = opendir(MULTIFILE_DIRECTORY);
+    // Profiles are stored in get_multifile_dir()/<directory>, each directory being a profile
+    DIR* multifile_dir = opendir(get_multifile_dir());
     if (multifile_dir == NULL)
     {
         if (errno != ENOENT)
         {
             // Only give an error if it does exist
-            running_error("Cannot open multifile directory '%s'", MULTIFILE_DIRECTORY);
+            running_error("Cannot open multifile directory '%s'", get_multifile_dir());
         }
     }
     else
@@ -339,7 +303,7 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
 
             char full_path[1024] = { 0 };
 
-            snprintf(full_path, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, dir_entry->d_name);
+            snprintf(full_path, 1023, "%s%s%s", get_multifile_dir(), DIR_SEPARATOR, dir_entry->d_name);
             full_path[1023] = '\0';
 
             if (stat(full_path, &buf) == 0)
@@ -365,7 +329,7 @@ void multifile_get_profile_file_list(const char* profile_name,
 {
     char profile_dir[1024];
 
-    snprintf(profile_dir, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, profile_name);
+    snprintf(profile_dir, 1023, "%s%s%s", get_multifile_dir(), DIR_SEPARATOR, profile_name);
     profile_dir[1023] = '\0';
 
     DIR* multifile_dir = opendir(profile_dir);
