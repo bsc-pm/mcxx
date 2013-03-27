@@ -37,6 +37,8 @@
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
 
+#include "fortran03-typeutils.h"
+
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
 
@@ -316,6 +318,19 @@ namespace TL
     bool Type::is_array() const
     {
         return (is_array_type(_type_info));
+    }
+
+    bool Type::is_fortran_array() const
+    {
+        return (fortran_is_array_type(_type_info));
+    }
+
+    int Type::fortran_rank() const
+    {
+        if (!is_fortran_array())
+            return 0;
+        else
+            return (fortran_get_rank_of_type(_type_info));
     }
 
     bool Type::is_vector() const
