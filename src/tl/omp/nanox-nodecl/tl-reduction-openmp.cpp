@@ -130,21 +130,29 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
-    Source LoweringVisitor::reduction_initialization_code(
+    bool LoweringVisitor::there_are_reductions(OutlineInfo& outline_info)
+    {
+        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
+                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+        return !reduction_items.empty();
+    }
+
+    void LoweringVisitor::reduction_initialization_code(
             OutlineInfo& outline_info,
+            Nodecl::NodeclBase ref_tree,
             Nodecl::NodeclBase construct)
     {
+        ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
+
         if (!Nanos::Version::interface_is_at_least("master", 5021))
         {
             running_error("%s: error: a newer version of Nanos++ (>=5021) is required for reductions support\n",
                     construct.get_locus().c_str());
-            return Source();
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
                 predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
-        if (reduction_items.empty())
-            return Source();
+        ERROR_CONDITION (reduction_items.empty(), "No reductions to process", 0);
 
         Source result;
 
@@ -178,220 +186,124 @@ namespace TL { namespace Nanox {
             << "}"
             ;
 
-            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++)
-            {
-                std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
-
-                OpenMP::Reduction *reduction = (*it)->get_reduction_info();
-                ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
-
-                TL::Type reduction_type = (*it)->get_symbol().get_type();
-                if (reduction_type.is_any_reference())
-                    reduction_type = reduction_type.references_to();
-
-                reduction_declaration
-                    << "nanos_reduction_t* " << nanos_red_name << ";"
-                    ;
-
-                Source allocate_private_buffer, cleanup_code;
-
-                TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
-
-                thread_initializing_reduction_info
-                    << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
-                    << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
-                    << allocate_private_buffer
-                    << nanos_red_name << "->vop = 0;"
-                    << nanos_red_name << "->bop = (void(*)(void*,void*))" << as_symbol(basic_reduction_function) << ";"
-                    << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
-                    << cleanup_code
-                    << "err = nanos_register_reduction(" << nanos_red_name << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    ;
-
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    allocate_private_buffer
-                        << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
-                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << nanos_red_name << "->descriptor = " << nanos_red_name << "->privates;"
-                        << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                        ;
-
-
-                    thread_fetching_reduction_info
-                        << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                        ;
-                    cleanup_code
-                        << nanos_red_name << "->cleanup = nanos_free0;"
-                        ;
-                }
-                else
-                {
-                    Type private_reduction_vector_type = (*it)->get_field_type();
-                    private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
-                            Nodecl::NodeclBase::null(),
-                            Nodecl::NodeclBase::null(),
-                            construct.retrieve_context());
-                    private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
-
-                    allocate_private_buffer
-                        << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]);"
-                        << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
-                        // We leak here, this is complicated to fix
-                        << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
-                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << "err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
-                            "&rdv_" << (*it)->get_field_name() << ", sizeof(" << as_type(private_reduction_vector_type) << "));"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        ;
-
-                    thread_fetching_reduction_info
-                        << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << "err = nanos_memcpy("
-                            << "&rdv_" << (*it)->get_field_name() << ","
-                            << nanos_red_name << "->descriptor, "
-                            << "sizeof(" << as_type(private_reduction_vector_type) << "));"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        ;
-
-                    TL::Symbol reduction_cleanup = create_reduction_cleanup_function(reduction, construct);
-                    cleanup_code
-                        << nanos_red_name << "->cleanup = " << as_symbol(reduction_cleanup) << ";"
-                        ;
-                }
-
-            }
-
-        return result;
-    }
-
-#if 0
-    void LoweringVisitor::reduction_initialization_code(
-            Source max_threads,
-            OutlineInfo& outline_info,
-            Nodecl::NodeclBase construct,
-            // out
-            Source &reduction_declaration,
-            Source &register_code,
-            Source &fill_outline_arguments,
-            Source &fill_immediate_arguments)
-    {
-        TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
-
-        if (!reduction_items.empty())
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
+                it != reduction_items.end();
+                it++)
         {
-            for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++)
+            std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
+
+            OpenMP::Reduction *reduction = (*it)->get_reduction_info();
+            ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
+
+            TL::Type reduction_type = (*it)->get_symbol().get_type();
+            if (reduction_type.is_any_reference())
+                reduction_type = reduction_type.references_to();
+
+            reduction_declaration
+                << "nanos_reduction_t* " << nanos_red_name << ";"
+                ;
+
+            Source allocate_private_buffer, cleanup_code;
+
+            TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
+
+            thread_initializing_reduction_info
+                << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
+                << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
+                << "if (err != NANOS_OK)"
+                <<     "nanos_handle_error(err);"
+                << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
+                << allocate_private_buffer
+                << nanos_red_name << "->vop = 0;"
+                << nanos_red_name << "->bop = (void(*)(void*,void*))" << as_symbol(basic_reduction_function) << ";"
+                << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
+                << cleanup_code
+                << "err = nanos_register_reduction(" << nanos_red_name << ");"
+                << "if (err != NANOS_OK)"
+                <<     "nanos_handle_error(err);"
+                ;
+
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
             {
-                std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
-
-                OpenMP::UDRInfoItem *reduction = (*it)->get_reduction_info();
-                ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
-
-                TL::Type reduction_type = (*it)->get_symbol().get_type();
-                if (reduction_type.is_any_reference())
-                    reduction_type = reduction_type.references_to();
-
-                reduction_declaration
-                    << "nanos_reduction_t* " << nanos_red_name << ";"
-                    << as_type( (*it)->get_field_type() ) << " rdp_" << (*it)->get_field_name() << ";"
-                    ;
-
-                Source allocate_private_buffer, cleanup_code;
-
-                register_code
-                    << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
+                allocate_private_buffer
+                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
-                    << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
-                    << allocate_private_buffer
-                    << nanos_red_name << "->vop = 0;"
-                    << nanos_red_name << "->bop = " << reduction->get_basic_reductor_function().get_name() << ";"
-                    << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
-                    << cleanup_code
-                    << "err = nanos_register_reduction(" << nanos_red_name << ");"
+                    << nanos_red_name << "->descriptor = " << nanos_red_name << "->privates;"
+                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                    ;
+
+
+                thread_fetching_reduction_info
+                    << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
+                    << "if (err != NANOS_OK)"
+                    <<     "nanos_handle_error(err);"
+                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                    ;
+                cleanup_code
+                    << nanos_red_name << "->cleanup = nanos_free0;"
+                    ;
+            }
+            else
+            {
+                Type private_reduction_vector_type = (*it)->get_field_type();
+                private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
+                        Nodecl::NodeclBase::null(),
+                        Nodecl::NodeclBase::null(),
+                        construct.retrieve_context());
+                private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
+
+                allocate_private_buffer
+                    << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]);"
+                    << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
+                    // We leak here, this is complicated to fix
+                    << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
+                    << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
+                    << "if (err != NANOS_OK)"
+                    <<     "nanos_handle_error(err);"
+                    << "err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
+                    "&rdv_" << (*it)->get_field_name() << ", sizeof(" << as_type(private_reduction_vector_type) << "));"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     ;
 
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    allocate_private_buffer
-                        << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * " << max_threads <<", "
-                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << "rdp_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                        ;
-                    cleanup_code
-                        << nanos_red_name << "->cleanup = " << reduction->get_cleanup_function().get_name() << ";"
-                        ;
+                thread_fetching_reduction_info
+                    << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
+                    << "if (err != NANOS_OK)"
+                    <<     "nanos_handle_error(err);"
+                    << "err = nanos_memcpy("
+                    << "&rdv_" << (*it)->get_field_name() << ","
+                    << nanos_red_name << "->descriptor, "
+                    << "sizeof(" << as_type(private_reduction_vector_type) << "));"
+                    << "if (err != NANOS_OK)"
+                    <<     "nanos_handle_error(err);"
+                    ;
 
-                    fill_outline_arguments
-                        << "ol_args->" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                        ;
-                    fill_immediate_arguments
-                        << "imm_args." << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
-                        ;
-                }
-                else
-                {
-                    allocate_private_buffer
-                        // FIXME - We have to do an ALLOCATE but this is C :)
-                        << "@FORTRAN_ALLOCATE@((*rdp_" << (*it)->get_field_name() << ")[0:(" << max_threads << "-1)]);"
-                        << nanos_red_name << "->privates = &(*rdp_" << (*it)->get_field_name() << ");"
-                        << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type((*it)->get_field_type()) << "), " 
-                        << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        << "err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
-                            "&rdp_" << (*it)->get_field_name() << ", sizeof(" << as_type((*it)->get_field_type()) << "));"
-                        << "if (err != NANOS_OK)"
-                        <<     "nanos_handle_error(err);"
-                        ;
-
-                    cleanup_code
-                        << nanos_red_name << "->cleanup = &nanos_reduction_default_cleanup_fortran;"
-                        ;
-
-                    fill_outline_arguments
-                        << "ol_args->" << (*it)->get_field_name() << " = rdp_" << (*it)->get_field_name() << ";"
-                        ;
-                    fill_immediate_arguments
-                        << "imm_args." << (*it)->get_field_name() << " = rdp_" << (*it)->get_field_name() << ";"
-                        ;
-                }
-
+                TL::Symbol reduction_cleanup = create_reduction_cleanup_function(reduction, construct);
+                cleanup_code
+                    << nanos_red_name << "->cleanup = " << as_symbol(reduction_cleanup) << ";"
+                    ;
             }
+
+        }
+
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::C;
+        }
+        ref_tree.replace(result.parse_statement(ref_tree));
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
         }
     }
-#endif
 
-    Source LoweringVisitor::perform_partial_reduction(OutlineInfo& outline_info)
+    void LoweringVisitor::perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree)
     {
+        ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
+
         Source reduction_code;
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
@@ -411,7 +323,7 @@ namespace TL { namespace Nanox {
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     reduction_code
-                        << "(*rdv_" << (*it)->get_field_name() << ")[nanos_omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
+                        << "rdv_" << (*it)->get_field_name() << "( nanos_omp_get_thread_num() ) = rdp_" << (*it)->get_symbol().get_name() << "\n"
                         ;
                 }
                 else
@@ -421,7 +333,7 @@ namespace TL { namespace Nanox {
             }
         }
 
-        return reduction_code;
+        ref_tree.replace(reduction_code.parse_statement(ref_tree));
     }
 
 } }

@@ -221,7 +221,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
-                Nodecl::NodeclBase &placeholder2);
+                Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &reduction_initialization,
+                Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_worksharing(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
@@ -233,8 +235,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-                Nodecl::NodeclBase& outline_placeholder2
-                );
+                Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& reduction_initialization,
+                Nodecl::NodeclBase& reduction_code);
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
         void loop_spawn_worksharing(
                 OutlineInfo& outline_info,
@@ -252,7 +255,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
-                Nodecl::NodeclBase &placeholder2);
+                Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &reduction_initialization,
+                Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_slicer(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
@@ -264,8 +269,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-                Nodecl::NodeclBase& outline_placeholder2
-                );
+                Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& reduction_initialization,
+                Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
         void loop_spawn_slicer(
                 OutlineInfo& outline_info,
@@ -276,15 +282,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor);
 
+        static bool there_are_reductions(OutlineInfo& outline_info);
+
         Source full_barrier_source();
 
-        Source reduction_initialization_code(
+        void reduction_initialization_code(
                 OutlineInfo& outline_info,
+                Nodecl::NodeclBase ref_tree,
                 Nodecl::NodeclBase construct);
 
         std::set<std::string> _lock_names;
 
-        Source perform_partial_reduction(OutlineInfo& outline_info);
+        void perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree);
 
         Nodecl::NodeclBase emit_critical_region(
                 const std::string lock_name,
