@@ -340,6 +340,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
         reduction_map_t _reduction_map;
         TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 };

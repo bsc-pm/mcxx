@@ -33,7 +33,77 @@
 
 namespace TL { namespace Nanox {
 
-    TL::Symbol LoweringVisitor::create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    struct ExpandVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            TL::Symbol _orig_omp_in, _new_omp_in, _orig_omp_out, _new_omp_out;
+            TL::Symbol _index;
+        public:
+        ExpandVisitor(
+                TL::Symbol orig_omp_in, 
+                TL::Symbol new_omp_in,
+                TL::Symbol orig_omp_out, 
+                TL::Symbol new_omp_out,
+                TL::Symbol index)
+            : _orig_omp_in(orig_omp_in),
+            _new_omp_in(new_omp_in),
+            _orig_omp_out(orig_omp_out),
+            _new_omp_out(new_omp_out),
+            _index(index)
+        {
+        }
+
+        void visit(const Nodecl::Symbol &node)
+        {
+            bool must_expand = false;
+            TL::Symbol sym = node.get_symbol();
+            TL::Symbol new_sym;
+            if (sym == _orig_omp_in)
+            {
+                must_expand = true;
+                new_sym = _new_omp_in;
+            }
+            else if (sym == _orig_omp_out)
+            {
+                must_expand = true;
+                new_sym = _new_omp_out;
+            }
+
+            if (!must_expand)
+                return;
+
+            Nodecl::NodeclBase new_sym_ref = Nodecl::Symbol::make(new_sym);
+            new_sym_ref.set_type(new_sym.get_type());
+
+            Nodecl::NodeclBase index_ref = Nodecl::Symbol::make(_index);
+            index_ref.set_type(_index.get_type().get_lvalue_reference_to());
+
+            TL::Type new_type = new_sym.get_type().no_ref();
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                new_type = new_type.points_to().get_lvalue_reference_to();
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                new_type = new_type.array_element().get_lvalue_reference_to();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            node.replace(
+                    Nodecl::ArraySubscript::make(
+                        new_sym_ref,
+                        Nodecl::List::make(
+                            index_ref),
+                        new_type
+                        )
+                    );
+        }
+    };
+
+    TL::Symbol LoweringVisitor::create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
         reduction_map_t::iterator it = _reduction_map.find(red);
         if (it != _reduction_map.end())
@@ -50,8 +120,12 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase function_body;
         Source src;
-        src << "void " << fun_name << "(" << as_type(red->get_type()) << "@ref@ omp_out, " << as_type(red->get_type()) << "@ref@ omp_in)"
+        src << "void " << fun_name << "(" 
+            << as_type(red->get_type()) << "* omp_out, "
+            << as_type(red->get_type()) << "* omp_in, "
+            << "int num_scalars )"
             << "{"
+            << "int i;"
             << statement_placeholder(function_body)
             << "}"
             ;
@@ -66,7 +140,83 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
+        TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
+        ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
+        TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
+        ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
+
+        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+
+        TL::Symbol index = inside_function.get_symbol_from_name("i");
+        ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
+        TL::Symbol num_scalars = inside_function.get_symbol_from_name("num_scalars");
+        ERROR_CONDITION(!num_scalars.is_valid(), "Symbol %s not found", "num_scalars");
+
+        Nodecl::NodeclBase num_scalars_ref = Nodecl::Symbol::make(num_scalars);
+
+        num_scalars_ref.set_type(num_scalars.get_type().no_ref().get_lvalue_reference_to());
+
+        Nodecl::NodeclBase loop_header = Nodecl::RangeLoopControl::make(
+                const_value_to_nodecl(const_value_get_signed_int(1)),
+                num_scalars_ref,
+                Nodecl::NodeclBase::null(),
+                index);
+
+        Nodecl::NodeclBase expanded_combiner =
+            red->get_combiner().shallow_copy();
+        ExpandVisitor expander_visitor(
+                red->get_omp_in(),
+                param_omp_in,
+                red->get_omp_out(),
+                param_omp_out,
+                index);
+        expander_visitor.walk(expanded_combiner);
+
+        function_body.replace(
+                Nodecl::ForStatement::make(loop_header,
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            expanded_combiner)),
+                    Nodecl::NodeclBase::null()));
+
+        _reduction_map[red] = function_sym;
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+
+        return function_sym;
+    }
+
+    TL::Symbol LoweringVisitor::create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    {
+        reduction_map_t::iterator it = _reduction_map.find(red);
+        if (it != _reduction_map.end())
+        {
+            return it->second;
+        }
+
+        std::string fun_name;
+        {
+            std::stringstream ss;
+            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            fun_name = ss.str();
+        }
+
+        Nodecl::NodeclBase function_body;
+        Source src;
+
+        src << "SUBROUTINE " << fun_name << "(omp_out, omp_in, num_scalars)\n"
+            <<    "IMPLICIT NONE\n"
+            <<    as_type(red->get_type()) << " :: omp_out(num_scalars)\n" 
+            <<    as_type(red->get_type()) << " :: omp_in(num_scalars)\n"
+            <<    "INTEGER, VALUE :: num_scalars\n"
+            <<    "INTEGER :: I\n"
+            <<    statement_placeholder(function_body) << "\n"
+            << "END SUBROUTINE " << fun_name << "\n";
+        ;
+
+        Nodecl::NodeclBase function_code = src.parse_global(construct);
 
         TL::Scope inside_function = ReferenceScope(function_body).get_scope();
         TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
@@ -77,18 +227,59 @@ namespace TL { namespace Nanox {
         TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
 
-        symbol_map.add_map(red->get_omp_in(), param_omp_in);
-        symbol_map.add_map(red->get_omp_out(), param_omp_out);
+        TL::Symbol index = inside_function.get_symbol_from_name("i");
+        ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
+        TL::Symbol num_scalars = inside_function.get_symbol_from_name("num_scalars");
+        ERROR_CONDITION(!num_scalars.is_valid(), "Symbol %s not found", "num_scalars");
+
+        Nodecl::NodeclBase num_scalars_ref = Nodecl::Symbol::make(num_scalars);
+
+        num_scalars_ref.set_type(num_scalars.get_type().no_ref().get_lvalue_reference_to());
+
+        Nodecl::NodeclBase loop_header = Nodecl::RangeLoopControl::make(
+                const_value_to_nodecl(const_value_get_signed_int(1)),
+                num_scalars_ref,
+                Nodecl::NodeclBase::null(),
+                index);
+
+        Nodecl::NodeclBase expanded_combiner =
+            red->get_combiner().shallow_copy();
+        ExpandVisitor expander_visitor(
+                red->get_omp_in(),
+                param_omp_in,
+                red->get_omp_out(),
+                param_omp_out,
+                index);
+        expander_visitor.walk(expanded_combiner);
 
         function_body.replace(
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::Utils::deep_copy(red->get_combiner(), inside_function, symbol_map)));
+                Nodecl::ForStatement::make(loop_header,
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            expanded_combiner)),
+                    Nodecl::NodeclBase::null()));
 
         _reduction_map[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
+    }
+
+    TL::Symbol LoweringVisitor::create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    {
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            return create_reduction_function_c(red, construct);
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            return create_reduction_function_fortran(red, construct);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     TL::Symbol LoweringVisitor::create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
@@ -144,9 +335,9 @@ namespace TL { namespace Nanox {
     {
         ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
 
-        if (!Nanos::Version::interface_is_at_least("master", 5021))
+        if (!Nanos::Version::interface_is_at_least("master", 5023))
         {
-            running_error("%s: error: a newer version of Nanos++ (>=5021) is required for reductions support\n",
+            running_error("%s: error: a newer version of Nanos++ (>=5023) is required for reductions support\n",
                     construct.get_locus().c_str());
         }
 
@@ -205,6 +396,8 @@ namespace TL { namespace Nanox {
 
             Source allocate_private_buffer, cleanup_code;
 
+            Source num_scalars;
+
             TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
 
             thread_initializing_reduction_info
@@ -217,6 +410,7 @@ namespace TL { namespace Nanox {
                 << nanos_red_name << "->vop = 0;"
                 << nanos_red_name << "->bop = (void(*)(void*,void*))" << as_symbol(basic_reduction_function) << ";"
                 << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
+                << nanos_red_name << "->num_scalars = " << num_scalars << ";"
                 << cleanup_code
                 << "err = nanos_register_reduction(" << nanos_red_name << ");"
                 << "if (err != NANOS_OK)"
@@ -226,6 +420,8 @@ namespace TL { namespace Nanox {
             if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
+                // No array reductions are possible in C/C++
+                num_scalars << "1";
                 allocate_private_buffer
                     << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
@@ -248,6 +444,7 @@ namespace TL { namespace Nanox {
             }
             else
             {
+
                 Type private_reduction_vector_type = (*it)->get_field_type();
                 private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
                         Nodecl::NodeclBase::null(),
@@ -255,8 +452,47 @@ namespace TL { namespace Nanox {
                         construct.retrieve_context());
                 private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
 
+                Source extra_dims;
+                {
+                    TL::Type t = (*it)->get_symbol().get_type().no_ref();
+                    int rank = 0;
+                    if (t.is_fortran_array())
+                    {
+                        rank = t.fortran_rank();
+                    }
+
+                    if (rank != 0)
+                    {
+                        // We need to parse this bit in Fortran
+                        Source size_call;
+                        size_call << "SIZE(" << (*it)->get_symbol().get_name() << ")";
+
+                        num_scalars << as_expression(size_call.parse_expression(construct));
+                    }
+                    else
+                    {
+                        num_scalars << "1";
+                    }
+
+                    int i;
+                    for (i = 0; i < rank; i++)
+                    {
+                        Nodecl::NodeclBase lower_bound, upper_bound;
+                        t.array_get_bounds(lower_bound, upper_bound);
+
+                        extra_dims 
+                            << "["
+                            <<  as_expression(lower_bound.shallow_copy())
+                            << ":"
+                            << as_expression(upper_bound.shallow_copy()) 
+                            << "]";
+
+                        t = t.array_element();
+                    }
+                }
+
                 allocate_private_buffer
-                    << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]);"
+                    << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]" << extra_dims <<");"
                     << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
                     // We leak here, this is complicated to fix
                     << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
@@ -322,8 +558,24 @@ namespace TL { namespace Nanox {
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
+                    Source extra_dims;
+                    {
+                        TL::Type t = (*it)->get_symbol().get_type().no_ref();
+                        int rank = 0;
+                        if (t.is_fortran_array())
+                        {
+                            rank = t.fortran_rank();
+                        }
+
+                        int i;
+                        for (i = 0; i < rank; i++)
+                        {
+                            extra_dims << ":,";
+                        }
+                    }
+
                     reduction_code
-                        << "rdv_" << (*it)->get_field_name() << "( nanos_omp_get_thread_num() ) = rdp_" << (*it)->get_symbol().get_name() << "\n"
+                        << "rdv_" << (*it)->get_field_name() << "( " << extra_dims << "nanos_omp_get_thread_num() ) = rdp_" << (*it)->get_symbol().get_name() << "\n"
                         ;
                 }
                 else
