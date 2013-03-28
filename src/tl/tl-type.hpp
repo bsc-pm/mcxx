@@ -523,6 +523,15 @@ namespace TL
 
             //! States whether current type is an array-type
             bool is_array() const;
+
+            //! States whether current type is an array-type in Fortran terminology
+            // All fortran array are array types but not all array types are fortran arrays
+            // In particular CHARACTER(LEN=x) are arrays but not Fortran array
+            bool is_fortran_array() const;
+
+            //! Returns the rank of a fortran array type
+            int fortran_rank() const;
+
             //! Returns the element type of an array-type
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
