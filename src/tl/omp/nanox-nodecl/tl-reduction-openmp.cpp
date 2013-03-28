@@ -30,6 +30,7 @@
 #include "tl-predicateutils.hpp"
 #include "tl-nanos.hpp"
 #include "cxx-diagnostic.h"
+#include "fortran03-typeutils.h"
 
 namespace TL { namespace Nanox {
 
@@ -445,12 +446,7 @@ namespace TL { namespace Nanox {
             else
             {
 
-                Type private_reduction_vector_type = (*it)->get_field_type();
-                private_reduction_vector_type = private_reduction_vector_type.get_array_to_with_descriptor(
-                        Nodecl::NodeclBase::null(),
-                        Nodecl::NodeclBase::null(),
-                        construct.retrieve_context());
-                private_reduction_vector_type = private_reduction_vector_type.get_pointer_to();
+                Type private_reduction_vector_type;
 
                 Source extra_dims;
                 {
@@ -473,6 +469,8 @@ namespace TL { namespace Nanox {
                     {
                         num_scalars << "1";
                     }
+                    private_reduction_vector_type = fortran_get_n_ranked_type_with_descriptor(
+                            get_void_type(), rank + 1, construct.retrieve_context().get_decl_context());
 
                     int i;
                     for (i = 0; i < rank; i++)
