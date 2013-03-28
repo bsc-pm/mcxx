@@ -126,8 +126,11 @@ namespace TL { namespace Nanox {
             << as_type(red->get_type()) << "* omp_in, "
             << "int num_scalars )"
             << "{"
-            << "int i;"
-            << statement_placeholder(function_body)
+            <<    "int i;"
+            <<    "for (i = 0; i < num_scalars; i++)"
+            <<    "{"
+            <<    statement_placeholder(function_body)
+            <<    "}"
             << "}"
             ;
 
@@ -155,16 +158,6 @@ namespace TL { namespace Nanox {
         TL::Symbol num_scalars = inside_function.get_symbol_from_name("num_scalars");
         ERROR_CONDITION(!num_scalars.is_valid(), "Symbol %s not found", "num_scalars");
 
-        Nodecl::NodeclBase num_scalars_ref = Nodecl::Symbol::make(num_scalars);
-
-        num_scalars_ref.set_type(num_scalars.get_type().no_ref().get_lvalue_reference_to());
-
-        Nodecl::NodeclBase loop_header = Nodecl::RangeLoopControl::make(
-                const_value_to_nodecl(const_value_get_signed_int(1)),
-                num_scalars_ref,
-                Nodecl::NodeclBase::null(),
-                index);
-
         Nodecl::NodeclBase expanded_combiner =
             red->get_combiner().shallow_copy();
         ExpandVisitor expander_visitor(
@@ -176,11 +169,7 @@ namespace TL { namespace Nanox {
         expander_visitor.walk(expanded_combiner);
 
         function_body.replace(
-                Nodecl::ForStatement::make(loop_header,
-                    Nodecl::List::make(
-                        Nodecl::ExpressionStatement::make(
-                            expanded_combiner)),
-                    Nodecl::NodeclBase::null()));
+                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
         _reduction_map[red] = function_sym;
 
@@ -390,6 +379,23 @@ namespace TL { namespace Nanox {
             TL::Type reduction_type = (*it)->get_symbol().get_type();
             if (reduction_type.is_any_reference())
                 reduction_type = reduction_type.references_to();
+            Source element_size;
+            if (IS_FORTRAN_LANGUAGE
+                    && reduction_type.is_fortran_array())
+            {
+                while (reduction_type.is_fortran_array())
+                    reduction_type = reduction_type.array_element();
+
+                // We need to parse this bit in Fortran
+                Source number_of_bytes;
+                number_of_bytes << "SIZE(" << (*it)->get_symbol().get_name() << ") * " << reduction_type.get_size();
+
+                element_size << as_expression(number_of_bytes.parse_expression(construct));
+            }
+            else
+            {
+                element_size << "sizeof(" << as_type(reduction_type) << ")";
+            }
 
             reduction_declaration
                 << "nanos_reduction_t* " << nanos_red_name << ";"
@@ -401,6 +407,7 @@ namespace TL { namespace Nanox {
 
             TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
 
+
             thread_initializing_reduction_info
                 << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
                 << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
@@ -409,8 +416,8 @@ namespace TL { namespace Nanox {
                 << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                 << allocate_private_buffer
                 << nanos_red_name << "->vop = 0;"
-                << nanos_red_name << "->bop = (void(*)(void*,void*))" << as_symbol(basic_reduction_function) << ";"
-                << nanos_red_name << "->element_size = sizeof(" << as_type(reduction_type) << ");"
+                << nanos_red_name << "->bop = (void(*)(void*,void*,int))" << as_symbol(basic_reduction_function) << ";"
+                << nanos_red_name << "->element_size = " << element_size << ";"
                 << nanos_red_name << "->num_scalars = " << num_scalars << ";"
                 << cleanup_code
                 << "err = nanos_register_reduction(" << nanos_red_name << ");"
@@ -443,7 +450,7 @@ namespace TL { namespace Nanox {
                     << nanos_red_name << "->cleanup = nanos_free0;"
                     ;
             }
-            else
+            else if (IS_FORTRAN_LANGUAGE)
             {
 
                 Type private_reduction_vector_type;
@@ -475,14 +482,16 @@ namespace TL { namespace Nanox {
                     int i;
                     for (i = 0; i < rank; i++)
                     {
-                        Nodecl::NodeclBase lower_bound, upper_bound;
-                        t.array_get_bounds(lower_bound, upper_bound);
+                        Source lbound_src;
+                        lbound_src << "LBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << (rank - i) << ")";
+                        Source ubound_src;
+                        ubound_src << "UBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << (rank - i) << ")";
 
                         extra_dims 
                             << "["
-                            <<  as_expression(lower_bound.shallow_copy())
+                            << as_expression(lbound_src.parse_expression(construct))
                             << ":"
-                            << as_expression(upper_bound.shallow_copy()) 
+                            << as_expression(ubound_src.parse_expression(construct))
                             << "]";
 
                         t = t.array_element();
@@ -492,7 +501,6 @@ namespace TL { namespace Nanox {
                 allocate_private_buffer
                     << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]" << extra_dims <<");"
                     << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
-                    // We leak here, this is complicated to fix
                     << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
@@ -520,7 +528,10 @@ namespace TL { namespace Nanox {
                     << nanos_red_name << "->cleanup = " << as_symbol(reduction_cleanup) << ";"
                     ;
             }
-
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         FORTRAN_LANGUAGE()
