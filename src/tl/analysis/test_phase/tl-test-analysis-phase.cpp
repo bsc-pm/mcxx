@@ -64,11 +64,6 @@ namespace Analysis {
                                "If set to '1' enables pcfg analysis, otherwise it is disabled",
                                _induction_vars_enabled_str,
                                "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
-
-            register_parameter("auto_scope_enabled",
-                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
-                               _auto_scope_enabled_str,
-                               "0").connect(functor(&TestAnalysisPhase::set_auto_scope, *this));
         }
 
         void TestAnalysisPhase::run( TL::DTO& dto )
@@ -114,13 +109,6 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
                 pcfgs = analysis.induction_variables( memento, ast );
-            }
-
-            if( _auto_scope_enabled )
-            {
-                if( VERBOSE )
-                    std::cerr << "=========  Testing Automatic Scope analysis =========" << std::endl;
-                pcfgs = analysis.auto_scoping( memento, ast );
             }
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )

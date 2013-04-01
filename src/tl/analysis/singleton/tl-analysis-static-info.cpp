@@ -221,7 +221,17 @@ namespace Analysis {
     void NodeclStaticInfo::print_auto_scoping_results( ) const
     {
         if( _autoscoped_task != NULL )
+        {
             _autoscoped_task->print_auto_scoping( );
+        }
+    }
+
+    void NodeclStaticInfo::get_auto_scoped_variables( )
+    {
+        if( _autoscoped_task != NULL )
+        {
+            _autoscoped_task->get_auto_scoped_variables( );
+        }
     }
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //

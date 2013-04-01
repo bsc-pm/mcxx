@@ -32,7 +32,7 @@
 #include <map>
 
 #include "tl-builtin.hpp"
-#include "tl-extended-symbol.hpp"
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -576,6 +576,8 @@ namespace Analysis {
             Utils::ext_sym_set get_sc_race_vars( );
             void set_sc_race_var( Utils::ExtendedSymbol es );
             void set_sc_race_var( Utils::ext_sym_set es_list );
+
+            Utils::AutoScopedVariables get_auto_scoped_variables( );
 
             // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //

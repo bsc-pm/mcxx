@@ -85,6 +85,22 @@ namespace Utils {
 
 
     // **************************************************************************************** //
+    // **************************** Class for Auto-Scoping purposes *************************** //
+
+    struct AutoScopedVariables {
+        Utils::ext_sym_set private_vars;
+        Utils::ext_sym_set firstprivate_vars;
+        Utils::ext_sym_set race_vars;
+        Utils::ext_sym_set shared_vars;
+        Utils::ext_sym_set undef_vars;
+    };
+
+    // ************************** END class for Auto-Scoping purposes ************************* //
+    // **************************************************************************************** //
+
+
+
+    // **************************************************************************************** //
     // ********************** Methods for dealing with Extended Symbols *********************** //
 
     // ExtendedSymbol comparisons

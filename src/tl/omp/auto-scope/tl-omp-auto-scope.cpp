@@ -60,6 +60,10 @@ namespace OpenMP {
 
         if( _auto_scope_enabled )
         {
+            DEBUG_CODE( )
+            {
+                std::cerr << "Phase calculating automatic scope for tasks =========" << std::endl;
+            }
             AutoScopeVisitor sv;
             sv.walk( translation_unit );
         }
@@ -107,6 +111,9 @@ namespace OpenMP {
     {
         // Retrieve the results of the Auto-Scoping process to the user
         _analysis_info->print_auto_scoping_results( n );
+
+        // Modify the Nodecl with the new variables' scope
+
     }
 
     // ****************** END function Visitor looking for Tasks ******************** //

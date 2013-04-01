@@ -1568,7 +1568,7 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_sc_private_vars( )
     {
         Utils::ext_sym_set sc_private_vars;
-        if(has_key(_SC_PRIVATE))
+        if( has_key( _SC_PRIVATE ) )
             sc_private_vars = get_data<Utils::ext_sym_set>( _SC_PRIVATE );
         return sc_private_vars;
     }
@@ -1856,14 +1856,6 @@ namespace Analysis {
             Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
             Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
 
-//             if( !private_vars.empty( ) || !firstprivate_vars.empty( ) || !race_vars.empty( )
-//                 || !shared_vars.empty( ) || !undef_vars.empty( ) )
-//             {
-//                 std::cerr << "Task #pragma omp task '"
-//                           << get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).prettyprint( )
-//                           << "'" << std::endl;
-//             }
-
             if( !private_vars.empty( ) )
                 std::cerr << "   Variables autoscoped as private: "             << print_set( private_vars )      << std::endl;
 
@@ -1879,6 +1871,18 @@ namespace Analysis {
             if( !undef_vars.empty( ) )
                 std::cerr << " Variables that cannot be automatically scoped: " << print_set( undef_vars )        << std::endl;
         }
+    }
+
+    Utils::AutoScopedVariables Node::get_auto_scoped_variables( )
+    {
+        Utils::ext_sym_set private_vars = get_sc_private_vars( );
+        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+        Utils::ext_sym_set race_vars = get_sc_race_vars( );
+        Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+        Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
+
+        Utils::AutoScopedVariables res = { private_vars, firstprivate_vars, race_vars, shared_vars, undef_vars };
+        return res;
     }
 
     void Node::print_task_dependencies( )
