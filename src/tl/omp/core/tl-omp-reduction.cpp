@@ -726,13 +726,6 @@ namespace TL { namespace OpenMP {
         return new_red;
     }
 
-    ObjectList<Reduction*> Reduction::lookup(TL::Scope sc,
-            Nodecl::NodeclBase id_expression_orig,
-            TL::Type t)
-    {
-        return lookup(sc, id_expression_orig, t, /* disable_koenig */ false);
-    }
-
     static bool some_reduction_is_in_class_scope(scope_entry_list_t* entry_list)
     {
         if (entry_list != NULL)
@@ -852,8 +845,27 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
+    ObjectList<Reduction*> Reduction::lookup(TL::Scope sc,
+            Nodecl::NodeclBase id_expression_orig,
+            TL::Type t)
+    {
+        if (IS_FORTRAN_LANGUAGE
+                && fortran_is_array_type(t.get_internal_type()))
+        {
+            t = fortran_get_rank0_type(t.get_internal_type());
+        }
+        return lookup(sc, id_expression_orig, t, /* disable_koenig */ false);
+    }
+
+
     Reduction* Reduction::lookup(TL::Scope sc, const std::string& name, TL::Type t)
     {
+        if (IS_FORTRAN_LANGUAGE
+                && fortran_is_array_type(t.get_internal_type()))
+        {
+            t = fortran_get_rank0_type(t.get_internal_type());
+        }
+
         t = get_canonical_type_for_reduction(t);
         std::string internal_name = get_internal_name_for_reduction(name, t);
 

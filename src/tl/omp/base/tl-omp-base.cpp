@@ -212,7 +212,7 @@ namespace TL { namespace OpenMP {
 
                 TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
-                TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates;
+                TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
 
                 int i = 0;
                 for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
@@ -222,20 +222,40 @@ namespace TL { namespace OpenMP {
                     ERROR_CONDITION(i >= (signed int)has_dep.size(), "Mismatch between parameters and related symbols", 0);
                     if (!has_dep[i])
                     {
-                        Nodecl::Symbol symbol_ref =
-                            Nodecl::Symbol::make(*it, filename, line);
-                        symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+                        if (!IS_FORTRAN_LANGUAGE
+                                || !it->get_type().is_any_reference())
+                        {
+                            Nodecl::Symbol symbol_ref =
+                                Nodecl::Symbol::make(*it, filename, line);
+                            symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
-                        assumed_firstprivates.append(symbol_ref);
+                            assumed_firstprivates.append(symbol_ref);
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            Nodecl::Symbol symbol_ref =
+                                Nodecl::Symbol::make(*it, filename, line);
+                            symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+
+                            assumed_shareds.append(symbol_ref);
+                        }
                     }
                 }
 
                 if (!assumed_firstprivates.empty())
                 {
                     result_list.append(
-                            Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates),
-                                filename, line)
-                            );
+                            Nodecl::OpenMP::Firstprivate::make(
+                                Nodecl::List::make(assumed_firstprivates),
+                                filename, line));
+                }
+
+                if (!assumed_shareds.empty())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Shared::make(
+                                Nodecl::List::make(assumed_shareds),
+                                filename, line));
                 }
 
                 // Build the tree which contains the target information

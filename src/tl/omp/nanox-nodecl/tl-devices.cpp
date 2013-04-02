@@ -388,10 +388,8 @@ namespace TL { namespace Nanox {
                     int &lower_bound_index_aux, int &upper_bound_index_aux)
             {
                 Source current_arg;
-                if (t_aux.is_array())
+                if (t_aux.is_fortran_array())
                 {
-                    aux_rec(array_shape, t_aux.array_element(), rank-1, current_rank, lower_bound_index_aux, upper_bound_index_aux);
-
                     Source curent_arg;
                     Nodecl::NodeclBase lower, upper;
                     t_aux.array_get_bounds(lower, upper);
@@ -407,6 +405,8 @@ namespace TL { namespace Nanox {
                         current_arg << "mcc_upper_bound_" << upper_bound_index_aux;
                         upper_bound_index_aux++;
                     }
+
+                    aux_rec(array_shape, t_aux.array_element(), rank-1, current_rank, lower_bound_index_aux, upper_bound_index_aux);
 
                     array_shape.append_with_separator(current_arg, ",");
                 }
@@ -620,6 +620,19 @@ namespace TL { namespace Nanox {
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
                         }
 
+
+                        if (sym.is_valid())
+                        {
+                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+
+                            if (private_sym->entity_specs.is_allocatable)
+                            {
+                                initial_statements << emit_allocate_statement(private_sym, lower_bound_index, upper_bound_index);
+                            }
+
+                            symbol_map->add_map(sym, private_sym);
+                        }
+
                         // This variable must be initialized properly
                         OpenMP::Reduction* red = (*it)->get_reduction_info();
                         if (!red->get_initializer().is_null())
@@ -655,11 +668,6 @@ namespace TL { namespace Nanox {
                             {
                                 internal_error("Code unreachable", 0);
                             }
-                        }
-
-                        if (sym.is_valid())
-                        {
-                            symbol_map->add_map(sym, private_sym);
                         }
 
                         break;
