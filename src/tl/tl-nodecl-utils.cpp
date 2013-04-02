@@ -293,7 +293,7 @@ namespace Nodecl
                         {
                             // Everything looks equal in this single node, let's check our children
                             int equal = 0;
-                            int i;
+                            int i = 0;
                             while ((equal == 0)
                                 && (i < MCXX_MAX_AST_CHILDREN))
                             {
