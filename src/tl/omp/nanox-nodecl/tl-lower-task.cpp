@@ -1054,11 +1054,11 @@ void LoweringVisitor::fill_arguments(
                         else
                         {
                             Source lbound_specifier;
-                            if (t.is_array())
+                            if (t.is_fortran_array())
                             {
                                 lbound_specifier << "(";
 
-                                int i, N = t.get_num_dimensions();
+                                int i, N = t.fortran_rank();
                                 for (i = 1; i <= N; i++)
                                 {
                                     if (i > 1)

@@ -947,12 +947,21 @@ namespace TL
                     result.get_line());
 
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
+
             // a.b[e]
-            if (subscripted.is<Nodecl::ClassMemberAccess>())
+            // (p[e1])[e] -> This only happens when indexing a pointer p
+            if (subscripted.is<Nodecl::ClassMemberAccess>() || subscripted.is<Nodecl::ArraySubscript>())
             {
-                internal_error("Form a.b[e] not yet implemented", 0);
+                DataReference subscripted_expr_ref = DataReference(subscripted);
+                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+
+                result = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                        Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                        get_ptrdiff_t_type(),
+                        expr.get_filename(),
+                        expr.get_line());
             }
-            // ([shape]p])[e]
             else if (subscripted.is<Nodecl::Shaping>())
             {
                 Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
@@ -965,12 +974,6 @@ namespace TL
                                 "C"),
                             get_ptrdiff_t_type()),
                         get_ptrdiff_t_type());
-            }
-            // This only happens when indexing a pointer p
-            // (p[e1])[e]
-            else if (subscripted.is<Nodecl::ArraySubscript>())
-            {
-                internal_error("Form (p[e1])[e] not yet implemented", 0);
             }
             // a[e]
             else if (subscripted.is<Nodecl::Symbol>())
