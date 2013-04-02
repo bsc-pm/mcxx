@@ -153,7 +153,7 @@ namespace TL
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
                     _field_symbol(),
-                    _field_name(field_name), 
+                    _field_name(field_name),
                     _field_type(_sym.get_type()),
                     _in_outline_type(_field_type),
                     _private_type(TL::Type::get_void_type()),
@@ -161,7 +161,7 @@ namespace TL
                     _base_address_expression(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _is_lastprivate()
+                    _is_lastprivate(),
                 {
                 }
 
