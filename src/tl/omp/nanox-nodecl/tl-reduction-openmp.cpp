@@ -226,11 +226,14 @@ namespace TL { namespace Nanox {
 
         num_scalars_ref.set_type(num_scalars.get_type().no_ref().get_lvalue_reference_to());
 
+        Nodecl::Symbol nodecl_index = Nodecl::Symbol::make(index);
+        nodecl_index.set_type(index.get_type().get_lvalue_reference_to());
+
         Nodecl::NodeclBase loop_header = Nodecl::RangeLoopControl::make(
+                nodecl_index,
                 const_value_to_nodecl(const_value_get_signed_int(1)),
                 num_scalars_ref,
-                Nodecl::NodeclBase::null(),
-                index);
+                Nodecl::NodeclBase::null());
 
         Nodecl::NodeclBase expanded_combiner =
             red->get_combiner().shallow_copy();

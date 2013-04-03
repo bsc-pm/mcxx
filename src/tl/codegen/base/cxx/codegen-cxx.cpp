@@ -1087,8 +1087,7 @@ void CxxBase::emit_range_loop_header(
         Nodecl::NodeclBase statement,
         const std::string& rel_op)
 {
-
-    TL::Symbol ind_var = lc.get_symbol();
+    TL::Symbol ind_var = lc.get_induction_variable().get_symbol();
     std::string ind_var_name = this->get_qualified_name(ind_var);
 
     indent();
