@@ -92,6 +92,7 @@ namespace TL
                     COPY_OUT,
                     COPY_INOUT
                 };
+
                 struct CopyItem
                 {
                     Nodecl::NodeclBase expression;
@@ -99,6 +100,22 @@ namespace TL
 
                     CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
                         : expression(expr_), directionality(dir_) { }
+                };
+
+                // This structure is only used by input dependences over parameters passed by value.
+                // We use it to store:
+                //  - The current expression
+                //  - The lvalue subexpressions of the current expression
+                struct InputValueDependence
+                {
+                    Nodecl::NodeclBase expression;
+                    TL::ObjectList<InputValueDependence*> depends_on;
+
+                    InputValueDependence(Nodecl::NodeclBase expr_)
+                        : expression(expr_) { }
+
+                    InputValueDependence(Nodecl::NodeclBase expr_, TL::ObjectList<InputValueDependence*> depends_on_)
+                        : expression(expr_), depends_on(depends_on_) { }
                 };
 
                 enum AllocationPolicyFlags
@@ -149,6 +166,9 @@ namespace TL
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+
+                InputValueDependence* input_value_dependence;
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
@@ -162,6 +182,7 @@ namespace TL
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
                     _is_lastprivate(),
+                    input_value_dependence(NULL)
                 {
                 }
 
@@ -346,6 +367,16 @@ namespace TL
 
                     return has_input_value;
                 }
+
+                InputValueDependence* get_input_value_dependence() const
+                {
+                    return input_value_dependence;
+                }
+
+                void set_input_value_dependence(InputValueDependence* input_value_dep)
+                {
+                    input_value_dependence = input_value_dep;
+                }
         };
 
         //Symbold::invalid it's theorically used when the outline has no symbol
@@ -459,6 +490,10 @@ namespace TL
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
                 TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item,
                         bool &make_allocatable);
+
+                OutlineDataItem::InputValueDependence* get_input_value_dependence(TL::Symbol symbol) const;
+                void set_input_value_dependence(TL::Symbol symbol, OutlineDataItem::InputValueDependence* input_value_dep);
+
         };
     }
 }

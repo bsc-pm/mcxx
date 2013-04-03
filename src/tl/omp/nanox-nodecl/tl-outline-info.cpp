@@ -155,8 +155,7 @@ namespace TL { namespace Nanox {
     {
         add_shared(symbol);
 
-        bool is_new = false;
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
         outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_SPECIAL);
 
         Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(symbol);
@@ -682,6 +681,19 @@ namespace TL { namespace Nanox {
         }
 
         outline_info.set_private_type(t);
+    }
+
+    OutlineDataItem::InputValueDependence* OutlineInfoRegisterEntities::get_input_value_dependence(TL::Symbol symbol) const
+    {
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+        return outline_info.get_input_value_dependence();
+    }
+
+    void OutlineInfoRegisterEntities::set_input_value_dependence(TL::Symbol symbol,
+            OutlineDataItem::InputValueDependence* input_value_dep)
+    {
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+        outline_info.set_input_value_dependence(input_value_dep);
     }
 
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities

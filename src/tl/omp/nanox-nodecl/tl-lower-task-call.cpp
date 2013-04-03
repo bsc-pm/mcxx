@@ -430,10 +430,46 @@ static void generate_dependences_of_expression(
         OutlineInfoRegisterEntities& outline_register_entities,
         TL::Scope new_block_context_sc,
         Nodecl::NodeclBase expr,
-        Nodecl::NodeclBase update_expr)
+        Nodecl::NodeclBase update_expr,
+        OutlineDataItem::InputValueDependence* enclosing_lvalue)
 {
     if (expr.is_null())
         return;
+    TL::Symbol new_symbol = TL::Symbol::invalid();
+    if (expr.get_type().is_lvalue_reference())
+    {
+        if (enclosing_lvalue == NULL)
+        {
+            // The expression is a top level lvalue
+            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+
+            // Create a new variable holding the value of the argument
+            std::stringstream ss;
+            ss << "mcc_arg_" << (int)arg_counter;
+            new_symbol = new_block_context_sc.new_symbol(ss.str());
+            arg_counter++;
+
+            // FIXME - Wrap this sort of things
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.get_internal_symbol()->type_information = expr.get_type().get_internal_type();
+            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
+                    expr, expr.get_type().get_pointer_to(), expr.get_filename(), expr.get_line()).get_internal_nodecl();
+
+            outline_register_entities.add_shared_special(new_symbol);
+
+            OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+            outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
+            enclosing_lvalue = new_dependence;
+        }
+        else
+        {
+            // New dependence for the enclosing lvalue
+            OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+            enclosing_lvalue->depends_on.append(new_dependence);
+            enclosing_lvalue = new_dependence;
+        }
+    }
 
     if (expr.is<Nodecl::List>())
     {
@@ -445,7 +481,8 @@ static void generate_dependences_of_expression(
                     outline_register_entities,
                     new_block_context_sc,
                     l_expr[i],
-                    l_update_expr[i]);
+                    l_update_expr[i],
+                    enclosing_lvalue);
         }
     }
     else
@@ -458,29 +495,14 @@ static void generate_dependences_of_expression(
                     outline_register_entities,
                     new_block_context_sc,
                     expr_children[i],
-                    update_expr_children[i]);
+                    update_expr_children[i],
+                    enclosing_lvalue);
         }
     }
 
-    if (expr.get_type().is_lvalue_reference())
+    // Finally, we should update the expression, using the new local variables
+    if (new_symbol.is_valid())
     {
-        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-        // Create a new variable holding the value of the argument
-        std::stringstream ss;
-        ss << "mcc_arg_" << (int)arg_counter;
-        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
-        arg_counter++;
-
-        // FIXME - Wrap this sort of things
-        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_symbol.get_internal_symbol()->type_information = expr.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-        new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
-                expr, expr.get_type().get_pointer_to(), expr.get_filename(), expr.get_line()).get_internal_nodecl();
-
-        outline_register_entities.add_shared_special(new_symbol);
-
         Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
         new_symbol_nodecl.set_type(new_symbol.get_type());
         update_expr.replace(new_symbol_nodecl);
@@ -493,7 +515,11 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             Nodecl::NodeclBase expr)
 {
     Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
-    generate_dependences_of_expression(outline_register_entities, new_block_context_sc, expr, update_expr);
+    generate_dependences_of_expression(outline_register_entities,
+            new_block_context_sc,
+            expr,
+            update_expr,
+            /* enclosing lvalue */ NULL);
     return update_expr;
 }
 
