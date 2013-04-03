@@ -1683,6 +1683,19 @@ namespace Analysis {
         set_data( _SC_RACE, sc_race_vars );
     }
 
+    Utils::AutoScopedVariables Node::get_auto_scoped_variables( )
+    {
+        Utils::ext_sym_set private_vars = get_sc_private_vars( );
+        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+        Utils::ext_sym_set race_vars = get_sc_race_vars( );
+        Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+        Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
+
+        Utils::AutoScopedVariables res( private_vars, firstprivate_vars, race_vars,
+                                        shared_vars, undef_vars );
+        return res;
+    }
+
     // ************* END getters and setters for auto-scoping analysis ************** //
     // ****************************************************************************** //
 
@@ -1871,18 +1884,6 @@ namespace Analysis {
             if( !undef_vars.empty( ) )
                 std::cerr << " Variables that cannot be automatically scoped: " << print_set( undef_vars )        << std::endl;
         }
-    }
-
-    Utils::AutoScopedVariables Node::get_auto_scoped_variables( )
-    {
-        Utils::ext_sym_set private_vars = get_sc_private_vars( );
-        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
-        Utils::ext_sym_set race_vars = get_sc_race_vars( );
-        Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
-        Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
-
-        Utils::AutoScopedVariables res = { private_vars, firstprivate_vars, race_vars, shared_vars, undef_vars };
-        return res;
     }
 
     void Node::print_task_dependencies( )

@@ -514,6 +514,27 @@ namespace Nodecl
         return result;
     }
 
+    bool Utils::nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l )
+    {
+        bool res = false;
+        if( n.is<Nodecl::List>( ) )
+        {
+            ERROR_CONDITION( !n.is<List>( ), "Can't found a list found in a list", 0 );
+        }
+        else
+        {
+            for( Nodecl::List::iterator it = l.begin( ); it != l.end( ); ++it )
+            {
+                if( equal_nodecls( n, *it ) )
+                {
+                    res = true;
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+
     bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();

@@ -87,12 +87,29 @@ namespace Utils {
     // **************************************************************************************** //
     // **************************** Class for Auto-Scoping purposes *************************** //
 
-    struct AutoScopedVariables {
-        Utils::ext_sym_set private_vars;
-        Utils::ext_sym_set firstprivate_vars;
-        Utils::ext_sym_set race_vars;
-        Utils::ext_sym_set shared_vars;
-        Utils::ext_sym_set undef_vars;
+    class LIBTL_CLASS AutoScopedVariables
+    {
+    private:
+        ext_sym_set _private_vars;
+        ext_sym_set _firstprivate_vars;
+        ext_sym_set _race_vars;
+        ext_sym_set _shared_vars;
+        ext_sym_set _undef_vars;
+
+    public:
+        // ************* Constructor ************* //
+
+        AutoScopedVariables( );
+        AutoScopedVariables( ext_sym_set private_vars, ext_sym_set firstprivate_vars,
+                             ext_sym_set race_vars, ext_sym_set shared_vars, ext_sym_set undef_vars );
+
+        // ********* Getters and setters ********* //
+
+        ext_sym_set get_private_vars( );
+        ext_sym_set get_firstprivate_vars( );
+        ext_sym_set get_race_vars( );
+        ext_sym_set get_shared_vars( );
+        ext_sym_set get_undef_vars( );
     };
 
     // ************************** END class for Auto-Scoping purposes ************************* //
@@ -103,11 +120,13 @@ namespace Utils {
     // **************************************************************************************** //
     // ********************** Methods for dealing with Extended Symbols *********************** //
 
-    // ExtendedSymbol comparisons
+    // ********** ExtendedSymbol comparisons ********* //
 
     bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained );
 
     // ********** Containers algorithms ********* //
+
+    ObjectList<Nodecl::NodeclBase> get_nodecl_objectlist_from_ext_sym_list( ext_sym_set es );
 
     ext_sym_map ext_sym_map_union( ext_sym_map c1, ext_sym_map c2 );
     ext_sym_set ext_sym_set_union( ext_sym_set c1, ext_sym_set c2 );

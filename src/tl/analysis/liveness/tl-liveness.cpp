@@ -259,13 +259,16 @@ namespace Analysis {
                     "The results of the analysis might be wrong", 0 );
 
                 Node* task_parent = container_task->get_parents( )[0];
-                Node* task_children = container_task->get_children( )[0];
-
-                Utils::ext_sym_set killed;
-                variables_killed_between_nodes( task_parent, task_children, /* skip this node */ container_task, killed );
-                for( Utils::ext_sym_set::iterator itk = killed.begin( ); itk != killed.end( ); ++itk )
+                ObjectList<Node*> task_children_list = container_task->get_children( );
+                if( !task_children_list.empty( ) )
                 {
-                    succ_live_in.erase( *itk );
+                    Node* task_children = task_children_list[0];
+                    Utils::ext_sym_set killed;
+                    variables_killed_between_nodes( task_parent, task_children, /* skip this node */ container_task, killed );
+                    for( Utils::ext_sym_set::iterator itk = killed.begin( ); itk != killed.end( ); ++itk )
+                    {
+                        succ_live_in.erase( *itk );
+                    }
                 }
             }
             live_out = Utils::ext_sym_set_union( live_out, succ_live_in );

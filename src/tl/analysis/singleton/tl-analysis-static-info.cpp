@@ -226,12 +226,14 @@ namespace Analysis {
         }
     }
 
-    void NodeclStaticInfo::get_auto_scoped_variables( )
+    Utils::AutoScopedVariables NodeclStaticInfo::get_auto_scoped_variables( )
     {
+        Utils::AutoScopedVariables autosc_vars;
         if( _autoscoped_task != NULL )
         {
-            _autoscoped_task->get_auto_scoped_variables( );
+            autosc_vars = _autoscoped_task->get_auto_scoped_variables( );
         }
+        return autosc_vars;
     }
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -815,6 +817,24 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             current_info.print_auto_scoping_results( );
         }
+    }
+
+    Utils::AutoScopedVariables AnalysisStaticInfo::get_auto_scoped_variables( const Nodecl::NodeclBase scope )
+    {
+        Utils::AutoScopedVariables res;
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot print its auto-scoping results.'",
+                             scope.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            res = current_info.get_auto_scoped_variables( );
+        }
+        return res;
     }
 
     // ************************** END User interface for static analysis *************************** //

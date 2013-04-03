@@ -123,7 +123,7 @@ namespace Analysis {
 
             void print_auto_scoping_results( ) const;
 
-            void get_auto_scoped_variables( );
+            Utils::AutoScopedVariables get_auto_scoped_variables( );
     };
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -277,7 +277,7 @@ namespace Analysis {
 
             void print_auto_scoping_results( const Nodecl::NodeclBase& scope );
 
-            void get_auto_scoped_variables( const Nodecl::NodeclBase$ scope );
+            Utils::AutoScopedVariables get_auto_scoped_variables( const Nodecl::NodeclBase scope );
     };
 
     // ************************** END User interface for static analysis *************************** //

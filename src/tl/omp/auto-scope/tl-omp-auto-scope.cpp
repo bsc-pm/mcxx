@@ -26,6 +26,7 @@
 
 #include <climits>
 
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-omp-auto-scope.hpp"
 
 namespace TL {
@@ -113,7 +114,120 @@ namespace OpenMP {
         _analysis_info->print_auto_scoping_results( n );
 
         // Modify the Nodecl with the new variables' scope
+        Analysis::Utils::AutoScopedVariables autosc_vars = _analysis_info->get_auto_scoped_variables( n );
+        Analysis::Utils::ext_sym_set private_ext_syms, firstprivate_ext_syms, race_ext_syms,
+                                     shared_ext_syms, undef_ext_syms;
+        Nodecl::NodeclBase user_private_vars, user_firstprivate_vars, user_shared_vars;
 
+                // Get actual environment
+        Nodecl::List environ = n.get_environment().as<Nodecl::List>();
+        for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
+        {
+            if( it->is<Nodecl::OpenMP::Private>( ) )
+            {
+                user_private_vars = it->as<Nodecl::OpenMP::Private>( );
+            }
+            if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
+            {
+                user_firstprivate_vars = it->as<Nodecl::OpenMP::Firstprivate>( );
+            }
+            if( it->is<Nodecl::OpenMP::Shared>( ) )
+            {
+                user_shared_vars = it->as<Nodecl::OpenMP::Shared>( );
+            }
+            if( it->is<Nodecl::OpenMP::Auto>( ) )
+            {
+                environ.erase( it );
+                it--;
+            }
+        }
+
+                // Remove user-scoped variables from auto-scoped variables and reset environment
+        const std::string filename = n.get_filename( );
+        int line = n.get_line( );
+        private_ext_syms = autosc_vars.get_private_vars( );
+        if( !private_ext_syms.empty( ) )
+        {
+            ObjectList<Nodecl::NodeclBase> autosc_private_vars;
+            for( Analysis::Utils::ext_sym_set::iterator it = private_ext_syms.begin( ); it != private_ext_syms.end( ); ++it )
+            {
+                autosc_private_vars.insert( it->get_nodecl( ) );
+            }
+            ObjectList<Nodecl::NodeclBase> purged_autosc_private_vars;
+            for( ObjectList<Nodecl::NodeclBase>::iterator it = autosc_private_vars.begin( );
+                it != autosc_private_vars.end( ); ++it )
+                {
+                    if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
+                        && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
+                        && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
+                    {
+                        purged_autosc_private_vars.insert( it->shallow_copy() );
+                    }
+                }
+                if( !purged_autosc_private_vars.empty( ) )
+                {
+                    Nodecl::OpenMP::Private private_node =
+                    Nodecl::OpenMP::Private::make( Nodecl::List::make( purged_autosc_private_vars ),
+                                                        filename, line);
+                    environ.append( private_node );
+                }
+        }
+
+        firstprivate_ext_syms = autosc_vars.get_firstprivate_vars( );
+        if( !firstprivate_ext_syms.empty( ) )
+        {
+            ObjectList<Nodecl::NodeclBase> autosc_firstprivate_vars;
+            for( Analysis::Utils::ext_sym_set::iterator it = firstprivate_ext_syms.begin( ); it != firstprivate_ext_syms.end( ); ++it )
+            {
+                autosc_firstprivate_vars.insert( it->get_nodecl( ) );
+            }
+            ObjectList<Nodecl::NodeclBase> purged_autosc_firstprivate_vars;
+            for( ObjectList<Nodecl::NodeclBase>::iterator it = autosc_firstprivate_vars.begin( );
+                 it != autosc_firstprivate_vars.end( ); ++it )
+            {
+                if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
+                    && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
+                    && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
+                {
+                    purged_autosc_firstprivate_vars.insert( it->shallow_copy() );
+                }
+            }
+            if( !purged_autosc_firstprivate_vars.empty( ) )
+            {
+                Nodecl::OpenMP::Firstprivate firstprivate_node =
+                        Nodecl::OpenMP::Firstprivate::make( Nodecl::List::make( purged_autosc_firstprivate_vars ),
+                                                            filename, line);
+                environ.append( firstprivate_node );
+            }
+        }
+
+        shared_ext_syms = autosc_vars.get_shared_vars( );
+        if( !shared_ext_syms.empty( ) )
+        {
+            ObjectList<Nodecl::NodeclBase> autosc_shared_vars;
+            for( Analysis::Utils::ext_sym_set::iterator it = shared_ext_syms.begin( ); it != shared_ext_syms.end( ); ++it )
+            {
+                autosc_shared_vars.insert( it->get_nodecl( ) );
+            }
+            ObjectList<Nodecl::NodeclBase> purged_autosc_shared_vars;
+            for( ObjectList<Nodecl::NodeclBase>::iterator it = autosc_shared_vars.begin( );
+                it != autosc_shared_vars.end( ); ++it )
+                {
+                    if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
+                        && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
+                        && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
+                    {
+                        purged_autosc_shared_vars.insert( it->shallow_copy() );
+                    }
+                }
+                if( !purged_autosc_shared_vars.empty( ) )
+                {
+                    Nodecl::OpenMP::Shared shared_node =
+                    Nodecl::OpenMP::Shared::make( Nodecl::List::make( purged_autosc_shared_vars ),
+                                                        filename, line);
+                    environ.append( shared_node );
+                }
+        }
     }
 
     // ****************** END function Visitor looking for Tasks ******************** //
