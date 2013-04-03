@@ -157,6 +157,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
+        void handle_dependency_item(
+                Nodecl::NodeclBase ctr,
+                TL::DataReference dep_expr,
+                OutlineDataItem::DependencyDirectionality dir,
+                int current_dep_num,
+                Source& dependency_regions,
+                Source& dependency_init,
+                Source& result_src);
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,

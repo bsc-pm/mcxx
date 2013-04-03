@@ -1934,6 +1934,275 @@ void LoweringVisitor::fill_dependences(
     fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
 }
 
+void LoweringVisitor::handle_dependency_item(
+        Nodecl::NodeclBase ctr,
+        TL::DataReference dep_expr,
+        OutlineDataItem::DependencyDirectionality dir,
+        int current_dep_num,
+        Source& dependency_regions,
+        Source& dependency_init,
+        Source& result_src)
+
+{
+    ERROR_CONDITION(!dep_expr.is_valid(),
+            "%s: Invalid dependency detected '%s'. Reason: %s\n",
+            dep_expr.get_locus().c_str(),
+            dep_expr.prettyprint().c_str(),
+            dep_expr.get_error_log().c_str());
+
+    Source dependency_offset,
+           dependency_flags,
+           dependency_flags_in,
+           dependency_flags_out,
+           dependency_flags_concurrent,
+           dependency_flags_commutative;
+
+    Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
+
+    // if (!(*it)->get_base_address_expression().is_null())
+    // {
+    //     // This is only for function task dependences
+    //     // Outline tasks do not need any of this
+    //     dep_source_expr = base_address = (*it)->get_base_address_expression();
+
+    //     if ((IS_CXX_LANGUAGE
+    //                 || IS_FORTRAN_LANGUAGE)
+    //             && (*it)->get_symbol().get_type().is_lvalue_reference())
+    //     {
+    //         // If the parameter type
+    //         TL::Type t = base_address.get_type();
+    //         if (t.is_any_reference())
+    //             t = t.references_to();
+    //         t = t.get_pointer_to();
+    //         // Create a reference here
+    //         base_address = Nodecl::Reference::make(
+    //                 base_address.shallow_copy(),
+    //                 t,
+    //                 base_address.get_filename(),
+    //                 base_address.get_line());
+    //     }
+    // }
+    // else
+    {
+        base_address = dep_expr.get_base_address().shallow_copy();
+    }
+
+    dependency_flags
+        << "{"
+        << dependency_flags_in << ","
+        << dependency_flags_out << ", "
+        << /* renaming has not yet been implemented */ "0, "
+        << dependency_flags_concurrent << ","
+        << dependency_flags_commutative
+        << "}"
+        ;
+
+    Type dependency_type = dep_expr.get_data_type();
+
+    int num_dimensions = dependency_type.get_num_dimensions();
+
+    bool input       = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool concurrent  = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+
+    dependency_flags_in << ( input || input_value || concurrent || commutative);
+
+    dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
+            || concurrent || commutative);
+    dependency_flags_concurrent << concurrent;
+    dependency_flags_commutative << commutative;
+    //
+    // Compute the base type of the dependency and the array containing the size of each dimension
+    Type dependency_base_type = dependency_type;
+
+    Nodecl::NodeclBase dimension_sizes[num_dimensions];
+    for (int dim = 0; dim < num_dimensions; dim++)
+    {
+        dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
+
+        dependency_base_type = dependency_base_type.array_element();
+    }
+
+    std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
+
+    dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
+        ;
+
+    Source dims_description;
+
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        dependency_regions << "=  { " << dims_description << "}";
+    }
+
+    dependency_regions << ";"
+        ;
+
+    Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
+
+    if (dep_expr_offset.is_null())
+    {
+        dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
+    }
+    ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
+
+    dependency_offset << as_expression(dep_expr_offset);
+
+    if (num_dimensions == 0)
+    {
+        // This is a scalar
+        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+        dimension_size << "sizeof(" << base_type_name << ")";
+        dimension_lower_bound << "0";
+        dimension_accessed_length << dimension_size;
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            dims_description
+                << "{"
+                << dimension_size << ","
+                << dimension_lower_bound << ","
+                << dimension_accessed_length
+                << "}"
+                ;
+        }
+        else
+        {
+            dependency_regions
+                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                ;
+        }
+
+    }
+    else
+    {
+        // This an array
+        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+        // Compute the contiguous array type
+        Type contiguous_array_type = dependency_type;
+        while (contiguous_array_type.array_element().is_array())
+        {
+            contiguous_array_type = contiguous_array_type.array_element();
+        }
+
+        Nodecl::NodeclBase lb, ub, size;
+        if (contiguous_array_type.array_is_region())
+        {
+            // This should be the lower bound of the array region minus lower bound of the array
+            Nodecl::NodeclBase array_lb, array_ub;
+            Nodecl::NodeclBase region_lb, region_ub;
+
+            contiguous_array_type.array_get_bounds(array_lb, array_ub);
+            contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
+
+            if (array_lb.is_null()
+                    && IS_FORTRAN_LANGUAGE)
+            {
+                // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
+                array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
+            }
+
+            Source diff;
+            diff
+                << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
+
+            lb = diff.parse_expression(ctr);
+
+            size = contiguous_array_type.array_get_region_size();
+        }
+        else
+        {
+            // Lower bound here should be zero since we want all the array
+            lb = const_value_to_nodecl(const_value_get_signed_int(0));
+
+            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
+        }
+
+        dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
+        dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
+        dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            dims_description
+                << "{"
+                << dimension_size << ","
+                << dimension_lower_bound << ","
+                << dimension_accessed_length
+                << "}"
+                ;
+        }
+        else
+        {
+            dependency_regions
+                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                ;
+        }
+
+        if (num_dimensions > 1)
+        {
+            // All the remaining dimensions (but 0) are filled here
+            fill_dimensions(
+                    num_dimensions,
+                    /* current_dim */ num_dimensions,
+                    current_dep_num,
+                    dep_source_expr,
+                    dimension_sizes,
+                    dependency_type,
+                    dims_description,
+                    dependency_regions,
+                    dep_source_expr.retrieve_context());
+        }
+    }
+
+    int num_dimension_items = num_dimensions;
+    if (num_dimension_items == 0)
+        num_dimension_items = 1;
+
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        if (current_dep_num > 0)
+        {
+            dependency_init << ", ";
+        }
+
+        dependency_init
+            << "{"
+            << as_expression(base_address) << ", "
+            << dependency_flags << ", "
+            << num_dimension_items << ", "
+            << "dimensions_" << current_dep_num << ","
+            << dependency_offset
+            << "}";
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].address = "
+            << as_expression(base_address) << ";"
+            << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
+            << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+            << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+            << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+            << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
+            << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+            << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
+            ;
+    }
+}
+
 void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -1986,7 +2255,6 @@ void LoweringVisitor::fill_dependences_internal(
             ;
 
         int current_dep_num = 0;
-        int num_handled_dependences = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -2003,264 +2271,8 @@ void LoweringVisitor::fill_dependences_internal(
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
-                ERROR_CONDITION(!dep_expr.is_valid(),
-                        "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus().c_str(),
-                        dep_expr.prettyprint().c_str(),
-                        dep_expr.get_error_log().c_str());
-
-                Source dependency_offset,
-                       dependency_flags,
-                       dependency_flags_in,
-                       dependency_flags_out,
-                       dependency_flags_concurrent,
-                       dependency_flags_commutative;
-
-                Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
-
-                // if (!(*it)->get_base_address_expression().is_null())
-                // {
-                //     // This is only for function task dependences
-                //     // Outline tasks do not need any of this
-                //     dep_source_expr = base_address = (*it)->get_base_address_expression();
-
-                //     if ((IS_CXX_LANGUAGE
-                //                 || IS_FORTRAN_LANGUAGE)
-                //             && (*it)->get_symbol().get_type().is_lvalue_reference())
-                //     {
-                //         // If the parameter type
-                //         TL::Type t = base_address.get_type();
-                //         if (t.is_any_reference())
-                //             t = t.references_to();
-                //         t = t.get_pointer_to();
-                //         // Create a reference here
-                //         base_address = Nodecl::Reference::make(
-                //                 base_address.shallow_copy(),
-                //                 t,
-                //                 base_address.get_filename(),
-                //                 base_address.get_line());
-                //     }
-                // }
-                // else
-                {
-                    base_address = dep_expr.get_base_address().shallow_copy();
-                }
-
-                dependency_flags 
-                    << "{" 
-                    << dependency_flags_in << "," 
-                    << dependency_flags_out << ", "
-                    << /* renaming has not yet been implemented */ "0, " 
-                    << dependency_flags_concurrent << ","
-                    << dependency_flags_commutative
-                    << "}"
-                    ;
-
-                Type dependency_type = dep_expr.get_data_type();
-
-                int num_dimensions = dependency_type.get_num_dimensions();
-
-                bool input       = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
-                bool input_value = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
-                bool concurrent  = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-                bool commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
-
-                dependency_flags_in << ( input || input_value || concurrent || commutative);
-
-                dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
-                        || concurrent || commutative);
-                dependency_flags_concurrent << concurrent;
-                dependency_flags_commutative << commutative;
-                //
-                // Compute the base type of the dependency and the array containing the size of each dimension
-                Type dependency_base_type = dependency_type;
-
-                Nodecl::NodeclBase dimension_sizes[num_dimensions];
-                for (int dim = 0; dim < num_dimensions; dim++)
-                {
-                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
-
-                    dependency_base_type = dependency_base_type.array_element();
-                }
-
-                std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
-
-                dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
-                    ;
-
-                Source dims_description;
-
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    dependency_regions << "=  { " << dims_description << "}";
-                }
-
-                dependency_regions << ";"
-                    ;
-
-                 Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
-
-                 if (dep_expr_offset.is_null())
-                 {
-                     dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
-                 }
-                 ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
-
-                dependency_offset << as_expression(dep_expr_offset);
-
-                if (num_dimensions == 0)
-                {
-                    // This is a scalar
-                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-
-                    dimension_size << "sizeof(" << base_type_name << ")";
-                    dimension_lower_bound << "0";
-                    dimension_accessed_length << dimension_size;
-
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        dims_description
-                            << "{"
-                            << dimension_size << ","
-                            << dimension_lower_bound << ","
-                            << dimension_accessed_length
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_regions
-                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                            ;
-                    }
-
-                }
-                else
-                {
-                    // This an array
-                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-
-                    // Compute the contiguous array type
-                    Type contiguous_array_type = dependency_type;
-                    while (contiguous_array_type.array_element().is_array())
-                    {
-                        contiguous_array_type = contiguous_array_type.array_element();
-                    }
-
-                    Nodecl::NodeclBase lb, ub, size;
-                    if (contiguous_array_type.array_is_region())
-                    {
-                        // This should be the lower bound of the array region minus lower bound of the array
-                        Nodecl::NodeclBase array_lb, array_ub;
-                        Nodecl::NodeclBase region_lb, region_ub;
-
-                        contiguous_array_type.array_get_bounds(array_lb, array_ub);
-                        contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
-
-                        if (array_lb.is_null()
-                                && IS_FORTRAN_LANGUAGE)
-                        {
-                            // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
-                            array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
-                        }
-
-                        Source diff;
-                        diff
-                            << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
-
-                        lb = diff.parse_expression(ctr);
-
-                        size = contiguous_array_type.array_get_region_size();
-                    }
-                    else
-                    {
-                        // Lower bound here should be zero since we want all the array
-                        lb = const_value_to_nodecl(const_value_get_signed_int(0));
-
-                        size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
-                    }
-
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
-
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        dims_description
-                            << "{"
-                            << dimension_size << ","
-                            << dimension_lower_bound << ","
-                            << dimension_accessed_length
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_regions
-                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                            ;
-                    }
-
-                    if (num_dimensions > 1)
-                    {
-                        // All the remaining dimensions (but 0) are filled here
-                        fill_dimensions(
-                                num_dimensions,
-                                /* current_dim */ num_dimensions,
-                                current_dep_num,
-                                dep_source_expr,
-                                dimension_sizes,
-                                dependency_type,
-                                dims_description,
-                                dependency_regions,
-                                dep_source_expr.retrieve_context());
-                    }
-                }
-
-                int num_dimension_items = num_dimensions;
-                if (num_dimension_items == 0) 
-                    num_dimension_items = 1;
-
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    if (num_handled_dependences > 0)
-                    {
-                        dependency_init << ", ";
-                    }
-
-                    dependency_init
-                        << "{"
-                        << as_expression(base_address) << ", "
-                        << dependency_flags << ", "
-                        << num_dimension_items << ", "
-                        << "dimensions_" << current_dep_num << ","
-                        << dependency_offset
-                        << "}";
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    result_src
-                        << "dependences[" << current_dep_num << "].address = "
-                                   << as_expression(base_address) << ";"
-                        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
-                        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
-                        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-                        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
-                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
-                        << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
-                        ;
-                }
-                num_handled_dependences++;
+                handle_dependency_item(ctr, dep_expr, dir,
+                        current_dep_num, dependency_regions, dependency_init, result_src);
             }
         }
     }
