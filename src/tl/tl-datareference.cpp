@@ -950,10 +950,24 @@ namespace TL
 
             // a.b[e]
             // (p[e1])[e] -> This only happens when indexing a pointer p
-            if (subscripted.is<Nodecl::ClassMemberAccess>() || subscripted.is<Nodecl::ArraySubscript>())
+            if (subscripted.is<Nodecl::ClassMemberAccess>()
+                    || subscripted.is<Nodecl::ArraySubscript>())
             {
                 DataReference subscripted_expr_ref = DataReference(subscripted);
                 Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+
+                result = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                        Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                        get_ptrdiff_t_type(),
+                        expr.get_filename(),
+                        expr.get_line());
+            }
+            // (*p)[e]
+            else if (subscripted.is<Nodecl::Dereference>())
+            {
+                DataReference subscripted_expr_ref = DataReference(subscripted.as<Nodecl::Dereference>().get_rhs());
+                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted.as<Nodecl::Dereference>().get_rhs(), subscripted_expr_ref, scope);
 
                 result = Nodecl::Add::make(
                         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
