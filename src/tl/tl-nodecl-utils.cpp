@@ -64,13 +64,23 @@ namespace Nodecl
         return sym_list;
     }
 
-    static bool is_parameter_of_another_function(TL::Symbol symbol, TL::Scope sc)
+    static bool is_parameter_of_nonnested_function(TL::Symbol symbol, TL::Scope sc)
     {
-        // If this symbol is a parameter of some function but not from the
-        // current one (if any), then it is a parameter of another function
-        return (symbol.is_parameter_of_a_function()
-                && sc.get_decl_context().current_scope->related_entry != NULL
-                && !symbol.is_parameter_of(sc.get_decl_context().current_scope->related_entry));
+        // This function returns true if this symbol is a parameter of a
+        // function that is not the current one nor an enclosing one
+        if (!symbol.is_parameter_of_a_function())
+            return false;
+
+        TL::Symbol current_function = sc.get_decl_context().current_scope->related_entry;
+        if (!current_function.is_valid())
+            return false;
+
+        if (symbol.is_parameter_of(current_function))
+            return false;
+        else if (current_function.is_nested_function())
+            return is_parameter_of_nonnested_function(symbol, current_function.get_scope());
+
+        return true;
     }
 
     struct IsLocalSymbol : TL::Predicate<TL::Symbol>
@@ -89,7 +99,7 @@ namespace Nodecl
                 // If its scope is contained in the base node one, then it is
                 // "local"
                 return sym.get_scope().scope_is_enclosed_by(_sc)
-                    && !is_parameter_of_another_function(sym, _sc);
+                    && !is_parameter_of_nonnested_function(sym, _sc);
             }
     };
 
@@ -109,7 +119,7 @@ namespace Nodecl
                 // If its scope is not contained in the base node one, then it
                 // is "nonlocal"
                 return !sym.get_scope().scope_is_enclosed_by(_sc)
-                    && !is_parameter_of_another_function(sym, _sc);
+                    && !is_parameter_of_nonnested_function(sym, _sc);
             }
     };
 

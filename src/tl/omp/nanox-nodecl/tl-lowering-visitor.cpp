@@ -34,6 +34,16 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
 
+    void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
+    {
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Visit first the internal functions
+            walk(function_code.get_internal_functions());
+        }
+        walk(function_code.get_statements());
+    }
+
     LoweringVisitor::~LoweringVisitor() { }
 
 } }

@@ -227,6 +227,12 @@ namespace TL { namespace Nanox {
             const std::string& function_name,
             CreateOutlineInfo& info)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         // This is only for Fortran!
         Scope sc = current_function.get_scope();
 
@@ -438,6 +444,12 @@ namespace TL { namespace Nanox {
             Source &initial_statements,
             Source &final_statements)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         bool is_function_task = info._called_task.is_valid();
 
         Scope sc = current_function.get_scope();
@@ -820,7 +832,14 @@ namespace TL { namespace Nanox {
             ObjectList<std::string> parameter_names,
             ObjectList<TL::Type> parameter_types)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         decl_context_t decl_context = current_function.get_scope().get_decl_context();
+
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
         decl_context_t function_context;
