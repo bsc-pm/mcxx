@@ -166,7 +166,9 @@ void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataI
             check_pendant_writes_on_lvalue_subexpressions(c->depends_on[i], code);
 
             TL::Source dependency_regions, dependency_init, dependence;
-            code << "err = nanos_dependence_pendant_writes(&result, &" << c->depends_on[i]->expression.prettyprint() <<  ");"
+            code
+                << "err = nanos_dependence_pendant_writes(&result, &" << c->depends_on[i]->expression.prettyprint() <<  ");"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
                 << "if (result)"
                 << "{"
                 <<     dependence
@@ -949,13 +951,19 @@ void LoweringVisitor::fill_arguments(
                             check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
                         }
 
-                        fill_outline_arguments
-                            << "{"
+                        TL::Source common_code;
+                        common_code
                             <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
                             <<      "nanos_err_t err;"
                             <<      lvalue_subexpressions_code
                             <<      as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";"
                             <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
+                            <<      "if (err != NANOS_OK) nanos_handle_error(err);"
+                            ;
+
+                        fill_outline_arguments
+                            << "{"
+                            <<      common_code
                             <<      "if (result)"
                             <<      "{"
                             <<           "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
@@ -970,11 +978,7 @@ void LoweringVisitor::fill_arguments(
 
                         fill_immediate_arguments
                             << "{"
-                            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
-                            <<      "nanos_err_t err;"
-                            <<      lvalue_subexpressions_code
-                            <<      as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";"
-                            <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
+                            <<      common_code
                             <<      "if (result)"
                             <<      "{"
                             <<           "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
