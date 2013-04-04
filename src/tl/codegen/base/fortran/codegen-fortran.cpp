@@ -1783,7 +1783,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::RangeLoopControl& node)
     {
-        TL::Symbol ind_var = node.get_symbol();
+        Nodecl::NodeclBase ind_var = node.get_induction_variable();
         Nodecl::NodeclBase lower = node.get_lower();
         Nodecl::NodeclBase upper = node.get_upper();
         Nodecl::NodeclBase stride = node.get_step();
@@ -1807,7 +1807,7 @@ OPERATOR_TABLE
             bool old_in_forall = state.in_forall;
             state.in_forall = false;
 
-            file << rename(ind_var) << " = ";
+            file << rename(ind_var.get_symbol()) << " = ";
 
             walk(lower);
 

@@ -34,44 +34,27 @@ test_generator=config/mercurium-ompss
 
 #include<assert.h>
 
-struct C
+#pragma omp task inout((*a)[1:4])
+void foo(int (*a)[5])
 {
-    int x;
-    int y[5];
-};
-
-#pragma omp task out(c->y[0:4])
-void producer(struct C* c)
-{
-    for (int i = 0; i < 5; ++i)
+    int i;
+    for (i = 1; i < 5; ++i)
     {
-        c->y[i] = 4;
+        (*a)[i] = i;
     }
-}
-
-#pragma omp task inout(c->y[0:4])
-void consumer(struct C* c)
-{
 }
 
 int main()
 {
-    struct C c;
-
-    c.x = 1;
-
-    for (int i = 0; i < 5; ++i)
-    {
-        c.y[i] = -1;
-    }
-
-    producer(&c);
-    consumer(&c);
+    int x[5] = {-1, -1, -1, -1, -1};
+    foo(&x);
 
 #pragma omp taskwait
 
-    for (int i = 0; i < 5; ++i)
+    assert(x[0] == -1);
+    int i;
+    for (i = 1; i < 5; ++i)
     {
-        c.y[i] = 4;
+        assert(x[i] == i);
     }
 }

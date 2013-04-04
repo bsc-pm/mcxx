@@ -467,7 +467,7 @@ namespace TL
 
                     Nodecl::RangeLoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::RangeLoopControl>();
 
-                    TL::Symbol induction_var = loop_control.get_symbol();
+                    TL::Symbol induction_var = loop_control.get_induction_variable().get_symbol();
                     symbols.insert(induction_var);
 
                     walk(for_stmt.get_statement());

@@ -457,7 +457,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -615,6 +615,8 @@ namespace TL { namespace Nanox {
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
+                        reduction_private_symbols.append(private_sym);
+
                         if (IS_CXX_LANGUAGE)
                         {
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
@@ -693,6 +695,17 @@ namespace TL { namespace Nanox {
         // Update types of privates (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it2 = private_symbols.begin();
                 it2 != private_symbols.end();
+                it2++)
+        {
+            it2->get_internal_symbol()->type_information =
+                type_deep_copy(it2->get_internal_symbol()->type_information,
+                        function_context,
+                        symbol_map->get_symbol_map());
+        }
+
+        // Update types of reduction privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it2 = reduction_private_symbols.begin();
+                it2 != reduction_private_symbols.end();
                 it2++)
         {
             it2->get_internal_symbol()->type_information =
