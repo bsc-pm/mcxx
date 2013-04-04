@@ -425,16 +425,21 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
 
 // This function generates the dependences of every lvalue subexpression of the
 // expression 'expr'. It also express the 'expr' tree in terms of the new local
-// variables (update_expr)
+// variables (update_expr).
+//
+// The nontoplevel_lvalue_subexpressions list is used to avoid the creation of an
+// InputValueDependence previously created by an other expression (avoid repetitions)
 static void generate_dependences_of_expression(
         OutlineInfoRegisterEntities& outline_register_entities,
         TL::Scope new_block_context_sc,
         Nodecl::NodeclBase expr,
         Nodecl::NodeclBase update_expr,
-        OutlineDataItem::InputValueDependence* enclosing_lvalue)
+        OutlineDataItem::InputValueDependence* enclosing_lvalue,
+        TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
 {
     if (expr.is_null())
         return;
+
     TL::Symbol new_symbol = TL::Symbol::invalid();
     if (expr.get_type().is_lvalue_reference())
     {
@@ -464,10 +469,30 @@ static void generate_dependences_of_expression(
         }
         else
         {
-            // New dependence for the enclosing lvalue
-            OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
-            enclosing_lvalue->depends_on.append(new_dependence);
-            enclosing_lvalue = new_dependence;
+            bool generate_new_dependence = true;
+
+            if (expr.get_type().no_ref().is_array())
+                generate_new_dependence = false;
+
+            // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
+            // We should not create a new InputValueDependence
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
+                    it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
+                    it++)
+            {
+                generate_new_dependence = !Nodecl::Utils::equal_nodecls(*it, expr);
+            }
+
+            if (generate_new_dependence)
+            {
+                // New dependence for the enclosing lvalue
+                OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+                enclosing_lvalue->depends_on.append(new_dependence);
+                enclosing_lvalue = new_dependence;
+
+                // Update the set of visited nontoplevel lvalue subexpressions
+                nontoplevel_lvalue_subexpressions.append(expr);
+            }
         }
     }
 
@@ -482,7 +507,8 @@ static void generate_dependences_of_expression(
                     new_block_context_sc,
                     l_expr[i],
                     l_update_expr[i],
-                    enclosing_lvalue);
+                    enclosing_lvalue,
+                    nontoplevel_lvalue_subexpressions);
         }
     }
     else
@@ -496,7 +522,8 @@ static void generate_dependences_of_expression(
                     new_block_context_sc,
                     expr_children[i],
                     update_expr_children[i],
-                    enclosing_lvalue);
+                    enclosing_lvalue,
+                    nontoplevel_lvalue_subexpressions);
         }
     }
 
@@ -515,11 +542,14 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             Nodecl::NodeclBase expr)
 {
     Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
+    TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
     generate_dependences_of_expression(outline_register_entities,
             new_block_context_sc,
             expr,
             update_expr,
-            /* enclosing lvalue */ NULL);
+            /* enclosing lvalue */ NULL,
+            nontoplevel_lvalue_subexpressions);
+
     return update_expr;
 }
 
