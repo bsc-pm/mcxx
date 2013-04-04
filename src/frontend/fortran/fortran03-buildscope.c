@@ -5509,14 +5509,17 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
     if (!unbounded_loop)
     {
-        *nodecl_output = 
+        nodecl_t nodecl_ind_var = nodecl_make_symbol(ind_var, ASTFileName(loop_control), ASTLine(loop_control));
+        nodecl_set_type(nodecl_ind_var, lvalue_ref(ind_var->type_information));
+
+        *nodecl_output =
             nodecl_make_list_1(
                     nodecl_make_for_statement(
                         nodecl_make_range_loop_control(
-                            nodecl_lower, 
-                            nodecl_upper, 
-                            nodecl_stride, 
-                            ind_var,
+                            nodecl_ind_var,
+                            nodecl_lower,
+                            nodecl_upper,
+                            nodecl_stride,
                             ASTFileName(loop_control), ASTLine(loop_control)),
                         nodecl_statement,
                         nodecl_named_label,
@@ -5787,10 +5790,10 @@ static void build_scope_forall_header(AST a, decl_context_t decl_context,
         }
 
         nodecl_t nodecl_triplet = nodecl_make_range_loop_control(
+                nodecl_name,
                 nodecl_lower,
                 nodecl_upper,
                 nodecl_step,
-                nodecl_get_symbol(nodecl_name),
                 ASTFileName(a),
                 ASTLine(a));
 

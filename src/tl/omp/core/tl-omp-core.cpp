@@ -467,7 +467,7 @@ namespace TL
 
                     Nodecl::RangeLoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::RangeLoopControl>();
 
-                    TL::Symbol induction_var = loop_control.get_symbol();
+                    TL::Symbol induction_var = loop_control.get_induction_variable().get_symbol();
                     symbols.insert(induction_var);
 
                     walk(for_stmt.get_statement());
@@ -476,7 +476,10 @@ namespace TL
                 virtual void visit(const Nodecl::PragmaCustomStatement& construct)
                 {
                     if (TL::PragmaUtils::is_pragma_construct("omp", "task", construct)
-                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct)
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel do", construct)
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel sections", construct))
+
                     {
                         // Stop the visit here
                     }
@@ -562,7 +565,9 @@ namespace TL
             {
                 // A loop iteration variable for a sequential loop in a parallel or task construct 
                 // is private in the innermost such construct that encloses the loop
-                if (TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                if (TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct)
+                        || TL::PragmaUtils::is_pragma_construct("omp", "parallel do", construct)
+                        || TL::PragmaUtils::is_pragma_construct("omp", "parallel sections", construct))
                 {
                     SequentialLoopsVariables sequential_loops;
                     sequential_loops.walk(statement);

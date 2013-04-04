@@ -280,220 +280,15 @@ namespace TL { namespace Nanox {
             OutlineDataItem* outline_data_item,
             bool &make_allocatable)
     {
-        if (t.is_array())
+        if (t.is_lvalue_reference())
         {
-            if (IS_C_LANGUAGE
-                    || IS_CXX_LANGUAGE)
-            {
-                Nodecl::NodeclBase array_size = t.array_get_size();
-
-                if (array_size.is<Nodecl::Symbol>()
-                        && array_size.get_symbol().is_saved_expression())
-                {
-                    this->add_capture(array_size.get_symbol());
-                }
-
-                t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
-                return t.get_array_to(array_size, _sc);
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                Nodecl::NodeclBase lower, upper;
-
-                t.array_get_bounds(lower, upper);
-
-                Nodecl::NodeclBase result_lower, result_upper;
-
-                // If the symbol is a shared allocatable we want the original type
-                if (sym.is_allocatable()
-                        && outline_data_item != NULL
-                        && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED))
-                    return t;
-
-                if (lower.is_null())
-                {
-                    if (t.array_requires_descriptor()
-                            && sym.is_parameter()
-                            && !sym.is_allocatable()
-                            && !(sym.get_type().is_pointer()
-                                || (sym.get_type().is_any_reference()
-                                    && sym.get_type().references_to().is_pointer())))
-                    {
-                        // This is an assumed shape, the lower is actually one
-                        result_lower = const_value_to_nodecl(const_value_get_one(4, 1));
-                    }
-                    else if (sym.get_type().is_pointer()
-                            || (sym.get_type().is_any_reference()
-                                && sym.get_type().references_to().is_pointer())
-                            || sym.is_allocatable())
-                    {
-
-                        Counter& counter = CounterManager::get_counter("array-lower-boundaries");
-                        std::stringstream ss;
-                        ss << "mcc_lower_bound_" << (int)counter++;
-
-                        // This is a deferred shape, create a symbol
-                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
-                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
-
-                        int dim = fortran_get_rank_of_type(t.get_internal_type());
-
-                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
-                        TL::Type sym_type = sym.get_type();
-                        if (!sym_type.no_ref().is_pointer())
-                        {
-                            if (!sym_type.is_any_reference())
-                                sym_type = sym_type.get_lvalue_reference_to();
-                            symbol_ref.set_type(sym_type);
-                        }
-                        else
-                        {
-                            symbol_ref.set_type(sym_type);
-                            symbol_ref = Nodecl::Dereference::make(
-                                    symbol_ref,
-                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
-                        }
-
-
-                        Source lbound_src;
-                        lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
-                        Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
-
-                        this->add_capture_with_value(bound_sym, lbound_tree);
-
-                        result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
-                        result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
-
-                        make_allocatable = !sym_type.no_ref().is_pointer();
-                    }
-                }
-                else if (lower.is<Nodecl::Symbol>()
-                        && lower.get_symbol().is_saved_expression())
-                {
-                    this->add_capture(lower.get_symbol());
-                    result_lower = lower;
-
-                    make_allocatable = true;
-                }
-                else
-                {
-                    ERROR_CONDITION(!lower.is_constant(), "This should be constant", 0);
-                    // This should be constant
-                    result_lower = lower;
-                }
-
-                if (upper.is_null())
-                {
-                    if (t.array_requires_descriptor())
-                    {
-                        // This is an assumed shape or deferred shape
-                        Counter& counter = CounterManager::get_counter("array-upper-boundaries");
-                        std::stringstream ss;
-                        ss << "mcc_upper_bound_" << (int)counter++;
-
-                        // This is a deferred shape, create a symbol
-                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
-                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
-
-                        int dim = fortran_get_rank_of_type(t.get_internal_type());
-
-                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
-                        TL::Type sym_type = sym.get_type();
-                        if (!sym_type.no_ref().is_pointer())
-                        {
-                            if (!sym_type.is_any_reference())
-                                sym_type = sym_type.get_lvalue_reference_to();
-                            symbol_ref.set_type(sym_type);
-                        }
-                        else
-                        {
-                            symbol_ref.set_type(sym_type);
-                            symbol_ref = Nodecl::Dereference::make(
-                                    symbol_ref,
-                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
-                        }
-
-                        Source ubound_src;
-                        ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
-                        Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
-
-                        this->add_capture_with_value(bound_sym, ubound_tree);
-
-                        result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
-                        result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
-
-                        make_allocatable = !sym_type.no_ref().is_pointer();
-                    }
-                    else
-                    {
-                        // This is an assumed size array, result_upper must remain null
-                        if (outline_data_item != NULL)
-                        {
-                            // FIXME - We should check this earlier. In OpenMP::Core
-                            if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-                            {
-                                error_printf("%s:%d: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
-                                        sym.get_filename().c_str(),
-                                        sym.get_line(),
-                                        sym.get_name().c_str());
-                            }
-                        }
-                    }
-                }
-                else if (upper.is<Nodecl::Symbol>()
-                        && upper.get_symbol().is_saved_expression())
-                {
-                    this->add_capture(upper.get_symbol());
-                    result_upper = upper;
-
-                    make_allocatable = true;
-                }
-                else
-                {
-                    ERROR_CONDITION(!upper.is_constant(), "This should be constant", 0);
-                    // This should be constant
-                    result_upper = upper;
-                }
-
-                TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
-                if (make_allocatable)
-                {
-                    res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
-                }
-                else
-                {
-                    res = res.get_array_to(result_lower, result_upper, _sc);
-                }
-
-                if (make_allocatable
-                        && outline_data_item != NULL)
-                {
-                    if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-                    {
-                        outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
-                        outline_data_item->set_field_type(
-                                ::fortran_get_n_ranked_type_with_descriptor(
-                                    ::fortran_get_rank0_type(t.get_internal_type()),
-                                    ::fortran_get_rank_of_type(t.get_internal_type()), _sc.get_decl_context()));
-                    }
-                }
-
-                return res;
-            }
+            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable);
+            return res.get_lvalue_reference_to();
         }
         else if (t.is_pointer())
         {
             TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
             return res.get_pointer_to().get_as_qualified_as(t);
-        }
-        else if (t.is_lvalue_reference())
-        {
-            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable);
-            return res.get_lvalue_reference_to();
         }
         else if (t.is_function())
         {
@@ -504,6 +299,210 @@ namespace TL { namespace Nanox {
         {
             // FIXME - Classes may have "VLA" components
             return t;
+        }
+        else if ((IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+                && t.is_array())
+        {
+            Nodecl::NodeclBase array_size = t.array_get_size();
+
+            if (array_size.is<Nodecl::Symbol>()
+                    && array_size.get_symbol().is_saved_expression())
+            {
+                this->add_capture(array_size.get_symbol());
+            }
+
+            t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
+            return t.get_array_to(array_size, _sc);
+        }
+        else if (IS_FORTRAN_LANGUAGE
+                && t.is_fortran_array())
+        {
+            Nodecl::NodeclBase lower, upper;
+
+            t.array_get_bounds(lower, upper);
+
+            Nodecl::NodeclBase result_lower, result_upper;
+
+            // If the symbol is a shared allocatable we want the original type
+            if (sym.is_allocatable()
+                    && outline_data_item != NULL
+                    && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED))
+                return t;
+
+            if (lower.is_null())
+            {
+                if (t.array_requires_descriptor()
+                        && sym.is_parameter()
+                        && !sym.is_allocatable()
+                        && !(sym.get_type().is_pointer()
+                            || (sym.get_type().is_any_reference()
+                                && sym.get_type().references_to().is_pointer())))
+                {
+                    // This is an assumed shape, the lower is actually one
+                    result_lower = const_value_to_nodecl(const_value_get_one(4, 1));
+                }
+                else if (sym.get_type().is_pointer()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_pointer())
+                        || sym.is_allocatable())
+                {
+
+                    Counter& counter = CounterManager::get_counter("array-lower-boundaries");
+                    std::stringstream ss;
+                    ss << "mcc_lower_bound_" << (int)counter++;
+
+                    // This is a deferred shape, create a symbol
+                    TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                    bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                    int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    TL::Type sym_type = sym.get_type();
+                    if (!sym_type.no_ref().is_pointer())
+                    {
+                        if (!sym_type.is_any_reference())
+                            sym_type = sym_type.get_lvalue_reference_to();
+                        symbol_ref.set_type(sym_type);
+                    }
+                    else
+                    {
+                        symbol_ref.set_type(sym_type);
+                        symbol_ref = Nodecl::Dereference::make(
+                                symbol_ref,
+                                sym_type.no_ref().points_to().get_lvalue_reference_to());
+                    }
+
+
+                    Source lbound_src;
+                    lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                    Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
+
+                    this->add_capture_with_value(bound_sym, lbound_tree);
+
+                    result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
+
+                    make_allocatable = !sym_type.no_ref().is_pointer();
+                }
+            }
+            else if (lower.is<Nodecl::Symbol>()
+                    && lower.get_symbol().is_saved_expression())
+            {
+                this->add_capture(lower.get_symbol());
+                result_lower = lower;
+
+                make_allocatable = true;
+            }
+            else
+            {
+                ERROR_CONDITION(!lower.is_constant(), "This should be constant", 0);
+                // This should be constant
+                result_lower = lower;
+            }
+
+            if (upper.is_null())
+            {
+                if (t.array_requires_descriptor())
+                {
+                    // This is an assumed shape or deferred shape
+                    Counter& counter = CounterManager::get_counter("array-upper-boundaries");
+                    std::stringstream ss;
+                    ss << "mcc_upper_bound_" << (int)counter++;
+
+                    // This is a deferred shape, create a symbol
+                    TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                    bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                    int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    TL::Type sym_type = sym.get_type();
+                    if (!sym_type.no_ref().is_pointer())
+                    {
+                        if (!sym_type.is_any_reference())
+                            sym_type = sym_type.get_lvalue_reference_to();
+                        symbol_ref.set_type(sym_type);
+                    }
+                    else
+                    {
+                        symbol_ref.set_type(sym_type);
+                        symbol_ref = Nodecl::Dereference::make(
+                                symbol_ref,
+                                sym_type.no_ref().points_to().get_lvalue_reference_to());
+                    }
+
+                    Source ubound_src;
+                    ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                    Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
+
+                    this->add_capture_with_value(bound_sym, ubound_tree);
+
+                    result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
+
+                    make_allocatable = !sym_type.no_ref().is_pointer();
+                }
+                else
+                {
+                    // This is an assumed size array, result_upper must remain null
+                    if (outline_data_item != NULL)
+                    {
+                        // FIXME - We should check this earlier. In OpenMP::Core
+                        if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+                        {
+                            error_printf("%s:%d: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
+                                    sym.get_filename().c_str(),
+                                    sym.get_line(),
+                                    sym.get_name().c_str());
+                        }
+                    }
+                }
+            }
+            else if (upper.is<Nodecl::Symbol>()
+                    && upper.get_symbol().is_saved_expression())
+            {
+                this->add_capture(upper.get_symbol());
+                result_upper = upper;
+
+                make_allocatable = true;
+            }
+            else
+            {
+                ERROR_CONDITION(!upper.is_constant(), "This should be constant", 0);
+                // This should be constant
+                result_upper = upper;
+            }
+
+            TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
+            if (make_allocatable)
+            {
+                res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
+            }
+            else
+            {
+                res = res.get_array_to(result_lower, result_upper, _sc);
+            }
+
+            if (make_allocatable
+                    && outline_data_item != NULL)
+            {
+                if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+                {
+                    outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                    outline_data_item->set_field_type(
+                            ::fortran_get_n_ranked_type_with_descriptor(
+                                ::fortran_get_rank0_type(t.get_internal_type()),
+                                ::fortran_get_rank_of_type(t.get_internal_type()), _sc.get_decl_context()));
+                }
+            }
+
+            return res;
         }
         return t;
     }

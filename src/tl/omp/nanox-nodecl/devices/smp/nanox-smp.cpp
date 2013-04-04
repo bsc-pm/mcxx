@@ -77,9 +77,9 @@ namespace TL { namespace Nanox {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 running_error("%s: error: nested functions are not supported\n",
                         original_statements.get_locus().c_str());
-            if (IS_FORTRAN_LANGUAGE)
-                running_error("%s: error: internal subprograms are not supported\n",
-                        original_statements.get_locus().c_str());
+            // if (IS_FORTRAN_LANGUAGE)
+            //     running_error("%s: error: internal subprograms are not supported\n",
+            //             original_statements.get_locus().c_str());
         }
 
         Source extra_declarations;

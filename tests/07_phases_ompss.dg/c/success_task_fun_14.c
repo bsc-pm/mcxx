@@ -24,26 +24,37 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-lowering-visitor.hpp"
 
-namespace TL { namespace Nanox {
 
-    LoweringVisitor::LoweringVisitor(Lowering* lowering,RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _lowering(lowering), _function_task_set(function_task_set)
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+
+#include<assert.h>
+
+#pragma omp task inout((*a)[1:4])
+void foo(int (*a)[5])
+{
+    int i;
+    for (i = 1; i < 5; ++i)
     {
-        ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
+        (*a)[i] = i;
     }
+}
 
-    void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
+int main()
+{
+    int x[5] = {-1, -1, -1, -1, -1};
+    foo(&x);
+
+#pragma omp taskwait
+
+    assert(x[0] == -1);
+    int i;
+    for (i = 1; i < 5; ++i)
     {
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Visit first the internal functions
-            walk(function_code.get_internal_functions());
-        }
-        walk(function_code.get_statements());
+        assert(x[i] == i);
     }
-
-    LoweringVisitor::~LoweringVisitor() { }
-
-} }
+}

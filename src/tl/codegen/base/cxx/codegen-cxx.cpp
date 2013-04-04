@@ -1087,8 +1087,7 @@ void CxxBase::emit_range_loop_header(
         Nodecl::NodeclBase statement,
         const std::string& rel_op)
 {
-
-    TL::Symbol ind_var = lc.get_symbol();
+    TL::Symbol ind_var = lc.get_induction_variable().get_symbol();
     std::string ind_var_name = this->get_qualified_name(ind_var);
 
     indent();
@@ -1107,7 +1106,10 @@ void CxxBase::emit_range_loop_header(
 
     // I += S
     file << ind_var_name << " += ";
-    walk(lc.get_step());
+    if (!lc.get_step().is_null())
+        walk(lc.get_step());
+    else
+        file << "1";
 
     file << ")\n";
 
@@ -1149,11 +1151,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         Nodecl::NodeclBase upper = lc.get_upper();
         Nodecl::NodeclBase step = lc.get_step();
 
-        if (!step.is_null()
-                && step.is_constant())
+        if (step.is_null()
+                || step.is_constant())
         {
             std::string rel_op = " <= ";
-            const_value_t* v = step.get_constant();
+            const_value_t* v = NULL;
+            if (step.is_null())
+            {
+                v = const_value_get_signed_int(1);
+            }
+            else
+            {
+                v = step.get_constant();
+            }
             if (const_value_is_negative(v))
             {
                 rel_op = " >= ";
