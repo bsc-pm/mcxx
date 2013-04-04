@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
 subroutine convolut_kinetic_per_c(n3)
   implicit none
   integer :: n3
@@ -23,7 +26,7 @@ PROGRAM MAIN
       implicit none
       integer :: n3
     end subroutine convolut_kinetic_per_c
-end interface
+    end interface
 
     call convolut_kinetic_per_c(12)
 END PROGRAM MAIN
