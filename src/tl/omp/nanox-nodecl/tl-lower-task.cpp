@@ -157,6 +157,48 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
     }
 }
 
+void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataItem::InputValueDependence* c, TL::Source& code)
+{
+    if (c != NULL)
+    {
+        for (unsigned int i = 0; i < c->depends_on.size(); ++i)
+        {
+            check_pendant_writes_on_lvalue_subexpressions(c->depends_on[i], code);
+
+            TL::Source dependency_regions, dependency_init, dependence;
+            code << "err = nanos_dependence_pendant_writes(&result, &" << c->depends_on[i]->expression.prettyprint() <<  ");"
+                << "if (result)"
+                << "{"
+                <<     dependence
+                <<     "nanos_err_t err = nanos_wait_on(1, dependences);"
+                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
+                ;
+
+            dependence
+                << dependency_regions
+                << "nanos_data_access_t dependences[1]"
+                ;
+
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+            {
+                dependence << " = {"
+                    << dependency_init
+                    << "};"
+                    ;
+            }
+
+            dependence << ";"
+                ;
+
+            TL::DataReference dep_expr(c->depends_on[i]->expression);
+            handle_dependency_item(c->depends_on[i]->expression, dep_expr,
+                    OutlineDataItem::DEP_IN, 0, dependency_regions, dependency_init, dependence);
+        }
+    }
+}
+
 Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
@@ -900,13 +942,49 @@ void LoweringVisitor::fill_arguments(
 
                  case OutlineDataItem::SHARING_SHARED_SPECIAL:
                     {
+                        TL::Source lvalue_subexpressions_code;
+                        OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
+                        if (toplevel_lvalue != NULL)
+                        {
+                            check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
+                        }
+
                         fill_outline_arguments
-                            << "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            << "ol_args->" << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            << "{"
+                            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                            <<      "nanos_err_t err;"
+                            <<      lvalue_subexpressions_code
+                            <<      as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";"
+                            <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
+                            <<      "if (result)"
+                            <<      "{"
+                            <<           "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            <<      "else"
+                            <<      "{"
+                            <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
+                            <<           "ol_args->" << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            << "}"
                             ;
+
                         fill_immediate_arguments
-                            << "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
-                            << "imm_args." << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            << "{"
+                            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                            <<      "nanos_err_t err;"
+                            <<      lvalue_subexpressions_code
+                            <<      as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";"
+                            <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
+                            <<      "if (result)"
+                            <<      "{"
+                            <<           "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            <<      "else"
+                            <<      "{"
+                            <<           "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
+                            <<           "imm_args." << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            << "}"
                             ;
                         break;
                     }

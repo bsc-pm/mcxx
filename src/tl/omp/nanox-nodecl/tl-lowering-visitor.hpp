@@ -181,6 +181,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
+        void check_pendant_writes_on_lvalue_subexpressions(
+                OutlineDataItem::InputValueDependence* c,
+                // out
+                TL::Source& code);
+
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
                 OutlineInfo& outline_info,
