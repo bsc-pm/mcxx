@@ -5509,14 +5509,17 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
     if (!unbounded_loop)
     {
-        *nodecl_output = 
+        nodecl_t nodecl_ind_var = nodecl_make_symbol(ind_var, ASTFileName(loop_control), ASTLine(loop_control));
+        nodecl_set_type(nodecl_ind_var, lvalue_ref(ind_var->type_information));
+
+        *nodecl_output =
             nodecl_make_list_1(
                     nodecl_make_for_statement(
                         nodecl_make_range_loop_control(
-                            nodecl_lower, 
-                            nodecl_upper, 
-                            nodecl_stride, 
-                            ind_var,
+                            nodecl_ind_var,
+                            nodecl_lower,
+                            nodecl_upper,
+                            nodecl_stride,
                             ASTFileName(loop_control), ASTLine(loop_control)),
                         nodecl_statement,
                         nodecl_named_label,
@@ -5787,10 +5790,10 @@ static void build_scope_forall_header(AST a, decl_context_t decl_context,
         }
 
         nodecl_t nodecl_triplet = nodecl_make_range_loop_control(
+                nodecl_name,
                 nodecl_lower,
                 nodecl_upper,
                 nodecl_step,
-                nodecl_get_symbol(nodecl_name),
                 ASTFileName(a),
                 ASTLine(a));
 
@@ -6411,11 +6414,21 @@ static void build_scope_interface_block(AST a,
 
 void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
 {
-    *entry = *intrinsic;
+    // Symbols from modules need a bit more of care
+    scope_entry_t* in_module = NULL;
+    access_specifier_t access = AS_UNKNOWN;
+    if (entry->entity_specs.in_module != NULL)
+    {
+        in_module = entry->entity_specs.in_module;
+        access = entry->entity_specs.access;
+    }
 
-    // The previous statement is not enough: we need to update some extra
-    // information because the related symbols may contain a pointer to the
-    // 'intrinsic' function.
+    entry->kind = intrinsic->kind;
+    entry->type_information = intrinsic->type_information;
+    entry->entity_specs = intrinsic->entity_specs;
+
+    // We need to update some extra information because the related symbols may
+    // contain a pointer to the 'intrinsic' function.
     int i;
     for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
     {
@@ -6425,6 +6438,12 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
             int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
             symbol_set_as_parameter_of_function(current_sym, entry, position);
         }
+    }
+
+    if (in_module != NULL)
+    {
+        entry->entity_specs.in_module = in_module;
+        entry->entity_specs.access = access;
     }
 }
 
@@ -7926,11 +7945,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             {
                 error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
             {
                 error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                         ast_location(initialization));
+                nodecl_init = nodecl_make_err_expr(ASTFileName(initialization), ASTLine(initialization));
             }
             else
             {
@@ -8081,8 +8102,8 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
         int line)
 {
     ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
-    
-    scope_entry_list_t* check_repeated_name = query_name_str(decl_context, local_name);
+
+    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, DF_ONLY_CURRENT_SCOPE); 
 
     if (check_repeated_name != NULL)
     {
@@ -8176,45 +8197,10 @@ static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     return current_symbol;
 }
 
-static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_intrinsic_module,
+        const char* filename, int line)
 {
-    AST module_nature = NULL;
-    AST module_name = NULL;
-    AST rename_list = NULL;
-    AST only_list = NULL;
-
-    char is_only = 0;
-
-    if (ASTType(a) == AST_USE_STATEMENT)
-    {
-        module_nature = ASTSon0(a);
-        module_name = ASTSon1(a);
-        rename_list = ASTSon2(a);
-    }
-    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
-    {
-        module_nature = ASTSon0(a);
-        module_name = ASTSon1(a);
-        only_list = ASTSon2(a);
-        is_only = 1;
-    }
-    else
-    {
-        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
-    }
-
-    char must_be_intrinsic_module = 0;
-    if (module_nature != NULL)
-    {
-        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
-    }
-
-    const char* module_name_str = strtolower(ASTText(module_name));
-
     scope_entry_t* module_symbol = NULL;
-
-    // Query first in the module cache
-
     DEBUG_CODE()
     {
         fprintf(stderr, "BUILDSCOPE: Loading module '%s'\n", module_name_str);
@@ -8257,19 +8243,18 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             fprintf(stderr, "BUILDSCOPE: Loading module '%s' from the filesystem\n", module_name_str);
         }
         // Load the file
-        load_module_info(strtolower(ASTText(module_name)), &module_symbol);
+        load_module_info(module_name_str, &module_symbol);
 
         if (module_symbol == NULL)
         {
             if (must_be_intrinsic_module)
             {
-                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+                error_printf("%s:%d: error: module '%s' is not an INTRINSIC module\n", filename, line, module_name_str);
             }
             else
             {
-                running_error("%s: error: cannot load module '%s'\n",
-                        ast_location(a),
-                        module_name_str);
+                running_error("%s:%d: error: cannot load module '%s'\n",
+                        filename, line, module_name_str);
             }
         }
 
@@ -8281,8 +8266,50 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     if (must_be_intrinsic_module
             && !module_symbol->entity_specs.is_builtin)
     {
-        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", ast_location(a), module_name_str);
+        error_printf("%s:%d: error: loaded module '%s' is not an INTRINSIC module\n", filename, line, module_name_str);
     }
+
+    return module_symbol;
+}
+
+static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    AST module_nature = NULL;
+    AST module_name = NULL;
+    AST rename_list = NULL;
+    AST only_list = NULL;
+
+    char is_only = 0;
+
+    if (ASTType(a) == AST_USE_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        rename_list = ASTSon2(a);
+    }
+    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        only_list = ASTSon2(a);
+        is_only = 1;
+    }
+    else
+    {
+        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
+    }
+
+    char must_be_intrinsic_module = 0;
+    if (module_nature != NULL)
+    {
+        must_be_intrinsic_module = (strcasecmp(ASTText(module_nature), "INTRINSIC") == 0);
+    }
+
+    const char* module_name_str = strtolower(ASTText(module_name));
+    scope_entry_t* module_symbol = fortran_load_module(module_name_str, must_be_intrinsic_module,
+            ASTFileName(a), ASTLine(a));
+
+    // Query first in the module cache
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
     P_LIST_ADD_ONCE(used_modules->entity_specs.related_symbols,

@@ -1347,6 +1347,7 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
 
     char is_integer_complex = 0;
 
+    type_t* element_type = NULL;
     type_t* result_type = NULL;
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
@@ -1357,7 +1358,6 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     else if (is_floating_type(real_part_type)
             || is_floating_type(imag_part_type))
     {
-        type_t* element_type = NULL;
         if (is_floating_type(real_part_type))
         {
             element_type = real_part_type;
@@ -1427,6 +1427,28 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
             cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
         }
         else if (equivalent_types(fortran_get_default_real_type(), get_long_double_type()))
+        {
+            cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+    else
+    {
+        if (equivalent_types(element_type, get_float_type()))
+        {
+            cval_real_part = const_value_cast_to_float_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_float_value(cval_imag_part);
+        }
+        else if (equivalent_types(element_type, get_double_type()))
+        {
+            cval_real_part = const_value_cast_to_double_value(cval_real_part);
+            cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
+        }
+        else if (equivalent_types(element_type, get_long_double_type()))
         {
             cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
             cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);
@@ -2488,11 +2510,14 @@ static void check_called_symbol_list(
         nodecl_t* nodecl_simplify)
 {
     scope_entry_t* symbol = NULL;
+    char intrinsic_named_like_generic_spec = 0;
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
             || entry_list_head(symbol_list)->entity_specs.is_generic_spec)
     {
+        scope_entry_t* intrinsic_of_same_name = NULL;
+
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(symbol_list);
@@ -2500,6 +2525,17 @@ static void check_called_symbol_list(
                 entry_list_iterator_next(it))
         {
             scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
+
+            // If this is an intrinsic, remember it but do not attempt to solve it now
+            if (current_generic_spec->entity_specs.is_builtin)
+            {
+                ERROR_CONDITION(intrinsic_of_same_name != NULL, "Too many intrinsics found!", 0);
+                intrinsic_of_same_name = current_generic_spec;
+                intrinsic_named_like_generic_spec = 1;
+                continue;
+            }
+            ERROR_CONDITION(!current_generic_spec->entity_specs.is_generic_spec,
+                    "Current symbol must be a generic specifier", 0);
 
             scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
                     num_actual_arguments,
@@ -2519,7 +2555,8 @@ static void check_called_symbol_list(
 
         entry_list_iterator_free(it);
 
-        if (specific_symbol_set == NULL)
+        if (specific_symbol_set == NULL
+                && intrinsic_of_same_name == NULL)
         {
             if (!checking_ambiguity())
             {
@@ -2530,7 +2567,8 @@ static void check_called_symbol_list(
             *result_type = get_error_type();
             return;
         }
-        else if (entry_list_size(specific_symbol_set) > 1)
+        else if (entry_list_size(specific_symbol_set) > 1
+                && intrinsic_of_same_name == NULL)
         {
             if (!checking_ambiguity())
             {
@@ -2553,6 +2591,14 @@ static void check_called_symbol_list(
             *result_type = get_error_type();
             entry_list_free(specific_symbol_set);
             return;
+        }
+        else if ((specific_symbol_set == NULL
+                    || (entry_list_size(specific_symbol_set) > 1))
+                && intrinsic_of_same_name != NULL)
+        {
+            // Well, no generic specifier matches but we have an intrinsic_of_same_name, use it
+            symbol = intrinsic_of_same_name;
+            entry_list_free(specific_symbol_set);
         }
         else
         {
@@ -2600,12 +2646,21 @@ static void check_called_symbol_list(
 
         if (entry == NULL)
         {
-
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: call to intrinsic %s failed\n", 
-                        ast_location(location),
-                        strtoupper(symbol->symbol_name));
+                if (intrinsic_named_like_generic_spec)
+                {
+                    error_printf("%s: error: no specific interface or intrinsic matches generic interface '%s' in function reference\n",
+                            ast_location(location),
+                            fortran_prettyprint_in_buffer(procedure_designator));
+                }
+                else
+                {
+                    error_printf("%s: error: call to intrinsic %s failed\n", 
+                            ast_location(location),
+                            strtoupper(symbol->symbol_name));
+                }
+
                 if (num_actual_arguments > 0)
                 {
                     info_printf("%s: info: actual arguments and their types follow\n",
@@ -2615,7 +2670,8 @@ static void check_called_symbol_list(
                     {
                         info_printf("%s: info:    '%s' of type %s\n", 
                                 ast_location(location),
-                                codegen_to_str(nodecl_actual_arguments[i], nodecl_retrieve_context(nodecl_actual_arguments[i])),
+                                codegen_to_str(nodecl_actual_arguments[i],
+                                    nodecl_retrieve_context(nodecl_actual_arguments[i])),
                                 fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
                     }
                 }
@@ -3889,7 +3945,8 @@ static void check_symbol_of_called_name(AST sym,
         // fortran_query_name_str_for_function returns a single item if a non generic specifier was found
         // if more than one generic specifier is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
-        if (entry_list_size(entry_list) == 1)
+        if (entry_list_size(entry_list) == 1
+                && !entry_list_head(entry_list)->entity_specs.is_generic_spec)
         {
             scope_entry_t* entry = entry_list_head(entry_list);
             if (entry->kind == SK_UNDEFINED)
@@ -3926,7 +3983,6 @@ static void check_symbol_of_called_name(AST sym,
 
                     remove_untyped_symbol(decl_context, entry);
 
-                    // This is a bit crude but will do since intrinsics are not meant to be changed elsewhere
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     copy_intrinsic_function_info(entry, intrinsic_symbol);
                 }
@@ -4008,10 +4064,17 @@ static void check_symbol_of_called_name(AST sym,
             *call_list = entry_list_new(entry);
             return;
         }
-        else if (entry_list_size(entry_list) > 1)
+        else if (entry_list_size(entry_list) > 1
+                || entry_list_head(entry_list)->entity_specs.is_generic_spec)
         {
             // This case is only possible when fortran_query_name_str_for_function finds a generic specifier
-            // we do not have to check anything
+            // but it might happen that this is also a name for an intrinsic name. If so, add it to the list
+            scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
+            if (intrinsic != NULL)
+            {
+                entry_list = entry_list_add(entry_list, intrinsic);
+            }
+
             *call_list = entry_list;
             return;
         }

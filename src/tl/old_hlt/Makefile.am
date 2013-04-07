@@ -27,7 +27,7 @@
 lib_LTLIBRARIES = libtl-hlt.la 
 phases_LTLIBRARIES = libtl-hlt-pragma.la
 
-include ../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
  
@@ -80,10 +80,10 @@ libtl_hlt_la_SOURCES = \
       hlt-simd.cpp \
      $(END)
 
-libtl_hlt_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_LIBADD=$(tl_libadd) libtl-hlt.la
-libtl_hlt_pragma_la_LDFLAGS=$(tl_ldflags) 
+libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(COMMON_CFLAGS)
+libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(COMMON_CFLAGS)
+libtl_hlt_pragma_la_LIBADD=$(phases_libadd) libtl-hlt.la
+libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags) 
 
 libtl_hlt_pragma_la_SOURCES = \
       hlt-exception.hpp \

@@ -1,0 +1,47 @@
+! <testinfo>
+! test_generator=config/mercurium-ompss
+! </testinfo>
+
+SUBROUTINE BAR(X)
+IMPLICIT NONE
+INTEGER, VALUE :: X
+
+IF (X /= 2) STOP 1
+
+END SUBROUTINE BAR
+
+SUBROUTINE FOO(X)
+IMPLICIT NONE
+INTEGER, VALUE :: X
+
+IF (X /= 2) STOP 1
+
+END SUBROUTINE FOO
+
+PROGRAM P
+    IMPLICIT NONE
+
+    INTERFACE
+        !$OMP TARGET DEVICE(SMP)
+        !$OMP TASK
+        SUBROUTINE BAR(X)
+        IMPLICIT NONE
+        INTEGER, VALUE :: X
+        END SUBROUTINE BAR
+
+
+        !$OMP TARGET DEVICE(SMP) IMPLEMENTS(BAR)
+        !$OMP TASK
+        SUBROUTINE FOO(X)
+        IMPLICIT NONE
+        INTEGER, VALUE :: X
+        END SUBROUTINE FOO
+    END INTERFACE
+
+    INTEGER, PARAMETER :: N = 2
+
+    CALL BAR(N)
+    CALL FOO(N)
+
+    !$OMP TASKWAIT
+END PROGRAM P

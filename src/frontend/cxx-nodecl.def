@@ -95,7 +95,7 @@ compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [f
 case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
-            | NODECL_RANGE_LOOP_CONTROL([lower]expression, [upper]expression, [step]expression-opt) symbol
+            | NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
             | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
@@ -478,6 +478,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*FILE([filename]text, [function_name]name)
+                 | NODECL_OPEN_M_P*NAME([name]text, [function_name]name)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 

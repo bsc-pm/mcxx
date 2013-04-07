@@ -146,11 +146,11 @@ void DeviceCUDA::generate_ndrange_additional_code(
 
 void DeviceCUDA::generate_ndrange_kernel_call(
         const Scope& scope,
-        const Nodecl::NodeclBase& original_statements,
+        const Nodecl::NodeclBase& task_statements,
         Nodecl::NodeclBase& output_statements)
 {
     Nodecl::NodeclBase function_call_nodecl =
-        original_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
+        task_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
 
     ObjectList<Nodecl::NodeclBase> cuda_kernel_config;
     Symbol dim_grid  = scope.get_symbol_from_name("dimGrid");
@@ -160,47 +160,47 @@ void DeviceCUDA::generate_ndrange_kernel_call(
 
     cuda_kernel_config.append(
             Nodecl::Symbol::make(dim_grid,
-                original_statements.get_filename(),
-                original_statements.get_line()));
+                task_statements.get_filename(),
+                task_statements.get_line()));
 
     cuda_kernel_config.append(
             Nodecl::Symbol::make(dim_block,
-                original_statements.get_filename(),
-                original_statements.get_line()));
+                task_statements.get_filename(),
+                task_statements.get_line()));
 
     cuda_kernel_config.append(
             Nodecl::IntegerLiteral::make(
                 TL::Type::get_int_type(),
                 const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                original_statements.get_filename(),
-                original_statements.get_line()));
+                task_statements.get_filename(),
+                task_statements.get_line()));
 
     cuda_kernel_config.append(
             Nodecl::FunctionCall::make(
                 Nodecl::Symbol::make(
                     exec_stream,
-                    original_statements.get_filename(),
-                    original_statements.get_line()),
+                    task_statements.get_filename(),
+                    task_statements.get_line()),
                 /* arguments */ nodecl_null(),
                 /* alternate_name */ nodecl_null(),
                 /* function_form */ nodecl_null(),
                 TL::Type::get_void_type(),
-                original_statements.get_filename(),
-                original_statements.get_line()));
+                task_statements.get_filename(),
+                task_statements.get_line()));
 
     Nodecl::NodeclBase kernell_call =
         Nodecl::CudaKernelCall::make(
                 Nodecl::List::make(cuda_kernel_config),
                 function_call_nodecl,
                 TL::Type::get_void_type(),
-                original_statements.get_filename(),
-                original_statements.get_line());
+                task_statements.get_filename(),
+                task_statements.get_line());
 
     Nodecl::NodeclBase expression_stmt =
         Nodecl::ExpressionStatement::make(
                 kernell_call,
-                original_statements.get_filename(),
-                original_statements.get_line());
+                task_statements.get_filename(),
+                task_statements.get_line());
 
     // In this case, we should change the output statements!
     output_statements = expression_stmt;
@@ -272,12 +272,13 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
+    const Nodecl::NodeclBase& task_statements = info._task_statements;
 
     // This symbol is only valid for function tasks
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = called_task.is_valid();
 
-    output_statements = original_statements;
+    output_statements = task_statements;
 
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
@@ -439,7 +440,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         generate_ndrange_kernel_call(
                 outline_placeholder.retrieve_context(),
-                original_statements,
+                task_statements,
                 output_statements);
     }
 

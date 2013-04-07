@@ -25,9 +25,11 @@
 ##########################################################################
 
 lib_LTLIBRARIES = libtl-hlt.la
+
 phases_LTLIBRARIES = libtl-hlt-pragma.la
 
-include ../Makefile.phases
+
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
 
@@ -63,13 +65,27 @@ libtl_hlt_la_SOURCES = \
       hlt-unroll.cpp \
       $(END)
 
-libtl_hlt_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_LIBADD=$(tl_libadd) libtl-hlt.la
-libtl_hlt_pragma_la_LDFLAGS=$(tl_ldflags)
+libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(COMMON_CFLAGS)
+libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(COMMON_CFLAGS)
+libtl_hlt_pragma_la_LIBADD=$(phases_libadd) libtl-hlt.la
+libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
 
 libtl_hlt_pragma_la_SOURCES = \
       hlt-pragma.cpp \
       hlt-pragma.hpp \
       $(END)
 
+# This is a hack that workarounds libtool trying to relink in parallel when it
+# should wait for all its dependences. This only happens when a single Makefile
+# install different LTLIBRARIES into different directories
+#
+# See: http://lists.gnu.org/archive/html/libtool/2011-03/msg00004.html
+#
+# The hack actually uses a variable called 'install_phasesLTLIBRARIES' so
+# Automake does not see that we are actually overriding the rule. If Automake
+# noticed that we are overriding the rule, it would not emit the rule at all:
+# this is not what we want because we need to keep all the usual libtool
+# wizardry
+install_phasesLTLIBRARIES = install-phasesLTLIBRARIES
+$(install_phasesLTLIBRARIES): install-libLTLIBRARIES
+# The hack ends here

@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.tl
 
 lib_LTLIBRARIES = libreaching_definitions.la
 

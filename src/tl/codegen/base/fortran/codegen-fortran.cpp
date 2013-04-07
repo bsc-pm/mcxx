@@ -1783,7 +1783,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::RangeLoopControl& node)
     {
-        TL::Symbol ind_var = node.get_symbol();
+        Nodecl::NodeclBase ind_var = node.get_induction_variable();
         Nodecl::NodeclBase lower = node.get_lower();
         Nodecl::NodeclBase upper = node.get_upper();
         Nodecl::NodeclBase stride = node.get_step();
@@ -1807,7 +1807,7 @@ OPERATOR_TABLE
             bool old_in_forall = state.in_forall;
             state.in_forall = false;
 
-            file << rename(ind_var) << " = ";
+            file << rename(ind_var.get_symbol()) << " = ";
 
             walk(lower);
 
@@ -2825,6 +2825,8 @@ OPERATOR_TABLE
         file << "INTERFACE\n";
         inc_indent();
 
+        push_declaration_status();
+
         std::stringstream fun_name;
         if (function_name == "")
         {
@@ -2866,6 +2868,9 @@ OPERATOR_TABLE
         dec_indent();
         indent();
         file << "END INTERFACE\n";
+
+        // And restore the state after the interface has been emitted
+        pop_declaration_status();
 
         return fun_name.str();
     }
@@ -3144,7 +3149,7 @@ OPERATOR_TABLE
         // If both are BLOCK_CONTEXT check if entry_context is accessible from sc
         if (sc_context.current_scope->kind == BLOCK_SCOPE
                 && entry_context.current_scope->kind == BLOCK_SCOPE)
-        { 
+        {
             scope_t* sc_scope = sc_context.current_scope;
             scope_t* entry_scope = entry_context.current_scope;
 
@@ -3153,6 +3158,21 @@ OPERATOR_TABLE
                     && sc_scope != entry_scope)
             {
                 sc_scope = sc_scope->contained_in;
+
+                // Maybe the symbol is not declared in the current scope but its name 
+                // is in one of the enclosing ones (due to an insertion)
+                decl_context_t current_context = CURRENT_COMPILED_FILE->global_decl_context;
+                current_context.current_scope = sc_scope;
+                current_context.block_scope = sc_scope;
+
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str());
+
+                if (query != NULL
+                        && entry_list_contains(query, entry.get_internal_symbol()))
+                {
+                    entry_list_free(query);
+                    return true;
+                }
             }
 
             // We reached entry_scope from sc_scope
@@ -3163,7 +3183,6 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
 
         if (query != NULL
@@ -3591,11 +3610,16 @@ OPERATOR_TABLE
             }
             if (entry.is_intrinsic())
             {
-                if ( (!sc.get_related_symbol().is_valid()
-                            // Do not emit INTRINSIC at module level
-                            || (sc.get_related_symbol().is_fortran_module() == entry.in_module().is_valid())))
+                // Intrinsic symbols are inserted in the scope but the symbol at the call usually refers
+                // to the ".fortran_intrinsics" namespace, thus we have to make an extra check for this symbol
+                // in this scope. If the names come from a module we do not have to emit anything
+                TL::Symbol name_in_context = sc.get_symbol_from_name(entry.get_name());
+
+                if (name_in_context.is_valid()
+                        && !name_in_context.is_from_module()
+                        && name_in_context.is_intrinsic())
                 {
-                    // Improve this
+                    // Get the generic symbol
                     TL::Symbol generic_entry = 
                         ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
 
@@ -3930,7 +3954,7 @@ OPERATOR_TABLE
             if (members.empty())
             {
                 indent();
-                file << "! DERVIVED TYPE WITHOUT MEMBERS\n";
+                file << "! DERIVED TYPE WITHOUT MEMBERS\n";
             }
 
             dec_indent();

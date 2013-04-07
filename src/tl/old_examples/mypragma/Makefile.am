@@ -24,19 +24,19 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlmypragma.la
 
 libtlmypragma_la_CFLAGS = -Wall \
-                          $(tl_cflags)
+                          $(phases_cflags)
 
 libtlmypragma_la_CXXFLAGS = -Wall \
-                          $(tl_cxxflags)
+                          $(phases_cxxflags)
 
 libtlmypragma_la_SOURCES = \
 						tl-mypragma.hpp \
 						tl-mypragma.cpp
 
-libtlmypragma_la_LDFLAGS = $(tl_ldflags)
-libtlmypragma_la_LIBADD= $(tl_libadd)
+libtlmypragma_la_LDFLAGS = $(phases_ldflags)
+libtlmypragma_la_LIBADD= $(phases_libadd)

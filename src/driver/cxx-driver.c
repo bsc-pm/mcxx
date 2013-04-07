@@ -186,8 +186,6 @@
 "                           number of THREADS.\n" \
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
-"  --opencl-code-file=<options> Default file for OpenCL code,\n" \
-"                           can be overriden inside code by using the file clause\n" \
 "  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
@@ -268,7 +266,12 @@
 "                           __int64 builtin types\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
-"                           __m128, __m256 and __M512 as struct types\n" \
+"                           __m128, __m256 and __m512 as struct types\n" \
+"  --disable-locking        Disable locking when compiling.\n" \
+"                           Use this if your filesystem does not\n" \
+"                           support locking at file level. This \n" \
+"                           option is incompatible with parallel\n" \
+"                           compilation\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -350,7 +353,6 @@ typedef enum
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_OPENCL,
     OPTION_OPENCL_OPTIONS,
-    OPTION_OPENCL_FILE,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
@@ -376,6 +378,7 @@ typedef enum
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
+    OPTION_DISABLE_FILE_LOCKING,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -423,8 +426,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
-    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},    
-    {"opencl-code-file",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_FILE},
+    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
@@ -456,6 +458,7 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
+    {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1326,12 +1329,12 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->enable_cuda = 1;
                         break;
-                    }                
+                    }
                 case OPTION_ENABLE_OPENCL:
                     {
                         CURRENT_CONFIGURATION->enable_opencl = 1;
                         break;
-                    }                
+                    }
                 case OPTION_OPENCL_OPTIONS:
                     {
                         //If we have build options, we also enable opencl
@@ -1339,16 +1342,6 @@ int parse_arguments(int argc, const char* argv[],
                         if (parameter_info.argument != NULL)
                         {
                             CURRENT_CONFIGURATION->opencl_build_options = parameter_info.argument;
-                        }
-                        break;
-                    }
-                case OPTION_OPENCL_FILE:
-                    {
-                        //If we have build options, we also enable opencl
-                        CURRENT_CONFIGURATION->enable_opencl = 1;
-                        if (parameter_info.argument != NULL)
-                        {
-                            CURRENT_CONFIGURATION->opencl_code_file = parameter_info.argument;
                         }
                         break;
                     }
@@ -1475,6 +1468,11 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->force_source_kind |=
                             (SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_PREPROCESSED);
+                        break;
+                    }
+                case OPTION_DISABLE_FILE_LOCKING:
+                    {
+                        CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
                 default:
@@ -2947,15 +2945,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 driver_fortran_hide_mercurium_modules();
             }
 
-            // * Native compilation
-            if (!file_not_processed)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_COMPILE))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
-            }
-            else
-            {
-                // Do not process
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                // * Native compilation
+                if (!file_not_processed)
+                {
+                    native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
+                }
+                else
+                {
+                    // Do not process
+                    native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                }
             }
 
             // * Restore all the wrap modules for subsequent uses
@@ -3933,9 +3934,11 @@ static void embed_files(void)
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
         // We do not have to embed linker data
-        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                || current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+        {
             continue;
-
+        }
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
 
         if (CURRENT_CONFIGURATION->verbose)
@@ -4070,7 +4073,7 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker command arguments
-    for(j = 0; j < num_args_linker_command; j++, i++)
+    for(j = 0; j < num_args_linker_command; j++)
     {
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
@@ -4081,6 +4084,10 @@ static void link_files(const char** file_list, int num_files,
                 get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = 
                 fileextensions_lookup(extension, strlen(extension));
+
+            if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                continue;
+
             if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
             {
                 linker_args[i] = current_translation_unit->input_filename;
@@ -4095,6 +4102,7 @@ static void link_files(const char** file_list, int num_files,
         {
             linker_args[i] = compilation_configuration->linker_command[j]->argument;    
         }
+        i++;
     }
     //Adding multifile list or additional file list 
     for (j = 0; j < num_files; j++, i++)
@@ -4331,9 +4339,23 @@ static void link_objects(void)
     if (CURRENT_CONFIGURATION->do_not_link)
         return;
 
-    const char * file_list[compilation_process.num_translation_units + 1];
-
     int j;
+    int num_link_files = 0;
+    for (j = 0; j < compilation_process.num_translation_units; j++)
+    {
+        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
+        const char* extension = get_extension_filename(translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
+        num_link_files++;
+    }
+
+    const char * file_list[num_link_files + 1];
+
+    int index = 0;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
         translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
@@ -4341,20 +4363,25 @@ static void link_objects(void)
         const char* extension = get_extension_filename(translation_unit->input_filename);
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
         {
-            file_list[j] = translation_unit->input_filename;
+            file_list[index] = translation_unit->input_filename;
         }
         else
         {
-            file_list[j] = translation_unit->output_filename;
-            mark_file_as_temporary(file_list[j]);
+            file_list[index] = translation_unit->output_filename;
+            mark_file_as_temporary(file_list[index]);
         }
+
+        index++;
     }
 
     int num_additional_files = 0;
     const char** additional_files = NULL;
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+    extract_files_and_sublink(file_list, num_link_files,
             &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
     // Additional files are those coming from secondary profiles

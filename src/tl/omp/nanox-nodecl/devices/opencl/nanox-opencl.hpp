@@ -52,8 +52,9 @@ namespace TL
                         const TL::Symbol& unpacked_function,
                         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
                         const std::string filename,
+                        const std::string kernel_name,
                         const TL::ObjectList<OutlineDataItem*>& data_items,
-                        const Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+                        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
                         Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
                         TL::Source& code_ndrange);
             public:

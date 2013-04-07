@@ -420,14 +420,22 @@ namespace TL
                 {
                     const char* name;
                     DataSharingAttribute data_attr;
-                } pairs[] = 
+                } pairs[] =
                 {
                     { "none", (DataSharingAttribute)DS_NONE },
                     { "shared", (DataSharingAttribute)DS_SHARED },
                     { "firstprivate", (DataSharingAttribute)DS_FIRSTPRIVATE },
                     { "auto", (DataSharingAttribute)DS_AUTO },
                     { NULL, (DataSharingAttribute)DS_UNDEFINED },
+                    { NULL, (DataSharingAttribute)DS_UNDEFINED },
                 };
+
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    int n = sizeof(pairs)/sizeof(pairs[0]);
+                    pairs[n-2].name = "private";
+                    pairs[n-2].data_attr = DS_PRIVATE;
+                }
 
                 for (unsigned int i = 0; pairs[i].name != NULL; i++)
                 {
@@ -437,9 +445,9 @@ namespace TL
                     }
                 }
 
-                std::cerr << default_clause.get_locus() 
+                std::cerr << default_clause.get_locus()
                     << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
-                std::cerr << default_clause.get_locus() 
+                std::cerr << default_clause.get_locus()
                     << ": warning: assuming 'shared'" << std::endl;
 
                 return DS_SHARED;
@@ -459,7 +467,7 @@ namespace TL
 
                     Nodecl::RangeLoopControl loop_control = for_stmt.get_loop_header().as<Nodecl::RangeLoopControl>();
 
-                    TL::Symbol induction_var = loop_control.get_symbol();
+                    TL::Symbol induction_var = loop_control.get_induction_variable().get_symbol();
                     symbols.insert(induction_var);
 
                     walk(for_stmt.get_statement());
@@ -468,7 +476,10 @@ namespace TL
                 virtual void visit(const Nodecl::PragmaCustomStatement& construct)
                 {
                     if (TL::PragmaUtils::is_pragma_construct("omp", "task", construct)
-                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct)
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel do", construct)
+                            || TL::PragmaUtils::is_pragma_construct("omp", "parallel sections", construct))
+
                     {
                         // Stop the visit here
                     }
@@ -554,7 +565,9 @@ namespace TL
             {
                 // A loop iteration variable for a sequential loop in a parallel or task construct 
                 // is private in the innermost such construct that encloses the loop
-                if (TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct))
+                if (TL::PragmaUtils::is_pragma_construct("omp", "parallel", construct)
+                        || TL::PragmaUtils::is_pragma_construct("omp", "parallel do", construct)
+                        || TL::PragmaUtils::is_pragma_construct("omp", "parallel sections", construct))
                 {
                     SequentialLoopsVariables sequential_loops;
                     sequential_loops.walk(statement);
@@ -611,6 +624,13 @@ namespace TL
                 {
                     // 'this' is special
                     data_sharing.set_data_sharing(sym, DS_SHARED);
+                    continue;
+                }
+
+                // Saved expressions must be, as their name says, saved
+                if (sym.is_saved_expression())
+                {
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE);
                     continue;
                 }
 

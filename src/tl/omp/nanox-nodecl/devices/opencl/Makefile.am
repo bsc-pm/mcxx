@@ -25,20 +25,20 @@
 ##########################################################################
 
 
-include ../../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
 
 phases_LTLIBRARIES=libtlnanox-opencl.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+device_flags=$(phases_cflags) -I$(srcdir)/../.. \
 			 -I$(srcdir)/../../../nanos-common \
 			 -I$(srcdir)/../../../core
 
 libtlnanox_opencl_la_CFLAGS = $(device_flags)
 libtlnanox_opencl_la_CXXFLAGS = $(device_flags)
 
-libtlnanox_opencl_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_opencl_la_LDFLAGS = $(phases_ldflags)
 
 libtlnanox_opencl_la_SOURCES = \
        nanox-opencl.hpp \

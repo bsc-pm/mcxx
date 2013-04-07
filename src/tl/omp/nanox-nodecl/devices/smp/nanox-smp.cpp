@@ -64,10 +64,11 @@ namespace TL { namespace Nanox {
     {
         // Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
+        const Nodecl::NodeclBase& task_statements = info._task_statements;
         const Nodecl::NodeclBase& original_statements = info._original_statements;
         bool is_function_task = info._called_task.is_valid();
 
-        output_statements = original_statements;
+        output_statements = task_statements;
 
         TL::Symbol current_function =
             original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -76,9 +77,9 @@ namespace TL { namespace Nanox {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 running_error("%s: error: nested functions are not supported\n",
                         original_statements.get_locus().c_str());
-            if (IS_FORTRAN_LANGUAGE)
-                running_error("%s: error: internal subprograms are not supported\n",
-                        original_statements.get_locus().c_str());
+            // if (IS_FORTRAN_LANGUAGE)
+            //     running_error("%s: error: internal subprograms are not supported\n",
+            //             original_statements.get_locus().c_str());
         }
 
         Source extra_declarations;
@@ -165,11 +166,18 @@ namespace TL { namespace Nanox {
             TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
             Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
-            fun_visitor.insert_extra_symbols(original_statements);
+            fun_visitor.insert_extra_symbols(task_statements);
 
             Nodecl::Utils::Fortran::copy_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
+
+            if (is_function_task)
+            {
+                Nodecl::Utils::Fortran::append_used_modules(
+                        info._called_task.get_related_scope(),
+                        unpacked_function_scope);
+            }
 
             extra_declarations
                 << "IMPLICIT NONE\n";

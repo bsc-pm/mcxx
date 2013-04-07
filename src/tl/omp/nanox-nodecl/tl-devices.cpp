@@ -227,6 +227,12 @@ namespace TL { namespace Nanox {
             const std::string& function_name,
             CreateOutlineInfo& info)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         // This is only for Fortran!
         Scope sc = current_function.get_scope();
 
@@ -388,10 +394,8 @@ namespace TL { namespace Nanox {
                     int &lower_bound_index_aux, int &upper_bound_index_aux)
             {
                 Source current_arg;
-                if (t_aux.is_array())
+                if (t_aux.is_fortran_array())
                 {
-                    aux_rec(array_shape, t_aux.array_element(), rank-1, current_rank, lower_bound_index_aux, upper_bound_index_aux);
-
                     Source curent_arg;
                     Nodecl::NodeclBase lower, upper;
                     t_aux.array_get_bounds(lower, upper);
@@ -407,6 +411,8 @@ namespace TL { namespace Nanox {
                         current_arg << "mcc_upper_bound_" << upper_bound_index_aux;
                         upper_bound_index_aux++;
                     }
+
+                    aux_rec(array_shape, t_aux.array_element(), rank-1, current_rank, lower_bound_index_aux, upper_bound_index_aux);
 
                     array_shape.append_with_separator(current_arg, ",");
                 }
@@ -438,6 +444,12 @@ namespace TL { namespace Nanox {
             Source &initial_statements,
             Source &final_statements)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         bool is_function_task = info._called_task.is_valid();
 
         Scope sc = current_function.get_scope();
@@ -457,7 +469,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
+        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -471,8 +483,8 @@ namespace TL { namespace Nanox {
             it++;
         }
 
-        int lower_bound_index = 0;
-        int upper_bound_index = 0;
+        int lower_bound_index = 1;
+        int upper_bound_index = 1;
 
         for (; it != data_items.end(); it++)
         {
@@ -614,9 +626,24 @@ namespace TL { namespace Nanox {
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
+                        reduction_private_symbols.append(private_sym);
+
                         if (IS_CXX_LANGUAGE)
                         {
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
+                        }
+
+
+                        if (sym.is_valid())
+                        {
+                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+
+                            if (private_sym->entity_specs.is_allocatable)
+                            {
+                                initial_statements << emit_allocate_statement(private_sym, lower_bound_index, upper_bound_index);
+                            }
+
+                            symbol_map->add_map(sym, private_sym);
                         }
 
                         // This variable must be initialized properly
@@ -656,11 +683,6 @@ namespace TL { namespace Nanox {
                             }
                         }
 
-                        if (sym.is_valid())
-                        {
-                            symbol_map->add_map(sym, private_sym);
-                        }
-
                         break;
                     }
                 default:
@@ -684,6 +706,17 @@ namespace TL { namespace Nanox {
         // Update types of privates (this is needed by VLAs)
         for (TL::ObjectList<TL::Symbol>::iterator it2 = private_symbols.begin();
                 it2 != private_symbols.end();
+                it2++)
+        {
+            it2->get_internal_symbol()->type_information =
+                type_deep_copy(it2->get_internal_symbol()->type_information,
+                        function_context,
+                        symbol_map->get_symbol_map());
+        }
+
+        // Update types of reduction privates (this is needed by VLAs)
+        for (TL::ObjectList<TL::Symbol>::iterator it2 = reduction_private_symbols.begin();
+                it2 != reduction_private_symbols.end();
                 it2++)
         {
             it2->get_internal_symbol()->type_information =
@@ -799,7 +832,14 @@ namespace TL { namespace Nanox {
             ObjectList<std::string> parameter_names,
             ObjectList<TL::Type> parameter_types)
     {
+        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+        {
+            // Get the enclosing function
+            current_function = current_function.get_scope().get_related_symbol();
+        }
+
         decl_context_t decl_context = current_function.get_scope().get_decl_context();
+
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
         decl_context_t function_context;

@@ -553,6 +553,82 @@ static void remove_all_spaces(char** line)
     *line = newline;
 }
 
+static const char *remove_blanks_keeping_holleriths(const char* c)
+{
+    const char *p = c;
+
+    char* result = calloc(sizeof(char), strlen(c) + 1);
+    char *q = result;
+
+    int length = -1;
+
+    while (*p != '\0')
+    {
+        if ('0' <= *p && *p <= '9')
+        {
+            if (length < 0) length = 0;
+            length = length * 10 + (*p - '0');
+
+            *q = *p; p++; q++;
+        }
+        else if (*p == 'H' || *p == 'h')
+        {
+            if (length < 0)
+            {
+                // Not a hollerith
+                *q = *p; p++; q++;
+            }
+            else
+            {
+                *q = *p; p++; q++;
+                int i;
+                for (i = length; i > 0; i--)
+                {
+                    *q = *p; p++; q++;
+                }
+                length = -1;
+            }
+        }
+        else if (*p == '\'' || *p == '"')
+        {
+            // This is a string, emit AS IS
+            char delim = *p;
+            *q = *p; p++; q++;
+            while ((*p != delim
+                        || *(p+1) == delim)
+                    && *p == '\0')
+            {
+                if (*p == delim
+                        && *(p+1) == delim)
+                {
+                    *q = *p; p++; q++;
+                    *q = *p; p++; q++;
+                }
+                else
+                {
+                    *q = *p; p++; q++;
+                }
+            }
+            *q = *p; p++; q++;
+            length = -1;
+        }
+        else if (*p == ' ')
+        {
+            // This is a blank, omit
+            p++;
+        }
+        else
+        {
+            *q = *p; p++; q++;
+            length = -1;
+        }
+    }
+
+    *q = '\0';
+
+    return result;
+}
+
 /*
    This function tries to identify according to the language_level 
    the starting keyword of the statement (if the statement is not an assigment).
@@ -736,7 +812,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                     || statement == ST_DATA)
             {
                 // Format and Data require a special treatment as we cannot
-                // wipe its blanks because of Hollerith constants.
+                // blindly wipe its blanks because of Hollerith constants.
 
                 const char* keyword = NULL;
                 switch (statement)
@@ -759,7 +835,8 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                 char *c = malloc(n*sizeof(char));
                 c[0] = '\0';
 
-                const char *p = li->statement_list[statement_index].original_text;
+                const char *p = NULL;
+                p = li->statement_list[statement_index].original_text;
                 const char *current_letter = keyword;
                 while (*current_letter != '\0')
                 {
@@ -781,6 +858,11 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                 // Ignore blanks one more time
                 while (*p == ' ' || *p == '\t')
                     p++;
+
+                if (statement == ST_DATA)
+                {
+                    p = remove_blanks_keeping_holleriths(p);
+                }
 
                 free(li->statement_list[statement_index].statement);
 

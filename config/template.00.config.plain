@@ -1,4 +1,9 @@
-# Plain profile
+# Base profile
+[fortran-base]
+language = Fortran
+{openmp} options = -I @PKGDATADIR@/fortran/openmp
+
+# Plain profiles
 [plaincc]
 language = C
 options =
@@ -19,10 +24,9 @@ compiler_options =
 linker_name = @G++@
 linker_options =
 
-[plainfc]
+[plainfc : fortran-base]
 language = Fortran
 options =
-{openmp} options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @GFORTRAN@

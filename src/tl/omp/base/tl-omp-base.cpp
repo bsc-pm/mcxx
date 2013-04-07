@@ -205,7 +205,7 @@ namespace TL { namespace OpenMP {
 
                 TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
-                TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates;
+                TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
 
                 int i = 0;
                 for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
@@ -215,20 +215,40 @@ namespace TL { namespace OpenMP {
                     ERROR_CONDITION(i >= (signed int)has_dep.size(), "Mismatch between parameters and related symbols", 0);
                     if (!has_dep[i])
                     {
-                        Nodecl::Symbol symbol_ref =
-                            Nodecl::Symbol::make(*it, filename, line);
-                        symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+                        if (!IS_FORTRAN_LANGUAGE
+                                || !it->get_type().is_any_reference())
+                        {
+                            Nodecl::Symbol symbol_ref =
+                                Nodecl::Symbol::make(*it, filename, line);
+                            symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
-                        assumed_firstprivates.append(symbol_ref);
+                            assumed_firstprivates.append(symbol_ref);
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            Nodecl::Symbol symbol_ref =
+                                Nodecl::Symbol::make(*it, filename, line);
+                            symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+
+                            assumed_shareds.append(symbol_ref);
+                        }
                     }
                 }
 
                 if (!assumed_firstprivates.empty())
                 {
                     result_list.append(
-                            Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(assumed_firstprivates),
-                                filename, line)
-                            );
+                            Nodecl::OpenMP::Firstprivate::make(
+                                Nodecl::List::make(assumed_firstprivates),
+                                filename, line));
+                }
+
+                if (!assumed_shareds.empty())
+                {
+                    result_list.append(
+                            Nodecl::OpenMP::Shared::make(
+                                Nodecl::List::make(assumed_shareds),
+                                filename, line));
                 }
 
                 // Build the tree which contains the target information
@@ -290,6 +310,16 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::File::make(
                                 Nodecl::Text::make(file),
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
+                                filename, line));
+                }
+
+                std::string name = target_info.get_name();
+                if (!name.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::Name::make(
+                                Nodecl::Text::make(name),
                                 Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                                 filename, line));
                 }
@@ -1834,6 +1864,16 @@ namespace TL { namespace OpenMP {
                         Nodecl::Text::make(file),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
+                        filename, line));
+        }
+
+        std::string name = target_info.get_name();
+        if (!name.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::Name::make(
+                        Nodecl::Text::make(name),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
                         filename, line));
         }
 

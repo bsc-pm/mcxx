@@ -259,6 +259,7 @@ namespace TL
 
                 ObjectList<std::string> _device_list;
                 std::string _file;
+                std::string _name;
 
                 bool _copy_deps;
             public:
@@ -293,6 +294,8 @@ namespace TL
                 void set_file(std::string filename);
                 std::string get_file() const;
 
+                void set_name(std::string name);
+                std::string get_name() const;
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);
         };

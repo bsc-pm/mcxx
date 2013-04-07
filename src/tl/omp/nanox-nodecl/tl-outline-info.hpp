@@ -381,6 +381,9 @@ namespace TL
                 void set_file(TL::Symbol function_symbol,std::string file);
                 std::string get_file(TL::Symbol function_symbol);
 
+                void set_name(TL::Symbol function_symbol,std::string name);
+                std::string get_name(TL::Symbol function_symbol);
+
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
 

@@ -42,9 +42,11 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             TL::Symbol slicer_descriptor,
             Nodecl::NodeclBase &placeholder1,
-            Nodecl::NodeclBase &placeholder2)
+            Nodecl::NodeclBase &placeholder2,
+            Nodecl::NodeclBase &reduction_initialization,
+            Nodecl::NodeclBase &reduction_code)
     {
-        Source for_code, reduction_code, lastprivate_code, reduction_initialization, barrier_code;
+        Source for_code, lastprivate_code, barrier_code;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
 
         if (ranges.size() == 1)
@@ -214,10 +216,10 @@ namespace TL { namespace Nanox {
         }
 
 
-        Source distribute_loop_source;
+        Source distribute_loop_source, reduction_initialization_src, reduction_code_src;
         distribute_loop_source
             << "{"
-            << reduction_initialization
+            << reduction_initialization_src
             << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t err;"
             << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
@@ -226,13 +228,17 @@ namespace TL { namespace Nanox {
             << instrument_before_opt
             << for_code
             << instrument_after_opt
-            << reduction_code
+            << reduction_code_src
             << "}"
             << barrier_code
             ;
 
-        reduction_initialization << reduction_initialization_code(outline_info, construct);
-        reduction_code << perform_partial_reduction(outline_info);
+        if (there_are_reductions(outline_info))
+        {
+            reduction_initialization_src << statement_placeholder(reduction_initialization);
+            reduction_code_src << statement_placeholder(reduction_code);
+        }
+
         lastprivate_code << update_lastprivates(outline_info);
 
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
@@ -255,8 +261,9 @@ namespace TL { namespace Nanox {
            // Loop (in the outline distributed code)
            Nodecl::NodeclBase& outline_placeholder1,
            // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-           Nodecl::NodeclBase& outline_placeholder2
-           )
+           Nodecl::NodeclBase& outline_placeholder2,
+           Nodecl::NodeclBase& reduction_initialization,
+           Nodecl::NodeclBase& reduction_code)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -283,8 +290,12 @@ namespace TL { namespace Nanox {
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info, statements,
-                /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
+        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
+                /* original task statements */ statements,
+                /* current task statements */ statements,
+                /* task_label */ Nodecl::NodeclBase::null(),
+                structure_symbol,
+                called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names(enclosing_function);
@@ -328,6 +339,12 @@ namespace TL { namespace Nanox {
             {
                 Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements, outline_placeholder);
                 outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder2, label_symbol_map2));
+            }
+
+            if (there_are_reductions(outline_info))
+            {
+                reduction_initialization_code(outline_info, reduction_initialization, construct);
+                perform_partial_reduction(outline_info, reduction_code);
             }
 
             outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
@@ -378,14 +395,16 @@ namespace TL { namespace Nanox {
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(environment, enclosing_function);
 
-        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
+        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
                 distribute_environment,
                 ranges,
                 outline_info,
                 slicer_descriptor,
                 outline_placeholder1,
-                outline_placeholder2);
+                outline_placeholder2,
+                reduction_initialization,
+                reduction_code);
 
         distribute_loop_with_outline_worksharing(construct,
                 distribute_environment, ranges,
@@ -394,7 +413,9 @@ namespace TL { namespace Nanox {
                 slicer_descriptor,
                 outline_distribute_loop_source,
                 outline_placeholder1,
-                outline_placeholder2);
+                outline_placeholder2,
+                reduction_initialization,
+                reduction_code);
     }
 
 } }

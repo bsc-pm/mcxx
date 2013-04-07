@@ -34,24 +34,257 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <fcntl.h>
+
+#include "filename.h"
+
+
 #define ID_FILENAME "MERCURIUM_MODULE"
+
+#define LOCK_SUFFIX "_LOCK"
+
+/* flock version */
+#if 0
+static void do_lock_file_flock(int *lock_fd, const char* lock_filename)
+{
+    int res = flock(*lock_fd, LOCK_EX);
+    if (res < 0)
+    {
+        fprintf(stderr, "Warning: could not lock file '%s. Reason %s. Paralell compilation may fail\n",
+                lock_filename,
+                strerror(errno));
+        close(*lock_fd);
+        *lock_fd = -1;
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER-FORTRAN: Exclusive lock on '%s' successfully acquired\n", lock_filename);
+        }
+    }
+}
+
+static void do_unlock_file_flock(int lock_fd, const char* lock_filename)
+{
+    int res = 0;
+    res = flock(lock_fd, LOCK_UN);
+    if (res < 0)
+    {
+        fprintf(stderr, "Warning: could not release lock of '%s'. Reason %s\n",
+                lock_filename,
+                strerror(errno));
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER-FORTRAN: Lock of file '%s' successfully released\n", lock_filename);
+        }
+    }
+}
+#endif
+
+/* fcntl version */
+#if 0
+           struct flock {
+               ...
+               short l_type;    /* Type of lock: F_RDLCK,
+                                   F_WRLCK, F_UNLCK */
+               short l_whence;  /* How to interpret l_start:
+                                   SEEK_SET, SEEK_CUR, SEEK_END */
+               off_t l_start;   /* Starting offset for lock */
+               off_t l_len;     /* Number of bytes to lock */
+               pid_t l_pid;     /* PID of process blocking our lock
+                                   (F_GETLK only) */
+               ...
+           };
+#endif
+
+static void do_lock_file_fcntl(int *lock_fd, const char* lock_filename)
+{
+    struct flock fl;
+    memset(&fl, 0, sizeof(fl));
+
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+
+    int res = fcntl(*lock_fd, F_SETLKW, &fl);
+    if (res < 0)
+    {
+        fprintf(stderr, "Warning: could not lock file '%s. Reason %s. Paralell compilation may fail\n",
+                lock_filename,
+                strerror(errno));
+        close(*lock_fd);
+        *lock_fd = -1;
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER-FORTRAN: Exclusive lock on '%s' successfully acquired\n", lock_filename);
+        }
+    }
+}
+
+static void do_unlock_file_fcntl(int lock_fd, const char* lock_filename)
+{
+    struct flock fl;
+    memset(&fl, 0, sizeof(fl));
+
+    fl.l_type = F_UNLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+
+    int res = fcntl(lock_fd, F_SETLK, &fl);
+    if (res < 0)
+    {
+        fprintf(stderr, "Warning: could not release lock of '%s'. Reason %s\n",
+                lock_filename,
+                strerror(errno));
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER-FORTRAN: Lock of file '%s' successfully released\n", lock_filename);
+        }
+    }
+}
+
+static void lock_module_name_using_ancillary(const char* module_name, int *fd, const char** out_filename)
+{
+    *fd = -1;
+    *out_filename = NULL;
+
+    if (CURRENT_CONFIGURATION->disable_locking)
+        return;
+
+    if (CURRENT_CONFIGURATION->lock_dir == NULL)
+    {
+        const char* home = getenv("HOME");
+        if (home == NULL)
+        {
+            running_error("Error: $HOME not defined\n", 0);
+        }
+
+        CURRENT_CONFIGURATION->lock_dir = strappend(home, "/.mercurium_locks");
+
+        int res = mkdir(CURRENT_CONFIGURATION->lock_dir, 0700);
+        if (res < 0)
+        {
+            if (errno != EEXIST)
+            {
+                running_error("%s: error: cannot create lock dir '%s'. Reason: %s\n",
+                        CURRENT_CONFIGURATION->lock_dir,
+                        strerror(errno));
+            }
+        }
+    }
+
+    const char* lock_filename =
+        strappend(CURRENT_CONFIGURATION->lock_dir,
+                strappend("/", strappend(give_basename(module_name), LOCK_SUFFIX)));
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "DRIVER-FORTRAN: Opening lock file '%s'\n", lock_filename);
+    }
+
+    int lock_fd = open(lock_filename, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+    if (lock_fd < 0)
+    {
+        fprintf(stderr, "Warning: cannot create ancillary lock file '%s'. "
+                "Reason: %s. Parallel compilation may fail\n",
+                lock_filename, strerror(errno));
+        lock_fd = -1;
+    }
+    else
+    {
+        do_lock_file_fcntl(&lock_fd, lock_filename);
+    }
+
+    *fd = lock_fd;
+    *out_filename = lock_filename;
+}
+
+// static const char* get_module_name_of_module_filename(const char* filename)
+// {
+//     char c[strlen(filename) + 1];
+//     strncpy(c, filename, strlen(filename));
+//     c[strlen(filename)] = '\0';
+// 
+//     char* p = strrchr(c, '.');
+//     if (p != NULL)
+//     {
+//         *p = '\0';
+//     }
+// 
+//     return uniquestr(c);
+// }
+
+// static void lock_module_filename_using_ancillary(const char* filename, int *fd, const char** out_filename)
+// {
+//     lock_module_name_using_ancillary(get_module_name_of_module_filename(filename), fd, out_filename);
+// }
+
+static void lock_modules(int *fd, const char** out_filename)
+{
+    lock_module_name_using_ancillary("global_modules", fd, out_filename);
+}
+
+static void unlock_module_name_using_ancillary(int lock_fd, const char* lock_filename)
+{
+    if (lock_fd < 0)
+        return;
+
+    ERROR_CONDITION(lock_filename == NULL, "Invalid name", 0);
+
+    do_unlock_file_fcntl(lock_fd, lock_filename);
+
+    int res = close(lock_fd);
+    if (res < 0)
+    {
+        fprintf(stderr, "Warning: failure when closing ancillary lock file '%s'. Reason %s\n",
+                lock_filename,
+                strerror(errno));
+    }
+}
+
+// static void unlock_module_filename_using_ancillary(int lock_fd, const char* lock_filename)
+// {
+//     unlock_module_name_using_ancillary(lock_fd, lock_filename);
+// }
+
+
+static void unlock_modules(int fd, const char* out_filename)
+{
+    unlock_module_name_using_ancillary(fd, out_filename);
+}
 
 static char check_is_mercurium_wrap_module(const char* filename)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "DRIVER-FORTRAN: File '%s' is a valid Mercurium wrap module\n",
+        fprintf(stderr, "DRIVER-FORTRAN: Checking if '%s' is a valid Mercurium wrap module\n",
                 filename);
     }
 
-    const char* arguments[] = 
+    temporal_file_t temp_file = new_temporal_file();
+
+    const char* arguments[] =
     {
         "tf",
         filename,
         NULL
     };
-
-    temporal_file_t temp_file = new_temporal_file();
 
     if (execute_program_flags("tar", arguments, temp_file->name, NULL) != 0)
     {
@@ -65,19 +298,19 @@ static char check_is_mercurium_wrap_module(const char* filename)
     char result = 0;
 
     char line[256] = { 0 };
-     while (fgets(line, 255, f) != NULL && !result)
-     {
-         // Remove endline
-         line[strlen(line) - 1] = '\0';
+    while (fgets(line, 255, f) != NULL && !result)
+    {
+        // Remove endline
+        line[strlen(line) - 1] = '\0';
 
-         // Since we use -C . the file will be prepended a "./"
-         if (strcmp(line, "./" ID_FILENAME) == 0)
-         {
-             result = 1;
-         }
-     }
+        // Since we use -C . the file will be prepended a "./"
+        if (strcmp(line, "./" ID_FILENAME) == 0)
+        {
+            result = 1;
+        }
+    }
 
-     fclose(f);
+    fclose(f);
 
     return result;
 }
@@ -194,6 +427,7 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
         fprintf(stderr, "DRIVER-FORTRAN: Unwrapping wrap module file '%s' for module name '%s'\n", 
                 wrap_module, module_name);
     }
+
     static temporal_file_t temp_dir = NULL;
     if (temp_dir == NULL)
     {
@@ -201,7 +435,7 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
         CURRENT_CONFIGURATION->module_native_dir = temp_dir->name;
     }
 
-    const char* arguments[] = 
+    const char* arguments[] =
     {
         "xf",
         wrap_module,
@@ -277,6 +511,11 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
                 module_to_wrap->mercurium_file);
     }
 
+    // The file is now busy
+    int lock_fd = -1;
+    const char* lock_filename = NULL;
+    lock_modules(&lock_fd, &lock_filename);
+
     // We need to do some juggling here
     temporal_file_t temp_dir = new_temporal_dir();
 
@@ -305,7 +544,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
     fclose(f);
 
     // Now pack the two files using tar
-    const char* arguments[] = 
+    const char* arguments[] =
     {
         "cf",
         module_to_wrap->native_file,
@@ -318,6 +557,8 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
     {
         running_error("Error when wrapping a module: tar failed\n", 0);
     }
+
+    unlock_modules(lock_fd, lock_filename);
 }
 
 #define SUFFIX "_MF03BAK"
@@ -399,6 +640,10 @@ void driver_fortran_retrieve_module(const char* module_name,
     if (CURRENT_CONFIGURATION->do_not_wrap_fortran_modules)
         return;
 
+    // The module may be in use, so lock it
+    int lock_fd = 0;
+    const char* lock_filename = NULL;
+    lock_modules(&lock_fd, &lock_filename);
     wrap_module = get_path_of_mercurium_wrap_module(module_name);
 
     if (wrap_module != NULL)
@@ -418,6 +663,8 @@ void driver_fortran_retrieve_module(const char* module_name,
             fprintf(stderr, "DRIVER-FORTRAN: No wrap module found for module '%s'\n", module_name);
         }
     }
+
+    unlock_modules(lock_fd, lock_filename);
 }
 
 void driver_fortran_register_module(const char* module_name, 
@@ -442,9 +689,29 @@ void driver_fortran_register_module(const char* module_name,
     }
 }
 
+static struct flock_table_tag
+{
+    int fd;
+    const char* filename;
+} _flock_table[1];
+
 void driver_fortran_hide_mercurium_modules(void)
 {
     int i, num_modules = CURRENT_COMPILED_FILE->num_module_files_to_hide;
+
+    // Sort the files because we want to lock them always in the same order
+    qsort(CURRENT_COMPILED_FILE->module_files_to_hide,
+            num_modules,
+            sizeof(*CURRENT_COMPILED_FILE->module_files_to_hide),
+            (int(*)(const void*, const void*))strcasecmp);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "DRIVER-FORTRAN: Allocating flock table for '%d' modules\n", num_modules);
+    }
+
+    // We will unlock it in driver_fortran_restore_mercurium_modules
+    lock_modules(&_flock_table[0].fd, &_flock_table[0].filename);
 
     for (i = 0; i < num_modules; i++)
     {
@@ -463,5 +730,12 @@ void driver_fortran_restore_mercurium_modules(void)
         const char* filename = CURRENT_COMPILED_FILE->module_files_to_hide[i];
 
         restore_mercurium_module(filename);
+    }
+
+    unlock_modules(_flock_table[0].fd, _flock_table[0].filename);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "DRIVER-FORTRAN: Freeing flock table\n");
     }
 }

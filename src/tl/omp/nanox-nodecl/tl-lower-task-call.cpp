@@ -627,7 +627,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         if (current_implementor != called_sym)
         {
             // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
             TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
 
             const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
@@ -641,7 +641,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
 
                 int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
             }
             arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
         }
@@ -927,7 +927,6 @@ static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
-
         // out
         Nodecl::Utils::SimpleSymbolMap &symbol_map,
         TL::ObjectList<TL::Symbol> &save_expressions)
@@ -1018,6 +1017,10 @@ static TL::Symbol new_function_symbol_adapter(
     // Propagate USEd information
     Nodecl::Utils::Fortran::copy_used_modules(
             current_function.get_related_scope(),
+            new_function_sym->related_decl_context);
+
+    Nodecl::Utils::Fortran::append_used_modules(
+            called_function.get_related_scope(),
             new_function_sym->related_decl_context);
 
     // Add USEd symbols
@@ -1168,23 +1171,19 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     TL::ObjectList<Symbol> save_expressions;
 
-    Nodecl::Utils::SimpleSymbolMap symbol_map;
+    Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
             current_function,
             called_task_function,
             ss.str(),
-            // out
-            symbol_map,
+            *symbol_map,
             save_expressions);
-
-    // Add a map from the original called task to the adapter function
-    // symbol_map.add_map(called_task_function, adapter_function);
 
     if (called_task_function.is_from_module())
     {
         // If the symbol comes from a module, the environment
         // will use the original symbol of the module
-        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);
+        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
     }
 
     // Get parameters outline info
@@ -1192,7 +1191,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
-            symbol_map,
+            *symbol_map,
             parameters_environment,
             save_expressions,
             // Out
@@ -1245,7 +1244,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
         if (current_implementor != called_task_function)
         {
             // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
             TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
 
             const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
@@ -1259,9 +1258,9 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
                 ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
 
                 int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
             }
-            new_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+            new_outline_info.set_param_arg_map(*implementor_params_to_args_map, current_implementor);
         }
         else
         {
@@ -1283,15 +1282,15 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             /* parameter outline info */ NULL);
 
     // Add a map from the original called task to the adapter function
-     symbol_map.add_map(called_task_function, adapter_function);
-    
+     symbol_map->add_map(called_task_function, adapter_function);
+
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
 
     // And replace everything with a call to the adapter function
     construct.replace(
-            Nodecl::Utils::deep_copy(function_call, construct, symbol_map)
+            Nodecl::Utils::deep_copy(function_call, construct, *symbol_map)
             );
 }
 

@@ -75,8 +75,13 @@ namespace TL { namespace OpenMP {
                 "short, unsigned short,"
                 "long, unsigned long,"
                 "long long, unsigned long long,"
-                "float, double, long double,"
-                "_Complex float, _Complex double, _Complex long double";
+                "float, double,"
+                "_Complex float, _Complex double";
+
+            if (!equivalent_types(get_double_type(), get_long_double_type()))
+            {
+                arithmetic_types += ", long double, _Complex long double";
+            }
 
             if (IS_C_LANGUAGE)
             {
@@ -171,11 +176,14 @@ namespace TL { namespace OpenMP {
                     "double",
                     "omp_priv = mercurium_dbl_min",
                     max_combiner);
-            parse_declare_reduction(sc,
-                    "max",
-                    "long double",
-                    "omp_priv = mercurium_ldbl_min",
-                    max_combiner);
+            if (!equivalent_types(get_double_type(), get_long_double_type()))
+            {
+                parse_declare_reduction(sc,
+                        "max",
+                        "long double",
+                        "omp_priv = mercurium_ldbl_min",
+                        max_combiner);
+            }
 
             // min
             std::string min_combiner = "omp_out = omp_in < omp_out ? omp_in : omp_out";
@@ -241,12 +249,14 @@ namespace TL { namespace OpenMP {
                     "double",
                     "omp_priv = mercurium_dbl_max",
                     min_combiner);
-            parse_declare_reduction(sc,
-                    "min",
-                    "long double",
-                    "omp_priv = mercurium_ldbl_max",
-                    min_combiner);
-
+            if (!equivalent_types(get_double_type(), get_long_double_type()))
+            {
+                parse_declare_reduction(sc,
+                        "min",
+                        "long double",
+                        "omp_priv = mercurium_ldbl_max",
+                        min_combiner);
+            }
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
@@ -332,11 +342,11 @@ namespace TL { namespace OpenMP {
                     integer_types,
                     "omp_priv = HUGE(omp_priv)",
                     "omp_out = min(omp_in, omp_out)");
-            parse_declare_reduction(sc,
-                    "min",
-                    floating_types,
-                    "omp_priv = HUGE(omp_priv)",
-                    "omp_out = min(omp_in, omp_out)");
+            // parse_declare_reduction(sc,
+            //         "min",
+            //         floating_types,
+            //         "omp_priv = HUGE(omp_priv)",
+            //         "omp_out = min(omp_in, omp_out)");
         }
         else
         {

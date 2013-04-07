@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -1087,8 +1087,7 @@ void CxxBase::emit_range_loop_header(
         Nodecl::NodeclBase statement,
         const std::string& rel_op)
 {
-
-    TL::Symbol ind_var = lc.get_symbol();
+    TL::Symbol ind_var = lc.get_induction_variable().get_symbol();
     std::string ind_var_name = this->get_qualified_name(ind_var);
 
     indent();
@@ -1107,7 +1106,10 @@ void CxxBase::emit_range_loop_header(
 
     // I += S
     file << ind_var_name << " += ";
-    walk(lc.get_step());
+    if (!lc.get_step().is_null())
+        walk(lc.get_step());
+    else
+        file << "1";
 
     file << ")\n";
 
@@ -1149,11 +1151,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         Nodecl::NodeclBase upper = lc.get_upper();
         Nodecl::NodeclBase step = lc.get_step();
 
-        if (!step.is_null()
-                && step.is_constant())
+        if (step.is_null()
+                || step.is_constant())
         {
             std::string rel_op = " <= ";
-            const_value_t* v = step.get_constant();
+            const_value_t* v = NULL;
+            if (step.is_null())
+            {
+                v = const_value_get_signed_int(1);
+            }
+            else
+            {
+                v = step.get_constant();
+            }
             if (const_value_is_negative(v))
             {
                 rel_op = " >= ";
@@ -1847,11 +1857,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -1924,11 +1939,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -2110,11 +2125,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -2202,11 +2222,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
 
     if (!initializers.is_null())
@@ -2365,7 +2385,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
             file << (unsigned long long)v;
         }
     }
-} 
+}
 
 CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
 {
@@ -2944,7 +2964,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector_type())
+        if (type.no_ref().is_vector())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;
@@ -3771,6 +3791,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             internal_error("Invalid class kind", 0);
     }
 
+    std::string gcc_attributes;
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     // 1. Declaration of the class key part
     C_LANGUAGE()
     {
@@ -3779,7 +3811,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             // The symbol is called 'struct/union X' in C. We should ignore the
@@ -3898,7 +3930,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             file << " " << qualified_name;
@@ -4999,10 +5031,16 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
     }
 
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     if (!state.in_condition)
         indent();
 
-    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+    file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
@@ -5090,10 +5128,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             {
                 gcc_attributes = gcc_attributes_to_str(symbol) + " ";
             }
+            std::string gcc_extension;
+            if (symbol.has_gcc_extension())
+            {
+                gcc_extension = "__extension__ ";
+            }
 
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << "typedef "
+            file << gcc_extension
+                << "typedef "
                 << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),
@@ -5901,7 +5945,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                     define_entities_in_tree);
         }
     }
-    else if (t.is_vector_type())
+    else if (t.is_vector())
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
@@ -7280,8 +7324,8 @@ TL::Type CxxBase::fix_references(TL::Type t)
         }
 
         TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters, 
-                nonadjusted_fixed_parameters, 
+                fixed_parameters,
+                nonadjusted_fixed_parameters,
                 has_ellipsis);
 
         fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));

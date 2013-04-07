@@ -290,7 +290,7 @@ namespace TL
         private:
             bool _is_omp_valid;
 
-            TL::Symbol _induction_var;
+            Nodecl::NodeclBase _induction_var;
 
             Nodecl::NodeclBase _lower_bound;
             Nodecl::NodeclBase _upper_bound;
