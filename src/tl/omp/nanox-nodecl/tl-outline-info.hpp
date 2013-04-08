@@ -55,7 +55,8 @@ namespace TL
                 {
                     SHARING_UNDEFINED = 0,
                     SHARING_SHARED,
-                    SHARING_SHARED_SPECIAL,
+                    // Only used in input dependences over a parameter passed by value
+                    SHARING_SHARED_WITH_CAPTURE,
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -477,7 +478,7 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
-                void add_shared_special(Symbol sym);
+                void add_shared_with_capture(Symbol sym);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);

@@ -942,7 +942,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
 
-                 case OutlineDataItem::SHARING_SHARED_SPECIAL:
+                 case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                     {
                         TL::Source lvalue_subexpressions_code;
                         OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();

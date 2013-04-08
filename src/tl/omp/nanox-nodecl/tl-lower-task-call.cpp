@@ -487,7 +487,7 @@ static void generate_dependences_of_expression(
                         expr.get_filename(),
                         expr.get_line()).get_internal_nodecl();
 
-                outline_register_entities.add_shared_special(new_symbol);
+                outline_register_entities.add_shared_with_capture(new_symbol);
 
                 OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
                 outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);

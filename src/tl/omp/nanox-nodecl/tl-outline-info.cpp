@@ -151,12 +151,12 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void OutlineInfoRegisterEntities::add_shared_special(Symbol sym)
+    void OutlineInfoRegisterEntities::add_shared_with_capture(Symbol sym)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
-        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_SPECIAL);
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_WITH_CAPTURE);
 
         Type t = sym.get_type();
         if (t.is_any_reference())
