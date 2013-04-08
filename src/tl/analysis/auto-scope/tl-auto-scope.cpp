@@ -114,7 +114,7 @@ namespace Analysis {
             }
 
             // If the current task is created in a loop, then it is simultaneous with itself
-            bool is_in_loop = ExtensibleGraph::is_in_loop( task );
+            bool is_in_loop = ExtensibleGraph::node_is_in_loop( task );
 
             // Scope non-undefined behavior variables
             Utils::ext_sym_set scoped_vars;
@@ -153,7 +153,7 @@ namespace Analysis {
             }
             else
             {
-                if( current->is_omp_barrier_node( ) && !ExtensibleGraph::is_in_conditional_branch( current ) )
+                if( current->is_omp_barrier_node( ) && !ExtensibleGraph::node_is_in_conditional_branch( current ) )
                 {   // A barrier placed in a non-conditional place is the Last Synchronization point
                     _last_sync = current;
                 }

@@ -82,15 +82,13 @@ namespace Analysis {
         */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
 
-        //! This a wrapper method of #merge_nodes for the case we are merging an array subscript
-        /*!
-        * Since the subscripts are built form left to right, we may not have a nodecl containing the whole subscript
-        * \param subscripted Pointer to the node containing the subscripted part
-        * \param subscript Pointer to the node containing the actual subscript
-        */
-//         Node* merge_nodes(Node* subscripted, Node* subscript);
+        //! This method creates a virtual synchronization node when tasks are not synchronized
+        //! within the same function they are created, or they are synchronized in conditional situations
+        void synchronize_tasks( );
 
+        bool task_is_surely_synchronized( Node* task );
 
+        bool same_parent_task( Node* task_1, Node* task_2 );
 
         // ************************************************************************************** //
         // ********************************** Visiting methods ********************************** //

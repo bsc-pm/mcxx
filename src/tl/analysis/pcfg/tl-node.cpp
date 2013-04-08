@@ -521,22 +521,23 @@ namespace Analysis {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
             switch( ntype )
             {
-                case ASM_OP:             type = "ASM_OP";           break;
-                case BREAK:              type = "BREAK";            break;
-                case CONTINUE:           type = "CONTINUE";         break;
-                case ENTRY:              type = "ENTRY";            break;
-                case EXIT:               type = "EXIT";             break;
-                case FUNCTION_CALL:      type = "FUNCTION_CALL";    break;
-                case GOTO:               type = "GOTO";             break;
-                case LABELED:            type = "LABELED";          break;
-                case NORMAL:             type = "NORMAL";           break;
-                case OMP_BARRIER:        type = "OMP_BARRIER";      break;
-                case OMP_FLUSH:          type = "OMP_FLUSH";        break;
-                case OMP_TASKWAIT:       type = "OMP_TASKWAIT";     break;
-                case OMP_TASKYIELD:      type = "OMP_TASKYIELD";    break;
-                case GRAPH:              type = "GRAPH";            break;
-                case UNCLASSIFIED_NODE:  type = "UNCLASSIFIED";     break;
-                default:                 WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
+                case ASM_OP:                type = "ASM_OP";                break;
+                case BREAK:                 type = "BREAK";                 break;
+                case CONTINUE:              type = "CONTINUE";              break;
+                case ENTRY:                 type = "ENTRY";                 break;
+                case EXIT:                  type = "EXIT";                  break;
+                case FUNCTION_CALL:         type = "FUNCTION_CALL";         break;
+                case GOTO:                  type = "GOTO";                  break;
+                case LABELED:               type = "LABELED";               break;
+                case NORMAL:                type = "NORMAL";                break;
+                case OMP_BARRIER:           type = "OMP_BARRIER";           break;
+                case OMP_FLUSH:             type = "OMP_FLUSH";             break;
+                case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
+                case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
+                case GRAPH:                 type = "GRAPH";                 break;
+                case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
+                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else

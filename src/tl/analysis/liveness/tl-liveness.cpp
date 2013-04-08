@@ -191,7 +191,7 @@ namespace Analysis {
             {
                 if( current->is_omp_task_node( ) )
                 {
-                    if( ExtensibleGraph::is_in_loop( current ) )
+                    if( ExtensibleGraph::node_is_in_loop( current ) )
                     {
                         Utils::ext_sym_set task_li = current->get_live_in_vars( );
                         Utils::ext_sym_set task_lo = current->get_live_out_vars( );

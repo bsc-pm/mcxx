@@ -381,8 +381,8 @@ namespace Analysis {
 
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
-        static bool is_in_loop( Node* current );
-        static bool is_in_conditional_branch( Node* current );
+        static bool node_is_in_loop( Node* current );
+        static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
 
         // *** Printing methods *** //
         void print_global_vars( ) const;
