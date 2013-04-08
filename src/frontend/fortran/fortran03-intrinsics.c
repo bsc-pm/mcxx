@@ -4308,10 +4308,8 @@ scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     type_t* t1 = fortran_get_rank0_type(argument_types[1]);
 
-    if ((is_integer_type(t0) 
-                || is_floating_type(t0))
-            && equivalent_types(get_unqualified_type(t0), 
-                get_unqualified_type(t1)))
+    if ((is_integer_type(t0)  == is_integer_type(t1))
+                || (is_floating_type(t0) == is_floating_type(t1)))
     {
         return GET_INTRINSIC_ELEMENTAL("mod", t0, t0, t1);
     }
@@ -4327,9 +4325,8 @@ scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     type_t* t1 = fortran_get_rank0_type(argument_types[1]);
 
-    if ((is_integer_type(t0) || is_floating_type(t0))
-            && equivalent_types(get_unqualified_type(t0), 
-                get_unqualified_type(t1)))
+    if ((is_integer_type(t0)  == is_integer_type(t1))
+                || (is_floating_type(t0) == is_floating_type(t1)))
     {
         return GET_INTRINSIC_ELEMENTAL("modulo", t0, t0, t1);
     }

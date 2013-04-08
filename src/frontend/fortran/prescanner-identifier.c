@@ -173,8 +173,8 @@ typedef struct statements_information_tag statements_information_t;
 	STATEMENT_INFO(ST_STOP, 0, 1, "stop") \
 	STATEMENT_INFO(ST_WRITE, 0, 0, "write") \
 	STATEMENT_INFO(ST_INTERFACE, 0, 1, "interface") \
-	STATEMENT_INFO(ST_ELSE, 0, 0, "else") \
-	STATEMENT_INFO(ST_ELSEIF, 0, 0, "elseif") \
+	STATEMENT_INFO(ST_ELSE, 0, 1, "else") \
+	STATEMENT_INFO(ST_ELSEIF, 0, 1, "elseif") \
 	STATEMENT_INFO(ST_SELECTCASE, 0, 0, "selectcase") \
 	STATEMENT_INFO(ST_CASE, 0, 1, "case") \
 	STATEMENT_INFO(ST_END, 0, 1, "end") \
@@ -216,6 +216,7 @@ static void add_blank_labeled_do(char** line);
 static void add_blank_module_procedure(char** line);
 static void add_blank_label_assign_statement(char** line);
 static void add_blank_entry_statement(char** line, char* keyword);
+static void add_blank_elseif_statement(char** line, char* keyword);
 
 
 // Continuation lines have already been joined
@@ -871,6 +872,10 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                 c[n-1] = '\0';
                 li->statement_list[statement_index].statement = c;
             }
+            else if (statement == ST_ELSEIF)
+            {
+				add_blank_elseif_statement(&li->statement_list[statement_index].statement, yytext);
+            }
             else
 			{
 				add_blank(&li->statement_list[statement_index].statement, yytext);
@@ -1369,6 +1374,95 @@ static void add_blank_entry_statement(char** line, char* keyword)
 	}
 
 	regfree(&match_problematic);
+}
+
+static void add_blank_elseif_statement(char** line, char* keyword)
+{
+    // ELSE IF (C) THEN LABEL
+    const char* p = *line;
+
+    // Advance ELSEIF
+    p += strlen(keyword);
+
+    if (*p != '(')
+    {
+		fprintf(stderr, "Malformed ELSE IF statement, expecting '('. Rejecting to modify this line.\n'%s'\n", *line);
+        return;
+    }
+
+    // Look the matching '('
+    int parent_nest = 1;
+    char in_string = 0;
+    char str_delim = '\0';
+    while (*p != '\0')
+    {
+        if (!in_string
+                && *p == ')'
+                && --parent_nest == 1)
+        {
+            break;
+        }
+        else if (!in_string
+                && *p == '(')
+        {
+            parent_nest++;
+        }
+        else if (!in_string && (*p == '\'' || *p == '"'))
+        {
+            in_string = 1;
+            str_delim = *p;
+        }
+        else if (in_string
+                && *p == str_delim
+                && *(p+1) == str_delim)
+        {
+            // "A""B" (or 'A''B')
+            // We are in the first ", after A.
+            // In the next iteration we want to be in the second ", before B)
+            p++;
+        }
+        else if (in_string
+                && *p == str_delim
+                && *(p+1) != str_delim)
+        {
+            in_string = 0;
+            str_delim = '\0';
+        }
+        p++;
+    }
+
+    if (*p != ')')
+    {
+		fprintf(stderr, "Malformed ELSE IF statement, expecting ')'. Rejecting to modify this line.\n'%s'\n", *line);
+        return;
+    }
+
+    // Now check what comes next is ELSE
+    p++;
+
+    if (strncasecmp(p, "THEN", strlen("THEN")) != 0)
+    {
+		fprintf(stderr, "Malformed ELSE IF statement, expecting 'THEN' Rejecting to modify this line.\n'%s'\n", *line);
+        return;
+    }
+
+    p += strlen("THEN");
+
+    if (*p != '\0')
+    {
+        // There is something left, probably the LABEL, add a blank after THEN
+        const char* q = *line;
+        int length = (p - q) + 1 + strlen(p) + 1;
+        char *new_str = calloc(length, sizeof(char));
+
+        strncat(new_str, q, p - q);
+        strcat(new_str, " ");
+        strcat(new_str, p);
+
+        free(*line);
+        *line = new_str;
+    }
+    // Otherwise leave it untouched
 }
 
 static void identify_and_convert_omp_directive(line_information_t* li)
