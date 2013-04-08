@@ -577,7 +577,8 @@ static void generate_dependences_of_expression(
 static Nodecl::NodeclBase handle_input_value_dependence(
             OutlineInfoRegisterEntities& outline_register_entities,
             TL::Scope new_block_context_sc,
-            Nodecl::NodeclBase expr)
+            Nodecl::NodeclBase expr,
+            TL::Source& initializations_src)
 {
     Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
     TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
@@ -590,6 +591,23 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             /* enclosing lvalue */ NULL,
             toplevel_lvalue_subexpressions,
             nontoplevel_lvalue_subexpressions);
+
+    // Initialize the new outline data items properly
+    for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+            it != toplevel_lvalue_subexpressions.end();
+            it++)
+    {
+        TL::Symbol new_outline_data_item = it->second;
+        if (IS_CXX_LANGUAGE)
+        {
+            // We need to declare explicitly this object in C++ and initialize it properly
+            initializations_src << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_outline_data_item));
+        }
+        else if (IS_C_LANGUAGE)
+        {
+            initializations_src << as_statement(Nodecl::ObjectInit::make(new_outline_data_item));
+        }
+    }
 
     return update_expr;
 }
@@ -728,7 +746,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         if (current_item->has_an_input_value_dependence())
         {
             Nodecl::NodeclBase new_updated_argument = handle_input_value_dependence(
-                    outline_register_entities, new_block_context_sc, argument);
+                    outline_register_entities,
+                    new_block_context_sc,
+                    argument,
+                    initializations_src);
+
             new_arguments.append(new_updated_argument);
         }
         else
