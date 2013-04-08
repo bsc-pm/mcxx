@@ -112,7 +112,7 @@ TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx"
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx analysisfc"
 
 dnl ----- SQLITE - Required only for fortran ---
 
