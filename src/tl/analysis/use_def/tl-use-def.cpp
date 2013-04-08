@@ -838,10 +838,7 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::Assignment& n )
     {
-        _define = true;
-        walk( n.get_lhs( ) );
-        _define = false;
-        walk( n.get_rhs( ) );
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
