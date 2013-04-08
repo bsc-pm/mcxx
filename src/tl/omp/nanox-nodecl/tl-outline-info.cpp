@@ -151,17 +151,42 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void OutlineInfoRegisterEntities::add_shared_special(Symbol symbol)
+    void OutlineInfoRegisterEntities::add_shared_special(Symbol sym)
     {
-        add_shared(symbol);
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
         outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_SPECIAL);
 
-        Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(symbol);
-        symbol_nodecl.set_type(symbol.get_type());
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
 
-        TL::DataReference data_ref(symbol_nodecl);
+        outline_info.set_field_type(t);
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t;
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+
+
+        Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(sym);
+        symbol_nodecl.set_type(sym.get_type());
+
+        TL::DataReference data_ref(
+                Nodecl::Dereference::make(
+                    symbol_nodecl,
+                    sym.get_type().points_to(),
+                    symbol_nodecl.get_filename(),
+                    symbol_nodecl.get_line()));
+
         outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
     }
 

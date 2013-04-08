@@ -280,8 +280,7 @@ namespace TL { namespace Nanox {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
                             if (
-                                 ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                        || (*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_SPECIAL)
+                                 ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 if (!param_type.no_ref().depends_on_nonconstant_values())

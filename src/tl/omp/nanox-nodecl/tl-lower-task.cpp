@@ -956,7 +956,7 @@ void LoweringVisitor::fill_arguments(
                             <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
                             <<      "nanos_err_t err;"
                             <<      lvalue_subexpressions_code
-                            <<      as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";"
+                            <<      as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");"
                             <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
                             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
                             ;
@@ -966,12 +966,12 @@ void LoweringVisitor::fill_arguments(
                             <<      common_code
                             <<      "if (result)"
                             <<      "{"
-                            <<           "ol_args->" << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            <<           "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                             <<      "}"
                             <<      "else"
                             <<      "{"
                             <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
-                            <<           "ol_args->" << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<           "ol_args->" << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
                             <<      "}"
                             << "}"
                             ;
@@ -981,12 +981,12 @@ void LoweringVisitor::fill_arguments(
                             <<      common_code
                             <<      "if (result)"
                             <<      "{"
-                            <<           "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
+                            <<           "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                             <<      "}"
                             <<      "else"
                             <<      "{"
                             <<           "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
-                            <<           "imm_args." << (*it)->get_field_name() << "_storage = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<           "imm_args." << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
                             <<      "}"
                             << "}"
                             ;

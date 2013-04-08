@@ -479,10 +479,13 @@ static void generate_dependences_of_expression(
 
                 // FIXME - Wrap this sort of things
                 new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                new_symbol.get_internal_symbol()->type_information = expr.get_type().get_internal_type();
+                new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
                 new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
-                        expr, expr.get_type().get_pointer_to(), expr.get_filename(), expr.get_line()).get_internal_nodecl();
+                        expr,
+                        expr.get_type().no_ref().get_pointer_to(),
+                        expr.get_filename(),
+                        expr.get_line()).get_internal_nodecl();
 
                 outline_register_entities.add_shared_special(new_symbol);
 
@@ -570,7 +573,10 @@ static void generate_dependences_of_expression(
     {
         Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
         new_symbol_nodecl.set_type(new_symbol.get_type());
-        update_expr.replace(new_symbol_nodecl);
+        update_expr.replace(Nodecl::Dereference::make(new_symbol_nodecl,
+                    new_symbol.get_type().points_to(),
+                    new_symbol_nodecl.get_filename(),
+                    new_symbol_nodecl.get_line()));
     }
 }
 
