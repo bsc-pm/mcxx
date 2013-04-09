@@ -31,6 +31,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <time.h>
+
+#include "filename.h"
+
 #include "cxx-codegen.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-extensible-graph.hpp"
@@ -71,7 +75,31 @@ namespace Analysis {
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
             }
         }
-        std::string dot_file_name = directory_name + _name + ".dot";
+
+        std::string date_str;
+        {
+            time_t t = time(NULL);
+            struct tm* tmp = localtime(&t);
+            if (tmp == NULL)
+            {
+                internal_error("localtime failed", 0);
+            }
+            char outstr[200];
+            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+            {
+                internal_error("strftime failed", 0);
+            }
+            outstr[199] = '\0';
+            date_str = outstr;
+        }
+
+        Nodecl::NodeclBase node = this->get_nodecl();
+        std::string filename = ::give_basename(node.get_filename().c_str());
+        int line = node.get_line();
+
+        std::stringstream ss; ss << filename << "_" << line;
+
+        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( dot_pcfg.good( ) )
         {   // Create the dot graphs
