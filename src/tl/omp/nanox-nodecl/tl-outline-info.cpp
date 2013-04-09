@@ -1091,7 +1091,13 @@ namespace TL { namespace Nanox {
 
         Counter& task_counter = CounterManager::get_counter("nanos++-outline");
         std::stringstream ss;
-        ss << "ol_" << function_symbol.get_name() << "_" << (int)task_counter;
+        ss << "ol_";
+        if (IS_FORTRAN_LANGUAGE && function_symbol.is_nested_function())
+        {
+            TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
+            ss << enclosing_function_symbol.get_name() << "_";
+        }
+        ss << function_symbol.get_name() << "_" << (int)task_counter;
         outline_name = ss.str();
 
         task_counter++;
