@@ -167,7 +167,7 @@ void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataI
 
             TL::Source dependency_regions, dependency_init, dependence;
             code
-                << "err = nanos_dependence_pendant_writes(&result, &" << c->depends_on[i]->expression.prettyprint() <<  ");"
+                << "err = nanos_dependence_pendant_writes(&result, (void *) &(" << c->depends_on[i]->expression.prettyprint() <<  "));"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
                 << "if (result)"
                 << "{"
@@ -957,7 +957,7 @@ void LoweringVisitor::fill_arguments(
                             <<      "nanos_err_t err;"
                             <<      lvalue_subexpressions_code
                             <<      as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");"
-                            <<      "err = nanos_dependence_pendant_writes(&result, &" << toplevel_lvalue->expression.prettyprint() <<  ");"
+                            <<      "err = nanos_dependence_pendant_writes(&result, (void *) &(" << toplevel_lvalue->expression.prettyprint() <<  "));"
                             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
                             ;
 
@@ -2261,7 +2261,7 @@ void LoweringVisitor::handle_dependency_item(
 
         dependency_init
             << "{"
-            << as_expression(base_address) << ", "
+            << "(void *) " << as_expression(base_address) << ", "
             << dependency_flags << ", "
             << num_dimension_items << ", "
             << "dimensions_" << current_dep_num << ","
