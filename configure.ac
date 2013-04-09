@@ -568,56 +568,52 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
       MPI_CNAME=mpiicc
       MPI_CXXNAME=mpiicpc
       MPI_FORTNAME=mpiifort
-      AC_CHECK_FILES([$MPIPATH/$MPI_CNAME], 
-                    [						
+      if test -f $MPIPATH/$MPI_CNAME; then
                     mpi_found=yes 
                     MPICC=$MPIPATH/$MPI_CNAME
                     MPICXX=$MPIPATH/$MPI_CXXNAME
                     MPIFORT=$MPIPATH/$MPI_FORTNAME
                     MPIMODULE=mpich
-                    ], 
-                    [mpi_valid=no])
+      else
+                    mpi_valid=no
+      fi
       #search in the path without bin
       if test x$mpi_found = xno; then		
          mpi_found=no
-         AC_CHECK_FILES([$MPIPATH/bin/$MPI_CNAME], 
-                      [
+			if test -f $MPIPATH/bin/$MPI_CNAME; then 
                       mpi_found=yes 
                       MPICC=$MPIPATH/bin/$MPI_CNAME
                       MPICXX=$MPIPATH/bin/$MPI_CXXNAME
                       MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
                       MPIMODULE=mpich
-                      ],
-                      [
+         else
                       mpi_valid=no
-                      ])
+         fi
        fi		
        MPI_CNAME=mpicc
        MPI_CXXNAME=mpicxx
        MPI_FORTNAME=mpif90
-       AC_CHECK_FILES([$MPIPATH/$MPI_CNAME], 
-                            [						
+       if test -f $MPIPATH/$MPI_CNAME; then	
                             mpi_found=yes 
                             MPICC=$MPIPATH/$MPI_CNAME
                             MPICXX=$MPIPATH/$MPI_CXXNAME
                             MPIFORT=$MPIPATH/$MPI_FORTNAME                            
                             MPIMODULE=openmpi
-                            ], 
-                            [mpi_valid=no])
+       else
+                      mpi_valid=no
+       fi
        #search in the path without bin
        if test x$mpi_found = xno; then		
           mpi_found=no
-          AC_CHECK_FILES([$MPIPATH/bin/$MPI_CNAME], 
-          [
-          mpi_found=yes 
-          MPICC=$MPIPATH/bin/$MPI_CNAME
-          MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-          MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-          MPIMODULE=openmpi
-          ],
-          [
-          mpi_valid=no
-          ])
+			 if test -f $MPIPATH/bin/$MPI_CNAME; then           
+            mpi_found=yes 
+            MPICC=$MPIPATH/bin/$MPI_CNAME
+            MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+            MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+            MPIMODULE=openmpi
+          else
+                       mpi_valid=no
+          fi
        fi
 
        if test x$mpi_found = xno; then
