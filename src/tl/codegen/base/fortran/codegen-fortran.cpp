@@ -2825,6 +2825,8 @@ OPERATOR_TABLE
         file << "INTERFACE\n";
         inc_indent();
 
+        push_declaration_status();
+
         std::stringstream fun_name;
         if (function_name == "")
         {
@@ -2866,6 +2868,9 @@ OPERATOR_TABLE
         dec_indent();
         indent();
         file << "END INTERFACE\n";
+
+        // And restore the state after the interface has been emitted
+        pop_declaration_status();
 
         return fun_name.str();
     }

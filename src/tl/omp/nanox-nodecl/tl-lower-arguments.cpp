@@ -134,7 +134,18 @@ namespace TL { namespace Nanox {
         }
 
         TL::Symbol related_symbol = construct.retrieve_context().get_related_symbol();
+
         TL::Scope sc(related_symbol.get_scope().get_decl_context());
+
+        // We are enclosed by a function because we are an internal subprogram
+        if (IS_FORTRAN_LANGUAGE && related_symbol.is_nested_function())
+        {
+            // Get the enclosing function
+            related_symbol = related_symbol.get_scope().get_related_symbol();
+
+            // Update the scope
+            sc = related_symbol.get_scope();
+        }
 
         if (related_symbol.is_member())
         {
@@ -176,7 +187,8 @@ namespace TL { namespace Nanox {
 
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-        decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(), new_class_symbol.get_internal_symbol());
+        decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
+                new_class_symbol.get_internal_symbol());
 
         TL::Scope class_scope(class_context);
 
