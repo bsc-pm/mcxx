@@ -24,18 +24,18 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg use_def liveness reach_defs loops auto-scope task_analysis singleton test_phase
+include $(top_srcdir)/src/tl/Makefile.tl
+
+lib_LTLIBRARIES = libtask_analysis.la
+
+libtask_analysis_la_CFLAGS = $(tl_cflags)
+libtask_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libtask_analysis_la_LDFLAGS = $(tl_ldflags)
+libtask_analysis_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-DIST_SUBDIRS= common \
-              pcfg \
-              use_def \
-              liveness \
-              reach_defs \
-              loops \
-              auto-scope \
-			  task_analysis \
-              singleton \
-              test_phase \
-              $(END)
+libtask_analysis_la_SOURCES = tl-task-sync-analysis.hpp \
+				      tl-task-sync-analysis.cpp \
+                      $(END)
+
