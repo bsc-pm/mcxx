@@ -562,6 +562,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     // Check for const-ness
     int i, n, num_elements_flattened = 0;
     char all_constants = 1;
+    char all_exprs_const_type = 1;
     nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
 
     const_value_t* constants[n + 1];
@@ -571,6 +572,8 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     {
         constants[i] = nodecl_get_constant(list[i]);
         all_constants = all_constants && (constants[i] != NULL);
+        all_exprs_const_type = all_exprs_const_type
+            && (is_const_qualified_type(no_ref(nodecl_get_type(list[i]))));
 
         if (constants[i] != NULL)
         {
@@ -593,7 +596,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
                 const_value_to_nodecl(const_value_get_signed_int(num_items)),
                 decl_context);
 
-        if (all_constants)
+        if (all_constants || all_exprs_const_type)
         {
             ac_value_type = get_const_qualified_type(ac_value_type);
         }
@@ -1822,6 +1825,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     }
 
     char all_components_are_const = 1;
+    char all_components_are_const_type = 1;
 
     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
 
@@ -1940,6 +1944,11 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 all_components_are_const = 0;
             }
 
+            if (!is_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr))))
+            {
+                all_components_are_const_type = 0;
+            }
+
             initialization_expressions[current_member_index] = nodecl_expr;
 
             component_position++;
@@ -2010,6 +2019,10 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
 
         const_value_t* value = const_value_make_struct(num_items, items, get_user_defined_type(entry));
         nodecl_set_constant(*nodecl_output, value);
+    }
+    else if (all_components_are_const_type)
+    {
+        nodecl_set_type(*nodecl_output, get_const_qualified_type(nodecl_get_type(*nodecl_output)));
     }
 
     entry_list_free(nonstatic_data_members);
@@ -2714,9 +2727,14 @@ static void check_called_symbol_list(
             }
             else if (common_rank > 0)
             {
-                return_type = fortran_get_n_ranked_type(
-                        function_type_get_return_type(entry->type_information),
-                        common_rank, decl_context);
+                return_type = function_type_get_return_type(entry->type_information);
+
+                if (!is_void_type(return_type))
+                {
+                    return_type = fortran_get_n_ranked_type(
+                            function_type_get_return_type(entry->type_information),
+                            common_rank, decl_context);
+                }
             }
             else
             {
@@ -4887,13 +4905,17 @@ void fortran_check_initialization(
 
         if (!nodecl_is_constant(*nodecl_output))
         {
-            if (!checking_ambiguity())
+            if (!is_const_qualified_type(no_ref(nodecl_get_type(*nodecl_output))))
             {
-                error_printf("%s: error: initializer '%s' is not a constant expression\n",
-                        ast_location(expr),
-                        codegen_to_str(*nodecl_output, nodecl_retrieve_context(*nodecl_output)));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: initializer '%s' is not a constant expression\n",
+                            ast_location(expr),
+                            codegen_to_str(*nodecl_output, nodecl_retrieve_context(*nodecl_output)));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            // If it is const type but not constant value, it is fine
             return;
         }
 
