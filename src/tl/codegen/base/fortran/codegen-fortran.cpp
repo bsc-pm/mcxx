@@ -53,6 +53,13 @@ namespace Codegen
         State old_state = state;
         state = State();
 
+        // Keep a local copy of these maps and reset them
+        ptr_loc_map_t old_ptr_loc_map = _ptr_loc_map;
+        ptr_loc_map_t old_fun_loc_map = _fun_loc_map;
+
+        _ptr_loc_map.clear();
+        _fun_loc_map.clear();
+
         std::string old_file = file.str();
 
         file.clear();
@@ -72,6 +79,10 @@ namespace Codegen
         {
             this->emit_ptr_loc_C();
         }
+
+        // Restore previous maps
+        _ptr_loc_map = old_ptr_loc_map;
+        _fun_loc_map = old_fun_loc_map;
 
         return result;
     }
@@ -5652,6 +5663,9 @@ OPERATOR_TABLE
         TL::CompilationProcess::add_file(file_name, "auxcc");
 
         ::mark_file_for_cleanup(file_name.c_str());
+
+        _ptr_loc_map.clear();
+        _fun_loc_map.clear();
     }
 
     std::string FortranBase::emit_declaration_for_symbol(TL::Symbol symbol, TL::Scope sc)
