@@ -573,6 +573,7 @@ namespace Analysis {
                 case OMP_BARRIER:           type = "OMP_BARRIER";           break;
                 case OMP_FLUSH:             type = "OMP_FLUSH";             break;
                 case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
+                case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;

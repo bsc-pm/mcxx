@@ -50,6 +50,7 @@ namespace Analysis {
         OMP_BARRIER,
         OMP_FLUSH,
         OMP_TASKWAIT,
+        OMP_WAITON_DEPS,
         OMP_TASKYIELD,
         OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
                              //! when the function that creates the task has ended
