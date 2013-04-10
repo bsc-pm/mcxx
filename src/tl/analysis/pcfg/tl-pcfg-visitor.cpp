@@ -543,6 +543,9 @@ namespace Analysis {
         Node* taskwait_node = new Node( _utils->_nid, OMP_TASKWAIT, _utils->_outer_nodes.top( ) );
         // Connect with the last nodes created
         _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
+
+        // We don't do this here anymore
+#if 0
         // Created with previous tasks in the same level of nesting
         if( _utils->_tasks_to_sync.size( ) > ( _utils->_task_level ) )
         {   // There is some task to synchronize
@@ -557,6 +560,7 @@ namespace Analysis {
                                         ObjectList<std::string>( n_connects, "" ), /* is task edge */ true );
             }
         }
+#endif
 
         _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
         return ObjectList<Node*>();
@@ -2000,9 +2004,11 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
-        PCFGClause current_clause( WAITON, n.get_environment( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( );
+        Node* taskwait_node = new Node( _utils->_nid, OMP_WAITON_DEPS, _utils->_outer_nodes.top( ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
+        return ObjectList<Node*>();
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
