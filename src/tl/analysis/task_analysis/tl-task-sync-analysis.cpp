@@ -289,6 +289,16 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             }
         }
     }
+
+
+    ObjectList<Node*> children = current->get_children( );
+    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+    {
+        compute_task_synchronizations_rec(*it,
+                changed,
+                alive_tasks,
+                points_of_sync);
+    }
 }
 
 } }
