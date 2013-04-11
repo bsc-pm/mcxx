@@ -267,9 +267,59 @@ namespace Analysis {
 
                 Utils::ext_sym_set ue_vars, killed_vars, undef_vars;
                 ObjectList<Utils::ext_sym_set> usage = get_use_def_over_nodes( current->get_graph_entry_node( ) );
-                current->set_ue_var( usage[0] );
-                current->set_killed_var( usage[1] );
-                current->set_undefined_behaviour_var( usage[2] );
+                ue_vars = usage[0];
+                killed_vars = usage[1];
+                undef_vars = usage[2];
+
+                if( current->is_omp_loop_node( ) || current->is_omp_sections_node( ) || current->is_omp_single_node( )
+                    || current->is_omp_parallel_node( ) || current->is_omp_task_node( ) )
+                {   // Take into account data-sharing clauses in Use-Def Task node computation
+                    Nodecl::List environ =
+                            current->get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
+                    for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
+                    {
+                        if( it->is<Nodecl::OpenMP::Private>( ) )
+                        {   // Remove any usage computed in the inner nodes,
+                            // because is the usage of a copy of this variable
+                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_private_symbols( ).as<Nodecl::List>( );
+                            for( Nodecl::List::iterator it_p = private_syms.begin( ); it_p != private_syms.end( ); ++it_p )
+                            {
+//                                 std::cerr << "Private symbol: " << it_p->prettyprint( ) << std::endl;
+                                if( Utils::ext_sym_set_contains_nodecl( *it_p, undef_vars ) )
+                                {
+//                                     std::cerr << "     is in undef set" << std::endl;
+                                    undef_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                }
+                                else
+                                {
+                                    if( Utils::ext_sym_set_contains_nodecl( *it_p, ue_vars ) )
+                                    {
+                                        ue_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                    }
+                                    if( Utils::ext_sym_set_contains_nodecl( *it_p, killed_vars ) )
+                                    {
+                                        killed_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                    }
+                                }
+                            }
+                        }
+                        if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
+                        {   // This variable is Upper Exposed in the task
+                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_firstprivate_symbols( ).as<Nodecl::List>( );
+                            for( Nodecl::List::iterator it_fp = firstprivate_syms.begin( ); it_fp != firstprivate_syms.end( ); ++it_fp )
+                            {
+                                if( !Utils::ext_sym_set_contains_nodecl( *it_fp, ue_vars ) )
+                                {
+                                    ue_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                }
+                            }
+                        }
+                    }
+                }
+
+                current->set_ue_var( ue_vars );
+                current->set_killed_var( killed_vars );
+                current->set_undefined_behaviour_var( undef_vars );
             }
         }
         else
@@ -452,8 +502,8 @@ namespace Analysis {
     void UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
     {
         // Traverse the use of both the lhs and the rhs
-        walk( lhs );
         walk( rhs );
+        walk( lhs );
 
         // Traverse the definition of the lhs
         _define = true;
@@ -838,7 +888,11 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::Assignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        _define = false;
+        walk( n.get_rhs( ) );
+        _define = true;
+        walk( n.get_lhs( ) );
+        _define = false;
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
