@@ -11359,6 +11359,15 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
             parameter_info_t param_info[N+1];
             memset(param_info, 0, sizeof(param_info));
 
+            if (function_type_get_has_ellipsis(orig))
+            {
+                //The last parameter is an ellipsis (It has not type)
+                param_info[N-1].is_ellipsis = 1;
+                param_info[N-1].type_info = NULL;
+                param_info[N-1].nonadjusted_type_info = NULL;
+                N = N - 1;
+            }
+
             for (i = 0; i < N; i++)
             {
                 param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, symbol_map);
