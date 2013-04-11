@@ -309,6 +309,11 @@ FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
+\
+FORTRAN_GENERIC_INTRINSIC(NULL, sind, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cosd, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tand, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atan2d, "Y,X", E, NULL) \
 ISO_C_BINDING_INTRINSICS \
 IEEE_EXCEPTIONS_INTRINSICS \
 MERCURIUM_SPECIFIC_INTRINSICS
@@ -1450,6 +1455,21 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", fortran_get_default_real_type());
 
+    REGISTER_SPECIFIC_INTRINSIC_1("sind", "sind", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsind", "sind", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("csind", "sind", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("cosd", "cosd", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcosd", "cosd", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ccosd", "cosd", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("tand", "tand", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtand", "tand", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ctand", "tand", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2d", "atan2d", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2d", "atan2d", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
+
     // Non standard stuff
     // Very old (normally from g77) intrinsics
     REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
@@ -1872,6 +1892,24 @@ scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
     return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
+scope_entry_t* compute_intrinsic_atan2d(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+    // t0 == Y
+    // t1 == X
+    type_t* t1 = fortran_get_rank0_type(argument_types[1]);
+    if (is_floating_type(t0)
+            && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("atan2d", t1, t1, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -2264,6 +2302,22 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("cos", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_cosd(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("cosd", t0, t0);
     }
     return NULL;
 }
@@ -5364,6 +5418,22 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_sind(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("sind", t0, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5581,6 +5651,22 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("tan", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_tand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("tand", t0, t0);
     }
     return NULL;
 }
