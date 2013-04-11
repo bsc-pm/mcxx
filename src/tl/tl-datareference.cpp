@@ -51,19 +51,19 @@ namespace TL
             }
 
             // Symbol
-            virtual void visit(const Nodecl::Symbol& sym)
+            virtual void visit(const Nodecl::Symbol& n)
             {
-                _data_ref._base_symbol = sym.get_symbol();
+                _data_ref._base_symbol = n.get_symbol();
 
                 TL::Type t;
 
-                if (sym.get_type().is_valid())
+                if (n.get_type().is_valid())
                 {
-                    t = sym.get_type();
+                    t = n.get_type();
                 }
                 else
                 {
-                    t = sym.get_symbol().get_type();
+                    t = n.get_symbol().get_type();
                 }
 
                 if (t.is_any_reference())
@@ -71,10 +71,25 @@ namespace TL
 
                 _data_ref._data_type = t;
                 _data_ref._base_address = Nodecl::Reference::make(
-                        sym.shallow_copy(),
+                        n.shallow_copy(),
                         t.get_pointer_to(),
-                        sym.get_filename(),
-                        sym.get_line());
+                        n.get_filename(),
+                        n.get_line());
+
+                if (IS_FORTRAN_LANGUAGE
+                        && _data_ref == n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+                    if (sym.is_parameter()
+                            && sym.get_type().no_ref().is_array()
+                            && !sym.get_type().no_ref().array_requires_descriptor()
+                            && sym.get_type().no_ref().array_get_size().is_null())
+                    {
+                        // This is a 'A' where A is an assumed size array.
+                        // We cannot accept this case
+                        _data_ref._is_valid = false;
+                    }
+                }
             }
 
             virtual void visit(const Nodecl::Dereference& derref)
@@ -884,7 +899,11 @@ namespace TL
                         }
                         else
                         {
-                            return Nodecl::NodeclBase::null();
+                            if ((it + 1) != subscripts.end())
+                            {
+                                return Nodecl::NodeclBase::null();
+                            }
+                            current_size = Nodecl::NodeclBase::null();
                         }
                     }
                     sizes.append(current_size.shallow_copy());
