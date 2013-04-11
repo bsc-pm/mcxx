@@ -37,6 +37,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
 #include "fortran03-scope.h"
+#include "fortran03-modules.h"
 #include <string.h>
 #include "red_black_tree.h"
 #include "fortran03-intrinsics-simplify.h"
