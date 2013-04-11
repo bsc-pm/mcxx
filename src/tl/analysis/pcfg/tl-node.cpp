@@ -402,6 +402,56 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
+    bool Node::is_omp_atomic_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
+    }
+
+    bool Node::is_omp_barrier_node( )
+    {
+        return ( get_type( ) == OMP_BARRIER );
+    }
+
+    bool Node::is_omp_critical_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+    }
+
+    bool Node::is_omp_flush_node( )
+    {
+        return ( get_type( ) == OMP_FLUSH );
+    }
+
+    bool Node::is_omp_loop_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_LOOP ) );
+    }
+
+    bool Node::is_omp_master_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_MASTER ) );
+    }
+
+    bool Node::is_omp_parallel_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_PARALLEL ) );
+    }
+
+    bool Node::is_omp_section_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTION ) );
+    }
+
+    bool Node::is_omp_sections_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
+    }
+
+    bool Node::is_omp_single_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
+    }
+
     bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
@@ -412,19 +462,9 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKWAIT );
     }
 
-    bool Node::is_omp_barrier_node( )
+    bool Node::is_omp_taskyield_node( )
     {
-        return ( get_type( ) == OMP_BARRIER );
-    }
-
-    bool Node::is_omp_atomic_node( )
-    {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
-    }
-
-    bool Node::is_omp_critical_node( )
-    {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+        return ( get_type( ) == OMP_TASKYIELD );
     }
 
     bool Node::is_connected( )
