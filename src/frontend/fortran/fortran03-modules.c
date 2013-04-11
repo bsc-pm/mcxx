@@ -2138,8 +2138,30 @@ static int get_symbol(void *datum,
     else if ((*result)->kind == SK_FUNCTION
             && (*result)->entity_specs.is_builtin)
     {
-        scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(CURRENT_COMPILED_FILE->global_decl_context,
-                (*result)->symbol_name);
+        scope_entry_t* entry_intrinsic = NULL;
+        if ((*result)->entity_specs.from_module != NULL)
+        {
+            scope_entry_t* ultimate_symbol = fortran_get_ultimate_symbol(*result);
+
+            scope_entry_t* module = get_module_in_cache(ultimate_symbol->entity_specs.in_module->symbol_name);
+
+            ERROR_CONDITION(module == NULL, "Unknown intrinsic module '%s'\n", 
+                    ultimate_symbol->entity_specs.in_module->symbol_name);
+
+            ERROR_CONDITION(!module->entity_specs.is_builtin, "%s is not an intrinsic module but %s.%s is an intrinsic function",
+                    module->symbol_name,
+                    module->symbol_name,
+                    (*result)->symbol_name);
+            scope_entry_list_t* res = fortran_query_module_for_name(module, ultimate_symbol->symbol_name);
+            if (res != NULL)
+                entry_intrinsic = entry_list_head(res);
+            entry_list_free(res);
+        }
+        else
+        {
+            entry_intrinsic = fortran_query_intrinsic_name_str(CURRENT_COMPILED_FILE->global_decl_context,
+                    (*result)->symbol_name);
+        }
         ERROR_CONDITION(entry_intrinsic == NULL, "Invalid intrinsic '%s'\n", (*result)->symbol_name);
 
         copy_intrinsic_function_info(*result, entry_intrinsic);
@@ -3243,6 +3265,15 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
 
     dispose_storage(handle);
 }
+
+scope_entry_t* get_module_in_cache(const char* module_name)
+{
+    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name);
+    ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name);
+    scope_entry_t* module_sym = (scope_entry_t*)rb_node_get_info(query);
+    return module_sym;
+}
+
 
 #ifdef DEBUG_SQLITE3_MPRINTF
  #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc
