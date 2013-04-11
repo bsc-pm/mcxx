@@ -485,6 +485,7 @@ namespace TL { namespace Nanox {
 
         int lower_bound_index = 1;
         int upper_bound_index = 1;
+        TL::ObjectList<TL::Symbol> cray_pointee_list;
 
         for (; it != data_items.end(); it++)
         {
@@ -504,8 +505,8 @@ namespace TL { namespace Nanox {
             {
                 name = (*it)->get_field_name();
             }
-            bool already_mapped = false;
 
+            bool already_mapped = false;
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -521,6 +522,17 @@ namespace TL { namespace Nanox {
 
                             // Copy attributes that must be preserved
                             private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+
+                            // Cray pointeers are handled a bit special
+                            if (sym.is_cray_pointee())
+                            {
+                                private_sym->entity_specs.is_cray_pointee = 1;
+
+                                // We cannot set the right cray_pointer symbol yet because It's possible that has not been created
+                                private_sym->entity_specs.cray_pointer = sym.get_cray_pointer().get_internal_symbol();
+
+                                cray_pointee_list.append(private_sym);
+                            }
                         }
 
                         private_symbols.append(private_sym);
@@ -689,6 +701,19 @@ namespace TL { namespace Nanox {
                     {
                         internal_error("Unexpected data sharing kind", 0);
                     }
+            }
+        }
+
+        FORTRAN_LANGUAGE()
+        {
+            // Now, we can update the cray_pointers of any cray_pointee properly
+            for (TL::ObjectList<TL::Symbol>::iterator it_cray_pointee = cray_pointee_list.begin();
+                    it_cray_pointee != cray_pointee_list.end();
+                    it_cray_pointee++)
+            {
+                TL::Symbol cray_pointee = *it_cray_pointee;
+                TL::Symbol updated_cray_pointer =  symbol_map->map(cray_pointee.get_cray_pointer());
+                cray_pointee.get_internal_symbol()->entity_specs.cray_pointer = updated_cray_pointer.get_internal_symbol();
             }
         }
 
