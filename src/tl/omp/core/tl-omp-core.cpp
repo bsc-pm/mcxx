@@ -225,6 +225,13 @@ namespace TL
                             continue;
                         }
 
+                        if (base_sym.is_cray_pointee())
+                        {
+                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since a cray pointee cannot appear un data-sharing clauses" << std::endl;
+                            continue;
+                        }
+
                         data_ref_list.append(data_ref);
                     }
                 }
