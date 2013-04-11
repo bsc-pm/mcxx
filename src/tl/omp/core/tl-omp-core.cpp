@@ -1097,7 +1097,11 @@ namespace TL
                             }
                         }
 
-                        if (is_shared)
+                        if (sym.is_cray_pointee())
+                        {
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                        }
+                        else if (is_shared)
                         {
                             data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                         }
