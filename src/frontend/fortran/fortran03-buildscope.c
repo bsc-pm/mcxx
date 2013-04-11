@@ -8094,7 +8094,7 @@ static char come_from_the_same_module(scope_entry_t* new_symbol_used,
     return new_symbol_used == existing_symbol;
 }
 
-static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
+scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* local_name, 
         scope_entry_t* module_symbol,

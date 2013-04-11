@@ -1085,6 +1085,7 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
 
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
@@ -1180,6 +1181,8 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     // Sign in specific names for intrinsics
     fortran_init_specific_names(fortran_intrinsic_context);
+
+    fortran_finish_intrinsic_modules(decl_context);
 }
 
 static scope_entry_t* register_specific_intrinsic_name(
@@ -6614,18 +6617,6 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
 
 static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_context)
 {
-// TYPE(IEEE_CLASS_TYPE) :: IEEE_SIGNALING_NAN, IEEE_QUIET_NAN, IEEE_NEGATIVE_INF, &
-// IEEE_NEGATIVE_NORMAL, IEEE_NEGATIVE_DENORMAL, IEEE_NEGATIVE_ZERO, &
-// IEEE_POSITIVE_ZERO, IEEE_POSITIVE_DENORMAL, IEEE_POSITIVE_NORMAL, &
-// IEEE_POSITIVE_INF
-//
-// TYPE IEEE_ROUND_TYPE
-//     PRIVATE
-//     INTEGER :: DUMMY
-// END TYPE IEEE_ROUND_TYPE
-//
-// TYPE(IEEE_ROUND_TYPE) :: IEEE_NEAREST, IEEE_TO_ZERO, IEEE_UP, IEEE_DOWN, IEEE_OTHER
-
     // Initialize IEEE_ARITHMETIC
     decl_context_t module_context = new_program_unit_context(decl_context);
 
@@ -7380,6 +7371,30 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
 {
     fortran_init_intrinsic_module_iso_c_binding(decl_context);
     fortran_init_intrinsic_module_ieee(decl_context);
+}
+
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Finish modules
+    //
+    // IEEE_ARITHMETICS modules has a USE IEEE_EXCEPTIONS
+    scope_entry_t* ieee_arithmetic = get_module_in_cache("ieee_arithmetic");
+    scope_entry_t* ieee_exceptions = get_module_in_cache("ieee_exceptions");
+
+    int i;
+    for (i = 0; i < ieee_exceptions->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym_in_module = ieee_exceptions->entity_specs.related_symbols[i];
+
+        if (sym_in_module->entity_specs.access == AS_PRIVATE)
+            continue;
+
+        insert_symbol_from_module(sym_in_module,
+                ieee_arithmetic->related_decl_context,
+                sym_in_module->symbol_name,
+                ieee_exceptions,
+                "", 0);
+    }
 }
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
