@@ -1054,6 +1054,12 @@ namespace TL
                     continue;
                 }
 
+                if (sym.is_cray_pointee())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                    sym  = sym.get_cray_pointer();
+                }
+
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
@@ -1097,11 +1103,7 @@ namespace TL
                             }
                         }
 
-                        if (sym.is_cray_pointee())
-                        {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
-                        }
-                        else if (is_shared)
+                        if (is_shared)
                         {
                             data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                         }
