@@ -6807,6 +6807,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             continue;
         }
 
+        pointer_entry->entity_specs.is_cray_pointer = 1;
+
         AST pointee_name = pointee_decl;
         AST array_spec = NULL;
         if (ASTType(pointee_decl) == AST_DIMENSION_DECL)
