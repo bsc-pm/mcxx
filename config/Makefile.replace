@@ -8,6 +8,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
+     -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
      -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
@@ -19,6 +21,11 @@ config_edit = \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
      -e 's|@DISABLE_CUDA[@]|$(DISABLE_CUDA)|g' \
      -e 's|@DISABLE_OPENCL[@]|$(DISABLE_OPENCL)|g' \
+     -e 's|@DISABLE_MPI[@]|$(DISABLE_MPI)|g' \
+     -e 's|@MPIFORT[@]|$(MPIFORT)|g' \
+     -e 's|@MPICXX[@]|$(MPICXX)|g' \
+     -e 's|@MPICC[@]|$(MPICC)|g' \
+     -e 's|@MPIMODULE[@]|$(MPIMODULE)|g' \
      -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
      -e 's|@prefix[@]|$(prefix)|g' \
      -e 's|@includedir[@]|$(includedir)|g' \

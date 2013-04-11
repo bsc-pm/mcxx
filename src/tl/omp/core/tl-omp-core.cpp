@@ -269,6 +269,18 @@ namespace TL
                         return;
                     }
 
+                    if (IS_FORTRAN_LANGUAGE
+                            && (_data_attrib & DS_PRIVATE)
+                            && sym.is_parameter()
+                            && sym.get_type().no_ref().is_array()
+                            && !sym.get_type().no_ref().array_requires_descriptor()
+                            && sym.get_type().no_ref().array_get_size().is_null())
+                    {
+                        std::cerr << _ref_tree.get_locus()
+                            << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
+                        return;
+                    }
+
                     if (data_ref.has_symbol())
                     {
                         _data_sharing.set_data_sharing(sym, _data_attrib);
@@ -1052,7 +1064,7 @@ namespace TL
                             << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                             << std::endl;
 
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                        data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
                     }
                     else if (default_data_attr == DS_UNDEFINED)
                     {
@@ -1080,18 +1092,33 @@ namespace TL
 
                         if (is_shared)
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                            data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                         }
                         else
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                            data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
                         }
                     }
                     else
                     {
                         // Set the symbol as having the default data sharing
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
+                        data_attr = (DataSharingAttribute)(default_data_attr | DS_IMPLICIT);
                     }
+
+                    data_sharing.set_data_sharing(sym, data_attr);
+                }
+
+                if (IS_FORTRAN_LANGUAGE
+                        && (data_attr & DS_PRIVATE)
+                        && sym.is_parameter()
+                        && sym.get_type().no_ref().is_array()
+                        && !sym.get_type().no_ref().array_requires_descriptor()
+                        && sym.get_type().no_ref().array_get_size().is_null())
+                {
+                    std::cerr << it->get_locus()
+                        << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
+                    data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
+                    data_sharing.set_data_sharing(sym, data_attr);
                 }
             }
         }

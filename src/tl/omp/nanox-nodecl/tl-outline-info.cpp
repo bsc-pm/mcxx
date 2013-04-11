@@ -462,6 +462,7 @@ namespace TL { namespace Nanox {
                                     sym.get_name().c_str());
                         }
                     }
+                    make_allocatable = false;
                 }
             }
             else if (upper.is<Nodecl::Symbol>()

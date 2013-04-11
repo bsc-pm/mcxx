@@ -191,16 +191,13 @@ void DeviceMPI::generate_additional_mpi_code(
 
     code_host << "MPI_Status ompss___status; "
             << "int err; "            
-            << struct_mpi_create
-            << hostCall;
+            << struct_mpi_create;
     
     code_device_pre << struct_args.get_name() << " args;"
             << "int err; "            
             << "MPI_Comm ompss_parent_comp; "            
             << "err= nanos_mpi_get_parent(&ompss_parent_comp);"
-            << "MPI_Status ompss___status; "
-            << struct_mpi_create
-            << deviceCall;
+            << "MPI_Status ompss___status; ";
 
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
@@ -218,7 +215,6 @@ void DeviceMPI::generate_additional_mpi_code(
     hostCall << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
     deviceCall << " err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
-    //deviceCall << called_task.get_name() << "(" << parameter_call << ");";
 
     
     code_device_post << " int ompss_id_func=" << _currTaskId << ";";
@@ -248,9 +244,13 @@ void DeviceMPI::generate_additional_mpi_code(
         }
         
     }
-
-    struct_mpi_create << "err= nanos_mpi_type_create_struct( " << num_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
-
+    
+    if (num_params>0){
+         struct_mpi_create << "err= nanos_mpi_type_create_struct( " << num_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+         code_host << hostCall;
+         code_device_pre << struct_mpi_create
+            << deviceCall;;
+    }
 
 }
 

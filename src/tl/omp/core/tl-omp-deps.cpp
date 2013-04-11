@@ -92,7 +92,6 @@ namespace TL { namespace OpenMP {
                 it++)
         {
             DataReference expr(*it);
-            std::string warning;
             if (!expr.is_valid())
             {
                 std::cerr << expr.get_error_log();
