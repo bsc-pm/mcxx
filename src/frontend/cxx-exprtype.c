@@ -515,6 +515,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 else if (strcmp(literal, "false") == 0)
                 {
                     val = const_value_get_zero(type_get_size(t), 0);
+                    t = get_bool_false_type();
                 }
                 else
                 {
