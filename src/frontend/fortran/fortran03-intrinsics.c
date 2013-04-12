@@ -5157,7 +5157,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         t3 = t1;
     }
 
-    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t1), shape_size, symbol->decl_context);
+    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), shape_size, symbol->decl_context);
 
     return GET_INTRINSIC_TRANSFORMATIONAL("reshape", r, t0, t1, t2, t3);
 }
