@@ -329,39 +329,39 @@ namespace Analysis {
 
     void PCFGVisitor::synchronize_tasks( )
     {
-        Node* virtual_sync = NULL;
-        for( ObjectList<Node*>::iterator it_t = _pcfg->_task_nodes_l.begin( );
-             it_t != _pcfg->_task_nodes_l.end( ); ++it_t )
-        {
-            ObjectList<Node*> children = ( *it_t )->get_children( );
-            if( children.empty( ) )
-            {
-                if( virtual_sync == NULL )
-                {
-                    virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
-                }
-                _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
-            }
-            else
-            {
-                ObjectList<Node*>::iterator it_c;
-                for( it_c = children.begin( ); it_c != children.end( ); it_c++ )
-                {
-                    if( !ExtensibleGraph::node_is_in_conditional_branch( *it_c, ( *it_t )->get_outer_node( ) ) )
-                    {
-                        break;
-                    }
-                }
-                if( it_c == children.end( ) )
-                {   // All children are in conditional branches
-                    if( virtual_sync == NULL )
-                    {
-                        virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
-                    }
-                    _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
-                }
-            }
-        }
+        // Node* virtual_sync = NULL;
+        // for( ObjectList<Node*>::iterator it_t = _pcfg->_task_nodes_l.begin( );
+        //      it_t != _pcfg->_task_nodes_l.end( ); ++it_t )
+        // {
+        //     ObjectList<Node*> children = ( *it_t )->get_children( );
+        //     if( children.empty( ) )
+        //     {
+        //         if( virtual_sync == NULL )
+        //         {
+        //             virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
+        //         }
+        //         _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
+        //     }
+        //     else
+        //     {
+        //         ObjectList<Node*>::iterator it_c;
+        //         for( it_c = children.begin( ); it_c != children.end( ); it_c++ )
+        //         {
+        //             if( !ExtensibleGraph::node_is_in_conditional_branch( *it_c, ( *it_t )->get_outer_node( ) ) )
+        //             {
+        //                 break;
+        //             }
+        //         }
+        //         if( it_c == children.end( ) )
+        //         {   // All children are in conditional branches
+        //             if( virtual_sync == NULL )
+        //             {
+        //                 virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
+        //             }
+        //             _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
+        //         }
+        //     }
+        // }
 
         _utils->_tasks_to_sync.clear( );
     }

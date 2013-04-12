@@ -24,8 +24,8 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#ifndef TL_REACHING_DEFINITIONS_HPP
-#define TL_REACHING_DEFINITIONS_HPP
+#ifndef TL_TASK_SYNC_ANALYSIS_HPP
+#define TL_TASK_SYNC_ANALYSIS_HPP
 
 #include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
@@ -41,19 +41,19 @@ namespace TL { namespace Analysis {
         TaskSync_No = 2
     };
 
+    typedef std::set<Node*> AliveTaskSet;
+    typedef std::map<Node*, AliveTaskSet > AliveTasks;
+    typedef std::set<Node*> PointOfSyncSet;
+    typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
+
     struct LIBTL_CLASS TaskSynchronizations
     {
         private:
             ExtensibleGraph* _graph;
 
-            typedef std::set<Node*> AliveTaskSet;
-            typedef std::map<Node*, AliveTaskSet > AliveTasks;
-            typedef std::set<Node*> PointOfSyncSet;
-            typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
 
             void compute_task_synchronizations_rec(Node* current,
                     bool &changed,
-                    AliveTasks& alive_tasks,
                     PointsOfSync& points_of_sync);
         public:
             TaskSynchronizations(ExtensibleGraph* graph);
