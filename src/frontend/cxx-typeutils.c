@@ -8856,6 +8856,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
+            else
+            {
+                (*result) = identity_scs(t_orig, t_dest);
+            }
+
             return 1;
         }
     }
