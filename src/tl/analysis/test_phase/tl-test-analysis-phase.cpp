@@ -111,6 +111,13 @@ namespace Analysis {
                 pcfgs = analysis.induction_variables( memento, ast );
             }
 
+            // if (_task_sync_enabled)
+            {
+                // if( VERBOSE )
+                    std::cerr << "========= Task Sync analysis =========" << std::endl;
+                pcfgs = analysis.task_sync( memento, ast );
+            }
+
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
                 if( VERBOSE )

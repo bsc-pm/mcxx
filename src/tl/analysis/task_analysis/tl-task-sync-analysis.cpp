@@ -85,18 +85,34 @@ while (change) // els conjunts alive_tasks i points_of_sync van canviant
 
 void TaskSynchronizations::compute_task_synchronizations()
 {
-    AliveTasks alive_tasks;
-    PointsOfSync points_of_sync;
-
     Node *root = _graph->get_graph();
+
+    PointsOfSync points_of_sync;
 
     bool changes;
     do
     {
+        std::cerr << "Computing task synchronizations" << std::endl;
         changes = false;
-        compute_task_synchronizations_rec(root, changes, alive_tasks, points_of_sync);
+        compute_task_synchronizations_rec(root, changes, points_of_sync);
         ExtensibleGraph::clear_visits( root );
+        std::cerr << std::endl << std::endl;
     } while (changes);
+
+    std::cerr << "Task synchronizations computed" << std::endl;
+
+    for (PointsOfSync::iterator it = points_of_sync.begin();
+            it != points_of_sync.end();
+            it++)
+    {
+        for (PointOfSyncSet::iterator jt = it->second.begin();
+                jt != it->second.end();
+                jt++)
+        {
+            std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt)->get_id() << std::endl;
+            _graph->connect_nodes(it->first, *jt);
+        }
+    }
 }
 
 static bool has_task_creation_edges(Node* n)
@@ -142,9 +158,37 @@ static ObjectList<Edge*> get_task_creation_edges(Node* n)
     return result;
 }
 
+static AliveTaskSet& get_alive_in(Node* n)
+{
+    return n->get_data<AliveTaskSet>("alive_tasks_in");
+}
+
+static AliveTaskSet& get_alive_out(Node* n)
+{
+    return n->get_data<AliveTaskSet>("alive_tasks_out");
+}
+
+static std::string print_set(AliveTaskSet& t)
+{
+    std::stringstream ss;
+    ss << "{ ";
+
+    for (AliveTaskSet::iterator it = t.begin();
+            it != t.end();
+            it++)
+    {
+        if (it != t.begin())
+            ss << ", ";
+        ss << (*it)->get_id();
+    }
+
+    ss << " }";
+
+    return ss.str();
+}
+
 void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         bool &changed,
-        AliveTasks& alive_tasks,
         PointsOfSync& points_of_sync)
 {
     if (current->is_visited())
@@ -154,59 +198,80 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
     // Propagate predecessors
     {
-        std::set<Node*> alive_tasks_of_current = alive_tasks[current];
+        std::set<Node*> tmp_alive_tasks_of_current = get_alive_in(current);
+
         ObjectList<Edge*> predecessors = current->get_entry_edges();
         for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
                 predecessor_it != predecessors.end();
                 predecessor_it++)
         {
             Node* predecessor = (*predecessor_it)->get_source();
-            std::set<Node*> alive_tasks_of_predecessor = alive_tasks[predecessor];
+            std::set<Node*>& alive_tasks_of_predecessor = get_alive_out(predecessor);
 
-            alive_tasks_of_current.insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
+            tmp_alive_tasks_of_current.insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
         }
 
-        if (alive_tasks_of_current != alive_tasks[current])
+        if (tmp_alive_tasks_of_current != get_alive_in(current))
         {
-            alive_tasks[current] = alive_tasks_of_current;
+            get_alive_in(current) = tmp_alive_tasks_of_current;
+            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Propagating OUT(pred) into IN(current)" << std::endl;
             changed = true;
         }
     }
 
+    std::cerr << "["
+        << current->get_id()
+        << ":" << current->get_type_as_string()
+        << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
+        << "]"
+        << "Before: IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
+        << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
+
     if (current->is_graph_node())
     {
-        // TODO: Propagate the current graph node info to the entry node info
-        compute_task_synchronizations_rec(current->get_graph_entry_node(),
-                changed,
-                alive_tasks,
-                points_of_sync);
-        // TODO: Propagate the exit info to the current graph node info
+        if (get_alive_in(current) != get_alive_in(current->get_graph_entry_node()))
+        {
+            get_alive_in(current->get_graph_entry_node()) = get_alive_in(current);
+            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Updating IN(entry) of graph node using IN(current)" << std::endl;
+            changed = true;
+        }
+
+        compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync);
+
+        if (get_alive_out(current) != get_alive_out(current->get_graph_exit_node()))
+        {
+            get_alive_out(current) = get_alive_out(current->get_graph_exit_node());
+            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Updating OUT(current) using OUT(exit)" << std::endl;
+            changed = true;
+        }
     }
     else if (current->is_omp_taskwait_node())
     {
         // This is a taskwait without dependences
-        if (!alive_tasks[current].empty())
+        for (std::set<Node*>::iterator alive_tasks_it = get_alive_in(current).begin();
+                alive_tasks_it != get_alive_in(current).end();
+                alive_tasks_it++)
         {
-            std::set<Node*> alive_tasks_of_current = alive_tasks[current];
-            for (std::set<Node*>::iterator alive_tasks_it = alive_tasks_of_current.begin();
-                    alive_tasks_it != alive_tasks_of_current.end();
-                    alive_tasks_it++)
+            if (points_of_sync.find(*alive_tasks_it) != points_of_sync.end())
             {
-                if (points_of_sync.find(*alive_tasks_it) != points_of_sync.end())
-                {
-                    if (points_of_sync[*alive_tasks_it].find(current) == points_of_sync[*alive_tasks_it].end())
-                    {
-                        points_of_sync[*alive_tasks_it].insert(current);
-                        changed = true;
-                    }
-                }
-                else
+                if (points_of_sync[*alive_tasks_it].find(current) == points_of_sync[*alive_tasks_it].end())
                 {
                     points_of_sync[*alive_tasks_it].insert(current);
+                    std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Task synchronizes in this taskwait (among others)" << std::endl;
                     changed = true;
                 }
             }
-            alive_tasks[current].clear();
+            else
+            {
+                points_of_sync[*alive_tasks_it].insert(current);
+                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Task synchronizes in this taskwait" << std::endl;
+                changed = true;
+            }
+        }
+        if (!get_alive_out(current).empty())
+        {
+            get_alive_out(current).clear();
+            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << std::endl;
             changed = true;
         }
     }
@@ -229,9 +294,8 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             // Compute a synchronization from an alive task to the existing task
             if (task_has_dependences(task))
             {
-                std::set<Node*> alive_tasks_of_current = alive_tasks[current];
-                for (std::set<Node*>::iterator alive_tasks_it = alive_tasks_of_current.begin();
-                        alive_tasks_it != alive_tasks_of_current.end();
+                for (std::set<Node*>::iterator alive_tasks_it = get_alive_in(current).begin();
+                        alive_tasks_it != get_alive_in(current).end();
                         alive_tasks_it++)
                 {
                     TaskSyncRel task_sync_rel = compute_task_sync_relationship(*alive_tasks_it, task);
@@ -245,20 +309,39 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                                     if (points_of_sync[*alive_tasks_it].find(current) == points_of_sync[*alive_tasks_it].end())
                                     {
                                         points_of_sync[*alive_tasks_it].insert(current);
+                                        std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                                            << " task (among others maybe) synchronizes in this task creation" << std::endl;
                                         changed = true;
                                     }
                                 }
                                 else
                                 {
                                     points_of_sync[*alive_tasks_it].insert(current);
+                                    std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                                        << " task (maybe) synchronizes in this task creation" << std::endl;
                                     changed = true;
                                 }
 
                                 // If we positively know that this task synchronizes here, remove it from alive_tasks
                                 if (task_sync_rel == TaskSync_Yes)
                                 {
-                                    size_t removed = alive_tasks[current].erase(*alive_tasks_it);
+                                    size_t removed = get_alive_out(current).erase(*alive_tasks_it);
+                                    if (removed != 0)
+                                    {
+                                        std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                                            << " task is not alive after creation" << std::endl;
+                                    }
                                     changed = changed || (removed != 0);
+                                }
+                                else
+                                {
+                                    std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
+                                    if (res.second)
+                                    {
+                                        std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                                            << " task is still alive after creation" << std::endl;
+                                    }
+                                    changed = changed || (res.second);
                                 }
                                 break;
                             }
@@ -274,6 +357,22 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                     }
                 }
             }
+            else
+            {
+                // A task without dependences is OUT(X) = IN(X)
+                for (std::set<Node*>::iterator alive_tasks_it = get_alive_in(current).begin();
+                        alive_tasks_it != get_alive_in(current).end();
+                        alive_tasks_it++)
+                {
+                    std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
+                    if (res.second)
+                    {
+                        std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                            << " task is still alive after creation" << std::endl;
+                    }
+                    changed = changed || (res.second);
+                }
+            }
         }
 
         // Update the alive tasks
@@ -282,22 +381,48 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 task_creation_it++)
         {
             Node* task = (*task_creation_it)->get_target();
-            if (alive_tasks[current].find(task) == alive_tasks[current].end())
+            std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(task);
+
+            if (res.second)
             {
-                alive_tasks[current].insert(task);
-                changed = true;
+                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " a new task is alive from this point" << std::endl;
             }
+            changed = changed || (res.second);
+        }
+    }
+    else
+    {
+        // All other nodes just propagate OUT(X) = IN(X)
+        for (std::set<Node*>::iterator alive_tasks_it = get_alive_in(current).begin();
+                alive_tasks_it != get_alive_in(current).end();
+                alive_tasks_it++)
+        {
+            std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
+            if (res.second)
+            {
+                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ 
+                    << " task is still alive after creation" << std::endl;
+            }
+            changed = changed || (res.second);
         }
     }
 
+    std::cerr << "["
+        << current->get_id()
+        << ":" << current->get_type_as_string()
+        << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
+        << "]"
+        << "After : IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
+        << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
 
-    ObjectList<Node*> children = current->get_children( );
-    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+    ObjectList<Edge*> exit_edges = current->get_exit_edges();
+    for (ObjectList<Edge*>::iterator edge_it = exit_edges.begin();
+            edge_it != exit_edges.end();
+            edge_it++)
     {
-        compute_task_synchronizations_rec(*it,
-                changed,
-                alive_tasks,
-                points_of_sync);
+        if ((*edge_it)->is_task_edge())
+            continue;
+        compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync);
     }
 }
 
