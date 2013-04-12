@@ -37,6 +37,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
 #include "fortran03-scope.h"
+#include "fortran03-modules.h"
 #include <string.h>
 #include "red_black_tree.h"
 #include "fortran03-intrinsics-simplify.h"
@@ -6870,14 +6871,6 @@ static void fortran_init_intrinsic_module_ieee(decl_context_t decl_context)
     fortran_init_intrinsic_module_ieee_exceptions(decl_context);
     fortran_init_intrinsic_module_ieee_arithmetic(decl_context);
     fortran_init_intrinsic_module_ieee_features(decl_context);
-}
-
-static scope_entry_t* get_module_in_cache(const char* module_name)
-{
-    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name);
-    ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name);
-    scope_entry_t* module_sym = (scope_entry_t*)rb_node_get_info(query);
-    return module_sym;
 }
 
 static type_t* get_type_from_module(const char* module_name, const char* type_name)

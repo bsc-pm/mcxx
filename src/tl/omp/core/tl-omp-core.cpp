@@ -225,6 +225,13 @@ namespace TL
                             continue;
                         }
 
+                        if (base_sym.is_cray_pointee())
+                        {
+                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since a cray pointee cannot appear un data-sharing clauses" << std::endl;
+                            continue;
+                        }
+
                         data_ref_list.append(data_ref);
                     }
                 }
@@ -1045,6 +1052,12 @@ namespace TL
                     // 'this' is special
                     data_sharing.set_data_sharing(sym, DS_SHARED);
                     continue;
+                }
+
+                if (sym.is_cray_pointee())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                    sym  = sym.get_cray_pointer();
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
