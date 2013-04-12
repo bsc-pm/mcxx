@@ -579,6 +579,14 @@ namespace TL { namespace Nanox {
                              == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
 
                         parameter_symbols.append(private_sym);
+
+                        if (IS_CXX_LANGUAGE
+                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                        {
+                            TL::Type t = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
+                            ERROR_CONDITION(!t.is_named_class(), "This should be a named class type", 0);
+                            final_statements << as_symbol(private_sym) << ".~" << t.get_symbol().get_name() << "();";
+                        }
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:

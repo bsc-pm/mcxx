@@ -872,26 +872,65 @@ void LoweringVisitor::fill_arguments(
                             }
                             else
                             {
+                                sym_type = sym_type.no_ref().get_unqualified_type();
                                 if ((*it)->get_captured_value().is_null())
                                 {
-                                    // Plain assignment is enough
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (& ol_args->" << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (& imm_args." << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        // Plain assignment is enough
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                    }
                                 }
                                 else
                                 {
                                     Nodecl::NodeclBase captured = (*it)->get_captured_value();
 
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (&ol_args->" << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (&imm_args." << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                    }
                                 }
                             }
                         }

@@ -603,6 +603,13 @@ namespace TL { namespace Nanox {
                 outline_info.set_in_outline_type(t.get_lvalue_reference_to());
             }
 
+            if (IS_CXX_LANGUAGE
+                    && t.is_class()
+                    && !t.is_pod())
+            {
+                outline_info.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
+            }
+
             _outline_info.move_at_end(outline_info);
         }
     }
@@ -629,6 +636,13 @@ namespace TL { namespace Nanox {
             outline_info.set_in_outline_type(in_outline_type);
 
             _outline_info.move_at_end(outline_info);
+
+            if (IS_CXX_LANGUAGE
+                    && t.is_class()
+                    && !t.is_pod())
+            {
+                outline_info.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
+            }
         }
 
         outline_info.set_captured_value(expr);
