@@ -52,7 +52,11 @@
 #include "cxx-diagnostic.h"
 
 #include "fortran03-lexer.h"
+
+#include "mem.h"
+
 // Enable debugging support
+
 
 #define YYDEBUG 1
 #define YYERROR_VERBOSE 1
@@ -66,6 +70,10 @@ void yyerror(AST* parsed_tree, const char* c);
 #define yylex mf03lex
 #define yytext mf03text
 extern int yylex(void);
+
+#define YYMALLOC xmalloc
+#define YYFREE xfree
+#define YYREALLOC xrealloc
 
 %}
 

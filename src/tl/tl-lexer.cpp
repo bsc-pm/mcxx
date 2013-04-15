@@ -42,6 +42,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mem.h"
+
 /* 
    Ugly hacks because of the unavailable modularization of Flex
    */
@@ -91,7 +93,7 @@ namespace TL {
         {
             ObjectList<Lexer::pair_token> result;
 
-            char *line = ::strdup(str.c_str());
+            char *line = ::xstrdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mc99_scan_string(line);
 			mc99_switch_to_buffer(scan_line);
 
@@ -108,7 +110,7 @@ namespace TL {
 
 			mc99_delete_buffer(scan_line);
 
-            ::free(line);
+            ::xfree(line);
 
             return result;
         }
@@ -121,7 +123,7 @@ namespace TL {
         {
             ObjectList<Lexer::pair_token> result;
 
-            char *line = ::strdup(str.c_str());
+            char *line = ::xstrdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mcxx_scan_string(line);
 			mcxx_switch_to_buffer(scan_line);
 
@@ -138,7 +140,7 @@ namespace TL {
 
 			mcxx_delete_buffer(scan_line);
 
-            ::free(line);
+            ::xfree(line);
 
             return result;
         }
@@ -151,7 +153,7 @@ namespace TL {
         {
             ObjectList<Lexer::pair_token> result;
 
-            char *line = ::strdup(str.c_str());
+            char *line = ::xstrdup(str.c_str());
 			YY_BUFFER_STATE scan_line = mf03_scan_string(line);
 			mf03_switch_to_buffer(scan_line);
 
@@ -168,7 +170,7 @@ namespace TL {
 
 			mf03_delete_buffer(scan_line);
 
-            ::free(line);
+            ::xfree(line);
 
             return result;
         }

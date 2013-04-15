@@ -169,7 +169,7 @@ char deduce_template_arguments_common(
         {
             fprintf(stderr, "TYPEDEDUC: Parameter types updated with explicit template arguments\n");
         }
-        deduction_set_t *explicit_deductions = counted_calloc(1, sizeof(*explicit_deductions), &_bytes_typededuc);
+        deduction_set_t *explicit_deductions = counted_xcalloc(1, sizeof(*explicit_deductions), &_bytes_typededuc);
         for (j = 0; j < explicit_template_parameters->num_parameters; j++)
         {
             // Note:  nesting must match
@@ -182,7 +182,7 @@ char deduce_template_arguments_common(
             deduction_t* deduction_item = get_unification_item_template_parameter(&explicit_deductions,
                     current_template_parameter->entry);
 
-            deduced_parameter_t* current_deduced_parameter = counted_calloc(1, sizeof(*current_deduced_parameter), &_bytes_typededuc);
+            deduced_parameter_t* current_deduced_parameter = counted_xcalloc(1, sizeof(*current_deduced_parameter), &_bytes_typededuc);
 
             switch (current_template_parameter->kind)
             {
@@ -315,7 +315,7 @@ char deduce_template_arguments_common(
             fprintf(stderr, "TYPEDEDUC:   Parameter type : %s\n", print_declarator(parameter_type));
         }
 
-        deduction_set_t *current_deduction = counted_calloc(1, sizeof(*current_deduction), &_bytes_typededuc);
+        deduction_set_t *current_deduction = counted_xcalloc(1, sizeof(*current_deduction), &_bytes_typededuc);
         unificate_two_types(parameter_type, argument_type, &current_deduction, updated_context, filename, line, flags);
         deductions[num_deduction_slots] = current_deduction;
         num_deduction_slots++;
@@ -810,8 +810,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     int relevant_arguments = 
         (num_arguments > num_parameters) ? num_parameters : num_arguments;
 
-    type_t** parameter_types = counted_calloc(relevant_arguments, sizeof(*parameter_types), &_bytes_typededuc);
-    type_t** argument_types = counted_calloc(relevant_arguments, sizeof(*argument_types), &_bytes_typededuc);
+    type_t** parameter_types = counted_xcalloc(relevant_arguments, sizeof(*parameter_types), &_bytes_typededuc);
+    type_t** argument_types = counted_xcalloc(relevant_arguments, sizeof(*argument_types), &_bytes_typededuc);
 
     int i;
     // Some changes must be introduced to the types
@@ -1269,7 +1269,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
                 "Bad deduction num_deduced_parameters != 1 (%d)", 
                 current_deduction->num_deduced_parameters);
 
-        template_parameter_value_t* argument = counted_calloc(1, sizeof(*argument), &_bytes_typededuc);
+        template_parameter_value_t* argument = counted_xcalloc(1, sizeof(*argument), &_bytes_typededuc);
 
         switch (current_deduction->kind)
         {

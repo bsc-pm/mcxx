@@ -641,7 +641,7 @@ static void driver_initialization(int argc, const char* argv[])
         allocated_size = MINSIGSTKSZ;
     }
 
-    _alternate_signal_stack = malloc(allocated_size);
+    _alternate_signal_stack = xmalloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -685,12 +685,12 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.argc = argc;
 
     // Copy argv strings
-    compilation_process.argv = calloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.argv = xcalloc(compilation_process.argc, sizeof(const char*));
     memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
 
     // Original versions
     compilation_process.original_argc = argc;
-    compilation_process.original_argv = calloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.original_argv = xcalloc(compilation_process.argc, sizeof(const char*));
     memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
 
     compilation_process.exec_basename = give_basename(argv[0]);
@@ -1212,7 +1212,7 @@ int parse_arguments(int argc, const char* argv[],
                         *value = '\0';
                         value++;
 
-                        external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
+                        external_var_t* new_external_var = xcalloc(1, sizeof(*new_external_var));
 
                         new_external_var->name = uniquestr(name);
                         new_external_var->value = uniquestr(value);
@@ -2136,7 +2136,7 @@ static void enable_debug_flag(const char* flags)
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
 {
     parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) calloc(1, sizeof(parameter_linker_command_t));
+        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
     
      ptr_param->argument = str; 
     
@@ -2154,7 +2154,7 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 
-    (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+    (*existing_options) = xrealloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
 
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -2344,7 +2344,7 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->column_width = 132;
 
     // Add openmp as an implicit (disabled) flag
-    struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+    struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
 
@@ -2353,10 +2353,10 @@ static void initialize_default_values(void)
             new_parameter_flag);
 
     // Add hlt as an implicit flag
-    new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+    new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("hlt");
-    // This is redundant because of calloc, but make it explicit here anyway
+    // This is redundant because of xcalloc, but make it explicit here anyway
     new_parameter_flag->value = 0;
 
     P_LIST_ADD(compilation_process.parameter_flags, 
@@ -2631,7 +2631,7 @@ static void enable_hlt_phase(compilation_configuration_t* configuration)
 
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
-	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
 	cl->func = compiler_regular_phase_loader;
 	cl->data = (void*)uniquestr(library_name);
     P_LIST_ADD_PREPEND(configuration->phase_loader, 
@@ -2783,7 +2783,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
-                //  - AND we were NOT told to be free form (--free)
+                //  - AND we were NOT told to be xfree form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
@@ -4622,11 +4622,11 @@ static void print_memory_report(void)
             c);
 
     print_human(c, mallinfo_report.uordblks);
-    fprintf(stderr, " - Total size of memory occupied by chunks handed out by malloc: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by chunks handed out by xmalloc: %s\n",
             c);
 
     print_human(c, mallinfo_report.fordblks);
-    fprintf(stderr, " - Total size of memory occupied by free (not in use) chunks: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by xfree (not in use) chunks: %s\n",
             c);
 
     print_human(c, mallinfo_report.keepcost);

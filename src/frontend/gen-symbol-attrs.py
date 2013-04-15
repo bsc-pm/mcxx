@@ -531,7 +531,7 @@ def print_deep_copy_entity_specs(lines):
                   print "default_argument_info_t* copied = NULL;"
                   print "if (source_default_arg != NULL)"
                   print "{"
-                  print "  copied = calloc(1, sizeof(*copied));"
+                  print "  copied = xcalloc(1, sizeof(*copied));"
                   print "  copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
                   print "  copied->context = decl_context;"
                   print "}"

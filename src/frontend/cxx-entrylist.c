@@ -49,13 +49,13 @@ struct scope_entry_list_tag
 
 static scope_entry_list_node_t* entry_list_node_allocate(void)
 {
-    return counted_calloc(1, sizeof(scope_entry_list_node_t), &_bytes_entry_lists);
+    return counted_xcalloc(1, sizeof(scope_entry_list_node_t), &_bytes_entry_lists);
 }
 
 static scope_entry_list_t* entry_list_allocate(void)
 {
     scope_entry_list_t* new_entry_list =
-        counted_calloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
+        counted_xcalloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
 
     new_entry_list->next = entry_list_node_allocate();
 
@@ -333,7 +333,7 @@ static void entry_list_node_free(scope_entry_list_node_t* list)
 
     entry_list_node_free(list->next);
     memset(list, 0, sizeof(*list));
-    free(list);
+    xfree(list);
 }
 
 void entry_list_free(scope_entry_list_t* list)
@@ -343,7 +343,7 @@ void entry_list_free(scope_entry_list_t* list)
 
     entry_list_node_free(list->next);
     memset(list, 0, sizeof(*list));
-    free(list);
+    xfree(list);
 }
 
 // -
@@ -373,7 +373,7 @@ struct scope_entry_list_iterator_tag
 
 static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
 {
-    return counted_calloc(1, sizeof(scope_entry_list_iterator_t), &_bytes_entry_lists);
+    return counted_xcalloc(1, sizeof(scope_entry_list_iterator_t), &_bytes_entry_lists);
 }
 
 scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
@@ -414,7 +414,7 @@ void entry_list_iterator_free(scope_entry_list_iterator_t* it)
     if (it != NULL)
     {
         memset(it, 0, sizeof(*it));
-        free(it);
+        xfree(it);
     }
 }
 
@@ -592,7 +592,7 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {
     int size = entry_list_size(list);
-    *array = counted_calloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
+    *array = counted_xcalloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
 
     *num_items = 0;
     scope_entry_list_iterator_t* it = NULL;

@@ -1446,7 +1446,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
     const char *literal = ASTText(expr);
 
     int max_real_size = strlen(literal);
-    (*real_literal) = counted_calloc(max_real_size, sizeof(**real_literal), &_bytes_used_expr_check);
+    (*real_literal) = counted_xcalloc(max_real_size, sizeof(**real_literal), &_bytes_used_expr_check);
 
     int num_of_strings_seen = 0;
 
@@ -5625,7 +5625,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
                 || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID))
     {
-        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_expr_check);
+        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_expr_check);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
         new_sym->decl_context = decl_context;
@@ -7007,7 +7007,7 @@ static void check_new_expression_impl(
             arguments[i + 2] = nodecl_get_type(nodecl_list[i]);
         }
 
-        free(nodecl_list);
+        xfree(nodecl_list);
     }
 
     if (has_dependent_placement_args)
@@ -7241,7 +7241,7 @@ static void check_new_expression_impl(
                     nodecl_expr);
         }
 
-        free(list);
+        xfree(list);
     }
 
     nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, filename, line);
@@ -7919,7 +7919,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
             argument_types[num_arguments] = argument_type;
             num_arguments++;
         }
-        free(list);
+        xfree(list);
     }
 
     entry_list_free(entry_list);
@@ -8157,7 +8157,7 @@ static char check_argument_types_of_call(
                     arg);
         }
 
-        free(list);
+        xfree(list);
     }
 
     return no_arg_is_faulty;
@@ -8323,7 +8323,7 @@ static void handle_computed_function_type(
     const_value_t* const_val = NULL;
     scope_entry_t* specific_name = compute_function(generic_name, arg_types, list, num_elements, &const_val);
 
-    free(list);
+    xfree(list);
 
     if (specific_name == NULL)
     {
@@ -8454,7 +8454,7 @@ void check_nodecl_function_call(
             any_arg_is_dependent = 1;
         }
     }
-    free(list);
+    xfree(list);
 
     scope_entry_list_t* this_query = query_name_str(decl_context, "this");
     scope_entry_t* this_symbol = NULL;
@@ -8568,7 +8568,7 @@ void check_nodecl_function_call(
             // This +1 is because 0 is reserved for the implicit argument type
             argument_types[i + 1] = nodecl_get_type(nodecl_arg);
         }
-        free(list);
+        xfree(list);
     }
 
     // This will be filled later
@@ -8671,7 +8671,7 @@ void check_nodecl_function_call(
                 {
                     // Create a faked surrogate function with the type described below
                     scope_entry_t* surrogate_symbol =
-                        counted_calloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
+                        counted_xcalloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
 
                     // Add to candidates
                     candidates = entry_list_add(candidates, surrogate_symbol);
@@ -8997,7 +8997,7 @@ void check_nodecl_function_call(
             nodecl_argument_list_output = nodecl_append_to_list(nodecl_argument_list_output, nodecl_arg);
         }
 
-        free(list);
+        xfree(list);
     }
 
     type_t* return_type = function_type_get_return_type(function_type_of_called);
@@ -9345,7 +9345,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_member, 0), &num_items);
     if (num_items < 2)
     {
-        free(list);
+        xfree(list);
         return 0;
     }
 
@@ -10780,7 +10780,7 @@ static char update_stack_to_designator(type_t* declared_type,
         }
     }
 
-    free(designators);
+    xfree(designators);
 
     return 1;
 }
@@ -10997,7 +10997,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                 fprintf(stderr, "EXPRTYPE: Type %s if fully initialized now\n",
                                         print_declarator(type_stack[type_stack_idx].type));
                             }
-                            free(type_stack[type_stack_idx].fields);
+                            xfree(type_stack[type_stack_idx].fields);
                             type_stack_idx--;
                         }
                         else
@@ -11159,7 +11159,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
 
             // Deallocate nodecl list
-            free(list);
+            xfree(list);
 
 
             initializer_type = declared_type;
@@ -11360,7 +11360,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 template_type_get_template_parameters(std_initializer_list_template->type_information);
 
             // Get a specialization of std::initializer_list<T> [ T <- initializer_list_type ]
-            template_parameter_value_t* argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
+            template_parameter_value_t* argument = counted_xcalloc(1, sizeof(*argument), &_bytes_used_expr_check);
             argument->kind = TPK_TYPE;
             argument->type = initializer_list_type;
 
@@ -11583,7 +11583,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     if (designator_path != NULL)
     {
         designator_path->num_items = num_designators;
-        designator_path->items = calloc(num_designators, sizeof(*designator_path->items));
+        designator_path->items = xcalloc(num_designators, sizeof(*designator_path->items));
     }
 
     int i;
@@ -11676,7 +11676,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
         }
     }
 
-    free(nodecl_designator_list);
+    xfree(nodecl_designator_list);
 
     if (!ok)
     {
@@ -13828,7 +13828,7 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         return;
     }
 
-    free(nodecl_list);
+    xfree(nodecl_list);
 
     *nodecl_output = nodecl_make_compound_expression(
             nodecl_context,
@@ -14171,7 +14171,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                         nodecl_get_locus(current_expr),
                         codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)));
             }
-            free(list);
+            xfree(list);
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
@@ -14194,7 +14194,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                     nodecl_get_locus(nodecl_shaped_expr),
                     codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         }
-        free(list);
+        xfree(list);
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
@@ -14207,7 +14207,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                     nodecl_get_locus(nodecl_shaped_expr),
                     codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         }
-        free(list);
+        xfree(list);
         *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
@@ -14221,7 +14221,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         nodecl_t current_expr = list[i];
         result_type = get_array_type(result_type, current_expr, decl_context);
     }
-    free(list);
+    xfree(list);
 
     *nodecl_output = nodecl_make_shaping(nodecl_shaped_expr, 
             nodecl_shape_list, 
@@ -14814,7 +14814,7 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called,
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[i]);
     }
 
-    free(list);
+    xfree(list);
 
     if (called_symbol != NULL)
     {
@@ -15615,7 +15615,7 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
             nodecl_new_list = nodecl_append_to_list(nodecl_new_list, n);
         }
 
-        free(list);
+        xfree(list);
     }
 
     check_nodecl_explicit_type_conversion(t, 
@@ -15669,7 +15669,7 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
         }
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
     }
-    free(list);
+    xfree(list);
 
     v->nodecl_result = (*func)(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
 
@@ -15711,7 +15711,7 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
     }
 
-    free(list);
+    xfree(list);
 
     v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
 }
@@ -15765,7 +15765,7 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
     }
 
-    free(list);
+    xfree(list);
 
     v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list, nodecl_get_filename(node), nodecl_get_line(node));
 }

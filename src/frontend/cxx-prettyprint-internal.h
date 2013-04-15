@@ -146,7 +146,7 @@ static char* prettyprint_in_buffer_common(AST a,
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
 
-    result = calloc(bytes_file, sizeof(char));
+    result = xcalloc(bytes_file, sizeof(char));
     fread(result, bytes_file, sizeof(char), temporal_file);
     fclose(temporal_file);
 #endif
@@ -165,7 +165,7 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 {
     int result;
     int size = 512;
-    char* c = calloc(size, sizeof(char));
+    char* c = xcalloc(size, sizeof(char));
     va_list va;
 
     va_copy(va, args);
@@ -176,8 +176,8 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
     {
         va_copy(va, args);
         size *= 2;
-        free(c);
-        c = calloc(size, sizeof(char));
+        xfree(c);
+        c = xcalloc(size, sizeof(char));
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }
@@ -200,7 +200,7 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
         }
     }
 
-    free(c);
+    xfree(c);
 
     return result;
 }

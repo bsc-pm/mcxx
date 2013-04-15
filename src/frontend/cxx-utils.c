@@ -24,12 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
 #include <stdlib.h>
+#include "mem.h"
 
-void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
+void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
 {
     if (size == 0
             || nmemb == 0)
@@ -43,5 +41,5 @@ void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
         (*counter) += (size * nmemb);
     }
 
-    return calloc(nmemb, size);
+    return xcalloc(nmemb, size);
 }

@@ -2935,7 +2935,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     file << quote_c_string(bytes, length, is_wchar);
 
-    ::free(bytes);
+    ::xfree(bytes);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)

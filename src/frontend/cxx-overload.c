@@ -1701,7 +1701,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
             if (still_viable)
             {
-                overload_entry_list_t* new_result = counted_calloc(1, sizeof(*new_result), &_bytes_overload);
+                overload_entry_list_t* new_result = counted_xcalloc(1, sizeof(*new_result), &_bytes_overload);
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
@@ -2830,7 +2830,7 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
-    candidate_t* result = counted_calloc(1, sizeof(*result), &_bytes_overload);
+    candidate_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_overload);
 
     result->next = candidate_set;
 
