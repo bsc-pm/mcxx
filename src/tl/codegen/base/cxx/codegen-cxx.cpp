@@ -4833,26 +4833,14 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
                         Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-                        if (!constructor_args.empty());
-                        {
-                            for (Nodecl::List::iterator it = constructor_args.begin();
-                                    it != constructor_args.end();
-                                    it++)
-                            {
-                                if (it != constructor_args.begin())
-                                    file << ", ";
-                                Nodecl::NodeclBase current(*it);
-                                // Here we add extra parentheses lest the direct-initialization looked like
-                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                                //
-                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                                // "function (pointer to function() returning A) returning A"
-                                // [extra blanks added for clarity in the example above]
-                                file << "(";
-                                walk(current);
-                                file << ")";
-                            }
-                        }
+
+                        // Here we add extra parentheses lest the direct-initialization looked like
+                        // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                        //
+                        // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                        // "function (pointer to function() returning A) returning A"
+                        // [extra blanks added for clarity in the example above]
+                        walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
                     }
                     else
                     {
@@ -6217,7 +6205,7 @@ void CxxBase::set_indent_level(int n)
     state._indent_level = n;
 }
 
-void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, bool parenthesize_elements)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
     bool default_argument = false;
@@ -6236,11 +6224,16 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
         }
 
         if (it != begin)
-        {
             file << separator;
-        }
+
+        if (parenthesize_elements)
+            file << "(";
 
         walk(current_node);
+
+        if (parenthesize_elements)
+            file << ")";
+
         it++;
     }
 
