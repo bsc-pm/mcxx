@@ -14850,7 +14850,9 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called,
                         return new_default_argument;
                     }
 
-                    converted_arg_list = nodecl_append_to_list(converted_arg_list, new_default_argument);
+                    converted_arg_list = nodecl_append_to_list(
+                            converted_arg_list,
+                            nodecl_make_default_argument(new_default_argument, filename, line));
                 }
             }
 

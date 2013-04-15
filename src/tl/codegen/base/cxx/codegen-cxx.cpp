@@ -1214,13 +1214,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 }
 
 template <typename Iterator>
-CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first)
+CxxBase::Ret CxxBase::codegen_function_call_arguments(
+        Iterator begin,
+        Iterator end,
+        TL::Type function_type,
+        int ignore_n_first)
 {
     bool has_ellipsis = 0;
     TL::ObjectList<TL::Type> parameters_type = function_type.parameters(has_ellipsis);
     TL::ObjectList<TL::Type>::iterator type_it = parameters_type.begin();
     TL::ObjectList<TL::Type>::iterator type_end = parameters_type.end();
-
 
     Iterator arg_it = begin;
     while (arg_it != end
@@ -1235,15 +1238,27 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
     // Update begin if we have ignored any argument
     begin = arg_it;
+    bool default_arguments = false;
     while (arg_it != end)
     {
+        Nodecl::NodeclBase actual_arg = *arg_it;
+
+        if (actual_arg.is<Nodecl::DefaultArgument>())
+        {
+            // Default arguments are printed in a comment
+            if (!default_arguments)
+            {
+                file << "/* ";
+                default_arguments = true;
+            }
+
+            actual_arg = actual_arg.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
         if (arg_it != begin)
         {
             file << ", ";
         }
-
-        Nodecl::NodeclBase actual_arg = *arg_it;
-
 
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
@@ -1324,6 +1339,10 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
         state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
+
+    // Close the comment if needed
+    if (default_arguments)
+        file << " */";
 }
 
 template <typename Node>
