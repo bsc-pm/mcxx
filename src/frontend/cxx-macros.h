@@ -58,6 +58,7 @@
      #define DEPRECATED __attribute__((deprecated))
      #define UNUSED_PARAMETER __attribute__((unused))
      #define WARN_FUNCTION(x) __attribute__((warning(x)))
+     #define MALLOC_RETURN __attribute__((malloc))
   #elif __GNUC__ == 2
      #error "This code will not compile with GCC 2"
   #else
