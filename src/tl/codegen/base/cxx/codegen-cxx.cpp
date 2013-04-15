@@ -955,6 +955,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::DefaultArgument& node)
+{
+    internal_error("Code unreachable", 0);
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
@@ -2650,26 +2655,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         if (nodecl_calls_to_constructor(initializer, init_real_type))
         {
             Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-            if (!constructor_args.empty());
-            {
-                for (Nodecl::List::iterator it = constructor_args.begin();
-                        it != constructor_args.end();
-                        it++)
-                {
-                    if (it != constructor_args.begin())
-                        file << ", ";
-                    Nodecl::NodeclBase current(*it);
-                    // Here we add extra parentheses lest the direct-initialization looked like
-                    // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                    //
-                    // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                    // "function (pointer to function() returning A) returning A"
-                    // [extra blanks added for clarity in the example above]
-                    file << "(";
-                    walk(current);
-                    file << ")";
-                }
-            }
+
+            // Here we add extra parentheses lest the direct-initialization looked like
+            // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+            //
+            // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+            // "function (pointer to function() returning A) returning A"
+            // [extra blanks added for clarity in the example above]
+            walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
         }
         else
         {
