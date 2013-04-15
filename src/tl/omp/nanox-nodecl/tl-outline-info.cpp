@@ -378,7 +378,7 @@ namespace TL { namespace Nanox {
 
                     Source lbound_src;
                     lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
+                    
                     Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
 
                     this->add_capture_with_value(bound_sym, lbound_tree);
