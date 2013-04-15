@@ -31,9 +31,16 @@
 
 void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
 {
+    if (size == 0
+            || nmemb == 0)
+    {
+        // Ensure a NULL when we allocate 0 bytes
+        return NULL;
+    }
+
     if (counter != NULL)
     {
-        (*counter) += size;
+        (*counter) += (size * nmemb);
     }
 
     return calloc(nmemb, size);
