@@ -4684,17 +4684,9 @@ type_t* compute_type_no_overload_derref(nodecl_t *nodecl_op, char *is_lvalue)
     type_t* op_type = nodecl_get_type(*nodecl_op);
 
     type_t* computed_type = get_error_type();
-    if (is_pointer_type(no_ref(op_type))
-            && !is_function_type(pointer_type_get_pointee_type(no_ref(op_type))))
+    if (is_pointer_type(no_ref(op_type)))
     {
         computed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(op_type)));
-        *is_lvalue = 1;
-    }
-    else if (is_pointer_type(no_ref(op_type))
-            && is_function_type(pointer_type_get_pointee_type(no_ref(op_type))))
-    {
-        // Bypass derreference of pointer to function type
-        computed_type = lvalue_ref(op_type);
         *is_lvalue = 1;
     }
     else if (is_array_type(no_ref(op_type)))
