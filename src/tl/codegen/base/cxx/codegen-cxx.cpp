@@ -6220,17 +6220,32 @@ void CxxBase::set_indent_level(int n)
 void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
-
+    bool default_argument = false;
     while (it != list.end())
     {
+        Nodecl::NodeclBase current_node = *it;
+
+        if (current_node.is<Nodecl::DefaultArgument>())
+        {
+            if (!default_argument)
+            {
+                default_argument = true;
+                file << "/* ";
+            }
+            current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
         if (it != begin)
         {
             file << separator;
         }
 
-        walk(*it);
+        walk(current_node);
         it++;
     }
+
+    if (default_argument)
+        file << " */";
 }
 
 void CxxBase::walk_expression_list(const Nodecl::List& node)
