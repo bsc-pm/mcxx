@@ -747,12 +747,22 @@ type_t* get_bool_of_integer_type(type_t* t)
         _bool_types[s] = get_simple_type();
         _bool_types[s]->type->kind = STK_BUILTIN_TYPE;
         _bool_types[s]->type->builtin_type = BT_BOOL;
+        // We use this field to avoid adding another one in simple_type_t
+        // If you put this info elsewhere, update get_integral_type_of_bool
+        _bool_types[s]->type->complex_element = t;
+
         _bool_types[s]->info->size = type_get_size(t);
         _bool_types[s]->info->alignment = type_get_alignment(t);
         _bool_types[s]->info->valid_size = 1;
     }
 
     return _bool_types[s];
+}
+
+// This function may return NULL meaning this is a bool or _Bool
+static type_t* get_integral_type_of_bool(type_t* t)
+{
+    return t->type->complex_element;
 }
 
 type_t* get_signed_int_type(void)
@@ -7100,13 +7110,28 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                         }
                     case BT_BOOL :
                         {
-                            CXX_LANGUAGE()
+                            type_t* integer_type_of_bool = get_integral_type_of_bool(t);
+                            if (IS_CXX_LANGUAGE)
                             {
                                 result = strappend(result, "bool");
                             }
-                            C_LANGUAGE()
+                            else if (IS_C_LANGUAGE
+                                    || (IS_FORTRAN_LANGUAGE && t == NULL))
                             {
                                 result = strappend(result, "_Bool");
+                            }
+                            else if (IS_FORTRAN_LANGUAGE
+                                    && t != NULL)
+                            {
+                                // Use integers based on the kind
+                                result = get_simple_type_name_string_internal_impl(decl_context,
+                                        integer_type_of_bool,
+                                        print_symbol_fun,
+                                        print_symbol_data);
+                            }
+                            else
+                            {
+                                internal_error("code unreachable", 0);
                             }
 
                             break;
