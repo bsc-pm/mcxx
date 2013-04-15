@@ -24,22 +24,52 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef FORTRAN03_MODULES_H
-#define FORTRAN03_MODULES_H
 
-#include "cxx-scope-decls.h"
-#include "cxx-tltype.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium-omp
 
-void dump_module_info(scope_entry_t* module);
-void load_module_info(const char* module_name, scope_entry_t** module);
+</testinfo>
+*/
+#include <stdarg.h>
+#include <stdlib.h>
 
-scope_entry_t* get_module_in_cache(const char* module_name);
+void f(int *p, int a, ...)
+{
+    *p = 0;
 
-// This is used in TL
-void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info);
+    va_list ap;
+    va_start(ap, a);
 
-MCXX_END_DECLS
+    int i;
+    for (i = 0; i < a; i++)
+    {
+        int n = va_arg(ap, int);
+        *p += n;
+    }
 
-#endif // FORTRAN03_MODULES_H
+    va_end(ap);
+}
+
+int main(int argc, char* argv[])
+{
+    int p;
+
+#pragma omp task shared(p)
+    {
+        f(&p, 3, /* list = */ 2, 3, 4);
+    }
+#pragma omp taskwait
+    if (p != (2+3+4)) abort();
+
+
+#pragma omp task shared(p)
+    {
+        f(&p, 0);
+    }
+#pragma omp taskwait
+    if (p != 0) abort();
+
+    return 0;
+}

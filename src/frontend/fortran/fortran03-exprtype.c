@@ -957,6 +957,22 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             else
             {
                 nodecl_upper = nodecl_shallow_copy(nodecl_upper_dim[num_subscripts]);
+                if (nodecl_is_null(nodecl_upper)
+                        && (it == subscript_list) // This is the last subscript
+                        && !symbol_is_invalid
+                        && symbol_is_parameter_of_function(symbol, decl_context.current_scope->related_entry)
+                        && is_array_type(no_ref(symbol->type_information))
+                        && !array_type_with_descriptor(no_ref(symbol->type_information)))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: array-section of assumed-size array '%s' lacks the upper index\n",
+                                ast_location(subscript),
+                                symbol->symbol_name);
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                    return;
+                }
             }
 
             if (stride != NULL)

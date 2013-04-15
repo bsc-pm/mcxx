@@ -8856,6 +8856,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
+            else
+            {
+                (*result) = identity_scs(t_orig, t_dest);
+            }
+
             return 1;
         }
     }
@@ -9553,6 +9558,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 }
 
 static type_t* _zero_type = NULL;
+static type_t* _false_type = NULL;
 
 // Special type for '0'
 type_t* get_zero_type(void)
@@ -9568,6 +9574,23 @@ type_t* get_zero_type(void)
     }
 
     return _zero_type;
+}
+
+// Special type for 'false'
+type_t* get_bool_false_type(void)
+{
+    if (_false_type == NULL)
+    {
+        _false_type = get_simple_type();
+        _false_type->type->kind = STK_BUILTIN_TYPE;
+        _false_type->type->builtin_type = BT_BOOL;
+
+        _false_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_bool;
+        _false_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_bool;
+        _false_type->info->valid_size = 1;
+    }
+
+    return _false_type;
 }
 
 static type_t* _null_type = NULL;
@@ -9644,9 +9667,11 @@ char is_error_type(type_t* t)
 char is_zero_type(type_t* t)
 {
     return ((_zero_type != NULL
-            && t == _zero_type)
+                && t == _zero_type)
             || (_null_type != NULL
-                && t == _null_type));
+                && t == _null_type)
+            || (_false_type != NULL
+                && t == _false_type));
 }
 
 static int _literal_string_set_num_elements = 0;
@@ -11358,6 +11383,15 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
             parameter_info_t param_info[N+1];
             memset(param_info, 0, sizeof(param_info));
+
+            if (function_type_get_has_ellipsis(orig))
+            {
+                //The last parameter is an ellipsis (It has not type)
+                param_info[N-1].is_ellipsis = 1;
+                param_info[N-1].type_info = NULL;
+                param_info[N-1].nonadjusted_type_info = NULL;
+                N = N - 1;
+            }
 
             for (i = 0; i < N; i++)
             {

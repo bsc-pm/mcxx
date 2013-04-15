@@ -123,7 +123,7 @@ struct const_value_hash_bucket_tag
 
 typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
-static const_value_hash_t _hash_pool[MCXX_MAX_BYTES_INTEGER * 2] = { { (const_value_hash_bucket_t*)0 } };
+static const_value_hash_t _hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {

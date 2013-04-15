@@ -781,7 +781,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             fprintf(stderr, "ICS: Checking user-defined conversions by means of conversor constructors\n");
         }
         // Get the real class type
-        type_t* class_type = no_ref(dest);
+        type_t* class_type = get_unqualified_type(no_ref(dest));
 
         // Instantiate the destination if needed
         if (is_named_class_type(class_type))

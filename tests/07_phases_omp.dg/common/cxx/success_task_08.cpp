@@ -24,22 +24,73 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef FORTRAN03_MODULES_H
-#define FORTRAN03_MODULES_H
 
-#include "cxx-scope-decls.h"
-#include "cxx-tltype.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
+#include <stdlib.h>
 
-void dump_module_info(scope_entry_t* module);
-void load_module_info(const char* module_name, scope_entry_t** module);
+struct A
+{
+    A() : n(new int(3))
+    {
+    }
+    ~A()
+    {
+        delete n;
+    }
 
-scope_entry_t* get_module_in_cache(const char* module_name);
+    A(const A& a)
+        : n (new int(*a.n))
+    {
+    }
 
-// This is used in TL
-void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info);
+    void set(int n)
+    {
+        *this->n = n;
+    }
 
-MCXX_END_DECLS
+    int get() const
+    {
+        return *this->n;
+    }
 
-#endif // FORTRAN03_MODULES_H
+    private:
+
+    int *n;
+
+    // Do not call this one
+    A& operator=(const A& a)
+    {
+        if (this != &a)
+        {
+            *this->n = *a.n;
+        }
+    }
+};
+
+int main(int, char**)
+{
+    A a;
+
+#pragma omp task firstprivate(a)
+    {
+        a.set(42);
+    }
+#pragma omp taskwait
+
+    if (a.get() == 42) abort();
+
+#pragma omp task shared(a)
+    {
+        a.set(42);
+    }
+#pragma omp taskwait
+
+    if (a.get() != 42) abort();
+
+    return 0;
+}

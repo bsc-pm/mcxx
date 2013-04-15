@@ -6417,11 +6417,16 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
     // Symbols from modules need a bit more of care
     scope_entry_t* in_module = NULL;
     access_specifier_t access = AS_UNKNOWN;
+    scope_entry_t* from_module = NULL;
+    scope_entry_t* alias_to = NULL;
+
     if (entry->entity_specs.in_module != NULL)
     {
         in_module = entry->entity_specs.in_module;
         access = entry->entity_specs.access;
     }
+    from_module = entry->entity_specs.from_module;
+    alias_to = entry->entity_specs.alias_to;
 
     entry->kind = intrinsic->kind;
     entry->type_information = intrinsic->type_information;
@@ -6440,6 +6445,8 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         }
     }
 
+    entry->entity_specs.from_module = from_module;
+    entry->entity_specs.alias_to = alias_to;
     if (in_module != NULL)
     {
         entry->entity_specs.in_module = in_module;
@@ -6806,6 +6813,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
                     ASTText(pointer_name));
             continue;
         }
+
+        pointer_entry->entity_specs.is_cray_pointer = 1;
 
         AST pointee_name = pointee_decl;
         AST array_spec = NULL;
@@ -8094,7 +8103,7 @@ static char come_from_the_same_module(scope_entry_t* new_symbol_used,
     return new_symbol_used == existing_symbol;
 }
 
-static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
+scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* local_name, 
         scope_entry_t* module_symbol,

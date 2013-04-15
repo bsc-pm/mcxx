@@ -24,22 +24,28 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef FORTRAN03_MODULES_H
-#define FORTRAN03_MODULES_H
 
-#include "cxx-scope-decls.h"
-#include "cxx-tltype.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-void dump_module_info(scope_entry_t* module);
-void load_module_info(const char* module_name, scope_entry_t** module);
 
-scope_entry_t* get_module_in_cache(const char* module_name);
+#include<string>
 
-// This is used in TL
-void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info);
+int __foo(int i, const std::string& c)
+{
+    return 1;
+}
 
-MCXX_END_DECLS
+double __foo(double d, const std::string& c)
+{
+    return 1.0;
+}
 
-#endif // FORTRAN03_MODULES_H
+int bar(int i, const char* c)
+{
+    return __foo(i, c);
+}

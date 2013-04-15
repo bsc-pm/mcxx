@@ -37,6 +37,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
 #include "fortran03-scope.h"
+#include "fortran03-modules.h"
 #include <string.h>
 #include "red_black_tree.h"
 #include "fortran03-intrinsics-simplify.h"
@@ -309,6 +310,11 @@ FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
+\
+FORTRAN_GENERIC_INTRINSIC(NULL, sind, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cosd, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tand, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atan2d, "Y,X", E, NULL) \
 ISO_C_BINDING_INTRINSICS \
 IEEE_EXCEPTIONS_INTRINSICS \
 MERCURIUM_SPECIFIC_INTRINSICS
@@ -1085,6 +1091,7 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
 
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
@@ -1180,6 +1187,8 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     // Sign in specific names for intrinsics
     fortran_init_specific_names(fortran_intrinsic_context);
+
+    fortran_finish_intrinsic_modules(decl_context);
 }
 
 static scope_entry_t* register_specific_intrinsic_name(
@@ -1446,6 +1455,21 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", fortran_get_default_real_type());
+
+    REGISTER_SPECIFIC_INTRINSIC_1("sind", "sind", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsind", "sind", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("csind", "sind", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("cosd", "cosd", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcosd", "cosd", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ccosd", "cosd", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("tand", "tand", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtand", "tand", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ctand", "tand", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2d", "atan2d", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2d", "atan2d", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
 
     // Non standard stuff
     // Very old (normally from g77) intrinsics
@@ -1869,6 +1893,24 @@ scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
     return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
+scope_entry_t* compute_intrinsic_atan2d(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+    // t0 == Y
+    // t1 == X
+    type_t* t1 = fortran_get_rank0_type(argument_types[1]);
+    if (is_floating_type(t0)
+            && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("atan2d", t1, t1, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -2261,6 +2303,22 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("cos", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_cosd(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("cosd", t0, t0);
     }
     return NULL;
 }
@@ -5099,7 +5157,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         t3 = t1;
     }
 
-    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t1), shape_size, symbol->decl_context);
+    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), shape_size, symbol->decl_context);
 
     return GET_INTRINSIC_TRANSFORMATIONAL("reshape", r, t0, t1, t2, t3);
 }
@@ -5361,6 +5419,22 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_sind(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("sind", t0, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5578,6 +5652,22 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("tan", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_tand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("tand", t0, t0);
     }
     return NULL;
 }
@@ -6614,18 +6704,6 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
 
 static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_context)
 {
-// TYPE(IEEE_CLASS_TYPE) :: IEEE_SIGNALING_NAN, IEEE_QUIET_NAN, IEEE_NEGATIVE_INF, &
-// IEEE_NEGATIVE_NORMAL, IEEE_NEGATIVE_DENORMAL, IEEE_NEGATIVE_ZERO, &
-// IEEE_POSITIVE_ZERO, IEEE_POSITIVE_DENORMAL, IEEE_POSITIVE_NORMAL, &
-// IEEE_POSITIVE_INF
-//
-// TYPE IEEE_ROUND_TYPE
-//     PRIVATE
-//     INTEGER :: DUMMY
-// END TYPE IEEE_ROUND_TYPE
-//
-// TYPE(IEEE_ROUND_TYPE) :: IEEE_NEAREST, IEEE_TO_ZERO, IEEE_UP, IEEE_DOWN, IEEE_OTHER
-
     // Initialize IEEE_ARITHMETIC
     decl_context_t module_context = new_program_unit_context(decl_context);
 
@@ -6793,14 +6871,6 @@ static void fortran_init_intrinsic_module_ieee(decl_context_t decl_context)
     fortran_init_intrinsic_module_ieee_exceptions(decl_context);
     fortran_init_intrinsic_module_ieee_arithmetic(decl_context);
     fortran_init_intrinsic_module_ieee_features(decl_context);
-}
-
-static scope_entry_t* get_module_in_cache(const char* module_name)
-{
-    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name);
-    ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name);
-    scope_entry_t* module_sym = (scope_entry_t*)rb_node_get_info(query);
-    return module_sym;
 }
 
 static type_t* get_type_from_module(const char* module_name, const char* type_name)
@@ -7380,6 +7450,30 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
 {
     fortran_init_intrinsic_module_iso_c_binding(decl_context);
     fortran_init_intrinsic_module_ieee(decl_context);
+}
+
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Finish modules
+    //
+    // IEEE_ARITHMETICS modules has a USE IEEE_EXCEPTIONS
+    scope_entry_t* ieee_arithmetic = get_module_in_cache("ieee_arithmetic");
+    scope_entry_t* ieee_exceptions = get_module_in_cache("ieee_exceptions");
+
+    int i;
+    for (i = 0; i < ieee_exceptions->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym_in_module = ieee_exceptions->entity_specs.related_symbols[i];
+
+        if (sym_in_module->entity_specs.access == AS_PRIVATE)
+            continue;
+
+        insert_symbol_from_module(sym_in_module,
+                ieee_arithmetic->related_decl_context,
+                sym_in_module->symbol_name,
+                ieee_exceptions,
+                "", 0);
+    }
 }
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)

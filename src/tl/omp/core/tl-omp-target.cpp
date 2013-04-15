@@ -519,7 +519,7 @@ namespace TL
 
                     Nodecl::Symbol new_symbol_ref =
                         Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line());
-                    new_symbol_ref.set_type(io_it->get_type().get_lvalue_reference_to());
+                    new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
                     shared_to_inout.append(
                             new_symbol_ref
                             );
