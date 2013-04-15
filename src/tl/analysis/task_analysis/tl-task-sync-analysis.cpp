@@ -110,7 +110,7 @@ void TaskSynchronizations::compute_task_synchronizations()
                 jt++)
         {
             std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt)->get_id() << std::endl;
-            _graph->connect_nodes(it->first, *jt);
+            _graph->connect_nodes(it->first, *jt, ALWAYS, "", /*is task edge*/ true);
         }
     }
 }
