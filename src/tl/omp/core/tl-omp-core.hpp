@@ -115,6 +115,11 @@ namespace TL
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
+                void get_data_implicit_attributes_of_indirectly_accessible_symbols(
+                        TL::PragmaCustomStatement construct,
+                        DataSharingEnvironment& data_sharing,
+                        ObjectList<Nodecl::Symbol>& nonlocal_symbols);
+
                 void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info(PragmaCustomLine construct, 

@@ -45,7 +45,7 @@ namespace TL { namespace Nanox {
 
     void DeviceHandler::register_device(const std::string& str, DeviceProvider* nanox_device_provider)
     {
-        _nanox_devices[strtolower(str)] = nanox_device_provider;
+        _nanox_devices[strtolower(str.c_str())] = nanox_device_provider;
     }
 
     DeviceProvider::DeviceProvider(const std::string& device_name)
@@ -61,7 +61,7 @@ namespace TL { namespace Nanox {
 
     DeviceProvider* DeviceHandler::get_device(const std::string& str)
     {
-        nanox_devices_map_t::iterator it = _nanox_devices.find(strtolower(str));
+        nanox_devices_map_t::iterator it = _nanox_devices.find(strtolower(str.c_str()));
 
         if (it == _nanox_devices.end())
             return NULL;
