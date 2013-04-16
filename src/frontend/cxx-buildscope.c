@@ -4071,14 +4071,17 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
+            new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_enum_anon_%d", anonymous_enums);
+            new_enum = counted_xcalloc(1, sizeof(*new_enum), &_bytes_used_buildscope);
+            new_enum->symbol_name = symbol_name;
+            new_enum->decl_context = decl_context;
         }
         anonymous_enums++;
 
-        new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         new_enum->line = ASTLine(a);
         new_enum->file = ASTFileName(a);
         new_enum->kind = SK_ENUM;
@@ -6533,18 +6536,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_classes = 0;
+
         const char* symbol_name;
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            class_entry = counted_xcalloc(1, sizeof(*class_entry), &_bytes_used_buildscope);
+            class_entry->symbol_name = symbol_name;
+            class_entry->decl_context = decl_context;
         }
         anonymous_classes++;
-
-        class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
 
         class_entry->kind = SK_CLASS;
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
@@ -6648,21 +6654,24 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
     }
 
-    // Inject the class symbol in the scope
+    // Inject the class symbol in the scope if not unnamed
     CXX_LANGUAGE()
     {
-        scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-                inner_decl_context.current_scope, 
-                class_entry->symbol_name);
+        if (!class_entry->entity_specs.is_unnamed)
+        {
+            scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
+                    inner_decl_context.current_scope,
+                    class_entry->symbol_name);
 
-        *injected_symbol = *class_entry;
-        injected_symbol->do_not_print = 1;
+            *injected_symbol = *class_entry;
+            injected_symbol->do_not_print = 1;
 
-        injected_symbol->entity_specs.is_member = 1;
-        injected_symbol->entity_specs.access = AS_PUBLIC;
-        injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
+            injected_symbol->entity_specs.is_member = 1;
+            injected_symbol->entity_specs.access = AS_PUBLIC;
+            injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
-        injected_symbol->entity_specs.is_injected_class_name = 1;
+            injected_symbol->entity_specs.is_injected_class_name = 1;
+        }
     }
 
     access_specifier_t current_access;
@@ -8281,6 +8290,29 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
 
         return entry;
+    }
+
+    // C++ If we are in this case
+    //
+    // typedef struct { int x; } A, B;
+    // typedef enum { int x; } A, B;
+    //
+    // The first declarator-id (A) must become the class-name (or enum-name) of
+    // the type being declared, while B will still be a plain typedef-name
+    CXX_LANGUAGE()
+    {
+        if ((is_named_class_type(declarator_type) || is_named_enumerated_type(declarator_type))
+                && named_type_get_symbol(declarator_type)->entity_specs.is_unnamed)
+        {
+            scope_entry_t* unnamed_symbol = named_type_get_symbol(declarator_type);
+
+            unnamed_symbol->symbol_name = ASTText(declarator_id);
+            unnamed_symbol->entity_specs.is_unnamed = 0;
+
+            insert_entry(unnamed_symbol->decl_context.current_scope, unnamed_symbol);
+
+            return unnamed_symbol;
+        }
     }
 
     scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
