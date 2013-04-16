@@ -24,17 +24,22 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
 #include <stdlib.h>
+#include "mem.h"
 
-void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
+void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
 {
-    if (counter != NULL)
+    if (size == 0
+            || nmemb == 0)
     {
-        (*counter) += size;
+        // Ensure a NULL when we allocate 0 bytes
+        return NULL;
     }
 
-    return calloc(nmemb, size);
+    if (counter != NULL)
+    {
+        (*counter) += (size * nmemb);
+    }
+
+    return xcalloc(nmemb, size);
 }

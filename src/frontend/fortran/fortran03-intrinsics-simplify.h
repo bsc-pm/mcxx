@@ -2531,7 +2531,7 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
         return nodecl_null();
 
     int val = values[0];
-    free(values);
+    xfree(values);
 
     int kind = fortran_get_default_integer_type_kind();
     if (!nodecl_is_null(kind_arg))

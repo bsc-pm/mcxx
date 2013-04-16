@@ -1,0 +1,34 @@
+#ifndef MEM_H
+#define MEM_H
+
+#include <string.h>
+#include <stdlib.h>
+
+#if defined(__GNUC__) && __GNUC__ >= 4
+  #if defined(__GNUC_MINOR__) && __GNUC_MINOR__ >= 4
+    #define MEM_WARN_UNUSED __attribute__((warn_unused_result))
+    #define MEM_MALLOC_RETURN __attribute__((malloc))
+  #endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void *xmalloc(size_t size) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
+void xfree(void *ptr);
+void *xcalloc(size_t nmemb, size_t size) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
+void *xrealloc(void *ptr, size_t size) MEM_WARN_UNUSED; // realloc does not have malloc property
+char *xstrdup(const char *s) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
+
+#ifdef __cplusplus
+}
+#endif
+
+#define malloc (+use_xmalloc_instead)
+#define calloc (+use_xcalloc_instead)
+#define free   (+use_xfree_instead)
+#define realloc (+use_xrealloc_instead)
+#define strdup (+use_xstrdup_instead)
+
+#endif // MEM_H

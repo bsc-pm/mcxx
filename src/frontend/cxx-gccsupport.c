@@ -370,7 +370,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                         ast_location(expression_list));
 
                 // Skip first character
-                char *number_of_elements_str = strdup(&size_mode[1]);
+                char *number_of_elements_str = xstrdup(&size_mode[1]);
                 char *p = number_of_elements_str;
 
                 while (isdigit(*p))
@@ -476,7 +476,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                     }
                 }
 
-                free(number_of_elements_str);
+                xfree(number_of_elements_str);
             }
         }
         else
@@ -606,7 +606,7 @@ void keep_gcc_attributes_in_symbol(
     if (entry->entity_specs.num_gcc_attributes == 0)
     {
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
-        entry->entity_specs.gcc_attributes = calloc(
+        entry->entity_specs.gcc_attributes = xcalloc(
                 entry->entity_specs.num_gcc_attributes,
                 sizeof(*entry->entity_specs.gcc_attributes));
         memcpy(entry->entity_specs.gcc_attributes, 
@@ -636,7 +636,7 @@ void keep_gcc_attributes_in_symbol(
             {
                 entry->entity_specs.num_gcc_attributes++;
 
-                entry->entity_specs.gcc_attributes = realloc(entry->entity_specs.gcc_attributes,
+                entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
                         sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
                 entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
             }

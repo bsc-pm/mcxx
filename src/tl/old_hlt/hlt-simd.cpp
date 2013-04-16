@@ -494,7 +494,7 @@ TL::Source ReplaceSIMDSrc::replace(AST_t a) const
     }
 
     // The returned pointer came from C code, so 'free' it
-    free((void*)c);
+    xfree((void*)c);
 
     return result;
 }

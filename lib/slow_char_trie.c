@@ -28,6 +28,7 @@
 
 
 #include "uniquestr.h"
+#include "mem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,7 +150,7 @@ static char_trie_element_t *lookup_element(const char_trie_t* char_trie, unsigne
 static const char* create_elements(char_trie_t* char_trie, const char* orig_str, const char* str, int length)
 {
     char_trie->num_elements++;
-    char_trie->elements = realloc(char_trie->elements, 
+    char_trie->elements = xrealloc(char_trie->elements, 
             char_trie->num_elements * sizeof(*(char_trie->elements)));
 
     // Locate place where the element would go
@@ -194,7 +195,7 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
         // No next after the "end of list"
         char_trie->elements[lower].next = NULL;
         // Store the original string (this should be the unique strdup ever)
-        const char* p = strdup(orig_str);
+        const char* p = xstrdup(orig_str);
         char_trie->elements[lower].str = p;
 
         _bytes_used_char_trie += (strlen(orig_str) + 1);
@@ -204,7 +205,7 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
     else
     {
         char_trie->elements[lower].elem = *str;
-        char_trie->elements[lower].next = calloc(1, sizeof(char_trie_t));
+        char_trie->elements[lower].next = xcalloc(1, sizeof(char_trie_t));
         _bytes_used_char_trie += sizeof(char_trie_t);
 
         const char* result =

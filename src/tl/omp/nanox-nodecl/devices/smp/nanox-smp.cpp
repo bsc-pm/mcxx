@@ -308,12 +308,6 @@ namespace TL { namespace Nanox {
                                     argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
                                 }
                             }
-
-                            if (IS_CXX_LANGUAGE
-                                    && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                            {
-                                internal_error("Not yet implemented: call the destructor", 0);
-                            }
                         }
                         else if (IS_FORTRAN_LANGUAGE)
                         {

@@ -916,26 +916,65 @@ void LoweringVisitor::fill_arguments(
                             }
                             else
                             {
+                                sym_type = sym_type.no_ref().get_unqualified_type();
                                 if ((*it)->get_captured_value().is_null())
                                 {
-                                    // Plain assignment is enough
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (& ol_args->" << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (& imm_args." << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        // Plain assignment is enough
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                    }
                                 }
                                 else
                                 {
                                     Nodecl::NodeclBase captured = (*it)->get_captured_value();
 
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (&ol_args->" << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (&imm_args." << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                    }
                                 }
                             }
                         }
@@ -2375,18 +2414,60 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
     if (n.is_null()
             && IS_FORTRAN_LANGUAGE)
     {
-        // Craft a SIZE
-        Source src;
+        // Craft a SIZE if possible
+        TL::Symbol sym = data_reference.get_base_symbol();
 
-        Nodecl::NodeclBase expr = data_reference;
-        if (expr.is<Nodecl::ArraySubscript>())
+        if (sym.is_parameter()
+                && sym.get_type().no_ref().is_array()
+                && !sym.get_type().no_ref().array_requires_descriptor()
+                && fortran_dimension == fortran_get_rank_of_type(array_type.no_ref().get_internal_type()))
         {
-            expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+            Nodecl::NodeclBase expr = data_reference;
+            if (expr.is<Nodecl::ArraySubscript>())
+            {
+                expr = expr.as<Nodecl::ArraySubscript>().get_subscripts();
+
+                expr = expr.as<Nodecl::List>()[fortran_dimension - 1];
+
+                if (expr.is<Nodecl::Range>())
+                {
+                    // Use the subscript
+                    Source src;
+                    Nodecl::NodeclBase lower =  expr.as<Nodecl::Range>().get_lower().shallow_copy();
+                    if (lower.is_null())
+                    {
+                        lower = const_value_to_nodecl(const_value_get_signed_int(1));
+                    }
+                    src << "(" << as_expression(expr.as<Nodecl::Range>().get_upper().shallow_copy()) << ")"
+                        << " - "
+                        << "(" << as_expression(lower) << ")"
+                        << " + 1";
+                    n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+                }
+                else
+                {
+                    internal_error("Assumed size array does not have a range", 0);
+                }
+            }
+            else
+            {
+                internal_error("Assumed size array is not fully specified", 0);
+            }
         }
+        else
+        {
+            Source src;
 
-        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+            Nodecl::NodeclBase expr = data_reference;
+            if (expr.is<Nodecl::ArraySubscript>())
+            {
+                expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+            }
 
-        n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+            src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+
+            n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+        }
     }
 
     return n;

@@ -1,10 +1,11 @@
+#include <string.h>
+
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-nodecl-output.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
 #include "cxx-utils.h"
 #include "cxx-symbol-deep-copy.h"
-#include <string.h>
 
 // Machine generated in cxx-nodecl-deep-copy-base.c
 extern nodecl_t nodecl_deep_copy_rec(nodecl_t n, 
@@ -49,7 +50,7 @@ static symbol_map_t* get_empty_map(void)
 
     if (result == NULL)
     {
-        result = calloc(1, sizeof(*result));
+        result = xcalloc(1, sizeof(*result));
         result->map = empty_map_fun;
         result->dtor = empty_map_dtor;
     }
@@ -92,7 +93,7 @@ static void nested_symbol_map_dtor(symbol_map_t* symbol_map UNUSED_PARAMETER) { 
 
 nested_symbol_map_t* new_nested_symbol_map(symbol_map_t* enclosing_map)
 {
-    nested_symbol_map_t *nested_symbol_map = calloc(1, sizeof(*nested_symbol_map));
+    nested_symbol_map_t *nested_symbol_map = xcalloc(1, sizeof(*nested_symbol_map));
 
     nested_symbol_map->base_.map = nested_symbol_map_fun;
     nested_symbol_map->base_.dtor = nested_symbol_map_dtor;
@@ -216,10 +217,10 @@ static void register_symbols(const char* name, scope_entry_list_t* entry_list, c
 
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
 
-void free_closure_info(nested_symbol_map_t* nested_symbol_map UNUSED_PARAMETER)
+void xfree_closure_info(nested_symbol_map_t* nested_symbol_map UNUSED_PARAMETER)
 {
-    // free(nested_symbol_map->source_list);
-    // free(nested_symbol_map->target_list);
+    // xfree(nested_symbol_map->source_list);
+    // xfree(nested_symbol_map->target_list);
 }
 
 static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope, nested_symbol_map_t* nested_symbol_map)
@@ -235,7 +236,7 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     // Fill the created symbols
     rb_tree_walk(original_scope->hash, (void (*)(const void*, void*, void*))fill_symbols, &closure_info);
 
-    // free(closure_info.filled_symbols);
+    // xfree(closure_info.filled_symbols);
     
     new_decl_context.current_scope->related_entry 
         = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map, original_scope->related_entry);
@@ -332,7 +333,7 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
     if (symbol == orig_symbol)
     {
         new_function_ = 1;
-        symbol = calloc(1, sizeof(*symbol));
+        symbol = xcalloc(1, sizeof(*symbol));
         symbol->symbol_name = orig_symbol->symbol_name;
         symbol->decl_context = orig_symbol->decl_context;
         nested_symbol_map_t* nested_map = new_nested_symbol_map(*synth_symbol_map);

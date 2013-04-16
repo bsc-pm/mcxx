@@ -123,7 +123,7 @@ struct const_value_hash_bucket_tag
 
 typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
-static const_value_hash_t _hash_pool[MCXX_MAX_BYTES_INTEGER * 2] = { { (const_value_hash_bucket_t*)0 } };
+static const_value_hash_t _hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
@@ -147,9 +147,9 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
 
     if (bucket == NULL)
     {
-        bucket = calloc(1, sizeof(*bucket));
+        bucket = xcalloc(1, sizeof(*bucket));
         
-        bucket->constant_value = calloc(1, sizeof(*bucket->constant_value));
+        bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->kind = CVK_INTEGER;
         bucket->constant_value->value.i = value;
         bucket->constant_value->num_bytes = num_bytes;
@@ -186,7 +186,7 @@ GET_INTEGER(long_long_int)
 
 const_value_t* const_value_get_float(float f)
 {
-    const_value_t* v = calloc(1, sizeof(*v));
+    const_value_t* v = xcalloc(1, sizeof(*v));
     v->kind = CVK_FLOAT;
     v->value.f = f;
     v->sign = 1;
@@ -196,7 +196,7 @@ const_value_t* const_value_get_float(float f)
 
 const_value_t* const_value_get_double(double d)
 {
-    const_value_t* v = calloc(1, sizeof(*v));
+    const_value_t* v = xcalloc(1, sizeof(*v));
     v->kind = CVK_DOUBLE;
     v->value.d = d;
     v->sign = 1;
@@ -206,7 +206,7 @@ const_value_t* const_value_get_double(double d)
 
 const_value_t* const_value_get_long_double(long double ld)
 {
-    const_value_t* v = calloc(1, sizeof(*v));
+    const_value_t* v = xcalloc(1, sizeof(*v));
     v->kind = CVK_LONG_DOUBLE;
     v->value.ld = ld;
     v->sign = 1;
@@ -217,7 +217,7 @@ const_value_t* const_value_get_long_double(long double ld)
 #ifdef HAVE_QUADMATH_H
 const_value_t* const_value_get_float128(__float128 ld)
 {
-    const_value_t* v = calloc(1, sizeof(*v));
+    const_value_t* v = xcalloc(1, sizeof(*v));
     v->kind = CVK_FLOAT128;
     v->value.f128 = ld;
     v->sign = 1;
@@ -283,9 +283,9 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
 
 static const_value_t* make_multival(int num_elements, const_value_t **elements)
 {
-    const_value_t* result = calloc(1, sizeof(*result));
+    const_value_t* result = xcalloc(1, sizeof(*result));
 
-    result->value.m = calloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    result->value.m = xcalloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
     result->value.m->num_elements = num_elements;
 
     int i;
@@ -3022,7 +3022,7 @@ void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_e
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
-    int *result = calloc(const_value_get_num_elements(v), sizeof(*result));
+    int *result = xcalloc(const_value_get_num_elements(v), sizeof(*result));
 
     int i, nels = const_value_get_num_elements(v);
     for (i = 0; i < nels; i++)
@@ -3153,7 +3153,7 @@ size_t const_value_get_raw_data_size(void)
 
 const_value_t* const_value_get_mask(cvalue_uint_t value, unsigned int num_bits)
 {
-    const_value_t* result = calloc(1, sizeof(*result));
+    const_value_t* result = xcalloc(1, sizeof(*result));
 
     result->kind = CVK_MASK;
     result->num_bytes = num_bits / 8;
@@ -3192,7 +3192,7 @@ cvalue_uint_t const_value_mask_get_value(const_value_t* v)
 // This function is for supporting Fortran modules
 const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
 {
-    const_value_t* result = calloc(1, sizeof(*result));
+    const_value_t* result = xcalloc(1, sizeof(*result));
 
     // memcpy
     memcpy(result, raw_buffer, sizeof(const_value_t));

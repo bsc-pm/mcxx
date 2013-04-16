@@ -807,7 +807,7 @@ OPERATOR_TABLE
             file << "\"";
         }
 
-        free(bytes);
+        xfree(bytes);
     }
 
     namespace {
@@ -2332,7 +2332,13 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranUse& node)
     {
         indent();
-        file << "USE " << node.get_module().get_symbol().get_name();
+        file << "USE";
+        if (node.get_module().get_symbol().is_builtin())
+        {
+            file << ", INTRINSIC ::";
+        }
+        file << " " << node.get_module().get_symbol().get_name();
+
         if (!node.get_renamed_items().is_null())
         {
             file << ", ";
@@ -2346,7 +2352,12 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranUseOnly& node)
     {
         indent();
-        file << "USE " << node.get_module().get_symbol().get_name() << ", ONLY: ";
+        file << "USE";
+        if (node.get_module().get_symbol().is_builtin())
+        {
+            file << ", INTRINSIC ::";
+        }
+        file << " " << node.get_module().get_symbol().get_name() << ", ONLY: ";
         Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
         emit_only_list(only_items);
         file << "\n";

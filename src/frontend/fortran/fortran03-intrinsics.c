@@ -37,6 +37,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
 #include "fortran03-scope.h"
+#include "fortran03-modules.h"
 #include <string.h>
 #include "red_black_tree.h"
 #include "fortran03-intrinsics-simplify.h"
@@ -309,7 +310,13 @@ FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
+\
+FORTRAN_GENERIC_INTRINSIC(NULL, sind, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, cosd, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, tand, "X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, atan2d, "Y,X", E, NULL) \
 ISO_C_BINDING_INTRINSICS \
+IEEE_EXCEPTIONS_INTRINSICS \
 MERCURIUM_SPECIFIC_INTRINSICS
 
 #define ISO_C_BINDING_INTRINSICS \
@@ -321,6 +328,40 @@ MERCURIUM_SPECIFIC_INTRINSICS
 
 #define MERCURIUM_SPECIFIC_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_loc, "X", I, simplify_mcc_loc) \
+
+#define IEEE_EXCEPTIONS_INTRINSICS \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_support_flag, "FLAG,?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_support_halting, "FLAG", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_datatype, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_denormal, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_divide, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_inf, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_nan, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_rounding, "ROUND_VALUE,?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_sqrt, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_support_standard, "?X", I, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_class, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_copy_sign, "X,Y", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_is_finite, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_is_nan, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_is_negative, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_is_normal, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_logb, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_is_next_after, "X,Y", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_rem, "X,Y", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_rint, "X", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_scalb, "X,I", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_unordered, "X,Y", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_value, "X,CLASS", E, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_get_flag, "FLAG,FLAG_VALUE", ES, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_get_halting_mode, "FLAG,HALTING", ES, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_set_flag, "FLAG,FLAG_VALUE", ES, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_set_halting_mode, "FLAG,HALTING", ES, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_get_status, "STATUS_VALUE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_set_status, "STATUS_VALUE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_get_rounding_mode, "ROUND_VALUE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_set_rounding_mode, "ROUND_VALUE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("ieee_arithmetic", ieee_selected_real_kind, "?P,?R", T, NULL) \
 
 // Well, for some reason C_LOC and C_FUNLOC do not have a known interface in gfortran
 #if 0
@@ -419,7 +460,7 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
     memset(&result, 0, sizeof(result));
     if (keywords != NULL)
     {
-        char *c = strdup(keywords);
+        char *c = xstrdup(keywords);
         char *p = strtok(c, ",");
         while (p != NULL)
         {
@@ -437,7 +478,7 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
             keyword_index++;
         }
         result.num_keywords = keyword_index;
-        free(c);
+        xfree(c);
     }
     else
     {
@@ -921,13 +962,13 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
     else
     {
         // Create a new descriptor
-        intrinsic_descr_t *p = calloc(1, sizeof(*p));
+        intrinsic_descr_t *p = xcalloc(1, sizeof(*p));
         p->name = name;
         p->result_type = result_type;
         p->num_types = num_types;
         if (num_types > 0)
         {
-            p->parameter_types = calloc(num_types, sizeof(*p->parameter_types));
+            p->parameter_types = xcalloc(num_types, sizeof(*p->parameter_types));
             memcpy(p->parameter_types, types, num_types * sizeof(*p->parameter_types));
         }
 
@@ -941,7 +982,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         type_t* function_type = get_new_function_type(result_type, param_info, num_types);
 
         // We do not want it be signed in the scope
-        scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+        scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
         new_entry->symbol_name = name;
         new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
@@ -1050,6 +1091,7 @@ static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAME
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
 
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
@@ -1145,6 +1187,8 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     // Sign in specific names for intrinsics
     fortran_init_specific_names(fortran_intrinsic_context);
+
+    fortran_finish_intrinsic_modules(decl_context);
 }
 
 static scope_entry_t* register_specific_intrinsic_name(
@@ -1411,6 +1455,21 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", fortran_get_default_real_type());
+
+    REGISTER_SPECIFIC_INTRINSIC_1("sind", "sind", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsind", "sind", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("csind", "sind", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("cosd", "cosd", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcosd", "cosd", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ccosd", "cosd", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_1("tand", "tand", fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtand", "tand", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("ctand", "tand", get_complex_type(fortran_get_default_real_type()));
+
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2d", "atan2d", fortran_get_default_real_type(), fortran_get_default_real_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2d", "atan2d", fortran_get_doubleprecision_type(), fortran_get_doubleprecision_type());
 
     // Non standard stuff
     // Very old (normally from g77) intrinsics
@@ -1834,6 +1893,24 @@ scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
     return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
+scope_entry_t* compute_intrinsic_atan2d(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+    // t0 == Y
+    // t1 == X
+    type_t* t1 = fortran_get_rank0_type(argument_types[1]);
+    if (is_floating_type(t0)
+            && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
+    {
+        return GET_INTRINSIC_ELEMENTAL("atan2d", t1, t1, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -2226,6 +2303,22 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("cos", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_cosd(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("cosd", t0, t0);
     }
     return NULL;
 }
@@ -5064,7 +5157,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         t3 = t1;
     }
 
-    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t1), shape_size, symbol->decl_context);
+    type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), shape_size, symbol->decl_context);
 
     return GET_INTRINSIC_TRANSFORMATIONAL("reshape", r, t0, t1, t2, t3);
 }
@@ -5326,6 +5419,22 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_sind(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("sind", t0, t0);
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -5543,6 +5652,22 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("tan", t0, t0);
+    }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_tand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (is_floating_type(t0)
+            || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("tand", t0, t0);
     }
     return NULL;
 }
@@ -6218,7 +6343,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < num_actual_arguments; i++)
         {
-            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
             new_keyword_sym->kind = SK_VARIABLE;
             uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
             new_keyword_sym->decl_context = entry->decl_context;
@@ -6240,7 +6365,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < current_variant.num_keywords; i++)
         {
-            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
             new_keyword_sym->kind = SK_VARIABLE;
             new_keyword_sym->symbol_name = current_variant.keyword_names[i];
             new_keyword_sym->decl_context = entry->decl_context;
@@ -6352,7 +6477,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
     }
 }
 
-static void fortran_init_intrinsic_modules(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_context)
 {
     // Initialize ISO_C_BINDING
     decl_context_t module_context = new_program_unit_context(decl_context);
@@ -6488,6 +6613,866 @@ static void fortran_init_intrinsic_modules(decl_context_t decl_context)
     P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
             iso_c_binding->entity_specs.num_related_symbols,
             c_null_funptr);
+    }
+}
+
+static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_context)
+{
+    // Initialize IEEE_EXCEPTIONS
+    decl_context_t module_context = new_program_unit_context(decl_context);
+
+    scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context.current_scope, "ieee_exceptions");
+    ieee_exceptions->kind = SK_MODULE;
+    ieee_exceptions->entity_specs.is_builtin = 1;
+    ieee_exceptions->related_decl_context = module_context;
+    ieee_exceptions->defined = 1;
+
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "ieee_exceptions", ieee_exceptions);
+
+    module_context.current_scope->related_entry = ieee_exceptions;
+
+    int i;
+    // Private types
+    scope_entry_t *ieee_flag = NULL, *ieee_status = NULL;
+    struct private_types_tag
+    {
+        const char* name;
+        scope_entry_t** p;
+    } private_types[] = {
+        { "ieee_flag_type", &ieee_flag },
+        { "ieee_status_type", &ieee_status },
+        { NULL, NULL }
+    };
+
+    for (i = 0; private_types[i].name != NULL; i++)
+    {
+        scope_entry_t* new_type = NULL;
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->kind = SK_CLASS;
+        new_type->entity_specs.in_module = ieee_exceptions;
+        new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
+        new_type->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_exceptions->entity_specs.related_symbols,
+                ieee_exceptions->entity_specs.num_related_symbols,
+                new_type);
+    }
+
+    // Global names
+    type_t* ieee_flag_type = get_const_qualified_type(get_user_defined_type(ieee_flag));
+    // type_t* ieee_status_type = get_user_defined_type(ieee_status);
+
+    type_t* ieee_flag_type_3 = get_array_type_bounds(ieee_flag_type,
+            const_value_to_nodecl(const_value_get_signed_int(1)),
+            const_value_to_nodecl(const_value_get_signed_int(3)),
+            decl_context);
+
+    type_t* ieee_flag_type_5 = get_array_type_bounds(ieee_flag_type,
+            const_value_to_nodecl(const_value_get_signed_int(1)),
+            const_value_to_nodecl(const_value_get_signed_int(5)),
+            decl_context);
+
+    struct global_vars_tag
+    {
+        const char* name;
+        type_t* type;
+    } global_names[] = {
+        { "ieee_invalid", ieee_flag_type },
+        { "ieee_overflow", ieee_flag_type },
+        { "ieee_divided_by_zero", ieee_flag_type },
+        { "ieee_underflow", ieee_flag_type },
+        { "ieee_inexact", ieee_flag_type },
+        { "ieee_usual", ieee_flag_type_3 },
+        { "ieee_all", ieee_flag_type_5 },
+        { NULL, NULL }
+    };
+
+    for (i = 0; global_names[i].name != NULL; i++)
+    {
+        scope_entry_t* new_var = NULL;
+        new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->kind = SK_VARIABLE;
+        new_var->entity_specs.in_module = ieee_exceptions;
+        new_var->type_information = global_names[i].type;
+        new_var->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_exceptions->entity_specs.related_symbols,
+                ieee_exceptions->entity_specs.num_related_symbols,
+                new_var);
+    }
+}
+
+static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_context)
+{
+    // Initialize IEEE_ARITHMETIC
+    decl_context_t module_context = new_program_unit_context(decl_context);
+
+    scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context.current_scope, "ieee_arithmetic");
+    ieee_arithmetic->kind = SK_MODULE;
+    ieee_arithmetic->entity_specs.is_builtin = 1;
+    ieee_arithmetic->related_decl_context = module_context;
+    ieee_arithmetic->defined = 1;
+
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "ieee_arithmetic", ieee_arithmetic);
+
+    module_context.current_scope->related_entry = ieee_arithmetic;
+
+    int i;
+    // Private types
+    scope_entry_t *ieee_class = NULL, *ieee_round = NULL;
+    struct private_types_tag
+    {
+        const char* name;
+        scope_entry_t** p;
+    } private_types[] = {
+        { "ieee_class_type", &ieee_class },
+        { "ieee_round_type", &ieee_round },
+        { NULL, NULL }
+    };
+
+    for (i = 0; private_types[i].name != NULL; i++)
+    {
+        scope_entry_t* new_type = NULL;
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->kind = SK_CLASS;
+        new_type->entity_specs.in_module = ieee_arithmetic;
+        new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
+        new_type->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
+                ieee_arithmetic->entity_specs.num_related_symbols,
+                new_type);
+    }
+
+    // Global names
+    type_t* ieee_class_type = get_const_qualified_type(get_user_defined_type(ieee_class));
+    type_t* ieee_round_type = get_const_qualified_type(get_user_defined_type(ieee_round));
+
+    struct global_vars_tag
+    {
+        const char* name;
+        type_t* type;
+    } global_names[] = {
+        {"ieee_signaling_nan", ieee_class_type },
+        {"ieee_quiet_nan", ieee_class_type },
+        {"ieee_negative_inf", ieee_class_type },
+        {"ieee_negative_normal", ieee_class_type },
+        {"ieee_negative_denormal", ieee_class_type },
+        {"ieee_negative_zero", ieee_class_type },
+        {"ieee_positive_zero", ieee_class_type },
+        {"ieee_positive_denormal", ieee_class_type },
+        {"ieee_positive_normal", ieee_class_type },
+        {"ieee_positive_inf", ieee_class_type },
+
+        {"ieee_nearest", ieee_round_type },
+        {"ieee_to_zero", ieee_round_type },
+        {"ieee_up", ieee_round_type },
+        {"ieee_down", ieee_round_type },
+        {"ieee_other", ieee_round_type },
+
+        { NULL, NULL }
+    };
+
+    for (i = 0; global_names[i].name != NULL; i++)
+    {
+        scope_entry_t* new_var = NULL;
+        new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->kind = SK_VARIABLE;
+        new_var->entity_specs.in_module = ieee_arithmetic;
+        new_var->type_information = global_names[i].type;
+        new_var->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
+                ieee_arithmetic->entity_specs.num_related_symbols,
+                new_var);
+    }
+}
+
+static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_context)
+{
+    // Initialize IEEE_FEATURES
+    decl_context_t module_context = new_program_unit_context(decl_context);
+
+    scope_entry_t* ieee_features = new_symbol(decl_context, decl_context.current_scope, "ieee_features");
+    ieee_features->kind = SK_MODULE;
+    ieee_features->entity_specs.is_builtin = 1;
+    ieee_features->related_decl_context = module_context;
+    ieee_features->defined = 1;
+
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, "ieee_features", ieee_features);
+
+    module_context.current_scope->related_entry = ieee_features;
+
+    int i;
+    // Private types
+    scope_entry_t* ieee_features_sym = NULL;
+    struct private_types_tag
+    {
+        const char* name;
+        scope_entry_t** p;
+    } private_types[] = {
+        { "ieee_features_type", &ieee_features_sym },
+        { NULL, NULL }
+    };
+
+    for (i = 0; private_types[i].name != NULL; i++)
+    {
+        scope_entry_t* new_type = NULL;
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->kind = SK_CLASS;
+        new_type->entity_specs.in_module = ieee_features;
+        new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
+        new_type->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_features->entity_specs.related_symbols,
+                ieee_features->entity_specs.num_related_symbols,
+                new_type);
+    }
+
+    // Global names
+    type_t* ieee_features_type = get_const_qualified_type(get_user_defined_type(ieee_features_sym));
+
+    struct global_vars_tag
+    {
+        const char* name;
+        type_t* type;
+    } global_names[] = {
+        {"ieee_datatype", ieee_features_type },
+        {"ieee_denormal", ieee_features_type },
+        {"ieee_divide", ieee_features_type },
+        {"ieee_halting", ieee_features_type },
+        {"ieee_inexact_flag", ieee_features_type },
+        {"ieee_inf", ieee_features_type },
+        {"ieee_invalid_flag", ieee_features_type },
+        {"ieee_nan", ieee_features_type },
+        {"ieee_rounding", ieee_features_type },
+        {"ieee_sqrt", ieee_features_type },
+        {"ieee_underflow_flag", ieee_features_type },
+        { NULL, NULL }
+    };
+
+    for (i = 0; global_names[i].name != NULL; i++)
+    {
+        scope_entry_t* new_var = NULL;
+        new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->kind = SK_VARIABLE;
+        new_var->entity_specs.in_module = ieee_features;
+        new_var->type_information = global_names[i].type;
+        new_var->entity_specs.access = AS_PUBLIC;
+
+        P_LIST_ADD(ieee_features->entity_specs.related_symbols,
+                ieee_features->entity_specs.num_related_symbols,
+                new_var);
+    }
+}
+
+static void fortran_init_intrinsic_module_ieee(decl_context_t decl_context)
+{
+    fortran_init_intrinsic_module_ieee_exceptions(decl_context);
+    fortran_init_intrinsic_module_ieee_arithmetic(decl_context);
+    fortran_init_intrinsic_module_ieee_features(decl_context);
+}
+
+static type_t* get_type_from_module(const char* module_name, const char* type_name)
+{
+    scope_entry_t* module = get_module_in_cache(module_name);
+    scope_entry_list_t* res = fortran_query_module_for_name(module, type_name);
+    scope_entry_t* sym = (res != NULL) ? entry_list_head(res) : NULL;
+    entry_list_free(res);
+
+    ERROR_CONDITION(res == NULL, "Type %s.%s does not exist\n", module_name, type_name);
+
+    return get_user_defined_type(sym);
+}
+
+
+static type_t* get_ieee_flag_type(void)
+{
+    return get_type_from_module("ieee_exceptions", "ieee_flag_type");
+}
+
+static type_t* get_ieee_status_type(void)
+{
+    return get_type_from_module("ieee_exceptions", "ieee_status_type");
+}
+
+static type_t* get_ieee_round_type(void)
+{
+    return get_type_from_module("ieee_arithmetic", "ieee_round_type");
+}
+
+static type_t* get_ieee_class_type(void)
+{
+    return get_type_from_module("ieee_arithmetic", "ieee_class_type");
+}
+
+static scope_entry_t* compute_intrinsic_ieee_get_halting_mode(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
+            && is_bool_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_get_halting_mode", get_void_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_copy_sign(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (is_floating_type(t0)
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_copy_sign", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_set_halting_mode(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t *t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t *t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
+            && equivalent_types(get_unqualified_type(t1), fortran_get_default_logical_type()))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_set_halting_mode", get_void_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_rem(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (is_floating_type(t0)
+            && is_floating_type(t1))
+    {
+        // FIXME - We should choose the most precise of the both types. Now we
+        // return the first one
+        return GET_INTRINSIC_ELEMENTAL("ieee_rem", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_set_status(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_status_type()))
+    {
+        return GET_INTRINSIC_PURE("ieee_set_status", get_void_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_flag(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1] != NULL ? fortran_get_rank0_type(argument_types[1]) : fortran_get_default_real_type());
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_flag", fortran_get_default_logical_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_inf(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_inf", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_value(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if (is_floating_type(t0)
+            && equivalent_types(get_unqualified_type(t1), get_ieee_class_type()))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_value", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_logb(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_logb", t0, t0);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_ieee_selected_real_kind(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] == NULL ? fortran_get_default_integer_type() : argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1] == NULL ? fortran_get_default_integer_type() : argument_types[1]);
+
+    if (is_integer_type(t0) &&
+            is_integer_type(t1))
+    {
+        return GET_INTRINSIC_TRANSFORMATIONAL("ieee_selected_real_kind", fortran_get_default_integer_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_is_negative(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_is_negative", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_get_rounding_mode(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t *t0 = no_ref(argument_types[0]);
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type()))
+    {
+        return GET_INTRINSIC_PURE("ieee_get_rounding_mode", get_void_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_is_finite(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_is_finite", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_is_normal(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_is_normal", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_halting(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type()))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_halting", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_get_status(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t *t0 = no_ref(argument_types[0]);
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_status_type()))
+    {
+        return GET_INTRINSIC_PURE("ieee_get_status", get_void_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_set_flag(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t *t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t *t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
+            && equivalent_types(get_unqualified_type(t1), fortran_get_default_logical_type()))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_set_flag", get_void_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_ieee_get_flag(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
+            && is_bool_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_get_flag", get_void_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_unordered(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (is_floating_type(t0)
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_unordered", fortran_get_default_logical_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_denormal(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_denormal", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_sqrt", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_is_next_after(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (is_floating_type(t0)
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_next_after", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_datatype(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? argument_types[0] : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_datatype", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_class(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_class", get_ieee_class_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_rint(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_rint", t0, t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_set_rounding_mode(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type()))
+    {
+        return GET_INTRINSIC_PURE("ieee_set_rounding_mode", get_void_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_standard(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_standard", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_divide(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_divide", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_rounding(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1] != NULL ? fortran_get_rank0_type(argument_types[1]) : fortran_get_default_real_type());
+
+    if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type())
+            && is_floating_type(t1))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_rounding", fortran_get_default_logical_type(), t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_scalb(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    type_t* t1 = no_ref(fortran_get_rank0_type(argument_types[1]));
+
+    if (is_floating_type(t0)
+            && is_integer_type(t1))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_scalb", t0, t0, t1);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_support_nan(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0] != NULL ? fortran_get_rank0_type(argument_types[0]) : fortran_get_default_real_type());
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_INQUIRY("ieee_support_nan", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_ieee_is_nan(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("ieee_is_nan", fortran_get_default_logical_type(), t0);
+    }
+
+    return NULL;
+}
+
+static void fortran_init_intrinsic_modules(decl_context_t decl_context)
+{
+    fortran_init_intrinsic_module_iso_c_binding(decl_context);
+    fortran_init_intrinsic_module_ieee(decl_context);
+}
+
+static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Finish modules
+    //
+    // IEEE_ARITHMETICS modules has a USE IEEE_EXCEPTIONS
+    scope_entry_t* ieee_arithmetic = get_module_in_cache("ieee_arithmetic");
+    scope_entry_t* ieee_exceptions = get_module_in_cache("ieee_exceptions");
+
+    int i;
+    for (i = 0; i < ieee_exceptions->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym_in_module = ieee_exceptions->entity_specs.related_symbols[i];
+
+        if (sym_in_module->entity_specs.access == AS_PRIVATE)
+            continue;
+
+        insert_symbol_from_module(sym_in_module,
+                ieee_arithmetic->related_decl_context,
+                sym_in_module->symbol_name,
+                ieee_exceptions,
+                "", 0);
     }
 }
 

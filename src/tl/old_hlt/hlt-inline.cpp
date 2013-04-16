@@ -171,7 +171,7 @@ Source FunctionCallInline::get_source()
     }
 
     // The returned pointer came from C code, so 'free' it
-    free((void*)c);
+    xfree((void*)c);
 
     result
         << "({"

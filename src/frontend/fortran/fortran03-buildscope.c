@@ -356,7 +356,7 @@ static void check_untyped_symbols(decl_context_t decl_context)
                 entry->symbol_name);
     }
 
-    free(unknown_info->entity_specs.related_symbols);
+    xfree(unknown_info->entity_specs.related_symbols);
     unknown_info->entity_specs.related_symbols = NULL;
     unknown_info->entity_specs.num_related_symbols = 0;
 }
@@ -539,7 +539,7 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
         }
     }
 
-    free(unknown_kind->entity_specs.related_symbols);
+    xfree(unknown_kind->entity_specs.related_symbols);
     unknown_kind->entity_specs.related_symbols = NULL;
     unknown_kind->entity_specs.num_related_symbols = 0;
 }
@@ -743,7 +743,7 @@ static void build_scope_program_unit_internal(AST program_unit,
                                 "Invalid kind for second item of the list", 0);
 
                         nodecl_nested_pragma = list[1];
-                        free(list);
+                        xfree(list);
                     }
 
                     nodecl_t nodecl_pragma_declaration =
@@ -1598,7 +1598,7 @@ static scope_entry_t* new_procedure_symbol(
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = calloc(1, sizeof(*dummy_arg));
+                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -1881,7 +1881,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = calloc(1, sizeof(*dummy_arg));
+                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -6417,11 +6417,16 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
     // Symbols from modules need a bit more of care
     scope_entry_t* in_module = NULL;
     access_specifier_t access = AS_UNKNOWN;
+    scope_entry_t* from_module = NULL;
+    scope_entry_t* alias_to = NULL;
+
     if (entry->entity_specs.in_module != NULL)
     {
         in_module = entry->entity_specs.in_module;
         access = entry->entity_specs.access;
     }
+    from_module = entry->entity_specs.from_module;
+    alias_to = entry->entity_specs.alias_to;
 
     entry->kind = intrinsic->kind;
     entry->type_information = intrinsic->type_information;
@@ -6440,6 +6445,8 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         }
     }
 
+    entry->entity_specs.from_module = from_module;
+    entry->entity_specs.alias_to = alias_to;
     if (in_module != NULL)
     {
         entry->entity_specs.in_module = in_module;
@@ -6806,6 +6813,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
                     ASTText(pointer_name));
             continue;
         }
+
+        pointer_entry->entity_specs.is_cray_pointer = 1;
 
         AST pointee_name = pointee_decl;
         AST array_spec = NULL;
@@ -7404,7 +7413,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     }
 
     // Result symbol (for consistency with remaining functions in the language)
-    scope_entry_t* result_sym = calloc(1, sizeof(*result_sym));
+    scope_entry_t* result_sym = xcalloc(1, sizeof(*result_sym));
     result_sym->symbol_name = entry->symbol_name;
     result_sym->kind = SK_VARIABLE;
     result_sym->decl_context = decl_context;
@@ -8094,7 +8103,7 @@ static char come_from_the_same_module(scope_entry_t* new_symbol_used,
     return new_symbol_used == existing_symbol;
 }
 
-static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
+scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* local_name, 
         scope_entry_t* module_symbol,
@@ -9979,7 +9988,7 @@ static void resolve_external_calls_inside_a_function(nodecl_t function_code,
         }
     }
 
-    free(list);
+    xfree(list);
 }
 
 static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
@@ -10029,7 +10038,7 @@ static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
         }
     }
 
-    free(list);
+    xfree(list);
 
     DEBUG_CODE()
     {

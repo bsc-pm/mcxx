@@ -74,10 +74,10 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
 {
     ERROR_CONDITION(template_parameters == NULL, "Template parameters cannot be NULL here", 0);
 
-    template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
     *result = *template_parameters;
-    result->arguments = counted_calloc(template_parameters->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
+    result->arguments = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
 
     int i;
     for (i = 0; i < result->num_parameters; i++)
@@ -115,7 +115,7 @@ static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 // Any new scope should be created using this one
 scope_t* _new_scope(void)
 {
-    scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    scope_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->hash =
         rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
@@ -234,7 +234,7 @@ decl_context_t new_global_context(void)
     decl_context_t result = new_decl_context();
 
     scope_entry_t* global_scope_namespace 
-        = counted_calloc(1, sizeof(*global_scope_namespace), &_bytes_used_scopes);
+        = counted_xcalloc(1, sizeof(*global_scope_namespace), &_bytes_used_scopes);
     global_scope_namespace->kind = SK_NAMESPACE;
 
     // Create global scope
@@ -388,13 +388,13 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     scope_entry_t* result;
 
-    result = counted_calloc(1, sizeof(*result), &_bytes_used_symbols);
+    result = counted_xcalloc(1, sizeof(*result), &_bytes_used_symbols);
     result->symbol_name = uniquestr(name);
     // Remember, for template parameters, .current_scope will not contain
     // its declaration scope but will be in .template_scope
     result->decl_context = decl_context;
 
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
+    result->extended_data = counted_xcalloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
     extensible_struct_init(&result->extended_data);
     insert_alias(sc, result, result->symbol_name);
 
@@ -842,7 +842,7 @@ static scope_entry_t* create_new_dependent_entity(
     nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, NULL, 0);
 
     // FIXME - Cache these symbols
-    scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    scope_entry_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->kind = SK_DEPENDENT_ENTITY;
     result->decl_context = decl_context;
@@ -1224,7 +1224,7 @@ nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name)
 
         nodecl_t last_part = list[num_items - 1];
 
-        free(list);
+        xfree(list);
 
         return last_part;
     }
@@ -1943,7 +1943,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         return NULL;
     }
 
-    template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_value_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
     *result = *v;
     result->is_default = 0;
 
@@ -2554,7 +2554,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
             }
-            free(list);
+            xfree(list);
 
             ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
 
@@ -2563,7 +2563,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
             }
-            free(list);
+            xfree(list);
 
             cv_qualif |= cv_qualif_dep;
 
@@ -2704,7 +2704,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_EXPRESSION_ARGUMENT :
             {
                 template_parameter_value_t* t_argument = 
-                    counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+                    counted_xcalloc(1, sizeof(*t_argument), &_bytes_used_scopes);
 
                 AST expr = ASTSon0(template_parameter);
 
@@ -2733,7 +2733,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_TYPE_ARGUMENT :
             {
                 template_parameter_value_t* t_argument = 
-                    counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+                    counted_xcalloc(1, sizeof(*t_argument), &_bytes_used_scopes);
 
                 AST type_template_parameter = ASTSon0(template_parameter);
                 AST type_specifier_seq = ASTSon0(type_template_parameter);
@@ -2808,7 +2808,7 @@ template_parameter_list_t* get_template_parameters_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context)
 {
-    template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
     if (template_parameters_list_tree == NULL)
     {
@@ -3551,7 +3551,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
             if (value->kind == TPK_NONTYPE
                     || value->kind == TPK_TYPE)
             {
-                value->entry = counted_calloc(1, sizeof(*value->entry), &_bytes_used_scopes);
+                value->entry = counted_xcalloc(1, sizeof(*value->entry), &_bytes_used_scopes);
                 value->entry->symbol_name = parameter_entry->symbol_name;
                 value->entry->decl_context = context;
                 value->entry->entity_specs.is_template_parameter = 1;
@@ -3840,7 +3840,7 @@ static scope_entry_list_t* query_nodecl_simple_name(
                     && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
                     && is_dependent_type(head->entity_specs.class_type))
             {
-                scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
                 new_sym->kind = SK_DEPENDENT_ENTITY;
                 new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
                 new_sym->decl_context = decl_context;
@@ -3892,7 +3892,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
     else if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
             && is_dependent_type(decl_context.current_scope->related_entry->type_information))
     {
-        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->decl_context = decl_context;
         new_sym->file = filename;
@@ -3996,7 +3996,7 @@ scope_entry_list_t* query_nodecl_template_id(
         dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
         // nodecl_parts here lacks the template-id part
 
-        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->file = nodecl_get_filename(nodecl_name);
         new_sym->line = nodecl_get_line(nodecl_name);
@@ -4270,7 +4270,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                 || entry_list_size(current_entry_list) > 1)
         {
             entry_list_free(current_entry_list);
-            free(list);
+            xfree(list);
             return NULL;
         }
 
@@ -4305,7 +4305,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                             nodecl_get_line(current_name),
                             list);
 
-                    free(list);
+                    xfree(list);
 
                     return entry_list_new(dependent_symbol);
                 }
@@ -4353,7 +4353,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                             nodecl_get_filename(current_name),
                             nodecl_get_line(current_name),
                             list);
-                    free(list);
+                    xfree(list);
                     return entry_list_new(dependent_symbol);
                 }
 
@@ -4369,7 +4369,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                         nodecl_get_filename(current_name),
                         nodecl_get_line(current_name),
                         list);
-                free(list);
+                xfree(list);
                 return entry_list_new(dependent_symbol);
             }
             else
@@ -4487,11 +4487,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                 nodecl_get_line(last_name),
                 check_symbol_data))
     {
-        free(result);
+        xfree(result);
         return NULL;
     }
 
-    free(list);
+    xfree(list);
 
     return result;
 }
@@ -5008,7 +5008,7 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
 
                 if (is_dependent_type(new_class_type))
                 {
-                    scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
                     new_sym->kind = SK_DEPENDENT_ENTITY;
                     new_sym->file = filename;
                     new_sym->line = line;

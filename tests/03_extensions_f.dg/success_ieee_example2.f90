@@ -1,0 +1,33 @@
+! <testinfo>
+! test_generator=config/mercurium-extensions
+! </testinfo>
+PROGRAM MAIN
+
+USE, INTRINSIC :: IEEE_EXCEPTIONS
+USE, INTRINSIC :: IEEE_FEATURES, ONLY: IEEE_INVALID_FLAG
+! The other exceptions of IEEE_USUAL (IEEE_OVERFLOW and
+! IEEE_DIVIDE_BY_ZERO) are always available with IEEE_EXCEPTIONS
+TYPE(IEEE_STATUS_TYPE) STATUS_VALUE
+LOGICAL, DIMENSION(3) :: FLAG_VALUE
+!
+CALL IEEE_GET_STATUS(STATUS_VALUE)
+CALL IEEE_SET_HALTING_MODE(IEEE_USUAL,.FALSE.) ! Needed in case the
+!
+! default on the processor is to halt on exceptions
+CALL IEEE_SET_FLAG(IEEE_USUAL,.FALSE.)
+! First try the "fast" algorithm for inverting a matrix:
+MATRIX1 = FAST_INV(MATRIX) ! This must not alter MATRIX.
+CALL IEEE_GET_FLAG(IEEE_USUAL,FLAG_VALUE)
+IF (ANY(FLAG_VALUE)) THEN
+! "Fast" algorithm failed; try "slow" one:
+CALL IEEE_SET_FLAG(IEEE_USUAL,.FALSE.)
+MATRIX1 = SLOW_INV(MATRIX)
+CALL IEEE_GET_FLAG(IEEE_USUAL,FLAG_VALUE)
+IF (ANY(FLAG_VALUE)) THEN
+WRITE (*, *) 'Cannot invert matrix'
+STOP
+END IF
+END IF
+CALL IEEE_SET_STATUS(STATUS_VALUE)
+
+END PROGRAM MAIN

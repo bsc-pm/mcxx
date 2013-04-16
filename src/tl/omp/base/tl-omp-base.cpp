@@ -237,6 +237,12 @@ namespace TL { namespace OpenMP {
                                 Nodecl::Symbol::make(*it, filename, line);
                             symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
+                            warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
+                                    "is SHARED because it does not have VALUE attribute\n",
+                                    function_sym.get_locus().c_str(),
+                                    it->get_name().c_str(),
+                                    function_sym.get_name().c_str());
+
                             assumed_shareds.append(symbol_ref);
                         }
                     }

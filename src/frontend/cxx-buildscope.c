@@ -422,7 +422,7 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
 {
-    return counted_calloc(sizeof(default_argument_info_t*), num_parameters, &_bytes_used_buildscope);
+    return counted_xcalloc(sizeof(default_argument_info_t*), num_parameters, &_bytes_used_buildscope);
 }
 
 // This function initialize global symbols that exist in every translation unit
@@ -1337,7 +1337,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     if (current_class != NULL)
     {
-        scope_entry_t* used_hub_symbol = counted_calloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
+        scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
         used_hub_symbol->kind = SK_USING;
         used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
         used_hub_symbol->entity_specs.access = current_access;
@@ -1650,7 +1650,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
 
                     current_gather_info.num_vla_dimension_symbols = 0;
-                    free(current_gather_info.vla_dimension_symbols);
+                    xfree(current_gather_info.vla_dimension_symbols);
                     current_gather_info.vla_dimension_symbols = NULL;
                 }
 
@@ -2867,7 +2867,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             // We create a fake symbol with the right context and an alias to
             // the real friend (entry)
             alias_to_entry =
-                counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+                counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
             alias_to_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
             alias_to_entry->file = ASTFileName(a);
             alias_to_entry->line = ASTLine(a);
@@ -2896,7 +2896,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     {
         if (is_dependent_type(class_symbol->type_information))
         {
-            class_entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+            class_entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
             class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
             class_entry->file = ASTFileName(a);
             class_entry->line = ASTLine(a);
@@ -4071,14 +4071,17 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
+            new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_enum_anon_%d", anonymous_enums);
+            new_enum = counted_xcalloc(1, sizeof(*new_enum), &_bytes_used_buildscope);
+            new_enum->symbol_name = symbol_name;
+            new_enum->decl_context = decl_context;
         }
         anonymous_enums++;
 
-        new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         new_enum->line = ASTLine(a);
         new_enum->file = ASTFileName(a);
         new_enum->kind = SK_ENUM;
@@ -6533,18 +6536,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_classes = 0;
+
         const char* symbol_name;
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            class_entry = counted_xcalloc(1, sizeof(*class_entry), &_bytes_used_buildscope);
+            class_entry->symbol_name = symbol_name;
+            class_entry->decl_context = decl_context;
         }
         anonymous_classes++;
-
-        class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
 
         class_entry->kind = SK_CLASS;
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
@@ -6648,21 +6654,24 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
     }
 
-    // Inject the class symbol in the scope
+    // Inject the class symbol in the scope if not unnamed
     CXX_LANGUAGE()
     {
-        scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-                inner_decl_context.current_scope, 
-                class_entry->symbol_name);
+        if (!class_entry->entity_specs.is_unnamed)
+        {
+            scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
+                    inner_decl_context.current_scope,
+                    class_entry->symbol_name);
 
-        *injected_symbol = *class_entry;
-        injected_symbol->do_not_print = 1;
+            *injected_symbol = *class_entry;
+            injected_symbol->do_not_print = 1;
 
-        injected_symbol->entity_specs.is_member = 1;
-        injected_symbol->entity_specs.access = AS_PUBLIC;
-        injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
+            injected_symbol->entity_specs.is_member = 1;
+            injected_symbol->entity_specs.access = AS_PUBLIC;
+            injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
-        injected_symbol->entity_specs.is_injected_class_name = 1;
+            injected_symbol->entity_specs.is_injected_class_name = 1;
+        }
     }
 
     access_specifier_t current_access;
@@ -7545,7 +7554,7 @@ static void set_function_parameter_clause(type_t** function_type,
                         param_decl_gather_info.vla_dimension_symbols[i]);
             }
 
-            free(param_decl_gather_info.vla_dimension_symbols);
+            xfree(param_decl_gather_info.vla_dimension_symbols);
 
             num_parameters++;
         }
@@ -7946,7 +7955,7 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
                 if (function_symbol->entity_specs.default_argument_info[i] == NULL)
                 {
                     function_symbol->entity_specs.default_argument_info[i] 
-                        = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                        = (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
                 }
                 function_symbol->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                 function_symbol->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
@@ -8166,7 +8175,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
 {
     dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
-    dest->entity_specs.related_symbols = counted_calloc(dest->entity_specs.num_related_symbols, 
+    dest->entity_specs.related_symbols = counted_xcalloc(dest->entity_specs.num_related_symbols, 
             sizeof(*dest->entity_specs.related_symbols), &_bytes_used_buildscope);
 
     int i;
@@ -8265,7 +8274,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                             && !nodecl_is_null(gather_info->arguments_info[i].argument))
                     {
                         entry->entity_specs.default_argument_info[i] 
-                            = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                            = (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
 
                         entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                         entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
@@ -8281,6 +8290,29 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
 
         return entry;
+    }
+
+    // C++ If we are in this case
+    //
+    // typedef struct { int x; } A, B;
+    // typedef enum { int x; } A, B;
+    //
+    // The first declarator-id (A) must become the class-name (or enum-name) of
+    // the type being declared, while B will still be a plain typedef-name
+    CXX_LANGUAGE()
+    {
+        if ((is_named_class_type(declarator_type) || is_named_enumerated_type(declarator_type))
+                && named_type_get_symbol(declarator_type)->entity_specs.is_unnamed)
+        {
+            scope_entry_t* unnamed_symbol = named_type_get_symbol(declarator_type);
+
+            unnamed_symbol->symbol_name = ASTText(declarator_id);
+            unnamed_symbol->entity_specs.is_unnamed = 0;
+
+            insert_entry(unnamed_symbol->decl_context.current_scope, unnamed_symbol);
+
+            return unnamed_symbol;
+        }
     }
 
     scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
@@ -8316,7 +8348,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
 
         entry->entity_specs.num_parameters = gather_info->num_parameters;
-        entry->entity_specs.default_argument_info = counted_calloc(entry->entity_specs.num_parameters,
+        entry->entity_specs.default_argument_info = counted_xcalloc(entry->entity_specs.num_parameters,
                 sizeof(*(entry->entity_specs.default_argument_info)), 
                 &_bytes_used_buildscope);
         int i;
@@ -8325,7 +8357,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 entry->entity_specs.default_argument_info[i] = 
-                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                    (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
                 entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                 entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
             }
@@ -8653,7 +8685,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
         new_entry->entity_specs.default_argument_info = 
-            counted_calloc(gather_info->num_parameters, 
+            counted_xcalloc(gather_info->num_parameters, 
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
         
@@ -8677,7 +8709,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 new_entry->entity_specs.default_argument_info[i] = 
-                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), 
+                    (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), 
                             &_bytes_used_buildscope);
                 new_entry->entity_specs.default_argument_info[i]->argument = 
                     gather_info->arguments_info[i].argument;
@@ -8967,7 +8999,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 }
         }
 
-        func_templ = counted_calloc(1, sizeof(*func_templ), &_bytes_used_buildscope);
+        func_templ = counted_xcalloc(1, sizeof(*func_templ), &_bytes_used_buildscope);
         func_templ->symbol_name = declarator_name;
 
         func_templ->kind = SK_TEMPLATE;
@@ -8996,7 +9028,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     //We create a new symbol always
     scope_entry_t* new_entry =
-        counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+        counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
 
     new_entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
     new_entry->file = ASTFileName(declarator_id);
@@ -9019,14 +9051,14 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
     new_entry->entity_specs.default_argument_info =
-        counted_calloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+        counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
     int i;
     for (i = 0; i < gather_info->num_parameters; i++)
     {
         if (!nodecl_is_null(gather_info->arguments_info[i].argument))
         {
             new_entry->entity_specs.default_argument_info[i] =
-                (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
             new_entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
             new_entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
         }
@@ -9282,7 +9314,7 @@ static char find_function_declaration(AST declarator_id,
             && gather_info->is_friend
             && is_dependent_type(declarator_type))
     {
-        scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        scope_entry_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_buildscope);
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->file = ASTFileName(declarator_id);
         result->line = ASTLine(declarator_id);
@@ -9485,7 +9517,7 @@ static void push_new_template_header_level(decl_context_t decl_context,
     (*template_context) = decl_context;
     // A new level of template nesting
     (*template_context).template_parameters =
-        counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
+        counted_xcalloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
 
     (*template_context).template_parameters->is_explicit_specialization = is_explicit_specialization;
     (*template_context).template_parameters->enclosing = decl_context.template_parameters;
@@ -9924,7 +9956,7 @@ static void build_scope_template_template_parameter(AST a,
     // Construct parameter information
     decl_context_t template_params_context = template_context;
 
-    template_params_context.template_parameters = counted_calloc(1, 
+    template_params_context.template_parameters = counted_xcalloc(1, 
             sizeof(*template_params_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
@@ -9950,7 +9982,7 @@ static void build_scope_template_template_parameter(AST a,
                 template_parameters->num_parameters);
     }
 
-    scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+    scope_entry_t* new_entry = counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
     new_entry->symbol_name = template_parameter_name;
     new_entry->decl_context = template_context;
 
@@ -9973,7 +10005,7 @@ static void build_scope_template_template_parameter(AST a,
 
     template_type_set_related_symbol(new_entry->type_information, new_entry);
 
-    template_parameter_t *template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t *template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = new_entry;
 
     template_parameter_value_t* default_argument = NULL;
@@ -10022,7 +10054,7 @@ static void build_scope_template_template_parameter(AST a,
             return;
         }
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), 
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), 
                 &_bytes_used_buildscope);
         // We need a named type
         default_argument->type = get_user_defined_type(entry);
@@ -10091,7 +10123,7 @@ static void build_scope_type_template_parameter(AST a,
         file = ASTFileName(a);
     }
 
-    scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+    scope_entry_t* new_entry = counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
     new_entry->decl_context = template_context;
     new_entry->symbol_name = template_parameter_name;
 
@@ -10104,7 +10136,7 @@ static void build_scope_type_template_parameter(AST a,
     new_entry->entity_specs.template_parameter_nesting = nesting;
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
-    template_parameter_t* template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t* template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = new_entry;
 
     template_parameter_value_t *default_argument = NULL;
@@ -10127,7 +10159,7 @@ static void build_scope_type_template_parameter(AST a,
                 &gather_info, type_info, &declarator_type,
                 template_context, abstract_decl,nodecl_output);
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_TYPE;
@@ -10193,7 +10225,7 @@ static void build_scope_nontype_template_parameter(AST a,
                 nesting, 
                 template_parameters->num_parameters);
     }
-    entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+    entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
     entry->symbol_name = template_parameter_name;
     entry->decl_context = template_context;
 
@@ -10206,7 +10238,7 @@ static void build_scope_nontype_template_parameter(AST a,
     entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // Save its symbol
-    template_parameter_t* template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t* template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = entry;
     template_parameter_value_t* default_argument = NULL;
     if (default_expression != NULL)
@@ -10222,7 +10254,7 @@ static void build_scope_nontype_template_parameter(AST a,
             }
         }
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
         default_argument->value = nodecl_expr;
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
@@ -10743,7 +10775,7 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     {
         // Allocated for the first time
         entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-        entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
                 sizeof(*entry->entity_specs.related_symbols),
                 &_bytes_used_buildscope);
     }
@@ -10751,11 +10783,11 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     {
         if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
         {
-            // A mismatching number of parameters, realloc
-            free(entry->entity_specs.related_symbols);
+            // A mismatching number of parameters, xrealloc
+            xfree(entry->entity_specs.related_symbols);
 
             entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
                     sizeof(*entry->entity_specs.related_symbols),
                     &_bytes_used_buildscope);
         }
@@ -11171,7 +11203,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             }
 
             gather_info.num_vla_dimension_symbols = 0;
-            free(gather_info.vla_dimension_symbols);
+            xfree(gather_info.vla_dimension_symbols);
             gather_info.vla_dimension_symbols = NULL;
 
             // Note that we are prepending an object init list for VLAs
@@ -13802,7 +13834,7 @@ static void finish_pragma_declaration(
                         nodecl_get_symbol(list[i]), 
                         text, filename, line));
         }
-        free(list);
+        xfree(list);
     }
 
     entry_list_free(declared_symbols);
