@@ -61,7 +61,17 @@ LIBUTILS_EXTERN unsigned char contain_prefix_number(const char*);
 LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order);
 
 // Like asprintf but returning a uniquestr
-LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, ...);
+#ifdef __GNUC__
+  #if (__GNUC__ == 4 && __GNUC_MINOR__ >= 4) || (__GNUC__ > 4)
+     #define CHECK_PRINTF __attribute__ ((format (gnu_printf, 2, 3)))
+  #else
+     #define CHECK_PRINTF __attribute__ ((format (printf, 2, 3)))
+  #endif
+#else
+  #define CHECK_PRINTF
+#endif
+
+LIBUTILS_EXTERN CHECK_PRINTF int uniquestr_sprintf(const char** out_str, const char* format, ...);
 
 LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 
