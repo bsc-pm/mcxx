@@ -24,22 +24,28 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdlib.h>
-#include "mem.h"
 
-void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
+
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+
+
+template < typename T>
+struct B
 {
-    if (size == 0
-            || nmemb == 0)
-    {
-        // Ensure a NULL when we allocate 0 bytes
-        return NULL;
-    }
+    B(int x, T y = T()) {}
+};
 
-    if (counter != NULL)
-    {
-        (*counter) += (size * nmemb);
-    }
+struct A
+{
+    B<int*> foo;
+    A(int n) : foo(n) { }
+};
 
-    return xcalloc(nmemb, size);
+int main()
+{
+    A a(2);
 }

@@ -144,7 +144,7 @@ void multifile_extract_extended_info(const char* filename)
         {
             running_error("Error while extracting members of archive", 0);
         }
-        free(full_path);
+        xfree(full_path);
 
         // Go back to previous directory
         chdir(current_directory);
@@ -384,7 +384,7 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     embed_bfd_data_t* embed_data = NULL;
     if (*data == NULL)
     {
-        (*data) = calloc(1, sizeof(embed_bfd_data_t));
+        (*data) = xcalloc(1, sizeof(embed_bfd_data_t));
          embed_data = (embed_bfd_data_t*)(*data);
         
         // Create the temporal directory

@@ -137,7 +137,7 @@ AST ast_make(node_t type, int num_children UNUSED_PARAMETER,
         AST child0, AST child1, AST child2, AST child3, 
         const char* file, unsigned int line, const char *text)
 {
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
     result->parent = NULL;
 
@@ -235,7 +235,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = counted_calloc(sizeof(*a->children), 
+    a->children = counted_xcalloc(sizeof(*a->children), 
             (count_bitmap(a->bitmap_sons)), 
             &_bytes_due_to_astmake);
 
@@ -261,9 +261,9 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         }
     }
 
-    // Now free the old children (if any)
+    // Now xfree the old children (if any)
     if (old_children != NULL)
-        free(old_children);
+        xfree(old_children);
 
     // Count this free
     _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
@@ -512,8 +512,8 @@ static void ast_copy_extended_data(AST new, const_AST orig)
         ast_set_field(new, field_name, data);
     }
 
-    free(keys);
-    free(values);
+    xfree(keys);
+    xfree(values);
 }
 
 // Use this to fix extended data pointing to other ASTs
@@ -563,8 +563,8 @@ static void ast_fix_extended_data(AST new, const_AST orig)
         ast_fix_one_ast_field(new, orig, tl_data_index[i].field_name, tl_data_index[i].ast);
     }
 
-    free(keys);
-    free(values);
+    xfree(keys);
+    xfree(values);
 }
 
 AST ast_copy(const_AST a)
@@ -572,7 +572,7 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
     ast_copy_one_node(result, (AST)a);
 
@@ -587,7 +587,7 @@ AST ast_copy(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
+        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -634,7 +634,7 @@ AST ast_copy_for_instantiation(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_instantiation);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_instantiation);
 
     ast_copy_one_node(result, (AST)a);
 
@@ -655,7 +655,7 @@ AST ast_copy_for_instantiation(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
+        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy_for_instantiation(a->ambig[i]);
@@ -848,7 +848,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
             int original_son0 = son0->num_ambig;
 
             son0->num_ambig += son1->num_ambig;
-            son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 
             int i;
             for (i = 0; i < son1->num_ambig; i++)
@@ -861,7 +861,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         else
         {
             son0->num_ambig++;
-            son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = ast_copy(son1);
 
             return son0;
@@ -870,7 +870,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
     else if (ASTType(son1) == AST_AMBIGUITY)
     {
         son1->num_ambig++;
-        son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
+        son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = ast_copy(son0);
 
         return son1;
@@ -880,7 +880,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, NULL, 0, NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
+        result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
         result->ambig[0] = ast_copy(son0);
         result->ambig[1] = ast_copy(son1);
         result->line = son0->line;
@@ -932,10 +932,10 @@ void ast_free(AST a)
         }
 
         // This will uncover dangling references
-        free(a->children);
+        xfree(a->children);
         _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
         memset(a, 0, sizeof(*a));
-        free(a);
+        xfree(a);
 
         _bytes_due_to_astmake -= sizeof(*a);
     }

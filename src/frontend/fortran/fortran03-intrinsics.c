@@ -460,7 +460,7 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
     memset(&result, 0, sizeof(result));
     if (keywords != NULL)
     {
-        char *c = strdup(keywords);
+        char *c = xstrdup(keywords);
         char *p = strtok(c, ",");
         while (p != NULL)
         {
@@ -478,7 +478,7 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
             keyword_index++;
         }
         result.num_keywords = keyword_index;
-        free(c);
+        xfree(c);
     }
     else
     {
@@ -962,13 +962,13 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
     else
     {
         // Create a new descriptor
-        intrinsic_descr_t *p = calloc(1, sizeof(*p));
+        intrinsic_descr_t *p = xcalloc(1, sizeof(*p));
         p->name = name;
         p->result_type = result_type;
         p->num_types = num_types;
         if (num_types > 0)
         {
-            p->parameter_types = calloc(num_types, sizeof(*p->parameter_types));
+            p->parameter_types = xcalloc(num_types, sizeof(*p->parameter_types));
             memcpy(p->parameter_types, types, num_types * sizeof(*p->parameter_types));
         }
 
@@ -982,7 +982,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         type_t* function_type = get_new_function_type(result_type, param_info, num_types);
 
         // We do not want it be signed in the scope
-        scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+        scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
         new_entry->symbol_name = name;
         new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
@@ -6343,7 +6343,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < num_actual_arguments; i++)
         {
-            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
             new_keyword_sym->kind = SK_VARIABLE;
             uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
             new_keyword_sym->decl_context = entry->decl_context;
@@ -6365,7 +6365,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < current_variant.num_keywords; i++)
         {
-            scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
             new_keyword_sym->kind = SK_VARIABLE;
             new_keyword_sym->symbol_name = current_variant.keyword_names[i];
             new_keyword_sym->decl_context = entry->decl_context;

@@ -896,4 +896,11 @@ namespace TL
     {
         return _symbol->entity_specs.from_module_name;
     }
+
+    bool Symbol::is_unnamed()
+    {
+        return (_symbol->kind == SK_CLASS
+                || _symbol->kind == SK_ENUM)
+            && _symbol->entity_specs.is_unnamed;
+    }
 }

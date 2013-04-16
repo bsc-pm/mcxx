@@ -443,13 +443,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             {
                 if (!is_template_specialized_type(member_of_template->type_information))
                 {
-                    template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
+                    template_parameter_list_t* tpl_empty = xcalloc(1, sizeof(*tpl_empty));
                     tpl_empty->enclosing = context_of_being_instantiated.template_parameters;
 
                     decl_context_t new_context_of_being_instantiated = context_of_being_instantiated;
                     new_context_of_being_instantiated.template_parameters = tpl_empty;
 
-                    scope_entry_t* new_fake_template_symbol = calloc(1, sizeof(*new_fake_template_symbol));
+                    scope_entry_t* new_fake_template_symbol = xcalloc(1, sizeof(*new_fake_template_symbol));
                     new_fake_template_symbol->kind = SK_TEMPLATE;
                     new_fake_template_symbol->symbol_name = member_of_template->symbol_name;
                     new_fake_template_symbol->file = member_of_template->file;
@@ -760,7 +760,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         member_of_template->file,
                         member_of_template->line);
 
-                scope_entry_t* used_hub_symbol = calloc(1, sizeof(*used_hub_symbol));
+                scope_entry_t* used_hub_symbol = xcalloc(1, sizeof(*used_hub_symbol));
                 used_hub_symbol->kind = SK_USING;
                 used_hub_symbol->type_information = get_unresolved_overloaded_type(entry_list, NULL);
                 used_hub_symbol->entity_specs.access = member_of_template->entity_specs.access;
@@ -795,7 +795,7 @@ static void instantiate_dependent_friend_class(
         }
         else
         {
-            new_friend = calloc(1, sizeof(*new_friend));
+            new_friend = xcalloc(1, sizeof(*new_friend));
 
             new_friend->symbol_name = friend->symbol_name;
             new_friend->kind = SK_DEPENDENT_FRIEND_CLASS;
@@ -1065,7 +1065,7 @@ static void instantiate_dependent_friend_function(
                 {
                     something_has_changed = 1;
 
-                    scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+                    scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
                     memcpy(new_entry, current_temp_param->entry, sizeof(*current_temp_param->entry));
                     new_entry->entity_specs.template_parameter_nesting = 1;
                     current_temp_param->entry = new_entry;
@@ -1623,9 +1623,9 @@ nodecl_t instantiation_instantiate_pending_functions(void)
                 tmp_symbols_to_instantiate[i]->filename,
                 tmp_symbols_to_instantiate[i]->line);
 
-        free(tmp_symbols_to_instantiate[i]);
+        xfree(tmp_symbols_to_instantiate[i]);
     }
-    free(tmp_symbols_to_instantiate);
+    xfree(tmp_symbols_to_instantiate);
 
     if (num_symbols_to_instantiate != 0)
     {
@@ -1646,7 +1646,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const char* filename,
         int line)
 {
-    instantiation_item_t* item = calloc(1, sizeof(*item));
+    instantiation_item_t* item = xcalloc(1, sizeof(*item));
     item->symbol = entry;
     item->filename = filename;
     item->line = line;
@@ -1661,7 +1661,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     // Crummy way to know if it was added
     if (old_num == num_symbols_to_instantiate)
     {
-        free(item);
+        xfree(item);
     }
 }
 

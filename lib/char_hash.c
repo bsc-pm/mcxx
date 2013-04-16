@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mem.h"
+
 struct string_link
 {
     unsigned int hash;
@@ -82,8 +84,8 @@ const char *uniquestr(const char *string)
 
     bytes_used += sizeof(struct string_link) + strlen(string) + 1;
 
-    new_link = malloc(sizeof(struct string_link));
-    new_link->string = strdup(string); 
+    new_link = xmalloc(sizeof(struct string_link));
+    new_link->string = xstrdup(string); 
     new_link->hash = hash; 
     new_link->next = hash_table[hash_index];
     hash_table[hash_index] = new_link; 

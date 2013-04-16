@@ -33,24 +33,26 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "mem.h"
+
 const char* give_basename(const char* c)
 {
-    char *tmp = strdup(c);
+    char *tmp = xstrdup(c);
     char *basename_tmp = basename(tmp);
 
     const char* result = uniquestr(basename_tmp);
-    free(tmp);
+    xfree(tmp);
 
     return result;
 }
 
 const char* give_dirname(const char* c)
 {
-    char *tmp = strdup(c);
+    char *tmp = xstrdup(c);
     char *dirname_tmp = dirname(tmp);
 
     const char* result = uniquestr(dirname_tmp);
-    free(tmp);
+    xfree(tmp);
 
     return result;
 }

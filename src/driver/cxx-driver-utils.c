@@ -133,12 +133,12 @@ static char name_is_in_temporal_files(const char* name)
 
 static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary, char is_dir)
 {
-    temporal_file_t result = calloc(sizeof(*result), 1);
+    temporal_file_t result = xcalloc(sizeof(*result), 1);
     result->name = uniquestr(name);
     result->is_temporary = is_temporary;
     result->is_dir = is_dir;
 
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    temporal_file_list_t new_file_element = xcalloc(sizeof(*new_file_element), 1);
     new_file_element->info = result;
     new_file_element->next = temporal_file_list;
     temporal_file_list = new_file_element;
@@ -341,7 +341,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 {
     int num = count_null_ended_array((void**)arguments);
 
-    const char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
+    const char** execvp_arguments = xcalloc(num + 1 + 1, sizeof(char*));
 
     execvp_arguments[0] = program_name;
 
@@ -475,9 +475,9 @@ static char* quote_string(const char *c)
     }
 
     if (num_quotes == 0)
-        return strdup(c);
+        return xstrdup(c);
 
-    char* result = calloc(sizeof(char), num_quotes + strlen(c) + 1);
+    char* result = xcalloc(sizeof(char), num_quotes + strlen(c) + 1);
 
     char *q = result;
     for (p = c; *p != '\0'; p++)
@@ -724,7 +724,7 @@ void run_gdb(void)
             snprintf(pid, 15, "%lu", (unsigned long)getppid());
             pid[15] = '\0';
 
-            char *program_path = strdup(compilation_process.argv[0]);
+            char *program_path = xstrdup(compilation_process.argv[0]);
 
             char *args[] = { "--batch", 
                 "--quiet",
@@ -873,13 +873,13 @@ static const char* find_home_unix(const char* progname)
     if (path_max <= 0)
         path_max = 4096;
 #endif
-    char* c = malloc(path_max * sizeof(char));
+    char* c = xmalloc(path_max * sizeof(char));
 
     if (strchr(progname, '/') == NULL)
     {
         char found = 0;
         // Use PATH to find ourselves
-        char* path_env = strdup(getenv("PATH"));
+        char* path_env = xstrdup(getenv("PATH"));
 
         char *current_dir = strtok(path_env, ":");
 
@@ -898,7 +898,7 @@ static const char* find_home_unix(const char* progname)
             current_dir = strtok(NULL, ":");
         }
 
-        free(path_env);
+        xfree(path_env);
 
         if (!found)
         {
@@ -917,7 +917,7 @@ static const char* find_home_unix(const char* progname)
 
     res = uniquestr(dirname(c));
 
-    free(c);
+    xfree(c);
 
     return res;
 }

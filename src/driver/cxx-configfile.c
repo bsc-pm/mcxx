@@ -106,7 +106,7 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     num++;
-    const char** real_options = calloc(num, sizeof(*real_options));
+    const char** real_options = xcalloc(num, sizeof(*real_options));
 
     int i;
     for (i = 1; i < num; i++)
@@ -237,7 +237,7 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
 
 int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
-	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
 	cl->func = compiler_regular_phase_loader;
 	cl->data = (void*)uniquestr(value);
 
@@ -283,7 +283,7 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
             uniquestr(value));
 
     // Allocate pragma directive info
-    pragma_directive_set_t* new_info = calloc(1, sizeof(*new_info));
+    pragma_directive_set_t* new_info = xcalloc(1, sizeof(*new_info));
 
     P_LIST_ADD(config->pragma_custom_prefix_info,
             num_prefixes, new_info);
@@ -439,7 +439,7 @@ int config_set_target_options(struct compilation_configuration_tag* config, cons
 
     if (target_options == NULL)
     {
-        target_options = calloc(1, sizeof(*target_options));
+        target_options = xcalloc(1, sizeof(*target_options));
         target_options->profile = index;
 
         P_LIST_ADD(config->target_options_maps, config->num_target_option_maps,
@@ -453,7 +453,7 @@ int config_set_target_options(struct compilation_configuration_tag* config, cons
 
 int config_set_compiler_dto(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
-	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
 	cl->func = compiler_special_phase_set_dto;
 	cl->data = (void*)uniquestr(value);
 
@@ -466,7 +466,7 @@ int config_set_compiler_dto(struct compilation_configuration_tag* config, const 
 
 int config_set_codegen_phase(compilation_configuration_t* config, const char* index, const char* value)
 {
-	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
 	cl->func = compiler_special_phase_set_codegen;
 	cl->data = (void*)uniquestr(value);
 

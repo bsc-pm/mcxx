@@ -35,6 +35,7 @@ static int inside_interface = 0;
 
 %}
 
+%option noyyalloc noyyrealloc noyyfree
 
 INTEGER integer
 REAL real
@@ -658,3 +659,16 @@ UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
     UNUSED_PARAMETER static int input  (void);
 #endif
 #endif
+
+void * prescanneralloc (size_t bytes)
+{
+    return xmalloc(bytes);
+}
+void * prescannerrealloc (void * ptr, size_t bytes)
+{
+    return xrealloc(ptr, bytes);
+}
+void   prescannerfree (void * ptr)
+{
+    xfree(ptr);
+}

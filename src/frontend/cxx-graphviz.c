@@ -51,7 +51,7 @@ static rb_red_blk_tree* pointer_set = NULL;
 
 static char* quote_protect(const char *c)
 {
-    char *result = calloc(2*strlen(c), sizeof(char));
+    char *result = xcalloc(2*strlen(c), sizeof(char));
 
     const char *p = c;
     char *q = result;
@@ -244,7 +244,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
                     current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
-            free(quoted);
+            xfree(quoted);
         }
         else
         {

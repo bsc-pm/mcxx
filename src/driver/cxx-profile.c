@@ -41,7 +41,7 @@ compilation_configuration_t* new_compilation_configuration(
         const char* name,
         compilation_configuration_t* base)
 {
-    compilation_configuration_t* result = calloc(1, sizeof(*result));
+    compilation_configuration_t* result = xcalloc(1, sizeof(*result));
 
     result->configuration_name = uniquestr(name);
     result->base_configuration = base;
@@ -79,7 +79,7 @@ static const char** copy_null_ended_const_char_array(const char** orig)
 
     int num = count_null_ended_array((void**)orig);
 
-    result = malloc(sizeof(char*) * (num + 1));
+    result = xmalloc(sizeof(char*) * (num + 1));
     int i;
     for (i = 0; i < num; i++)
     {
@@ -94,7 +94,7 @@ static const char** copy_null_ended_const_char_array(const char** orig)
 #define DEF_COPY_ARRAY(_fun_name, element_type) \
 static element_type** _fun_name(element_type** orig, int num_elems) \
 { \
-    element_type** result = calloc(num_elems, sizeof(*result)); \
+    element_type** result = xcalloc(num_elems, sizeof(*result)); \
     int i; \
     for (i = 0; i < num_elems; i++) \
     { \
