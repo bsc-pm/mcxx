@@ -569,39 +569,48 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
      // Fortran may require more symbols
     if (IS_FORTRAN_LANGUAGE)
     {
-//        FortranExtraDeclsVisitor fun_visitor;
-//        fun_visitor.walk(original_statements);
-//
-//        extra_declarations
-//            << "IMPLICIT NONE\n";
-//
-//         Insert extra symbols
-//        TL::ReferenceScope ref_scope(unpacked_function_body);
-//        decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
-//
-//        for (ObjectList<Symbol>::iterator it2 = fun_visitor.extra_decl_sym.begin();
-//                it2 != fun_visitor.extra_decl_sym.end();
-//                it2++)
-//        {
-//             Insert the name in the context...
-//            TL::Scope sc = ref_scope.get_scope();
-//            ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
-//        }
-//
-//         Copy USEd information
-//        scope_entry_t* original_used_modules_info
-//            = original_statements.retrieve_context().get_related_symbol().get_used_modules().get_internal_symbol();
-//        if (original_used_modules_info != NULL)
-//        {
-//            scope_entry_t* new_used_modules_info
-//                = get_or_create_used_modules_symbol_info(decl_context);
-//            for (int i = 0; i < original_used_modules_info->entity_specs.num_related_symbols; i++)
-//            {
-//                P_LIST_ADD(new_used_modules_info->entity_specs.related_symbols,
-//                        new_used_modules_info->entity_specs.num_related_symbols,
-//                        original_used_modules_info->entity_specs.related_symbols[i]);
-//            }
-//        }
+        // // Insert extra symbols
+        // TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+
+        // Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+        //         unpacked_function_scope,
+        //         current_function);
+        // if (is_function_task)
+        // {
+        //     fun_visitor.insert_extra_symbol(info._called_task);
+        // }
+        // fun_visitor.insert_extra_symbols(task_statements);
+
+        // Nodecl::Utils::Fortran::copy_used_modules(
+        //         original_statements.retrieve_context(),
+        //         unpacked_function_scope);
+
+        // if (is_function_task)
+        // {
+        //     Nodecl::Utils::Fortran::append_used_modules(
+        //             info._called_task.get_related_scope(),
+        //             unpacked_function_scope);
+        // }
+
+        // // Now get all the needed internal functions and replicate them in the outline
+        // Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+        // internal_functions.walk(info._original_statements);
+
+        // Nodecl::List l;
+        // for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+        //         it2 = internal_functions.function_codes.begin();
+        //         it2 != internal_functions.function_codes.end();
+        //         it2++)
+        // {
+        //     l.append(
+        //             Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
+        //             );
+        // }
+
+        // unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+
+        // extra_declarations
+        //     << "IMPLICIT NONE\n";
     }
     else if (IS_CXX_LANGUAGE) {
        if (!unpacked_function.is_member())
