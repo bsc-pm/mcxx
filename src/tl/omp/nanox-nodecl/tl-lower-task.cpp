@@ -201,6 +201,42 @@ void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataI
     }
 }
 
+void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outline_info, TL::Source& code)
+{
+    code << comment("Check pendant writes on lvalue nontoplevel subexpressions");
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (!(*it)->get_symbol().is_valid())
+            continue;
+
+        if ((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
+            continue;
+
+        TL::Source lvalue_subexpressions_code;
+        OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
+        if (toplevel_lvalue != NULL)
+        {
+            check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
+        }
+
+        code
+            <<"{"
+            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+            <<      "nanos_err_t err;"
+            <<      lvalue_subexpressions_code
+            <<      as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");"
+            <<"}"
+            ;
+
+    }
+    code << comment("End check pendant writes on lvalue nontoplevel subexpressions");
+}
+
+
 Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
@@ -468,7 +504,8 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           xlate_function_name;
+           xlate_function_name,
+           check_dependences_over_dependences;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
@@ -657,6 +694,7 @@ void LoweringVisitor::emit_async_common(
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
+        <<     check_dependences_over_dependences
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -682,6 +720,8 @@ void LoweringVisitor::emit_async_common(
         <<     "}"
         << "}"
         ;
+
+    fill_check_dependences_over_dependences(outline_info, check_dependences_over_dependences);
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
@@ -983,19 +1023,11 @@ void LoweringVisitor::fill_arguments(
 
                  case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                     {
-                        TL::Source lvalue_subexpressions_code;
                         OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
-                        if (toplevel_lvalue != NULL)
-                        {
-                            check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
-                        }
-
                         TL::Source common_code;
                         common_code
                             <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
                             <<      "nanos_err_t err;"
-                            <<      lvalue_subexpressions_code
-                            <<      as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");"
                             <<      "err = nanos_dependence_pendant_writes(&result, (void *) &(" << toplevel_lvalue->expression.prettyprint() <<  "));"
                             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
                             ;

@@ -471,7 +471,7 @@ static void generate_dependences_of_expression(
             {
                 Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
 
-                // Create a new variable holding the value of the argument
+                // Create a new variable
                 std::stringstream ss;
                 ss << "mcc_arg_" << (int)arg_counter;
                 new_symbol = new_block_context_sc.new_symbol(ss.str());
@@ -481,11 +481,6 @@ static void generate_dependences_of_expression(
                 new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
                 new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
                 new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
-                        expr,
-                        expr.get_type().no_ref().get_pointer_to(),
-                        expr.get_filename(),
-                        expr.get_line()).get_internal_nodecl();
 
                 outline_register_entities.add_shared_with_capture(new_symbol);
 
@@ -584,7 +579,7 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             OutlineInfoRegisterEntities& outline_register_entities,
             TL::Scope new_block_context_sc,
             Nodecl::NodeclBase expr,
-            TL::Source& initializations_src)
+            TL::Source& declarations_src)
 {
     Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
     TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
@@ -598,23 +593,20 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             toplevel_lvalue_subexpressions,
             nontoplevel_lvalue_subexpressions);
 
-    // Initialize the new outline data items properly
-    for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-            it != toplevel_lvalue_subexpressions.end();
-            it++)
+    // We need to declare explicitly these objects in C++
+    CXX_LANGUAGE()
     {
-        TL::Symbol new_outline_data_item = it->second;
-        if (IS_CXX_LANGUAGE)
+        for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+                it != toplevel_lvalue_subexpressions.end();
+                it++)
         {
-            // We need to declare explicitly this object in C++ and initialize it properly
-            initializations_src << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_outline_data_item));
-        }
-        else if (IS_C_LANGUAGE)
-        {
-            initializations_src << as_statement(Nodecl::ObjectInit::make(new_outline_data_item));
+            TL::Symbol new_outline_data_item = it->second;
+            declarations_src << as_statement(
+                    Nodecl::CxxDecl::make(
+                        /* context */ Nodecl::NodeclBase::null(),
+                        new_outline_data_item));
         }
     }
-
     return update_expr;
 }
 

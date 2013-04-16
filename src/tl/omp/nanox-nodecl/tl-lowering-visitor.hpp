@@ -188,6 +188,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 TL::Source& code);
 
+        void fill_check_dependences_over_dependences(
+                OutlineInfo& outline_info,
+                // out
+                TL::Source& code);
+
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
                 OutlineInfo& outline_info,
