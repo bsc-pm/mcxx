@@ -35,9 +35,9 @@ void diagnostics_reset(void);
 int diagnostics_get_error_count(void);
 int diagnostics_get_warn_count(void);
 
-void error_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
-void warn_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
-void info_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
+void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
+void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
 
 MCXX_END_DECLS
 
