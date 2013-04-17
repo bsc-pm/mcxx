@@ -380,7 +380,7 @@ namespace TL { namespace Nanox {
         return new_function_sym;
     }
 
-    static Source emit_allocate_statement(TL::Symbol sym, int &lower_bound_index, int &upper_bound_index)
+    static Source emit_allocate_statement(TL::Symbol sym, int &is_allocated_index, int &lower_bound_index, int &upper_bound_index)
     {
         Source result;
 
@@ -429,8 +429,13 @@ namespace TL { namespace Nanox {
         Source array_shape;
         Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
 
-        result << "ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+        result
+            << "IF (mcc_is_allocated_" << is_allocated_index << ") THEN\n"
+            << "   ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            << "END IF\n"
             ;
+
+        is_allocated_index++;
 
         return result;
     }
@@ -485,6 +490,7 @@ namespace TL { namespace Nanox {
 
         int lower_bound_index = 1;
         int upper_bound_index = 1;
+        int is_allocated_index = 1;
         TL::ObjectList<TL::Symbol> cray_pointee_list;
 
         for (; it != data_items.end(); it++)
@@ -546,7 +552,8 @@ namespace TL { namespace Nanox {
                         if ((*it)->get_symbol().is_valid()
                                 && (*it)->get_symbol().is_allocatable())
                         {
-                            initial_statements << emit_allocate_statement((*it)->get_symbol(), lower_bound_index, upper_bound_index);
+                            initial_statements << emit_allocate_statement((*it)->get_symbol(), is_allocated_index,
+                                    lower_bound_index, upper_bound_index);
                         }
                         break;
                     }
@@ -660,7 +667,8 @@ namespace TL { namespace Nanox {
 
                             if (private_sym->entity_specs.is_allocatable)
                             {
-                                initial_statements << emit_allocate_statement(private_sym, lower_bound_index, upper_bound_index);
+                                initial_statements << emit_allocate_statement(private_sym, is_allocated_index,
+                                        lower_bound_index, upper_bound_index);
                             }
 
                             symbol_map->add_map(sym, private_sym);
