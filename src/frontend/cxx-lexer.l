@@ -445,7 +445,7 @@ type {
         }
     }
 
-    if (ignore_gcc_header)
+    if (!ignore_gcc_header)
     {
         parse_token_text();
         BEGIN(preprocess);
