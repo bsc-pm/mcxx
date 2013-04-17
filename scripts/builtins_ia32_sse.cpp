@@ -1,7 +1,7 @@
 //
 // Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
-// Compile it with g++-4.7 -fabi-version=6 -mavx
+// Compile it with g++-4.7 -fabi-version=6 -mavx -maes -mpclmul
 //
 
 #include <iostream> 
@@ -456,6 +456,12 @@ VECTOR_INTRIN(__builtin_ia32_addsd) \
 VECTOR_INTRIN(__builtin_ia32_addss) \
 VECTOR_INTRIN(__builtin_ia32_addsubpd) \
 VECTOR_INTRIN(__builtin_ia32_addsubps) \
+VECTOR_INTRIN(__builtin_ia32_aesdec128) \
+VECTOR_INTRIN(__builtin_ia32_aesdeclast128) \
+VECTOR_INTRIN(__builtin_ia32_aesenc128) \
+VECTOR_INTRIN(__builtin_ia32_aesenclast128) \
+VECTOR_INTRIN(__builtin_ia32_aeskeygenassist128) \
+VECTOR_INTRIN(__builtin_ia32_aesimc128) \
 VECTOR_INTRIN(__builtin_ia32_andnpd) \
 VECTOR_INTRIN(__builtin_ia32_andnps) \
 VECTOR_INTRIN(__builtin_ia32_andpd) \
@@ -676,6 +682,7 @@ VECTOR_INTRIN(__builtin_ia32_pcmpistrio128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistris128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistriz128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistrm128) \
+VECTOR_INTRIN(__builtin_ia32_pclmulqdq128) \
 VECTOR_INTRIN(__builtin_ia32_phaddd) \
 VECTOR_INTRIN(__builtin_ia32_phaddd128) \
 VECTOR_INTRIN(__builtin_ia32_phaddsw) \
