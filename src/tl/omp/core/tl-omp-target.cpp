@@ -513,7 +513,7 @@ namespace TL
                     // {
                         std::cerr << construct.get_locus() 
                             << ": warning: symbol '" << io_it->get_qualified_name()
-                            << "' does not have copy directionality. Assuming copy_inout. "
+                            << "' has shared data-sharing but does not have copy directionality. Assuming copy_inout. "
                             << std::endl;
                     // }
 

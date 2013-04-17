@@ -596,16 +596,45 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         // Insert extra symbols
         TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
-        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
+        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+                unpacked_function_scope,
+                current_function);
+        if (is_function_task)
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
         fun_visitor.insert_extra_symbols(task_statements);
 
         Nodecl::Utils::Fortran::copy_used_modules(
                 original_statements.retrieve_context(),
                 unpacked_function_scope);
 
+        if (is_function_task)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(
+                    info._called_task.get_related_scope(),
+                    unpacked_function_scope);
+        }
+
+        // Now get all the needed internal functions and replicate them in the outline
+        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+        internal_functions.walk(info._original_statements);
+
+        Nodecl::List l;
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                it2 = internal_functions.function_codes.begin();
+                it2 != internal_functions.function_codes.end();
+                it2++)
+        {
+            l.append(
+                    Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
+                    );
+        }
+
+        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+
         extra_declarations
             << "IMPLICIT NONE\n";
-
     }
     else if (IS_CXX_LANGUAGE)
     {
