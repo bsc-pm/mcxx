@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
 #include "cxx-diagnostic.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL
 {
@@ -523,6 +524,14 @@ namespace TL
                 {
                     DataReference expr(nodecl);
 
+                    if (!expr.is_valid())
+                    {
+                        std::string dep_str = get_dependency_direction_name(_direction);
+
+                        std::cerr << nodecl.get_locus() << ": warning: ignoring invalid dependence " 
+                            << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
+                    }
+
                     return FunctionTaskDependency(expr, _direction);
                 }
         };
@@ -825,17 +834,27 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
 
             dependence_list_check(input_arguments, DEP_DIR_IN);
-            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
+            dependence_list.append(input_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
-            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
+            dependence_list.append(output_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(inout_arguments, DEP_DIR_INOUT);
-            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
+            dependence_list.append(inout_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+            dependence_list.append(concurrent_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
+            dependence_list.append(commutative_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
 

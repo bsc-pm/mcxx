@@ -50,6 +50,8 @@ enum DependencyDirection
     DEP_COMMUTATIVE = BITMAP(4),
 };
 
+std::string get_dependency_direction_name(DependencyDirection d);
+
 } }
 
 #undef BITMAP
