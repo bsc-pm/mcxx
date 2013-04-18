@@ -589,19 +589,21 @@ namespace TL
                             // be regarded as an error
                             if ((_direction & DEP_DIR_OUT) == DEP_DIR_OUT)
                             {
-                                error_printf("%s: error: output dependence '%s' "
+                                error_printf("%s: error: dependence %s(%s) "
                                         "only names a parameter. The value of a parameter is never copied out of a function "
                                         "so it cannot generate an output dependence\n",
                                         expr.get_locus().c_str(),
+                                        get_dependency_direction_name(_direction).c_str(),
                                         expr.prettyprint().c_str());
                                 return true;
                             }
                             else
                             {
-                                std::cerr << expr.get_locus() << ": warning: "
-                                    "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                    "is always copied and cannot define an input dependence"
-                                    << std::endl;
+                                warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
+                                    "is always copied in and will never define such dependence\n",
+                                    expr.get_locus().c_str(),
+                                    get_dependency_direction_name(_direction).c_str(),
+                                    expr.prettyprint().c_str());
                                 return true;
                             }
                         }
@@ -848,10 +850,12 @@ namespace TL
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
+            dependence_list_check(concurrent_arguments, DEP_CONCURRENT);
             dependence_list.append(concurrent_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
+            dependence_list_check(commutative_arguments, DEP_COMMUTATIVE);
             dependence_list.append(commutative_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
