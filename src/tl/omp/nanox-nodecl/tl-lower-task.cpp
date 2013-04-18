@@ -904,6 +904,12 @@ void LoweringVisitor::fill_arguments(
                                 else
                                 {
                                     Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                                    Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                        fill_immediate_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                    }
 
                                     if (IS_CXX_LANGUAGE
                                             && sym_type.is_class()
@@ -930,6 +936,12 @@ void LoweringVisitor::fill_arguments(
                                             "imm_args." << (*it)->get_field_name()
                                             << " = " << as_expression(captured.shallow_copy()) << ";"
                                             ;
+                                    }
+
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "}";
+                                        fill_immediate_arguments << "}";
                                     }
                                 }
                             }
@@ -1047,6 +1059,12 @@ void LoweringVisitor::fill_arguments(
                         else
                         {
                             Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                            Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                                fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                            }
                             if (t.is_pointer())
                             {
                                 fill_outline_arguments <<
@@ -1064,6 +1082,11 @@ void LoweringVisitor::fill_arguments(
                                 fill_immediate_arguments <<
                                     "imm_args % " << (*it)->get_field_name() << " = " <<  as_expression(captured.shallow_copy()) << "\n"
                                     ;
+                            }
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "END IF\n";
+                                fill_immediate_arguments << "END IF\n";
                             }
                         }
                         break;
@@ -1505,6 +1528,8 @@ void LoweringVisitor::fill_copies_region(
             else
             {
                 TL::Type t = copy_type;
+                int rank = copy_type.fortran_rank();
+
                 while (t.is_array())
                 {
                     Nodecl::NodeclBase lower, upper, region_size;
@@ -1519,12 +1544,30 @@ void LoweringVisitor::fill_copies_region(
                         region_size = t.array_get_size();
                     }
 
+                    if (IS_FORTRAN_LANGUAGE
+                            && t.is_fortran_array())
+                    {
+                        if (lower.is_null())
+                        {
+                            lower = get_lower_bound(data_ref, rank);
+                        }
+                        if (upper.is_null())
+                        {
+                            upper = get_upper_bound(data_ref, rank);
+                        }
+                        if (region_size.is_null())
+                        {
+                            region_size = get_size_of_fortran_array(data_ref, rank);
+                        }
+                    }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
                     region_sizes.append(region_size);
 
                     t = t.array_element();
+
+                    rank--;
                 }
 
                 base_type = t;
@@ -2374,8 +2417,35 @@ Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr,
         dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
     }
 
-    // The contiguous dimension in Fortran is always the number 1
     src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }
