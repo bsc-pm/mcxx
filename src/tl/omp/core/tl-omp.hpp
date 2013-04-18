@@ -537,8 +537,6 @@ namespace TL
 
                 bool empty() const;
 
-                bool is_function_task_or_implements(Symbol sym) const;
-
                 // Fortran
                 void emit_module_info();
                 void load_from_module(TL::Symbol module);
