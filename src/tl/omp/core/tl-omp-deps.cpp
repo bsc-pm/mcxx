@@ -291,4 +291,25 @@ namespace TL { namespace OpenMP {
             add_data_sharings(expr_list, data_sharing, dep_attr);
         }
     }
+
+    std::string get_dependency_direction_name(DependencyDirection d)
+    {
+        switch (d)
+        {
+            case DEP_DIR_UNDEFINED:
+                return "<<undefined-dependence>>";
+            case DEP_DIR_IN:
+                return "in";
+            case DEP_DIR_OUT:
+                return "out";
+            case DEP_DIR_INOUT:
+                return "inout";
+            case DEP_CONCURRENT:
+                return "concurrent";
+            case DEP_COMMUTATIVE:
+                return "commutative";
+            default:
+                return "<<unknown-dependence-kind?>>";
+        }
+    }
 } }

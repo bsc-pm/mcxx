@@ -8,8 +8,12 @@
   #if defined(__GNUC_MINOR__) && __GNUC_MINOR__ >= 4
     #define MEM_WARN_UNUSED __attribute__((warn_unused_result))
     #define MEM_MALLOC_RETURN __attribute__((malloc))
+    #else
+    #define MEM_WARN_UNUSED
+    #define MEM_MALLOC_RETURN
   #endif
 #endif
+
 
 #ifdef __cplusplus
 extern "C" {

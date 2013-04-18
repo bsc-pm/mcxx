@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
 #include "cxx-diagnostic.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL
 {
@@ -361,32 +362,6 @@ namespace TL
             return (_map.find(sym) != _map.end());
         }
 
-        bool FunctionTaskSet::is_function_task_or_implements(Symbol sym) const
-        {
-            if (is_function_task(sym))
-                return true;
-
-            typedef std::map<Symbol, FunctionTaskInfo>::const_iterator iterator;
-
-            for (iterator it = _map.begin();
-                    it != _map.end();
-                    it++)
-            {
-                typedef ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator dev_iterator;
-                ObjectList<FunctionTaskInfo::implementation_pair_t> devices_and_implementations = it->second.get_devices_with_implementation();
-
-                for (dev_iterator dev_it = devices_and_implementations.begin();
-                        dev_it != devices_and_implementations.end();
-                        dev_it++)
-                {
-                    if (dev_it->second == sym)
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
         FunctionTaskInfo& FunctionTaskSet::get_function_task(Symbol sym)
         {
             return _map.find(sym)->second;
@@ -523,6 +498,14 @@ namespace TL
                 {
                     DataReference expr(nodecl);
 
+                    if (!expr.is_valid())
+                    {
+                        std::string dep_str = get_dependency_direction_name(_direction);
+
+                        std::cerr << nodecl.get_locus() << ": warning: ignoring invalid dependence " 
+                            << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
+                    }
+
                     return FunctionTaskDependency(expr, _direction);
                 }
         };
@@ -580,11 +563,21 @@ namespace TL
                             // be regarded as an error
                             if ((_direction & DEP_DIR_OUT) == DEP_DIR_OUT)
                             {
-                                error_printf("%s: error: output dependence '%s' "
+                                error_printf("%s: error: dependence %s(%s) "
                                         "only names a parameter. The value of a parameter is never copied out of a function "
                                         "so it cannot generate an output dependence\n",
                                         expr.get_locus().c_str(),
+                                        get_dependency_direction_name(_direction).c_str(),
                                         expr.prettyprint().c_str());
+                                return true;
+                            }
+                            else
+                            {
+                                warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
+                                    "is always copied in and will never define such dependence\n",
+                                    expr.get_locus().c_str(),
+                                    get_dependency_direction_name(_direction).c_str(),
+                                    expr.prettyprint().c_str());
                                 return true;
                             }
                         }
@@ -852,20 +845,32 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
 
             dependence_list_check(input_arguments, DEP_DIR_IN);
-            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
+            dependence_list.append(input_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
             dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
-            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
+            dependence_list.append(output_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(inout_arguments, DEP_DIR_INOUT);
-            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
+            dependence_list.append(inout_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+            dependence_list_check(concurrent_arguments, DEP_CONCURRENT);
+            dependence_list.append(concurrent_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
+            dependence_list_check(commutative_arguments, DEP_COMMUTATIVE);
+            dependence_list.append(commutative_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
 

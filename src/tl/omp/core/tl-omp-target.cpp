@@ -484,52 +484,56 @@ namespace TL
                         target_info);
             }
 
-            ObjectList<CopyItem> all_copies;
-            all_copies.append(target_info.get_copy_in());
-            all_copies.append(target_info.get_copy_out());
-            all_copies.append(target_info.get_copy_inout());
+            if (!_allow_shared_without_copies)
+            {
 
-            ObjectList<Symbol> all_copied_syms = all_copies
-                .map(functor(&CopyItem::get_copy_expression))
-                .map(functor(&DataReference::get_base_symbol));
+                ObjectList<CopyItem> all_copies;
+                all_copies.append(target_info.get_copy_in());
+                all_copies.append(target_info.get_copy_out());
+                all_copies.append(target_info.get_copy_inout());
 
-            // In devices with disjoint memory, it is forbidden to use a global
-            // variables inside a pragma task without copying it
-            // If there is no copy defined by the user, we will assume the
-            // variable is shared and then we will copy_inout it
-			ObjectList<Symbol> ds_syms;
-			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
+                ObjectList<Symbol> all_copied_syms = all_copies
+                    .map(functor(&CopyItem::get_copy_expression))
+                    .map(functor(&DataReference::get_base_symbol));
 
-            ObjectList<Nodecl::NodeclBase> shared_to_inout;
-			for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
-					io_it != ds_syms.end(); 
-					io_it++)
-			{
-				if (!all_copied_syms.contains(*io_it))
+                // In devices with disjoint memory, it is forbidden to use a global
+                // variables inside a pragma task without copying it
+                // If there is no copy defined by the user, we will assume the
+                // variable is shared and then we will copy_inout it
+                ObjectList<Symbol> ds_syms;
+                data_sharing.get_all_symbols(DS_SHARED, ds_syms);
+
+                ObjectList<Nodecl::NodeclBase> shared_to_inout;
+                for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
+                        io_it != ds_syms.end(); 
+                        io_it++)
                 {
-                    // FIXME 
-                    //
-                    // if (construct.get_show_warnings())
-                    // {
+                    if (!all_copied_syms.contains(*io_it))
+                    {
+                        // FIXME 
+                        //
+                        // if (construct.get_show_warnings())
+                        // {
                         std::cerr << construct.get_locus() 
                             << ": warning: symbol '" << io_it->get_qualified_name()
-                            << "' does not have copy directionality. Assuming copy_inout. "
+                            << "' has shared data-sharing but does not have copy directionality. Assuming copy_inout. "
                             << std::endl;
-                    // }
+                        // }
 
-                    Nodecl::Symbol new_symbol_ref =
-                        Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line());
-                    new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
-                    shared_to_inout.append(
-                            new_symbol_ref
-                            );
+                        Nodecl::Symbol new_symbol_ref =
+                            Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line());
+                        new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
+                        shared_to_inout.append(
+                                new_symbol_ref
+                                );
+                    }
                 }
-			}
 
-            add_copy_items(construct, data_sharing,
-		            shared_to_inout,
-		            COPY_DIR_INOUT,
-                    target_info);
+                add_copy_items(construct, data_sharing,
+                        shared_to_inout,
+                        COPY_DIR_INOUT,
+                        target_info);
+            }
 
             // Store the target information in the current data sharing
             data_sharing.set_target_info(target_info);

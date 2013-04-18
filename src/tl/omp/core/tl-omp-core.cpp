@@ -45,7 +45,8 @@ namespace TL
 
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
-            _discard_unused_data_sharings(false)
+            _discard_unused_data_sharings(false),
+            _allow_shared_without_copies(false)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -445,7 +446,7 @@ namespace TL
                     { "shared", (DataSharingAttribute)DS_SHARED },
                     { "firstprivate", (DataSharingAttribute)DS_FIRSTPRIVATE },
                     { "auto", (DataSharingAttribute)DS_AUTO },
-                    { NULL, (DataSharingAttribute)DS_UNDEFINED },
+                    { NULL, (DataSharingAttribute)DS_UNDEFINED }, // Used by Fortran, do not remove
                     { NULL, (DataSharingAttribute)DS_UNDEFINED },
                 };
 
@@ -524,17 +525,34 @@ namespace TL
                     {
                     }
 
+                    bool filter_symbol(TL::Symbol sym)
+                    {
+                        return (sym.is_variable()
+                                && sym.get_scope().get_decl_context().current_scope == _sc
+                                && !_result.contains(
+                                    TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol),
+                                    sym));
+                    }
+
                     virtual void visit(const Nodecl::Symbol& node)
                     {
                         TL::Symbol sym = node.get_symbol();
 
-                        if (sym.is_variable()
-                                && sym.get_scope().get_decl_context().current_scope == _sc)
+                        if (filter_symbol(sym))
                         {
-                            if (!_result.contains(node,
-                                       TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol)))
+                            _result.append(node);
+                        }
+                        else if (sym.is_fortran_namelist())
+                        {
+                            TL::ObjectList<TL::Symbol> namelist_members = sym.get_related_symbols();
+                            for (ObjectList<TL::Symbol>::iterator it = namelist_members.begin();
+                                    it != namelist_members.end();
+                                    it++)
                             {
-                                _result.append(node);
+                                if (filter_symbol(*it))
+                                {
+                                    _result.append(Nodecl::Symbol::make(*it, it->get_filename(), it->get_line()));
+                                }
                             }
                         }
                     }
@@ -610,16 +628,6 @@ namespace TL
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
-            FORTRAN_LANGUAGE()
-            {
-                // Nested function calls
-                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
-                symbols_from_nested_calls.walk(statement);
-
-                nonlocal_symbols.insert(symbols_from_nested_calls.symbols,
-                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
-            }
-
             ObjectList<Symbol> already_nagged;
 
             for (ObjectList<Nodecl::Symbol>::iterator it = nonlocal_symbols.begin();
@@ -685,6 +693,8 @@ namespace TL
                     }
                 }
             }
+
+            get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_sharing, nonlocal_symbols);
         }
 
         void Core::common_parallel_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
@@ -1025,17 +1035,6 @@ namespace TL
 
             ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
-            FORTRAN_LANGUAGE()
-            {
-                // Nested function calls
-                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
-                symbols_from_nested_calls.walk(statement);
-
-                nonlocal_symbols.insert(symbols_from_nested_calls.symbols,
-                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
-            }
-
-
             for (ObjectList<Nodecl::Symbol>::iterator it = nonlocal_symbols.begin();
                     it != nonlocal_symbols.end();
                     it++)
@@ -1132,6 +1131,73 @@ namespace TL
                         << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
                     data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                     data_sharing.set_data_sharing(sym, data_attr);
+                }
+
+
+            }
+
+            get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_sharing, nonlocal_symbols);
+        }
+
+        void Core::get_data_implicit_attributes_of_indirectly_accessible_symbols(
+                TL::PragmaCustomStatement construct,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Nodecl::Symbol>& nonlocal_symbols)
+        {
+            FORTRAN_LANGUAGE()
+            {
+                Nodecl::NodeclBase statement = construct.get_statements();
+
+                // Other symbols that may be used indirectly are made shared
+                TL::ObjectList<Nodecl::Symbol> other_symbols;
+
+                // Nested function symbols
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                symbols_from_nested_calls.walk(statement);
+
+                other_symbols.insert(symbols_from_nested_calls.symbols,
+                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+
+                // Members of namelists
+                ObjectList<Nodecl::Symbol> namelist_members;
+                for (ObjectList<Nodecl::Symbol>::iterator it = nonlocal_symbols.begin();
+                        it != nonlocal_symbols.end();
+                        it++)
+                {
+                    if (it->get_symbol().is_fortran_namelist())
+                    {
+                        ObjectList<TL::Symbol> members = it->get_symbol().get_related_symbols();
+
+                        for (ObjectList<TL::Symbol>::iterator it2 = members.begin();
+                                it2 != members.end();
+                                it2++)
+                        {
+                            namelist_members.append(Nodecl::Symbol::make(*it2, it2->get_filename(), it2->get_line()));
+                        }
+                    }
+                }
+                other_symbols.insert(namelist_members,
+                        TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+
+                for (ObjectList<Nodecl::Symbol>::iterator it = other_symbols.begin();
+                        it != other_symbols.end();
+                        it++)
+                {
+                    TL::Symbol sym = it->get_symbol();
+
+                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                    // Do nothing with threadprivates
+                    if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                        continue;
+
+                    data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+
+                    if (data_attr == DS_UNDEFINED)
+                    {
+                        data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
+                        data_sharing.set_data_sharing(sym, data_attr);
+                    }
                 }
             }
         }

@@ -433,6 +433,12 @@ namespace TL
                     return this->get_dependency_expression();
                 }
 
+                bool is_valid() const
+                {
+                    DataReference d = this->get_dependency_expression();
+                    return d.is_valid();
+                }
+
                 void module_write(ModuleWriter& mw)
                 {
                     this->DependencyItem::module_write(mw);
@@ -530,8 +536,6 @@ namespace TL
                 void add_function_task(Symbol sym, const FunctionTaskInfo&);
 
                 bool empty() const;
-
-                bool is_function_task_or_implements(Symbol sym) const;
 
                 // Fortran
                 void emit_module_info();

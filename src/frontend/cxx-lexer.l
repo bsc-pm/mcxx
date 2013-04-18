@@ -424,28 +424,38 @@ type {
 
 [^\n]* {
 
+    char ignore_gcc_header = 0;
+
     const char* p = yytext;
     // Skip blanks
     while (*p == ' ' || *p == '\t')
         p++;
 
-    char ignore_gcc_header = 0;
-
-    const char* system_header_str = "system_header";
-    if (strncmp(p, system_header_str, strlen(system_header_str)) == 0)
+    // Now skip gcc|GCC
+    if (strncasecmp(p, "gcc", 3) == 0)
     {
-        p += strlen(system_header_str);
-        // Whitespace
-        if (*p == '\0'
-                || *p == ' '
-                || *p == '\t')
+        p += strlen("gcc");
+
+        // Skip blanks again
+        while (*p == ' ' || *p == '\t')
+            p++;
+
+        const char* system_header_str = "system_header";
+        if (strncmp(p, system_header_str, strlen(system_header_str)) == 0)
         {
-            // This is a #pragma GCC system_header
-            ignore_gcc_header = 1;
+            p += strlen(system_header_str);
+            // Whitespace
+            if (*p == '\0'
+                    || *p == ' '
+                    || *p == '\t')
+            {
+                // This is a #pragma GCC system_header
+                ignore_gcc_header = 1;
+            }
         }
     }
 
-    if (ignore_gcc_header)
+    if (!ignore_gcc_header)
     {
         parse_token_text();
         BEGIN(preprocess);

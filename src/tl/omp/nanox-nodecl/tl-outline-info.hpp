@@ -162,6 +162,8 @@ namespace TL
 
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
+                // If not null, used to capture a value only under some conditions
+                Nodecl::NodeclBase _conditional_capture_value;
 
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
@@ -332,6 +334,16 @@ namespace TL
                     return _captured_value;
                 }
 
+                void set_conditional_capture_value(Nodecl::NodeclBase conditional_capture_value)
+                {
+                    _conditional_capture_value = conditional_capture_value;
+                }
+
+                Nodecl::NodeclBase get_conditional_capture_value() const
+                {
+                    return _conditional_capture_value;
+                }
+
                 bool get_is_lastprivate() const
                 {
                     return _is_lastprivate;
@@ -485,16 +497,18 @@ namespace TL
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
+                void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr, Nodecl::NodeclBase condition);
                 void add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
-                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item,
-                        bool &make_allocatable);
+                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
+                        OutlineDataItem* outline_data_item,
+                        bool &make_allocatable,
+                        Nodecl::NodeclBase &conditional_bound);
 
                 OutlineDataItem::InputValueDependence* get_input_value_dependence(TL::Symbol symbol) const;
                 void set_input_value_dependence(TL::Symbol symbol, OutlineDataItem::InputValueDependence* input_value_dep);
-
         };
     }
 }

@@ -53,6 +53,11 @@
          #define WARN_UNUSED
      #endif
   #elif __GNUC__ == 4
+     #if (__GNUC_MINOR__ >= 4) 
+        #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
+     #else
+        #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
+     #endif
      #define NORETURN __attribute__((noreturn))
      #define WARN_UNUSED __attribute__((warn_unused_result))
      #define DEPRECATED __attribute__((deprecated))
