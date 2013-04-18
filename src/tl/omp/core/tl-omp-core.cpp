@@ -45,7 +45,8 @@ namespace TL
 
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
-            _discard_unused_data_sharings(false)
+            _discard_unused_data_sharings(false),
+            _allow_shared_without_copies(false)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
