@@ -282,6 +282,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = called_task.is_valid();
+    
     //OutlineInfo& outline_info = info._outline_info;
     
     //At first time we process a task, declare a function
@@ -431,6 +432,10 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     {
         ++it;
     }
+    
+    std::map< TL::Symbol,TL::ObjectList<TL::Symbol> > modules_with_params;
+    Source data_input_global;
+    Source data_output_global;
 
     for (; it != data_items.end(); it++)
     {
@@ -441,8 +446,35 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     // Do nothing
                     break;
                 }
-            case OutlineDataItem::SHARING_SHARED:
-            case OutlineDataItem::SHARING_CAPTURE:
+            case OutlineDataItem::SHARING_SHARED:     
+                //If from module, set module value (its MPI remote, so will have an invalid value) to the private one we are getting 
+                if ((*it)->get_symbol().is_from_module()){  
+                    std::string symbol_name=(*it)->get_symbol().get_name();
+                    data_input_global << "void* " << symbol_name << "_BACKUP;";
+                    data_input_global << symbol_name << "_BACKUP =  args." << symbol_name <<";"; 
+                    data_input_global << "err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));";    
+                    data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
+                    
+                    data_output_global << "err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
+                }
+            case OutlineDataItem::SHARING_CAPTURE:   
+                if ((*it)->get_symbol().is_from_module()){
+                   std::string symbol_name=(*it)->get_symbol().get_name();
+                   if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE){
+                       data_input_global << "err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";    
+                       data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
+                   }
+
+                   TL::Symbol mod_sym=(*it)->get_symbol().from_module();
+                   std::map< TL::Symbol,TL::ObjectList<TL::Symbol> >::iterator mod_list= modules_with_params.find(mod_sym);
+                   if (mod_list==modules_with_params.end()){
+                       TL::ObjectList<TL::Symbol> list;
+                       list.append((*it)->get_symbol());
+                       modules_with_params.insert(std::pair<TL::Symbol,TL::ObjectList<TL::Symbol> >(mod_sym,list));
+                   } else {
+                       mod_list->second.append((*it)->get_symbol());                    
+                   }
+                }
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 {
                     TL::Type param_type = (*it)->get_in_outline_type();
@@ -570,10 +602,16 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
      // Fortran may require more symbols
     if (IS_FORTRAN_LANGUAGE)
     {
-           // Insert extra symbols
+          // Insert extra symbols
             TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
-            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
+            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+                    unpacked_function_scope,
+                    current_function);
+            if (is_function_task)
+            {
+                fun_visitor.insert_extra_symbol(info._called_task);
+            }
             fun_visitor.insert_extra_symbols(info._task_statements);
 
             Nodecl::Utils::Fortran::copy_used_modules(
@@ -586,6 +624,23 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         info._called_task.get_related_scope(),
                         unpacked_function_scope);
             }
+
+            // Now get all the needed internal functions and replicate them in the outline
+            Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+            internal_functions.walk(info._original_statements);
+
+            Nodecl::List l;
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                    it2 = internal_functions.function_codes.begin();
+                    it2 != internal_functions.function_codes.end();
+                    it2++)
+            {
+                l.append(
+                        Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
+                        );
+            }
+
+            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
     }
     else if (IS_CXX_LANGUAGE) {
        if (!unpacked_function.is_member())
@@ -733,17 +788,46 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
+        //Generate the USE (module), ONLY: params
+        Source mod_list_with_params;
+        
+        std::map< TL::Symbol,TL::ObjectList<TL::Symbol> >::iterator it_mods;
+        for (it_mods= modules_with_params.begin(); it_mods!=modules_with_params.end(); it_mods++){
+            mod_list_with_params << "USE " << it_mods->first.get_name() << ", ONLY: ";
+            TL::ObjectList<TL::Symbol> lst_params=it_mods->second;
+            TL::ObjectList<TL::Symbol>::iterator it_lst;
+            Source par_list;
+            for (it_lst= lst_params.begin(); it_lst!=lst_params.end(); it_lst++){
+                par_list.append_with_separator(it_lst->get_name(),",");
+            }
+            mod_list_with_params << par_list << "\n";
+        }
+        Nodecl::NodeclBase mod_params_tree = mod_list_with_params.parse_statement(device_function_body);
         Source::source_language = SourceLanguage::C;
         Nodecl::NodeclBase code_pre = code_device_pre.parse_statement(device_function_body);
-        Nodecl::NodeclBase code_post = code_device_post.parse_statement(device_function_body);
-        Source::source_language = SourceLanguage::Current;
         device_src
-                << as_statement(code_pre)
-                << unpacked_function_call
-                << as_statement(code_post)
-                ;
-       new_device_body = device_src.parse_statement(device_function_body);
+                << as_statement(code_pre);
         
+        Nodecl::NodeclBase data_input_tree;
+        Nodecl::NodeclBase data_output_tree;
+        if (!data_input_global.empty()){
+            data_input_tree = data_input_global.parse_statement(device_function_body);
+            device_src
+                    << as_statement(data_input_tree);
+        }
+        Nodecl::NodeclBase code_post = code_device_post.parse_statement(device_function_body);
+        device_src
+                << unpacked_function_call;
+        if (!data_output_global.empty()){        
+            data_output_tree = data_output_global.parse_statement(device_function_body);
+            device_src
+                    << as_statement(data_output_tree);
+        }
+        device_src
+                << as_statement(code_post);
+        Source::source_language = SourceLanguage::Current;      
+        
+        new_device_body = device_src.parse_statement(device_function_body);        
     }
     else
     {
@@ -752,7 +836,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     
     device_function_body.replace(new_device_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
-    
+        
     output_statements = original_statements;
     
     
