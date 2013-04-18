@@ -29,6 +29,13 @@ char *xstrdup(const char *s) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
 }
 #endif
 
+// Some systems redefine these as macros
+#undef malloc
+#undef calloc
+#undef free
+#undef realloc
+#undef strdup
+
 #define malloc (+use_xmalloc_instead)
 #define calloc (+use_xcalloc_instead)
 #define free   (+use_xfree_instead)
