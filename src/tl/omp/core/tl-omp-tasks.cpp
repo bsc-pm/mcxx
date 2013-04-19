@@ -250,7 +250,7 @@ namespace TL
         {
             return _file;
         }
-  
+
         void TargetInfo::set_name(std::string name)
         {
             _name = name;
@@ -260,11 +260,12 @@ namespace TL
         {
             return _name;
         }
+
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
-            _target_symbol=funct_symbol;
+            _target_symbol = funct_symbol;
         }
-        
+
         Symbol TargetInfo::get_target_symbol() const
         {
             return _target_symbol;
