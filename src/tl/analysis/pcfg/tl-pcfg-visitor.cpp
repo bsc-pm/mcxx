@@ -423,23 +423,23 @@ namespace Analysis {
     {
         Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
 
-        // Created with previous tasks in the same level of nesting
-        unsigned level = _utils->_task_level;
-        while( level < _utils->_tasks_to_sync.size( ) )
-        {
-            for( ObjectList<ObjectList<Node*> >::iterator it = _utils->_tasks_to_sync[level].begin( );
-                 it != _utils->_tasks_to_sync[level].end( ); ++it )
-            {
-                for( ObjectList<Node*>::iterator it_n = it->begin( ); it_n != it->end( ); ++it_n )
-                {
-                    if( !task_is_surely_synchronized( *it_n ) )
-                    {
-                        _pcfg->connect_nodes( *it_n, first_flush, ALWAYS, "", /* is task edge */ true );
-                    }
-                }
-            }
-            level++;
-        }
+        // // Created with previous tasks in the same level of nesting
+        // unsigned level = _utils->_task_level;
+        // while( level < _utils->_tasks_to_sync.size( ) )
+        // {
+        //     for( ObjectList<ObjectList<Node*> >::iterator it = _utils->_tasks_to_sync[level].begin( );
+        //          it != _utils->_tasks_to_sync[level].end( ); ++it )
+        //     {
+        //         for( ObjectList<Node*>::iterator it_n = it->begin( ); it_n != it->end( ); ++it_n )
+        //         {
+        //             if( !task_is_surely_synchronized( *it_n ) )
+        //             {
+        //                 _pcfg->connect_nodes( *it_n, first_flush, ALWAYS, "", /* is task edge */ true );
+        //             }
+        //         }
+        //     }
+        //     level++;
+        // }
 
         return ObjectList<Node*>( 1, first_flush );
     }
