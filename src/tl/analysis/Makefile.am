@@ -35,7 +35,7 @@ DIST_SUBDIRS= common \
               reach_defs \
               loops \
               auto-scope \
-			  task_analysis \
+              task_analysis \
               singleton \
               test_phase \
               $(END)
