@@ -267,6 +267,11 @@ namespace TL
                 bool _copy_deps;
             public:
                 TargetInfo();
+
+                TargetInfo(const TargetInfo& target_info,
+                        Nodecl::Utils::SimpleSymbolMap translation_map,
+                        TL::Symbol target_symbol);
+
                 bool can_be_ommitted();
 
                 void append_to_copy_in(const ObjectList<CopyItem>& copy_items);

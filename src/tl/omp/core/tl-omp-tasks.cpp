@@ -66,6 +66,74 @@ namespace TL
         {
         }
 
+        TargetInfo::TargetInfo(const TargetInfo& target_info,
+                Nodecl::Utils::SimpleSymbolMap translation_map,
+                TL::Symbol target_symbol) :
+            _target_symbol(target_symbol),
+            _device_list(target_info._device_list),
+            _file(target_info._file),
+            _name(target_info._name)
+        {
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
+                    it != target_info._copy_in.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_in.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_out.begin();
+                    it != target_info._copy_out.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_out.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
+                    it != target_info._copy_in.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_in.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = target_info._ndrange.begin();
+                    it != target_info._ndrange.end();
+                    it++)
+            {
+                _ndrange.append(Nodecl::Utils::deep_copy(*it, target_info._target_symbol.get_scope(), translation_map));
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = target_info._onto.begin();
+                    it != target_info._onto.end();
+                    it++)
+            {
+                _onto.append(Nodecl::Utils::deep_copy(*it, target_info._target_symbol.get_scope(), translation_map));
+            }
+        }
+
         bool TargetInfo::can_be_ommitted()
         {
             return _copy_in.empty()
