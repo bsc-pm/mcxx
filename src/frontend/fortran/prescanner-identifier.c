@@ -68,7 +68,7 @@ enum prescanner_lex_tokens
  KW_OTHER
 };
 
-#define ECHO fprintf(stderr, "Error unknown token: -%s-\n", yytext);
+#define ECHO fprintf(stderr, "Error unknown token: -%s-\n", prescannertext);
 // Totally undesirable but makes things a lot easier
 #include <prescanner-scanner.h>
 
@@ -252,16 +252,16 @@ language_level convert_line(prescanner_t* prescanner, language_level previous, c
 		identify_and_convert_omp_directive(li);
 	}
 
-	free(*line);
+	xfree(*line);
 
 	// Let's make enough room
-	*line = calloc(strlen(li->label) + 1 + original_size*2, sizeof(char));
+	*line = xcalloc(strlen(li->label) + 1 + original_size*2, sizeof(char));
 
 	if (li->is_comment
             || li->is_prepro_line)
 	{
 		strcat(*line, li->comment_text);
-		free(li->comment_text);
+		xfree(li->comment_text);
 	}
 	else
 	{
@@ -275,10 +275,10 @@ language_level convert_line(prescanner_t* prescanner, language_level previous, c
 		{
 			if (i > 0) strcat(*line, "; ");
 			strcat(*line, li->statement_list[i].statement);
-			free(li->statement_list[i].statement);
+			xfree(li->statement_list[i].statement);
 		}
 
-		free(li->statement_list);
+		xfree(li->statement_list);
 	}
 
 	return next;
@@ -294,7 +294,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 {
 	line_information_t* li;
 
-	li = (line_information_t*)calloc(1, sizeof(line_information_t));
+	li = (line_information_t*)xcalloc(1, sizeof(line_information_t));
 
 	// First check if this is a comment
 	char* t = c;
@@ -312,7 +312,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 		{
 			// This must be a saved comment
 			li->is_comment = 1;
-			li->comment_text = strdup(c);
+			li->comment_text = xstrdup(c);
 			// Nothing more to do 
 			return li;
 		}
@@ -322,7 +322,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
     if (*t == '#')
     {
         li->is_prepro_line = 1;
-        li->comment_text = strdup(c);
+        li->comment_text = xstrdup(c);
         return li;
     }
 
@@ -345,7 +345,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	// Once read the label we can advance to detect free operators
 	// Let's make room for 5 sentences
 	li->room_for_statements = 5;
-	li->statement_list = (struct sentence_information_tag*) calloc(li->room_for_statements, sizeof(struct sentence_information_tag));
+	li->statement_list = (struct sentence_information_tag*) xcalloc(li->room_for_statements, sizeof(struct sentence_information_tag));
 
 	// There are 0 *completed* sentences now
 	li->num_of_statements = 0;
@@ -388,7 +388,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 				*p = '\0';
 
 				// Save this statement
-				li->statement_list[current_sentence].statement = strdup(start_current_sentence);
+				li->statement_list[current_sentence].statement = xstrdup(start_current_sentence);
 
 				// Restore character
 				*p = ';';
@@ -398,10 +398,10 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 
 				current_sentence++;
 
-				// We have to realloc
+				// We have to xrealloc
 				if (current_sentence >= li->room_for_statements)
 				{
-					li->statement_list = realloc(li->statement_list, 2 * li->room_for_statements * sizeof(struct sentence_information_tag));
+					li->statement_list = xrealloc(li->statement_list, 2 * li->room_for_statements * sizeof(struct sentence_information_tag));
 
 					// Clear new alloc
 					memset(&li->statement_list[li->room_for_statements], 0, sizeof(*li->statement_list)*li->room_for_statements);
@@ -472,7 +472,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	// Note that start_current_sentence == p would happen when "A=3;"
 	if (start_current_sentence < p)
 	{
-		li->statement_list[current_sentence].statement = strdup(start_current_sentence);
+		li->statement_list[current_sentence].statement = xstrdup(start_current_sentence);
 		// Another completed statement
 		li->num_of_statements++;
 	}
@@ -481,7 +481,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	for (i = 0; i < li->num_of_statements; i++)
 	{
         // Keep the original text (it's been continuated)
-        li->statement_list[i].original_text = strdup(li->statement_list[i].statement);
+        li->statement_list[i].original_text = xstrdup(li->statement_list[i].statement);
 		remove_all_spaces(&li->statement_list[i].statement);
 	}
 
@@ -494,7 +494,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 static void remove_all_spaces(char** line)
 {
     int allocated_size = strlen(*line) + 5;
-    char* newline = calloc(allocated_size, sizeof(char));
+    char* newline = xcalloc(allocated_size, sizeof(char));
 
     char in_string = 0, inlined_comment = 0, delim = 0;
     char *p, *q;
@@ -550,7 +550,7 @@ static void remove_all_spaces(char** line)
 
     *q = '\0';
 
-    free(*line);
+    xfree(*line);
     *line = newline;
 }
 
@@ -558,7 +558,7 @@ static const char *remove_blanks_keeping_holleriths(const char* c)
 {
     const char *p = c;
 
-    char* result = calloc(sizeof(char), strlen(c) + 1);
+    char* result = xcalloc(sizeof(char), strlen(c) + 1);
     char *q = result;
 
     int length = -1;
@@ -678,16 +678,16 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		   This statement cannot be an assigment
 		   We must see what kind of statement is
 		 */
-		yy_flush_buffer(YY_CURRENT_BUFFER);
-		yy_delete_buffer(YY_CURRENT_BUFFER);
+		prescanner_flush_buffer(YY_CURRENT_BUFFER);
+		prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-		YY_BUFFER_STATE yybuf = yy_scan_string(li->statement_list[statement_index].statement);
+		YY_BUFFER_STATE yybuf = prescanner_scan_string(li->statement_list[statement_index].statement);
 
-		yy_flex_debug = 0;
-		yy_switch_to_buffer(yybuf);
+		prescanner_flex_debug = 0;
+		prescanner_switch_to_buffer(yybuf);
 
 		// Only useful for type_specs
-		statement = yylex();
+		statement = prescannerlex();
 
 		if (!statement)
 		{
@@ -730,7 +730,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 	if (statement == DC_INCLUDE)
 	{
 		// We add the blank (not necesary)
-		add_blank(&li->statement_list[statement_index].statement, yytext);
+		add_blank(&li->statement_list[statement_index].statement, prescannertext);
 		return next;
 	}
 
@@ -775,7 +775,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 				{
 					fprintf(stderr, "'%s' We have to add spaces to this type declaration (1)\n", li->statement_list[statement_index].statement);
 				}
-				add_blank(&li->statement_list[statement_index].statement, yytext);
+				add_blank(&li->statement_list[statement_index].statement, prescannertext);
 			}
 			else if (statement == ST_IF_STMT)
 			{
@@ -807,7 +807,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			}
 			else if (statement == ST_ENTRY)
 			{
-				add_blank_entry_statement(&li->statement_list[statement_index].statement, yytext);
+				add_blank_entry_statement(&li->statement_list[statement_index].statement, prescannertext);
 			}
             else if (statement == ST_FORMAT
                     || statement == ST_DATA)
@@ -833,7 +833,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                 // +2 because of a blank we add after the keyword and the NULL terminator
                 int n = strlen(keyword) + strlen(li->statement_list[statement_index].original_text) + 2;
 
-                char *c = malloc(n*sizeof(char));
+                char *c = xmalloc(n*sizeof(char));
                 c[0] = '\0';
 
                 const char *p = NULL;
@@ -865,7 +865,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                     p = remove_blanks_keeping_holleriths(p);
                 }
 
-                free(li->statement_list[statement_index].statement);
+                xfree(li->statement_list[statement_index].statement);
 
                 // Mind the blank
                 snprintf(c, n, "%s %s", keyword, p);
@@ -874,11 +874,11 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
             }
             else if (statement == ST_ELSEIF)
             {
-				add_blank_elseif_statement(&li->statement_list[statement_index].statement, yytext);
+				add_blank_elseif_statement(&li->statement_list[statement_index].statement, prescannertext);
             }
             else
 			{
-				add_blank(&li->statement_list[statement_index].statement, yytext);
+				add_blank(&li->statement_list[statement_index].statement, prescannertext);
 			}
 		}
 	}
@@ -903,19 +903,19 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			}
 
 			// We have to get the type
-			yy_flush_buffer(YY_CURRENT_BUFFER);
-			yy_delete_buffer(YY_CURRENT_BUFFER);
+			prescanner_flush_buffer(YY_CURRENT_BUFFER);
+			prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-			YY_BUFFER_STATE yybuf = yy_scan_string(li->statement_list[statement_index].statement);
+			YY_BUFFER_STATE yybuf = prescanner_scan_string(li->statement_list[statement_index].statement);
 
-			yy_flex_debug = 0;
-			yy_switch_to_buffer(yybuf);
+			prescanner_flex_debug = 0;
+			prescanner_switch_to_buffer(yybuf);
 
 			BEGIN(PREFIX_SPEC);
-			statement = yylex();
+			statement = prescannerlex();
 			BEGIN(0);
 
-			add_blank(&li->statement_list[statement_index].statement, yytext);
+			add_blank(&li->statement_list[statement_index].statement, prescannertext);
 			next = LANG_DECLARATION_PART;
 		}
 	}
@@ -933,14 +933,14 @@ static void add_blank(char** line, char* keyword)
 {
 	char* new = NULL;
 
-	new = calloc(1 + strlen(*line) + 1, sizeof(char));
+	new = xcalloc(1 + strlen(*line) + 1, sizeof(char));
 
 	strncat(new, *line, strlen(keyword));
 	// strcat(new, keyword);
 	strcat(new, " ");
 	strcat(new, ((*line) + strlen(keyword)));
 
-	free(*line);
+	xfree(*line);
 	*line = new;
 }
 
@@ -954,29 +954,29 @@ static void add_blank_function(char** line)
 	int keyword, scanned_length = 0;
 	int in_parenthesis = 0;
 
-	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
+	temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
 
-	yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	prescanner_flush_buffer(YY_CURRENT_BUFFER);
+	prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-	YY_BUFFER_STATE yybuf = yy_scan_string(*line);
+	YY_BUFFER_STATE yybuf = prescanner_scan_string(*line);
 
-	yy_flex_debug = 0;
-	yy_switch_to_buffer(yybuf);
+	prescanner_flex_debug = 0;
+	prescanner_switch_to_buffer(yybuf);
 
 	// This state is intended for recognizing prefixes
 	BEGIN(PREFIX_SPEC);
 
 	// Only useful for type_specs
-	keyword = yylex();
-	scanned_length += strlen(yytext);
+	keyword = prescannerlex();
+	scanned_length += strlen(prescannertext);
 	while (keyword != KW_FUNCTION)
 	{
 		switch (keyword)
 		{
 			case KW_PREFIX:
 				{
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					if (!in_parenthesis)
 					{
 						strcat(temp, " ");
@@ -985,12 +985,12 @@ static void add_blank_function(char** line)
 				}
 			case KW_OTHER :
 				{
-					strcat(temp, yytext);
-					if (*yytext == '(')
+					strcat(temp, prescannertext);
+					if (*prescannertext == '(')
 					{	
 						in_parenthesis++;
 					}
-					else if (in_parenthesis && *yytext == ')')
+					else if (in_parenthesis && *prescannertext == ')')
 					{	
 						in_parenthesis--;
 						if (!in_parenthesis) strcat(temp, " ");
@@ -998,15 +998,15 @@ static void add_blank_function(char** line)
 					break;
 				}
 		}
-		keyword = yylex();
-		scanned_length += strlen(yytext);
+		keyword = prescannerlex();
+		scanned_length += strlen(prescannertext);
 	}
 
-	strcat(temp, yytext);
+	strcat(temp, prescannertext);
 	strcat(temp, " ");
 	strcat(temp, &(*line)[scanned_length]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 
 	BEGIN(0);
@@ -1020,47 +1020,47 @@ static void add_blank_subroutine(char** line)
 	char* temp;
 	int  keyword, scanned_length = 0;
 
-	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
+	temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
 
-	yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	prescanner_flush_buffer(YY_CURRENT_BUFFER);
+	prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-	YY_BUFFER_STATE yybuf = yy_scan_string(*line);
+	YY_BUFFER_STATE yybuf = prescanner_scan_string(*line);
 
-	yy_flex_debug = 0;
-	yy_switch_to_buffer(yybuf);
+	prescanner_flex_debug = 0;
+	prescanner_switch_to_buffer(yybuf);
 
 	// This state is intended for recognizing prefixes
 	BEGIN(PREFIX_SPEC);
 
 	// Only useful for type_specs
-	keyword = yylex();
-	scanned_length += strlen(yytext);
+	keyword = prescannerlex();
+	scanned_length += strlen(prescannertext);
 	while (keyword != KW_SUBROUTINE)
 	{
 		switch (keyword)
 		{
 			case KW_PREFIX : 
 				{
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					strcat(temp, " ");
 					break;
 				}
 			case KW_OTHER :
 				{
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					break;
 				}
 		}
-		keyword = yylex();
-		scanned_length += strlen(yytext);
+		keyword = prescannerlex();
+		scanned_length += strlen(prescannertext);
 	}
 
-	strcat(temp, yytext);
+	strcat(temp, prescannertext);
 	strcat(temp, " ");
 	strcat(temp, &(*line)[scanned_length]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 
 	BEGIN(0);
@@ -1083,21 +1083,21 @@ static void add_blank_end(char** line)
 	char keyword_after_end = 0;
 	int  keyword, scanned_length = 0;
 
-	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
+	temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
 
-	yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	prescanner_flush_buffer(YY_CURRENT_BUFFER);
+	prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-	YY_BUFFER_STATE yybuf = yy_scan_string(*line);
+	YY_BUFFER_STATE yybuf = prescanner_scan_string(*line);
 
-	yy_flex_debug = 0;
-	yy_switch_to_buffer(yybuf);
+	prescanner_flex_debug = 0;
+	prescanner_switch_to_buffer(yybuf);
 
 	// This state is intended for recognizing end suffixes
 	BEGIN(END_APPENDINGS);
 
 	// Only useful for type_specs
-	keyword = yylex();
+	keyword = prescannerlex();
 	while (keyword != 0 && !keyword_after_end)
 	{
 		switch (keyword)
@@ -1105,31 +1105,31 @@ static void add_blank_end(char** line)
 			case KW_END_APPEND :
 				{
 					keyword_after_end = 1;
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					strcat(temp, " ");
 					break;
 				}
 			case KW_END :
 				{
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					strcat(temp, " ");
 					break;
 				}
 			case KW_END_COMMENT :
 				{
 					keyword_after_end = 1;
-					strcat(temp, yytext);
+					strcat(temp, prescannertext);
 					break;
 				}
 		}
-		scanned_length += strlen(yytext);
+		scanned_length += strlen(prescannertext);
 		if (!keyword_after_end)
-			keyword = yylex();
+			keyword = prescannerlex();
 	}
 
 	strcat(temp, &(*line)[scanned_length]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 
 	BEGIN(0);
@@ -1145,33 +1145,33 @@ static void add_blank_module_procedure(char** line)
 	char* temp;
 	int scanned_length = 0;
 
-	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
+	temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
 
-	yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	prescanner_flush_buffer(YY_CURRENT_BUFFER);
+	prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-	YY_BUFFER_STATE yybuf = yy_scan_string(*line);
+	YY_BUFFER_STATE yybuf = prescanner_scan_string(*line);
 
-	yy_flex_debug = 0;
-	yy_switch_to_buffer(yybuf);
+	prescanner_flex_debug = 0;
+	prescanner_switch_to_buffer(yybuf);
 
 	// This state is intended for recognizing prefixes
 	BEGIN(MODULE_PROC);
 
 	// This will be MODULE
-	yylex();
-	scanned_length += strlen(yytext);
-	strcat(temp, yytext);
+	prescannerlex();
+	scanned_length += strlen(prescannertext);
+	strcat(temp, prescannertext);
 	strcat(temp, " ");
 
 	// This will be PROCEDURE
-	yylex();
-	scanned_length += strlen(yytext);
-	strcat(temp, yytext);
+	prescannerlex();
+	scanned_length += strlen(prescannertext);
+	strcat(temp, prescannertext);
 	strcat(temp, " ");
 	strcat(temp, &(*line)[scanned_length]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 
 	BEGIN(0);
@@ -1224,8 +1224,8 @@ static void add_blank_if_statement(prescanner_t* prescanner, char** line, int nu
 	else
 	{
 		// The rest of the line must be identified properly
-		// char* c = strdup(p);
-		char* c = calloc(6 + strlen(p) + 1, sizeof(char));
+		// char* c = xstrdup(p);
+		char* c = xcalloc(6 + strlen(p) + 1, sizeof(char));
 		strcat(c, "      ");
 		strcat(c, p);
         DEBUG_CODE()
@@ -1240,13 +1240,13 @@ static void add_blank_if_statement(prescanner_t* prescanner, char** line, int nu
 			fprintf(stderr, "After converting '%s'\n", c);
 		}
 
-		char* temp = (char*)calloc(strlen(*line)*2, sizeof(char));
+		char* temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
 		*p = '\0';
 		strcat(temp, *line);
 		strcat(temp, c);
 
-		free(c);
-		free(*line);
+		xfree(c);
+		xfree(*line);
 		*line = temp;
 		
 	}
@@ -1259,7 +1259,7 @@ static void add_blank_labeled_do(char** line)
 {
 	int i;
 	char ending;
-	char* temp = calloc(strlen(*line)*2, sizeof(char));
+	char* temp = xcalloc(strlen(*line)*2, sizeof(char));
 
 	// "DO "
 	ending = (*line)[2];
@@ -1284,7 +1284,7 @@ static void add_blank_labeled_do(char** line)
 	// The remaining characters of this statement
 	strcat(temp, &(*line)[i]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 }
 
@@ -1296,7 +1296,7 @@ static void add_blank_label_assign_statement(char** line)
 {
 	int i;
 	char ending;
-	char* temp = calloc(strlen(*line)*2, sizeof(char));
+	char* temp = xcalloc(strlen(*line)*2, sizeof(char));
 	// "ASSIGN"
 	ending = (*line)[6];
 	(*line)[6] = '\0';
@@ -1328,7 +1328,7 @@ static void add_blank_label_assign_statement(char** line)
 
 	strcat(temp, &(*line)[i+2]);
 
-	free(*line);
+	xfree(*line);
 	*line = temp;
 }
 
@@ -1339,7 +1339,7 @@ static void add_blank_entry_statement(char** line, char* keyword)
 	int code;
 	char* temp;
 
-	temp = calloc(sizeof(temp), strlen(*line)*2);
+	temp = xcalloc(sizeof(temp), strlen(*line)*2);
 
 	if ((code = regcomp(&match_problematic, "^ENTRY([A-Z][0-9A-Z]*)RESULT[(][A-Z][0-9A-Z]*[)]$", REG_EXTENDED | REG_ICASE)) != 0)
 	{
@@ -1351,7 +1351,7 @@ static void add_blank_entry_statement(char** line, char* keyword)
 	if (regexec(&match_problematic, *line, 2, sub_matching, 0) == 0)
 	{
 		// This is a case we have to deal specially
-		strcat(temp, yytext);
+		strcat(temp, prescannertext);
 		strcat(temp, " ");
 
 		char mark = (*line)[sub_matching[1].rm_eo];
@@ -1365,7 +1365,7 @@ static void add_blank_entry_statement(char** line, char* keyword)
 		strcat(temp, " ");
 		strcat(temp, &((*line)[sub_matching[1].rm_eo]));
 
-		free(*line);
+		xfree(*line);
 		*line = temp;
 	}
 	else // generic handling is enough otherwise
@@ -1453,13 +1453,13 @@ static void add_blank_elseif_statement(char** line, char* keyword)
         // There is something left, probably the LABEL, add a blank after THEN
         const char* q = *line;
         int length = (p - q) + 1 + strlen(p) + 1;
-        char *new_str = calloc(length, sizeof(char));
+        char *new_str = xcalloc(length, sizeof(char));
 
         strncat(new_str, q, p - q);
         strcat(new_str, " ");
         strcat(new_str, p);
 
-        free(*line);
+        xfree(*line);
         *line = new_str;
     }
     // Otherwise leave it untouched
@@ -1474,48 +1474,48 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 	}
 
 	// Discard !$OMP
-	char* c = strdup(&li->comment_text[6]);
-	char* result = calloc(strlen(c)*2, sizeof(char));
+	char* c = xstrdup(&li->comment_text[6]);
+	char* result = xcalloc(strlen(c)*2, sizeof(char));
 
 	// Add "!$OMP " 
 	strncat(result, li->comment_text, 6);
 
 	remove_all_spaces(&c);
 
-	yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
+	prescanner_flush_buffer(YY_CURRENT_BUFFER);
+	prescanner_delete_buffer(YY_CURRENT_BUFFER);
 
-	YY_BUFFER_STATE yybuf = yy_scan_string(c);
+	YY_BUFFER_STATE yybuf = prescanner_scan_string(c);
 
-	yy_flex_debug = 0;
-	yy_switch_to_buffer(yybuf);
+	prescanner_flex_debug = 0;
+	prescanner_switch_to_buffer(yybuf);
 
 	BEGIN(OMP_DIRECTIVE);
 
-	int lex = yylex();
+	int lex = prescannerlex();
 
 	if (lex == KW_OMP_UNKNOWN_DIRECTIVE)
 	{
 		// Cowardly refuse to do anything else when the directive is unknown
 		BEGIN(0);
-		free(c);
+		xfree(c);
 		return;
 	}
 
 	int parenthesis_level = 0;
 
 	// The directive
-	strcat(result, yytext);
+	strcat(result, prescannertext);
 
 	while (YYSTATE == OMP_DIRECTIVE)
 	{
-		lex = yylex();
+		lex = prescannerlex();
 
 		strcat(result, " ");
-		strcat(result, yytext);
+		strcat(result, prescannertext);
 	}
 
-	lex = yylex();
+	lex = prescannerlex();
 	while (lex != 0)
 	{
 		// The clauses
@@ -1524,7 +1524,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 			case KW_OMP_CLAUSE :
 				{
 					strcat(result, " ");
-					strcat(result, yytext);
+					strcat(result, prescannertext);
 					break;
 				}
 			case KW_OMP_CLAUSE_EXPR : 
@@ -1532,15 +1532,15 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 					// This has changed the state of the lexer to OMP_EXPR
 					// (see prescanner.l)
 					strcat(result, " ");
-					strcat(result, yytext);
+					strcat(result, prescannertext);
 					parenthesis_level = 0;
 					break;
 				}
 			case KW_OMP_EXPR_TOK :
 				{
-					if (strlen(yytext) == 1)
+					if (strlen(prescannertext) == 1)
 					{
-						switch (yytext[0])
+						switch (prescannertext[0])
 						{
 							case '(' :
 								{
@@ -1562,22 +1562,22 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 								break;
 						}
 					}
-					strcat(result, yytext);
+					strcat(result, prescannertext);
 					break;
 				}
 			default: 
 				break;
 		}
 
-		lex = yylex();
+		lex = prescannerlex();
 	}
 
 	BEGIN(0);
 
-	free(li->comment_text);
+	xfree(li->comment_text);
 	li->comment_text = result;
 
-	free(c);
+	xfree(c);
 }
 
 /*

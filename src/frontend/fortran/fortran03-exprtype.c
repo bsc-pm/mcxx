@@ -587,7 +587,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
             }
         }
     }
-    free(list);
+    xfree(list);
 
     if (num_items > 0)
     {
@@ -2077,7 +2077,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
 
 static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-   char* floating_text = strdup(strtolower(ASTText(expr)));
+   char* floating_text = xstrdup(strtolower(ASTText(expr)));
 
    unsigned int kind = fortran_get_default_real_type_kind();
    char *q = NULL; 
@@ -2151,7 +2151,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
 
    *nodecl_output = nodecl_make_floating_literal(t, value, ASTFileName(expr), ASTLine(expr));
 
-   free(floating_text);
+   xfree(floating_text);
 }
 
 static char check_argument_association(

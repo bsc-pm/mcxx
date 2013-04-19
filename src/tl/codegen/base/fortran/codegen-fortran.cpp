@@ -807,7 +807,7 @@ OPERATOR_TABLE
             file << "\"";
         }
 
-        free(bytes);
+        xfree(bytes);
     }
 
     namespace {

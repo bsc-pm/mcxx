@@ -31,13 +31,14 @@
   // Needed, otherwise open_memstream is not declared
   #define _GNU_SOURCE
 #endif
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
 #include "cxx-codegen.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 typedef
 struct nodecl_expr_info_tag
@@ -102,7 +103,7 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
     nodecl_expr_info_t* p = (nodecl_expr_info_t*)ast_get_field(expr, LANG_EXPRESSION_INFO);
     if (p == NULL)
     {
-        p = calloc(1, sizeof(*p));
+        p = xcalloc(1, sizeof(*p));
         ast_set_field(expr, LANG_EXPRESSION_INFO, p);
     }
     return p;
@@ -302,7 +303,7 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
         num_elements++;
     }
 
-    nodecl_t* output = calloc(num_elements, sizeof(*output));
+    nodecl_t* output = xcalloc(num_elements, sizeof(*output));
 
     num_elements = 0;
     for_each_element(list, it)
@@ -477,7 +478,7 @@ void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
 
     if (p == NULL)
     {
-        p = calloc(1, sizeof(*p));
+        p = xcalloc(1, sizeof(*p));
 
         *p = decl_context;
 
@@ -748,7 +749,7 @@ static const char* nodecl_to_source(nodecl_t n)
     fclose(string_stream);
 
     const char* result = uniquestr(buff);
-    free(buff);
+    xfree(buff);
 
     return result;
 }

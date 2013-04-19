@@ -142,7 +142,7 @@ void keep_ms_declspecs_in_symbol(
     if (entry->entity_specs.num_ms_attributes == 0)
     {
         entry->entity_specs.num_ms_attributes = gather_info->num_ms_attributes;
-        entry->entity_specs.ms_attributes = calloc(
+        entry->entity_specs.ms_attributes = xcalloc(
                 entry->entity_specs.num_ms_attributes,
                 sizeof(*entry->entity_specs.ms_attributes));
         memcpy(entry->entity_specs.ms_attributes,
@@ -173,7 +173,7 @@ void keep_ms_declspecs_in_symbol(
             {
                 entry->entity_specs.num_ms_attributes++;
 
-                entry->entity_specs.ms_attributes = realloc(entry->entity_specs.ms_attributes,
+                entry->entity_specs.ms_attributes = xrealloc(entry->entity_specs.ms_attributes,
                         sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
                 entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
                     gather_info->ms_attributes[i];

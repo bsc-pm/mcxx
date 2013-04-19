@@ -356,7 +356,7 @@ static void check_untyped_symbols(decl_context_t decl_context)
                 entry->symbol_name);
     }
 
-    free(unknown_info->entity_specs.related_symbols);
+    xfree(unknown_info->entity_specs.related_symbols);
     unknown_info->entity_specs.related_symbols = NULL;
     unknown_info->entity_specs.num_related_symbols = 0;
 }
@@ -539,7 +539,7 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
         }
     }
 
-    free(unknown_kind->entity_specs.related_symbols);
+    xfree(unknown_kind->entity_specs.related_symbols);
     unknown_kind->entity_specs.related_symbols = NULL;
     unknown_kind->entity_specs.num_related_symbols = 0;
 }
@@ -743,7 +743,7 @@ static void build_scope_program_unit_internal(AST program_unit,
                                 "Invalid kind for second item of the list", 0);
 
                         nodecl_nested_pragma = list[1];
-                        free(list);
+                        xfree(list);
                     }
 
                     nodecl_t nodecl_pragma_declaration =
@@ -1598,7 +1598,7 @@ static scope_entry_t* new_procedure_symbol(
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = calloc(1, sizeof(*dummy_arg));
+                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -1881,7 +1881,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = calloc(1, sizeof(*dummy_arg));
+                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -7413,7 +7413,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     }
 
     // Result symbol (for consistency with remaining functions in the language)
-    scope_entry_t* result_sym = calloc(1, sizeof(*result_sym));
+    scope_entry_t* result_sym = xcalloc(1, sizeof(*result_sym));
     result_sym->symbol_name = entry->symbol_name;
     result_sym->kind = SK_VARIABLE;
     result_sym->decl_context = decl_context;
@@ -9988,7 +9988,7 @@ static void resolve_external_calls_inside_a_function(nodecl_t function_code,
         }
     }
 
-    free(list);
+    xfree(list);
 }
 
 static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
@@ -10038,7 +10038,7 @@ static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
         }
     }
 
-    free(list);
+    xfree(list);
 
     DEBUG_CODE()
     {

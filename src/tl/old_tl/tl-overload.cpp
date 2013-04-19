@@ -36,7 +36,7 @@
 namespace TL
 {
 
-    static void free_scope_entry_list(scope_entry_list_t* entry)
+    static void xfree_scope_entry_list(scope_entry_list_t* entry)
     {
         entry_list_free(entry);
     }
@@ -151,10 +151,10 @@ namespace TL
         delete[] argument_types_array;
 
         // Free the scope entry list
-        free_scope_entry_list(candidate_list);
+        xfree_scope_entry_list(candidate_list);
 
         // This one has been allocated above
-        free_scope_entry_list(first_candidate_list);
+        xfree_scope_entry_list(first_candidate_list);
 
         return Symbol(entry_result);
     }

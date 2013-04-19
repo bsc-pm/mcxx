@@ -148,6 +148,8 @@ LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 
 // This is a plain '0'
 LIBMCXX_EXTERN type_t* get_zero_type(void);
+// This is a plain 'false'
+LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 // This is for g++'s '__null'
 LIBMCXX_EXTERN type_t* get_null_type(void);
 

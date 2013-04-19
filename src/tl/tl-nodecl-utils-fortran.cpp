@@ -2,6 +2,8 @@
 
 #include "fortran03-buildscope.h"
 
+#include "mem.h"
+
 namespace Nodecl { namespace Utils {
 
     void Fortran::copy_used_modules(TL::Scope orig_scope,
@@ -36,7 +38,7 @@ namespace Nodecl { namespace Utils {
 
             //FIXME: Memory leaks
             scope_entry_t**  list_related_symbols = (scope_entry_t**)
-                malloc(total_related_symbols * sizeof(*new_used_modules_info->entity_specs.related_symbols));
+                xmalloc(total_related_symbols * sizeof(*new_used_modules_info->entity_specs.related_symbols));
 
             int index = 0;
             // Copy all the symbols of the new_used_modules_info to the new list

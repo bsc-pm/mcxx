@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "mem.h"
 #include "red_black_tree.h"
 
 #define warning_message(...) \
@@ -50,7 +51,7 @@ static void null_dtor_func(const void *v) { }
 
 void extensible_struct_init(extensible_struct_t** extensible_struct)
 {
-    (*extensible_struct) = calloc(1, sizeof((*extensible_struct)));
+    (*extensible_struct) = xcalloc(1, sizeof((*extensible_struct)));
     (*extensible_struct)->hash = rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
 }
 
@@ -92,9 +93,9 @@ static void walk_func(const void* key, void* value, void* p)
 
     d->num_fields++;
 
-    d->keys = realloc(d->keys, d->num_fields * sizeof(*d->keys));
+    d->keys = xrealloc(d->keys, d->num_fields * sizeof(*d->keys));
     d->keys[d->num_fields - 1] = (const char*)key;
-    d->data = realloc(d->data, d->num_fields * sizeof(*d->data));
+    d->data = xrealloc(d->data, d->num_fields * sizeof(*d->data));
     d->data[d->num_fields - 1] = value;
 }
 

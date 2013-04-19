@@ -401,6 +401,11 @@ namespace TL { namespace OpenMP {
                 _simd_enabled_str,
                 "0").connect(functor(&Base::set_simd, *this));
 
+        register_parameter("allow_shared_without_copies",
+                "If set to '1' allows shared without any copy directionality, otherwise they are set to copy_inout",
+                _allow_shared_without_copies_str,
+                "0").connect(functor(&Base::set_allow_shared_without_copies, *this));
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -507,6 +512,14 @@ namespace TL { namespace OpenMP {
                 simd_enabled_str,
                 _simd_enabled,
                 "Assuming false");
+    }
+
+    void Base::set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str)
+    {
+        bool b = false;
+        parse_boolean_option("allow_shared_without_copies",
+                allow_shared_without_copies_str, b, "Assuming false");
+        _core.set_allow_shared_without_copies(b);
     }
 
     void Base::set_discard_unused_data_sharings(const std::string& str)

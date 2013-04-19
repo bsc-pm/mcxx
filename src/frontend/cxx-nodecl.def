@@ -209,7 +209,10 @@ fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [it
 
 argument : named-pair
          | expression
+         | default-arg
          | alt-return
+
+default-arg: NODECL_DEFAULT_ARGUMENT([argument]expression)
 
 named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 

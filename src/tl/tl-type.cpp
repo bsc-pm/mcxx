@@ -257,7 +257,7 @@ namespace TL
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
 
-        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
 
         for (i=0; i<num_parameters; i++)
         {

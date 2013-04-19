@@ -154,7 +154,7 @@ static void tool_initialization(int argc, const char* argv[])
 		allocated_size = MINSIGSTKSZ;
 	}
 
-	_alternate_signal_stack = malloc(allocated_size);
+	_alternate_signal_stack = xmalloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
                             print_help_and_error("Ouput specified twice");
                         }
 
-                        output_filename = strdup(parameter_info.argument);
+                        output_filename = xstrdup(parameter_info.argument);
                         break;
                     }
                 case OPTION_EMBED_VERSION:
@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
                     }
                 case OPTION_EMBED_PROFILE:
                     {
-                        current_profile = strdup(parameter_info.argument);
+                        current_profile = xstrdup(parameter_info.argument);
                         break;
                     }
                 case OPTION_EMBED_VERBOSE:
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
                         {
                             print_help_and_error("Compiler profile specified twice");
                         }
-                        compiler_profile = strdup(parameter_info.argument);
+                        compiler_profile = xstrdup(parameter_info.argument);
                         break;
                     }
                 default:

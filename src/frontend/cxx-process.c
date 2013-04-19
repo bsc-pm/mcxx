@@ -26,15 +26,16 @@
 
 
 
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
 
 #include "cxx-process.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
 #include "filename.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include "mem.h"
 
 // Compilation options
 compilation_process_t compilation_process;
@@ -44,11 +45,11 @@ translation_unit_t* add_new_file_to_compilation_process(
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration)
 {
-    translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
+    translation_unit_t* translation_unit = (translation_unit_t*)xcalloc(1, sizeof(*translation_unit));
     // Initialize with the translation unit root tree
     translation_unit->input_filename = uniquestr(file_path);
 
-    compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));
+    compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) xcalloc(1, sizeof(*new_compiled_file));
 
     configuration->verbose = CURRENT_CONFIGURATION->verbose;
     configuration->do_not_link = CURRENT_CONFIGURATION->do_not_link;
@@ -98,7 +99,7 @@ unsigned long long dynamic_lists_used_memory(void)
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
 {
     va_list ap;
-    char* sanitized_message = strdup(message);
+    char* sanitized_message = xstrdup(message);
 
     // Remove annoying \n at the end. This will make this function
     // interchangeable with fprintf(stderr, 
@@ -112,14 +113,14 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     }
 
 #define LONG_MESSAGE_SIZE 1024
-    char* long_message = calloc(sizeof(char), LONG_MESSAGE_SIZE);
+    char* long_message = xcalloc(sizeof(char), LONG_MESSAGE_SIZE);
 
     va_start(ap, function_name);
     vsnprintf(long_message, LONG_MESSAGE_SIZE-1, sanitized_message, ap);
     long_message[LONG_MESSAGE_SIZE-1] = '\0';
 #undef LONG_MESSAGE_SIZE
 
-    char* kind_copy = strdup(kind);
+    char* kind_copy = xstrdup(kind);
 
     char *start, *end;
 
@@ -153,16 +154,16 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
-    free(kind_copy);
-    free(sanitized_message);
-    free(long_message);
+    xfree(kind_copy);
+    xfree(sanitized_message);
+    xfree(long_message);
 }
 
 void running_error(const char* message, ...)
 {
     va_list ap;
 
-    char* sanitized_message = strdup(message);
+    char* sanitized_message = xstrdup(message);
 
     // Remove annoying \n at the end. This will make this function
     // interchangeable with fprintf(stderr, 
@@ -183,7 +184,7 @@ void running_error(const char* message, ...)
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
 
-    free(sanitized_message);
+    xfree(sanitized_message);
 
     exit(EXIT_FAILURE);
 }

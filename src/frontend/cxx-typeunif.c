@@ -152,7 +152,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type));
             }
 
-            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+            deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -211,7 +211,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type));
             }
 
-            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+            deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -312,7 +312,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                 print_declarator(current_deduced_parameter.type));
                     }
 
-                    deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                    deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                     *new_deduced_parameter = current_deduced_parameter;
 
                     P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -598,7 +598,7 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
         }
     }
 
-    deduction_t* result = counted_calloc(1, sizeof(*result), &_bytes_typeunif);
+    deduction_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_typeunif);
     switch (s1->kind)
     {
         case SK_TEMPLATE_PARAMETER:
@@ -826,7 +826,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
             if (!found)
             {
-                deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                 *new_deduced_parameter = current_deduced_parameter;
 
                 P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -1187,13 +1187,13 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
                 codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
                 codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
     }
-    deduction_set_t* deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
+    deduction_set_t* deduction_set = counted_xcalloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
     char c = equivalent_dependent_expressions(left_tree, right_tree,  
             &deduction_set, flags);
 
     // Free it, it is unused after this
-    free(deduction_set);
+    xfree(deduction_set);
 
     DEBUG_CODE()
     {

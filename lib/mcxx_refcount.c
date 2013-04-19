@@ -33,6 +33,8 @@
 #include <signal.h>
 #include "mcxx_refcount.h"
 
+#include "mem.h"
+
 /*
  * Implemented according to 
  *
@@ -80,9 +82,9 @@ static void _mcxx_scanblack(void *p);
 static int _mcxx_numroots = 0;
 static void *_mcxx_roots[MCXX_MAX_ROOTS];
 
-void *_mcxx_calloc(size_t nmemb, size_t size)
+void *_mcxx_xcalloc(size_t nmemb, size_t size)
 {
-    void *p = calloc(nmemb, size);
+    void *p = xcalloc(nmemb, size);
 
 #ifdef MCXX_REFCOUNT_DEBUG
     fprintf(stderr, "MCXX-REFCOUNT: %s Creating new object %p\n", __FUNCTION__, p);
@@ -194,7 +196,7 @@ static void _mcxx_release(void *p)
 #ifdef MCXX_REFCOUNT_DEBUG
         fprintf(stderr, "MCXX-REFCOUNT: %s Freeing non-buffered %p\n", __FUNCTION__, p);
 #endif
-        free(p);
+        xfree(p);
     }
 #ifdef MCXX_REFCOUNT_DEBUG
     else
@@ -282,7 +284,7 @@ static void _mcxx_markroots(void)
 #ifdef MCXX_REFCOUNT_DEBUG
                 fprintf(stderr, "MCXX-REFCOUNT: %s Freeing %p because of it being black and refcount zero\n", __FUNCTION__, p);
 #endif
-                free(p);
+                xfree(p);
             }
 
         }
@@ -464,7 +466,7 @@ static void _mcxx_collectwhite(void *p)
 #ifdef MCXX_REFCOUNT_DEBUG
             fprintf(stderr, "MCXX-REFCOUNT: %s Freeing since white and not buffered %p\n", __FUNCTION__, p);
 #endif
-            free(p);
+            xfree(p);
         }
         MCXX_REFCOUNT_LEAVE_FUN(p);
     }
