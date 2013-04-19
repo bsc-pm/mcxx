@@ -41,8 +41,34 @@ namespace TL { namespace Analysis {
         TaskSync_No = 2
     };
 
-    typedef std::set<Node*> AliveTaskSet;
-    typedef std::map<Node*, AliveTaskSet > AliveTasks;
+    struct AliveTaskItem
+    {
+        Node* node;
+        // Arbitrary domain id. Every nesting domain has its own domain id
+        int domain;
+
+        AliveTaskItem(Node* node_, int domain_)
+            : node(node_), domain(domain_)
+        {
+        }
+
+        bool operator<(const AliveTaskItem& it) const
+        {
+            return (this->node < it.node)
+                || (!(it.node < this->node) && 
+                        (this->domain < it.domain));
+        }
+
+        bool operator==(const AliveTaskItem& it) const
+        {
+            return (this->node == it.node)
+                && (this->domain == it.domain);
+        }
+
+    };
+
+    typedef std::set<AliveTaskItem> AliveTaskSet;
+    typedef std::map<Node*, AliveTaskSet> AliveTasks;
     typedef std::set<Node*> PointOfSyncSet;
     typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
 
@@ -54,7 +80,9 @@ namespace TL { namespace Analysis {
 
             void compute_task_synchronizations_rec(Node* current,
                     bool &changed,
-                    PointsOfSync& points_of_sync);
+                    PointsOfSync& points_of_sync,
+                    int current_domain_id,
+                    int &next_domain_id);
         public:
             TaskSynchronizations(ExtensibleGraph* graph);
 
