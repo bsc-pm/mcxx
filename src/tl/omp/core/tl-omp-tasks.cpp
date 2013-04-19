@@ -297,6 +297,61 @@ namespace TL
         {
         }
 
+        FunctionTaskInfo::FunctionTaskInfo(
+                const FunctionTaskInfo& task_info,
+                Nodecl::Utils::SimpleSymbolMap& translation_map,
+                TL::Symbol function_sym) :
+            _sym(function_sym),
+            _untied(task_info._untied)
+        {
+            // Copy the implementations table
+            ERROR_CONDITION(_implementation_table.size() > 1,
+                    "More than one implementation of a nonvoid task '%s' is not currently supported",
+                    task_info._sym.get_name().c_str());
+
+           for (implementation_table_t::const_iterator it = task_info._implementation_table.begin();
+                   it != task_info._implementation_table.end();
+                   ++it)
+           {
+               _implementation_table.insert(make_pair(it->first, function_sym));
+           }
+
+           // Copy the target information
+           set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
+
+           // Copy the real time information
+           set_real_time_info(RealTimeInfo(task_info._real_time_info, translation_map));
+
+            // Copy the function task dependences
+           for (TL::ObjectList<FunctionTaskDependency>::const_iterator it = task_info._parameters.begin();
+                   it != task_info._parameters.end();
+                   it++)
+           {
+               FunctionTaskDependency dep_item = *it;
+               DependencyDirection dir = dep_item.get_direction();
+               DataReference data_ref = dep_item.get_data_reference();
+
+               Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                       data_ref,
+                       data_ref.retrieve_context(),
+                       translation_map);
+
+               DataReference updated_data_ref(updated_expr);
+
+               FunctionTaskDependency updated_dep_item(updated_data_ref, dir);
+               _parameters.append(updated_dep_item);
+           }
+
+           _if_clause_cond_expr = Nodecl::Utils::deep_copy(
+                   task_info._if_clause_cond_expr, task_info._sym.get_scope(), translation_map);
+
+           _priority_clause_expr = Nodecl::Utils::deep_copy(
+                   task_info._priority_clause_expr, task_info._sym.get_scope(), translation_map);
+
+           _task_label = Nodecl::Utils::deep_copy(
+                   task_info._task_label, task_info._sym.get_scope(), translation_map);
+        }
+
         Symbol FunctionTaskInfo::get_symbol() const
         {
             return _sym;

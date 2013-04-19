@@ -489,6 +489,11 @@ namespace TL
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
 
+                FunctionTaskInfo(
+                        const FunctionTaskInfo& task_info,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map,
+                        TL::Symbol function_sym);
+
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
