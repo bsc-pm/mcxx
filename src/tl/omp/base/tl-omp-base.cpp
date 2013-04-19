@@ -386,6 +386,423 @@ namespace TL { namespace OpenMP {
             }
     };
 
+
+
+    // This visitor transforms a nonvoid function task call into a call to a void
+    // function task with one parameter more than the original function. This extra
+    // parameters is used to store the return value
+    //
+    // For the following input:
+    //
+    //      #pragma omp task inout(*x)
+    //      int foo(int* x) { ... }
+    //
+    //      int main()
+    //      {
+    //          int y = 2;
+    //          foo(&y);
+    //      }
+    //
+    //  This visitor transforms the tree into:
+    //
+    //      int foo(int *x) { ... }
+    //
+    //      #pragma omp task inout(*x) out(*output)
+    //      void foo__(int* x, int* output)
+    //      {
+    //          *output = foo(x);
+    //      }
+    //
+    //      int main()
+    //      {
+    //          int y = 2;
+    //          int *output = alloca(...);
+    //          foo__(&y, output);
+    //      }
+    //
+    class TransformNonVoidFunctionCalls : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+
+            RefPtr<FunctionTaskSet> _function_task_set;
+            std::map<TL::Symbol, TL::Symbol> _transformed_tasks;
+
+        public:
+
+            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
+                : _function_task_set(function_task_Set), _transformed_tasks()
+            {
+            }
+
+            virtual void visit(const Nodecl::FunctionCall& func_call)
+            {
+                Nodecl::NodeclBase called = func_call.get_called();
+                if (!called.is<Nodecl::Symbol>())
+                    return;
+
+                TL::Symbol function_called = called.as<Nodecl::Symbol>().get_symbol();
+
+                if (!_function_task_set->is_function_task(function_called))
+                    return;
+
+                if (function_called.get_type().is_void())
+                    return;
+
+                TL::Symbol transformed_task;
+                std::map<TL::Symbol, TL::Symbol>::iterator it_transformed_task = _transformed_tasks.find(function_called);
+                if (it_transformed_task == _transformed_tasks.end())
+                {
+                    // Create the void function task with one parameter more than the original function
+                    std::string new_function_name = function_called.get_name() + "__";
+
+                    TL::ObjectList<std::string> parameter_names;
+                    TL::ObjectList<TL::Type> parameter_types;
+
+                    parameter_types = function_called.get_type().parameters();
+                    parameter_types.append(function_called.get_type().returns().get_pointer_to());
+
+                    TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
+                    for (TL::ObjectList<TL::Symbol>::iterator it = function_called_related_symbols.begin();
+                            it != function_called_related_symbols.end();
+                            it++)
+                    {
+                        parameter_names.append(it->get_name());
+                    }
+                    parameter_names.append("output");
+
+                    TL::Symbol new_function = new_function_symbol(
+                            function_called,
+                            new_function_name,
+                            TL::Type::get_void_type(),
+                            parameter_names,
+                            parameter_types);
+
+                    Nodecl::NodeclBase new_function_code,new_function_body;
+                    build_empty_body_for_function(new_function,
+                            new_function_code,
+                            new_function_body);
+
+                    Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
+
+                   // Create the code of the new void function. This code should be a call to the original function
+                   // using the parameters of this new function as arguments (except the last one, which is the return)
+                    {
+                        // 1. Create the new called entity
+                        Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
+                                function_called,
+                                func_call.get_filename(),
+                                func_call.get_line());
+
+                        called_entity.set_type(function_called.get_type());
+
+                        // 2. Create the list of arguments
+                        Nodecl::List argument_list;
+                        TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
+                        int new_function_num_related_symbols = new_function.get_num_related_symbols();
+                        for (int i = 0; i < (new_function_num_related_symbols - 1); ++i)
+                        {
+                            Nodecl::NodeclBase new_arg =
+                                Nodecl::Symbol::make(new_funcion_related_symbols[i],
+                                        func_call.get_filename(),
+                                        func_call.get_line());
+
+                            new_arg.set_type(new_funcion_related_symbols[i].get_type());
+                            argument_list.append(new_arg);
+                        }
+                        // 3. Create the new function call
+                        Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
+                                called_entity,
+                                argument_list,
+                                /* alternate name */ nodecl_null(),
+                                /* function_form */ nodecl_null(),
+                                function_called.get_type().returns(),
+                                func_call.get_filename(),
+                                func_call.get_line());
+
+                        // 4. The last parameter of the new function is used to store the return value of the new_function_call
+                        Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
+                                    new_funcion_related_symbols[new_function_num_related_symbols-1],
+                                    func_call.get_filename(),
+                                    func_call.get_line());
+
+                        return_param.set_type(new_funcion_related_symbols[new_function_num_related_symbols-1].get_type());
+
+                        Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
+                                return_param,
+                                return_param.get_type().points_to(),
+                                func_call.get_filename(),
+                                func_call.get_line());
+
+                        Nodecl::NodeclBase expression_stmt =
+                            Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    deref_return_param,
+                                    new_function_call,
+                                    return_param.get_type(),
+                                    func_call.get_filename(),
+                                    func_call.get_line()));
+
+                        // 5. Finally, replace the empty function body of the new function by the new expression stmt
+                        new_function_body.replace(expression_stmt);
+                    }
+
+                    // Update the map of transformed tasks
+                    _transformed_tasks.insert(std::pair<TL::Symbol, TL::Symbol>(function_called, new_function));
+
+                    transformed_task = new_function;
+                }
+                else
+                {
+                    transformed_task = it_transformed_task->second;
+                }
+
+                // Replace the original function call by a call to our new void function
+                {
+                    // 1. Create the new called entity
+                    Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
+                            transformed_task,
+                            func_call.get_filename(),
+                            func_call.get_line());
+
+                    called_entity.set_type(transformed_task.get_type());
+
+                    // 2. Declare a new variable which represents the return of the original function as an argument
+                    Scope scope = func_call.retrieve_context();
+                    TL::Symbol return_arg_sym = scope.new_symbol("tmp");
+                    return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    return_arg_sym.get_internal_symbol()->type_information = function_called.get_type().returns().get_pointer_to().get_internal_type();
+                    return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                    // 3. Extend the list of arguments adding the output argument
+                    Nodecl::NodeclBase new_arguments = func_call.get_arguments();
+
+                    Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
+                            return_arg_sym,
+                            func_call.get_filename(),
+                            func_call.get_line());
+
+                    return_arg_nodecl.set_type(return_arg_sym.get_type());
+
+                    new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
+
+                    // 4. Create the new function call and do the replacement
+                    Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
+                            called_entity,
+                            new_arguments,
+                            /* alternate_name */ nodecl_null(),
+                            /* function_form */ nodecl_null(),
+                            TL::Type::get_void_type(),
+                            func_call.get_filename(),
+                            func_call.get_line());
+
+                    func_call.replace(new_function_call);
+                }
+            }
+
+            void update_function_task_set()
+            {
+                for (std::map<TL::Symbol, TL::Symbol>::iterator it = _transformed_tasks.begin();
+                        it != _transformed_tasks.end();
+                        it++)
+                {
+                    TL::Symbol function_called = it->first;
+                    TL::Symbol new_function = it->second;
+
+                    FunctionTaskInfo function_task_info = _function_task_set->get_function_task(function_called);
+                    _function_task_set->remove_function_task(function_called);
+
+                    Nodecl::Utils::SimpleSymbolMap translation_map;
+                    TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
+                    TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
+
+                    TL::ObjectList<TL::Symbol>::iterator it_new_function = new_funcion_related_symbols.begin();
+                    TL::ObjectList<TL::Symbol>::iterator it_function_called = function_called_related_symbols.begin();
+                    while (it_function_called != function_called_related_symbols.end())
+                    {
+                        translation_map.add_map(*it_function_called, *it_new_function);
+                        it_new_function++;
+                        it_function_called++;
+                    }
+
+                     FunctionTaskInfo copied_function_task_info(function_task_info, translation_map, new_function);
+                    _function_task_set->add_function_task(new_function, copied_function_task_info);
+                }
+            }
+
+        private:
+            TL::Symbol new_function_symbol(
+                    TL::Symbol current_function,
+                    const std::string& name,
+                    TL::Type return_type,
+                    ObjectList<std::string> parameter_names,
+                    ObjectList<TL::Type> parameter_types)
+            {
+                if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
+                {
+                    // Get the enclosing function
+                    current_function = current_function.get_scope().get_related_symbol();
+                }
+
+                decl_context_t decl_context = current_function.get_scope().get_decl_context();
+
+                ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
+
+                decl_context_t function_context;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    function_context = new_program_unit_context(decl_context);
+                }
+                else
+                {
+                    function_context = new_function_context(decl_context);
+                    function_context = new_block_context(function_context);
+                }
+
+                // Build the function type
+                int num_parameters = 0;
+                scope_entry_t** parameter_list = NULL;
+
+                parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
+                parameter_info_t* it_ptypes = &(p_types[0]);
+                ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
+                for (ObjectList<std::string>::iterator it = parameter_names.begin();
+                        it != parameter_names.end();
+                        it++, it_ptypes++, type_it++)
+                {
+                    scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+                    param->entity_specs.is_user_declared = 1;
+                    param->kind = SK_VARIABLE;
+                    param->file = "";
+                    param->line = 0;
+
+                    param->defined = 1;
+
+                    param->type_information = get_unqualified_type(type_it->get_internal_type());
+
+                    P_LIST_ADD(parameter_list, num_parameters, param);
+
+                    it_ptypes->is_ellipsis = 0;
+                    it_ptypes->nonadjusted_type_info = NULL;
+                    it_ptypes->type_info = get_indirect_type(param);
+                }
+
+                type_t *function_type = get_new_function_type(
+                        return_type.get_internal_type(),
+                        p_types,
+                        parameter_types.size());
+
+                delete[] p_types;
+
+                // Now, we can create the new function symbol
+                scope_entry_t* new_function_sym = NULL;
+                if (!current_function.get_type().is_template_specialized_type())
+                {
+                    new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+                    new_function_sym->entity_specs.is_user_declared = 1;
+                    new_function_sym->kind = SK_FUNCTION;
+                    new_function_sym->file = "";
+                    new_function_sym->line = 0;
+                    new_function_sym->type_information = function_type;
+                }
+                else
+                {
+                    scope_entry_t* new_template_sym = new_symbol(
+                            decl_context, decl_context.current_scope, name.c_str());
+                    new_template_sym->kind = SK_TEMPLATE;
+                    new_template_sym->file = "";
+                    new_template_sym->line = 0;
+
+                    new_template_sym->type_information = get_new_template_type(
+                            decl_context.template_parameters,
+                            function_type,
+                            uniquestr(name.c_str()),
+                            decl_context, 0, "");
+
+                    template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+                    // The new function is the primary template specialization
+                    new_function_sym = named_type_get_symbol(
+                            template_type_get_primary_type(
+                                new_template_sym->type_information));
+                }
+
+                function_context.function_scope->related_entry = new_function_sym;
+                function_context.block_scope->related_entry = new_function_sym;
+
+                new_function_sym->related_decl_context = function_context;
+
+                new_function_sym->entity_specs.related_symbols = parameter_list;
+                new_function_sym->entity_specs.num_related_symbols = num_parameters;
+                for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
+                {
+                    symbol_set_as_parameter_of_function(
+                            new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+                }
+
+                // Make it static
+                new_function_sym->entity_specs.is_static = 1;
+
+                // Make it member if the enclosing function is member
+                if (current_function.is_member())
+                {
+                    new_function_sym->entity_specs.is_member = 1;
+                    new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+
+                    new_function_sym->entity_specs.access = AS_PUBLIC;
+
+                    ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
+                }
+                return new_function_sym;
+            }
+
+            void build_empty_body_for_function(
+                    TL::Symbol function_symbol,
+                    Nodecl::NodeclBase &function_code,
+                    Nodecl::NodeclBase &empty_stmt
+                    )
+            {
+                empty_stmt = Nodecl::EmptyStatement::make("", 0);
+                Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
+
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    Nodecl::CompoundStatement compound_statement =
+                        Nodecl::CompoundStatement::make(stmt_list,
+                                /* destructors */ Nodecl::NodeclBase::null(),
+                                "", 0);
+                    stmt_list = Nodecl::List::make(compound_statement);
+                }
+
+                Nodecl::NodeclBase context = Nodecl::Context::make(
+                        stmt_list,
+                        function_symbol.get_related_scope(), "", 0);
+
+                function_symbol.get_internal_symbol()->defined = 1;
+
+                if (function_symbol.is_dependent_function())
+                {
+                    function_code = Nodecl::TemplateFunctionCode::make(context,
+                            // Initializers
+                            Nodecl::NodeclBase::null(),
+                            // Internal functions
+                            Nodecl::NodeclBase::null(),
+                            function_symbol,
+                            "", 0);
+                }
+                else
+                {
+                    function_code = Nodecl::FunctionCode::make(context,
+                            // Initializers
+                            Nodecl::NodeclBase::null(),
+                            // Internal functions
+                            Nodecl::NodeclBase::null(),
+                            function_symbol,
+                            "", 0);
+                }
+            }
+
+    };
+
     Base::Base()
         : PragmaCustomCompilerPhase("omp"), _core(), _simd_enabled(false)
     {
@@ -460,6 +877,10 @@ namespace TL { namespace OpenMP {
         RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
 
         Nodecl::NodeclBase translation_unit = dto["nodecl"];
+
+        TransformNonVoidFunctionCalls visitor(function_task_set);
+        visitor.walk(translation_unit);
+        visitor.update_function_task_set();
 
         FunctionCallVisitor function_call_visitor(function_task_set);
         function_call_visitor.walk(translation_unit);

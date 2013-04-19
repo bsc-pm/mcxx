@@ -536,6 +536,11 @@ namespace TL
             _map.insert(pair);
         }
 
+        void FunctionTaskSet::remove_function_task(Symbol sym)
+        {
+            size_t removed_elements = _map.erase(sym);
+        }
+
         bool FunctionTaskSet::empty() const
         {
             return _map.empty();
@@ -959,12 +964,12 @@ namespace TL
                 return;
             }
 
-            if (!function_type.returns().is_void())
-            {
-                std::cerr << construct.get_locus()
-                    << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
-                return;
-            }
+            // if (!function_type.returns().is_void())
+            // {
+            //     std::cerr << construct.get_locus()
+            //         << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
+            //     return;
+            // }
 
             ObjectList<FunctionTaskDependency> dependence_list;
 
