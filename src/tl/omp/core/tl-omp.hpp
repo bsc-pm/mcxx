@@ -37,11 +37,11 @@
 #include "tl-handler.hpp"
 #include "tl-dto.hpp"
 
-#include "tl-pragmasupport.hpp"
-#include "tl-omp-reduction.hpp"
-#include "tl-omp-deps.hpp"
-
 #include "tl-datareference.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-omp-deps.hpp"
+#include "tl-omp-reduction.hpp"
+#include "tl-pragmasupport.hpp"
 
 #include <map>
 #include <set>
@@ -204,7 +204,10 @@ namespace TL
 
                 ~RealTimeInfo();
 
-                RealTimeInfo (const RealTimeInfo& rt_copy);
+                RealTimeInfo(const RealTimeInfo& rt_copy);
+
+                RealTimeInfo(const RealTimeInfo& rt_copy,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map);
 
                 RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 

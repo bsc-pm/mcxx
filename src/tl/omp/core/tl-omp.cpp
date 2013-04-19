@@ -426,6 +426,25 @@ namespace TL
             }
         }
 
+        RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy,
+                Nodecl::Utils::SimpleSymbolMap& translation_map) :
+            _time_deadline(NULL),
+            _time_release(NULL),
+            _map_error_behavior(rt_copy._map_error_behavior)
+        {
+            if (rt_copy.has_release_time())
+            {
+                _time_release = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_release), rt_copy._time_release->retrieve_context(), translation_map));
+            }
+
+            if (rt_copy.has_deadline_time())
+            {
+                _time_deadline = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_deadline), rt_copy._time_deadline->retrieve_context(), translation_map));
+            }
+        }
+
        RealTimeInfo & RealTimeInfo::operator=(const RealTimeInfo & rt_copy)
        {
            if(this != &rt_copy)
