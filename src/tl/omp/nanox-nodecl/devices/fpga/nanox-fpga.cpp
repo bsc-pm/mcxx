@@ -60,7 +60,7 @@ static std::string fpga_outline_name(const std::string &name)
     return "fpga_" + name;
 }
 
-static void print_ast_dot(const Nodecl::NodeclBase &node)
+UNUSED_PARAMETER static void print_ast_dot(const Nodecl::NodeclBase &node)
 {
     std::cerr << std::endl << std::endl;
     ast_dump_graphviz(nodecl_get_ast(node.get_internal_nodecl()), stderr);
