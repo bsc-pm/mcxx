@@ -26,6 +26,7 @@
 
 
 #include "tl-source.hpp"
+#include "tl-nanos.hpp"
 #include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
@@ -115,13 +116,23 @@ namespace TL { namespace Nanox {
                 construct);
 
         Source num_threads;
-        if (num_replicas.is_null())
+
+        if (Nanos::Version::interface_is_at_least("openmp", 7))
         {
-            num_threads << "nanos_omp_get_max_threads()";
+            num_threads << "nanos_omp_get_num_threads_next_parallel("
+                << (num_replicas.is_null() ? "0" : as_expression(num_replicas))
+                << ")";
         }
         else
         {
-            num_threads << as_expression(num_replicas);
+            if (num_replicas.is_null())
+            {
+                num_threads << "nanos_omp_get_max_threads()";
+            }
+            else
+            {
+                num_threads << as_expression(num_replicas);
+            }
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
