@@ -573,7 +573,39 @@ namespace TL { namespace OpenMP {
                     return_arg_sym.get_internal_symbol()->type_information = function_called.get_type().returns().get_pointer_to().get_internal_type();
                     return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-                    // 3. Extend the list of arguments adding the output argument
+                    // 3. This new variable should be allocated using the built-in alloca
+                    {
+                        TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
+                        ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
+
+                        Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
+                                alloca_sym,
+                                func_call.get_filename(),
+                                func_call.get_line());
+
+                        called_entity_alloca.set_type(alloca_sym.get_type());
+
+                        Nodecl::List arguments_alloca;
+                        int bytes_to_allocate = function_called.get_type().returns().get_size();
+                        arguments_alloca.append(
+                                Nodecl::IntegerLiteral::make(::get_signed_int_type(),
+                                    const_value_get_signed_int(bytes_to_allocate),
+                                    func_call.get_filename(),
+                                    func_call.get_line()));
+
+                        Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
+                                called_entity_alloca,
+                                arguments_alloca,
+                                /* alternate_name */ nodecl_null(),
+                                /* function_form */ nodecl_null(),
+                                TL::Type::get_void_type(),
+                                func_call.get_filename(),
+                                func_call.get_line());
+
+                        return_arg_sym.get_internal_symbol()->value = alloca_function_call.get_internal_nodecl();
+                    }
+
+                    // 4. Extend the list of arguments adding the output argument
                     Nodecl::NodeclBase new_arguments = func_call.get_arguments();
 
                     Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
@@ -585,7 +617,7 @@ namespace TL { namespace OpenMP {
 
                     new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
 
-                    // 4. Create the new function call and do the replacement
+                    // 5. Create the new function call and do the replacement
                     Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
                             called_entity,
                             new_arguments,
