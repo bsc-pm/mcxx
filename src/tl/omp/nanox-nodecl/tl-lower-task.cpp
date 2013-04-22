@@ -1510,7 +1510,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
