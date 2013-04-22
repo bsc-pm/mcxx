@@ -859,25 +859,29 @@ namespace TL
                     }
                 }
 
+                // This means that it is OK to specify A(:)
+                if (lower.is_null())
+                    lower = lower_bound;
+
                 Nodecl::NodeclBase current_index =
                     Nodecl::ParenthesizedExpression::make(
                             Nodecl::Minus::make(
                                 Nodecl::ParenthesizedExpression::make(
                                     lower.shallow_copy(),
                                     TL::Type::get_int_type(),
-                                    lower.get_filename(),
-                                    lower.get_line()),
+                                    expr.get_filename(),
+                                    expr.get_line()),
                                 Nodecl::ParenthesizedExpression::make(
                                     lower_bound.shallow_copy(),
                                     TL::Type::get_int_type(),
                                     lower_bound.get_filename(),
                                     lower_bound.get_line()),
                                 TL::Type::get_int_type(),
-                                lower.get_filename(),
-                                lower.get_line()),
+                                expr.get_filename(),
+                                expr.get_line()),
                             TL::Type::get_int_type(),
-                            lower.get_filename(),
-                            lower.get_line());
+                            expr.get_filename(),
+                            expr.get_line());
 
                 indexes.append(current_index);
                 if (t.is_array())
