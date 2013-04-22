@@ -93,6 +93,11 @@ CORE_DIRS=\
 		$(BETS_DIRS)/06_run_cxx.dg \
 		$(END)
 
+OMP_DIRS= \
+        $(BETS_DIRS)/07_phases_omp.dg \
+        $(BETS_DIRS)/07_phases_ompss.dg \
+        $(END)
+
 fortran-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(FORTRAN_DIRS)
@@ -104,6 +109,10 @@ core-check : prepare-check
 core-fortran-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
+
+omp-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(OMP_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
