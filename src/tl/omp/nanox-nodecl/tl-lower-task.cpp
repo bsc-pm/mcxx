@@ -2235,6 +2235,10 @@ void LoweringVisitor::fill_dependences_internal(
                             array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
                         }
 
+                        // Meaning that in this context A(:) is OK
+                        if (region_lb.is_null())
+                            region_lb = array_lb;
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -2242,6 +2246,9 @@ void LoweringVisitor::fill_dependences_internal(
                         lb = diff.parse_expression(ctr);
 
                         size = contiguous_array_type.array_get_region_size();
+
+                        if (size.is_null())
+                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
                     }
                     else
                     {
