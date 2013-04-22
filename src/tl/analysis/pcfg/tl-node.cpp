@@ -457,9 +457,19 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
     }
 
+    bool Node::is_omp_task_creation_node( )
+    {
+        return ( get_type ( ) == OMP_TASK_CREATION );
+    }
+
     bool Node::is_omp_taskwait_node( )
     {
         return ( get_type( ) == OMP_TASKWAIT );
+    }
+
+    bool Node::is_ompss_taskwait_on_node( )
+    {
+        return ( get_type( ) == OMP_WAITON_DEPS );
     }
 
     bool Node::is_omp_taskyield_node( )

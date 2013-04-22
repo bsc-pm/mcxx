@@ -69,12 +69,6 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, pcfg_exit );
         _utils->_return_nodes.clear( );
 
-        // Tasks post-processing
-        // When a task is not synchronized within the function it is created or
-        // it is synchronized in conditional situations, then we create a virtual node
-        // indicating that the synchronization will occur after the finalization of the function
-        synchronize_tasks( );
-
         _pcfg->dress_up_graph( );
 
         return _pcfg;
@@ -327,93 +321,8 @@ namespace Analysis {
         return merge_nodes( n, previous_nodes );
     }
 
-    void PCFGVisitor::synchronize_tasks( )
-    {
-        // Node* virtual_sync = NULL;
-        // for( ObjectList<Node*>::iterator it_t = _pcfg->_task_nodes_l.begin( );
-        //      it_t != _pcfg->_task_nodes_l.end( ); ++it_t )
-        // {
-        //     ObjectList<Node*> children = ( *it_t )->get_children( );
-        //     if( children.empty( ) )
-        //     {
-        //         if( virtual_sync == NULL )
-        //         {
-        //             virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
-        //         }
-        //         _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
-        //     }
-        //     else
-        //     {
-        //         ObjectList<Node*>::iterator it_c;
-        //         for( it_c = children.begin( ); it_c != children.end( ); it_c++ )
-        //         {
-        //             if( !ExtensibleGraph::node_is_in_conditional_branch( *it_c, ( *it_t )->get_outer_node( ) ) )
-        //             {
-        //                 break;
-        //             }
-        //         }
-        //         if( it_c == children.end( ) )
-        //         {   // All children are in conditional branches
-        //             if( virtual_sync == NULL )
-        //             {
-        //                 virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
-        //             }
-        //             _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
-        //         }
-        //     }
-        // }
-
-        _utils->_tasks_to_sync.clear( );
-    }
-
-    bool PCFGVisitor::task_is_surely_synchronized( Node* task )
-    {
-        bool res = false;
-
-        ObjectList<Node*> children = task->get_children( );
-        if( !children.empty( ) )
-        {   // Conservative decision: one of the children is not conditional
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                if( !ExtensibleGraph::node_is_in_conditional_branch( *it, task->get_outer_node( ) ) )
-                {
-                    res = true;
-                    break;
-                }
-            }
-        }
-
-        return res;
-    }
-
-    bool PCFGVisitor::same_parent_task( Node* task_1, Node* task_2 )
-    {
-        bool res = false;
-
-        Node* task_1_parent_task = task_1->get_outer_node( );
-        while( ( task_1_parent_task != NULL ) && !task_1_parent_task->is_omp_task_node( ) )
-        {
-            task_1_parent_task = task_1_parent_task->get_outer_node( );
-        }
-        Node* task_2_parent_task = task_2->get_outer_node( );
-        while( ( task_2_parent_task != NULL ) && !task_2_parent_task->is_omp_task_node( ) )
-        {
-            task_2_parent_task = task_2_parent_task->get_outer_node( );
-        }
-
-        if( ( ( task_1_parent_task == NULL) && ( task_2_parent_task == NULL ) )
-            || ( ( task_1_parent_task != NULL) && ( task_2_parent_task != NULL )
-                 && ( task_1_parent_task->get_id( ) == task_2_parent_task->get_id( ) ) ) )
-        {
-            res = true;
-        }
-
-        return res;
-    }
-
     // ************************************************************************************** //
     // ******************************** Non visiting methods ******************************** //
-
 
 
     // ************************************************************************************** //
@@ -422,25 +331,6 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit_barrier( )
     {
         Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
-
-        // // Created with previous tasks in the same level of nesting
-        // unsigned level = _utils->_task_level;
-        // while( level < _utils->_tasks_to_sync.size( ) )
-        // {
-        //     for( ObjectList<ObjectList<Node*> >::iterator it = _utils->_tasks_to_sync[level].begin( );
-        //          it != _utils->_tasks_to_sync[level].end( ); ++it )
-        //     {
-        //         for( ObjectList<Node*>::iterator it_n = it->begin( ); it_n != it->end( ); ++it_n )
-        //         {
-        //             if( !task_is_surely_synchronized( *it_n ) )
-        //             {
-        //                 _pcfg->connect_nodes( *it_n, first_flush, ALWAYS, "", /* is task edge */ true );
-        //             }
-        //         }
-        //     }
-        //     level++;
-        // }
-
         return ObjectList<Node*>( 1, first_flush );
     }
 
@@ -538,29 +428,23 @@ namespace Analysis {
         return ObjectList<Node*>( 1, basic_node );
     }
 
+    // Taskwait involving no dependences
     ObjectList<Node*> PCFGVisitor::visit_taskwait( )
     {
         Node* taskwait_node = new Node( _utils->_nid, OMP_TASKWAIT, _utils->_outer_nodes.top( ) );
         // Connect with the last nodes created
         _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
 
-        // We don't do this here anymore
-#if 0
-        // Created with previous tasks in the same level of nesting
-        if( _utils->_tasks_to_sync.size( ) > ( _utils->_task_level ) )
-        {   // There is some task to synchronize
-            ObjectList<ObjectList<Node*> > * tasks_in_current_level = &( _utils->_tasks_to_sync[_utils->_task_level] );
-            ObjectList<Node*> * tasks_in_last_nesting_branch = &( ( *tasks_in_current_level )[tasks_in_current_level->size() - 1] );
-            if( same_parent_task( (*tasks_in_last_nesting_branch)[ /*any task in this list is valid for checking*/ 0],
-                                    taskwait_node ) )
-            {
-                int n_connects = tasks_in_last_nesting_branch->size( );
-                _pcfg->connect_nodes( *tasks_in_last_nesting_branch, taskwait_node,
-                                        ObjectList<Edge_type>( n_connects, ALWAYS ),
-                                        ObjectList<std::string>( n_connects, "" ), /* is task edge */ true );
-            }
-        }
-#endif
+        _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
+        return ObjectList<Node*>();
+    }
+
+    // Taskwait on (X)
+    ObjectList<Node*> PCFGVisitor::visit_taskwait( const Nodecl::OpenMP::WaitOnDependences & n )
+    {
+        Node* taskwait_node = new Node( _utils->_nid, OMP_WAITON_DEPS, _utils->_outer_nodes.top( ), n);
+        // Connect with the last nodes created
+        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
 
         _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
         return ObjectList<Node*>();
@@ -1922,42 +1806,23 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Task& n )
     {
+        Node* task_creation = new Node( _utils->_nid, OMP_TASK_CREATION, _utils->_outer_nodes.top() );
+
+        _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
+
         // Create the new graph node containing the task
-        ObjectList<Node*> task_parents = _utils->_last_nodes;
+        ObjectList<Node*> predecessors = _utils->_last_nodes;
         Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
-        int n_connects = _utils->_last_nodes.size( );
-        _pcfg->connect_nodes( _utils->_last_nodes, task_node,
-                              ObjectList<Edge_type>( n_connects, ALWAYS ), ObjectList<std::string>( n_connects, "" ),
-                              /*is task*/ true );
+        _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
 
         // Set the stack of tasks properly
         // Traverse the statements of the current task
-        _utils->_task_level++;
-        if( _utils->_task_level > _utils->_tasks_to_sync.size( ) )
-        {
-            _utils->_tasks_to_sync.push_back( ObjectList<ObjectList<Node*> >( 1, ObjectList<Node*>( 1, task_node ) ) );
-        }
-        else
-        {
-            ObjectList<ObjectList<Node*> > * tasks_in_current_level = &( _utils->_tasks_to_sync[_utils->_tasks_to_sync.size( ) - 1] );
-            ObjectList<Node*> * tasks_in_last_nesting_branch = &( ( *tasks_in_current_level )[tasks_in_current_level->size() - 1] );
 
-            if( same_parent_task( ( *tasks_in_last_nesting_branch )[/*any task in this list is valid for checking*/ 0],
-                                  task_node ) )
-            {
-                tasks_in_last_nesting_branch->push_back( task_node );
-            }
-            else
-            {
-                tasks_in_current_level->push_back( ObjectList<Node*>( 1, task_node ) );
-            }
-        }
         _utils->_last_nodes = ObjectList<Node*>( 1, task_entry );
         walk( n.get_statements( ) );
-        _utils->_task_level--;
 
         task_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, task_exit );
@@ -2003,11 +1868,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
-        Node* taskwait_node = new Node( _utils->_nid, OMP_WAITON_DEPS, _utils->_outer_nodes.top( ) );
-        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
-        return ObjectList<Node*>();
+        return visit_taskwait(n);
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )

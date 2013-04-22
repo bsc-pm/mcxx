@@ -338,7 +338,11 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             changed = true;
         }
     }
-    else if (current->is_omp_taskwait_node())
+    else if (current->is_omp_taskwait_node()
+            // FIXME - We need to extract the dependences here and perform a
+            // dependency calculation like the one we do for tasks with
+            // dependences
+            || current->is_ompss_taskwait_on_node())
     {
         // This is a taskwait without dependences
         for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
@@ -412,10 +416,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             changed = true;
         }
     }
-    // FIXME Not yet implemented
-    // else if (current_deps->is_ompss_taskwait_on_node())
-    // {
-    // }
     else
     {
         // All other nodes just propagate OUT(X) = IN(X)
