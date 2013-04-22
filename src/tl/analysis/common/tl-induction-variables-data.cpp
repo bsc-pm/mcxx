@@ -181,6 +181,24 @@ namespace Utils {
         return result;
     }
 
+    InductionVariableData* get_induction_variable_from_list( ObjectList<InductionVariableData*> ivs,
+                                                             Nodecl::NodeclBase var )
+    {
+        InductionVariableData* result = NULL;
+        
+        for( ObjectList<InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+        {
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
+                                              /* skip conversion nodes */ true ) )
+            {
+                result = *it;
+                break;
+            }
+        }
+        
+        return result;
+    }
+    
     InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
                                                              Nodecl::NodeclBase var )
     {

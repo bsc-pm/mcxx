@@ -42,6 +42,7 @@ libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalys
 
 libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
                                   tl-analysis-static-info.hpp \
-				   tl-analysis-singleton.hpp \
+                                  tl-vectorization-analysis.cpp \
+                                  tl-analysis-singleton.hpp \
                                   tl-analysis-singleton.cpp \
                                   $(END)

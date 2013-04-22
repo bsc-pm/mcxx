@@ -87,14 +87,15 @@ namespace Analysis {
     class NodeclStaticInfo
     {
         private:
-            ObjectList<Analysis::Utils::InductionVariableData*> _induction_variables;
+            ObjectList<Utils::InductionVariableData*> _induction_variables;
             Utils::ext_sym_set _killed;
             Node* _autoscoped_task;
 
         public:
-            NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
+            NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
                               Utils::ext_sym_set killed, Node* autoscoped_task );
 
+            
             // *** Queries about Use-Def analysis *** //
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
@@ -116,9 +117,15 @@ namespace Analysis {
 
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
 
+            
+            // *** Queries for Vectorization *** //
+            
             bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
 
+            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, ObjectList<Symbol> suitable_syms, 
+                                         int unroll_factor, int alignment ) const;
 
+            
             // *** Queries about Auto-Scoping *** //
 
             void print_auto_scoping_results( ) const;
@@ -127,93 +134,6 @@ namespace Analysis {
     };
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
-    // ********************************************************************************************* //
-
-
-
-    // ********************************************************************************************* //
-    // **************************** User interface for static analysis ***************************** //
-
-    // The return value indicates whether the visit returns a constant value
-    class LIBTL_CLASS AdjacentAccessVisitor : public Nodecl::NodeclVisitor<bool>
-    {
-    private:
-        ObjectList<Utils::InductionVariableData*> _induction_variables;
-        Utils::ext_sym_set _killed;
-        Utils::InductionVariableData* _iv;
-        bool _iv_found;
-
-        Utils::InductionVariableData* variable_is_iv( const Nodecl::NodeclBase& n );
-        bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
-        bool visit_unary_node( const Nodecl::NodeclBase& rhs );
-
-    public:
-        // *** Constructor *** //
-        AdjacentAccessVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, Utils::ext_sym_set killed );
-
-        // *** Getters and Setters *** //
-        Utils::InductionVariableData* get_induction_variable( );
-
-        // *** Visiting methods *** //
-        Ret join_list( ObjectList<bool>& list );
-
-        Ret visit( const Nodecl::Add& n );
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShr& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAnd& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseNot& n );
-        Ret visit( const Nodecl::BitwiseOr& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShl& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShr& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n);
-        Ret visit( const Nodecl::BitwiseXor& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::BooleanLiteral& n );
-        Ret visit( const Nodecl::Cast& n );
-        Ret visit( const Nodecl::ComplexLiteral& n );
-        Ret visit( const Nodecl::Conversion& n );
-        Ret visit( const Nodecl::Different& n );
-        Ret visit( const Nodecl::Div& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::Equal& n );
-        Ret visit( const Nodecl::FloatingLiteral& n );
-        Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::GreaterOrEqualThan& n );
-        Ret visit( const Nodecl::GreaterThan& n );
-        Ret visit( const Nodecl::IntegerLiteral& n );
-        Ret visit( const Nodecl::LogicalAnd& n );
-        Ret visit( const Nodecl::LogicalNot& n );
-        Ret visit( const Nodecl::LogicalOr& n );
-        Ret visit( const Nodecl::LowerOrEqualThan& n );
-        Ret visit( const Nodecl::LowerThan& n );
-        Ret visit( const Nodecl::Minus& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::Mod& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::Mul& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::Neg& n );
-        Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::Plus& n );
-        Ret visit( const Nodecl::PointerToMember& n );
-        Ret visit( const Nodecl::Postdecrement& n );
-        Ret visit( const Nodecl::Postincrement& n );
-        Ret visit( const Nodecl::Power& n );
-        Ret visit( const Nodecl::Predecrement& n );
-        Ret visit( const Nodecl::Preincrement& n );
-        Ret visit( const Nodecl::Reference& n );
-        Ret visit( const Nodecl::Sizeof& n );
-        Ret visit( const Nodecl::StringLiteral& n );
-        Ret visit( const Nodecl::Symbol& n );
-    };
-
-    // ************************** END User interface for static analysis *************************** //
     // ********************************************************************************************* //
 
 
@@ -272,7 +192,10 @@ namespace Analysis {
             //! Returns true if the given nodecl is an array accessed by adjacent positions
             bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
-
+            //! Returns true if the given nodecl is aligned to a given value
+            bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                         ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const;
+            
             // *** Queries about Auto-Scoping *** //
 
             void print_auto_scoping_results( const Nodecl::NodeclBase& scope );
@@ -331,6 +254,125 @@ namespace Analysis {
     };
 
     // ******************* END Visitor retrieving the analysis of a given Nodecl ******************* //
+    // ********************************************************************************************* //
+
+    
+    
+    // ********************************************************************************************* //
+    // ***************** Visitor retrieving adjacent array accesses within a loop ****************** //
+    
+    // The return value indicates whether the visit returns a constant value
+    class LIBTL_CLASS AdjacentAccessVisitor : public Nodecl::NodeclVisitor<bool>
+    {
+    private:
+        ObjectList<Utils::InductionVariableData*> _induction_variables;
+        Utils::ext_sym_set _killed;
+        Utils::InductionVariableData* _iv;
+        bool _iv_found;
+        
+        Utils::InductionVariableData* variable_is_iv( const Nodecl::NodeclBase& n );
+        bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+        bool visit_unary_node( const Nodecl::NodeclBase& rhs );
+        
+    public:
+        // *** Constructor *** //
+        AdjacentAccessVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
+                               Utils::ext_sym_set killed );
+        
+        // *** Getters and Setters *** //
+        Utils::InductionVariableData* get_induction_variable( );
+        
+        // *** Visiting methods *** //
+        Ret join_list( ObjectList<bool>& list );
+        
+        Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShr& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAnd& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseNot& n );
+        Ret visit( const Nodecl::BitwiseOr& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShl& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShr& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n);
+        Ret visit( const Nodecl::BitwiseXor& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::BooleanLiteral& n );
+        Ret visit( const Nodecl::Cast& n );
+        Ret visit( const Nodecl::ComplexLiteral& n );
+        Ret visit( const Nodecl::Conversion& n );
+        Ret visit( const Nodecl::Different& n );
+        Ret visit( const Nodecl::Div& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::Equal& n );
+        Ret visit( const Nodecl::FloatingLiteral& n );
+        Ret visit( const Nodecl::FunctionCall& n );
+        Ret visit( const Nodecl::GreaterOrEqualThan& n );
+        Ret visit( const Nodecl::GreaterThan& n );
+        Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::LogicalAnd& n );
+        Ret visit( const Nodecl::LogicalNot& n );
+        Ret visit( const Nodecl::LogicalOr& n );
+        Ret visit( const Nodecl::LowerOrEqualThan& n );
+        Ret visit( const Nodecl::LowerThan& n );
+        Ret visit( const Nodecl::Minus& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::Mod& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::Mul& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::Neg& n );
+        Ret visit( const Nodecl::ObjectInit& n );
+        Ret visit( const Nodecl::Plus& n );
+        Ret visit( const Nodecl::PointerToMember& n );
+        Ret visit( const Nodecl::Postdecrement& n );
+        Ret visit( const Nodecl::Postincrement& n );
+        Ret visit( const Nodecl::Power& n );
+        Ret visit( const Nodecl::Predecrement& n );
+        Ret visit( const Nodecl::Preincrement& n );
+        Ret visit( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Sizeof& n );
+        Ret visit( const Nodecl::StringLiteral& n );
+        Ret visit( const Nodecl::Symbol& n );
+    };
+    
+    // *************** END visitor retrieving adjacent array accesses within a loop **************** //
+    // ********************************************************************************************* //
+    
+    
+    
+    // ********************************************************************************************* //
+    // ************************ Visitor retrieving suitable simd alignment ************************* //
+    
+    class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
+    {
+    private:
+        Nodecl::NodeclBase _subscripted;
+        ObjectList<Utils::InductionVariableData*> _induction_variables;
+        ObjectList<Symbol> _suitable_syms;
+        int _unroll_factor;
+        int _alignment;
+        
+    public:
+        // *** Constructor *** //
+        SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
+                                  ObjectList<Utils::InductionVariableData*> induction_variables,
+                                  ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment );
+        
+        // *** Visiting methods *** //
+        Ret join_list( ObjectList<int>& list );
+        
+        Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::Minus& n );
+        Ret visit( const Nodecl::Symbol& n );
+    };
+    
+    // ********************** END visitor retrieving suitable simd alignment *********************** //
     // ********************************************************************************************* //
 }
 }
