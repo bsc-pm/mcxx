@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -3882,6 +3882,42 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         name = strappend("constructor ", name);
     }
 
+    if (name[0]== '~')
+    {
+        // This is a destructor-id
+        name++;
+
+        // First: lookup inside the class
+        scope_entry_list_t* entry_list = query_in_class(
+                decl_context.current_scope,
+                name,
+                decl_flags,
+                filename, line);
+
+        // Second: lookup in the global context
+        if (entry_list == NULL)
+        {
+            entry_list = name_lookup(
+                    top_level_decl_context,
+                    name,
+                    decl_flags,
+                    filename, line);
+        }
+
+        if (entry_list == NULL)
+            return NULL;
+
+        scope_entry_t* entry = entry_list_head(entry_list);
+        scope_entry_t* current_class = decl_context.current_scope->related_entry;
+        if (equivalent_types(get_user_defined_type(current_class), get_user_defined_type(entry)))
+        {
+            return entry_list_new(class_type_get_destructor(current_class->type_information));
+        }
+        else
+        {
+            return NULL;
+        }
+    }
     if (class_is_in_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry)
             // Do not give up if there are dependent bases as they might be
             // providing this entity during instantiation
