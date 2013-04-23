@@ -571,7 +571,7 @@ namespace TL
                                         expr.prettyprint().c_str());
                                 return true;
                             }
-                            else
+                            else if (_direction != DEP_DIR_IN_VALUE)
                             {
                                 warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
                                     "is always copied in and will never define such dependence\n",
