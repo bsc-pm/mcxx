@@ -556,7 +556,8 @@ namespace TL { namespace OpenMP {
                     transformed_task = it_transformed_task->second;
                 }
 
-                // Replace the original function call by a call to our new void function
+                // Create a new function call to the new void function. Replace the original
+                // function call by the variable used to store the result value
                 {
                     // 1. Create the new called entity
                     Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
@@ -617,17 +618,40 @@ namespace TL { namespace OpenMP {
 
                     new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
 
-                    // 5. Create the new function call and do the replacement
-                    Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
-                            called_entity,
-                            new_arguments,
-                            /* alternate_name */ nodecl_null(),
-                            /* function_form */ nodecl_null(),
-                            TL::Type::get_void_type(),
-                            func_call.get_filename(),
-                            func_call.get_line());
+                    // 5. Create the new function call and encapsulate it in a ExpressionStatement
+                    Nodecl::NodeclBase expression_stmt =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::FunctionCall::make(
+                                    called_entity,
+                                    new_arguments,
+                                    /* alternate_name */ nodecl_null(),
+                                    /* function_form */ nodecl_null(),
+                                    TL::Type::get_void_type(),
+                                    func_call.get_filename(),
+                                    func_call.get_line()));
 
-                    func_call.replace(new_function_call);
+                    // 6. Prepend the new function call before the enclosing expression statement
+                    // of the original function call
+                    Nodecl::NodeclBase enclosing_expr_stmt = func_call;
+                    while (!enclosing_expr_stmt.is_null()
+                            && !enclosing_expr_stmt.is<Nodecl::ExpressionStatement>())
+                    {
+                        enclosing_expr_stmt = enclosing_expr_stmt.get_parent();
+                    }
+
+                    ERROR_CONDITION(enclosing_expr_stmt.is_null(),
+                            "This node should be a Nodecl::ExpressionStatement", 0);
+
+                    Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, expression_stmt);
+
+
+                    // 7. Replace the original function call by the variable
+                    func_call.replace(
+                            Nodecl::Dereference::make(
+                                return_arg_nodecl,
+                                return_arg_nodecl.get_type().points_to(),
+                                func_call.get_filename(),
+                                func_call.get_line()));
                 }
             }
 
