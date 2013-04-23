@@ -538,7 +538,7 @@ namespace TL
 
         void FunctionTaskSet::remove_function_task(Symbol sym)
         {
-            size_t removed_elements = _map.erase(sym);
+            _map.erase(sym);
         }
 
         bool FunctionTaskSet::empty() const
