@@ -79,7 +79,7 @@ while (change) // els conjunts alive_tasks i points_of_sync van canviant
              else if (is_there_dependence == UNKNOWN)
                 // I we can't prove statically that there is dependence, do not remove it from the alive_tasks[n] set
                 // Proceed like a taskwait without ON, state that there is a synchronization here
-                points_of_sync = point_of_sync U {(t, n)} 
+                points_of_sync = point_of_sync U {(t, n)}
 
 #endif
 
@@ -92,7 +92,6 @@ static AliveTaskSet& get_alive_out(Node* n)
 {
     return n->get_data<AliveTaskSet>("alive_tasks_out");
 }
-
 
 void TaskSynchronizations::compute_task_synchronizations()
 {

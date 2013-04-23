@@ -357,6 +357,11 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
                 break;
             }
+            case OMP_TASK_CREATION:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse]\n";
+                break;
+            }
             case BREAK:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
