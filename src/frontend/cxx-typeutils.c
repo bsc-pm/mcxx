@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -2861,7 +2861,7 @@ static type_t* _get_array_type(type_t* element_type,
             if (is_array_type(element_type))
             {
                 // If the element_type is array propagate the 'is_vla' value
-                result->array->is_vla = element_type->array->is_vla;
+                result->array->is_vla = array_type_is_vla(element_type);
 
                 // Check that the descriptor attribute is consistent
                 ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
@@ -2915,7 +2915,7 @@ static type_t* _get_array_type(type_t* element_type,
                 if (is_array_type(element_type))
                 {
                     // If the element_type is array propagate the 'is_vla' value
-                    result->array->is_vla = element_type->array->is_vla;
+                    result->array->is_vla = array_type_is_vla(element_type);
 
                     // Check that the descriptor attribute is consistent
                     ERROR_CONDITION((with_descriptor != result->array->with_descriptor),

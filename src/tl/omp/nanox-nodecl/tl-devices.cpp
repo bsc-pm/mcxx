@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -496,21 +496,7 @@ namespace TL { namespace Nanox {
         for (; it != data_items.end(); it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
-
-            std::string name;
-            if (sym.is_valid())
-            {
-                name = sym.get_name();
-                if (IS_CXX_LANGUAGE
-                        && name == "this")
-                {
-                    name = "this_";
-                }
-            }
-            else
-            {
-                name = (*it)->get_field_name();
-            }
+            std::string name = (*it)->get_field_name();
 
             bool already_mapped = false;
             switch ((*it)->get_sharing())

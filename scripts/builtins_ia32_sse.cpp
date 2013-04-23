@@ -649,11 +649,14 @@ VECTOR_INTRIN(__builtin_ia32_movmskpd256) \
 VECTOR_INTRIN(__builtin_ia32_movmskps) \
 VECTOR_INTRIN(__builtin_ia32_movmskps256) \
 VECTOR_INTRIN(__builtin_ia32_movntdq) \
+VECTOR_INTRIN(__builtin_ia32_movntdq256) \
 VECTOR_INTRIN(__builtin_ia32_movntdqa) \
 VECTOR_INTRIN(__builtin_ia32_movnti) \
 VECTOR_INTRIN(__builtin_ia32_movnti64) \
 VECTOR_INTRIN(__builtin_ia32_movntpd) \
+VECTOR_INTRIN(__builtin_ia32_movntpd256) \
 VECTOR_INTRIN(__builtin_ia32_movntps) \
+VECTOR_INTRIN(__builtin_ia32_movntps256) \
 VECTOR_INTRIN(__builtin_ia32_movntq) \
 VECTOR_INTRIN(__builtin_ia32_movq128) \
 VECTOR_INTRIN(__builtin_ia32_movsd) \
@@ -1141,6 +1144,7 @@ VECTOR_INTRIN(__builtin_ia32_xorpd256) \
 VECTOR_INTRIN(__builtin_ia32_xorps) \
 VECTOR_INTRIN(__builtin_ia32_xorps256) \
 END
+
 
 int main(int, char**)
 {
