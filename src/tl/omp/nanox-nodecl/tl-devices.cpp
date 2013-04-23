@@ -496,21 +496,7 @@ namespace TL { namespace Nanox {
         for (; it != data_items.end(); it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
-
-            std::string name;
-            if (sym.is_valid())
-            {
-                name = sym.get_name();
-                if (IS_CXX_LANGUAGE
-                        && name == "this")
-                {
-                    name = "this_";
-                }
-            }
-            else
-            {
-                name = (*it)->get_field_name();
-            }
+            std::string name = (*it)->get_field_name();
 
             bool already_mapped = false;
             switch ((*it)->get_sharing())

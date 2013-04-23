@@ -41,6 +41,22 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_field_name(std::string name)
     {
+        // Adjust names first
+        if (IS_CXX_LANGUAGE
+                && name == "this")
+            name = "this_";
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            // Builtin identifiers that became reserved names in later versions
+            // of gcc
+            if (name == "__PRETTY_FUNCTION__" // g++
+                    || name == "__FUNCTION__") // gcc
+                name = strtolower(name.c_str());
+            else if (name == "__func__") // C99
+                name = "__function__";
+        }
+
         int times_name_appears = 0;
         for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
@@ -52,10 +68,6 @@ namespace TL { namespace Nanox {
                 times_name_appears++;
             }
         }
-
-        if (IS_CXX_LANGUAGE
-                && name == "this")
-            name = "this_";
 
         std::stringstream ss;
         ss << name;
