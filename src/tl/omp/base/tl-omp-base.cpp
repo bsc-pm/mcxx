@@ -436,6 +436,10 @@ namespace TL { namespace OpenMP {
 
             virtual void visit(const Nodecl::FunctionCall& func_call)
             {
+                // First of all, visit the arguments of the current function call
+                Nodecl::NodeclBase arguments = func_call.get_arguments();
+                walk(arguments);
+
                 Nodecl::NodeclBase called = func_call.get_called();
                 if (!called.is<Nodecl::Symbol>())
                     return;
