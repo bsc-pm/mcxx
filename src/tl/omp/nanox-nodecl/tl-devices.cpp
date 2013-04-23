@@ -101,8 +101,7 @@ namespace TL { namespace Nanox {
             const TL::Symbol& outline_function,
             Nodecl::NodeclBase outline_function_body,
             Nodecl::NodeclBase task_label,
-            std::string filename,
-            int line,
+            const locus_t* locus,
             Source& instrumentation_before,
             Source& instrumentation_after)
     {
@@ -149,7 +148,7 @@ namespace TL { namespace Nanox {
             //  - FILE: The filename
             //  - LINE: The line number
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
-            extended_descr << "@" << filename << "@" << line;
+            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target a unsigned long long, in architectures of 32
@@ -322,8 +321,7 @@ namespace TL { namespace Nanox {
         new_function_sym->entity_specs.is_user_declared = 1;
 
         new_function_sym->kind = SK_FUNCTION;
-        new_function_sym->file = "";
-        new_function_sym->line = 0;
+        new_function_sym->locus = make_locus("", 0, 0);
 
         // Make it static
         new_function_sym->entity_specs.is_static = 1;
@@ -776,8 +774,7 @@ namespace TL { namespace Nanox {
             new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
-            new_function_sym->file = "";
-            new_function_sym->line = 0;
+            new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
         }
         else
@@ -785,14 +782,13 @@ namespace TL { namespace Nanox {
             scope_entry_t* new_template_sym =
                 new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
             new_template_sym->kind = SK_TEMPLATE;
-            new_template_sym->file = "";
-            new_template_sym->line = 0;
+            new_template_sym->locus = make_locus("", 0, 0);
 
             new_template_sym->type_information = get_new_template_type(
                     decl_context.template_parameters,
                     function_type,
                     uniquestr(function_name.c_str()),
-                    decl_context, 0, "");
+                    decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
@@ -894,8 +890,7 @@ namespace TL { namespace Nanox {
             scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
             param->entity_specs.is_user_declared = 1;
             param->kind = SK_VARIABLE;
-            param->file = "";
-            param->line = 0;
+            param->locus = make_locus("", 0, 0);
 
             param->defined = 1;
 
@@ -922,8 +917,7 @@ namespace TL { namespace Nanox {
             new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
-            new_function_sym->file = "";
-            new_function_sym->line = 0;
+            new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
         }
         else
@@ -931,14 +925,13 @@ namespace TL { namespace Nanox {
             scope_entry_t* new_template_sym = new_symbol(
                     decl_context, decl_context.current_scope, name.c_str());
             new_template_sym->kind = SK_TEMPLATE;
-            new_template_sym->file = "";
-            new_template_sym->line = 0;
+            new_template_sym->locus = make_locus("", 0, 0);
 
             new_template_sym->type_information = get_new_template_type(
                     decl_context.template_parameters,
                     function_type,
                     uniquestr(name.c_str()),
-                    decl_context, 0, "");
+                    decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
@@ -983,7 +976,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &empty_stmt
             )
     {
-        empty_stmt = Nodecl::EmptyStatement::make("", 0);
+        empty_stmt = Nodecl::EmptyStatement::make(make_locus("", 0, 0));
         Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -991,13 +984,13 @@ namespace TL { namespace Nanox {
             Nodecl::CompoundStatement compound_statement =
                 Nodecl::CompoundStatement::make(stmt_list,
                         /* destructors */ Nodecl::NodeclBase::null(),
-                        "", 0);
+                        make_locus("", 0, 0));
             stmt_list = Nodecl::List::make(compound_statement);
         }
 
         Nodecl::NodeclBase context = Nodecl::Context::make(
                 stmt_list,
-                function_symbol.get_related_scope(), "", 0);
+                function_symbol.get_related_scope(), make_locus("", 0, 0));
 
         function_symbol.get_internal_symbol()->defined = 1;
 
@@ -1009,7 +1002,7 @@ namespace TL { namespace Nanox {
                     // Internal functions
                     Nodecl::NodeclBase::null(),
                     function_symbol,
-                    "", 0);
+                    make_locus("", 0, 0));
         }
         else
         {
@@ -1019,7 +1012,7 @@ namespace TL { namespace Nanox {
                     // Internal functions
                     Nodecl::NodeclBase::null(),
                     function_symbol,
-                    "", 0);
+                    make_locus("", 0, 0));
         }
     }
 

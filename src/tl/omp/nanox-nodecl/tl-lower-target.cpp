@@ -108,8 +108,7 @@ namespace TL { namespace Nanox {
                 declarations.append(
                         Nodecl::ObjectInit::make(
                             symbol,
-                            construct.get_filename(),
-                            construct.get_line()));
+                            construct.get_locus()));
             }
             else
             {
@@ -119,8 +118,7 @@ namespace TL { namespace Nanox {
                             Nodecl::CxxDef::make(
                                 /* optative context */ nodecl_null(),
                                 symbol,
-                                construct.get_filename(),
-                                construct.get_line()));
+                                construct.get_locus()));
                 }
                 else
                 {
@@ -128,8 +126,7 @@ namespace TL { namespace Nanox {
                             Nodecl::CxxDecl::make(
                                 /* optative context */ nodecl_null(),
                                 symbol,
-                                construct.get_filename(),
-                                construct.get_line()));
+                                construct.get_locus()));
                 }
             }
 
@@ -146,7 +143,7 @@ namespace TL { namespace Nanox {
 
             ERROR_CONDITION(device == NULL,
                     "%s: device '%s' has not been loaded",
-                    construct.get_locus().c_str(),
+                    construct.get_locus_str().c_str(),
                     device_name.get_text().c_str());
 
             device->copy_stuff_to_device_file(declarations);

@@ -215,8 +215,7 @@ namespace TL
                 region_upper_bound,
                 const_value_to_nodecl(const_value_get_one(4, 1)),
                 region_lower_bound.get_type(),
-                region_lower_bound.get_filename(),
-                region_lower_bound.get_line());
+                region_lower_bound.get_locus());
 
         type_t* array_to = get_array_type_bounds_with_regions(
                 result_type,

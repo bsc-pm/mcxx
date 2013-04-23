@@ -81,14 +81,14 @@ void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* templ
 template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n);
 
 // Location
+const locus_t* nodecl_get_locus(nodecl_t);
+
 const char* nodecl_get_filename(nodecl_t);
 int nodecl_get_line(nodecl_t);
-const char* nodecl_get_locus(nodecl_t);
+const char* nodecl_locus_to_str(nodecl_t);
 
-void nodecl_set_location(nodecl_t n, const char* filename, int line);
-void nodecl_set_locus(nodecl_t n, const char* filename, int line);
+void nodecl_set_locus(nodecl_t n, const locus_t* locus);
 
-void nodecl_set_location_as(nodecl_t n, nodecl_t loc);
 void nodecl_set_locus_as(nodecl_t n, nodecl_t loc);
 
 // Kind of node
@@ -116,7 +116,7 @@ int nodecl_list_length(nodecl_t list);
 nodecl_t _nodecl_wrap(AST);
 
 // Generic routines (meant for generic processing)
-nodecl_t nodecl_generic_make(node_t, const char* filename, int line);
+nodecl_t nodecl_generic_make(node_t, const locus_t* location);
 void nodecl_set_child(nodecl_t, int, nodecl_t);
 
 // Free a temporally allocated nodecl

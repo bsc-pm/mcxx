@@ -175,8 +175,7 @@ namespace TL { namespace Nanox {
                      const TL::Symbol& outline_function,
                      Nodecl::NodeclBase outline_function_body,
                      Nodecl::NodeclBase task_label,
-                     std::string filename,
-                     int line,
+                     const locus_t* locus,
                      /* output parameters */
                      Source& instrumentation_before,
                      Source& instrumentation_after);

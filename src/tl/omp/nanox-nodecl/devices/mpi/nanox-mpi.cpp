@@ -301,11 +301,11 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                original_statements.get_locus().c_str());        
+                original_statements.get_locus_str().c_str());        
         
         if (IS_FORTRAN_LANGUAGE)
             running_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
     Source unpacked_arguments, private_entities, cleanup_code;
@@ -618,8 +618,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                     /* optative context */ nodecl_null(),
                     host_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
+                    original_statements.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
       }
     }
@@ -702,8 +701,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                         /* optative context */ nodecl_null(),
                         host_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
+                        original_statements.get_locus());
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
         }

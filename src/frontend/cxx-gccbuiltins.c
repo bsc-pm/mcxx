@@ -1117,8 +1117,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       new_builtin->entity_specs.is_builtin = 1; \
       new_builtin->do_not_print = 1; \
-      new_builtin->file = "(builtin-function)"; \
-      new_builtin->line = 0; \
+      new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
       new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \

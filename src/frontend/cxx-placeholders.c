@@ -57,7 +57,7 @@ void check_statement_placeholder(AST placeholder, decl_context_t decl_context UN
 {
     AST* p = decode_placeholder(ASTText(placeholder));
 
-    nodecl_t empty_stmt = nodecl_make_empty_statement(ASTFileName(placeholder), ASTLine(placeholder));
+    nodecl_t empty_stmt = nodecl_make_empty_statement(ast_get_locus(placeholder));
 
     nodecl_set_placeholder(empty_stmt, p);
 

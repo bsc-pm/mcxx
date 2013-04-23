@@ -166,8 +166,7 @@ namespace TL { namespace Nanox {
                     Nodecl::CxxDef::make(
                         /* context */ nodecl_null(),
                         slicer_descriptor,
-                        construct.get_filename(),
-                        construct.get_line()));
+                        construct.get_locus()));
         }
 
         fill_slicer_descriptor_src

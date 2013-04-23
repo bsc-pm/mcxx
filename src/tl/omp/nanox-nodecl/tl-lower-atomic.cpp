@@ -348,7 +348,7 @@ namespace TL { namespace Nanox {
             if (!stmt.is<Nodecl::ExpressionStatement>())
             {
                 error_printf("%s: error: 'atomic' directive requires an expression statement\n", 
-                        stmt.get_locus().c_str());
+                        stmt.get_locus_str().c_str());
             }
             else
             {
@@ -359,7 +359,7 @@ namespace TL { namespace Nanox {
                 if (!allowed_expressions_critical(expr, using_builtin))
                 {
                     warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n", 
-                            expr.get_locus().c_str());
+                            expr.get_locus_str().c_str());
                     std::string lock_name = "nanos_default_critical_lock";
                     atomic_tree = emit_critical_region(lock_name, construct, statements);
                 }
@@ -369,13 +369,13 @@ namespace TL { namespace Nanox {
                     {
                         atomic_tree = builtin_atomic_int_op(expr);
                         info_printf("%s: info: 'atomic' directive implemented using GCC atomic builtins\n",
-                                expr.get_locus().c_str());
+                                expr.get_locus_str().c_str());
                     }
                     else
                     {
                         atomic_tree = compare_and_exchange(expr);
                         info_printf("%s: info: 'atomic' directive implemented using compare and exchange\n",
-                                expr.get_locus().c_str());
+                                expr.get_locus_str().c_str());
                     }
                 }
 

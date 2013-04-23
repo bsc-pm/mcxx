@@ -340,9 +340,9 @@ namespace TL
         return result;
     }
 
-    std::string PragmaCustomClause::get_locus() const
+    std::string PragmaCustomClause::get_locus_str() const
     {
-        return _pragma_line.get_locus();
+        return _pragma_line.get_locus_str();
     }
 
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
@@ -370,7 +370,7 @@ namespace TL
             if (deprecated_names.contains(clause.get_text()))
             {
                 warn_printf("%s: warning: clause '%s' is deprecated. Instead use '%s'\n",
-                        clause.get_locus().c_str(),
+                        clause.get_locus_str().c_str(),
                         clause.get_text().c_str(),
                         aliased_names[0].c_str());
             }
@@ -470,7 +470,7 @@ namespace TL
             if (current_clause.is_marked_as_unused())
             {
                 warn_printf("%s: warning: ignoring clause '%s'\n",
-                        it->get_locus().c_str(),
+                        it->get_locus_str().c_str(),
                         current_clause.get_text().c_str());
             }
         }

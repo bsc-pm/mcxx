@@ -128,7 +128,7 @@ LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, int line, const char* filename);
+        const char* template_name, decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
@@ -139,7 +139,7 @@ LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explici
 LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
-        decl_context_t decl_context, const char* filename, int line);
+        decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -526,17 +526,17 @@ LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const locus_t* locus);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
         decl_context_t decl_context, 
-        const char* filename, int line);
+        const locus_t* locus);
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);

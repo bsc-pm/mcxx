@@ -1003,7 +1003,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
-                node.get_locus().c_str());
+                node.get_locus_str().c_str());
     }
 }
 
