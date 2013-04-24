@@ -496,6 +496,8 @@ namespace TL
 
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
+                void add_function_task_dependency(const FunctionTaskDependency& dep);
+
                 ObjectList<Symbol> get_involved_parameters() const;
 
                 void add_device(const std::string& device_name);

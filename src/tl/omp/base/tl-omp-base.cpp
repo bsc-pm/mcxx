@@ -680,17 +680,32 @@ namespace TL { namespace OpenMP {
                     Nodecl::Utils::SimpleSymbolMap translation_map;
                     TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
                     TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
-
-                    TL::ObjectList<TL::Symbol>::iterator it_new_function = new_funcion_related_symbols.begin();
-                    TL::ObjectList<TL::Symbol>::iterator it_function_called = function_called_related_symbols.begin();
-                    while (it_function_called != function_called_related_symbols.end())
+                    for (unsigned int i = 0; i < function_called_related_symbols.size(); ++i)
                     {
-                        translation_map.add_map(*it_function_called, *it_new_function);
-                        it_new_function++;
-                        it_function_called++;
+                        translation_map.add_map(function_called_related_symbols[i], new_funcion_related_symbols[i]);
                     }
 
                      FunctionTaskInfo copied_function_task_info(function_task_info, translation_map, new_function);
+
+                     TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
+                     Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
+                                return_argument,
+                                return_argument.get_filename(),
+                                return_argument.get_line());
+
+                     return_argument_nodecl.set_type(return_argument.get_type());
+
+                     TL::DataReference data_ref_dep(
+                             Nodecl::Dereference::make(
+                                 return_argument_nodecl,
+                                 return_argument_nodecl.get_type().points_to(),
+                                 return_argument.get_filename(),
+                                 return_argument.get_line()));
+
+                    FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
+
+                    copied_function_task_info.add_function_task_dependency(result_dependence);
+
                     _function_task_set->add_function_task(new_function, copied_function_task_info);
                 }
             }

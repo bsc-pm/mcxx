@@ -384,6 +384,11 @@ namespace TL
             return _parameters;
         }
 
+        void FunctionTaskInfo::add_function_task_dependency(const FunctionTaskDependency& dependence)
+        {
+            _parameters.append(dependence);
+        }
+
         void FunctionTaskInfo::add_device(const std::string& device_name)
         {
             _implementation_table.insert(make_pair(device_name,Symbol(NULL)));
