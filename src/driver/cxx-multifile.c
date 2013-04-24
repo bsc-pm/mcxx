@@ -87,7 +87,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, arguments_objcopy) != 0)
     {
-        running_error("Error when extracting the object file data", 0);
+        running_error("Error when extracting the object file data");
     }
 
     // Now extract the tar
@@ -103,7 +103,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program("tar", arguments_tar) != 0)
     {
-        running_error("Error when extracting the object file tar", 0);
+        running_error("Error when extracting the object file tar");
     }
 
     // Now remove the file
@@ -142,7 +142,7 @@ void multifile_extract_extended_info(const char* filename)
 
         if (execute_program(CURRENT_CONFIGURATION->target_ar, list_arguments) != 0)
         {
-            running_error("Error while extracting members of archive", 0);
+            running_error("Error while extracting members of archive");
         }
         xfree(full_path);
 
@@ -202,14 +202,14 @@ char multifile_object_has_extended_info(const char* filename)
     if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
                 arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
-        running_error("Error when identifying object file", 0);
+        running_error("Error when identifying object file");
     }
 
     FILE* stdout_file = fopen(temp->name, "r");
 
     if (stdout_file == NULL)
     {
-        running_error("Error when examining output of 'objdump'", 0);
+        running_error("Error when examining output of 'objdump'");
     }
 
     char line[256];

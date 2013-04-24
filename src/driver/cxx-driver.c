@@ -3896,7 +3896,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n", 0);
+            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -4120,7 +4120,7 @@ static void link_files(const char** file_list, int num_files,
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed", 0);
+        running_error("Link failed");
     }
     timing_end(&timing_link);
 
@@ -4174,7 +4174,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable", 0);
+                    running_error("Error when embedding SPU executable");
                 }
 
                 remove(configuration->linked_output_filename);
@@ -4223,7 +4223,7 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler", 0);
+                    running_error("Error when complining embedding assembler");
                 }
 
                 remove(configuration->linked_output_filename);

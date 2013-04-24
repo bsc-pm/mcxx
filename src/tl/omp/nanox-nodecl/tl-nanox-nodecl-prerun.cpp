@@ -98,7 +98,7 @@ void Lowering::pre_run(DTO& dto)
     }
     else
     {
-        running_error("Could not open Nanos++ include", 0);
+        running_error("Could not open Nanos++ include");
     }
 
     Source::source_language = SourceLanguage::C;

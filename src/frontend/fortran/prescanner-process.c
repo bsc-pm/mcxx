@@ -203,7 +203,7 @@ static void handle_include_line(
     {
         running_error("%s:%d: error: too many levels of nesting (> %d)",
                 prescanner->input_filename,
-                iter->line,
+                iter->line_number,
                 maximum_nesting_level);
     }
     maximum_nesting_level++;
