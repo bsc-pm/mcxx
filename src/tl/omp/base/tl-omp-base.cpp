@@ -424,6 +424,7 @@ namespace TL { namespace OpenMP {
     {
         private:
 
+            int _counter;
             RefPtr<FunctionTaskSet> _function_task_set;
             std::map<TL::Symbol, TL::Symbol> _transformed_tasks;
 
@@ -573,7 +574,12 @@ namespace TL { namespace OpenMP {
 
                     // 2. Declare a new variable which represents the return of the original function as an argument
                     Scope scope = func_call.retrieve_context();
-                    TL::Symbol return_arg_sym = scope.new_symbol("tmp");
+
+                    std::stringstream ss;
+                    ss << "mcc_ret_" << _counter;
+                    TL::Symbol return_arg_sym = scope.new_symbol(ss.str());
+                    _counter++;
+
                     return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
                     return_arg_sym.get_internal_symbol()->type_information = function_called.get_type().returns().get_pointer_to().get_internal_type();
                     return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
