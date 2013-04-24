@@ -159,12 +159,23 @@ namespace TL { namespace Nanox {
         ::insert_entry(fill_outline_arguments_tree.retrieve_context().get_decl_context().current_scope,
                 slicer_descriptor.get_internal_symbol());
 
-        Source fill_slicer_descriptor_src;
+        Source fill_slicer_descriptor_src, extra_cxx_declarations;
+        if (IS_CXX_LANGUAGE)
+        {
+            extra_cxx_declarations << as_statement(
+                    Nodecl::CxxDef::make(
+                        /* context */ nodecl_null(),
+                        slicer_descriptor,
+                        construct.get_filename(),
+                        construct.get_line()));
+        }
+
         fill_slicer_descriptor_src
-            << slicer_descriptor.get_name() << ".lower = " << as_expression(lower) << ";"
-            << slicer_descriptor.get_name() << ".upper = " << as_expression(upper) << ";"
-            << slicer_descriptor.get_name() << ".step = " << as_expression(step) << ";"
-            << slicer_descriptor.get_name() << ".chunk = nanos_chunk;"
+            << extra_cxx_declarations
+            << as_symbol(slicer_descriptor) << ".lower = " << as_expression(lower) << ";"
+            << as_symbol(slicer_descriptor) << ".upper = " << as_expression(upper) << ";"
+            << as_symbol(slicer_descriptor) << ".step = " << as_expression(step) << ";"
+            << as_symbol(slicer_descriptor) << ".chunk = nanos_chunk;"
             ;
 
         FORTRAN_LANGUAGE()
