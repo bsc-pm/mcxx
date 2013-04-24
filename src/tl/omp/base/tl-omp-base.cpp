@@ -400,7 +400,7 @@ namespace TL { namespace OpenMP {
     //      int main()
     //      {
     //          int y = 2;
-    //          foo(&y);
+    //          int x = foo(&y);
     //      }
     //
     //  This visitor transforms the tree into:
@@ -418,6 +418,8 @@ namespace TL { namespace OpenMP {
     //          int y = 2;
     //          int *output = alloca(...);
     //          foo__(&y, output);
+    //          #pragma omp taskwait
+    //          x = *output;
     //      }
     //
     class TransformNonVoidFunctionCalls : public Nodecl::ExhaustiveVisitor<void>
@@ -425,13 +427,18 @@ namespace TL { namespace OpenMP {
         private:
 
             int _counter;
+
             RefPtr<FunctionTaskSet> _function_task_set;
             std::map<TL::Symbol, TL::Symbol> _transformed_tasks;
+            std::set<Nodecl::NodeclBase> _expr_statements;
+
 
         public:
 
             TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
-                : _function_task_set(function_task_Set), _transformed_tasks()
+                : _counter(0),
+                _function_task_set(function_task_Set),
+                _transformed_tasks()
             {
             }
 
@@ -652,6 +659,8 @@ namespace TL { namespace OpenMP {
                     ERROR_CONDITION(enclosing_expr_stmt.is_null(),
                             "This node should be a Nodecl::ExpressionStatement", 0);
 
+                    _expr_statements.insert(enclosing_expr_stmt);
+
                     Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, expression_stmt);
 
 
@@ -663,6 +672,20 @@ namespace TL { namespace OpenMP {
                                 func_call.get_filename(),
                                 func_call.get_line()));
                 }
+            }
+
+            void add_taskwaits_on_task_expression_statements()
+            {
+                    for (std::set<Nodecl::NodeclBase>::iterator it = _expr_statements.begin();
+                            it != _expr_statements.end();
+                            it++)
+                    {
+                        Nodecl::Utils::prepend_items_before(*it,
+                                Nodecl::OpenMP::TaskwaitShallow::make(
+                                    /* environment */ nodecl_null(),
+                                    it->get_filename(),
+                                    it->get_line()));
+                    }
             }
 
             void update_function_task_set()
@@ -961,6 +984,7 @@ namespace TL { namespace OpenMP {
 
         TransformNonVoidFunctionCalls visitor(function_task_set);
         visitor.walk(translation_unit);
+        visitor.add_taskwaits_on_task_expression_statements();
         visitor.update_function_task_set();
 
         FunctionCallVisitor function_call_visitor(function_task_set);
