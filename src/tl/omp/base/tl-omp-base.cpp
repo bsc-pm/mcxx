@@ -518,7 +518,7 @@ namespace TL { namespace OpenMP {
                                         func_call.get_filename(),
                                         func_call.get_line());
 
-                            new_arg.set_type(new_funcion_related_symbols[i].get_type());
+                            new_arg.set_type(new_funcion_related_symbols[i].get_type().get_lvalue_reference_to());
                             argument_list.append(new_arg);
                         }
                         // 3. Create the new function call
@@ -537,11 +537,11 @@ namespace TL { namespace OpenMP {
                                     func_call.get_filename(),
                                     func_call.get_line());
 
-                        return_param.set_type(new_funcion_related_symbols[new_function_num_related_symbols-1].get_type());
+                        return_param.set_type(new_funcion_related_symbols[new_function_num_related_symbols-1].get_type().get_lvalue_reference_to());
 
                         Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
                                 return_param,
-                                return_param.get_type().points_to(),
+                                return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
                                 func_call.get_filename(),
                                 func_call.get_line());
 
@@ -631,7 +631,7 @@ namespace TL { namespace OpenMP {
                             func_call.get_filename(),
                             func_call.get_line());
 
-                    return_arg_nodecl.set_type(return_arg_sym.get_type());
+                    return_arg_nodecl.set_type(return_arg_sym.get_type().get_lvalue_reference_to());
 
                     new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
 
@@ -668,7 +668,7 @@ namespace TL { namespace OpenMP {
                     func_call.replace(
                             Nodecl::Dereference::make(
                                 return_arg_nodecl,
-                                return_arg_nodecl.get_type().points_to(),
+                                return_arg_sym.get_type().points_to().get_lvalue_reference_to(),
                                 func_call.get_filename(),
                                 func_call.get_line()));
                 }
