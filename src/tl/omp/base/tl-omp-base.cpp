@@ -457,7 +457,7 @@ namespace TL { namespace OpenMP {
                 if (!_function_task_set->is_function_task(function_called))
                     return;
 
-                if (function_called.get_type().is_void())
+                if (function_called.get_type().returns().is_void())
                     return;
 
                 TL::Symbol transformed_task;
