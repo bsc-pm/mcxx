@@ -60,6 +60,79 @@ static std::string get_outline_name(const std::string & name) {
 }
 
 
+
+static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items) {
+    //If there are other non-mpi devices and we modify some data sharing, throw a warning
+//    bool check_for_incompatibility=false;
+//    bool is_incompatible=false;
+//    
+//    OutlineInfo::implementation_table_t implementation_table = outlineInfo.get_implementation_table();
+//    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+//            it != implementation_table.end() && !check_for_incompatibility;
+//            ++it)
+//    {
+//        TargetInformation target_info = it->second;
+//        ObjectList<std::string> devices = target_info.get_device_names();
+//        for (ObjectList<std::string>::iterator it2 = devices.begin();
+//                it2 != devices.end() && !check_for_incompatibility;
+//                ++it2)
+//        {
+//            if (*it2!="mpi" || *it2!="MPI") check_for_incompatibility=true;
+//        }
+//    }
+    if (IS_FORTRAN_LANGUAGE){
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
+                continue;
+            }
+             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
+            if ((*it)->get_symbol().is_allocatable()){
+                if ((*it)->get_symbol().is_from_module()){
+//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+                    (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
+                    (*it)->get_copies().clear();
+                } else {
+                   //std::cout << (*it)->get_symbol().get_name() << "es privatye\n";
+//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+                    (*it)->get_copies().clear();
+                }
+            } else {
+               if ((*it)->get_symbol().is_from_module()) {
+//                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
+               } else {            
+                    if ((*it)->get_copies().empty()){
+//                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+                    }
+               }
+            }
+        }
+    }
+    
+//    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
+//            " in this situation " << std::endl;
+    
+//    std::vector<std::string> probanding;
+//    probanding.push_back("waw");
+//    probanding.push_back("SHARED");
+//    probanding.push_back("SHARED CAPTUR");
+//    probanding.push_back("SHARING_PRIVATE");
+//    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//            it != data_items.end();
+//            it++)
+//    {
+//         std::cout << (*it)->get_symbol().get_name() << " es " << probanding.at((*it)->get_sharing()) << " con copias " << !(*it)->get_copies().empty() << " \n";
+//    }
+////    
+}
+
+
+
 void DeviceMPI::add_forward_code_to_extra_c_code(
         const std::string& outline_name,
         TL::ObjectList<OutlineDataItem*> data_items,
@@ -205,12 +278,9 @@ void DeviceMPI::generate_additional_mpi_code(
 
     //If there are parameters, add/build the structures 
     if (num_params>0){
+        int count_params=num_params;
         Source struct_mpi_create, host_call, device_call;
 
-        struct_mpi_create << "MPI_Datatype ompss___datatype;"
-                "MPI_Datatype ompss___typelist[" << num_params << "]= {" << typelist_src << "};"
-                "int ompss___blocklen[" << num_params << "] = {" << blocklen_src << "};"
-                "MPI_Aint ompss___displ[" << num_params << "] = {" << displ_src << "};";
 
 
         host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
@@ -223,6 +293,10 @@ void DeviceMPI::generate_additional_mpi_code(
         for (int i = 0; i < num_params; ++i) { 
             //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
+            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
+                --count_params;
+                continue;
+            }
             //if (!IS_FORTRAN_LANGUAGE){
             //    displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
             //} else {
@@ -244,8 +318,13 @@ void DeviceMPI::generate_additional_mpi_code(
             }
 
         }
+        
+        struct_mpi_create << "MPI_Datatype ompss___datatype;"
+                "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
+                "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
+                "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};";
 
-        struct_mpi_create << "err= nanos_mpi_type_create_struct( " << num_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+        struct_mpi_create << "err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
         code_host << struct_mpi_create
                 << host_call;
         code_device_pre << struct_mpi_create
@@ -273,6 +352,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map) {
+    
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+    preprocess_datasharing(data_items);
     
     symbol_map = new Nodecl::Utils::SimpleSymbolMap();
         
@@ -422,7 +504,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
     ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
 
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+    //TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
     if (IS_CXX_LANGUAGE
             && !is_function_task
@@ -446,37 +528,36 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     // Do nothing
                     break;
                 }
-            case OutlineDataItem::SHARING_SHARED:     
-                //If from module, set module value (its MPI remote, so will have an invalid value) to the private one we are getting 
-                if ((*it)->get_symbol().is_from_module()){  
-                    std::string symbol_name=(*it)->get_symbol().get_name();
-                    data_input_global << "void* " << symbol_name << "_BACKUP;";
-                    data_input_global << symbol_name << "_BACKUP =  args." << symbol_name <<";"; 
-                    data_input_global << "err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));";    
-                    data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
-                    
-                    data_output_global << "err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
-                }
+            case OutlineDataItem::SHARING_SHARED:   
             case OutlineDataItem::SHARING_CAPTURE:   
-                if ((*it)->get_symbol().is_from_module()){
+                //If it's firstprivate (sharing capture), copy input and change address to the global/private var
+                if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
                    std::string symbol_name=(*it)->get_symbol().get_name();
                    if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE){
-                       data_input_global << "err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";    
+                       if (!(*it)->get_copies().empty())
+                       data_input_global << "err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";  
+                       
                        data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
-                   }
-
-                   TL::Symbol mod_sym=(*it)->get_symbol().from_module();
-                   std::map< TL::Symbol,TL::ObjectList<TL::Symbol> >::iterator mod_list= modules_with_params.find(mod_sym);
-                   if (mod_list==modules_with_params.end()){
-                       TL::ObjectList<TL::Symbol> list;
-                       list.append((*it)->get_symbol());
-                       modules_with_params.insert(std::pair<TL::Symbol,TL::ObjectList<TL::Symbol> >(mod_sym,list));
-                   } else {
-                       mod_list->second.append((*it)->get_symbol());                    
                    }
                 }
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {
+                {  
+                    //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
+                    //copy address and data
+                    if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
+                        std::string symbol_name=(*it)->get_symbol().get_name();
+                        data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
+                        
+                        if (!(*it)->get_copies().empty())
+                        data_input_global << "err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+                        
+                        data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
+
+                        if (!(*it)->get_copies().empty())
+                        data_output_global << "err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
+                    }
+                    
                     TL::Type param_type = (*it)->get_in_outline_type();
 
                     Source argument;
@@ -521,12 +602,24 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     }
                     else if (IS_FORTRAN_LANGUAGE)
                     {
+                        //Build list with modules and vars when they are from module
+                        if ((*it)->get_symbol().is_from_module()){
+                            TL::Symbol mod_sym=(*it)->get_symbol().from_module();
+                            std::map< TL::Symbol,TL::ObjectList<TL::Symbol> >::iterator mod_list= modules_with_params.find(mod_sym);
+                            if (mod_list==modules_with_params.end()){
+                                TL::ObjectList<TL::Symbol> list;
+                                list.append((*it)->get_symbol());
+                                modules_with_params.insert(std::pair<TL::Symbol,TL::ObjectList<TL::Symbol> >(mod_sym,list));
+                            } else {
+                                mod_list->second.append((*it)->get_symbol());                    
+                            }
+                        }
                         argument << "args % " << (*it)->get_field_name();
 
                         bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
                         bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
 
-                        if (is_allocatable
+                        if (((*it)->get_symbol().is_from_module() && is_allocatable)
                                 || is_pointer)
                         {
                             cleanup_code
@@ -779,7 +872,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         device_src
                 << "{"
                 << code_device_pre
+                << data_input_global
                 << unpacked_function_call
+                << data_output_global
                 << code_device_post
                 << "}"
                 ;
@@ -851,6 +946,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     }
     _sectionCodeHost.append_with_separator("(void*)" + device_outline_name + "_host" + append,",");
     _sectionCodeDevice.append_with_separator("(void(*)())" + device_outline_name + "_device" + append,",");
+    
 }
 
 DeviceMPI::DeviceMPI()
@@ -1078,11 +1174,20 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                         << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
                         << "err=ompss___mpi_daemon_main(argc,argv);"
                         << "return 0;"
-                        << "} else {"
-                        << "err= main(argc,argv);"
+                        << "} else {";
+                
+                if (main.get_type().returns().is_signed_int() || main.get_type().returns().is_unsigned_int()){
+                     real_main << "err= main(argc,argv);"
                         << "return err;"
                         << "}}"
                         ;
+                } else {
+                    real_main << "main(argc,argv);"
+                        << "return 0;"
+                        << "}}"
+                        ;
+                }
+                
             }
         
             if (IS_FORTRAN_LANGUAGE)
