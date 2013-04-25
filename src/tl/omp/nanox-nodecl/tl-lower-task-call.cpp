@@ -285,40 +285,6 @@ static TL::Type rewrite_dependency_type_c(TL::Type t, const param_sym_to_arg_sym
     }
 }
 
-static Nodecl::NodeclBase rewrite_single_dependency_c(Nodecl::NodeclBase node, const param_sym_to_arg_sym_t& map)
-{
-    if (node.is_null())
-        return node;
-
-    node.set_type(rewrite_dependency_type_c(node.get_type(), map));
-
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
-            it++)
-    {
-        *it = rewrite_single_dependency_c(*it, map);
-    }
-
-    node.rechild(children);
-
-    // Update indexes where is due
-    if (node.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscr = node.as<Nodecl::ArraySubscript>();
-        arr_subscr.set_subscripts(
-                rewrite_expression_in_dependency_c(arr_subscr.get_subscripts(), map));
-    }
-    else if (node.is<Nodecl::Shaping>())
-    {
-        Nodecl::Shaping shaping = node.as<Nodecl::Shaping>();
-        shaping.set_shape(
-                rewrite_expression_in_dependency_c(shaping.get_shape(), map));
-    }
-
-    return node;
-}
-
 static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
         const TL::ObjectList<OutlineDataItem::DependencyItem>& deps,
         const param_sym_to_arg_sym_t& map)
