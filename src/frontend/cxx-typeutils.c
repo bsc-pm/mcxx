@@ -8287,6 +8287,24 @@ static char is_unknown_dependent_type(type_t* t)
             && (t->unqualified_type == _dependent_type));
 }
 
+static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
+{
+    if (nodecl_get_kind(n) == NODECL_SYMBOL
+            && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
+    {
+        const char* result = NULL;
+        uniquestr_sprintf(&result, "%s { => %s }",
+                nodecl_get_symbol(n)->symbol_name,
+                codegen_to_str(nodecl_get_symbol(n)->value, decl_context));
+
+        return result;
+    }
+    else
+    {
+        return codegen_to_str(n, decl_context);
+    }
+}
+
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
@@ -8418,11 +8436,15 @@ const char* print_declarator(type_t* printed_declarator)
                 {
                     tmp_result = strappend(tmp_result, "(with descriptor) ");
                 }
+                tmp_result = strappend(tmp_result, "of size [");
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->whole_size, 
+                            CURRENT_COMPILED_FILE->global_decl_context));
+                tmp_result = strappend(tmp_result, "] and bounds ");
                 tmp_result = strappend(tmp_result, "[");
-                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound, 
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->lower_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));
                 tmp_result = strappend(tmp_result, ":");
-                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->upper_bound, 
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->upper_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));
                 tmp_result = strappend(tmp_result, "]");
                 if (printed_declarator->array->region != NULL)
