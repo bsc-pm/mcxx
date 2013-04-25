@@ -1200,7 +1200,7 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
     if (correct_choice < 0)
     {
         if (nodecl_output != NULL)
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(ambiguous_list), ASTLine(ambiguous_list));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(ambiguous_list));
         return 0;
     }
     else

@@ -16,19 +16,19 @@ nontype_specifier_without_attribute : opencl_specifiers
 
 opencl_specifiers : OPENCL_GLOBAL
 {
-    $$ = ASTLeaf(AST_OPENCL_GLOBAL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OPENCL_GLOBAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | OPENCL_KERNEL
 {
-    $$ = ASTLeaf(AST_OPENCL_KERNEL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OPENCL_KERNEL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | OPENCL_CONSTANT
 {
-    $$ = ASTLeaf(AST_OPENCL_CONSTANT, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OPENCL_CONSTANT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | OPENCL_LOCAL
 {
-    $$ = ASTLeaf(AST_OPENCL_LOCAL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OPENCL_LOCAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 /*!endif*/

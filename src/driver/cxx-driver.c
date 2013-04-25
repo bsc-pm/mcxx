@@ -3082,7 +3082,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
     ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     // The filename can be used in the future (e.g. in tl-nanos.cpp)
-    ast_set_filename(translation_unit->parsed_tree, translation_unit->input_filename);
+    ast_set_locus(translation_unit->parsed_tree, make_locus(translation_unit->input_filename, 0, 0));
     
     timing_end(&timing_parsing);
 
@@ -3098,7 +3098,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
 static AST get_translation_unit_node(void)
 {
-    return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+    return ASTMake1(AST_TRANSLATION_UNIT, NULL, make_locus("", 0, 0), NULL);
 }
 
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, 

@@ -160,47 +160,40 @@ void DeviceCUDA::generate_ndrange_kernel_call(
 
     cuda_kernel_config.append(
             Nodecl::Symbol::make(dim_grid,
-                task_statements.get_filename(),
-                task_statements.get_line()));
+                task_statements.get_locus()));
 
     cuda_kernel_config.append(
             Nodecl::Symbol::make(dim_block,
-                task_statements.get_filename(),
-                task_statements.get_line()));
+                task_statements.get_locus()));
 
     cuda_kernel_config.append(
             Nodecl::IntegerLiteral::make(
                 TL::Type::get_int_type(),
                 const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                task_statements.get_filename(),
-                task_statements.get_line()));
+                task_statements.get_locus()));
 
     cuda_kernel_config.append(
             Nodecl::FunctionCall::make(
                 Nodecl::Symbol::make(
                     exec_stream,
-                    task_statements.get_filename(),
-                    task_statements.get_line()),
+                    task_statements.get_locus()),
                 /* arguments */ nodecl_null(),
                 /* alternate_name */ nodecl_null(),
                 /* function_form */ nodecl_null(),
                 TL::Type::get_void_type(),
-                task_statements.get_filename(),
-                task_statements.get_line()));
+                task_statements.get_locus()));
 
     Nodecl::NodeclBase kernell_call =
         Nodecl::CudaKernelCall::make(
                 Nodecl::List::make(cuda_kernel_config),
                 function_call_nodecl,
                 TL::Type::get_void_type(),
-                task_statements.get_filename(),
-                task_statements.get_line());
+                task_statements.get_locus());
 
     Nodecl::NodeclBase expression_stmt =
         Nodecl::ExpressionStatement::make(
                 kernell_call,
-                task_statements.get_filename(),
-                task_statements.get_line());
+                task_statements.get_locus());
 
     // In this case, we should change the output statements!
     output_statements = expression_stmt;
@@ -229,8 +222,7 @@ class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
                             Nodecl::IntegerLiteral::make(
                                 TL::Type::get_int_type(),
                                 const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                                node.get_filename(),
-                                node.get_line()));
+                                node.get_locus()));
                 }
 
                 Symbol exec_stream =
@@ -243,14 +235,12 @@ class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
                         Nodecl::FunctionCall::make(
                             Nodecl::Symbol::make(
                                 exec_stream,
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             /* arguments */ nodecl_null(),
                             /* alternate_name */ nodecl_null(),
                             /* function_form */ nodecl_null(),
                             TL::Type::get_void_type(),
-                            node.get_filename(),
-                            node.get_line()));
+                            node.get_locus()));
             }
         }
 };
@@ -290,7 +280,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
     Source unpacked_arguments, private_entities;
@@ -453,8 +443,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                 /* optative context */ nodecl_null(),
                 unpacked_function,
-                original_statements.get_filename(),
-                original_statements.get_line());
+                original_statements.get_locus());
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
 
@@ -500,8 +489,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 outline_function,
                 outline_function_body,
                 info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
+                original_statements.get_locus(),
                 instrument_before,
                 instrument_after);
     }

@@ -116,8 +116,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         scope_entry_t *member_of_template,
         type_t* being_instantiated, 
         char is_class,
-        const char* filename, 
-        int line,
+        const locus_t* locus,
         type_map_t** template_map, 
         int *num_items_template_map)
 {
@@ -141,13 +140,12 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
             updated_template_parameters->arguments[i] = update_template_parameter_value(
                     template_parameters->arguments[i],
                     new_context_for_template_parameters, 
-                    filename, line);
+                    locus);
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
-                error_printf("%s:%d: could not instantiate template arguments of template type\n", 
-                        filename, 
-                        line);
+                error_printf("%s: could not instantiate template arguments of template type\n", 
+                        locus_to_str(locus));
                 return NULL;
             }
         }
@@ -164,7 +162,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         base_type = update_type_for_instantiation(
                 member_of_template->type_information,
                 new_context_for_template_parameters,
-                filename, line);
+                locus);
     }
 
     scope_entry_t* new_member = new_symbol(new_context_for_template_parameters, 
@@ -177,14 +175,12 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 base_type,
                 new_member->symbol_name,
                 new_context_for_template_parameters,
-                member_of_template->line,
-                member_of_template->file);
+                member_of_template->locus);
 
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.class_type = being_instantiated;
 
-    new_member->file = member_of_template->file;
-    new_member->line = member_of_template->line;
+    new_member->locus = member_of_template->locus;
 
     type_map_t new_map;
     new_map.orig_type = template_type;
@@ -226,13 +222,13 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     return new_member;
 }
 
-static void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line);
+static void instantiate_emit_member_function(scope_entry_t* entry, const locus_t* locus);
 
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
         decl_context_t context_of_being_instantiated,
-        const char* filename, int line,
+        const locus_t* locus,
         type_map_t** template_map, 
         int *num_items_template_map,
         type_map_t** enum_map,
@@ -243,10 +239,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
+        fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s'\n", 
                 member_of_template->symbol_name,
-                member_of_template->file,
-                member_of_template->line);
+                locus_to_str(member_of_template->locus));
     }
 
     switch (member_of_template->kind)
@@ -282,7 +277,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            filename, line);
+                            locus);
                 }
 
                 if (is_named_class_type(new_member->type_information))
@@ -290,7 +285,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     type_t* t = advance_over_typedefs(new_member->type_information);
 
                     scope_entry_t* class_entry = named_type_get_symbol(t);
-                    instantiate_template_class_if_needed(class_entry, context_of_being_instantiated, filename, line);
+                    instantiate_template_class_if_needed(class_entry, context_of_being_instantiated, locus);
                 }
 
                 if (new_member->entity_specs.is_bitfield)
@@ -303,8 +298,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size),
                                         const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
-                            running_error("%s:%d: error: invalid bitfield of size '%d'",
-                                    new_member->file, new_member->line, 
+                            running_error("%s: error: invalid bitfield of size '%d'",
+                                    locus_to_str(new_member->locus),
                                     const_value_cast_to_4(
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size)));
                         }
@@ -315,8 +310,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     else
                     {
                         // ???? FIXME - What about sizes that depend on a nontype template argument?
-                        running_error("%s:%d: error: bitfield specification is not a constant expression", 
-                                new_member->file, new_member->line);
+                        running_error("%s: error: bitfield specification is not a constant expression", 
+                                locus_to_str(new_member->locus));
                     }
                 }
 
@@ -360,7 +355,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        filename, line);
+                        locus);
 
                 DEBUG_CODE()
                 {
@@ -452,15 +447,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     scope_entry_t* new_fake_template_symbol = xcalloc(1, sizeof(*new_fake_template_symbol));
                     new_fake_template_symbol->kind = SK_TEMPLATE;
                     new_fake_template_symbol->symbol_name = member_of_template->symbol_name;
-                    new_fake_template_symbol->file = member_of_template->file;
-                    new_fake_template_symbol->line = member_of_template->line;
+                    new_fake_template_symbol->locus = member_of_template->locus;
 
                     type_t* template_type = get_new_template_type(tpl_empty, 
                             member_of_template->type_information, 
                             member_of_template->symbol_name, 
                             new_context_of_being_instantiated, 
-                            member_of_template->line, 
-                            member_of_template->file);
+                            member_of_template->locus);
 
                     new_fake_template_symbol->type_information = template_type;
                     template_type_set_related_symbol(template_type, new_fake_template_symbol);
@@ -480,7 +473,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             template_type_get_specialized_type(template_type,
                                 tpl_empty,
                                 new_context_of_being_instantiated,
-                                member_of_template->file, member_of_template->line));
+                                member_of_template->locus));
 
                     insert_entry(context_of_being_instantiated.current_scope, new_member);
 
@@ -504,7 +497,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     if (new_member->entity_specs.is_anonymous_union)
                     {
-                        instantiate_template_class_if_needed(new_member, context_of_being_instantiated, filename, line);
+                        instantiate_template_class_if_needed(new_member, context_of_being_instantiated, locus);
                         // Add a mapping for this new anonymous union
                         type_map_t new_map;
                         new_map.orig_type = get_user_defined_type(member_of_template);
@@ -536,7 +529,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template,
                                 being_instantiated, 
                                 /* is_class */ 1,
-                                filename, line,
+                                locus,
                                 template_map, num_items_template_map);
                         if (new_member == NULL)
                             return;
@@ -578,7 +571,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         {
                             template_args->arguments[i] = update_template_parameter_value(
                                     template_args->arguments[i],
-                                    context_of_being_instantiated, filename, line);
+                                    context_of_being_instantiated, locus);
                         }
 
                         // Now ask a new specialization
@@ -586,8 +579,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 template_args,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,
-                                member_of_template->file,
-                                member_of_template->line);
+                                member_of_template->locus);
 
                         template_specialized_type_update_template_parameters(
                                named_type_get_symbol(new_template_specialized_type)->type_information,
@@ -621,7 +613,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            filename, line);
+                            locus);
 
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
@@ -642,7 +634,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             member_of_template,
                             being_instantiated, 
                             /* is_class */ 0,
-                            filename, line,
+                            locus,
                             template_map, num_items_template_map);
 
                     if (new_member == NULL)
@@ -747,8 +739,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
                             entry,
-                            member_of_template->file,
-                            member_of_template->line);
+                            member_of_template->locus);
                 }
 
                 introduce_using_entities(
@@ -757,8 +748,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         named_type_get_symbol(being_instantiated),
                         /* is_class_scope */ 1,
                         member_of_template->entity_specs.access,
-                        member_of_template->file,
-                        member_of_template->line);
+                        member_of_template->locus);
 
                 scope_entry_t* used_hub_symbol = xcalloc(1, sizeof(*used_hub_symbol));
                 used_hub_symbol->kind = SK_USING;
@@ -779,16 +769,14 @@ static void instantiate_dependent_friend_class(
         type_t* being_instantiated,
         scope_entry_t* friend,
         decl_context_t context_of_being_instantiated,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
     scope_entry_t* new_friend = friend;
     if (is_dependent_type(friend->type_information))
     {
         type_t* new_type = update_type_for_instantiation(friend->type_information,
                 context_of_being_instantiated,
-                filename,
-                line);
+                locus);
         if (!is_dependent_typename_type(new_type))
         {
             new_friend = named_type_get_symbol(new_type);
@@ -845,15 +833,14 @@ static void instantiate_dependent_friend_function(
         type_t* being_instantiated,
         scope_entry_t* friend,
         decl_context_t context_of_being_instantiated,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
     // At the end of this function, the symbol 'new_friend' will be added to
     // the set of friends
     scope_entry_t* new_friend = NULL;
 
     type_t* new_type = update_type_for_instantiation(friend->type_information,
-            context_of_being_instantiated, filename, line);
+            context_of_being_instantiated, locus);
 
     char is_template_id = nodecl_name_ends_in_template_id(friend->value);
     char is_templ_funct_decl =(is_template_specialized_type(friend->type_information) &&
@@ -879,7 +866,7 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                        context_of_being_instantiated, sym, filename, line);
+                        context_of_being_instantiated, sym, locus);
             }
         }
 
@@ -905,16 +892,16 @@ static void instantiate_dependent_friend_function(
             if (explicit_temp_params != NULL)
             {
                 updated_explicit_temp_params = update_template_argument_list(
-                        context_of_being_instantiated, explicit_temp_params, filename, line);
+                        context_of_being_instantiated, explicit_temp_params, locus);
             }
 
-            new_friend = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, filename, line);
+            new_friend = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
         }
 
         if (new_friend == NULL)
         {
-            error_printf("%s:%d: function '%s' shall refer a specialization of a function template\n",
-                    filename, line, friend->symbol_name);
+            error_printf("%s: function '%s' shall refer a specialization of a function template\n",
+                    locus_to_str(locus), friend->symbol_name);
             return;
         }
         entry_list_free(candidates_list);
@@ -944,7 +931,7 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                            context_of_being_instantiated, sym, filename, line);
+                            context_of_being_instantiated, sym, locus);
             }
         }
 
@@ -989,14 +976,14 @@ static void instantiate_dependent_friend_function(
                 if (nodecl_templ_param != NULL)
                 {
                     expl_templ_param = update_template_argument_list(
-                            context_of_being_instantiated, nodecl_templ_param, filename, line);
+                            context_of_being_instantiated, nodecl_templ_param, locus);
                 }
 
-                new_friend = solve_template_function(candidates_list, expl_templ_param, new_type, filename, line);
+                new_friend = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
                 if (new_friend == NULL)
                 {
-                    error_printf("%s:%d: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
-                            filename, line, friend->symbol_name);
+                    error_printf("%s: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
+                            locus_to_str(locus), friend->symbol_name);
                     return;
                 }
             }
@@ -1013,8 +1000,7 @@ static void instantiate_dependent_friend_function(
                 new_friend->decl_context.template_parameters = NULL;
 
                 new_friend->kind = SK_FUNCTION;
-                new_friend->line = line;
-                new_friend->file = filename;
+                new_friend->locus = locus;
                 new_friend->type_information = new_type;
                 new_friend->entity_specs = friend->entity_specs;
                 new_friend->defined = friend->defined;
@@ -1077,7 +1063,7 @@ static void instantiate_dependent_friend_function(
             {
                 decl_context_t new_context = context_of_being_instantiated;
                 new_context.template_parameters = alineated_temp_params;
-                type_t* alineated_type = update_type_for_instantiation(new_type, new_context, filename, line);
+                type_t* alineated_type = update_type_for_instantiation(new_type, new_context, locus);
                 new_type = alineated_type;
             }
 
@@ -1104,8 +1090,8 @@ static void instantiate_dependent_friend_function(
             {
                 if (is_qualified)
                 {
-                    error_printf("%s:%d: template function '%s' shall refer an existant template function\n",
-                            filename, line, friend->symbol_name);
+                    error_printf("%s: template function '%s' shall refer a declared template function\n",
+                            locus_to_str(locus), friend->symbol_name);
                     return;
                 }
                 else
@@ -1116,8 +1102,7 @@ static void instantiate_dependent_friend_function(
                     new_template->decl_context.current_scope = context_of_being_instantiated.namespace_scope;
 
                     new_template->kind = SK_TEMPLATE;
-                    new_template->line = line;
-                    new_template->file = filename;
+                    new_template->locus = locus;
 
                     // The new template symbol created to represent the
                     // instantiation of the current template friend function
@@ -1129,7 +1114,7 @@ static void instantiate_dependent_friend_function(
 
                     // We create the new_type of the new template symbol
                     new_template->type_information = get_new_template_type(alineated_temp_params,
-                            new_type, new_template->symbol_name, lookup_context, line, filename);
+                            new_type, new_template->symbol_name, lookup_context, locus);
 
                     template_type_set_related_symbol(new_template->type_information, new_template);
 
@@ -1155,12 +1140,12 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
-        const char* filename, int line);
+        const locus_t* locus);
 
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
         template_parameter_list_t* template_arguments,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -1215,7 +1200,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 get_actual_class_type(selected_template),
                 get_actual_class_type(being_instantiated),
                 inner_decl_context,
-                filename, line
+                locus
                 );
     }
     
@@ -1299,7 +1284,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated,
                 member,
                 inner_decl_context,
-                filename, line,
+                locus,
                 &template_map, &num_items_template_map,
                 &enum_map, &num_items_enum_map,
                 &anonymous_unions_map, &num_items_anonymous_unions_map);
@@ -1317,11 +1302,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION)
         {
             instantiate_dependent_friend_function(being_instantiated,
-                    friend, inner_decl_context, filename, line);
+                    friend, inner_decl_context, locus);
         }
         else if(friend->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
-            // instantiate_dependent_friend_class(being_instantiated, friend, inner_decl_context, filename, line);
+            // instantiate_dependent_friend_class(being_instantiated, friend, inner_decl_context, locus);
         }
         else if (friend->kind == SK_CLASS)
         {
@@ -1349,8 +1334,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             {
                 type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
                         inner_decl_context,
-                        filename,
-                        line);
+                        locus);
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1382,7 +1366,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 print_declarator(being_instantiated));
     }
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
-            being_instantiated_sym->decl_context, filename, line, &nodecl_finish_class);
+            being_instantiated_sym->decl_context, locus, &nodecl_finish_class);
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Class '%s' finished\n", 
@@ -1407,7 +1391,7 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
-        const char* filename, int line)
+        const locus_t* locus)
 {
     int i, num_bases = class_type_get_num_bases(selected_class_type);
 
@@ -1442,7 +1426,7 @@ static void instantiate_bases(
 
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
-                filename, line);
+                locus);
 
         ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
                 print_type_str(upd_base_class_named_type, context_of_being_instantiated));
@@ -1450,7 +1434,7 @@ static void instantiate_bases(
         scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
 
         // If the entity (being an independent one) has not been completed, then instantiate it
-        instantiate_template_class_if_needed(upd_base_class_sym, context_of_being_instantiated, filename, line);
+        instantiate_template_class_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
         class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0, access_specifier);
     }
@@ -1465,7 +1449,7 @@ static void instantiate_bases(
 
 static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER, 
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     if (entry->kind != SK_CLASS
             && entry->kind != SK_TYPEDEF)
@@ -1482,10 +1466,9 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_conte
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
+        fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s'\n",
                 print_type_str(get_user_defined_type(entry), entry->decl_context),
-                entry->file,
-                entry->line);
+                locus_to_str(entry->locus));
     }
 
 
@@ -1503,7 +1486,7 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_conte
     type_t* selected_template = solve_class_template(
             template_type,
             get_user_defined_type(entry),
-            deduced_template_arguments, filename, line);
+            deduced_template_arguments, locus);
 
     return selected_template;
 }
@@ -1512,7 +1495,7 @@ static void instantiate_template_class(scope_entry_t* entry,
         decl_context_t decl_context, 
         type_t* selected_template, 
         template_parameter_list_t* deduced_template_arguments,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     //Ignore typedefs
     if (entry->kind != SK_CLASS)
@@ -1526,26 +1509,26 @@ static void instantiate_template_class(scope_entry_t* entry,
     }
     
     if (selected_template == NULL)
-        selected_template = solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
+        selected_template = solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, locus);
 
     if (selected_template != NULL)
     {
         if (is_incomplete_type(selected_template))
         {
             running_error("%s:%d: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
-                    filename, line, 
+                    locus, 
                     print_type_str(get_user_defined_type(entry), decl_context),
                     print_type_str(selected_template, decl_context));
         }
 
         instantiate_specialized_template_class(selected_template, 
                 get_user_defined_type(entry),
-                deduced_template_arguments, filename, line);
+                deduced_template_arguments, locus);
     }
     else
     {
         running_error("%s:%d: instantiation of '%s' is not possible at this point\n", 
-                filename, line, print_type_str(get_user_defined_type(entry), decl_context));
+                locus, print_type_str(get_user_defined_type(entry), decl_context));
     }
 }
 
@@ -1556,17 +1539,17 @@ char template_class_needs_to_be_instantiated(scope_entry_t* entry)
 }
 
 // Tries to instantiate if the current class is an independent incomplete class (and it is not an explicit specialization being defined)
-void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
 {
     if (template_class_needs_to_be_instantiated(entry))
     {
-        instantiate_template_class(entry, decl_context, /* selected_template */ NULL, /* deduced_template_arguments */ NULL, filename, line);
+        instantiate_template_class(entry, decl_context, /* selected_template */ NULL, /* deduced_template_arguments */ NULL, locus);
     }
 }
 
 // Used in overload as it temptatively tries to instantiate classes lest they
 // were a based or a derived class of another
-void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
 {
     if (!template_class_needs_to_be_instantiated(entry))
         return;
@@ -1574,14 +1557,14 @@ void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t
     // Try to see if it can actually be instantiated
     template_parameter_list_t* deduced_template_arguments = NULL;
     type_t* selected_template =
-        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, filename, line);
+        solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, locus);
 
     // No specialized template is eligible for it, give up
     if (selected_template == NULL
         || is_incomplete_type(selected_template))
         return;
 
-    instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, filename, line);
+    instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, locus);
 }
 
 static nodecl_t nodecl_instantiation_units;
@@ -1589,8 +1572,7 @@ typedef
 struct instantiation_item_tag
 {
     scope_entry_t* symbol;
-    const char* filename;
-    int line;
+    const locus_t* locus;
 } instantiation_item_t;
 
 static instantiation_item_t** symbols_to_instantiate;
@@ -1604,8 +1586,7 @@ void instantiation_init(void)
 }
 
 static void instantiate_every_symbol(scope_entry_t* entry,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 nodecl_t instantiation_instantiate_pending_functions(void)
 {
@@ -1620,8 +1601,7 @@ nodecl_t instantiation_instantiate_pending_functions(void)
     {
         instantiate_every_symbol(
                 tmp_symbols_to_instantiate[i]->symbol,
-                tmp_symbols_to_instantiate[i]->filename,
-                tmp_symbols_to_instantiate[i]->line);
+                tmp_symbols_to_instantiate[i]->locus);
 
         xfree(tmp_symbols_to_instantiate[i]);
     }
@@ -1643,13 +1623,11 @@ static char compare_instantiate_items(instantiation_item_t* current_item, instan
 }
 
 void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
-        const char* filename,
-        int line)
+        const locus_t* locus)
 {
     instantiation_item_t* item = xcalloc(1, sizeof(*item));
     item->symbol = entry;
-    item->filename = filename;
-    item->line = line;
+    item->locus = locus;
 
     int old_num = num_symbols_to_instantiate;
 
@@ -1665,15 +1643,14 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     }
 }
 
-static void instantiate_template_function(scope_entry_t* entry, const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
+static void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
+        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s\n",
                 entry->symbol_name,
                 print_type_str(entry->type_information, entry->decl_context),
-                entry->file,
-                entry->line);
+                locus_to_str(entry->locus));
     }
 
 #if 0
@@ -1733,15 +1710,14 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
 static int num_being_instantiated_now = 0;
 
-void instantiate_template_function_if_needed(scope_entry_t* entry, const char* filename, int line)
+void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t* locus)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiation request of template function '%s' at '%s:%d\n",
+        fprintf(stderr, "INSTANTIATION: Instantiation request of template function '%s' at '%s\n",
                 print_decl_type_str(entry->type_information, entry->decl_context, 
                     get_qualified_symbol_name(entry, entry->decl_context)),
-                filename,
-                line);
+                locus_to_str(locus));
     }
 
     // Do nothing if we are checking for ambiguities as this may cause havoc
@@ -1810,7 +1786,7 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const char* f
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-    instantiate_template_function(entry, filename, line);
+    instantiate_template_function(entry, locus);
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
@@ -1854,7 +1830,7 @@ UNUSED_PARAMETER static void instantiate_default_arguments_of_function(scope_ent
 #endif
 }
 
-static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
+static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     // Do nothing
 #if 0
@@ -1867,8 +1843,7 @@ static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMET
         fprintf(stderr, "INSTANTIATION: Instantiation request of non-emitted (non template) function '%s' at '%s:%d\n",
                 print_decl_type_str(entry->type_information, entry->decl_context, 
                     get_qualified_symbol_name(entry, entry->decl_context)),
-                filename,
-                line);
+                locus);
     }
 
     instantiate_default_arguments_of_function(entry);
@@ -1935,8 +1910,7 @@ AST instantiate_tree(AST orig_tree UNUSED_PARAMETER,
 }
 
 static void instantiate_every_symbol(scope_entry_t* entry,
-        const char* filename,
-        int line)
+        const locus_t* locus)
 {
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
@@ -1944,11 +1918,11 @@ static void instantiate_every_symbol(scope_entry_t* entry,
         if (is_template_specialized_type(entry->type_information))
         {
             instantiate_template_function_if_needed(entry, 
-                    filename, line);
+                    locus);
         }
         else if (entry->entity_specs.is_non_emitted)
         {
-            (entry->entity_specs.emission_handler)(entry, filename, line);
+            (entry->entity_specs.emission_handler)(entry, locus);
         }
     }
 }

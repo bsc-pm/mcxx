@@ -32,10 +32,13 @@
 
 #include "cxx-scope-fwd.h"
 
+#include "cxx-locus.h"
+
 #include "red_black_tree.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
+#include "cxx-locus.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
@@ -279,7 +282,7 @@ enum intent_kind_tag
 
 typedef nodecl_t (*simplify_function_t)(scope_entry_t* entry, int num_arguments, nodecl_t *arguments);
 
-typedef void (*emission_handler_t)(scope_entry_t*, const char* filename, int line);
+typedef void (*emission_handler_t)(scope_entry_t*, const locus_t* locus);
 
 // Looking for struct entity_specifiers_tag?
 // Now it is declared in cxx-entity-specs.h in builddir
@@ -313,9 +316,8 @@ struct scope_entry_tag
     //  - enumerator values
     nodecl_t value;
 
-    // File and line where this simbol was signed up
-    const char *file;
-    int line;
+    // Locus where the symbol was registered
+    const locus_t* locus;
 
     // Do not print this symbol (because of recursion, hiding, etc) Used
     // specially for the injected class-name, where printing it in print scope

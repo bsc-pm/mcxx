@@ -605,15 +605,14 @@ namespace Codegen
                 if (!entry.get_value().is_null())
                 {
                     indent();
-                    Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                    Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_locus());
                     nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
 
                     Nodecl::Assignment assig = Nodecl::Assignment::make(
                             nodecl_sym,
                             entry.get_value().shallow_copy(),
                             entry.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                     walk(assig);
                     file << "\n";
@@ -5560,7 +5559,7 @@ OPERATOR_TABLE
         if (bitfield_size != 1)
         {
             running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         file << "IBITS(";
@@ -5583,7 +5582,7 @@ OPERATOR_TABLE
         if (!lhs.is<Nodecl::ClassMemberAccess>())
         {
             running_error("%s: error: bitfield not accessed through a field-name", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
@@ -5605,7 +5604,7 @@ OPERATOR_TABLE
         if (bitfield_size != 1)
         {
             running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         if (rhs.is_constant())
@@ -5625,7 +5624,7 @@ OPERATOR_TABLE
         else
         {
             running_error("%s: error: non constants stores of bitfields is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
     }
 

@@ -1263,7 +1263,7 @@ namespace Analysis {
         else
         {
             ObjectList<Node*> object_init_last_nodes = _utils->_last_nodes;
-            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus() );
             ObjectList<Node*> init_sym = walk( n_sym );
             ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
 

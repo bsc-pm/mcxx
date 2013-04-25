@@ -144,17 +144,16 @@ LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
@@ -190,7 +189,7 @@ LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const locus_t* locus);
 
 // Friend support
 LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
@@ -239,13 +238,11 @@ LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_get_last_template_argument
 LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_context,
         scope_entry_t* dependent_entity,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);

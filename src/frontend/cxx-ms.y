@@ -23,7 +23,7 @@ nontype_specifier : declspec_specifier
 
 declspec_specifier : TOKEN_DECLSPEC '(' extended_decl_modifier_list ')'
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
@@ -59,40 +59,40 @@ extended_decl_modifier_list0 : extended_decl_modifier
 
 extended_decl_modifier : IDENTIFIER
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, NULL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | IDENTIFIER '(' expression_list ')'
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
 /*!if CPLUSPLUS*/
 class_head : class_key declspec_specifier_seq
 {
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
 }
 | class_key declspec_specifier_seq id_type_expr
 {
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, $3, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, $3, NULL, $2, ast_get_locus($1), NULL);
 }
 | class_key declspec_specifier_seq base_clause
 {
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, $3, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, $3, $2, ast_get_locus($1), NULL);
 }
 | class_key declspec_specifier_seq id_type_expr base_clause
 {
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, $3, $4, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, $3, $4, $2, ast_get_locus($1), NULL);
 }
 ;
 
 elaborated_type_specifier: class_key declspec_specifier_seq id_type_expr
 {
-	$$ = ASTMake3(AST_MS_ELABORATED_TYPE_CLASS_SPEC, $1, $3, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MS_ELABORATED_TYPE_CLASS_SPEC, $1, $3, $2, ast_get_locus($1), NULL);
 }
 | ENUM declspec_specifier_seq id_type_expr
 {
-	$$ = ASTMake2(AST_MS_ELABORATED_TYPE_ENUM_SPEC, $3, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_MS_ELABORATED_TYPE_ENUM_SPEC, $3, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 /*!endif*/
@@ -100,68 +100,68 @@ elaborated_type_specifier: class_key declspec_specifier_seq id_type_expr
 /*!if C99*/
 class_head : class_key declspec_specifier_seq
 {
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
 }
 | class_key declspec_specifier_seq IDENTIFIER
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, identifier, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_MS_CLASS_HEAD_SPEC, $1, identifier, NULL, $2, ast_get_locus($1), NULL);
 }
 ;
 
 elaborated_type_specifier : class_key attributes IDENTIFIER
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake3(AST_MS_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MS_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
 }
 | ENUM attributes IDENTIFIER
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake2(AST_MS_ELABORATED_TYPE_ENUM_SPEC, identifier, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_MS_ELABORATED_TYPE_ENUM_SPEC, identifier, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 /*!endif*/
 
 enum_specifier : ENUM declspec_specifier_seq IDENTIFIER '{' enumeration_list '}'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, identifier, $5, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, identifier, $5, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | ENUM declspec_specifier_seq '{' enumeration_list '}'
 {
-	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, NULL, $4, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, NULL, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | ENUM declspec_specifier_seq IDENTIFIER '{' '}'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, identifier, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, identifier, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | ENUM declspec_specifier_seq '{' '}'
 {
-	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_MS_ENUM_SPECIFIER, NULL, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
 builtin_types : MS_INT8
 {
-    $$ = ASTLeaf(AST_MS_INT8, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_MS_INT8, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | MS_INT16
 {
-    $$ = ASTLeaf(AST_MS_INT16, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_MS_INT16, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | MS_INT32
 {
-    $$ = ASTLeaf(AST_MS_INT32, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_MS_INT32, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | MS_INT64
 {
-    $$ = ASTLeaf(AST_MS_INT64, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_MS_INT64, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

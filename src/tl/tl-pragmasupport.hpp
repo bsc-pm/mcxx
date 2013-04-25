@@ -211,7 +211,7 @@ namespace TL
              */
             ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
 
-            std::string get_locus() const;
+            std::string get_locus_str() const;
 
             //! Use this when you need a real nodecl
             Nodecl::PragmaCustomLine get_pragma_line() const;

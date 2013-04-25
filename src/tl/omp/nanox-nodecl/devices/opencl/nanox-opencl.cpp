@@ -421,12 +421,12 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
 
 
         if (IS_FORTRAN_LANGUAGE)
             running_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
 
@@ -511,7 +511,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (!found)
         {
             running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
         }
     }
     else
@@ -537,7 +537,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (ocl_files == 0)
         {
             running_error("%s: error: No file specified for kernel '%s'\n",
-                    original_statements.get_locus().c_str(),
+                    original_statements.get_locus_str().c_str(),
                     called_task.get_name().c_str());
         }
     }
@@ -643,8 +643,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                     /* optative context */ nodecl_null(),
                     unpacked_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
+                    original_statements.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
         }
     }
@@ -847,8 +846,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                         /* optative context */ nodecl_null(),
                         outline_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
+                        original_statements.get_locus());
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
         }
@@ -896,8 +894,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 outline_function,
                 outline_function_body,
                 info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
+                original_statements.get_locus(),
                 instrument_before,
                 instrument_after);
     }

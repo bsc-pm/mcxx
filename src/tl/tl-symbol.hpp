@@ -140,8 +140,11 @@ namespace TL
              */
             Scope get_related_scope() const;
 
+            //! Returns the location of the symbol formatted as a string
+            std::string get_locus_str() const;
+
             //! Returns the location of the symbol
-            std::string get_locus() const;
+            const locus_t* get_locus() const;
 
             //! Returns the filename where the symbol was declared
             std::string get_filename() const;
@@ -676,7 +679,7 @@ namespace TL
              */
             Nodecl::NodeclBase get_asm_specification() const;
 
-            Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
+            Nodecl::Symbol make_nodecl(const locus_t* locus = ::make_locus("", 0, 0)) const;
 
             /*!
              * States whether this symbol has a parameter i with a default argument

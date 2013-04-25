@@ -48,7 +48,7 @@ namespace Nodecl { namespace Utils {
 
                 // Make sure the module has been loaded...
                 if (!list_related_symbols[index]->entity_specs.is_builtin)
-                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
+                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
             }
             // Append all the symbols of the original_used_modules_info  to the new list
             for (int j = 0; j < original_used_modules_info->entity_specs.num_related_symbols; j++, index++)
@@ -57,7 +57,7 @@ namespace Nodecl { namespace Utils {
 
                 // Make sure the module has been loaded...
                 if (!list_related_symbols[index]->entity_specs.is_builtin)
-                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
+                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
             }
 
             new_used_modules_info->entity_specs.related_symbols = list_related_symbols;

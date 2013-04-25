@@ -60,8 +60,7 @@ namespace TL { namespace Nanox {
         entry->entity_specs.is_user_declared = 1;
 
         entry->kind = SK_FUNCTION;
-        entry->file = "";
-        entry->line = 0;
+        entry->locus = make_locus("", 0, 0);
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
@@ -91,8 +90,7 @@ namespace TL { namespace Nanox {
             scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
             param->entity_specs.is_user_declared = 1;
             param->kind = SK_VARIABLE;
-            param->file = "";
-            param->line = 0;
+            param->locus = make_locus("", 0, 0);
 
             param->defined = 1;
 
@@ -115,8 +113,7 @@ namespace TL { namespace Nanox {
         scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, return_symbol_name.c_str());
         return_sym->entity_specs.is_user_declared = 1;
         return_sym->kind = SK_VARIABLE;
-        return_sym->file = "";
-        return_sym->line = 0;
+        return_sym->locus = make_locus("", 0, 0);
 
         return_sym->defined = 1;
 

@@ -38,7 +38,7 @@ namespace TL { namespace OpenMP {
     static void make_dependency_list(
             List& dependences,
             DependencyDirection kind,
-            const std::string& filename, int line,
+            const locus_t* locus,
             ObjectList<Nodecl::NodeclBase>& result_list)
     {
         TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
@@ -54,7 +54,7 @@ namespace TL { namespace OpenMP {
 
         if (!data_ref_list.empty())
         {
-            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+            result_list.append(T::make(Nodecl::List::make(data_ref_list), locus));
         }
     }
 
@@ -63,7 +63,7 @@ namespace TL { namespace OpenMP {
     static void make_copy_list(
             List& dependences,
             CopyDirection kind,
-            const std::string& filename, int line,
+            const locus_t* locus,
             ObjectList<Nodecl::NodeclBase>& result_list)
     {
         TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
@@ -79,7 +79,7 @@ namespace TL { namespace OpenMP {
 
         if (!data_ref_list.empty())
         {
-            result_list.append(T::make(Nodecl::List::make(data_ref_list), filename, line));
+            result_list.append(T::make(Nodecl::List::make(data_ref_list), locus));
         }
     }
 
@@ -132,8 +132,7 @@ namespace TL { namespace OpenMP {
                                 exec_env,
                                 // Do we need to copy this?
                                 call.shallow_copy(),
-                                call.get_filename(),
-                                call.get_line());
+                                call.get_locus());
 
                         call.replace(task_call);
                     }
@@ -145,8 +144,7 @@ namespace TL { namespace OpenMP {
                     TL::Symbol function_sym,
                     FunctionTaskInfo& function_task_info)
             {
-                int line = call.get_line();
-                std::string filename = call.get_filename();
+                const locus_t* locus = call.get_locus();
 
                 TL::ObjectList<Nodecl::NodeclBase> result_list;
 
@@ -155,43 +153,37 @@ namespace TL { namespace OpenMP {
                 make_dependency_list<Nodecl::OpenMP::DepIn>(
                         task_dependences,
                         OpenMP::DEP_DIR_IN,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::DepInValue>(
                         task_dependences,
                         OpenMP::DEP_DIR_IN_VALUE,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::DepOut>(
                         task_dependences,
                         OpenMP::DEP_DIR_OUT,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::DepInout>(
                         task_dependences,
                         OpenMP::DEP_DIR_INOUT,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::Concurrent>(
                         task_dependences,
                         OpenMP::DEP_CONCURRENT,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 make_dependency_list<Nodecl::OpenMP::Commutative>(
                         task_dependences,
                         OpenMP::DEP_COMMUTATIVE,
-                        filename,
-                        line,
+                        locus,
                         result_list);
 
                 // Make sure the remaining symbols are firstprivate
@@ -226,7 +218,7 @@ namespace TL { namespace OpenMP {
                                 || !it->get_type().is_any_reference())
                         {
                             Nodecl::Symbol symbol_ref =
-                                Nodecl::Symbol::make(*it, filename, line);
+                                Nodecl::Symbol::make(*it, locus);
                             symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
                             assumed_firstprivates.append(symbol_ref);
@@ -234,12 +226,12 @@ namespace TL { namespace OpenMP {
                         else if (IS_FORTRAN_LANGUAGE)
                         {
                             Nodecl::Symbol symbol_ref =
-                                Nodecl::Symbol::make(*it, filename, line);
+                                Nodecl::Symbol::make(*it, locus);
                             symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
                             warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
                                     "is SHARED because it does not have VALUE attribute\n",
-                                    function_sym.get_locus().c_str(),
+                                    function_sym.get_locus_str().c_str(),
                                     it->get_name().c_str(),
                                     function_sym.get_name().c_str());
 
@@ -253,7 +245,7 @@ namespace TL { namespace OpenMP {
                     result_list.append(
                             Nodecl::OpenMP::Firstprivate::make(
                                 Nodecl::List::make(assumed_firstprivates),
-                                filename, line));
+                                locus));
                 }
 
                 if (!assumed_shareds.empty())
@@ -261,7 +253,7 @@ namespace TL { namespace OpenMP {
                     result_list.append(
                             Nodecl::OpenMP::Shared::make(
                                 Nodecl::List::make(assumed_shareds),
-                                filename, line));
+                                locus));
                 }
 
                 // Build the tree which contains the target information
@@ -273,28 +265,28 @@ namespace TL { namespace OpenMP {
                 ObjectList<std::string> device_list = target_info.get_device_list();
                 for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
                 {
-                    devices.append(Nodecl::Text::make(strtolower(it->c_str()), filename, line));
+                    devices.append(Nodecl::Text::make(strtolower(it->c_str()), locus));
                 }
 
                 ObjectList<CopyItem> copy_in = target_info.get_copy_in();
                 make_copy_list<Nodecl::OpenMP::CopyIn>(
                         copy_in,
                         OpenMP::COPY_DIR_IN,
-                        filename, line,
+                        locus,
                         target_items);
 
                 ObjectList<CopyItem> copy_out = target_info.get_copy_out();
                 make_copy_list<Nodecl::OpenMP::CopyOut>(
                         copy_out,
                         OpenMP::COPY_DIR_OUT,
-                        filename, line,
+                        locus,
                         target_items);
 
                 ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
                 make_copy_list<Nodecl::OpenMP::CopyInout>(
                         copy_inout,
                         OpenMP::COPY_DIR_INOUT,
-                        filename, line,
+                        locus,
                         target_items);
 
                 ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
@@ -303,8 +295,8 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::NDRange::make(
                                 Nodecl::List::make(ndrange_exprs),
-                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                                filename, line));
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                                locus));
                 }
 
                 ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
@@ -313,8 +305,8 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::Onto::make(
                                 Nodecl::List::make(onto_exprs),
-                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                                filename, line));
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                                locus));
                 }
 
                 std::string file = target_info.get_file();
@@ -323,8 +315,8 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::File::make(
                                 Nodecl::Text::make(file),
-                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                                filename, line));
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                                locus));
                 }
 
                 std::string name = target_info.get_name();
@@ -333,8 +325,8 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::Name::make(
                                 Nodecl::Text::make(name),
-                                Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                                filename, line));
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                                locus));
                 }
 
                 ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
@@ -345,20 +337,20 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::Implements::make(
                                 Nodecl::Text::make(it->first),
-                                Nodecl::Symbol::make(it->second, filename, line),
-                                filename, line));
+                                Nodecl::Symbol::make(it->second, locus),
+                                locus));
                 }
 
                 result_list.append(
                         Nodecl::OpenMP::Target::make(
                             Nodecl::List::make(devices),
                             Nodecl::List::make(target_items),
-                            filename, line));
+                            locus));
 
                 if (function_task_info.get_untied())
                 {
                     result_list.append(
-                            Nodecl::OpenMP::Untied::make(filename, line));
+                            Nodecl::OpenMP::Untied::make(locus));
                 }
 
                 if (!function_task_info.get_if_clause_conditional_expression().is_null())
@@ -502,8 +494,7 @@ namespace TL { namespace OpenMP {
                         // 1. Create the new called entity
                         Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
                                 function_called,
-                                func_call.get_filename(),
-                                func_call.get_line());
+                                func_call.get_locus());
 
                         called_entity.set_type(function_called.get_type());
 
@@ -515,8 +506,7 @@ namespace TL { namespace OpenMP {
                         {
                             Nodecl::NodeclBase new_arg =
                                 Nodecl::Symbol::make(new_funcion_related_symbols[i],
-                                        func_call.get_filename(),
-                                        func_call.get_line());
+                                        func_call.get_locus());
 
                             new_arg.set_type(new_funcion_related_symbols[i].get_type().get_lvalue_reference_to());
                             argument_list.append(new_arg);
@@ -528,22 +518,19 @@ namespace TL { namespace OpenMP {
                                 /* alternate name */ nodecl_null(),
                                 /* function_form */ nodecl_null(),
                                 function_called.get_type().returns(),
-                                func_call.get_filename(),
-                                func_call.get_line());
+                                func_call.get_locus());
 
                         // 4. The last parameter of the new function is used to store the return value of the new_function_call
                         Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
                                     new_funcion_related_symbols[new_function_num_related_symbols-1],
-                                    func_call.get_filename(),
-                                    func_call.get_line());
+                                    func_call.get_locus());
 
                         return_param.set_type(new_funcion_related_symbols[new_function_num_related_symbols-1].get_type().get_lvalue_reference_to());
 
                         Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
                                 return_param,
                                 return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
-                                func_call.get_filename(),
-                                func_call.get_line());
+                                func_call.get_locus());
 
                         Nodecl::NodeclBase expression_stmt =
                             Nodecl::ExpressionStatement::make(
@@ -551,8 +538,7 @@ namespace TL { namespace OpenMP {
                                     deref_return_param,
                                     new_function_call,
                                     return_param.get_type(),
-                                    func_call.get_filename(),
-                                    func_call.get_line()));
+                                    func_call.get_locus()));
 
                         // 5. Finally, replace the empty function body of the new function by the new expression stmt
                         new_function_body.replace(expression_stmt);
@@ -574,8 +560,7 @@ namespace TL { namespace OpenMP {
                     // 1. Create the new called entity
                     Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
                             transformed_task,
-                            func_call.get_filename(),
-                            func_call.get_line());
+                            func_call.get_locus());
 
                     called_entity.set_type(transformed_task.get_type());
 
@@ -598,8 +583,7 @@ namespace TL { namespace OpenMP {
 
                         Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
                                 alloca_sym,
-                                func_call.get_filename(),
-                                func_call.get_line());
+                                func_call.get_locus());
 
                         called_entity_alloca.set_type(alloca_sym.get_type());
 
@@ -608,8 +592,7 @@ namespace TL { namespace OpenMP {
                         arguments_alloca.append(
                                 Nodecl::IntegerLiteral::make(::get_signed_int_type(),
                                     const_value_get_signed_int(bytes_to_allocate),
-                                    func_call.get_filename(),
-                                    func_call.get_line()));
+                                    func_call.get_locus()));
 
                         Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
                                 called_entity_alloca,
@@ -617,8 +600,7 @@ namespace TL { namespace OpenMP {
                                 /* alternate_name */ nodecl_null(),
                                 /* function_form */ nodecl_null(),
                                 TL::Type::get_void_type(),
-                                func_call.get_filename(),
-                                func_call.get_line());
+                                func_call.get_locus());
 
                         return_arg_sym.get_internal_symbol()->value = alloca_function_call.get_internal_nodecl();
                     }
@@ -628,8 +610,7 @@ namespace TL { namespace OpenMP {
 
                     Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
                             return_arg_sym,
-                            func_call.get_filename(),
-                            func_call.get_line());
+                            func_call.get_locus());
 
                     return_arg_nodecl.set_type(return_arg_sym.get_type().get_lvalue_reference_to());
 
@@ -644,8 +625,7 @@ namespace TL { namespace OpenMP {
                                     /* alternate_name */ nodecl_null(),
                                     /* function_form */ nodecl_null(),
                                     TL::Type::get_void_type(),
-                                    func_call.get_filename(),
-                                    func_call.get_line()));
+                                    func_call.get_locus()));
 
                     // 6. Prepend the new function call before the enclosing expression statement
                     // of the original function call
@@ -669,8 +649,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::Dereference::make(
                                 return_arg_nodecl,
                                 return_arg_sym.get_type().points_to().get_lvalue_reference_to(),
-                                func_call.get_filename(),
-                                func_call.get_line()));
+                                func_call.get_locus()));
                 }
             }
 
@@ -683,8 +662,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::Utils::prepend_items_before(*it,
                                 Nodecl::OpenMP::TaskwaitShallow::make(
                                     /* environment */ nodecl_null(),
-                                    it->get_filename(),
-                                    it->get_line()));
+                                    it->get_locus()));
                     }
             }
 
@@ -713,8 +691,7 @@ namespace TL { namespace OpenMP {
                      TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
                      Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
                                 return_argument,
-                                return_argument.get_filename(),
-                                return_argument.get_line());
+                                return_argument.get_locus());
 
                      return_argument_nodecl.set_type(return_argument.get_type());
 
@@ -722,8 +699,7 @@ namespace TL { namespace OpenMP {
                              Nodecl::Dereference::make(
                                  return_argument_nodecl,
                                  return_argument_nodecl.get_type().points_to(),
-                                 return_argument.get_filename(),
-                                 return_argument.get_line()));
+                                 return_argument.get_locus()));
 
                     FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
 
@@ -776,8 +752,7 @@ namespace TL { namespace OpenMP {
                     scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
                     param->entity_specs.is_user_declared = 1;
                     param->kind = SK_VARIABLE;
-                    param->file = "";
-                    param->line = 0;
+                    param->locus = make_locus("", 0, 0);
 
                     param->defined = 1;
 
@@ -804,8 +779,7 @@ namespace TL { namespace OpenMP {
                     new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
                     new_function_sym->entity_specs.is_user_declared = 1;
                     new_function_sym->kind = SK_FUNCTION;
-                    new_function_sym->file = "";
-                    new_function_sym->line = 0;
+                    new_function_sym->locus = make_locus("", 0, 0);
                     new_function_sym->type_information = function_type;
                 }
                 else
@@ -813,14 +787,13 @@ namespace TL { namespace OpenMP {
                     scope_entry_t* new_template_sym = new_symbol(
                             decl_context, decl_context.current_scope, name.c_str());
                     new_template_sym->kind = SK_TEMPLATE;
-                    new_template_sym->file = "";
-                    new_template_sym->line = 0;
+                    new_template_sym->locus = make_locus("", 0, 0);
 
                     new_template_sym->type_information = get_new_template_type(
                             decl_context.template_parameters,
                             function_type,
                             uniquestr(name.c_str()),
-                            decl_context, 0, "");
+                            decl_context, make_locus("", 0, 0));
 
                     template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
@@ -865,7 +838,7 @@ namespace TL { namespace OpenMP {
                     Nodecl::NodeclBase &empty_stmt
                     )
             {
-                empty_stmt = Nodecl::EmptyStatement::make("", 0);
+                empty_stmt = Nodecl::EmptyStatement::make(make_locus("", 0, 0));
                 Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
 
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -873,13 +846,13 @@ namespace TL { namespace OpenMP {
                     Nodecl::CompoundStatement compound_statement =
                         Nodecl::CompoundStatement::make(stmt_list,
                                 /* destructors */ Nodecl::NodeclBase::null(),
-                                "", 0);
+                                make_locus("", 0, 0));
                     stmt_list = Nodecl::List::make(compound_statement);
                 }
 
                 Nodecl::NodeclBase context = Nodecl::Context::make(
                         stmt_list,
-                        function_symbol.get_related_scope(), "", 0);
+                        function_symbol.get_related_scope(), make_locus("", 0, 0));
 
                 function_symbol.get_internal_symbol()->defined = 1;
 
@@ -891,7 +864,7 @@ namespace TL { namespace OpenMP {
                             // Internal functions
                             Nodecl::NodeclBase::null(),
                             function_symbol,
-                            "", 0);
+                            make_locus("", 0, 0));
                 }
                 else
                 {
@@ -901,7 +874,7 @@ namespace TL { namespace OpenMP {
                             // Internal functions
                             Nodecl::NodeclBase::null(),
                             function_symbol,
-                            "", 0);
+                            make_locus("", 0, 0));
                 }
             }
 
@@ -994,7 +967,7 @@ namespace TL { namespace OpenMP {
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus().c_str(), \
+                    ctr.get_locus_str().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
@@ -1003,7 +976,7 @@ namespace TL { namespace OpenMP {
 #define INVALID_DECLARATION_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus().c_str(), \
+                    ctr.get_locus_str().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
@@ -1072,19 +1045,16 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = Nodecl::List::make(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                        directive.get_filename(),
-                        directive.get_line()),
+                        directive.get_locus()),
                 Nodecl::OpenMP::FlushAtExit::make(
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
         );
 
         Nodecl::OpenMP::Atomic atomic =
             Nodecl::OpenMP::Atomic::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(atomic);
@@ -1101,14 +1071,12 @@ namespace TL { namespace OpenMP {
 
         Nodecl::OpenMP::FlushAtEntry entry_flush =
             Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line()
+                    directive.get_locus()
             );
 
         Nodecl::OpenMP::FlushAtExit exit_flush =
             Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line()
+                    directive.get_locus()
             );
 
         if (param.is_defined())
@@ -1117,8 +1085,7 @@ namespace TL { namespace OpenMP {
 
             execution_environment = Nodecl::List::make(
                     Nodecl::OpenMP::CriticalName::make(critical_name[0],
-                        directive.get_filename(),
-                        directive.get_line()),
+                        directive.get_locus()),
                     entry_flush, exit_flush);
         }
         else
@@ -1131,8 +1098,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::Critical::make(
                         execution_environment,
                         directive.get_statements().shallow_copy(),
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
                 );
     }
 
@@ -1143,19 +1109,16 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = Nodecl::List::make(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line()),
+                    directive.get_locus()),
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
                 );
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::BarrierFull::make(
                     execution_environment,
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
                 );
     }
 
@@ -1175,8 +1138,7 @@ namespace TL { namespace OpenMP {
         directive.replace(
                 Nodecl::OpenMP::FlushMemory::make(
                     Nodecl::List::make(expr_list),
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
                 );
     }
 
@@ -1188,8 +1150,7 @@ namespace TL { namespace OpenMP {
         directive.replace(
                 Nodecl::OpenMP::Master::make(
                     directive.get_statements().shallow_copy(),
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
                 );
     }
 
@@ -1211,7 +1172,7 @@ namespace TL { namespace OpenMP {
         if (noflush_clause.is_defined())
         {
             environment.append(
-                    Nodecl::OpenMP::NoFlush::make(directive.get_filename(), directive.get_line()));
+                    Nodecl::OpenMP::NoFlush::make(directive.get_locus()));
         }
 
         pragma_line.diagnostic_unused_clauses();
@@ -1219,15 +1180,14 @@ namespace TL { namespace OpenMP {
         {
             Nodecl::OpenMP::DepInout dep_inout = Nodecl::OpenMP::DepInout::make(
                     Nodecl::List::make(expr_list),
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
             environment.append(dep_inout);
 
             directive.replace(
                     Nodecl::OpenMP::WaitOnDependences::make(
                         environment,
-                        directive.get_filename(), directive.get_line())
+                        directive.get_locus())
                     );
         }
         else
@@ -1235,8 +1195,7 @@ namespace TL { namespace OpenMP {
             directive.replace(
                     Nodecl::OpenMP::TaskwaitShallow::make(
                         environment,
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
                     );
         }
     }
@@ -1255,8 +1214,7 @@ namespace TL { namespace OpenMP {
         {
             execution_environment.append(
                     Nodecl::OpenMP::Untied::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         PragmaCustomClause priority = pragma_line.get_clause("priority");
@@ -1267,28 +1225,25 @@ namespace TL { namespace OpenMP {
             if (expr_list.size() != 1)
             {
                 warn_printf("%s: warning: ignoring invalid 'priority' clause in 'task' construct\n",
-                        directive.get_locus().c_str());
+                        directive.get_locus_str().c_str());
             }
             else
             {
                 execution_environment.append(
                         Nodecl::OpenMP::Priority::make(
                             expr_list[0],
-                            directive.get_filename(),
-                            directive.get_line()));
+                            directive.get_locus()));
             }
         }
 
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
 
         // Label task (this is used only for instrumentation)
@@ -1300,23 +1255,21 @@ namespace TL { namespace OpenMP {
             if (str_list.size() != 1)
             {
                 warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                        directive.get_locus().c_str());
+                        directive.get_locus_str().c_str());
             }
             else
             {
                 execution_environment.append(
                         Nodecl::OpenMP::TaskLabel::make(
                             str_list[0],
-                            directive.get_filename(),
-                            directive.get_line()));
+                            directive.get_locus()));
             }
         }
 
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
                         directive.get_statements().shallow_copy(),
-                        directive.get_filename(),
-                        directive.get_line());
+                        directive.get_locus());
 
         async_code = honour_if_clause(pragma_line, directive, async_code);
 
@@ -1348,21 +1301,18 @@ namespace TL { namespace OpenMP {
         // there is no need of adding a flush at end, because the barrier implies also a flush
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
 
         Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
                     directive.get_statements().shallow_copy(),
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
@@ -1382,14 +1332,12 @@ namespace TL { namespace OpenMP {
         {
             execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
             );
 
             execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         Nodecl::List code;
@@ -1397,8 +1345,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::Single::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
-                    directive.get_filename(),
-                    directive.get_line()));
+                    directive.get_locus()));
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
@@ -1439,21 +1386,18 @@ namespace TL { namespace OpenMP {
         {
             execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
             );
             execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         if (is_combined_worksharing)
         {
             execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         ERROR_CONDITION(!statements.is<Nodecl::List>(), "This is not a list!", 0);
@@ -1475,16 +1419,14 @@ namespace TL { namespace OpenMP {
             section_list.append(
                     Nodecl::OpenMP::Section::make(
                         p.get_statements().shallow_copy(),
-                        p.get_filename(),
-                        p.get_line()));
+                        p.get_locus()));
         }
 
         Nodecl::OpenMP::Sections sections =
             Nodecl::OpenMP::Sections::make(
                     execution_environment,
                     section_list,
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
         Nodecl::NodeclBase code = Nodecl::List::make(sections);
 
@@ -1552,8 +1494,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::OpenMP::Schedule::make(
                             chunk,
                             schedule,
-                            directive.get_filename(),
-                            directive.get_line()));
+                            directive.get_locus()));
             }
             else
             {
@@ -1568,30 +1509,26 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::Schedule::make(
                         ::const_value_to_nodecl(const_value_get_signed_int(0)),
                         "static",
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         if (barrier_at_end)
         {
             execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
-                        directive.get_filename(),
-                        directive.get_line())
+                        directive.get_locus())
             );
 
             execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         if (is_combined_worksharing)
         {
             execution_environment.append(
                     Nodecl::OpenMP::CombinedWorksharing::make(
-                        directive.get_filename(),
-                        directive.get_line()));
+                        directive.get_locus()));
         }
 
         ERROR_CONDITION (!statement.is<Nodecl::ForStatement>(), "Invalid tree of kind '%s'", ast_print_node_type(statement.get_kind()));
@@ -1607,11 +1544,9 @@ namespace TL { namespace OpenMP {
                             for_statement.get_upper_bound(),
                             for_statement.get_step(),
                             for_statement.get_induction_variable(),
-                            for_statement.get_filename(),
-                            for_statement.get_line())),
+                            for_statement.get_locus())),
                     for_statement.get_statement(),
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
         Nodecl::NodeclBase code = Nodecl::List::make(distribute);
 
@@ -1659,13 +1594,11 @@ namespace TL { namespace OpenMP {
         // Set implicit flushes at the entry and exit of the combined worksharing
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
@@ -1675,8 +1608,7 @@ namespace TL { namespace OpenMP {
                 execution_environment,
                 num_threads,
                 code,
-                directive.get_filename(),
-                directive.get_line());
+                directive.get_locus());
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
@@ -1712,8 +1644,7 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> devices;
             ObjectList<Nodecl::NodeclBase> symbols;
 
-            int line = decl.get_line();
-            std::string file = decl.get_filename();
+            const locus_t* locus = decl.get_locus();
 
             PragmaCustomClause device_clause = pragma_line.get_clause("device");
             if (device_clause.is_defined())
@@ -1723,20 +1654,20 @@ namespace TL { namespace OpenMP {
                         it != device_names.end();
                         ++it)
                 {
-                    devices.append(Nodecl::Text::make(*it, file, line));
+                    devices.append(Nodecl::Text::make(*it, locus));
                 }
             }
 
             ERROR_CONDITION(!decl.has_symbol(),
-                    "%s: expecting a function declaration or definition", decl.get_locus().c_str());
+                    "%s: expecting a function declaration or definition", decl.get_locus_str().c_str());
 
             Symbol sym = decl.get_symbol();
-            symbols.append(Nodecl::Symbol::make(sym, file, line));
+            symbols.append(Nodecl::Symbol::make(sym, locus));
 
             result = Nodecl::OpenMP::TargetDeclaration::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(symbols),
-                    file, line);
+                    locus);
 
             pragma_line.diagnostic_unused_clauses();
             decl.replace(result);
@@ -1785,8 +1716,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
                        for_statement.shallow_copy(),
-                       for_statement.get_filename(),
-                       for_statement.get_line());
+                       for_statement.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
             stmt.replace(Nodecl::List::make(omp_simd_node));
@@ -1811,8 +1741,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::SimdFunction simd_func =
                 Nodecl::OpenMP::SimdFunction::make(
                         node.shallow_copy(),
-                        node.get_filename(),
-                        node.get_line());
+                        node.get_locus());
 
             node.replace(simd_func);
 
@@ -1923,7 +1852,7 @@ namespace TL { namespace OpenMP {
             if (expr_list.size() != 1)
             {
                 warn_printf("%s: warning: ignoring invalid 'if' clause in 'task' construct\n",
-                        directive.get_locus().c_str());
+                        directive.get_locus_str().c_str());
             }
             else
             {
@@ -1931,8 +1860,7 @@ namespace TL { namespace OpenMP {
                         expr_list[0],
                         Nodecl::List::make(openmp_construct),
                         directive.get_statements().shallow_copy(),
-                        directive.get_filename(),
-                        directive.get_line());
+                        directive.get_locus());
             }
         }
 
@@ -1967,13 +1895,11 @@ namespace TL { namespace OpenMP {
         // Set implicit flushes at the entry and exit of the combined worksharing
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
 
         Nodecl::NodeclBase parallel_code
@@ -1981,8 +1907,7 @@ namespace TL { namespace OpenMP {
                 execution_environment,
                 num_threads,
                 sections_code,
-                directive.get_filename(),
-                directive.get_line());
+                directive.get_locus());
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
@@ -2021,13 +1946,11 @@ namespace TL { namespace OpenMP {
         // Set implicit flushes at the entry and exit of the combined worksharing
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_filename(),
-                    directive.get_line())
+                    directive.get_locus())
         );
 
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
@@ -2037,8 +1960,7 @@ namespace TL { namespace OpenMP {
                     execution_environment,
                     num_threads,
                     code,
-                    directive.get_filename(),
-                    directive.get_line());
+                    directive.get_locus());
 
         parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
@@ -2083,39 +2005,37 @@ namespace TL { namespace OpenMP {
     struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>
     {
         private:
-            std::string _filename;
-            int _line;
+            const locus_t* _locus;
 
         public:
-            SymbolBuilder(const std::string& filename, int line)
-                : _filename(filename), _line(line)
+            SymbolBuilder(const locus_t* locus)
+                : _locus(locus)
             {
             }
 
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
-                return Nodecl::Symbol::make(arg, _filename, _line);
+                return Nodecl::Symbol::make(arg, _locus);
             }
     };
 
     struct ReductionSymbolBuilder : TL::Functor<Nodecl::NodeclBase, ReductionSymbol>
     {
         private:
-            std::string _filename;
-            int _line;
+            const locus_t* _locus;
 
         public:
-            ReductionSymbolBuilder(const std::string& filename, int line)
-                : _filename(filename), _line(line)
+            ReductionSymbolBuilder(const locus_t* locus)
+                : _locus(locus)
             {
             }
 
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
                 return Nodecl::OpenMP::ReductionItem::make(
-                        /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _filename, _line),
-                        /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _filename, _line),
-                        _filename, _line);
+                        /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _locus),
+                        /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _locus),
+                        _locus);
             }
     };
 
@@ -2123,7 +2043,7 @@ namespace TL { namespace OpenMP {
     static void make_data_sharing_list(
             OpenMP::DataSharingEnvironment &data_sharing_env,
             OpenMP::DataSharingAttribute data_attr,
-            const std::string& filename, int line,
+            const locus_t* locus,
             ObjectList<Nodecl::NodeclBase>& result_list)
     {
         TL::ObjectList<Symbol> symbols;
@@ -2142,43 +2062,42 @@ namespace TL { namespace OpenMP {
 
         if (!symbols.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(filename, line));
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(locus));
 
-            result_list.append(T::make(Nodecl::List::make(nodecl_symbols), filename, line));
+            result_list.append(T::make(Nodecl::List::make(nodecl_symbols), locus));
         }
     }
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        int line = pragma_line.get_line();
-        std::string filename = pragma_line.get_filename();
+        const locus_t* locus = pragma_line.get_locus();
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
-                filename, line,
+                locus,
                 result_list);
         // Everything should go transparent here
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_LASTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_AUTO,
-                filename, line,
+                locus,
                 result_list);
 
         TL::ObjectList<ReductionSymbol> reductions;
@@ -2187,10 +2106,10 @@ namespace TL { namespace OpenMP {
         if (!reduction_symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
-                reduction_symbols.map(SymbolBuilder(filename, line));
+                reduction_symbols.map(SymbolBuilder(locus));
 
             result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols),
-                        filename, line));
+                        locus));
         }
 
 
@@ -2206,8 +2125,8 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        locus));
         }
 
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
@@ -2216,21 +2135,21 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
                         Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        locus));
         }
 
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
-            devices.append(Nodecl::Text::make(*it, filename, line));
+            devices.append(Nodecl::Text::make(*it, locus));
         }
 
         result_list.append(
                 Nodecl::OpenMP::Target::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(target_items),
-                    filename, line));
+                    locus));
 
 
         // FIXME - Dependences and copies for combined worksharings???
@@ -2241,18 +2160,18 @@ namespace TL { namespace OpenMP {
         // make_dependency_list<Nodecl::OpenMP::DepIn>(
         //         dependences,
         //         OpenMP::DEP_DIR_IN,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         // make_dependency_list<Nodecl::OpenMP::DepOut>(
         //         dependences,
         //         OpenMP::DEP_DIR_OUT,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         // make_dependency_list<Nodecl::OpenMP::DepInout>(
         //         dependences, OpenMP::DEP_DIR_INOUT,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         // TL::ObjectList<OpenMP::CopyItem> copies;
@@ -2261,19 +2180,19 @@ namespace TL { namespace OpenMP {
         // make_copy_list<Nodecl::OpenMP::CopyIn>(
         //         copies,
         //         OpenMP::COPY_DIR_IN,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         // make_copy_list<Nodecl::OpenMP::CopyOut>(
         //         copies,
         //         OpenMP::COPY_DIR_IN,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         // make_copy_list<Nodecl::OpenMP::CopyInout>(
         //         copies,
         //         OpenMP::COPY_DIR_INOUT,
-        //         pragma_line.get_filename(), pragma_line.get_line(),
+        //         pragma_line.get_locus(),
         //         result_list);
 
         return Nodecl::List::make(result_list);
@@ -2281,45 +2200,44 @@ namespace TL { namespace OpenMP {
 
     Nodecl::List Base::make_execution_environment(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
     {
-        int line = pragma_line.get_line();
-        std::string filename = pragma_line.get_filename();
+        const locus_t* locus = pragma_line.get_locus();
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Firstprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Lastprivate>(
                 data_sharing_env, OpenMP::DS_LASTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::FirstLastprivate>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
-                filename, line,
+                locus,
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Auto>(
                 data_sharing_env, OpenMP::DS_AUTO,
-                filename, line,
+                locus,
                 result_list);
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
         if (!reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(filename, line));
+            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(locus));
 
             result_list.append(
                     Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes),
-                        filename, line)
+                        locus)
                     );
         }
 
@@ -2329,28 +2247,28 @@ namespace TL { namespace OpenMP {
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
-                filename, line,
+                locus,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::DepOut>(
                 dependences,
                 OpenMP::DEP_DIR_OUT,
-                filename, line,
+                locus,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
-                filename, line,
+                locus,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::Concurrent>(
                 dependences, OpenMP::DEP_CONCURRENT,
-                filename, line,
+                locus,
                 result_list);
 
         make_dependency_list<Nodecl::OpenMP::Commutative>(
                 dependences, OpenMP::DEP_COMMUTATIVE,
-                filename, line,
+                locus,
                 result_list);
 
         // Build the tree which contains the target information
@@ -2362,28 +2280,28 @@ namespace TL { namespace OpenMP {
         ObjectList<std::string> device_list = target_info.get_device_list();
         for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
         {
-            devices.append(Nodecl::Text::make(*it, filename, line));
+            devices.append(Nodecl::Text::make(*it, locus));
         }
 
         ObjectList<CopyItem> copy_in = target_info.get_copy_in();
         make_copy_list<Nodecl::OpenMP::CopyIn>(
                 copy_in,
                 OpenMP::COPY_DIR_IN,
-                filename, line,
+                locus,
                 target_items);
 
         ObjectList<CopyItem> copy_out = target_info.get_copy_out();
         make_copy_list<Nodecl::OpenMP::CopyOut>(
                 copy_out,
                 OpenMP::COPY_DIR_OUT,
-                filename, line,
+                locus,
                 target_items);
 
         ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
         make_copy_list<Nodecl::OpenMP::CopyInout>(
                 copy_inout,
                 OpenMP::COPY_DIR_INOUT,
-                filename, line,
+                locus,
                 target_items);
 
         ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
@@ -2393,8 +2311,8 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
-                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), locus),
+                        locus));
         }
 
         ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
@@ -2404,8 +2322,8 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::Onto::make(
                         Nodecl::List::make(onto_exprs),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
-                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), locus),
+                        locus));
         }
 
         std::string file = target_info.get_file();
@@ -2415,8 +2333,8 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::File::make(
                         Nodecl::Text::make(file),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
-                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), locus),
+                        locus));
         }
 
         std::string name = target_info.get_name();
@@ -2425,15 +2343,15 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Name::make(
                         Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), filename, line),
-                        filename, line));
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        locus));
         }
 
         result_list.append(
                 Nodecl::OpenMP::Target::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(target_items),
-                    filename, line));
+                    locus));
 
         return Nodecl::List::make(result_list);
     }
