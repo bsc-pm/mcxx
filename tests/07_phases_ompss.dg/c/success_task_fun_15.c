@@ -12,8 +12,6 @@ test_generator=config/mercurium-ompss
 #include <sys/times.h>
 #include <unistd.h>
 #include <errno.h>
-#include <cblas.h>
-#define potrf_          spotrf_
 
 #pragma omp task inout( (A)[0;NB*NB]) //priority(1)
 void potrf_tile(int NB, double (*A)[NB*NB])
