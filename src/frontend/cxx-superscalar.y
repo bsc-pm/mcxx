@@ -17,7 +17,7 @@
 // Grammar entry point
 subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_superscalar_region_spec_list
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $2, $3, ast_get_locus($2), NULL);
 }
 | SUBPARSE_SUPERSCALAR_DECLARATOR_LIST superscalar_declarator_list
 {
@@ -25,18 +25,18 @@ subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_supersca
 }
 | SUBPARSE_SUPERSCALAR_EXPRESSION expression opt_superscalar_region_spec_list
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_EXPRESSION, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_EXPRESSION, $2, $3, ast_get_locus($2), NULL);
 }
 ;
 
 superscalar_declarator_list : superscalar_declarator opt_superscalar_region_spec_list
 {
-	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(ss_decl);
 }
 | superscalar_declarator_list ',' superscalar_declarator opt_superscalar_region_spec_list
 {
-	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $3, $4, ASTFileName($3), ASTLine($3), NULL);
+	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $3, $4, ast_get_locus($3), NULL);
     $$ = ASTList($1, ss_decl);
 }
 ;
@@ -47,7 +47,7 @@ superscalar_declarator : declarator_id
 }
 | superscalar_declarator '[' assignment_expression ']'
 {
-	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
 }
 ;
 
@@ -71,19 +71,19 @@ superscalar_region_spec_list : superscalar_region_spec
 
 superscalar_region_spec : '{' '}'
 {
-	$$ = ASTLeaf(AST_SUPERSCALAR_REGION_SPEC_FULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_SUPERSCALAR_REGION_SPEC_FULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | '{' expression '}'
 {
-	$$ = ASTMake1(AST_SUPERSCALAR_REGION_SPEC_SINGLE, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake1(AST_SUPERSCALAR_REGION_SPEC_SINGLE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | '{' expression TWO_DOTS expression '}'
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_RANGE, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_RANGE, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | '{' expression ':' expression '}'
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_LENGTH, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_LENGTH, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

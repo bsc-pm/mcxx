@@ -60,8 +60,7 @@ namespace TL { namespace Nanox {
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
-            field.get_internal_symbol()->line = construct.get_line();
+            field.get_internal_symbol()->locus = nodecl_get_locus(construct.get_internal_nodecl());
 
             // Language specific parts
             if (IS_FORTRAN_LANGUAGE)
@@ -94,8 +93,7 @@ namespace TL { namespace Nanox {
         field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
         field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-        field.get_internal_symbol()->file = uniquestr(construct.get_filename().c_str());
-        field.get_internal_symbol()->line = construct.get_line();
+        field.get_internal_symbol()->locus = nodecl_get_locus(construct.get_internal_nodecl());
 
         // Language specific parts
         if (IS_FORTRAN_LANGUAGE)
@@ -172,8 +170,7 @@ namespace TL { namespace Nanox {
                     new_class_type,
                     uniquestr(structure_name.c_str()),
                     related_symbol.get_scope().get_decl_context(),
-                    construct.get_line(),
-                    uniquestr(construct.get_filename().c_str()));
+                    construct.get_locus());
 
             template_type_set_related_symbol(
                     new_template_symbol.get_internal_symbol()->type_information,
@@ -212,8 +209,7 @@ namespace TL { namespace Nanox {
         finish_class_type(new_class_type,
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(),
-                construct.get_filename().c_str(),
-                construct.get_line(),
+                construct.get_locus(),
                 &nodecl_output);
         set_is_complete_type(new_class_type, /* is_complete */ 1);
         set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
@@ -257,8 +253,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
                     /* optative context */ nodecl_null(),
                     new_class_symbol,
-                    construct.get_filename(),
-                    construct.get_line());
+                    construct.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);
         }
 

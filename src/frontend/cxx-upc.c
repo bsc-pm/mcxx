@@ -45,7 +45,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_THREADS->type_information = get_const_qualified_type(get_signed_int_type());
     upc_THREADS->defined = 1;
     upc_THREADS->do_not_print = 1;
-    upc_THREADS->file = "(global scope)";
+    upc_THREADS->locus = make_locus("(global scope)", 0, 0);
     upc_THREADS->entity_specs.is_builtin = 1;
     if (CURRENT_CONFIGURATION->upc_threads != NULL)
     {
@@ -60,7 +60,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_MYTHREAD->type_information = get_const_qualified_type(get_signed_int_type());
     upc_MYTHREAD->defined = 1;
     upc_MYTHREAD->do_not_print = 1;
-    upc_MYTHREAD->file = "(global scope)";
+    upc_MYTHREAD->locus = make_locus("(global scope)", 0, 0);
     upc_MYTHREAD->entity_specs.is_builtin = 1;
     
     // UPC_MAX_BLOCK_SIZE
@@ -71,7 +71,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_UPC_MAX_BLOCK_SIZE->type_information = get_const_qualified_type(get_signed_int_type());
     upc_UPC_MAX_BLOCK_SIZE->defined = 1;
     upc_UPC_MAX_BLOCK_SIZE->do_not_print = 1;
-    upc_UPC_MAX_BLOCK_SIZE->file = "(global scope)";
+    upc_UPC_MAX_BLOCK_SIZE->locus = make_locus("(global scope)", 0, 0);
     upc_UPC_MAX_BLOCK_SIZE->entity_specs.is_builtin = 1;
 
     // upc_lock_t
@@ -82,7 +82,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_lock_t->defined = 1;
     upc_lock_t->type_information = get_void_type();
     upc_lock_t->do_not_print = 1;
-    upc_lock_t->file = "(global scope)";
+    upc_lock_t->locus = make_locus("(global scope)", 0, 0);
     upc_lock_t->entity_specs.is_builtin = 1;
 }
 

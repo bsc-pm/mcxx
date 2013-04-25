@@ -67,6 +67,8 @@ libmcxx_process_la_SOURCES = \
 libmcxx_la_SOURCES = \
   cxx-limits.h \
   cxx-macros.h \
+  cxx-locus.h \
+  cxx-locus.c \
   cxx-asttype.h \
   cxx-asttype.c \
   cxx-ast.c \

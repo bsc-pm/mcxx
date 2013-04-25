@@ -860,7 +860,7 @@ namespace Analysis {
 
     UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ObjectInit& n )
     {
-        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_filename( ), n.get_line( ) );
+        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus() );
         _node->set_killed_var( Utils::ExtendedSymbol( n_sym ) );
 
         // Value of initialization, in case it exists

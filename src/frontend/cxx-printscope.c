@@ -181,7 +181,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
 
     fprintf(stderr, "\n");
 
-    PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in %s:%d\n", entry->file, entry->line);
+    PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in %s\n", locus_to_str(entry->locus));
 
     if (entry->kind == SK_UNDEFINED)
     {
@@ -467,8 +467,8 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
             scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
             if (related_entry != NULL)
             {
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
-                        i, related_entry->symbol_name, related_entry->file, related_entry->line);
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s\n",
+                        i, related_entry->symbol_name, locus_to_str(related_entry->locus));
             }
             else
             {

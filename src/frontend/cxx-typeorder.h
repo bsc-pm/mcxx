@@ -39,12 +39,12 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
         decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments, 
-        const char *filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_tag* f1, struct type_tag* f2,
         decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
         template_parameter_list_t* explicit_template_parameters,
-        const char *filename, int line, char is_conversion);
+        const locus_t* locus, char is_conversion);
 
 LIBMCXX_EXTERN char is_sound_type(struct type_tag* t, decl_context_t decl_context);
 

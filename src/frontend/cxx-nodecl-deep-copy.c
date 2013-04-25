@@ -126,7 +126,7 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
     {
         internal_error("Attempted to perform a deep copy of a context involving a non block-scope."
                 "\nThis is not supported\nContext node at '%s'\n",
-                nodecl_get_locus(n));
+                nodecl_locus_to_str(n));
     }
 
     nested_symbol_map_t* nested_symbol_map = new_nested_symbol_map(enclosing_map);
@@ -147,8 +147,7 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
 
     nodecl_t result = nodecl_make_context(in_context,
             new_decl_context,
-            nodecl_get_filename(n),
-            nodecl_get_line(n));
+            nodecl_get_locus(n));
 
     return result;
 }
@@ -346,9 +345,8 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
 
     nodecl_t child_1 = nodecl_deep_copy_rec(nodecl_get_child(n, 1), new_decl_context, (*synth_symbol_map), synth_symbol_map);
     nodecl_t child_2 = nodecl_deep_copy_rec(nodecl_get_child(n, 2), new_decl_context, (*synth_symbol_map), synth_symbol_map);
-    const char* filename = nodecl_get_filename(n);
-    int line = nodecl_get_line(n);
-    nodecl_t result = nodecl_make_function_code(child_0, child_1, child_2, symbol, filename, line);
+    const locus_t* location = nodecl_get_locus(n);
+    nodecl_t result = nodecl_make_function_code(child_0, child_1, child_2, symbol, location);
     if (new_function_)
     {
         symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, (*synth_symbol_map));

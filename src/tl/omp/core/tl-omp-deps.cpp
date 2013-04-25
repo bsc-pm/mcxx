@@ -55,7 +55,7 @@ namespace TL { namespace OpenMP {
                 {
                     // Mark this as an implicit firstprivate
                     _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
-                    std::cerr << node.get_locus() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                    std::cerr << node.get_locus_str() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
                 }
             }
 
@@ -95,7 +95,7 @@ namespace TL { namespace OpenMP {
             if (!expr.is_valid())
             {
                 std::cerr << expr.get_error_log();
-                std::cerr << expr.get_locus()
+                std::cerr << expr.get_locus_str()
                     << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
@@ -246,7 +246,7 @@ namespace TL { namespace OpenMP {
             if (dep_attr == DEP_DIR_UNDEFINED)
             {
                 error_printf("%s: error: skipping item '%s' in 'depend' clause since it does not have any associated dependence-type\n",
-                        clause.get_locus().c_str(),
+                        clause.get_locus_str().c_str(),
                         it->c_str());
                 continue;
             }

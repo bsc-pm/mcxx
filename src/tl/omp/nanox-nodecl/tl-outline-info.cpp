@@ -196,8 +196,7 @@ namespace TL { namespace Nanox {
                 Nodecl::Dereference::make(
                     symbol_nodecl,
                     sym.get_type().points_to(),
-                    symbol_nodecl.get_filename(),
-                    symbol_nodecl.get_line()));
+                    symbol_nodecl.get_locus()));
 
         outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
     }
@@ -284,12 +283,12 @@ namespace TL { namespace Nanox {
         new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, "", 0);
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
         sym_ref.set_type(t.get_lvalue_reference_to());
 
         this->add_capture_with_value(
                 new_addr_symbol,
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), "", 0));
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), make_locus("", 0, 0)));
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
@@ -397,7 +396,7 @@ namespace TL { namespace Nanox {
                 is_allocated_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 is_allocated_sym.get_internal_symbol()->type_information = fortran_get_default_logical_type();
 
-                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                 TL::Type sym_type = sym.get_type();
 
                 if (!sym_type.is_any_reference())
@@ -443,7 +442,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -466,7 +465,7 @@ namespace TL { namespace Nanox {
 
                     this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
 
-                    result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_lower = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -503,7 +502,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -526,7 +525,7 @@ namespace TL { namespace Nanox {
 
                     this->add_capture_with_value(bound_sym, ubound_tree, conditional_bound);
 
-                    result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_upper = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -616,7 +615,7 @@ namespace TL { namespace Nanox {
         else
         {
             internal_error("%s: data reference '%s' must be valid at this point!\n",
-                    node.get_locus().c_str(),
+                    node.get_locus_str().c_str(),
                     Codegen::get_current().codegen_to_str(node, node.retrieve_context()).c_str()
                     );
         }
@@ -649,7 +648,7 @@ namespace TL { namespace Nanox {
             else
             {
                 internal_error("%s: data reference '%s' must be valid at this point!\n",
-                        it->get_locus().c_str(),
+                        it->get_locus_str().c_str(),
                         Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                         );
             }
@@ -806,12 +805,12 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
-                            it->get_locus().c_str(),
+                            it->get_locus_str().c_str(),
                             sym.get_name().c_str());
                 }
                 if (!l.empty())
                 {
-                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus().c_str());
+                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus_str().c_str());
                 }
             }
 

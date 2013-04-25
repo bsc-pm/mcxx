@@ -42,7 +42,7 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
-        const char* filename, int line, deduction_flags_t flags);
+        const locus_t* locus, deduction_flags_t flags);
 LIBMCXX_EXTERN void unificate_two_expressions(deduction_set_t **unif_set, 
         nodecl_t left_tree, 
         nodecl_t right_tree, 

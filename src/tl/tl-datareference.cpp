@@ -47,7 +47,7 @@ namespace TL
             { 
                 _data_ref._is_valid = false;
                 _data_ref._error_log = 
-                    tree.get_locus() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
+                    tree.get_locus_str() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
             }
 
             // Symbol
@@ -73,8 +73,7 @@ namespace TL
                 _data_ref._base_address = Nodecl::Reference::make(
                         n.shallow_copy(),
                         t.get_pointer_to(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
                 if (IS_FORTRAN_LANGUAGE
                         && _data_ref == n)
@@ -234,8 +233,7 @@ namespace TL
                                     item.shallow_copy(),
                                     /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
                                     item.get_type(),
-                                    item.get_filename(),
-                                    item.get_line());
+                                    item.get_locus());
 
                         rebuilt_type =
                             get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
@@ -345,12 +343,10 @@ namespace TL
                                     _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
                 else if (IS_CXX_LANGUAGE
                         && member.get_member().get_kind() == NODECL_SYMBOL
@@ -363,12 +359,10 @@ namespace TL
                                     member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
                 else
                 {
@@ -378,12 +372,10 @@ namespace TL
                                     _data_ref._base_address,
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
             }
 
@@ -490,8 +482,7 @@ namespace TL
                             current_index->shallow_copy(),
                             current_lower->shallow_copy(),
                             current_index->get_type(),
-                            current_index->get_filename(),
-                            current_index->get_line());
+                            current_index->get_locus());
             }
             else
             {
@@ -506,21 +497,17 @@ namespace TL
                             current_index->shallow_copy(),
                             current_lower->shallow_copy(),
                             current_index->get_type(),
-                            current_index->get_filename(),
-                            current_index->get_line()),
+                            current_index->get_locus()),
                         Nodecl::Mul::make(
                             current_size->shallow_copy(),
                             Nodecl::ParenthesizedExpression::make(
                                 next_indexing,
                                 next_indexing.get_type(),
-                                next_indexing.get_filename(),
-                                next_indexing.get_line()),
+                                next_indexing.get_locus()),
                             current_size->get_type(),
-                            current_size->get_filename(),
-                            current_size->get_line()),
+                            current_size->get_locus()),
                         current_index->get_type(),
-                        current_index->get_filename(),
-                        current_index->get_line());
+                        current_index->get_locus());
 
                 return result;
             }
@@ -577,11 +564,9 @@ namespace TL
                         Nodecl::ParenthesizedExpression::make(
                             index_expression,
                             index_expression.get_type(),
-                            index_expression.get_filename(),
-                            index_expression.get_line()),
+                            index_expression.get_locus()),
                         index_type,
-                        index_expression.get_filename(),
-                        index_expression.get_line()
+                        index_expression.get_locus()
                         );
 
             return result;
@@ -622,11 +607,9 @@ namespace TL
                     Nodecl::ParenthesizedExpression::make(
                         index_expression,
                         index_expression.get_type(),
-                        index_expression.get_filename(),
-                        index_expression.get_line()),
+                        index_expression.get_locus()),
                     index_expression.get_type(),
-                    index_expression.get_filename(),
-                    index_expression.get_line()
+                    index_expression.get_locus()
                     );
 
             return result;
@@ -658,8 +641,7 @@ namespace TL
                 return Nodecl::Reference::make(
                         expr.shallow_copy(),
                         t.get_pointer_to(),
-                        expr.get_filename(),
-                        expr.get_line());
+                        expr.get_locus());
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())
@@ -741,20 +723,16 @@ namespace TL
                             Nodecl::ParenthesizedExpression::make(
                                 upper_bound,
                                 TL::Type::get_int_type(),
-                                upper_bound.get_filename(),
-                                upper_bound.get_line()),
+                                upper_bound.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound,
                                 TL::Type::get_int_type(),
-                                lower_bound.get_filename(),
-                                lower_bound.get_line()),
+                                lower_bound.get_locus()),
                             TL::Type::get_int_type(),
-                            upper_bound.get_filename(),
-                            upper_bound.get_line()),
+                            upper_bound.get_locus()),
                         const_value_to_nodecl(const_value_get_signed_int(1)),
                         TL::Type::get_int_type(),
-                        lower_bound.get_filename(),
-                        lower_bound.get_line());
+                        lower_bound.get_locus());
             }
 
             Nodecl::NodeclBase element_size = compute_sizeof_of_type(relevant_type.array_element(), ignore_regions);
@@ -763,16 +741,13 @@ namespace TL
                     Nodecl::ParenthesizedExpression::make(
                         element_size,
                         TL::Type::get_int_type(),
-                        element_size.get_filename(),
-                        element_size.get_line()),
+                        element_size.get_locus()),
                     Nodecl::ParenthesizedExpression::make(
                         array_size,
                         TL::Type::get_int_type(),
-                        array_size.get_filename(),
-                        array_size.get_line()),
+                        array_size.get_locus()),
                     TL::Type::get_int_type(),
-                    element_size.get_filename(),
-                    element_size.get_line());
+                    element_size.get_locus());
 
             return array_size;
         }
@@ -869,19 +844,15 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     lower.shallow_copy(),
                                     TL::Type::get_int_type(),
-                                    expr.get_filename(),
-                                    expr.get_line()),
+                                    expr.get_locus()),
                                 Nodecl::ParenthesizedExpression::make(
                                     lower_bound.shallow_copy(),
                                     TL::Type::get_int_type(),
-                                    lower_bound.get_filename(),
-                                    lower_bound.get_line()),
+                                    lower_bound.get_locus()),
                                 TL::Type::get_int_type(),
-                                expr.get_filename(),
-                                expr.get_line()),
+                                expr.get_locus()),
                             TL::Type::get_int_type(),
-                            expr.get_filename(),
-                            expr.get_line());
+                            expr.get_locus());
 
                 indexes.append(current_index);
                 if (t.is_array())
@@ -966,8 +937,7 @@ namespace TL
                     compute_sizeof_of_type(t, /* ignore regions */ true),
                     Nodecl::ParenthesizedExpression::make(result, result.get_type()),
                     get_ptrdiff_t_type(),
-                    result.get_filename(),
-                    result.get_line());
+                    result.get_locus());
 
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
 
@@ -983,8 +953,7 @@ namespace TL
                         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
                         Nodecl::ParenthesizedExpression::make(result, result.get_type()),
                         get_ptrdiff_t_type(),
-                        expr.get_filename(),
-                        expr.get_line());
+                        expr.get_locus());
             }
             // (*p)[e]
             else if (subscripted.is<Nodecl::Dereference>())
@@ -996,8 +965,7 @@ namespace TL
                         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
                         Nodecl::ParenthesizedExpression::make(result, result.get_type()),
                         get_ptrdiff_t_type(),
-                        expr.get_filename(),
-                        expr.get_line());
+                        expr.get_locus());
             }
             else if (subscripted.is<Nodecl::Shaping>())
             {
@@ -1033,19 +1001,18 @@ namespace TL
                         Nodecl::Reference::make(
                             expr,
                             expr.get_type().get_pointer_to(),
-                            expr.get_filename(), expr.get_line()),
+                            expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_filename(), expr.get_line()),
+                        "C", expr.get_locus()),
                     Nodecl::Cast::make(
                         Nodecl::Reference::make(
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs(),
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs().get_type().get_pointer_to(),
-                            expr.get_filename(), expr.get_line()),
+                            expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_filename(), expr.get_line()),
+                        "C", expr.get_locus()),
                     get_ptrdiff_t_type(),
-                    expr.get_filename(),
-                    expr.get_line());
+                    expr.get_locus());
 
             return result;
         }

@@ -1916,8 +1916,8 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
             get_oid_from_string_table(handle, symbol->symbol_name), // name
             symbol->kind, // kind
             type_id, // type
-            get_oid_from_string_table(handle, symbol->file), // file
-            symbol->line, // line
+            get_oid_from_string_table(handle, locus_get_filename(symbol->locus)), // file
+            locus_get_line(symbol->locus), // line
             value_oid,
             bit_str,
             related_decl_context_oid,
@@ -2074,8 +2074,7 @@ static int get_symbol(void *datum,
 
     (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
-    (*result)->file = filename;
-    (*result)->line = line;
+    (*result)->locus = make_locus(filename, line, 0);
 
     (*result)->extended_data = xcalloc(1, sizeof(*((*result)->extended_data)));
     extensible_struct_init(&(*result)->extended_data);
@@ -2430,7 +2429,7 @@ static int get_ast(void *datum,
     sqlite3_uint64 const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
     // char is_value_dependent = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
 
-    p->a = ASTLeaf(node_kind, filename, line, text);
+    p->a = ASTLeaf(node_kind, make_locus(filename, line, 0), text);
     AST a = p->a;
 
     insert_map_ptr(handle, oid, a);
@@ -2534,7 +2533,7 @@ static int get_type(void *datum,
     const char* types = values[7];
     const char* symbols = values[8];
 
-    nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+    nodecl_t nodecl_fake = nodecl_make_text("", make_locus("", 0, 0));
 
     // We early register the type to avoid troublesome loops
     *pt = _type_get_empty_type();
