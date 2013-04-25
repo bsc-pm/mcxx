@@ -486,7 +486,9 @@ namespace TL { namespace OpenMP {
                             new_function_code,
                             new_function_body);
 
-                    Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
+                    // Do not append the new function code to the tree at this point because the code
+                    // contains a call to the original function which should not be transformed
+                    new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
 
                    // Create the code of the new void function. This code should be a call to the original function
                    // using the parameters of this new function as arguments (except the last one, which is the return)
@@ -674,6 +676,9 @@ namespace TL { namespace OpenMP {
                 {
                     TL::Symbol function_called = it->first;
                     TL::Symbol new_function = it->second;
+
+                    // Append to the top level node the function code of the new function
+                    Nodecl::Utils::append_to_top_level_nodecl(new_function.get_function_code());
 
                     FunctionTaskInfo function_task_info = _function_task_set->get_function_task(function_called);
                     _function_task_set->remove_function_task(function_called);
