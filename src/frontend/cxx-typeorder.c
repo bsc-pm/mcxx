@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -154,19 +154,19 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
 static char is_less_or_equal_specialized_template_conversion_function(
         type_t* f1, type_t* f2, 
         decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line);
+        const locus_t* locus);
 
 static char is_less_or_equal_specialized_template_function_common_(type_t* f1, type_t* f2,
         decl_context_t decl_context, 
         template_parameter_list_t** deduced_template_arguments,
         template_parameter_list_t* explicit_template_parameters,
-        const char *filename, int line, char is_conversion,
+        const locus_t* locus, char is_conversion,
         char is_template_class)
 {
     if (is_conversion)
     {
         return is_less_or_equal_specialized_template_conversion_function(f1, f2,
-                decl_context, deduced_template_arguments, filename, line);
+                decl_context, deduced_template_arguments, locus);
     }
 
     ERROR_CONDITION(!is_function_type(f1) || !is_function_type(f2), "functions types are not", 0);
@@ -228,7 +228,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
                 arguments, num_arguments,
                 parameters, decl_context,
                 deduced_template_arguments, 
-                filename, line,
+                locus,
                 explicit_template_parameters,
                 deduction_flags))
     {
@@ -248,7 +248,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         
         type_t* updated_type = update_type(original_type, 
                 updated_context,
-                filename, line);
+                locus);
 
         // Check the soundness of the updated type
         if (updated_type == NULL
@@ -295,7 +295,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
 
 char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
         decl_context_t decl_context UNUSED_PARAMETER,
-        template_parameter_list_t** deduced_template_arguments, const char *filename, int line)
+        template_parameter_list_t** deduced_template_arguments, const locus_t* locus)
 {
     ERROR_CONDITION(!is_named_class_type(c1)
             || !is_named_class_type(c2)
@@ -327,7 +327,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             named_type_get_symbol(c1)->decl_context, 
             deduced_template_arguments, 
             /* explicit_template_parameters */ NULL,
-            filename, line,
+            locus,
             /* is_conversion */ 0,
             /* is_template_class */ 1);
 }
@@ -336,7 +336,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
         type_t* f1, type_t* f2, 
         decl_context_t decl_context, 
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -382,7 +382,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
                 arguments, num_arguments,
                 parameters, decl_context,
                 deduced_template_arguments,
-                filename, line,
+                locus,
                 /* explicit_template_parameters */ NULL,
                 deduction_flags_empty()))
     {
@@ -402,7 +402,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
         
         type_t* updated_type = update_type(original_type, 
                 updated_context,
-                filename, line);
+                locus);
 
         // Check the soundness of the updated type
         if (updated_type == NULL
@@ -451,10 +451,10 @@ static char is_less_or_equal_specialized_template_conversion_function(
 char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
         decl_context_t decl_context, template_parameter_list_t** deduction_set,
         template_parameter_list_t* explicit_template_parameters,
-        const char *filename, int line, char is_conversion)
+        const locus_t* locus, char is_conversion)
 {
     return is_less_or_equal_specialized_template_function_common_(
             f1, f2, decl_context, deduction_set, 
             explicit_template_parameters, 
-            filename, line, is_conversion, /* is_template_class */ 0);
+            locus, is_conversion, /* is_template_class */ 0);
 }

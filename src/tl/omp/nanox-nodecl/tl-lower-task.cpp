@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -83,8 +83,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -105,8 +104,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
@@ -121,7 +119,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         finish_class_type(new_class_type, 
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(), 
-                "", 0,
+                make_locus("", 0, 0),
                 // construct.get_filename().c_str(),
                 // construct.get_line(),
                 &nodecl_output);
@@ -138,8 +136,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
                     /* optative context */ nodecl_null(),
                     new_class_symbol,
-                    construct.get_filename(),
-                    construct.get_line());
+                    construct.get_locus());
 
             TL::ObjectList<Nodecl::NodeclBase> defs =
                 Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
@@ -989,8 +986,7 @@ void LoweringVisitor::fill_arguments(
                             base_expr = Nodecl::Reference::make(
                                     (*it)->get_base_address_expression().shallow_copy(),
                                     t,
-                                    base_expr.get_filename(),
-                                    base_expr.get_line());
+                                    base_expr.get_locus());
                         }
                         else
                         {
@@ -1510,7 +1506,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
@@ -1849,7 +1845,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
-                    ctr.get_locus().c_str(),
+                    ctr.get_locus_str().c_str(),
                     (*it)->get_symbol().get_name().c_str(),
                     copies[0].expression.prettyprint().c_str());
         }
@@ -2074,7 +2070,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 ERROR_CONDITION(!dep_expr.is_valid(),
                         "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus().c_str(),
+                        dep_expr.get_locus_str().c_str(),
                         dep_expr.prettyprint().c_str(),
                         dep_expr.get_error_log().c_str());
 
@@ -2235,6 +2231,10 @@ void LoweringVisitor::fill_dependences_internal(
                             array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
                         }
 
+                        // Meaning that in this context A(:) is OK
+                        if (region_lb.is_null())
+                            region_lb = array_lb;
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -2242,6 +2242,9 @@ void LoweringVisitor::fill_dependences_internal(
                         lb = diff.parse_expression(ctr);
 
                         size = contiguous_array_type.array_get_region_size();
+
+                        if (size.is_null())
+                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
                     }
                     else
                     {
@@ -2333,7 +2336,7 @@ void LoweringVisitor::fill_dependences_internal(
     }
     else
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus().c_str());
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -3082,7 +3082,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
     ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     // The filename can be used in the future (e.g. in tl-nanos.cpp)
-    ast_set_filename(translation_unit->parsed_tree, translation_unit->input_filename);
+    ast_set_locus(translation_unit->parsed_tree, make_locus(translation_unit->input_filename, 0, 0));
     
     timing_end(&timing_parsing);
 
@@ -3098,7 +3098,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
 static AST get_translation_unit_node(void)
 {
-    return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+    return ASTMake1(AST_TRANSLATION_UNIT, NULL, make_locus("", 0, 0), NULL);
 }
 
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, 
@@ -3896,7 +3896,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n", 0);
+            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -4120,7 +4120,7 @@ static void link_files(const char** file_list, int num_files,
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed", 0);
+        running_error("Link failed");
     }
     timing_end(&timing_link);
 
@@ -4174,7 +4174,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable", 0);
+                    running_error("Error when embedding SPU executable");
                 }
 
                 remove(configuration->linked_output_filename);
@@ -4223,7 +4223,7 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler", 0);
+                    running_error("Error when complining embedding assembler");
                 }
 
                 remove(configuration->linked_output_filename);

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -116,7 +116,7 @@ namespace TL
         {
             std::cerr << "For Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
+                << " at " << n.get_locus_str()
                 << std::endl;
 
             return Ret();
@@ -147,7 +147,7 @@ namespace TL
         {
             std::cerr << "Loop Header Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
+                << " at " << n.get_locus_str()
                 << std::endl;
 
             return Ret();
@@ -161,7 +161,7 @@ namespace TL
         {
             running_error("Vectorizer (%s): Declaration of new variables is not supported yet "\
                           "in LoopControl. Please, declare them outside of the loop.",
-                          node.get_locus().c_str());
+                          node.get_locus_str().c_str());
         }
 
         void VectorizerVisitorLoopInit::visit(const Nodecl::Assignment& node)
@@ -182,7 +182,7 @@ namespace TL
         {
             std::cerr << "Loop Init Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
+                << " at " << n.get_locus_str()
                 << std::endl;
 
             return Ret();
@@ -253,24 +253,20 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     step,
                                     step.get_type(),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
                                     const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 step.get_type(),
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             step.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
                 }
                 else
                 {
                     running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
-                            node.get_locus().c_str());
+                            node.get_locus_str().c_str());
                 }
 
 
@@ -285,20 +281,15 @@ namespace TL
                                         Nodecl::IntegerLiteral::make(
                                             TL::Type::get_unsigned_int_type(),
                                             const_value_get_unsigned_int(1),
-                                            node.get_filename(),
-                                            node.get_line()),
+                                            node.get_locus()),
                                         rhs_type,
-                                        node.get_filename(),
-                                        node.get_line()),
+                                        node.get_locus()),
                                     rhs_type,
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 rhs_type,
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             rhs_type,
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                 rhs.replace(new_node);
             }
@@ -325,24 +316,20 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     step,
                                     step.get_type(),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
                                     const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 step.get_type(),
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             step.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
                 }
                 else
                 {
                     running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
-                            node.get_locus().c_str());
+                            node.get_locus_str().c_str());
                 }
 
 
@@ -357,32 +344,27 @@ namespace TL
                                         Nodecl::IntegerLiteral::make(
                                             TL::Type::get_unsigned_int_type(),
                                             const_value_get_unsigned_int(1),
-                                            node.get_filename(),
-                                            node.get_line()),
+                                            node.get_locus()),
                                         lhs_type,
-                                        node.get_filename(),
-                                        node.get_line()),
+                                        node.get_locus()),
                                     lhs_type,
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 lhs_type,
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             lhs_type,
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                 lhs.replace(new_node);
             }
             else if (lhs_const_flag && rhs_const_flag)
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are constant.", node.get_locus().c_str());
+                        "condition. Both expressions are constant.", node.get_locus_str().c_str());
             }
             else
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are not constant.", node.get_locus().c_str());
+                        "condition. Both expressions are not constant.", node.get_locus_str().c_str());
             }
         }
 
@@ -390,7 +372,7 @@ namespace TL
         {
             std::cerr << "Loop Cond Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
+                << " at " << n.get_locus_str()
                 << std::endl;
 
             return Ret();
@@ -418,11 +400,9 @@ namespace TL
                                 Vectorizer::_analysis_info->get_induction_variable_increment(
                                     Vectorizer::_analysis_scopes->back(),
                                     rhs),
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             node.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                 node.replace(new_node);
             }
@@ -442,21 +422,17 @@ namespace TL
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
                                     const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
                                         Vectorizer::_analysis_scopes->back(),
                                         rhs),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 node.get_type(),
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             node.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                 node.replace(new_node);
             }
@@ -477,21 +453,17 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     node.get_rhs(),
                                     node.get_type(),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
                                         Vectorizer::_analysis_scopes->back(),
                                         lhs),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 node.get_type(),
-                                node.get_filename(),
-                                node.get_line()),
+                                node.get_locus()),
                             node.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                 node.replace(new_node);
             }
@@ -507,7 +479,7 @@ namespace TL
         {
             std::cerr << "Loop Next Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
+                << " at " << n.get_locus_str()
                 << std::endl;
 
             return Ret();

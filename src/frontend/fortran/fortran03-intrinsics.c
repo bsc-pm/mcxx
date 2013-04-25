@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -1221,13 +1221,13 @@ static scope_entry_t* register_specific_intrinsic_name(
     }
 
     nodecl_t nodecl_actual_arguments[MAX_SPECIFIC_PARAMETERS] = { 
-        t0 != NULL ? nodecl_make_type(t0, NULL, 0) : nodecl_null(),
-        t1 != NULL ? nodecl_make_type(t1, NULL, 0) : nodecl_null(),
-        t2 != NULL ? nodecl_make_type(t2, NULL, 0) : nodecl_null(),
-        t3 != NULL ? nodecl_make_type(t3, NULL, 0) : nodecl_null(),
-        t4 != NULL ? nodecl_make_type(t4, NULL, 0) : nodecl_null(),
-        t5 != NULL ? nodecl_make_type(t5, NULL, 0) : nodecl_null(),
-        t6 != NULL ? nodecl_make_type(t6, NULL, 0) : nodecl_null() 
+        t0 != NULL ? nodecl_make_type(t0, make_locus("", 0, 0)) : nodecl_null(),
+        t1 != NULL ? nodecl_make_type(t1, make_locus("", 0, 0)) : nodecl_null(),
+        t2 != NULL ? nodecl_make_type(t2, make_locus("", 0, 0)) : nodecl_null(),
+        t3 != NULL ? nodecl_make_type(t3, make_locus("", 0, 0)) : nodecl_null(),
+        t4 != NULL ? nodecl_make_type(t4, make_locus("", 0, 0)) : nodecl_null(),
+        t5 != NULL ? nodecl_make_type(t5, make_locus("", 0, 0)) : nodecl_null(),
+        t6 != NULL ? nodecl_make_type(t6, make_locus("", 0, 0)) : nodecl_null() 
     };
 
     scope_entry_t* specific_entry = fortran_solve_generic_intrinsic_call(generic_entry, 
@@ -6444,8 +6444,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified,
-        const char* filename,
-        int line)
+        const locus_t* locus)
 {
     nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
@@ -6471,7 +6470,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
             *nodecl_simplified = (symbol->entity_specs.simplify_function)(symbol, num_actual_arguments, nodecl_arguments);
             if (!nodecl_is_null(*nodecl_simplified))
             {
-                nodecl_set_location(*nodecl_simplified, filename, line);
+                nodecl_set_locus(*nodecl_simplified, locus);
             }
         }
     }
@@ -7472,7 +7471,7 @@ static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_
                 ieee_arithmetic->related_decl_context,
                 sym_in_module->symbol_name,
                 ieee_exceptions,
-                "", 0);
+                make_locus("", 0, 0));
     }
 }
 

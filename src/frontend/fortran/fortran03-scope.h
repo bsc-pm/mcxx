@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -45,12 +45,10 @@ LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 // only shows implicit symbols.
 LIBMF03_EXTERN scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
-        const char* filename, 
-        int line);
+        const locus_t* locus);
 LIBMF03_EXTERN scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context, 
         const char* unqualified_name,
-        const char* filename, 
-        int line);
+        const locus_t* locus);
 LIBMF03_EXTERN scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name);
 
 // Creates a new fortran symbol. Use this function instead of new_symbol as

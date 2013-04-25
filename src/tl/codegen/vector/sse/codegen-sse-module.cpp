@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -70,7 +70,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -116,7 +116,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -178,7 +178,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -224,7 +224,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -266,7 +266,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -308,7 +308,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -350,7 +350,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -380,7 +380,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -410,7 +410,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -440,7 +440,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -455,7 +455,7 @@ namespace Codegen
         fprintf(stderr, "Warning: Logical Or operation in '%s' is not "
                 "supported in SSE. Bitwise Or operation will be used instead. "
                 "This might change the expected behaviour of the application.\n",
-                node.get_locus().c_str()); 
+                node.get_locus_str().c_str()); 
 
         visit(node.as<Nodecl::VectorBitwiseOr>());
     }                                                 
@@ -502,7 +502,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
     }                                                 
 
@@ -620,7 +620,7 @@ namespace Codegen
         else
         {
             fprintf(stderr, "SSE Codegen: Conversion at '%s' is not supported yet.\n", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
     }
 
@@ -660,7 +660,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }      
 
         file << "("; 
@@ -710,7 +710,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         file << "("; 
@@ -754,7 +754,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         file << "("; 
@@ -793,7 +793,7 @@ namespace Codegen
         {
             running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         walk(node.get_lhs());
@@ -851,7 +851,7 @@ namespace Codegen
             {
                 running_error("SSE Codegen: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
-                        node.get_locus().c_str());
+                        node.get_locus_str().c_str());
             }
         }
     }
@@ -860,11 +860,11 @@ namespace Codegen
     { 
         fprintf(stderr, "SSE Codegen: Unknown node %s at %s.\n",
                 ast_print_node_type(n.get_kind()),
-                n.get_locus().c_str()); 
+                n.get_locus_str().c_str()); 
         /*
            running_error("SSE Codegen: Unknown node %s at %s.",
            ast_print_node_type(n.get_kind()),
-           n.get_locus().c_str()); 
+           n.get_locus_str().c_str()); 
          */
         return Ret(); 
     }

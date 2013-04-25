@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -110,8 +110,7 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
             TL::Symbol sym_2 = it->second;
             Nodecl::NodeclBase result = Nodecl::Symbol::make(
                     sym_2,
-                    sym_2.get_filename(),
-                    sym_2.get_line());
+                    sym_2.get_locus());
 
             result.set_type(sym_2.get_type());
 
@@ -203,7 +202,7 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
     {
         if (sym.is_saved_expression())
         {
-            return rewrite_expression_in_dependency_c(sym.get_value(), map);
+            return rewrite_expression_in_dependency_c(sym.get_value().shallow_copy(), map);
         }
 
         param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
@@ -286,40 +285,6 @@ static TL::Type rewrite_dependency_type_c(TL::Type t, const param_sym_to_arg_sym
     }
 }
 
-static Nodecl::NodeclBase rewrite_single_dependency_c(Nodecl::NodeclBase node, const param_sym_to_arg_sym_t& map)
-{
-    if (node.is_null())
-        return node;
-
-    node.set_type(rewrite_dependency_type_c(node.get_type(), map));
-
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
-            it++)
-    {
-        *it = rewrite_single_dependency_c(*it, map);
-    }
-
-    node.rechild(children);
-
-    // Update indexes where is due
-    if (node.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscr = node.as<Nodecl::ArraySubscript>();
-        arr_subscr.set_subscripts(
-                rewrite_expression_in_dependency_c(arr_subscr.get_subscripts(), map));
-    }
-    else if (node.is<Nodecl::Shaping>())
-    {
-        Nodecl::Shaping shaping = node.as<Nodecl::Shaping>();
-        shaping.set_shape(
-                rewrite_expression_in_dependency_c(shaping.get_shape(), map));
-    }
-
-    return node;
-}
-
 static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
         const TL::ObjectList<OutlineDataItem::DependencyItem>& deps,
         const param_sym_to_arg_sym_t& map)
@@ -399,8 +364,7 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
             new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
-            new_vla_dim->file = nodecl_get_filename(array_size.get_internal_nodecl());
-            new_vla_dim->line = nodecl_get_line(array_size.get_internal_nodecl());
+            new_vla_dim->locus = nodecl_get_locus(array_size.get_internal_nodecl());
 
             param_sym_to_arg_sym[old_vla_dim] = new_vla_dim;
 
@@ -515,8 +479,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 Nodecl::Reference::make(
                     class_object,
                     new_symbol.get_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()));
+                    function_call.get_locus()));
     }
 
     OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
@@ -539,7 +502,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         if (found.empty())
         {
             internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
-                    arguments.get_locus().c_str(),
+                    arguments.get_locus_str().c_str(),
                     parameter.get_name().c_str());
         }
 
@@ -716,11 +679,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // The symbol which represents the object 'this' must be dereferenced
         Nodecl::NodeclBase nodecl_arg = Nodecl::Dereference::make(
                 Nodecl::Symbol::make(*args_it,
-                    function_call.get_filename(),
-                    function_call.get_line()),
+                    function_call.get_locus()),
                 args_it->get_type().points_to(),
-                function_call.get_filename(),
-                function_call.get_line());
+                function_call.get_locus());
 
         arg_list.append(nodecl_arg);
         args_it++;
@@ -733,8 +694,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase nodecl_arg;
 
         nodecl_arg = Nodecl::Symbol::make(*args_it,
-                function_call.get_filename(),
-                function_call.get_line());
+                function_call.get_locus());
         nodecl_arg.set_type(args_it->get_type());
 
         arg_list.append(nodecl_arg);
@@ -753,8 +713,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // FIXME - Could this ever happen?
         function_form =
             Nodecl::CxxFunctionFormTemplateId::make(
-                    function_call.get_filename(),
-                    function_call.get_line());
+                    function_call.get_locus());
 
         TemplateParameters template_args =
             called.get_template_parameters();
@@ -769,10 +728,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_alternate_name().shallow_copy(),
                     function_form,
                     Type::get_void_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()),
-                function_call.get_filename(),
-                function_call.get_line());
+                    function_call.get_locus()),
+                function_call.get_locus());
 
     TL::ObjectList<Nodecl::NodeclBase> list_stmt;
     list_stmt.append(expr_statement);
@@ -787,8 +744,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase expr_direct_call_to_function = 
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
-                    function_call.get_filename(),
-                    function_call.get_line());
+                    function_call.get_locus());
 
         Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
 
@@ -799,14 +755,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                         Nodecl::CompoundStatement::make(
                             Nodecl::List::make(new_construct),
                             Nodecl::NodeclBase::null(),
-                            function_call.get_filename(),
-                            function_call.get_line())),
+                            function_call.get_locus())),
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
                             Nodecl::List::make(expr_direct_call_to_function),
                             Nodecl::NodeclBase::null(),
-                            function_call.get_filename(),
-                            function_call.get_line())));
+                            function_call.get_locus())));
 
         new_code = if_then_else_statement;
     }
@@ -976,8 +930,7 @@ static TL::Symbol new_function_symbol_adapter(
     new_function_sym->entity_specs.is_user_declared = 1;
 
     new_function_sym->kind = SK_FUNCTION;
-    new_function_sym->file = "";
-    new_function_sym->line = 0;
+    new_function_sym->locus = make_locus("", 0, 0);
 
     function_context.function_scope->related_entry = new_function_sym;
     function_context.block_scope->related_entry = new_function_sym;
@@ -1156,7 +1109,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     if (current_function.is_nested_function())
     {
         error_printf("%s: error: call to task function '%s' from an internal subprogram is not supported\n",
-                construct.get_locus().c_str(),
+                construct.get_locus_str().c_str(),
                 called_task_function.get_qualified_name().c_str());
         return;
     }
@@ -1224,7 +1177,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
         if (found.empty())
         {
             internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
-                    construct.get_locus().c_str(),
+                    construct.get_locus_str().c_str(),
                     parameter.get_name().c_str());
         }
 

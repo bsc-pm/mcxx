@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -103,7 +103,7 @@ LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry
         gather_decl_spec_list_t* gather_decl_spec_list);
 
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
-        const char *filename, int line, nodecl_t* nodecl_output);
+        const locus_t* locus, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context);
 
@@ -134,7 +134,7 @@ LIBMCXX_EXTERN void introduce_using_entities(
         scope_entry_t* current_class,
         char is_class_scope, 
         access_specifier_t current_access,
-        const char* filename, int line);
+        const locus_t* locus);
 
 void build_scope_friend_declarator(decl_context_t decl_context, 
         gather_decl_spec_t *gather_info,

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -614,7 +614,7 @@ namespace Nodecl
                     if( !const_value_is_zero( c_value ))
                     {
                         replace( n, Add::make( const_value_to_nodecl(c_value), lhs_rhs,
-                                               rhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                                               rhs.get_type( ), n.get_locus( ) ) );
                     }
                     else
                     {
@@ -624,7 +624,7 @@ namespace Nodecl
             }
             else
             {   // R2
-                replace( n, Add::make( rhs, lhs, lhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                replace( n, Add::make( rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
             }
         }
     }
@@ -656,7 +656,7 @@ namespace Nodecl
                 NodeclBase c = Minus::make( rhs, lhs_lhs, rhs.get_type( ) );
                 const_value_t* c_value = _calc.compute_const_value( c );
                 replace( n, LowerOrEqualThan::make( lhs_rhs, const_value_to_nodecl( c_value ),
-                                                    rhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                                                    rhs.get_type( ), n.get_locus( ) ) );
             }
             }
         }
@@ -681,7 +681,7 @@ namespace Nodecl
             {
                 NodeclBase neg_rhs = Neg::make( rhs, rhs.get_type( ) );
                 replace( n, Add::make( neg_rhs, lhs,
-                                       lhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                                       lhs.get_type( ), n.get_locus( ) ) );
             }
         }
         else if( equal_nodecls( lhs, rhs ) )
@@ -739,13 +739,13 @@ namespace Nodecl
                             NodeclBase c = Mul::make( lhs_lhs, rhs, rhs.get_type() );
                             const_value_t* c_value = _calc.compute_const_value( c );
                             replace( n, Mul::make( const_value_to_nodecl( c_value ), lhs_rhs,
-                                                   rhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                                                   rhs.get_type( ), n.get_locus( ) ) );
                         }
                     }
                 }
                 else
                 {   // R8
-                    replace( n, Mul::make( rhs, lhs, lhs.get_type( ), n.get_filename( ), n.get_line( ) ) );
+                    replace( n, Mul::make( rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
                 }
             }
         }
@@ -1378,8 +1378,7 @@ namespace TL
                                     rhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
-                                    rhs.get_filename(),
-                                    rhs.get_line());
+                                    rhs.get_locus());
                         }
                     }
                     else
@@ -1403,8 +1402,7 @@ namespace TL
                                     lhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
-                                    lhs.get_filename(),
-                                    lhs.get_line());
+                                    lhs.get_locus());
                         }
                     }
                 }
@@ -1445,8 +1443,7 @@ namespace TL
                                     rhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
-                                    rhs.get_filename(),
-                                    rhs.get_line());
+                                    rhs.get_locus());
                         }
                     }
                     else
@@ -1470,8 +1467,7 @@ namespace TL
                                     lhs.shallow_copy(),
                                     const_value_to_nodecl(const_value_get_one(4, 1)),
                                     t,
-                                    lhs.get_filename(),
-                                    lhs.get_line());
+                                    lhs.get_locus());
                         }
                     }
                 }
@@ -1550,8 +1546,7 @@ namespace TL
                     _step = Nodecl::Neg::make(
                             rhs,
                             t,
-                            rhs.get_filename(),
-                            rhs.get_line());
+                            rhs.get_locus());
                 }
             }
             // _induction_var = _induction_var + incr
@@ -1596,8 +1591,7 @@ namespace TL
                     _step = Nodecl::Neg::make(
                             rhs.shallow_copy(),
                             t,
-                            rhs.get_filename(),
-                            rhs.get_line());
+                            rhs.get_locus());
                 }
             }
             else

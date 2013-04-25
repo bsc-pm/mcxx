@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -502,7 +502,7 @@ namespace TL
                     {
                         std::string dep_str = get_dependency_direction_name(_direction);
 
-                        std::cerr << nodecl.get_locus() << ": warning: ignoring invalid dependence " 
+                        std::cerr << nodecl.get_locus_str() << ": warning: ignoring invalid dependence " 
                             << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
                     }
 
@@ -566,7 +566,7 @@ namespace TL
                                 error_printf("%s: error: dependence %s(%s) "
                                         "only names a parameter. The value of a parameter is never copied out of a function "
                                         "so it cannot generate an output dependence\n",
-                                        expr.get_locus().c_str(),
+                                        expr.get_locus_str().c_str(),
                                         get_dependency_direction_name(_direction).c_str(),
                                         expr.prettyprint().c_str());
                                 return true;
@@ -575,7 +575,7 @@ namespace TL
                             {
                                 warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
                                     "is always copied in and will never define such dependence\n",
-                                    expr.get_locus().c_str(),
+                                    expr.get_locus_str().c_str(),
                                     get_dependency_direction_name(_direction).c_str(),
                                     expr.prettyprint().c_str());
                                 return true;
@@ -783,7 +783,7 @@ namespace TL
 
             if (!function_sym.is_function())
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to this declaration since it does not declare a function, skipping" << std::endl;
                 return;
             }
@@ -795,14 +795,14 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
                 return;
             }
 
             if (!function_type.returns().is_void())
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
                 return;
             }
@@ -891,7 +891,7 @@ namespace TL
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
             }
@@ -904,7 +904,7 @@ namespace TL
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 task_info.set_priority_clause_expression(expr_list[0]);
             }
@@ -920,7 +920,7 @@ namespace TL
                 if (str_list.size() != 1)
                 {
                     warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 else
                 {
@@ -930,7 +930,7 @@ namespace TL
                 }
             }
 
-            std::cerr << construct.get_locus()
+            std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
 
@@ -942,7 +942,7 @@ namespace TL
                 if (decl_context.current_scope == decl_context.global_scope)
                 {
                     std::cerr
-                        << construct.get_locus()
+                        << construct.get_locus_str()
                         << ": warning: !$OMP TASK at top level only applies to calls in the current file"
                         << std::endl
                         ;
@@ -950,7 +950,7 @@ namespace TL
                     if (!already_nagged)
                     {
                         std::cerr
-                            << construct.get_locus()
+                            << construct.get_locus_str()
                             << ": info: use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files"
                             << std::endl
                             ;
@@ -1034,7 +1034,7 @@ namespace TL
                 
                 if(deadline_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1055,7 +1055,7 @@ namespace TL
                 
                 if(release_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task release_deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1075,7 +1075,7 @@ namespace TL
                 
                 if(on_error_args.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task onerror' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1094,7 +1094,7 @@ namespace TL
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                  std::cerr << construct.get_locus()
+                                  std::cerr << construct.get_locus_str()
                                             << ": warning: '#pragma omp task onerror' "
                                             << "first token must be an identifier, skipping"
                                             << std::endl;
@@ -1112,14 +1112,14 @@ namespace TL
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "first token must be an identifier, skipping"
                                           << std::endl;
                             }
                             else if (tokens[1].first != (int)':')
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "second token must be a colon, skipping"
                                           << std::endl;
@@ -1127,7 +1127,7 @@ namespace TL
                             else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
                                      (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "third token must be an identifier, skipping"
                                           << std::endl;
@@ -1141,7 +1141,7 @@ namespace TL
                         default:
                         {
                             std::cerr 
-                                  << construct.get_locus()
+                                  << construct.get_locus_str()
                                   << ": warning: '#pragma omp task onerror' "
                                   << "has a wrong number of tokens. "
                                   << "It is expecting 'identifier:identifier' "

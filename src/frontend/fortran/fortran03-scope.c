@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -181,7 +181,7 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
     return result;
 }
 
-static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
 {
     // Special names for operators and other non regularly named stuff will not get here
     if (('a' <= tolower(name[0]))
@@ -199,10 +199,9 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus
         sym->type_information = implicit_type;
         sym->entity_specs.is_implicit_basic_type = 1;
         
-        if (locus != NULL)
+        if (location != NULL)
         {
-            sym->file = ASTFileName(locus);
-            sym->line = ASTLine(locus);
+            sym->locus = ast_get_locus(location);
         }
 
         return sym;
@@ -232,11 +231,11 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
-scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST location, const char* name)
 {
-    ERROR_CONDITION(locus == NULL, "Locus is needed", 0);
+    ERROR_CONDITION(location == NULL, "Locus is needed", 0);
 
-    scope_entry_t* result = fortran_query_name_str(decl_context, name, ASTFileName(locus), ASTLine(locus));
+    scope_entry_t* result = fortran_query_name_str(decl_context, name, ast_get_locus(location));
 
     if (result == NULL)
     {
@@ -248,7 +247,7 @@ scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST 
             {
                 fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
-            result = new_implicit_symbol(decl_context, locus, name);
+            result = new_implicit_symbol(decl_context, location, name);
             if(result != NULL)
             {
                 result->kind = SK_VARIABLE;
@@ -273,9 +272,9 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
     return result;
 }
 
-scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
 {
-    scope_entry_t* new_entry = new_implicit_symbol(decl_context, locus, name);
+    scope_entry_t* new_entry = new_implicit_symbol(decl_context, location, name);
     add_unknown_kind_symbol(decl_context, new_entry);
     return new_entry;
 }
@@ -373,16 +372,15 @@ static void diagnostic_ambiguity(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        info_printf("%s:%d: info: name '%s' first bound here\n",
-                entry->file, entry->line, entry->symbol_name);
+        info_printf("%s: info: name '%s' first bound here\n",
+                locus_to_str(entry->locus), entry->symbol_name);
     }
     entry_list_iterator_free(it);
 }
 
 scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     scope_entry_t* result = NULL;
     decl_context_t current_decl_context = decl_context;
@@ -400,7 +398,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                    error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
                     diagnostic_ambiguity(result_list);
                 }
             }
@@ -506,8 +504,7 @@ static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PA
 // See ticket #923
 scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context, 
         const char* unqualified_name,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     scope_entry_list_t* result_list = NULL;
     decl_context_t current_decl_context = decl_context;
@@ -540,7 +537,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                     {
                         if (!checking_ambiguity())
                         {
-                            error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                            error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
                             diagnostic_ambiguity(entry_list);
                         }
                     }

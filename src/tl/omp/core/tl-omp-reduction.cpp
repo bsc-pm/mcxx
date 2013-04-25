@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -105,7 +105,7 @@ namespace TL { namespace OpenMP {
             if (split_colon == current_argument.end())
             {
                 error_printf("%s: error: reduction clause does not have a valid operator. Skipping",
-                        construct.get_locus().c_str());
+                        construct.get_locus_str().c_str());
                 return;
             }
 
@@ -140,7 +140,7 @@ namespace TL { namespace OpenMP {
                 if (!var_sym.is_valid())
                 {
                     error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             var_tree.prettyprint().c_str());
                     continue;
                 }
@@ -150,7 +150,7 @@ namespace TL { namespace OpenMP {
                 {
                     warn_printf("%s: warning: skipping reduction variable '%s' "
                             "since it does not appear in the construct\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             var_sym.get_qualified_name().c_str());
                     continue;
                 }
@@ -165,7 +165,7 @@ namespace TL { namespace OpenMP {
                     if (var_type.is_array())
                     {
                         error_printf("%s: error: reduced variable '%s' cannot have array type. Skipping\n",
-                                construct.get_locus().c_str(),
+                                construct.get_locus_str().c_str(),
                                 var_tree.prettyprint().c_str());
                         continue;
                     }
@@ -176,7 +176,7 @@ namespace TL { namespace OpenMP {
                 if (var_sym.is_dependent_entity())
                 {
                     warn_printf("%s: warning: symbol '%s' is type-dependent. Skipping\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             var_sym.get_qualified_name().c_str());
                     continue;
                 }
@@ -206,7 +206,7 @@ namespace TL { namespace OpenMP {
                     else if (red_set.size() > 1)
                     {
                         error_printf("%s: error: ambiguous reduction '%s' for reduced variable '%s' of type '%s'\n",
-                                construct.get_locus().c_str(),
+                                construct.get_locus_str().c_str(),
                                 reductor_name.c_str(),
                                 var_sym.get_qualified_name().c_str(),
                                 var_type.get_declaration(var_sym.get_scope(), "").c_str());
@@ -215,7 +215,7 @@ namespace TL { namespace OpenMP {
                                 it2++)
                         {
                             info_printf("%s: info: candidate reduction for type '%s'\n",
-                                    (*it2)->get_locus().c_str(),
+                                    (*it2)->get_locus_str().c_str(),
                                     (*it2)->get_type().get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
@@ -239,7 +239,7 @@ namespace TL { namespace OpenMP {
                     if (!Reduction::is_builtin(reduction->get_name()))
                     {
                         info_printf("%s: note: reduction of variable '%s' solved to '%s'\n",
-                                construct.get_locus().c_str(),
+                                construct.get_locus_str().c_str(),
                                 var_sym.get_name().c_str(),
                                 reductor_name.c_str());
                     }
@@ -247,7 +247,7 @@ namespace TL { namespace OpenMP {
                 else
                 {
                     error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             reductor_name.c_str(),
                             var_sym.get_qualified_name().c_str(),
                             var_type.get_declaration(var_sym.get_scope(), "").c_str());
@@ -289,7 +289,7 @@ namespace TL { namespace OpenMP {
                             ast_location(id_expr),
                             prettyprint_in_buffer(id_expr));
                 }
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(a), ASTLine(a));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
             scope_entry_t* entry = entry_list_head(entry_list);
@@ -303,7 +303,7 @@ namespace TL { namespace OpenMP {
                             ast_location(id_expr),
                             get_qualified_symbol_name(entry, decl_context));
                 }
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(a), ASTLine(a));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
 
@@ -314,7 +314,7 @@ namespace TL { namespace OpenMP {
                     nodecl_output);
             if (!init_check)
             {
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(a), ASTLine(a));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
         }
@@ -460,7 +460,7 @@ namespace TL { namespace OpenMP {
                     new_red->set_initializer(nodecl_initializer_expr);
                 }
 
-                new_red->set_locus(ASTFileName(tree), ASTLine(tree));
+                new_red->set_locus(ast_get_locus(tree));
 
                 if (!Core::_silent_declare_reduction)
                 {
@@ -499,7 +499,7 @@ namespace TL { namespace OpenMP {
                         {
                             error_printf("%s: error: invalid syntax in initializer clause. "
                                     "It must start with 'omp_priv ='\n",
-                                    nodecl_get_locus(nodecl_initializer_expr));
+                                    nodecl_locus_to_str(nodecl_initializer_expr));
                         }
                         nodecl_t rhs = nodecl_get_child(nodecl_initializer_expr, 1);
                         nodecl_initializer_expr = rhs;
@@ -514,7 +514,7 @@ namespace TL { namespace OpenMP {
                         new_red->set_initializer(nodecl_make_boolean_literal(
                                     reduction_type,
                                     const_value_get_zero(/* bytes */ type_get_size(reduction_type), /* signed */ 1),
-                                    NULL, 0));
+                                    make_locus("", 0, 0)));
                     }
                     else if (is_integral_type(reduction_type)
                         || is_complex_type(reduction_type))
@@ -522,7 +522,7 @@ namespace TL { namespace OpenMP {
                         new_red->set_initializer(
                                 nodecl_make_integer_literal(
                                     reduction_type,
-                                    const_value_get_signed_int(0), NULL, 0));
+                                    const_value_get_signed_int(0), make_locus("", 0, 0)));
                     }
                 }
             }
@@ -575,12 +575,12 @@ namespace TL { namespace OpenMP {
                     || IS_CXX_LANGUAGE)
             {
                 error_printf("%s: error: invalid syntax for #pragma omp declare reduction. Skipping\n",
-                        directive.get_locus().c_str());
+                        directive.get_locus_str().c_str());
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
                 error_printf("%s: error: invalid syntax for !$omp declare reduction. Skipping\n",
-                        directive.get_locus().c_str());
+                        directive.get_locus_str().c_str());
             }
             else
             {
@@ -606,7 +606,7 @@ namespace TL { namespace OpenMP {
     void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive) { }
 
     Reduction::Reduction(TL::Scope sc, const std::string& name, TL::Type t)
-        : _scope(sc), _name(name), _type(t)
+        : _scope(sc), _name(name), _type(t), _locus(NULL)
     {
         // Create a new expression scope
         _expr_scope = new_block_context(sc.get_decl_context());

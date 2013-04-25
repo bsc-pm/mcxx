@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -72,19 +72,18 @@ LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_e
 LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
 
 LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMF03_EXTERN void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic);
 
 LIBMF03_EXTERN scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_intrinsic_module,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMF03_EXTERN scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* local_name, 
         scope_entry_t* module_symbol,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 MCXX_END_DECLS
 

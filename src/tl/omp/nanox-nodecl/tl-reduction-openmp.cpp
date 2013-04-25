@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -331,7 +331,7 @@ namespace TL { namespace Nanox {
         if (!Nanos::Version::interface_is_at_least("master", 5023))
         {
             running_error("%s: error: a newer version of Nanos++ (>=5023) is required for reductions support\n",
-                    construct.get_locus().c_str());
+                    construct.get_locus_str().c_str());
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(

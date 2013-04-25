@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -175,8 +175,7 @@ namespace TL { namespace Nanox {
                      const TL::Symbol& outline_function,
                      Nodecl::NodeclBase outline_function_body,
                      Nodecl::NodeclBase task_label,
-                     std::string filename,
-                     int line,
+                     const locus_t* locus,
                      /* output parameters */
                      Source& instrumentation_before,
                      Source& instrumentation_after);

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -76,7 +76,7 @@ namespace TL { namespace Nanox {
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 running_error("%s: error: nested functions are not supported\n",
-                        original_statements.get_locus().c_str());
+                        original_statements.get_locus_str().c_str());
             // if (IS_FORTRAN_LANGUAGE)
             //     running_error("%s: error: internal subprograms are not supported\n",
             //             original_statements.get_locus().c_str());
@@ -192,8 +192,7 @@ namespace TL { namespace Nanox {
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                         /* optative context */ nodecl_null(),
                         unpacked_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
+                        original_statements.get_locus());
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
         }
@@ -388,8 +387,7 @@ namespace TL { namespace Nanox {
                     Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                             /* optative context */ nodecl_null(),
                             outline_function,
-                            original_statements.get_filename(),
-                            original_statements.get_line());
+                            original_statements.get_locus());
                     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
                 }
             }
@@ -437,8 +435,7 @@ namespace TL { namespace Nanox {
                     outline_function,
                     outline_function_body,
                     info._task_label,
-                    original_statements.get_filename(),
-                    original_statements.get_line(),
+                    original_statements.get_locus(),
                     instrument_before,
                     instrument_after);
         }

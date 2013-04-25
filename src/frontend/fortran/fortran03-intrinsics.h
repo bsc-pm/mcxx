@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -44,8 +44,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified,
-        const char* filename,
-        int line);
+        const locus_t* locus);
 
 decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context);
 

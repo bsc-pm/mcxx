@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -97,7 +97,7 @@ namespace Analysis {
             if( st_.get_rhs( ).is_constant( ) )
             {
                 Nodecl::NodeclBase new_rhs = Nodecl::Neg::make( rhs, rhs.get_type( ),
-                                                                rhs.get_filename( ), rhs.get_line( ) );
+                                                                rhs.get_locus() );
                 iv = st_.get_lhs( );
                 incr = new_rhs;
                 is_iv = true;

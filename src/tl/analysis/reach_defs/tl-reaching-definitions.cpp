@@ -226,14 +226,14 @@ namespace Analysis {
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::AddAssignment& n )
     {
         Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                             n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                             n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                                 n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                                 n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
@@ -245,99 +245,99 @@ namespace Analysis {
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                           n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                           n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                         n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                         n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                           n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                           n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                           n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                           n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                           n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                           n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::DivAssignment& n )
     {
         Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                             n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                             n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                                 n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                                 n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ModAssignment& n )
     {
         Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                             n.get_type( ),  n.get_filename( ), n.get_line( ) );
+                                             n.get_type( ),  n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MulAssignment& n )
     {
         Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
-                                             n.get_type( ), n.get_filename( ), n.get_line( ) );
+                                             n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postdecrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
-                                                                   n.get_filename( ), n.get_line( ) );
+                                                                   n.get_locus() );
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_rhs( ).shallow_copy(), one , n.get_type( ),
-                                                 n.get_filename( ), n.get_line( ) );
+                                                 n.get_locus() );
         visit_assignment( n.get_rhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postincrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
-                                                                   n.get_filename( ), n.get_line( ) );
+                                                                   n.get_locus() );
         Nodecl::Add rhs = Nodecl::Add::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
-                                             n.get_filename( ), n.get_line( ) );
+                                             n.get_locus() );
         visit_assignment( n.get_rhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Predecrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
-                                                                   n.get_filename( ), n.get_line( ) );
+                                                                   n.get_locus() );
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
-                                                 n.get_filename( ), n.get_line( ) );
+                                                 n.get_locus() );
         visit_assignment( n.get_rhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Preincrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),
-                                                                   n.get_filename( ), n.get_line( ) );
+                                                                   n.get_locus() );
         Nodecl::Add rhs = Nodecl::Add::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
-                                             n.get_filename( ), n.get_line( ) );
+                                             n.get_locus() );
         visit_assignment( n.get_rhs( ), rhs );
     }
 
@@ -351,9 +351,9 @@ namespace Analysis {
     // El visitant d'statements de ReachDefs caldrà fer coses de l'estil:
     // - Post increment:
     //         nodecl_t one = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed*/ 1 ) );
-    //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), Nodecl::NodeclBase( one ), n.get_filename(), n.get_line() ) );
+    //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), Nodecl::NodeclBase( one ), n.get_locus() ) );
     // - AddAssignment:
-    //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), n.get_rhs(), n.get_filename(), n.get_line() ) );
+    //         _init_expression = compute_init_expr( Nodecl::Add(n.get_type(), n.get_lhs(), n.get_rhs(), n.get_locus() ) );
 //     void GeneratedStatementsVisitor::compute_init_expr( Nodecl::NodeclBase init_value )
 //     {
 //         Nodecl::Calculator calc;

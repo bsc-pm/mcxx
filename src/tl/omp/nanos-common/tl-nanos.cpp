@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -401,7 +401,7 @@ namespace TL
                 <<    "err = nanos_instrument_register_value (&nanos_instr_name_value, "
                 <<             "\"" << arguments[0] << "\", " 
                 <<             arguments[1] << ", "
-                <<             "\"" << ctr.get_locus() << "\"," 
+                <<             "\"" << ctr.get_locus_str() << "\"," 
                 <<             "/* abort_if_registered */ 0);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"

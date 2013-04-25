@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -203,6 +203,11 @@ void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* templ
     nodecl_expr_set_template_parameters(n.tree, template_parameters);
 }
 
+const locus_t* nodecl_get_locus(nodecl_t t)
+{
+    return ast_get_locus(t.tree);
+}
+
 const char* nodecl_get_filename(nodecl_t t)
 {
     return ASTFileName(t.tree);
@@ -213,7 +218,7 @@ int nodecl_get_line(nodecl_t t)
     return ASTLine(t.tree);
 }
 
-const char* nodecl_get_locus(nodecl_t t)
+const char* nodecl_locus_to_str(nodecl_t t)
 {
     const char* result;
 
@@ -421,9 +426,9 @@ char nodecl_is_err_expr(nodecl_t n)
     return nodecl_get_kind(n) == NODECL_ERR_EXPR;
 }
 
-nodecl_t nodecl_generic_make(node_t kind, const char* filename, int line)
+nodecl_t nodecl_generic_make(node_t kind, const locus_t* location)
 {
-    return _nodecl_wrap(ASTLeaf(kind, filename, line, NULL));
+    return _nodecl_wrap(ASTLeaf(kind, location, NULL));
 }
 
 void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
@@ -431,25 +436,14 @@ void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
     ast_set_child(nodecl_get_ast(n), nc, nodecl_get_ast(c));
 }
 
-void nodecl_set_location(nodecl_t n, const char* filename, int line)
+void nodecl_set_locus(nodecl_t n, const locus_t* locus)
 {
-    ast_set_filename(nodecl_get_ast(n), filename);
-    ast_set_line(nodecl_get_ast(n), line);
-}
-
-void nodecl_set_locus(nodecl_t n, const char* filename, int line)
-{
-    nodecl_set_location(n, filename, line);
-}
-
-void nodecl_set_location_as(nodecl_t n, nodecl_t loc)
-{
-    nodecl_set_location(n, nodecl_get_filename(loc), nodecl_get_line(loc));
+    ast_set_locus(n.tree, locus);
 }
 
 void nodecl_set_locus_as(nodecl_t n, nodecl_t loc)
 {
-    nodecl_set_location(n, nodecl_get_filename(loc), nodecl_get_line(loc));
+    ast_set_locus(n.tree, nodecl_get_locus(loc));
 }
 
 #define LANG_DECL_CONTEXT "lang.decl_context_t"
