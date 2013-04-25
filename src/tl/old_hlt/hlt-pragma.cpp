@@ -1028,7 +1028,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     }
     else
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
+        std::cerr << construct.get_ast().get_locus_str() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
     }
 
     ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
@@ -1736,7 +1736,7 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     {
         DEBUG_CODE()
         {
-            std::cerr << for_stmt.get_ast().get_locus() 
+            std::cerr << for_stmt.get_ast().get_locus_str() 
                 << ": warning: LoopSIMDization doesn't return a CompoundStatement." << std::endl;
         }
     }
@@ -1783,7 +1783,7 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
         FunctionDefinition func_def (construct.get_declaration(), construct.get_scope_link());
         if (construct.is_parameterized())
         {
-            std::cerr << construct.get_ast().get_locus() 
+            std::cerr << construct.get_ast().get_locus_str() 
                 << ": warning: unexpected parameters in #pragma hlt simd. Ignored." << std::endl;
         }
 
@@ -1814,7 +1814,7 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
         }
         else
         {
-           std::cerr << construct.get_ast().get_locus() << ": warning: unexpected #pragma hlt simd" << std::endl;
+           std::cerr << construct.get_ast().get_locus_str() << ": warning: unexpected #pragma hlt simd" << std::endl;
         }
     }
 }

@@ -56,7 +56,7 @@ namespace TL { namespace Fortran {
 
         if (!statements.is_list())
         {
-            std::cerr << "Warning: expecting a list here -- " << statements.get_locus() << std::endl;
+            std::cerr << "Warning: expecting a list here -- " << statements.get_locus_str() << std::endl;
             return result;
         }
 

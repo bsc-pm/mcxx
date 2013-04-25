@@ -394,7 +394,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    std::cerr << construct.get_locus_str() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
@@ -1114,7 +1114,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
         return;
     }
 
-    std::cerr << construct.get_locus()
+    std::cerr << construct.get_locus_str()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");

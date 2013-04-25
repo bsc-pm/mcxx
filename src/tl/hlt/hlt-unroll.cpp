@@ -45,7 +45,7 @@ namespace TL { namespace HLT {
         {
             if (diagnostic)
             {
-                std::cerr << _tree.get_locus() << ": error: only for-statement can be unrolled" << std::endl;
+                std::cerr << _tree.get_locus_str() << ": error: only for-statement can be unrolled" << std::endl;
             }
             return false;
         }
