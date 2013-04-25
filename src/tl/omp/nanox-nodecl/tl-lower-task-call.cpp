@@ -202,7 +202,7 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
     {
         if (sym.is_saved_expression())
         {
-            return rewrite_expression_in_dependency_c(sym.get_value(), map);
+            return rewrite_expression_in_dependency_c(sym.get_value().shallow_copy(), map);
         }
 
         param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
