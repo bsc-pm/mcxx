@@ -81,51 +81,64 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
                 pcfgs = analysis.parallel_control_flow_graph( memento, ast );
-            }
-
-            if( _use_def_enabled )
-            {
                 if( VERBOSE )
-                    std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
-                pcfgs = analysis.use_def( memento, ast );
-            }
-
-            if( _liveness_enabled )
-            {
-                if( VERBOSE )
-                    std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
-                pcfgs = analysis.liveness( memento, ast );
-            }
-
-            if( _reaching_defs_enabled )
-            {
-                if( VERBOSE )
-                    std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
-                pcfgs = analysis.reaching_definitions( memento, ast );
-            }
-
-            if( _induction_vars_enabled )
-            {
-                if( VERBOSE )
-                    std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
-                pcfgs = analysis.induction_variables( memento, ast );
+                    std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
             }
 
             // if (_task_sync_enabled)
             {
                 // if( VERBOSE )
-                    std::cerr << "========= Task Sync analysis =========" << std::endl;
+                std::cerr << "========= Task Sync analysis =========" << std::endl;
                 pcfgs = analysis.task_sync( memento, ast );
+                std::cerr << "========= Task Sync analysis done =========" << std::endl;
+            }
+
+            if( _use_def_enabled )
+            {
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
+                pcfgs = analysis.use_def( memento, ast );
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Use-Definition analysis done =========" << std::endl;
+            }
+
+            if( _liveness_enabled )
+            {
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
+                pcfgs = analysis.liveness( memento, ast );
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Liveness analysis done =========" << std::endl;
+            }
+
+            if( _reaching_defs_enabled )
+            {
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
+                pcfgs = analysis.reaching_definitions( memento, ast );
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Reaching Definitions analysis done =========" << std::endl;
+            }
+
+            if( _induction_vars_enabled )
+            {
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
+                pcfgs = analysis.induction_variables( memento, ast );
+                // if( VERBOSE )
+                    std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
             }
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
-                if( VERBOSE )
+                // if( VERBOSE )
                     std::cerr << "=========  Printing PCFG to dot file  =========" << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
+                // if( VERBOSE )
+                    std::cerr << "=========  Printing PCFG to dot file done =========" << std::endl;
             }
         }
 
