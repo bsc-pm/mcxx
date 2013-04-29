@@ -1384,20 +1384,19 @@ OPERATOR_TABLE
             if (pos > 0)
                 file << ", ";
 
-            Nodecl::NodeclBase keyword;
+            TL::Symbol keyword_symbol;
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
-            if (it->is<Nodecl::FortranNamedPairSpec>())
+            if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword = it->as<Nodecl::FortranNamedPairSpec>().get_name();
-                arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
+                keyword_symbol = it->as<Nodecl::FortranActualArgument>().get_symbol();
+                arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (!keyword.is_null()
+            if (keyword_symbol.is_valid()
                     && !called_symbol.is_statement_function_statement())
             {
-                TL::Symbol keyword_symbol = keyword.get_symbol();
                 parameter_type = keyword_symbol.get_type();
                 if (!keywords_are_mandatory)
                 {
@@ -1550,14 +1549,14 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::visit(const Nodecl::FortranNamedPairSpec& node)
+    void FortranBase::visit(const Nodecl::FortranActualArgument& node)
     {
-        Nodecl::NodeclBase name = node.get_name();
+        TL::Symbol name = node.get_symbol();
         Nodecl::NodeclBase argument = node.get_argument();
 
-        if (!name.is_null())
+        if (name.is_valid())
         {
-            file << name.get_symbol().get_name() << " = ";
+            file << name.get_name() << " = ";
         }
 
         walk(argument);

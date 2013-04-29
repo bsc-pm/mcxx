@@ -196,6 +196,8 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type const-value-opt
+# Ths one is used when we need an expression only for its type
+           | NODECL_DUMMY() type
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
 
@@ -206,14 +208,15 @@ initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
 
 fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
-argument : named-pair
-         | expression
+argument : expression
          | default-arg
-         | alt-return
+         | fortran-actual-argument
+
+fortran-actual-argument: NODECL_FORTRAN_ACTUAL_ARGUMENT([argument]fortran-argument) text-opt symbol-opt
+fortran-argument: expression
+                | alt-return
 
 default-arg: NODECL_DEFAULT_ARGUMENT([argument]expression)
-
-named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
 alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-opt
 
