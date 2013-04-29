@@ -168,7 +168,7 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
-                InputValueDependence* input_value_dependence;
+                InputValueDependence* _input_value_dependence;
 
                 bool _is_lastprivate;
 
@@ -187,7 +187,7 @@ namespace TL
                     _base_address_expression(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    input_value_dependence(NULL),
+                    _input_value_dependence(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
             {
@@ -387,12 +387,12 @@ namespace TL
 
                 InputValueDependence* get_input_value_dependence() const
                 {
-                    return input_value_dependence;
+                    return _input_value_dependence;
                 }
 
                 void set_input_value_dependence(InputValueDependence* input_value_dep)
                 {
-                    input_value_dependence = input_value_dep;
+                    _input_value_dependence = input_value_dep;
                 }
                 void set_is_cxx_this(bool b)
                 {
