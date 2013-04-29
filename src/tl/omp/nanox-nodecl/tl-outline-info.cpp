@@ -460,7 +460,7 @@ namespace TL { namespace Nanox {
 
                     Source lbound_src;
                     lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
+                    
                     Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
 
                     this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
@@ -1041,22 +1041,6 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
-    }
-
-    void OutlineInfo::move_at_begin(OutlineDataItem& item)
-    {
-        TL::ObjectList<OutlineDataItem*> new_list;
-        new_list.append(&item);
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
-                it != _data_env_items.end();
-                it++)
-        {
-            if (*it != &item)
-            {
-                new_list.append(*it);
-            }
-        }
-        std::swap(_data_env_items, new_list);
     }
 
     void OutlineInfo::move_at_end(OutlineDataItem& item)

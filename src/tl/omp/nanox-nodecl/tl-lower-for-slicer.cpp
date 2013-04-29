@@ -364,8 +364,31 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->type_information = nanos_slicer_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
+        Scope  enclosing_scope = construct.retrieve_context();
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(environment, enclosing_function);
+
+        // Handle the special object 'this'
+        if (IS_CXX_LANGUAGE
+                && !enclosing_function.is_static()
+                && enclosing_function.is_member())
+        {
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+            Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+            sym_ref.set_type(this_symbol.get_type());
+
+            // The object 'this' may already have an associated OutlineDataItem
+            OutlineDataItem& argument_outline_data_item =
+                outline_info.get_entity_for_symbol(this_symbol);
+
+            argument_outline_data_item.set_is_cxx_this(true);
+
+            // This is a special kind of shared
+            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            argument_outline_data_item.set_base_address_expression(sym_ref);
+        }
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_slicer(construct,

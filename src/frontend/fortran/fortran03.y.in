@@ -3220,7 +3220,7 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 }
 | labeldef name_colon_opt TOK_DO concurrent_loop_control eos
 {
-    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", make_locus($3.token_file, $3.token_line, 0));
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
 | labeldef name_colon_opt TOK_DO eos
 {
@@ -3238,7 +3238,7 @@ label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 }
 | labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
-    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", make_locus($3.token_file, $3.token_line, 0));
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
 | labeldef name_colon_opt TOK_DO label eos
 {
@@ -3255,7 +3255,7 @@ label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_contr
 }
 | labeldef name_colon_opt TOK_DO do_shared_label concurrent_loop_control eos
 {
-    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", make_locus($3.token_file, $3.token_line, 0));
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
 | labeldef name_colon_opt TOK_DO do_shared_label eos
 {

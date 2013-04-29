@@ -168,9 +168,12 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
+                InputValueDependence* input_value_dependence;
+
                 bool _is_lastprivate;
 
-                InputValueDependence* input_value_dependence;
+                // This outline data item represents the C++ this object
+                bool _is_cxx_this;
 
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
@@ -184,10 +187,11 @@ namespace TL
                     _base_address_expression(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
+                    input_value_dependence(NULL),
                     _is_lastprivate(),
-                    input_value_dependence(NULL)
-                {
-                }
+                    _is_cxx_this(false)
+            {
+            }
 
                 //! Returns the symbol of this item
                 Symbol get_symbol() const
@@ -304,7 +308,7 @@ namespace TL
                 {
                     ERROR_CONDITION(
                             (_base_address_expression.is_null()
-                            && _sharing == SHARING_CAPTURE_ADDRESS),
+                             && _sharing == SHARING_CAPTURE_ADDRESS),
                             "Shared expression is missing!", 0);
                     return _base_address_expression;
                 }
@@ -390,6 +394,15 @@ namespace TL
                 {
                     input_value_dependence = input_value_dep;
                 }
+                void set_is_cxx_this(bool b)
+                {
+                    _is_cxx_this = b;
+                }
+
+                bool get_is_cxx_this() const
+                {
+                    return _is_cxx_this;
+                }
         };
 
         //Symbold::invalid it's theorically used when the outline has no symbol
@@ -467,8 +480,6 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
-                // This is needed for the 'this' object
-                void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 

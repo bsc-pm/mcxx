@@ -1515,8 +1515,8 @@ static void instantiate_template_class(scope_entry_t* entry,
     {
         if (is_incomplete_type(selected_template))
         {
-            running_error("%s:%d: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
-                    locus, 
+            running_error("%s: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
+                    locus_to_str(locus),
                     print_type_str(get_user_defined_type(entry), decl_context),
                     print_type_str(selected_template, decl_context));
         }
@@ -1527,8 +1527,8 @@ static void instantiate_template_class(scope_entry_t* entry,
     }
     else
     {
-        running_error("%s:%d: instantiation of '%s' is not possible at this point\n", 
-                locus, print_type_str(get_user_defined_type(entry), decl_context));
+        running_error("%s: instantiation of '%s' is not possible at this point\n", 
+                locus_to_str(locus), print_type_str(get_user_defined_type(entry), decl_context));
     }
 }
 

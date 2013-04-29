@@ -818,7 +818,7 @@ namespace TL
                                         // task_profile_info.sizeof_fp += expr.p
                                         already_handled = true;
 
-                                        std::cerr << expr.get_ast().get_locus() << ": note: invocation of memcpy has been accounted" << std::endl;
+                                        std::cerr << expr.get_ast().get_locus_str() << ": note: invocation of memcpy has been accounted" << std::endl;
 
                                         // We have to fix the code since the value of the size will be known
                                         // only at runtime, this one will be replaced twice
@@ -848,7 +848,7 @@ namespace TL
                         }
                         else
                         {
-                            std::cerr << expr.get_ast().get_locus() << ": warning: call to '" 
+                            std::cerr << expr.get_ast().get_locus_str() << ": warning: call to '" 
                                 << called_id.prettyprint() << "' cannot be profiled since no definition is available" << std::endl;
                             info_funops_param(expr);
                         }
@@ -857,7 +857,7 @@ namespace TL
             }
             else
             {
-                std::cerr << expr.get_ast().get_locus() << ": warning: indirect call '" 
+                std::cerr << expr.get_ast().get_locus_str() << ": warning: indirect call '" 
                     << called.prettyprint() << "' cannot be profiled" << std::endl;
             }
 #endif
@@ -877,7 +877,7 @@ namespace TL
         static bool given_message = false;
         if (!given_message)
         {
-            std::cerr << expr.get_ast().get_locus() 
+            std::cerr << expr.get_ast().get_locus_str() 
                 << ": note: parameter --variable=fun_ops can be used to give a cost for these functions"
                 << std::endl;
             given_message = true;

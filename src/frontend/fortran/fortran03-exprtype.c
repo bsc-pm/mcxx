@@ -2135,7 +2135,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    }
    else
    {
-       running_error("Code unreachable, invalid floating literal", 0);
+       running_error("Code unreachable, invalid floating literal");
    }
 
    *nodecl_output = nodecl_make_floating_literal(t, value, ast_get_locus(expr));

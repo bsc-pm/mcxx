@@ -73,7 +73,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for FPGA devices is not supported yet\n", 0);
+        running_error("Fortran for FPGA devices is not supported yet\n");
 
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);

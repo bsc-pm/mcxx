@@ -109,7 +109,7 @@ void temporal_files_cleanup(void)
 
             if (ret == -1)
             {
-                running_error("Execution of 'rm -fr' failed\n", 0);
+                running_error("Execution of 'rm -fr' failed\n");
             }
         }
     }
@@ -409,7 +409,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard output", 0);
+                running_error("error: could not duplicate standard output");
             }
         }
         if (stderr_f != NULL)
@@ -427,7 +427,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard error", 0);
+                running_error("error: could not duplicate standard error");
             }
         }
 
@@ -711,13 +711,13 @@ void run_gdb(void)
             int new_stdout = dup(fileno(output_dump));
             if (new_stdout < 0)
             {
-                running_error("error: could not duplicate standard output", 0);
+                running_error("error: could not duplicate standard output");
             }
             close(2);
             int new_stderr = dup(fileno(output_dump));
             if (new_stderr < 0)
             {
-                running_error("error: could not duplicate standard error", 0);
+                running_error("error: could not duplicate standard error");
             }
 
             char pid[16];
