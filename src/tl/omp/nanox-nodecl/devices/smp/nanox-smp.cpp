@@ -249,18 +249,14 @@ namespace TL { namespace Nanox {
 
         Source unpacked_arguments, cleanup_code;
         TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        if (IS_CXX_LANGUAGE
-                && !is_function_task
-                && current_function.is_member()
-                && !current_function.is_static()
-                && it != data_items.end())
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
-            ++it;
-        }
+            if (!is_function_task
+                    && (*it)->get_is_cxx_this())
+                continue;
 
-        for (; it != data_items.end(); it++)
-        {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:

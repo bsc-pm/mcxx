@@ -740,9 +740,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         OutlineDataItem& argument_outline_data_item =
             outline_info.get_entity_for_symbol(this_symbol);
 
-        // We must ensure that this OutlineDataItem is moved to the
-        // first position of the list of OutlineDataItems.
-        outline_info.move_at_begin(argument_outline_data_item);
+        argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);

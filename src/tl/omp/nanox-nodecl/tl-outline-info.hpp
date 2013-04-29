@@ -149,6 +149,10 @@ namespace TL
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+
+                // This outline data item represents the C++ this object
+                bool _is_cxx_this;
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
@@ -161,7 +165,8 @@ namespace TL
                     _base_address_expression(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _is_lastprivate()
+                    _is_lastprivate(),
+                    _is_cxx_this(false)
                 {
                 }
 
@@ -339,6 +344,16 @@ namespace TL
                 {
                     return _base_symbol_of_argument;
                 }
+
+                void set_is_cxx_this(bool b)
+                {
+                    _is_cxx_this = b;
+                }
+
+                bool get_is_cxx_this() const
+                {
+                    return _is_cxx_this;
+                }
         };
 
         //Symbold::invalid it's theorically used when the outline has no symbol
@@ -416,8 +431,6 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
-                // This is needed for the 'this' object
-                void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
