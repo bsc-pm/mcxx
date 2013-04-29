@@ -844,8 +844,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     }
 
     // Prepend the assignments
-    Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
-    ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
+    // Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
+    // ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
 
     Nodecl::NodeclBase initializations_tree;
     if (!initializations_src.empty())

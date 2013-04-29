@@ -40,22 +40,23 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
         ~LoweringVisitor();
-        virtual void visit(const Nodecl::OpenMP::Task& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
-        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
-        virtual void visit(const Nodecl::OpenMP::Single& construct);
-        virtual void visit(const Nodecl::OpenMP::Master& construct);
-        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
-        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
-        virtual void visit(const Nodecl::OpenMP::For& construct);
-        virtual void visit(const Nodecl::OpenMP::Critical& construct);
-        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
-        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
-        virtual void visit(const Nodecl::OpenMP::Sections& construct);
-        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
+        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
+        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
+        virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
+        virtual void visit(const Nodecl::OpenMP::For& construct);
+        virtual void visit(const Nodecl::OpenMP::Master& construct);
+        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
+        virtual void visit(const Nodecl::OpenMP::Sections& construct);
+        virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+        virtual void visit(const Nodecl::OpenMP::Task& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
+        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
     private:
 
