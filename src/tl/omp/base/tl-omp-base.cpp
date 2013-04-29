@@ -90,9 +90,18 @@ namespace TL { namespace OpenMP {
 
             typedef std::set<Symbol> module_function_tasks_set_t;
             module_function_tasks_set_t _module_function_tasks;
+
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_expr_map;
+            std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_expr_to_task_calls_map;
+
         public:
-            FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set)
-                : _function_task_set(function_task_set)
+
+            FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
+                    std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> funct_call_to_enclosing_expr_map)
+                :
+                    _function_task_set(function_task_set),
+                    _funct_call_to_enclosing_expr_map(funct_call_to_enclosing_expr_map),
+                    _enclosing_expr_to_task_calls_map()
             {
             }
 
@@ -134,8 +143,46 @@ namespace TL { namespace OpenMP {
                                 call.shallow_copy(),
                                 call.get_locus());
 
-                        call.replace(task_call);
+                        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it =
+                            _funct_call_to_enclosing_expr_map.find(call);
+
+                        if (it == _funct_call_to_enclosing_expr_map.end())
+                        {
+                            call.replace(task_call);
+                        }
+                        else
+                        {
+                            // This was a nonvoid task call!
+                            Nodecl::NodeclBase enclosing_expr = it->second;
+
+                            _enclosing_expr_to_task_calls_map[enclosing_expr].append(Nodecl::ExpressionStatement::make(task_call));
+
+                            // Remove from the enclosing list the expression statement which contains the task call
+                            Nodecl::Utils::remove_from_enclosing_list(call.get_parent());
+                        }
                     }
+                }
+            }
+
+            void build_all_needed_task_expressions()
+            {
+                for (std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> >::iterator it = _enclosing_expr_to_task_calls_map.begin();
+                        it != _enclosing_expr_to_task_calls_map.end();
+                        ++it)
+                {
+                    Nodecl::NodeclBase enclosing_expr = it->first;
+                    TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
+
+                    Nodecl::NodeclBase task_expr = Nodecl::ExpressionStatement::make(
+                            Nodecl::OpenMP::TaskExpression::make(Nodecl::List::make(task_calls)));
+
+                    Nodecl::Utils::prepend_items_before(enclosing_expr, task_expr);
+
+                    // This taskwait is going to be removed in a near future
+                    Nodecl::Utils::prepend_items_before(enclosing_expr,
+                                Nodecl::OpenMP::TaskwaitShallow::make(
+                                    /* environment */ nodecl_null(),
+                                    make_locus("", 0, 0)));
                 }
             }
 
@@ -410,7 +457,6 @@ namespace TL { namespace OpenMP {
     //          int y = 2;
     //          int *output = alloca(...);
     //          foo__(&y, output);
-    //          #pragma omp taskwait
     //          x = *output;
     //      }
     //
@@ -422,15 +468,16 @@ namespace TL { namespace OpenMP {
 
             RefPtr<FunctionTaskSet> _function_task_set;
             std::map<TL::Symbol, TL::Symbol> _transformed_tasks;
-            std::set<Nodecl::NodeclBase> _expr_statements;
 
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_expr_map;
 
         public:
 
             TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
                 : _counter(0),
                 _function_task_set(function_task_Set),
-                _transformed_tasks()
+                _transformed_tasks(),
+                _funct_call_to_enclosing_expr_map()
             {
             }
 
@@ -547,7 +594,7 @@ namespace TL { namespace OpenMP {
                     }
 
                     // Update the map of transformed tasks
-                    _transformed_tasks.insert(std::pair<TL::Symbol, TL::Symbol>(function_called, new_function));
+                    _transformed_tasks.insert(std::make_pair(function_called, new_function));
 
                     transformed_task = new_function;
                 }
@@ -619,15 +666,17 @@ namespace TL { namespace OpenMP {
                     new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
 
                     // 5. Create the new function call and encapsulate it in a ExpressionStatement
-                    Nodecl::NodeclBase expression_stmt =
-                        Nodecl::ExpressionStatement::make(
+                    Nodecl::NodeclBase new_function_call =
                                 Nodecl::FunctionCall::make(
                                     called_entity,
                                     new_arguments,
                                     /* alternate_name */ nodecl_null(),
                                     /* function_form */ nodecl_null(),
                                     TL::Type::get_void_type(),
-                                    func_call.get_locus()));
+                                    func_call.get_locus());
+
+                    Nodecl::NodeclBase expression_stmt =
+                        Nodecl::ExpressionStatement::make(new_function_call);
 
                     // 6. Prepend the new function call before the enclosing expression statement
                     // of the original function call
@@ -641,7 +690,8 @@ namespace TL { namespace OpenMP {
                     ERROR_CONDITION(enclosing_expr_stmt.is_null(),
                             "This node should be a Nodecl::ExpressionStatement", 0);
 
-                    _expr_statements.insert(enclosing_expr_stmt);
+                    // Update the map between function calls and their enclosing expressions
+                    _funct_call_to_enclosing_expr_map.insert(std::make_pair(new_function_call, enclosing_expr_stmt));
 
                     Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, expression_stmt);
 
@@ -655,17 +705,9 @@ namespace TL { namespace OpenMP {
                 }
             }
 
-            void add_taskwaits_on_task_expression_statements()
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> get_function_call_to_enclosing_expression_map()
             {
-                    for (std::set<Nodecl::NodeclBase>::iterator it = _expr_statements.begin();
-                            it != _expr_statements.end();
-                            it++)
-                    {
-                        Nodecl::Utils::prepend_items_before(*it,
-                                Nodecl::OpenMP::TaskwaitShallow::make(
-                                    /* environment */ nodecl_null(),
-                                    it->get_locus()));
-                    }
+                return _funct_call_to_enclosing_expr_map;
             }
 
             void update_function_task_set()
@@ -962,11 +1004,14 @@ namespace TL { namespace OpenMP {
 
         TransformNonVoidFunctionCalls visitor(function_task_set);
         visitor.walk(translation_unit);
-        visitor.add_taskwaits_on_task_expression_statements();
         visitor.update_function_task_set();
 
-        FunctionCallVisitor function_call_visitor(function_task_set);
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>
+            funct_call_to_enclosing_expr_map = visitor.get_function_call_to_enclosing_expression_map();
+
+        FunctionCallVisitor function_call_visitor(function_task_set, funct_call_to_enclosing_expr_map);
         function_call_visitor.walk(translation_unit);
+        function_call_visitor.build_all_needed_task_expressions();
     }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
