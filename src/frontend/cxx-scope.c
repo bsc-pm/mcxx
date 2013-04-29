@@ -2674,8 +2674,8 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        running_error("%s:%d: error: type '%s' rendered invalid during instantiation\n",
-                locus, print_type_str(orig_type, context_of_being_instantiated));
+        running_error("%s: error: type '%s' rendered invalid during instantiation\n",
+                locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
     }
 
     DEBUG_CODE()

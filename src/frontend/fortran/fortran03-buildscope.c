@@ -2675,7 +2675,8 @@ const char* get_name_of_generic_spec(AST generic_spec)
             }
         case AST_IO_SPEC:
             {
-                running_error("%s: sorry: io-specifiers for generic-specifiers not supported\n", 0);
+                running_error("%s: sorry: io-specifiers for generic-specifiers not supported\n",
+                        locus_to_str(ast_get_locus(generic_spec)));
             }
         default:
             {

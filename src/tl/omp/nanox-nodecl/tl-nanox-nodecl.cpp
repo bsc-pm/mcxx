@@ -37,7 +37,8 @@
 namespace TL { namespace Nanox {
 
     Lowering::Lowering()
-        : _ancillary_file(NULL)
+        : _ancillary_file(NULL),
+        _static_weak_symbols(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");

@@ -171,7 +171,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         const char* home = getenv("HOME");
         if (home == NULL)
         {
-            running_error("Error: $HOME not defined\n", 0);
+            running_error("Error: $HOME not defined\n");
         }
 
         CURRENT_CONFIGURATION->lock_dir = strappend(home, "/.mercurium_locks");
@@ -181,7 +181,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         {
             if (errno != EEXIST)
             {
-                running_error("%s: error: cannot create lock dir '%s'. Reason: %s\n",
+                running_error("Error: cannot create lock dir '%s'. Reason: %s\n",
                         CURRENT_CONFIGURATION->lock_dir,
                         strerror(errno));
             }
@@ -455,7 +455,7 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when unwrapping module. tar failed", 0);
+        running_error("Error when unwrapping module. tar failed");
     }
 
     if (CURRENT_CONFIGURATION->verbose)
@@ -555,7 +555,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when wrapping a module: tar failed\n", 0);
+        running_error("Error when wrapping a module: tar failed\n");
     }
 
     unlock_modules(lock_fd, lock_filename);
