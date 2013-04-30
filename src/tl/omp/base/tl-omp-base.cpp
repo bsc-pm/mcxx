@@ -91,13 +91,13 @@ namespace TL { namespace OpenMP {
             typedef std::set<Symbol> module_function_tasks_set_t;
             module_function_tasks_set_t _module_function_tasks;
 
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_expr_map;
+            const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _funct_call_to_enclosing_expr_map;
             std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_expr_to_task_calls_map;
 
         public:
 
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
-                    std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> funct_call_to_enclosing_expr_map)
+                    const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_expr_map)
                 :
                     _function_task_set(function_task_set),
                     _funct_call_to_enclosing_expr_map(funct_call_to_enclosing_expr_map),
@@ -143,7 +143,7 @@ namespace TL { namespace OpenMP {
                                 call.shallow_copy(),
                                 call.get_locus());
 
-                        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it =
+                        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::const_iterator it =
                             _funct_call_to_enclosing_expr_map.find(call);
 
                         if (it == _funct_call_to_enclosing_expr_map.end())
@@ -705,7 +705,7 @@ namespace TL { namespace OpenMP {
                 }
             }
 
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> get_function_call_to_enclosing_expression_map()
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_expression_map()
             {
                 return _funct_call_to_enclosing_expr_map;
             }
@@ -1006,7 +1006,7 @@ namespace TL { namespace OpenMP {
         visitor.walk(translation_unit);
         visitor.update_function_task_set();
 
-        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>
+        const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>&
             funct_call_to_enclosing_expr_map = visitor.get_function_call_to_enclosing_expression_map();
 
         FunctionCallVisitor function_call_visitor(function_task_set, funct_call_to_enclosing_expr_map);
