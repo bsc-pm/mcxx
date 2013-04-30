@@ -90,7 +90,7 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
             }
              //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
             if ((*it)->get_symbol().is_allocatable()){
-                if ((*it)->get_symbol().is_from_module()){
+                if ((*it)->get_symbol().is_from_module()){  
 //                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
                     (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
                     (*it)->get_copies().clear();
@@ -942,8 +942,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
                "extern void " << device_outline_name << "_device"  << append << "(void);";
     }
-    _sectionCodeHost.append_with_separator("(void*)" + device_outline_name + "_host" + append,",");
-    _sectionCodeDevice.append_with_separator("(void(*)())" + device_outline_name + "_device" + append,",");
+    
+    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
     
 }
 
