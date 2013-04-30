@@ -504,23 +504,18 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
     ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
 
-    //TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-    if (IS_CXX_LANGUAGE
-            && !is_function_task
-            && current_function.is_member()
-            && !current_function.is_static()
-            && it != data_items.end())
-    {
-        ++it;
-    }
-    
     std::map< TL::Symbol,TL::ObjectList<TL::Symbol> > modules_with_params;
     Source data_input_global;
     Source data_output_global;
 
-    for (; it != data_items.end(); it++)
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+             it != data_items.end();
+             it++)
     {
+        if (!is_function_task
+                && (*it)->get_is_cxx_this())
+            continue;
+
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:

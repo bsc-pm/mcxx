@@ -475,26 +475,22 @@ namespace TL { namespace Nanox {
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
-        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        if (IS_CXX_LANGUAGE
-                && !is_function_task
-                && current_function.is_member()
-                && !current_function.is_static()
-                && it != data_items.end())
-        {
-            it++;
-        }
-
         int lower_bound_index = 1;
         int upper_bound_index = 1;
         int is_allocated_index = 1;
         TL::ObjectList<TL::Symbol> cray_pointee_list;
 
-        for (; it != data_items.end(); it++)
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
             std::string name = (*it)->get_field_name();
+
+            if (!is_function_task
+                    && (*it)->get_is_cxx_this())
+                continue;
 
             bool already_mapped = false;
             switch ((*it)->get_sharing())
