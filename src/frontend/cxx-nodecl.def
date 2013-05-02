@@ -124,7 +124,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
     | string-literal
     | structured-value
 
-string-literal: NODECL_STRING_LITERAL() type const-value
+string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
 expression : literal
            | name

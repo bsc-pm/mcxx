@@ -3552,6 +3552,9 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     const_value_t* value = const_value_make_string(real_string, real_length);
 
     *nodecl_output = nodecl_make_string_literal(t, value, ast_get_locus(expr));
+
+    // Also keep the string itself for codegen
+    nodecl_set_text(*nodecl_output, ASTText(expr));
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4681,7 +4684,7 @@ static void cast_initialization(
             nodecl_real_part = *nodecl_output;
         }
         cast_initialization(complex_type_get_base_type(initialized_type),
-                val, &real_part, 
+                val, &real_part,
                 /* nodecl_output */ nodecl_is_null(nodecl_real_part) ? NULL : &nodecl_real_part);
 
         // Cast imag part (a 0 literal actually)
@@ -4750,7 +4753,13 @@ static void cast_initialization(
         if (nodecl_output != NULL)
         {
             // Build a nodecl if needed
+            nodecl_t old_nodecl = *nodecl_output;
             *nodecl_output = const_value_to_nodecl(*casted_const);
+            // Try hard to preserve the string literal...
+            if (nodecl_get_kind(old_nodecl) == NODECL_STRING_LITERAL)
+            {
+                nodecl_set_text(*nodecl_output, nodecl_get_text(old_nodecl));
+            }
         }
     }
     else if (fortran_is_array_type(initialized_type)
@@ -4897,9 +4906,9 @@ void fortran_check_initialization(
         }
 
         const_value_t* casted_const = NULL;
-        cast_initialization(no_ref(entry->type_information), 
-                nodecl_get_constant(*nodecl_output), 
-                &casted_const, 
+        cast_initialization(no_ref(entry->type_information),
+                nodecl_get_constant(*nodecl_output),
+                &casted_const,
                 nodecl_output);
     }
 }

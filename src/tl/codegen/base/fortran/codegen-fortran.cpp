@@ -751,62 +751,71 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::StringLiteral& node)
     {
-        const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
-
-        int length = 0;
-        int *bytes = NULL;
-        const_value_string_unpack_to_int(v, &bytes, &length);
-
-        if (length == 0
-                || (::isprint(bytes[0])))
+        // If there is a string for that, just use it
+        if (nodecl_get_text(node.get_internal_nodecl()) != NULL)
         {
-            file << "\"";
+            file << node.get_text();
         }
-
-        int i;
-
-        for (i = 0; i < length; i++)
+        // Otherwise use the constant kept in the node
+        else
         {
-            int current = bytes[i];
-            if (::isprint(current))
+            const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+            int length = 0;
+            int *bytes = NULL;
+            const_value_string_unpack_to_int(v, &bytes, &length);
+
+            if (length == 0
+                    || (::isprint(bytes[0])))
             {
-                if (current == '\"')
+                file << "\"";
+            }
+
+            int i;
+
+            for (i = 0; i < length; i++)
+            {
+                int current = bytes[i];
+                if (::isprint(current))
                 {
-                    file << "\"\"";
+                    if (current == '\"')
+                    {
+                        file << "\"\"";
+                    }
+                    else
+                    {
+                        file << (char)current;
+                    }
                 }
                 else
                 {
-                    file << (char)current;
-                }
-            }
-            else
-            {
-                
-                if (i > 0 && ::isprint(bytes[i-1]))
-                {
-                    file << "\" // ";
-                }
-                unsigned char current_char = current;
-                
-                file << "char(" << (unsigned int) current_char << ")";
-                if ((i+1) < length)
-                {
-                    file << " // ";
-                    if (::isprint(bytes[i+1]))
+
+                    if (i > 0 && ::isprint(bytes[i-1]))
                     {
-                        file << "\"";
+                        file << "\" // ";
+                    }
+                    unsigned char current_char = current;
+
+                    file << "char(" << (unsigned int) current_char << ")";
+                    if ((i+1) < length)
+                    {
+                        file << " // ";
+                        if (::isprint(bytes[i+1]))
+                        {
+                            file << "\"";
+                        }
                     }
                 }
             }
-        }
 
-        if (length == 0
-                || (::isprint(bytes[length - 1])))
-        {
-            file << "\"";
-        }
+            if (length == 0
+                    || (::isprint(bytes[length - 1])))
+            {
+                file << "\"";
+            }
 
-        xfree(bytes);
+            xfree(bytes);
+        }
     }
 
     namespace {
