@@ -969,8 +969,29 @@ static nodecl_t simplify_char(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 {
     if (nodecl_is_constant(arguments[0]))
     {
-        char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
-        return const_value_to_nodecl(const_value_make_string(&c, 1));
+        const_value_t* cval = nodecl_get_constant(arguments[0]);
+        const_value_t* result = NULL;
+
+        if (const_value_is_array(cval))
+        {
+            int N = const_value_get_num_elements(cval);
+            const_value_t* values[N + 1];
+
+            int i;
+            for (i = 0; i < N; i++)
+            {
+                char c = const_value_cast_to_1(const_value_get_element_num(cval, i));
+                values[i] = const_value_make_string(&c, 1);
+            }
+
+            result = const_value_make_array(N, values);
+        }
+        else
+        {
+            char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
+            result = const_value_make_string(&c, 1);
+        }
+        return const_value_to_nodecl(result);
     }
 
     return nodecl_null();
