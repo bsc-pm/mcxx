@@ -7522,7 +7522,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
-    
+
     if (attr_spec_list != NULL)
     {
         gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
@@ -7541,20 +7541,21 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
-        char can_be_an_intrinsic = 
-            (entry_intrinsic != NULL 
+        char could_be_an_intrinsic =
+            (entry_intrinsic != NULL
              // Filter dummy arguments
              && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
              // Filter the program unit itself
-             && entry != decl_context.current_scope->related_entry);
-        
+             && entry != decl_context.current_scope->related_entry
+             && entry->kind == SK_UNDEFINED);
+
         // If the entry could be the name of an intrinsic
         // fix its type
-        if (can_be_an_intrinsic)
+        if (could_be_an_intrinsic)
         {
-            entry->type_information = basic_type; 
+            entry->type_information = basic_type;
         }
-        
+
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -7592,7 +7593,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (entry->kind == SK_FUNCTION)
         {
-            // Update the result (if any) as well
+            // Update the result name (if any) as well
             // Note that the result variable is never found through normal lookup, it is
             // only accessible through the function symbol
             int i, num_symbols = entry->entity_specs.num_related_symbols;
