@@ -2686,11 +2686,13 @@ static void check_called_symbol_list(
                     int i;
                     for (i = 0; i < num_actual_arguments; i++)
                     {
+                        nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
+                        type_t* t = nodecl_get_type(expr);
                         info_printf("%s: info:    '%s' of type %s\n",
                                 ast_location(location),
                                 codegen_to_str(nodecl_actual_arguments[i],
                                     nodecl_retrieve_context(nodecl_actual_arguments[i])),
-                                fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+                                fortran_print_type_str(t));
                     }
                 }
                 else
@@ -2713,7 +2715,9 @@ static void check_called_symbol_list(
             int i;
             for (i = 0; i < num_actual_arguments; i++)
             {
-                int current_rank = fortran_get_rank_of_type(nodecl_get_type(nodecl_actual_arguments[i]));
+                nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
+                type_t* t = nodecl_get_type(expr);
+                int current_rank = fortran_get_rank_of_type(t);
                 if (common_rank <= 0)
                 {
                     common_rank = current_rank;
