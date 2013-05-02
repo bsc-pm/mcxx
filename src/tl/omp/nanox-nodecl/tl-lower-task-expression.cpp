@@ -32,6 +32,7 @@ namespace TL { namespace Nanox {
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
 {
     walk(task_expr.get_task_calls());
+    walk(task_expr.get_join_task());
 
     Nodecl::List task_calls = task_expr.get_task_calls().as<Nodecl::List>();
 
@@ -45,6 +46,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
         Nodecl::Utils::prepend_items_before(expr_stmt, *it);
     }
 
+    Nodecl::Utils::prepend_items_before(expr_stmt, task_expr.get_join_task());
     Nodecl::Utils::remove_from_enclosing_list(expr_stmt);
 }
 
