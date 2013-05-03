@@ -265,7 +265,7 @@ namespace TL { namespace OpenMP {
                         if (!input_dependences.empty())
                         {
                             exec_environment.append(
-                                    Nodecl::OpenMP::DepIn::make(
+                                    Nodecl::OpenMP::DepInAlloca::make(
                                         Nodecl::List::make(input_dependences),
                                         make_locus("", 0, 0)));
                         }
@@ -299,7 +299,6 @@ namespace TL { namespace OpenMP {
                                 make_locus("", 0, 0)));
 
                     Nodecl::Utils::prepend_items_before(enclosing_expr, task_expr);
-
                     Nodecl::Utils::remove_from_enclosing_list(enclosing_expr);
                 }
             }
@@ -573,7 +572,7 @@ namespace TL { namespace OpenMP {
     //      int main()
     //      {
     //          int y = 2;
-    //          int *output = alloca(...);
+    //          int *output;
     //          foo__(&y, output);
     //          x = *output;
     //      }
@@ -754,36 +753,7 @@ namespace TL { namespace OpenMP {
                     return_arg_sym.get_internal_symbol()->type_information = function_called.get_type().returns().get_pointer_to().get_internal_type();
                     return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-                    // 3. This new variable should be allocated using the built-in alloca
-                    {
-                        TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
-                        ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
-
-                        Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
-                                alloca_sym,
-                                func_call.get_locus());
-
-                        called_entity_alloca.set_type(alloca_sym.get_type());
-
-                        Nodecl::List arguments_alloca;
-                        int bytes_to_allocate = function_called.get_type().returns().get_size();
-                        arguments_alloca.append(
-                                Nodecl::IntegerLiteral::make(::get_signed_int_type(),
-                                    const_value_get_signed_int(bytes_to_allocate),
-                                    func_call.get_locus()));
-
-                        Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
-                                called_entity_alloca,
-                                arguments_alloca,
-                                /* alternate_name */ nodecl_null(),
-                                /* function_form */ nodecl_null(),
-                                TL::Type::get_void_type(),
-                                func_call.get_locus());
-
-                        return_arg_sym.get_internal_symbol()->value = alloca_function_call.get_internal_nodecl();
-                    }
-
-                    // 4. Extend the list of arguments adding the output argument
+                    // 3. Extend the list of arguments adding the output argument
                     Nodecl::NodeclBase new_arguments = func_call.get_arguments();
 
                     Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
@@ -794,7 +764,7 @@ namespace TL { namespace OpenMP {
 
                     new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
 
-                    // 5. Create the new function call and encapsulate it in a ExpressionStatement
+                    // 4. Create the new function call and encapsulate it in a ExpressionStatement
                     Nodecl::NodeclBase new_function_call =
                                 Nodecl::FunctionCall::make(
                                     called_entity,
@@ -807,7 +777,7 @@ namespace TL { namespace OpenMP {
                     Nodecl::NodeclBase expression_stmt =
                         Nodecl::ExpressionStatement::make(new_function_call);
 
-                    // 6. Prepend the new function call before the enclosing expression statement
+                    // 5. Prepend the new function call before the enclosing expression statement
                     // of the original function call
                     Nodecl::NodeclBase enclosing_expr_stmt = func_call;
                     while (!enclosing_expr_stmt.is_null()
@@ -824,7 +794,7 @@ namespace TL { namespace OpenMP {
 
                     Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, expression_stmt);
 
-                    // 7. Replace the original function call by the variable
+                    // 6. Replace the original function call by the variable
                     Nodecl::NodeclBase dereference_return =
                             Nodecl::Dereference::make(
                                 return_arg_nodecl,

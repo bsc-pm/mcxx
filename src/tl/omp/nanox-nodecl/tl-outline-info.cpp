@@ -201,6 +201,41 @@ namespace TL { namespace Nanox {
         outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
     }
 
+
+    // Only used in task expressions to store the return results
+    void OutlineInfoRegisterEntities::add_shared_with_alloca(Symbol sym, TL::DataReference& data_ref)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_WITH_ALLOCA);
+
+        if (is_new)
+        {
+            Type t = data_ref.get_type();
+            if (t.is_any_reference())
+            {
+                t = t.references_to();
+            }
+
+            if (t.is_array())
+            {
+                t = t.array_element().get_pointer_to();
+            }
+
+            outline_info.set_field_type(t.get_unqualified_type());
+
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type.get_pointer_to());
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
     void OutlineInfoRegisterEntities::add_capture_address(Symbol sym, TL::DataReference& data_ref)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
@@ -596,17 +631,25 @@ namespace TL { namespace Nanox {
         if (data_ref.is_valid())
         {
             TL::Symbol sym = data_ref.get_base_symbol();
-            if (IS_FORTRAN_LANGUAGE)
+
+            if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_shared_opaque(sym);
-            }
-            else if (data_ref.is<Nodecl::Symbol>())
-            {
-                add_shared(sym);
+                add_shared_with_alloca(sym, data_ref);
             }
             else
             {
-                add_capture_address(sym, data_ref);
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    add_shared_opaque(sym);
+                }
+                else if (data_ref.is<Nodecl::Symbol>())
+                {
+                    add_shared(sym);
+                }
+                else
+                {
+                    add_capture_address(sym, data_ref);
+                }
             }
 
             OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
@@ -843,6 +886,11 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::DepInValue& dep_in_value)
             {
                 add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
+            }
+
+            void visit(const Nodecl::OpenMP::DepInAlloca& dep_in_alloca)
+            {
+                add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)

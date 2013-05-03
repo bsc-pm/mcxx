@@ -329,6 +329,18 @@ namespace TL { namespace Nanox {
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }
+                case OutlineDataItem::SHARING_SHARED_WITH_ALLOCA:
+                    {
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            internal_error("unreachable code", 0);
+                        }
+
+                        TL::Source argument;
+                        argument << "&(args." << (*it)->get_field_name() <<")";
+                        unpacked_arguments.append_with_separator(argument, ", ");
+                        break;
+                    }
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
                         // // Pass the original reduced variable as if it were a shared

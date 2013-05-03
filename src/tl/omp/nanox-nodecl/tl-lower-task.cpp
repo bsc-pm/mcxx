@@ -486,7 +486,9 @@ void LoweringVisitor::emit_async_common(
         OutlineInfo& outline_info,
 
         /* this is non-NULL only for function tasks */
-        OutlineInfo* parameter_outline_info)
+        OutlineInfo* parameter_outline_info,
+        /* this is non-NULL only for task expressions */
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     Source spawn_code;
 
@@ -673,8 +675,28 @@ void LoweringVisitor::emit_async_common(
     Source err_name;
     err_name << "err";
 
-    Source num_dependences;
+    Source placeholder_task_expression_opt, update_decls_opt;
+    if (placeholder_task_expr_transformation != NULL)
+    {
+        placeholder_task_expression_opt
+            << statement_placeholder(*placeholder_task_expr_transformation);
 
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED_WITH_ALLOCA)
+                continue;
+
+            TL::Symbol sym = (*it)->get_symbol();
+            update_decls_opt << sym.get_name() << " = &(ol_args->" << sym.get_name() << ");";
+
+        }
+    }
+
+    Source num_dependences;
     // Spawn code
     spawn_code
         << "{"
@@ -691,6 +713,8 @@ void LoweringVisitor::emit_async_common(
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
+        <<     update_decls_opt
+        <<     placeholder_task_expression_opt
         <<     check_dependences_over_dependences
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
@@ -793,6 +817,14 @@ void LoweringVisitor::emit_async_common(
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
+    visit_task(construct, /* placeholder_task_expr_transformation */ NULL);
+}
+
+// This function is called by the visitors of a OpenMP::Task and OpenMP::TaskExpression
+void LoweringVisitor::visit_task(
+        const Nodecl::OpenMP::Task& construct,
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
+{
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
@@ -843,7 +875,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             task_environment.is_untied,
 
             outline_info,
-            /* parameter_outline_info */ NULL);
+            /* parameter_outline_info */ NULL,
+            placeholder_task_expr_transformation);
 }
 
 void LoweringVisitor::fill_arguments(
@@ -1093,6 +1126,11 @@ void LoweringVisitor::fill_arguments(
                                 "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
                                 ;
                         }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_SHARED_WITH_ALLOCA:
+                    {
+                        //FIXME:
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
@@ -2191,12 +2229,13 @@ void LoweringVisitor::handle_dependency_item(
 
     int num_dimensions = dependency_type.get_num_dimensions();
 
-    bool input       = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
-    bool input_value = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
-    bool concurrent  = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-    bool commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+    bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-    dependency_flags_in << ( input || input_value || concurrent || commutative);
+    dependency_flags_in << ( input || input_value || input_alloca || concurrent || commutative);
 
     dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
             || concurrent || commutative);

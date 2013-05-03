@@ -25,14 +25,21 @@
 --------------------------------------------------------------------*/
 
 #include "tl-lowering-visitor.hpp"
+#include "tl-lower-task-common.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Nanox {
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
 {
+    Nodecl::OpenMP::Task join_task = task_expr.get_join_task().as<Nodecl::OpenMP::Task>();
+
+    Nodecl::NodeclBase placeholder_task_expr_transformation;
+
+    // Note: don't walk over the OpenMP::Task node because Its visitor ignores the placeholder
+    visit_task(join_task, &placeholder_task_expr_transformation);
+
     walk(task_expr.get_task_calls());
-    walk(task_expr.get_join_task());
 
     Nodecl::List task_calls = task_expr.get_task_calls().as<Nodecl::List>();
 
@@ -43,10 +50,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
             it != task_calls.end();
             ++it)
     {
-        Nodecl::Utils::prepend_items_before(expr_stmt, *it);
+        Nodecl::Utils::prepend_items_before(placeholder_task_expr_transformation, *it);
     }
 
     Nodecl::Utils::prepend_items_before(expr_stmt, task_expr.get_join_task());
+
+    // Finally, remove from the tree the TaskExpression node
     Nodecl::Utils::remove_from_enclosing_list(expr_stmt);
 }
 

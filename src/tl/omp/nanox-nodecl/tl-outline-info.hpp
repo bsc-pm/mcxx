@@ -57,6 +57,8 @@ namespace TL
                     SHARING_SHARED,
                     // Only used in input dependences over a parameter passed by value
                     SHARING_SHARED_WITH_CAPTURE,
+                    // Only used in task expressions to store the return results
+                    SHARING_SHARED_WITH_ALLOCA,
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -72,10 +74,11 @@ namespace TL
                     DEP_NONE = 0,
                     DEP_IN =   1 << 0,
                     DEP_IN_VALUE =   1 << 1,
-                    DEP_OUT =  1 << 2,
+                    DEP_IN_ALLOCA =   1 << 2,
+                    DEP_OUT =  1 << 3,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 3,
-                    DEP_COMMUTATIVE = 1 << 4
+                    DEP_CONCURRENT = 1 << 4,
+                    DEP_COMMUTATIVE = 1 << 5
                 };
                 struct DependencyItem
                 {
@@ -502,6 +505,7 @@ namespace TL
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
+                void add_shared_with_alloca(Symbol sym, TL::DataReference& data_ref);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);

@@ -79,7 +79,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info);
+                OutlineInfo* parameter_outline_info,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation = NULL);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -355,6 +356,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
         static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
         static Nodecl::NodeclBase get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num);
+
+        void visit_task(
+                const Nodecl::OpenMP::Task& construct,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
