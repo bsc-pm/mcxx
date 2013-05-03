@@ -232,23 +232,30 @@ namespace TL { namespace OpenMP {
                             nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(enclosing_expr);
                         }
 
+
+                        // The return arguments are added as alloca input dependences
+                        for (std::set<TL::Symbol>::const_iterator it2 = return_arguments.begin();
+                                it2 != return_arguments.end();
+                                ++it2)
+                        {
+                            TL::Symbol sym = *it2;
+                            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                            sym_nodecl.set_type(sym.get_type());
+
+                            input_dependences.append(
+                                    Nodecl::Dereference::make(
+                                        sym_nodecl,
+                                        sym.get_type().points_to().get_lvalue_reference_to(),
+                                        make_locus("", 0, 0)));
+                        }
+
+                        // The expressions that are not return arguments are passed as firstprivates
                         for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
                                 it2 != nonlocal_symbols.end();
                                 ++it2)
                         {
                             TL::Symbol sym = it2->get_symbol();
-                            if (return_arguments.find(sym) != return_arguments.end())
-                            {
-                                Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                                sym_nodecl.set_type(sym.get_type());
-
-                                input_dependences.append(
-                                        Nodecl::Dereference::make(
-                                            sym_nodecl,
-                                            sym.get_type().points_to().get_lvalue_reference_to(),
-                                            make_locus("", 0, 0)));
-                            }
-                            else
+                            if (return_arguments.find(sym) == return_arguments.end())
                             {
                                 assumed_firstprivates.append((*it2).shallow_copy());
                             }
