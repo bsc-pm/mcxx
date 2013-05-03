@@ -737,10 +737,9 @@ static scope_entry_t* keyword_compute_intrinsic_##name(scope_entry_t* symbol, \
         if (sym != NULL) \
         { \
             update_keywords_of_intrinsic(sym, keywords0, num_arguments); \
+            return sym; \
         } \
-        return sym; \
     } \
-    else \
     { \
         num_arguments = keep_nargs; \
         memset(reordered_types, 0, sizeof(reordered_types)); \
