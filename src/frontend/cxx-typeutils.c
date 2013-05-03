@@ -8289,6 +8289,8 @@ static char is_unknown_dependent_type(type_t* t)
 
 static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
 {
+    if (nodecl_is_null(n))
+        return "<<<unknown>>>";
     if (nodecl_get_kind(n) == NODECL_SYMBOL
             && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
     {

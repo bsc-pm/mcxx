@@ -84,7 +84,7 @@ namespace Codegen
             void visit(const Nodecl::ParenthesizedExpression& node);
             void visit(const Nodecl::ArraySubscript& node);
             void visit(const Nodecl::FunctionCall& node);
-            void visit(const Nodecl::FortranNamedPairSpec& node);
+            void visit(const Nodecl::FortranActualArgument& node);
             void visit(const Nodecl::EmptyStatement& node);
             void visit(const Nodecl::IfElseStatement& node);
             void visit(const Nodecl::ReturnStatement& node);

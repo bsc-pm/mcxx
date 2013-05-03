@@ -27,26 +27,33 @@
 #ifndef FORTRAN03_INTRINSICS_H
 #define FORTRAN03_INTRINSICS_H
 
+#include "libmf03-common.h"
 #include "cxx-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
+LIBMF03_EXTERN void copy_intrinsic_function_info(scope_entry_t* dest, scope_entry_t* intrinsic);
+
 void fortran_init_intrinsics(decl_context_t decl_context);
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
-        const char** actual_arguments_keywords, 
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         char is_call);
 
 void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
-        const char** actual_arguments_keywords,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified,
         const locus_t* locus);
 
 decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context);
+
+// These functions are for serialization purposes only
+int fortran_intrinsic_get_id(computed_function_type_t t);
+computed_function_type_t fortran_intrinsic_get_ptr(int id);
+int fortran_simplify_function_get_id(simplify_function_t fun);
+simplify_function_t fortran_simplify_function_get_ptr(int id);
 
 MCXX_END_DECLS
 

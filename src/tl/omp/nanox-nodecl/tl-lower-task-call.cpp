@@ -67,12 +67,12 @@ static void fill_map_parameters_to_arguments(
     {
         Nodecl::NodeclBase expression;
         TL::Symbol parameter_sym;
-        if (it->is<Nodecl::FortranNamedPairSpec>())
+        if (it->is<Nodecl::FortranActualArgument>())
         {
             // If this is a Fortran style argument use the symbol
-            Nodecl::FortranNamedPairSpec named_pair(it->as<Nodecl::FortranNamedPairSpec>());
+            Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
 
-            param_to_arg_expr[named_pair.get_name().get_symbol()] = named_pair.get_argument();
+            param_to_arg_expr[named_pair.get_symbol()] = named_pair.get_argument();
         }
         else
         {
