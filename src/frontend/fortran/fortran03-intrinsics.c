@@ -1175,6 +1175,14 @@ static scope_entry_t* get_intrinsic_symbol_(
 
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+        if (generic_symbol != NULL)
+        {
+            new_entry->locus = generic_symbol->locus;
+        }
+        else
+        {
+            new_entry->locus = make_locus("(fortran-intrinsic)", 0, 0);
+        }
         new_entry->symbol_name = name;
         new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
@@ -1296,6 +1304,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             relevant_decl_context = module_sym->related_decl_context; \
         } \
         scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, #name); \
+        new_intrinsic->locus = make_locus("(fortran-intrinsic)", 0, 0); \
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(keyword_compute_intrinsic_##name); \
@@ -1315,6 +1324,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->entity_specs.simplify_function = compute_code; \
         if (module_sym != NULL) \
         { \
+            new_intrinsic->locus = module_sym->locus; \
             new_intrinsic->entity_specs.in_module = module_sym; \
             new_intrinsic->entity_specs.is_module_procedure = 1; \
             P_LIST_ADD(module_sym->entity_specs.related_symbols, \
@@ -6533,9 +6543,11 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 {
     // Initialize ISO_C_BINDING
     decl_context_t module_context = new_program_unit_context(decl_context);
+    const locus_t* locus = make_locus("(iso_c_binding)", 0, 0);
 
     scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context.current_scope, "iso_c_binding");
     iso_c_binding->kind = SK_MODULE;
+    iso_c_binding->locus = locus;
     iso_c_binding->entity_specs.is_builtin = 1;
     iso_c_binding->related_decl_context = module_context;
     iso_c_binding->defined = 1;
@@ -6607,6 +6619,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     for (i = 0; named_constants[i].name != NULL; i++)
     {
         scope_entry_t* symbol = new_symbol(module_context, module_context.current_scope, named_constants[i].name);
+        symbol->locus = locus;
         symbol->kind = SK_VARIABLE;
         symbol->type_information = get_const_qualified_type(named_constants[i].const_type);
         symbol->entity_specs.in_module = iso_c_binding;
@@ -6628,6 +6641,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 
     {
     scope_entry_t* c_ptr = new_symbol(module_context, module_context.current_scope, "c_ptr");
+    c_ptr->locus = locus;
     c_ptr->kind = SK_CLASS;
     c_ptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     c_ptr->entity_specs.in_module = iso_c_binding;
@@ -6637,6 +6651,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
             c_ptr);
 
     scope_entry_t* c_null_ptr = new_symbol(module_context, module_context.current_scope, "c_null_ptr");
+    c_null_ptr->locus = locus;
     c_null_ptr->kind = SK_VARIABLE;
     c_null_ptr->type_information = get_user_defined_type(c_ptr);
     c_null_ptr->entity_specs.in_module = iso_c_binding;
@@ -6648,6 +6663,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 
     {
     scope_entry_t* c_funptr = new_symbol(module_context, module_context.current_scope, "c_funptr");
+    c_funptr->locus = locus;
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     c_funptr->kind = SK_CLASS;
     c_funptr->entity_specs.in_module = iso_c_binding;
@@ -6658,6 +6674,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
             c_funptr);
 
     scope_entry_t* c_null_funptr = new_symbol(module_context, module_context.current_scope, "c_null_funptr");
+    c_null_funptr->locus = locus;
     c_null_funptr->kind = SK_VARIABLE;
     c_null_funptr->type_information = get_user_defined_type(c_funptr);
     c_null_funptr->entity_specs.in_module = iso_c_binding;
@@ -6673,7 +6690,10 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     // Initialize IEEE_EXCEPTIONS
     decl_context_t module_context = new_program_unit_context(decl_context);
 
+    const locus_t* locus = make_locus("(ieee_exceptions)", 0, 0);
+
     scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context.current_scope, "ieee_exceptions");
+    ieee_exceptions->locus = locus;
     ieee_exceptions->kind = SK_MODULE;
     ieee_exceptions->entity_specs.is_builtin = 1;
     ieee_exceptions->related_decl_context = module_context;
@@ -6700,6 +6720,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_exceptions;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6743,6 +6764,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_exceptions;
         new_var->type_information = global_names[i].type;
@@ -6758,6 +6780,8 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 {
     // Initialize IEEE_ARITHMETIC
     decl_context_t module_context = new_program_unit_context(decl_context);
+
+    const locus_t* locus = make_locus("(ieee_arithmetic)", 0, 0);
 
     scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context.current_scope, "ieee_arithmetic");
     ieee_arithmetic->kind = SK_MODULE;
@@ -6786,6 +6810,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_arithmetic;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6829,6 +6854,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_arithmetic;
         new_var->type_information = global_names[i].type;
@@ -6845,7 +6871,10 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     // Initialize IEEE_FEATURES
     decl_context_t module_context = new_program_unit_context(decl_context);
 
+    const locus_t* locus = make_locus("(ieee_features)", 0, 0);
+
     scope_entry_t* ieee_features = new_symbol(decl_context, decl_context.current_scope, "ieee_features");
+    ieee_features->locus = locus;
     ieee_features->kind = SK_MODULE;
     ieee_features->entity_specs.is_builtin = 1;
     ieee_features->related_decl_context = module_context;
@@ -6871,6 +6900,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_features;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6907,6 +6937,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_features;
         new_var->type_information = global_names[i].type;
