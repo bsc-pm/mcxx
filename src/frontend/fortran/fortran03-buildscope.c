@@ -6524,21 +6524,19 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         {
             AST namelist_item_name = ASTSon1(it2);
 
-            scope_entry_t* namelist_element = fortran_get_variable_with_locus(decl_context, namelist_item_name, ASTText(namelist_item_name));
-
-            if (namelist_element != NULL)
+            scope_entry_t* namelist_element =
+                fortran_get_variable_with_locus(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            if (namelist_element == NULL)
             {
-                namelist_element->entity_specs.is_in_namelist = 1;
-                namelist_element->entity_specs.namelist = new_namelist;
+                namelist_element = get_symbol_for_name(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            }
 
-                P_LIST_ADD(new_namelist->entity_specs.related_symbols,
-                        new_namelist->entity_specs.num_related_symbols,
-                        namelist_element);
-            }
-            else
-            {
-                error_printf("%s: error: entity '%s' is unknown\n", ast_location(namelist_item_name), ASTText(namelist_item_name));
-            }
+            namelist_element->entity_specs.is_in_namelist = 1;
+            namelist_element->entity_specs.namelist = new_namelist;
+
+            P_LIST_ADD(new_namelist->entity_specs.related_symbols,
+                    new_namelist->entity_specs.num_related_symbols,
+                    namelist_element);
         }
     }
 
