@@ -702,7 +702,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     Source unpacked_arguments, cleanup_code;
 
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
