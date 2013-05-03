@@ -32,6 +32,7 @@
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-scope.h"
+#include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
@@ -181,6 +182,7 @@ enum type_kind_table_tag
     TKT_VOID,
     TKT_INDIRECT,
     TKT_NAMED,
+    TKT_COMPUTED_FUNCTION
 } type_kind_table_t;
 
 typedef
@@ -1362,8 +1364,11 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     }
     else if (is_computed_function_type(t))
     {
-        // We do not store this case (it is actually a pointer to a function)
-        result = insert_type_simple(handle, t, TKT_VOID, 0);
+        int id = fortran_intrinsic_get_id(computed_function_type_get_computing_function(t));
+        ERROR_CONDITION((id == -1), "Attempt to store an unknown computed function type %p",
+                computed_function_type_get_computing_function(t));
+
+        result = insert_type_simple(handle, t, TKT_COMPUTED_FUNCTION, id);
     }
     else
     {
@@ -2133,38 +2138,6 @@ static int get_symbol(void *datum,
         entry_list_iterator_free(it);
         entry_list_free(members);
     }
-    // Intrinsic functions require a bit more of work
-    else if ((*result)->kind == SK_FUNCTION
-            && (*result)->entity_specs.is_builtin)
-    {
-        scope_entry_t* entry_intrinsic = NULL;
-        if ((*result)->entity_specs.from_module != NULL)
-        {
-            scope_entry_t* ultimate_symbol = fortran_get_ultimate_symbol(*result);
-
-            scope_entry_t* module = get_module_in_cache(ultimate_symbol->entity_specs.in_module->symbol_name);
-
-            ERROR_CONDITION(module == NULL, "Unknown intrinsic module '%s'\n", 
-                    ultimate_symbol->entity_specs.in_module->symbol_name);
-
-            ERROR_CONDITION(!module->entity_specs.is_builtin, "%s is not an intrinsic module but %s.%s is an intrinsic function",
-                    module->symbol_name,
-                    module->symbol_name,
-                    (*result)->symbol_name);
-            scope_entry_list_t* res = fortran_query_module_for_name(module, ultimate_symbol->symbol_name);
-            if (res != NULL)
-                entry_intrinsic = entry_list_head(res);
-            entry_list_free(res);
-        }
-        else
-        {
-            entry_intrinsic = fortran_query_intrinsic_name_str(CURRENT_COMPILED_FILE->global_decl_context,
-                    (*result)->symbol_name);
-        }
-        ERROR_CONDITION(entry_intrinsic == NULL, "Invalid intrinsic '%s'\n", (*result)->symbol_name);
-
-        copy_intrinsic_function_info(*result, entry_intrinsic);
-    }
 
     // This is a (top-level) module. Keep in the module symbol cache
     if ((*result)->kind == SK_MODULE)
@@ -2707,6 +2680,20 @@ static int get_type(void *datum,
 
             _type_assign_to(*pt, get_indirect_type(symbol));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_COMPUTED_FUNCTION:
+        {
+            // We keep the identifier in the kind_size field
+            int id = kind_size;
+
+            // We only allow Fortran intrinsics have computed function_types
+            computed_function_type_t fun = fortran_intrinsic_get_ptr(id);
+
+            ERROR_CONDITION((fun == NULL && id != 0), "Invalid intrinsic function id %d.\n"
+                    "You may have to rebuild your Fortran modules\n", id);
+
+            _type_assign_to(*pt, get_computed_function_type(fun));
             break;
         }
         default:

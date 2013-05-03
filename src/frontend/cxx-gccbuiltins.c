@@ -2609,8 +2609,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
                     overloaded_function->decl_context.current_scope,
                     builtin_name);
-
-            // Fix the name
+            return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
             return_symbol->kind = SK_FUNCTION;
             return_symbol->type_information = current_function_type;
@@ -2681,6 +2680,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             }
 
             scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            sym->locus = make_locus("(builtin-simd-type)", 0, 0);
             sym->kind = SK_CLASS;
             sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
 

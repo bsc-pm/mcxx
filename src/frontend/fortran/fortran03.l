@@ -2274,12 +2274,12 @@ goto {
 	RETURN_TOKEN(TOK_LOGICAL_NOT);
 }
 
-".true." { 
+".true."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_TRUE);
 }
 
-".false." {
+".false."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_FALSE);
 }

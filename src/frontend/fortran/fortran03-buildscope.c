@@ -6266,34 +6266,76 @@ static void build_scope_interface_block(AST a,
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
-        generic_spec_sym = get_symbol_for_name(decl_context, generic_spec, name);
-
+        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, name, DF_ONLY_CURRENT_SCOPE);
         scope_entry_t* previous_generic_spec_sym = NULL;
 
-        if (generic_spec_sym == NULL
-                || generic_spec_sym->entity_specs.from_module)
+        if (entry_list != NULL)
         {
-            // Keep the seen generic specifier, we may need it later
-            previous_generic_spec_sym = generic_spec_sym;
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* current_sym = entry_list_iterator_current(it);
 
+                if (current_sym->kind == SK_UNDEFINED)
+                {
+                    ERROR_CONDITION(generic_spec_sym != NULL, "Repeated undefined name '%s'\n", generic_spec_sym->symbol_name);
+
+                    previous_generic_spec_sym = NULL;
+                    generic_spec_sym = current_sym;
+                }
+                else if (current_sym->kind == SK_FUNCTION)
+                {
+                    if (current_sym->entity_specs.from_module)
+                    {
+                        // We need this for the following case
+                        //
+                        // MODULE FOO
+                        //   INTERFACE B
+                        //       ..
+                        //   END INTERFACE B
+                        // END MODULE FOO
+                        //
+                        // MODULE BAR
+                        //    USE FOO
+                        //    PUBLIC B          <-- We will find here FOO.B instead f creating BAR.B (which may end being undefined)
+                        //    PRIVATE
+                        // END MODULE BAR
+                        previous_generic_spec_sym = current_sym;
+                    }
+                    else if (current_sym->entity_specs.is_generic_spec)
+                    {
+                        previous_generic_spec_sym = NULL;
+                        generic_spec_sym = current_sym;
+                    }
+                    else
+                    {
+                        if (current_sym->kind != SK_UNDEFINED
+                                && (current_sym->kind != SK_FUNCTION
+                                    || (!current_sym->entity_specs.is_generic_spec
+                                        && !current_sym->entity_specs.is_builtin)))
+                        {
+                            error_printf("%s: error: redefining symbol '%s'\n",
+                                    ast_location(generic_spec),
+                                    name);
+                            entry_list_iterator_free(it);
+                            return;
+                        }
+                    }
+                }
+            }
+            entry_list_iterator_free(it);
+        }
+
+        if (generic_spec_sym == NULL)
+        {
             generic_spec_sym = create_fortran_symbol_for_name_(decl_context, generic_spec, name, /* no_implicit */ 1);
 
             // If this name is not related to a specific interface, make it void
             generic_spec_sym->type_information = get_void_type();
-
             generic_spec_sym->locus = ast_get_locus(generic_spec);
         }
-
-        if (generic_spec_sym->kind != SK_UNDEFINED
-                && (generic_spec_sym->kind != SK_FUNCTION
-                    || !generic_spec_sym->entity_specs.is_generic_spec))
-        {
-            error_printf("%s: error: redefining symbol '%s'\n",
-                    ast_location(generic_spec),
-                    name);
-            return;
-        }
-
 
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
@@ -6304,6 +6346,7 @@ static void build_scope_interface_block(AST a,
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
 
         // Set the access properly if the symbol has already been seen and we already know its access
+        // (See coment above where we set previous_generic_spec_sym)
         if (previous_generic_spec_sym != NULL
                 && previous_generic_spec_sym->entity_specs.access != AS_UNKNOWN)
         {
@@ -6351,49 +6394,6 @@ static void build_scope_interface_block(AST a,
     }
 }
 
-void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
-{
-    // Symbols from modules need a bit more of care
-    scope_entry_t* in_module = NULL;
-    access_specifier_t access = AS_UNKNOWN;
-    scope_entry_t* from_module = NULL;
-    scope_entry_t* alias_to = NULL;
-
-    if (entry->entity_specs.in_module != NULL)
-    {
-        in_module = entry->entity_specs.in_module;
-        access = entry->entity_specs.access;
-    }
-    from_module = entry->entity_specs.from_module;
-    alias_to = entry->entity_specs.alias_to;
-
-    entry->kind = intrinsic->kind;
-    entry->type_information = intrinsic->type_information;
-    entry->entity_specs = intrinsic->entity_specs;
-
-    // We need to update some extra information because the related symbols may
-    // contain a pointer to the 'intrinsic' function.
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        scope_entry_t* current_sym = entry->entity_specs.related_symbols[i];
-        if (symbol_is_parameter_of_function(current_sym, intrinsic))
-        {
-            int position = symbol_get_parameter_position_in_function(current_sym, intrinsic);
-            symbol_set_as_parameter_of_function(current_sym, entry, position);
-        }
-    }
-
-    entry->entity_specs.from_module = from_module;
-    entry->entity_specs.alias_to = alias_to;
-    if (in_module != NULL)
-    {
-        entry->entity_specs.in_module = in_module;
-        entry->entity_specs.access = access;
-    }
-}
-
-
 static void build_scope_intrinsic_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -6418,7 +6418,7 @@ static void build_scope_intrinsic_stmt(AST a,
         }
 
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
-        
+
         // The symbol exists in the current scope 
         if (entry != NULL)
         {
@@ -6445,7 +6445,7 @@ static void build_scope_intrinsic_stmt(AST a,
             }
             // This symbol will be the intrinsic
             else
-            { 
+            {
                 if (entry_intrinsic == NULL || !entry_intrinsic->entity_specs.is_builtin)
                 {
                     error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
@@ -6455,8 +6455,6 @@ static void build_scope_intrinsic_stmt(AST a,
                 }
 
                 entry->kind = SK_FUNCTION;  
-                copy_intrinsic_function_info(entry, entry_intrinsic);
-                remove_unknown_kind_symbol(decl_context, entry);
             }
         }
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
@@ -6472,9 +6470,10 @@ static void build_scope_intrinsic_stmt(AST a,
             }
 
             entry = get_symbol_for_name(decl_context, name, ASTText(name));
-            copy_intrinsic_function_info(entry, entry_intrinsic);
-            remove_unknown_kind_symbol(decl_context, entry);
         }
+
+        copy_intrinsic_function_info(entry, entry_intrinsic);
+        remove_unknown_kind_symbol(decl_context, entry);
     }
 }
 
@@ -6525,21 +6524,19 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         {
             AST namelist_item_name = ASTSon1(it2);
 
-            scope_entry_t* namelist_element = fortran_get_variable_with_locus(decl_context, namelist_item_name, ASTText(namelist_item_name));
-
-            if (namelist_element != NULL)
+            scope_entry_t* namelist_element =
+                fortran_get_variable_with_locus(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            if (namelist_element == NULL)
             {
-                namelist_element->entity_specs.is_in_namelist = 1;
-                namelist_element->entity_specs.namelist = new_namelist;
+                namelist_element = get_symbol_for_name(decl_context, namelist_item_name, ASTText(namelist_item_name));
+            }
 
-                P_LIST_ADD(new_namelist->entity_specs.related_symbols,
-                        new_namelist->entity_specs.num_related_symbols,
-                        namelist_element);
-            }
-            else
-            {
-                error_printf("%s: error: entity '%s' is unknown\n", ast_location(namelist_item_name), ASTText(namelist_item_name));
-            }
+            namelist_element->entity_specs.is_in_namelist = 1;
+            namelist_element->entity_specs.namelist = new_namelist;
+
+            P_LIST_ADD(new_namelist->entity_specs.related_symbols,
+                    new_namelist->entity_specs.num_related_symbols,
+                    namelist_element);
         }
     }
 
@@ -7523,7 +7520,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
-    
+
     if (attr_spec_list != NULL)
     {
         gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
@@ -7542,20 +7539,21 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         scope_entry_t* entry_intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(name));
-        char can_be_an_intrinsic = 
-            (entry_intrinsic != NULL 
+        char could_be_an_intrinsic =
+            (entry_intrinsic != NULL
              // Filter dummy arguments
              && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
              // Filter the program unit itself
-             && entry != decl_context.current_scope->related_entry);
-        
+             && entry != decl_context.current_scope->related_entry
+             && entry->kind == SK_UNDEFINED);
+
         // If the entry could be the name of an intrinsic
         // fix its type
-        if (can_be_an_intrinsic)
+        if (could_be_an_intrinsic)
         {
-            entry->type_information = basic_type; 
+            entry->type_information = basic_type;
         }
-        
+
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
@@ -7593,7 +7591,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (entry->kind == SK_FUNCTION)
         {
-            // Update the result (if any) as well
+            // Update the result name (if any) as well
             // Note that the result variable is never found through normal lookup, it is
             // only accessible through the function symbol
             int i, num_symbols = entry->entity_specs.num_related_symbols;

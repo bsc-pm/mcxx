@@ -1311,24 +1311,93 @@ static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PA
     compute_boz_literal(expr, "b", 2, nodecl_output);
 }
 
-static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static char kind_is_integer_literal(const char* c)
+{
+    while (*c != '\0')
+    {
+        if (!isdigit(*c))
+            return 0;
+        c++;
+    }
+    return 1;
+}
+
+static int compute_kind_from_literal(const char* p, AST expr, decl_context_t decl_context)
+{
+    if (kind_is_integer_literal(p))
+    {
+        return atoi(p);
+    }
+    else
+    {
+        scope_entry_t* sym = fortran_get_variable_with_locus(decl_context, expr, p);
+        if (sym == NULL
+                || sym->kind != SK_VARIABLE
+                || !is_const_qualified_type(no_ref(sym->type_information)))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: invalid kind '%s'\n", 
+                        ast_location(expr), 
+                        p);
+            }
+            return 0;
+        }
+
+        ERROR_CONDITION(nodecl_is_null(sym->value),
+                "Invalid constant for kind '%s'", sym->symbol_name);
+
+        ERROR_CONDITION(!nodecl_is_constant(sym->value),
+                "Invalid nonconstant expression for kind '%s'", 
+                codegen_to_str(sym->value, nodecl_retrieve_context(sym->value)));
+
+        return const_value_cast_to_4(nodecl_get_constant(sym->value));
+    }
+}
+
+static void check_boolean_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const_value_t* const_value = NULL;
-    if (strcasecmp(ASTText(expr), ".true.") == 0)
+
+    char* literal = xstrdup(ASTText(expr));
+
+    type_t* logical_type = fortran_get_default_logical_type();
+    int kind = fortran_get_default_logical_type_kind();
+
+    char* kind_str = strchr(literal, '_');
+    if (kind_str != NULL)
     {
-        const_value = const_value_get_one(fortran_get_default_logical_type_kind(), 1);
+       *kind_str = '\0';
+       kind_str++;
+
+       kind = compute_kind_from_literal(kind_str, expr, decl_context);
+       if (kind == 0)
+       {
+           *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+           return;
+       }
+       nodecl_t nodecl_fake = nodecl_make_text(literal, ast_get_locus(expr));
+       type_t* int_type = choose_int_type_from_kind(nodecl_fake, kind);
+       logical_type = get_bool_of_integer_type(int_type);
     }
-    else if (strcasecmp(ASTText(expr), ".false.") == 0)
+
+    if (strcasecmp(literal, ".true.") == 0)
     {
-        const_value = const_value_get_zero(fortran_get_default_logical_type_kind(), 1);
+        const_value = const_value_get_one(kind, 1);
+    }
+    else if (strcasecmp(literal, ".false.") == 0)
+    {
+        const_value = const_value_get_zero(kind, 1);
     }
     else
     {
         internal_error("Invalid boolean literal", 0);
     }
 
+    xfree(literal);
+
     *nodecl_output = nodecl_make_boolean_literal(
-            fortran_get_default_logical_type(), 
+            logical_type, 
             const_value, 
             ast_get_locus(expr));
 }
@@ -1712,50 +1781,6 @@ static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nod
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static char kind_is_integer_literal(const char* c)
-{
-    while (*c != '\0')
-    {
-        if (!isdigit(*c))
-            return 0;
-        c++;
-    }
-    return 1;
-}
-
-static int compute_kind_from_literal(const char* p, AST expr, decl_context_t decl_context)
-{
-    if (kind_is_integer_literal(p))
-    {
-        return atoi(p);
-    }
-    else
-    {
-        scope_entry_t* sym = fortran_get_variable_with_locus(decl_context, expr, p);
-        if (sym == NULL
-                || sym->kind != SK_VARIABLE
-                || !is_const_qualified_type(no_ref(sym->type_information)))
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: invalid kind '%s'\n", 
-                        ast_location(expr), 
-                        p);
-            }
-            return 0;
-        }
-
-        ERROR_CONDITION(nodecl_is_null(sym->value),
-                "Invalid constant for kind '%s'", sym->symbol_name);
-
-        ERROR_CONDITION(!nodecl_is_constant(sym->value),
-                "Invalid nonconstant expression for kind '%s'", 
-                codegen_to_str(sym->value, nodecl_retrieve_context(sym->value)));
-
-        return const_value_cast_to_4(nodecl_get_constant(sym->value));
-    }
-}
-
 static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const char* c = ASTText(expr);
@@ -1792,7 +1817,6 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
     nodecl_t nodecl_fake = nodecl_make_text(decimal_text, ast_get_locus(expr));
     type_t* t = choose_int_type_from_kind(nodecl_fake, 
             kind);
-
 
     *nodecl_output = nodecl_make_integer_literal(t, const_value, 
             ast_get_locus(expr));
@@ -2288,7 +2312,6 @@ struct actual_argument_info_tag
 
 static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol, 
         int num_arguments, 
-        const char **keyword_names,
         nodecl_t* nodecl_actual_arguments,
         char ignore_elementals)
 {
@@ -2300,10 +2323,10 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
         int i;
         for (i = 0; i < num_arguments; i++)
         {
-            fprintf(stderr, "EXPRTYPE:    Name: %s\n", 
-                    keyword_names[i] != NULL ? keyword_names[i] : "<<no-name>>");
-            fprintf(stderr, "EXPRTYPE:    Argument: %s\n", 
-                    fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+            fprintf(stderr, "EXPRTYPE:    Name: %s\n",
+                    nodecl_get_text(nodecl_actual_arguments[i]) != NULL ? nodecl_get_text(nodecl_actual_arguments[i]) : "<<no-name>>");
+            fprintf(stderr, "EXPRTYPE:    Argument: %s\n",
+                    fortran_print_type_str(nodecl_get_type(nodecl_get_child(nodecl_actual_arguments[i], 0))));
         }
     }
 
@@ -2356,7 +2379,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
         for (i = 0; (i < current_num_arguments) && ok; i++)
         {
             int position = -1;
-            if (keyword_names[i] == NULL)
+            if (nodecl_get_text(nodecl_actual_arguments[i]) == NULL)
             {
                 position = i;
             }
@@ -2370,7 +2393,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                     if (!symbol_is_parameter_of_function(related_sym, specific_symbol))
                         continue;
 
-                    if (strcasecmp(related_sym->symbol_name, keyword_names[i]) == 0)
+                    if (strcasecmp(related_sym->symbol_name,
+                                nodecl_get_text(nodecl_actual_arguments[i])) == 0)
                     {
                         position = j;
                     }
@@ -2386,8 +2410,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 ok = 0;
                 break;
             }
-            argument_types[position].type = nodecl_get_type(nodecl_actual_arguments[i]);
-            argument_types[position].argument = nodecl_actual_arguments[i];
+            argument_types[position].type = nodecl_get_type(nodecl_get_child(nodecl_actual_arguments[i], 0));
+            argument_types[position].argument = nodecl_get_child(nodecl_actual_arguments[i], 0);
         }
 
         if (ok)
@@ -2485,17 +2509,16 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
 
 static scope_entry_list_t* get_specific_interface(scope_entry_t* symbol,
         int num_arguments,
-        const char **keyword_names,
         nodecl_t* nodecl_actual_arguments)
 {
     scope_entry_list_t* exact_match_nonelemental
-        = get_specific_interface_aux(symbol, num_arguments, keyword_names, nodecl_actual_arguments,
+        = get_specific_interface_aux(symbol, num_arguments, nodecl_actual_arguments,
             /* ignore_elementals */ 1);
 
     if (exact_match_nonelemental != NULL)
         return exact_match_nonelemental;
 
-    return get_specific_interface_aux(symbol, num_arguments, keyword_names, nodecl_actual_arguments,
+    return get_specific_interface_aux(symbol, num_arguments, nodecl_actual_arguments,
             /* ignore_elementals */ 0);
 }
 
@@ -2519,7 +2542,6 @@ static void check_called_symbol_list(
         AST procedure_designator,
         int num_actual_arguments,
         nodecl_t* nodecl_actual_arguments,
-        const char** actual_arguments_keywords,
         char is_call_stmt,
         // out
         type_t** result_type, // Result type of this call
@@ -2534,8 +2556,6 @@ static void check_called_symbol_list(
     if (entry_list_size(symbol_list) > 1
             || entry_list_head(symbol_list)->entity_specs.is_generic_spec)
     {
-        scope_entry_t* intrinsic_of_same_name = NULL;
-
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(symbol_list);
@@ -2544,63 +2564,86 @@ static void check_called_symbol_list(
         {
             scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
 
-            // If this is an intrinsic, remember it but do not attempt to solve it now
-            if (current_generic_spec->entity_specs.is_builtin)
+            if (current_generic_spec->entity_specs.is_builtin
+                    && is_computed_function_type(current_generic_spec->type_information))
             {
-                ERROR_CONDITION(intrinsic_of_same_name != NULL, "Too many intrinsics found!", 0);
-                intrinsic_of_same_name = current_generic_spec;
                 intrinsic_named_like_generic_spec = 1;
-                continue;
+                scope_entry_t* specific_intrinsic = fortran_solve_generic_intrinsic_call(current_generic_spec,
+                        nodecl_actual_arguments,
+                        num_actual_arguments,
+                        is_call_stmt);
+
+                if (specific_intrinsic != NULL)
+                {
+                    // If an intrinsic matches, we do not have to try anymore
+                    specific_symbol_set = entry_list_merge(entry_list_new(specific_intrinsic),
+                            specific_symbol_set);
+                    break;
+                }
             }
-            ERROR_CONDITION(!current_generic_spec->entity_specs.is_generic_spec,
-                    "Current symbol must be a generic specifier", 0);
-
-            scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
-                    num_actual_arguments,
-                    actual_arguments_keywords,
-                    nodecl_actual_arguments);
-
-            if (current_specific_symbol_set != NULL)
+            else if (current_generic_spec->entity_specs.is_generic_spec)
             {
-                // This may be overwritten when more than one generic specifier
-                // can match, which is wrong
-                *generic_specifier_symbol = current_generic_spec;
-            }
+                scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
+                        num_actual_arguments,
+                        nodecl_actual_arguments);
 
-            specific_symbol_set = entry_list_merge(current_specific_symbol_set,
-                    specific_symbol_set);
+                if (current_specific_symbol_set != NULL)
+                {
+                    // This may be overwritten when more than one generic specifier
+                    // can match, which is wrong
+                    *generic_specifier_symbol = current_generic_spec;
+                }
+
+                specific_symbol_set = entry_list_merge(current_specific_symbol_set,
+                        specific_symbol_set);
+            }
+            else
+            {
+                internal_error("Unexpected symbol '%s' when solving function reference at a '%s'",
+                        current_generic_spec->symbol_name,
+                        ast_location(location));
+            }
         }
 
         entry_list_iterator_free(it);
 
-        if (specific_symbol_set == NULL
-                && intrinsic_of_same_name == NULL)
+        if (specific_symbol_set == NULL)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
+                error_printf("%s: error: no specific interfaces%s match the generic interface '%s' in function reference\n",
                         ast_location(location),
+                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
             }
             *result_type = get_error_type();
             return;
         }
-        else if (entry_list_size(specific_symbol_set) > 1
-                && intrinsic_of_same_name == NULL)
+        else if (entry_list_size(specific_symbol_set) > 1)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: more than one specific interface matches generic interface '%s' in function reference\n",
+                error_printf("%s: error: several specific interfaces%s match generic interface '%s' in function reference\n",
                         ast_location(location),
+                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
                 for (it = entry_list_iterator_begin(specific_symbol_set);
                         !entry_list_iterator_end(it);
                         entry_list_iterator_next(it))
                 {
                     scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
+                    if (current_generic_spec->entity_specs.is_generic_spec)
+                    {
                     info_printf("%s: info: specific interface '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
                             current_generic_spec->symbol_name);
+                    }
+                    else if (current_generic_spec->entity_specs.is_builtin)
+                    {
+                        info_printf("%s: info: intrinsic '%s' matches\n",
+                                locus_to_str(current_generic_spec->locus),
+                                current_generic_spec->symbol_name);
+                    }
                 }
                 entry_list_iterator_free(it);
             }
@@ -2608,14 +2651,6 @@ static void check_called_symbol_list(
             *result_type = get_error_type();
             entry_list_free(specific_symbol_set);
             return;
-        }
-        else if ((specific_symbol_set == NULL
-                    || (entry_list_size(specific_symbol_set) > 1))
-                && intrinsic_of_same_name != NULL)
-        {
-            // Well, no generic specifier matches but we have an intrinsic_of_same_name, use it
-            symbol = intrinsic_of_same_name;
-            entry_list_free(specific_symbol_set);
         }
         else
         {
@@ -2638,7 +2673,7 @@ static void check_called_symbol_list(
                 symbol->symbol_name);
     }
 
-    type_t* return_type = NULL; 
+    type_t* return_type = NULL;
     // This is a generic procedure reference
     if (symbol->entity_specs.is_builtin
             && is_computed_function_type(symbol->type_information))
@@ -2647,7 +2682,7 @@ static void check_called_symbol_list(
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: call to intrinsic '%s' not implemented\n", 
+                error_printf("%s: error: call to intrinsic '%s' not implemented\n",
                         ast_location(location),
                         strtoupper(symbol->symbol_name));
             }
@@ -2655,9 +2690,8 @@ static void check_called_symbol_list(
             return;
         }
 
-        scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol, 
-                actual_arguments_keywords,
-                nodecl_actual_arguments, 
+        scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol,
+                nodecl_actual_arguments,
                 num_actual_arguments,
                 is_call_stmt);
 
@@ -2665,18 +2699,9 @@ static void check_called_symbol_list(
         {
             if (!checking_ambiguity())
             {
-                if (intrinsic_named_like_generic_spec)
-                {
-                    error_printf("%s: error: no specific interface or intrinsic matches generic interface '%s' in function reference\n",
-                            ast_location(location),
-                            fortran_prettyprint_in_buffer(procedure_designator));
-                }
-                else
-                {
-                    error_printf("%s: error: call to intrinsic %s failed\n", 
-                            ast_location(location),
-                            strtoupper(symbol->symbol_name));
-                }
+                error_printf("%s: error: call to intrinsic %s failed\n",
+                        ast_location(location),
+                        strtoupper(symbol->symbol_name));
 
                 if (num_actual_arguments > 0)
                 {
@@ -2685,11 +2710,13 @@ static void check_called_symbol_list(
                     int i;
                     for (i = 0; i < num_actual_arguments; i++)
                     {
-                        info_printf("%s: info:    '%s' of type %s\n", 
+                        nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
+                        type_t* t = nodecl_get_type(expr);
+                        info_printf("%s: info:    '%s' of type %s\n",
                                 ast_location(location),
                                 codegen_to_str(nodecl_actual_arguments[i],
                                     nodecl_retrieve_context(nodecl_actual_arguments[i])),
-                                fortran_print_type_str(nodecl_get_type(nodecl_actual_arguments[i])));
+                                fortran_print_type_str(t));
                     }
                 }
                 else
@@ -2712,7 +2739,9 @@ static void check_called_symbol_list(
             int i;
             for (i = 0; i < num_actual_arguments; i++)
             {
-                int current_rank = fortran_get_rank_of_type(nodecl_get_type(nodecl_actual_arguments[i]));
+                nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
+                type_t* t = nodecl_get_type(expr);
+                int current_rank = fortran_get_rank_of_type(t);
                 if (common_rank <= 0)
                 {
                     common_rank = current_rank;
@@ -2781,7 +2810,7 @@ static void check_called_symbol_list(
         for (i = 0; i < num_actual_arguments; i++)
         {
             int position = -1;
-            if (actual_arguments_keywords[i] == NULL)
+            if (nodecl_get_text(nodecl_actual_arguments[i]) == NULL)
             {
                 position = i;
             }
@@ -2795,7 +2824,7 @@ static void check_called_symbol_list(
                     if (!symbol_is_parameter_of_function(related_sym, symbol))
                         continue;
 
-                    if (strcasecmp(related_sym->symbol_name, actual_arguments_keywords[i]) == 0)
+                    if (strcasecmp(related_sym->symbol_name, nodecl_get_text(nodecl_actual_arguments[i])) == 0)
                     {
                         position = j;
                     }
@@ -2806,7 +2835,7 @@ static void check_called_symbol_list(
                     {
                         error_printf("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
                                 ast_location(location), 
-                                actual_arguments_keywords[i],
+                                nodecl_get_text(nodecl_actual_arguments[i]),
                                 symbol->symbol_name);
                     }
                     *result_type = get_error_type();
@@ -2819,13 +2848,13 @@ static void check_called_symbol_list(
                 if (!checking_ambiguity())
                 {
                     error_printf("%s: error: argument keyword '%s' specified more than once\n",
-                            ast_location(location), actual_arguments_keywords[i]);
+                            ast_location(location), nodecl_get_text(nodecl_actual_arguments[i]));
                 }
                 *result_type = get_error_type();
                 return;
             }
-            argument_info_items[position].type = nodecl_get_type(nodecl_actual_arguments[i]);
-            argument_info_items[position].argument = nodecl_actual_arguments[i];
+            argument_info_items[position].type = nodecl_get_type(nodecl_get_child(nodecl_actual_arguments[i], 0));
+            argument_info_items[position].argument = nodecl_get_child(nodecl_actual_arguments[i], 0);
         }
 
         int num_completed_arguments = num_actual_arguments;
@@ -2984,7 +3013,6 @@ static void check_called_symbol_list(
     if (symbol->entity_specs.is_builtin)
     {
         fortran_simplify_specific_intrinsic_call(symbol,
-                actual_arguments_keywords,
                 nodecl_actual_arguments,
                 num_actual_arguments,
                 nodecl_simplify,
@@ -3043,8 +3071,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
     nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(nodecl_arguments, 0, sizeof(nodecl_arguments));
-    const char* argument_keywords[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-    memset(argument_keywords, 0, sizeof(argument_keywords));
 
     // Check arguments
     if (actual_arg_spec_list != NULL)
@@ -3056,10 +3082,11 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         {
             AST actual_arg_spec = ASTSon1(it);
             AST keyword = ASTSon0(actual_arg_spec);
+            const char* keyword_str = NULL;
             if (keyword != NULL)
             {
                 with_keyword = 1;
-                argument_keywords[num_actual_arguments] = ASTText(keyword);
+                keyword_str = strtolower(ASTText(keyword));
             }
             else if (with_keyword) // keyword == NULL
             {
@@ -3095,7 +3122,9 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                     wrong_arg_spec_list = 1;
                 }
 
-                nodecl_arguments[num_actual_arguments] = nodecl_argument;
+                nodecl_arguments[num_actual_arguments] = nodecl_make_fortran_actual_argument(nodecl_argument,
+                        ast_get_locus(actual_arg));
+                nodecl_set_text(nodecl_arguments[num_actual_arguments], keyword_str);
             }
             else
             {
@@ -3113,9 +3142,12 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 scope_entry_t* label = fortran_query_label(ASTSon0(actual_arg), 
                         decl_context, /* is_definition */ 0);
 
-                nodecl_arguments[num_actual_arguments] = nodecl_make_fortran_alternate_return_argument(
-                        label, get_void_type(),
-                        ast_get_locus(actual_arg));
+                nodecl_arguments[num_actual_arguments] =
+                    nodecl_make_fortran_actual_argument(
+                            nodecl_make_fortran_alternate_return_argument(
+                                label, get_void_type(),
+                                ast_get_locus(actual_arg)),
+                            ast_get_locus(actual_arg));
             }
 
             num_actual_arguments++;
@@ -3139,7 +3171,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             procedure_designator, 
             num_actual_arguments,
             nodecl_arguments,
-            argument_keywords,
             is_call_stmt,
             // out
             &result_type,
@@ -3225,10 +3256,10 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                             parameter->type_information,
                             nodecl_argument);
 
-                    nodecl_argument_spec = nodecl_make_fortran_named_pair_spec(
-                            nodecl_make_symbol(parameter, ast_get_locus(actual_arg_spec)),
-                            nodecl_argument,
-                            ast_get_locus(actual_arg_spec));
+                    nodecl_argument_spec = nodecl_make_fortran_actual_argument(
+                            nodecl_argument, nodecl_get_locus(nodecl_argument));
+                    nodecl_set_symbol(nodecl_argument_spec, parameter);
+                    nodecl_set_text(nodecl_argument_spec, parameter->symbol_name);
                 }
             }
             else
@@ -3236,8 +3267,10 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 scope_entry_t* label = fortran_query_label(ASTSon0(actual_arg),
                         decl_context, /* is_definition */ 0);
 
-                nodecl_argument_spec = nodecl_make_fortran_alternate_return_argument(
-                        label, get_void_type(),
+                nodecl_argument_spec = nodecl_make_fortran_actual_argument(
+                        nodecl_make_fortran_alternate_return_argument(
+                            label, get_void_type(),
+                            ast_get_locus(actual_arg)),
                         ast_get_locus(actual_arg));
 
                 parameter_index++;
@@ -3547,6 +3580,9 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     const_value_t* value = const_value_make_string(real_string, real_length);
 
     *nodecl_output = nodecl_make_string_literal(t, value, ast_get_locus(expr));
+
+    // Also keep the string itself for codegen
+    nodecl_set_text(*nodecl_output, ASTText(expr));
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3581,20 +3617,20 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     }
 
     int num_actual_arguments = 1;
-    const char* keyword_arguments[1] = { NULL };
-    nodecl_t nodecl_arguments[1] = { nodecl_expr };
+    nodecl_t nodecl_arguments[1] = {
+        nodecl_make_fortran_actual_argument(nodecl_expr, nodecl_get_locus(nodecl_expr))
+    };
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol_list(call_list, 
-            decl_context, 
-            expr, 
-            operator, 
+    check_called_symbol_list(call_list,
+            decl_context,
+            expr,
+            operator,
             num_actual_arguments,
             nodecl_arguments,
-            keyword_arguments,
             /* is_call_stmt */ 0,
             // out
             &result_type,
@@ -3632,12 +3668,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     *nodecl_output = nodecl_make_function_call(
             nodecl_called,
-            nodecl_make_list_1(
-                nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    fortran_nodecl_adjust_function_argument(
-                        function_type_get_parameter_type_num(called_symbol->type_information, 0),
-                        nodecl_expr),
-                    ast_get_locus(operand_expr))),
+            nodecl_make_list_1(nodecl_arguments[0]),
             nodecl_generic_spec,
             /* function_form */ nodecl_null(),
             // Fortran has not template arguments
@@ -3646,7 +3677,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     if (is_pointer_type(no_ref(result_type)))
     {
-        *nodecl_output = nodecl_make_dereference(*nodecl_output, 
+        *nodecl_output = nodecl_make_dereference(*nodecl_output,
                 lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ast_get_locus(expr));
     }
@@ -3696,20 +3727,21 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     }
 
     int num_actual_arguments = 2;
-    const char* keywords[2] = { NULL, NULL };
-    nodecl_t nodecl_arguments[2] = { nodecl_lhs, nodecl_rhs };
+    nodecl_t nodecl_arguments[2] = {
+        nodecl_make_fortran_actual_argument(nodecl_lhs, nodecl_get_locus(nodecl_lhs)),
+        nodecl_make_fortran_actual_argument(nodecl_rhs, nodecl_get_locus(nodecl_rhs))
+    };
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol_list(call_list, 
-            decl_context, 
-            /* location */ expr, 
-            operator, 
+    check_called_symbol_list(call_list,
+            decl_context,
+            /* location */ expr,
+            operator,
             num_actual_arguments,
             nodecl_arguments,
-            keywords,
             /* is_call_stmt */ 0,
             // out
             &result_type,
@@ -3748,16 +3780,8 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     *nodecl_output = nodecl_make_function_call(
             nodecl_called,
             nodecl_make_list_2(
-                nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    fortran_nodecl_adjust_function_argument(
-                        function_type_get_parameter_type_num(called_symbol->type_information, 0),
-                        nodecl_lhs),
-                    ast_get_locus(lhs_expr)),
-                nodecl_make_fortran_named_pair_spec(nodecl_null(),
-                    fortran_nodecl_adjust_function_argument(
-                        function_type_get_parameter_type_num(called_symbol->type_information, 1),
-                        nodecl_rhs),
-                    ast_get_locus(rhs_expr))),
+                nodecl_arguments[0],
+                nodecl_arguments[1]),
             nodecl_generic_spec,
             /* function_form */ nodecl_null(),
             // Fortran has not template arguments
@@ -3836,7 +3860,8 @@ static void check_symbol_of_called_name(AST sym,
         return;
     }
 
-    // Look the symbol up. This will ignore INTRINSIC names
+    // Look the symbol up. This will ignore INTRINSIC names not known to be generic/specific
+    // (not declared at all in the scope)
     scope_entry_list_t* entry_list = fortran_query_name_str_for_function(decl_context, ASTText(sym),
             ast_get_locus(sym));
 
@@ -3879,7 +3904,7 @@ static void check_symbol_of_called_name(AST sym,
                 entry = NULL;
             }
 
-            if (entry_is_an_intrinsic) 
+            if (entry_is_an_intrinsic)
             {
                 if (!fortran_checking_initializer())
                 {
@@ -3889,6 +3914,20 @@ static void check_symbol_of_called_name(AST sym,
                     // We do not insert intrinsics from initializations just in case
                     // an INTRINSIC or EXTERNAL statement appears later
                     insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                }
+                else
+                {
+                    // if (decl_context.current_scope->related_entry != NULL
+                    //         && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                    // {
+                    //     if (!checking_ambiguity())
+                    //     {
+                    //         warn_printf("%s: warning: procedure reference to intrinsic '%s' has been stablished "
+                    //                 "to unspecified at this module scoping unit\n", ast_location(sym), entry->symbol_name);
+                    //         info_printf("%s: info: you may want to add an INTRINSIC or EXTERNAL statement prior to this use "
+                    //                 "to avoid lookup problems later when using name '%s'\n", ast_location(sym), entry->symbol_name);
+                    //     }
+                    // }
                 }
 
                 // We are done, this is the single name being called
@@ -3932,7 +3971,7 @@ static void check_symbol_of_called_name(AST sym,
                     // This a new function brought to you by IMPLICIT after a function reference
                     entry = new_fortran_implicit_symbol(decl_context, sym, strtolower(ASTText(sym)));
                     entry->kind = SK_FUNCTION;
-                    entry->type_information = 
+                    entry->type_information =
                         get_nonproto_function_type(get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
 
                     remove_unknown_kind_symbol(decl_context, entry);
@@ -3949,11 +3988,12 @@ static void check_symbol_of_called_name(AST sym,
     }
     else
     {
-        // fortran_query_name_str_for_function returns a single item if a non generic specifier was found
-        // if more than one generic specifier is found, all the visible ones in the current scope are returned
+        // fortran_query_name_str_for_function returns a single item if a non generic name was found
+        // if more than one generic name is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
         if (entry_list_size(entry_list) == 1
-                && !entry_list_head(entry_list)->entity_specs.is_generic_spec)
+                && !entry_list_head(entry_list)->entity_specs.is_generic_spec
+                && !entry_list_head(entry_list)->entity_specs.is_builtin)
         {
             scope_entry_t* entry = entry_list_head(entry_list);
             if (entry->kind == SK_UNDEFINED)
@@ -3962,7 +4002,12 @@ static void check_symbol_of_called_name(AST sym,
                 entry->kind = SK_FUNCTION;
                 remove_unknown_kind_symbol(decl_context, entry);
 
-                scope_entry_t * intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
+                scope_entry_t * intrinsic_sym = NULL;
+
+                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                {
+                    intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
+                }
 
                 if (entry->entity_specs.alias_to != NULL
                         && entry->entity_specs.alias_to->entity_specs.is_builtin)
@@ -3993,9 +4038,7 @@ static void check_symbol_of_called_name(AST sym,
                     scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
                     copy_intrinsic_function_info(entry, intrinsic_symbol);
                 }
-                else if (intrinsic_sym != NULL
-                        // Dummy arguments do not name intrinsics
-                        && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                else if (intrinsic_sym != NULL)
                 {
                     // From now, the symbol is an intrinsic
                     copy_intrinsic_function_info(entry, intrinsic_sym);
@@ -4069,25 +4112,10 @@ static void check_symbol_of_called_name(AST sym,
 
             // And we are done
             *call_list = entry_list_new(entry);
-            return;
-        }
-        else if (entry_list_size(entry_list) > 1
-                || entry_list_head(entry_list)->entity_specs.is_generic_spec)
-        {
-            // This case is only possible when fortran_query_name_str_for_function finds a generic specifier
-            // but it might happen that this is also a name for an intrinsic name. If so, add it to the list
-            scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
-            if (intrinsic != NULL)
-            {
-                entry_list = entry_list_add(entry_list, intrinsic);
-            }
-
-            *call_list = entry_list;
-            return;
         }
         else
         {
-            internal_error("Code unreachable", 0);
+            *call_list = entry_list;
         }
     }
 }
@@ -4455,8 +4483,9 @@ static char is_defined_assignment(AST expr, AST lvalue,
         return 0;
 
     int num_actual_arguments = 2;
-    const char* keyword_names[2] = { NULL, NULL };
-    nodecl_t nodecl_arguments[2] = { nodecl_lvalue, nodecl_rvalue };
+    nodecl_t nodecl_arguments[2] = {
+        nodecl_make_fortran_actual_argument(nodecl_lvalue, nodecl_get_locus(nodecl_lvalue)),
+        nodecl_make_fortran_actual_argument(nodecl_rvalue, nodecl_get_locus(nodecl_rvalue)) };
 
     type_t* result_type = NULL;
 
@@ -4464,13 +4493,12 @@ static char is_defined_assignment(AST expr, AST lvalue,
 
     enter_test_expression();
     nodecl_t nodecl_simplify = nodecl_null();
-    check_called_symbol_list(call_list, 
+    check_called_symbol_list(call_list,
             decl_context,
             /* location */ expr,
             operator_designation,
             num_actual_arguments,
             nodecl_arguments,
-            keyword_names,
             /* is_call_stmt */ 1, // Assignments must be subroutines!
             // out
             &result_type,
@@ -4564,14 +4592,12 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         *nodecl_output = nodecl_make_function_call(
                 nodecl_called,
                 nodecl_make_list_2(
-                    nodecl_make_fortran_named_pair_spec(
-                        nodecl_null(),
+                    nodecl_make_fortran_actual_argument(
                         nodecl_lvalue,
-                        ast_get_locus(lvalue)),
-                    nodecl_make_fortran_named_pair_spec(
-                        nodecl_null(),
+                        nodecl_get_locus(nodecl_lvalue)),
+                    nodecl_make_fortran_actual_argument(
                         nodecl_rvalue,
-                        ast_get_locus(rvalue))),
+                        nodecl_get_locus(nodecl_rvalue))),
                 nodecl_generic_spec,
                 /* function_form */ nodecl_null(),
                 // Fortran has not template arguments
@@ -4686,7 +4712,7 @@ static void cast_initialization(
             nodecl_real_part = *nodecl_output;
         }
         cast_initialization(complex_type_get_base_type(initialized_type),
-                val, &real_part, 
+                val, &real_part,
                 /* nodecl_output */ nodecl_is_null(nodecl_real_part) ? NULL : &nodecl_real_part);
 
         // Cast imag part (a 0 literal actually)
@@ -4755,7 +4781,13 @@ static void cast_initialization(
         if (nodecl_output != NULL)
         {
             // Build a nodecl if needed
+            nodecl_t old_nodecl = *nodecl_output;
             *nodecl_output = const_value_to_nodecl(*casted_const);
+            // Try hard to preserve the string literal...
+            if (nodecl_get_kind(old_nodecl) == NODECL_STRING_LITERAL)
+            {
+                nodecl_set_text(*nodecl_output, nodecl_get_text(old_nodecl));
+            }
         }
     }
     else if (fortran_is_array_type(initialized_type)
@@ -4902,9 +4934,9 @@ void fortran_check_initialization(
         }
 
         const_value_t* casted_const = NULL;
-        cast_initialization(no_ref(entry->type_information), 
-                nodecl_get_constant(*nodecl_output), 
-                &casted_const, 
+        cast_initialization(no_ref(entry->type_information),
+                nodecl_get_constant(*nodecl_output),
+                &casted_const,
                 nodecl_output);
     }
 }
@@ -5632,18 +5664,17 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         if (call_list != NULL)
         {
             int num_actual_arguments = 0;
-            const char* keywords[2] = { NULL, NULL };
             nodecl_t nodecl_arguments[2] = { nodecl_null(), nodecl_null() };
             if (lhs_type == NULL)
             {
                 num_actual_arguments = 1;
-                nodecl_arguments[0] = nodecl_rhs;
+                nodecl_arguments[0] = nodecl_make_fortran_actual_argument(nodecl_rhs, nodecl_get_locus(nodecl_rhs));
             }
             else
             {
                 num_actual_arguments = 2;
-                nodecl_arguments[0] = nodecl_lhs;
-                nodecl_arguments[1] = nodecl_rhs;
+                nodecl_arguments[0] = nodecl_make_fortran_actual_argument(nodecl_lhs, nodecl_get_locus(nodecl_lhs));
+                nodecl_arguments[1] = nodecl_make_fortran_actual_argument(nodecl_rhs, nodecl_get_locus(nodecl_rhs));
             }
 
             AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_locus(expr), get_operator_for_expr(expr));
@@ -5657,7 +5688,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     operator_designation,
                     num_actual_arguments,
                     nodecl_arguments,
-                    keywords,
                     /* is_call_stmt */ 0,
                     // out
                     &result,
@@ -5674,11 +5704,11 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
 
                 if (nodecl_is_null(nodecl_lhs))
                 {
-                    nodecl_argument_list = nodecl_make_list_1(nodecl_rhs);
+                    nodecl_argument_list = nodecl_make_list_1(nodecl_arguments[0]);
                 }
                 else
                 {
-                    nodecl_argument_list = nodecl_make_list_2(nodecl_lhs, nodecl_rhs);
+                    nodecl_argument_list = nodecl_make_list_2(nodecl_arguments[0], nodecl_arguments[1]);
                 }
 
                 nodecl_t nodecl_generic_spec = nodecl_null();
