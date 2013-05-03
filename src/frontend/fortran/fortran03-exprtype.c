@@ -1311,24 +1311,93 @@ static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PA
     compute_boz_literal(expr, "b", 2, nodecl_output);
 }
 
-static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static char kind_is_integer_literal(const char* c)
+{
+    while (*c != '\0')
+    {
+        if (!isdigit(*c))
+            return 0;
+        c++;
+    }
+    return 1;
+}
+
+static int compute_kind_from_literal(const char* p, AST expr, decl_context_t decl_context)
+{
+    if (kind_is_integer_literal(p))
+    {
+        return atoi(p);
+    }
+    else
+    {
+        scope_entry_t* sym = fortran_get_variable_with_locus(decl_context, expr, p);
+        if (sym == NULL
+                || sym->kind != SK_VARIABLE
+                || !is_const_qualified_type(no_ref(sym->type_information)))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: invalid kind '%s'\n", 
+                        ast_location(expr), 
+                        p);
+            }
+            return 0;
+        }
+
+        ERROR_CONDITION(nodecl_is_null(sym->value),
+                "Invalid constant for kind '%s'", sym->symbol_name);
+
+        ERROR_CONDITION(!nodecl_is_constant(sym->value),
+                "Invalid nonconstant expression for kind '%s'", 
+                codegen_to_str(sym->value, nodecl_retrieve_context(sym->value)));
+
+        return const_value_cast_to_4(nodecl_get_constant(sym->value));
+    }
+}
+
+static void check_boolean_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const_value_t* const_value = NULL;
-    if (strcasecmp(ASTText(expr), ".true.") == 0)
+
+    char* literal = xstrdup(ASTText(expr));
+
+    type_t* logical_type = fortran_get_default_logical_type();
+    int kind = fortran_get_default_logical_type_kind();
+
+    char* kind_str = strchr(literal, '_');
+    if (kind_str != NULL)
     {
-        const_value = const_value_get_one(fortran_get_default_logical_type_kind(), 1);
+       *kind_str = '\0';
+       kind_str++;
+
+       kind = compute_kind_from_literal(kind_str, expr, decl_context);
+       if (kind == 0)
+       {
+           *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+           return;
+       }
+       nodecl_t nodecl_fake = nodecl_make_text(literal, ast_get_locus(expr));
+       type_t* int_type = choose_int_type_from_kind(nodecl_fake, kind);
+       logical_type = get_bool_of_integer_type(int_type);
     }
-    else if (strcasecmp(ASTText(expr), ".false.") == 0)
+
+    if (strcasecmp(literal, ".true.") == 0)
     {
-        const_value = const_value_get_zero(fortran_get_default_logical_type_kind(), 1);
+        const_value = const_value_get_one(kind, 1);
+    }
+    else if (strcasecmp(literal, ".false.") == 0)
+    {
+        const_value = const_value_get_zero(kind, 1);
     }
     else
     {
         internal_error("Invalid boolean literal", 0);
     }
 
+    xfree(literal);
+
     *nodecl_output = nodecl_make_boolean_literal(
-            fortran_get_default_logical_type(), 
+            logical_type, 
             const_value, 
             ast_get_locus(expr));
 }
@@ -1712,50 +1781,6 @@ static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nod
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static char kind_is_integer_literal(const char* c)
-{
-    while (*c != '\0')
-    {
-        if (!isdigit(*c))
-            return 0;
-        c++;
-    }
-    return 1;
-}
-
-static int compute_kind_from_literal(const char* p, AST expr, decl_context_t decl_context)
-{
-    if (kind_is_integer_literal(p))
-    {
-        return atoi(p);
-    }
-    else
-    {
-        scope_entry_t* sym = fortran_get_variable_with_locus(decl_context, expr, p);
-        if (sym == NULL
-                || sym->kind != SK_VARIABLE
-                || !is_const_qualified_type(no_ref(sym->type_information)))
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: invalid kind '%s'\n", 
-                        ast_location(expr), 
-                        p);
-            }
-            return 0;
-        }
-
-        ERROR_CONDITION(nodecl_is_null(sym->value),
-                "Invalid constant for kind '%s'", sym->symbol_name);
-
-        ERROR_CONDITION(!nodecl_is_constant(sym->value),
-                "Invalid nonconstant expression for kind '%s'", 
-                codegen_to_str(sym->value, nodecl_retrieve_context(sym->value)));
-
-        return const_value_cast_to_4(nodecl_get_constant(sym->value));
-    }
-}
-
 static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const char* c = ASTText(expr);
@@ -1792,7 +1817,6 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
     nodecl_t nodecl_fake = nodecl_make_text(decimal_text, ast_get_locus(expr));
     type_t* t = choose_int_type_from_kind(nodecl_fake, 
             kind);
-
 
     *nodecl_output = nodecl_make_integer_literal(t, const_value, 
             ast_get_locus(expr));

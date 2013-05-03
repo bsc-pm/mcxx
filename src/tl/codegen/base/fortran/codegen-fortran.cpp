@@ -1024,6 +1024,8 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        int kind = node.get_type().get_size();
+
         if (const_value_is_zero(val))
         {
             file << ".FALSE.";
@@ -1031,6 +1033,11 @@ OPERATOR_TABLE
         else
         {
             file << ".TRUE.";
+        }
+
+        if (kind != fortran_get_default_logical_type_kind())
+        {
+            file << "_" << kind;
         }
     }
 
