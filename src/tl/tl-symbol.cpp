@@ -606,6 +606,11 @@ namespace TL
         return _symbol->kind == SK_USING;
     }
 
+    bool Symbol::is_using_typename_symbol() const
+    {
+        return _symbol->kind == SK_USING_TYPENAME;
+    }
+
     bool Symbol::is_builtin() const
     {
         // Despite the name this applies to variables too
