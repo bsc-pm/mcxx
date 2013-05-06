@@ -585,6 +585,7 @@ namespace Analysis {
                 case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
                 case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;
                 case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;

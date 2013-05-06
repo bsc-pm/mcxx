@@ -155,17 +155,21 @@ static bool has_task_creation_edges(Node* n)
 
 TaskSyncRel operator||(const TaskSyncRel& l, const TaskSyncRel r)
 {
-    if (l != TaskSync_Unknown && r != TaskSync_Unknown)
+    if ((l != TaskSync_Unknown) && (r != TaskSync_Unknown))
     {
         return ((l == TaskSync_Yes) || (r == TaskSync_Yes)) ? TaskSync_Yes : TaskSync_No;
     }
-    else if ((l == TaskSync_Unknown && r == TaskSync_Yes)
-            || (l == TaskSync_Yes && r == TaskSync_Unknown))
+    else if (((l == TaskSync_Unknown) && (r == TaskSync_Yes))
+            || ((l == TaskSync_Yes) && (r == TaskSync_Unknown)))
     {
         return TaskSync_Yes;
     }
-    else if ((l == TaskSync_Unknown && r == TaskSync_No)
-            || (l == TaskSync_No && r == TaskSync_Unknown))
+    else if (((l == TaskSync_Unknown) && (r == TaskSync_No))
+            || ((l == TaskSync_No) && (r == TaskSync_Unknown)))
+    {
+        return TaskSync_Unknown;
+    }
+    else if ((l == r) && (l == TaskSync_Unknown))
     {
         return TaskSync_Unknown;
     }
@@ -177,19 +181,23 @@ TaskSyncRel operator||(const TaskSyncRel& l, const TaskSyncRel r)
 
 TaskSyncRel operator&&(const TaskSyncRel& l, const TaskSyncRel r)
 {
-    if (l != TaskSync_Unknown && r != TaskSync_Unknown)
+    if ((l != TaskSync_Unknown) && (r != TaskSync_Unknown))
     {
         return ((l == TaskSync_Yes) && (r == TaskSync_Yes)) ? TaskSync_Yes : TaskSync_No;
     }
-    else if ((l == TaskSync_Unknown && r == TaskSync_Yes)
-            || (l == TaskSync_Yes && r == TaskSync_Unknown))
+    else if (((l == TaskSync_Unknown) && (r == TaskSync_Yes))
+            || ((l == TaskSync_Yes) && (r == TaskSync_Unknown)))
     {
         return TaskSync_Unknown;
     }
-    else if ((l == TaskSync_Unknown && r == TaskSync_No)
-            || (l == TaskSync_No && r == TaskSync_Unknown))
+    else if (((l == TaskSync_Unknown) && (r == TaskSync_No))
+            || ((l == TaskSync_No) && (r == TaskSync_Unknown)))
     {
         return TaskSync_No;
+    }
+    else if ((l == r) && (l == TaskSync_Unknown))
+    {
+        return TaskSync_Unknown;
     }
     else
     {
@@ -211,7 +219,7 @@ TaskSyncRel may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List 
             it++)
     {
         for (Nodecl::List::iterator it2 = in_deps_target.begin();
-                it2 != out_deps_source.end();
+                it2 != in_deps_target.end();
                 it2++)
         {
             result = result || (may_have_dependence(*it, *it2));
@@ -224,10 +232,14 @@ TaskSyncRel may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List 
 // Computes if task source will synchronize with the creation of the task target
 TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
 {
-    // FIXME: Nothing implemented
-    TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
-    Nodecl::NodeclBase &task_node_source = source_statements[0];
-    ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task node here", 0);
+    std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
+
+    // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
+    // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
+    Nodecl::NodeclBase task_node_source = source->get_graph_label();
+    ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
+    ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task source node here got a %s", 
+            ast_print_node_type(task_node_source.get_kind()));
     Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
     Nodecl::List task_source_env = task_source.get_environment().as<Nodecl::List>();
 
@@ -246,9 +258,12 @@ TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
             source_dep_inout = *it;
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
-    Nodecl::NodeclBase &task_node_target = target_statements[0];
-    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task node here", 0);
+    // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
+    // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
+    Nodecl::NodeclBase task_node_target = target->get_graph_label();
+    ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
+    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task target node here got a %s", 
+            ast_print_node_type(task_node_target.get_kind()));
     Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
     Nodecl::List task_target_env = task_target.get_environment().as<Nodecl::List>();
 
@@ -269,18 +284,27 @@ TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
 
     TaskSyncRel may_have_dep = TaskSync_No;
 
-    may_have_dep = may_have_dep || may_have_dependence_list(
-            source_dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-            target_dep_in.as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
-    may_have_dep = may_have_dep || may_have_dependence_list(
-            source_dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-            target_dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps().as<Nodecl::List>());
-    may_have_dep = may_have_dep || may_have_dependence_list(
-            source_dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps().as<Nodecl::List>(),
-            target_dep_in.as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
-    may_have_dep = may_have_dep || may_have_dependence_list(
-            source_dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps().as<Nodecl::List>(),
-            target_dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps().as<Nodecl::List>());
+    // DRY
+    Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
+    int num_sources = sizeof(sources)/sizeof(sources[0]);
+    Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout };
+    int num_targets = sizeof(targets)/sizeof(targets[0]);
+
+    for (int n_source = 0; n_source < num_sources; n_source++)
+    {
+        for (int n_target = 0; n_target < num_targets; n_target++)
+        {
+            if (sources[n_source].is_null()
+                    || targets[n_target].is_null())
+                continue;
+
+            // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
+            // same physical layout
+            may_have_dep = may_have_dep || may_have_dependence_list(
+                    sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                    targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
+        }
+    }
 
     return may_have_dep;
 }
@@ -367,6 +391,56 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
     if (current->is_omp_task_node())
     {
+        // Propagate predecessors from task edges only
+        {
+            AliveTaskSet tmp_alive_tasks_of_current = get_alive_in(current);
+
+            ObjectList<Edge*> predecessors = current->get_entry_edges();
+            for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
+                    predecessor_it != predecessors.end();
+                    predecessor_it++)
+            {
+                if (!(*predecessor_it)->is_task_edge())
+                    continue;
+
+                Node* predecessor = (*predecessor_it)->get_source();
+                // Note that we use the get_alive_in because our predecessor
+                // will be a task creation that creates ourselves. But be aware
+                // that ourselves is not an error if we are in a loop, like in
+                // the example below.
+                //
+                // while (..)
+                // {
+                //   #pragma omp task inout(x)
+                //   {
+                //   }
+                // }
+                AliveTaskSet& alive_tasks_of_predecessor = get_alive_in(predecessor);
+
+                tmp_alive_tasks_of_current.insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
+            }
+
+            if (tmp_alive_tasks_of_current != get_alive_in(current))
+            {
+                get_alive_in(current) = tmp_alive_tasks_of_current;
+                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Propagating OUT(pred) into IN(current)" << std::endl;
+                changed = true;
+            }
+
+            std::cerr << "["
+                << current->get_id()
+                << ":" << current->get_type_as_string()
+                << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
+                << "]"
+                << "Before: IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
+                << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
+        }
+
+        std::cerr << "" << std::endl;
+        std::cerr << "********* " << std::endl;
+        std::cerr << "TASK NODE " << std::endl;
+        std::cerr << "********* " << std::endl;
+        std::cerr << "" << std::endl;
         // Synchronize with existing tasks of the same domain
         for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
                 alive_tasks_it != get_alive_in(current).end();
