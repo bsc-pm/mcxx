@@ -179,7 +179,9 @@ namespace TL { namespace OpenMP {
                     TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
                     std::set<TL::Symbol> return_arguments = _enclosing_expr_to_return_vars_map.find(enclosing_expr)->second;
 
-                    ERROR_CONDITION(!enclosing_expr.is<Nodecl::ExpressionStatement>(), "Unexpected node", 0);
+                    ERROR_CONDITION(!enclosing_expr.is<Nodecl::ExpressionStatement>(),
+                            "Unexpected '%s' node",
+                            ast_print_node_type(enclosing_expr.get_kind()));
 
                     Nodecl::NodeclBase inline_task;
                     {
