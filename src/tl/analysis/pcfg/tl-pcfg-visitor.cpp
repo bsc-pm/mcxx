@@ -947,7 +947,7 @@ namespace Analysis {
         _utils->_nested_loop_nodes.top( )->_next->set_outer_node( for_graph_node );
         _pcfg->connect_nodes( _utils->_last_nodes, _utils->_nested_loop_nodes.top( )->_next, aux_etype );
         _pcfg->connect_nodes( _utils->_nested_loop_nodes.top( )->_next, _utils->_nested_loop_nodes.top( )->_cond,
-                              ALWAYS, "", /* is back edge */ true );
+                              ALWAYS, "", /* is task edge */ false );
 
         for_graph_node->set_stride_node( _utils->_nested_loop_nodes.top( )->_next );
         _utils->_nested_loop_nodes.pop( );
