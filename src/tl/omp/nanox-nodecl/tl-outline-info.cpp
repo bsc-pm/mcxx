@@ -203,17 +203,18 @@ namespace TL { namespace Nanox {
 
 
     // Only used in task expressions to store the return results
-    void OutlineInfoRegisterEntities::add_shared_with_alloca(Symbol sym, TL::DataReference& data_ref)
+    void OutlineInfoRegisterEntities::add_alloca(Symbol sym, TL::DataReference& data_ref)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
 
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
-        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_WITH_ALLOCA);
+        outline_info.set_sharing(OutlineDataItem::SHARING_ALLOCA);
 
         if (is_new)
         {
+            // Note that we obtain the type from the data_ref
             Type t = data_ref.get_type();
             if (t.is_any_reference())
             {
@@ -634,7 +635,7 @@ namespace TL { namespace Nanox {
 
             if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_shared_with_alloca(sym, data_ref);
+                add_alloca(sym, data_ref);
             }
             else
             {

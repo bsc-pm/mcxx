@@ -329,7 +329,7 @@ namespace TL { namespace Nanox {
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }
-                case OutlineDataItem::SHARING_SHARED_WITH_ALLOCA:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         if (IS_FORTRAN_LANGUAGE)
                         {

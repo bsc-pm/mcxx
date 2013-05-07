@@ -687,7 +687,7 @@ void LoweringVisitor::emit_async_common(
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED_WITH_ALLOCA)
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_ALLOCA)
                 continue;
 
             TL::Symbol sym = (*it)->get_symbol();
@@ -1128,9 +1128,9 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
-                case OutlineDataItem::SHARING_SHARED_WITH_ALLOCA:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
-                        //FIXME:
+                        // This argument will be initialized by another task
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
