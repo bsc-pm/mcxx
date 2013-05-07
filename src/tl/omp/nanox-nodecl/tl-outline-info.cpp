@@ -878,6 +878,25 @@ namespace TL { namespace Nanox {
                 }
             }
 
+            void visit(const Nodecl::OpenMP::Alloca& alloca)
+            {
+                Nodecl::List l = alloca.get_alloca_expressions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+
+                    ERROR_CONDITION(!data_ref.is_valid(), "%s: data reference '%s' must be valid at this point!\n",
+                            it->get_locus_str().c_str(),
+                            Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str());
+
+                    TL::Symbol sym = data_ref.get_base_symbol();
+
+                    add_alloca(sym, data_ref);
+                }
+            }
+
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {

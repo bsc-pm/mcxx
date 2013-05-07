@@ -177,7 +177,7 @@ namespace TL { namespace OpenMP {
                 {
                     Nodecl::NodeclBase enclosing_expr = it->first;
                     TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
-                    const std::set<TL::Symbol>& return_arguments = _enclosing_expr_to_return_vars_map.find(enclosing_expr)->second;
+                    std::set<TL::Symbol> return_arguments = _enclosing_expr_to_return_vars_map.find(enclosing_expr)->second;
 
                     ERROR_CONDITION(!enclosing_expr.is<Nodecl::ExpressionStatement>(), "Unexpected node", 0);
 
@@ -193,8 +193,8 @@ namespace TL { namespace OpenMP {
 
                         TL::ObjectList<Nodecl::Symbol> nonlocal_symbols;
 
-                        TL::ObjectList<Nodecl::NodeclBase> input_dependences,
-                            inout_dependences, output_dependences, assumed_firstprivates;
+                        TL::ObjectList<Nodecl::NodeclBase> input_alloca_dependence,
+                            inout_dependences, output_dependences, assumed_firstprivates, alloca_exprs;
 
                         Nodecl::ExpressionStatement expr_stmt = enclosing_expr.as<Nodecl::ExpressionStatement>();
                         if (expr_stmt.get_nest().is<Nodecl::AddAssignment>()
@@ -233,32 +233,51 @@ namespace TL { namespace OpenMP {
                         }
 
 
-                        // The return arguments are added as alloca input dependences
-                        for (std::set<TL::Symbol>::const_iterator it2 = return_arguments.begin();
-                                it2 != return_arguments.end();
-                                ++it2)
-                        {
-                            TL::Symbol sym = *it2;
-                            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                            sym_nodecl.set_type(sym.get_type());
 
-                            input_dependences.append(
-                                    Nodecl::Dereference::make(
-                                        sym_nodecl,
-                                        sym.get_type().points_to().get_lvalue_reference_to(),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        // The expressions that are not return arguments are passed as firstprivates
                         for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
                                 it2 != nonlocal_symbols.end();
                                 ++it2)
                         {
                             TL::Symbol sym = it2->get_symbol();
-                            if (return_arguments.find(sym) == return_arguments.end())
+                            std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
+                            if (it_sym == return_arguments.end())
                             {
+                                // The expressions that are not return arguments are passed as firstprivates
                                 assumed_firstprivates.append((*it2).shallow_copy());
                             }
+                            else
+                            {
+                                // The return arguments present in the enclosing expression are added as alloca input dependences
+                                Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                                sym_nodecl.set_type(sym.get_type());
+
+                                input_alloca_dependence.append(
+                                        Nodecl::Dereference::make(
+                                            sym_nodecl,
+                                            sym.get_type().points_to().get_lvalue_reference_to(),
+                                            make_locus("", 0, 0)));
+
+                                // Remove this item from the return arguments set!
+                                return_arguments.erase(it_sym);
+                            }
+                        }
+
+                        // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
+                        // join task but they should not generate any dependence)
+                        for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
+                                it2 != return_arguments.end();
+                                ++it2)
+                        {
+                            TL::Symbol sym = *it2;
+
+                            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                            sym_nodecl.set_type(sym.get_type());
+
+                            alloca_exprs.append(
+                                    Nodecl::Dereference::make(
+                                        sym_nodecl,
+                                        sym.get_type().points_to().get_lvalue_reference_to(),
+                                        make_locus("", 0, 0)));
                         }
 
                         if (!assumed_firstprivates.empty())
@@ -269,11 +288,19 @@ namespace TL { namespace OpenMP {
                                         make_locus("", 0, 0)));
                         }
 
-                        if (!input_dependences.empty())
+                        if (!alloca_exprs.empty())
+                        {
+                            exec_environment.append(
+                                    Nodecl::OpenMP::Alloca::make(
+                                        Nodecl::List::make(alloca_exprs),
+                                        make_locus("", 0, 0)));
+                        }
+
+                        if (!input_alloca_dependence.empty())
                         {
                             exec_environment.append(
                                     Nodecl::OpenMP::DepInAlloca::make(
-                                        Nodecl::List::make(input_dependences),
+                                        Nodecl::List::make(input_alloca_dependence),
                                         make_locus("", 0, 0)));
                         }
 
