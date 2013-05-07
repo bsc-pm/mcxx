@@ -2077,6 +2077,10 @@ static type_t* update_dependent_typename(
         return NULL;
 
     scope_entry_t* member = entry_list_head(entry_list);
+
+    if (member->kind == SK_USING)
+        member = member->entity_specs.alias_to;
+
     entry_list_free(entry_list);
 
     if (member->kind == SK_CLASS
@@ -3997,6 +4001,7 @@ scope_entry_list_t* query_nodecl_template_id(
         SK_TEMPLATE_TEMPLATE_PARAMETER,
         SK_TEMPLATE,
         SK_USING,
+        SK_USING_TYPENAME,
         SK_DEPENDENT_ENTITY
     };
 

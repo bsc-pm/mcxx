@@ -556,7 +556,7 @@ static Nodecl::NodeclBase handle_input_value_dependence(
             toplevel_lvalue_subexpressions,
             nontoplevel_lvalue_subexpressions);
 
-    // We need to declare explicitly these objects in C++
+    // We need to define explicitly these objects in C++
     CXX_LANGUAGE()
     {
         for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
@@ -565,7 +565,7 @@ static Nodecl::NodeclBase handle_input_value_dependence(
         {
             TL::Symbol new_outline_data_item = it->second;
             declarations_src << as_statement(
-                    Nodecl::CxxDecl::make(
+                    Nodecl::CxxDef::make(
                         /* context */ Nodecl::NodeclBase::null(),
                         new_outline_data_item));
         }

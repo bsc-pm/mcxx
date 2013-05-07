@@ -260,7 +260,16 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_implementations = implementation_table.size();
+    int num_implementations = 0;
+    {
+        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TargetInformation target_info = it->second;
+            num_implementations += target_info.get_device_names().size();
+        }
+    }
     TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
@@ -1083,6 +1092,8 @@ void LoweringVisitor::fill_arguments(
                             <<      "{"
                             <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
                             <<           "ol_args->" << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
+                            //  If the value can be captured safely, we should remove the dependence. See nanox ticket #818
+                            <<           as_symbol((*it)->get_symbol()) << " = 0;"
                             <<      "}"
                             << "}"
                             ;
