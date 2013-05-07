@@ -239,6 +239,12 @@ namespace TL { namespace OpenMP {
                                 ++it2)
                         {
                             TL::Symbol sym = it2->get_symbol();
+
+                            if (!sym.is_variable()
+                                    || (sym.is_member()
+                                        && !sym.is_static()))
+                                continue;
+
                             std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
                             if (it_sym == return_arguments.end())
                             {
