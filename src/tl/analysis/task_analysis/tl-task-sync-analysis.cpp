@@ -565,6 +565,8 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         ERROR_CONDITION(task_creation.size() != 1, "Too many creation edges", 0);
         Node* task = task_creation[0]->get_target();
 
+        AliveTaskSet out_task_set = get_alive_out(current);
+
         // Synchronize with existing tasks of the same domain
         for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
                 alive_tasks_it != get_alive_in(current).end();
@@ -586,7 +588,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                                 points_of_sync[alive_tasks_it->node].insert(task);
                                 std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                                     << " task (among others) maybe synchronizes in this task execution" << std::endl;
-                                changed = true;
                             }
                         }
                         else
@@ -594,7 +595,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                             points_of_sync[alive_tasks_it->node].insert(task);
                             std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                                 << " task maybe synchronizes in this task execution" << std::endl;
-                            changed = true;
                         }
 
                         // If we positively know that this task synchronizes here, remove it from alive_tasks
@@ -606,7 +606,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                                 std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                                     << " task is not alive after this task" << std::endl;
                             }
-                            changed = changed || (removed != 0);
                         }
                         else
                         {
@@ -616,7 +615,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                                 std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                                     << " task is (potentially) still alive after execution" << std::endl;
                             }
-                            changed = changed || (res.second);
                         }
                         break;
                     }
@@ -629,7 +627,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                             std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                                 << " task is (for sure) still alive after execution" << std::endl;
                         }
-                        changed = changed || (res.second);
                         break;
                     }
                 default:
@@ -646,7 +643,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                 << " new task alive in " << task->get_id() << " with domain " << current_domain_id << std::endl;
         }
-        changed = changed || (res.second);
+
 
         // All the alive tasks at the end of the task are also alive here
         if (task->is_graph_node())
@@ -662,8 +659,14 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                     std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
                         << " task created in task outlives its parent task" << std::endl;
                 }
-                changed = changed || (res.second);
             }
+        }
+
+        if (out_task_set != get_alive_out(current))
+        {
+            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                << " OUT set has changed" << std::endl;
+            changed = true;
         }
     }
     else
