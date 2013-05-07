@@ -511,6 +511,9 @@ namespace TL
             //! Special symbol for using A::x inside classes
             bool is_using_symbol() const;
 
+            //! Special symbol for using typename A<T>::x inside classes
+            bool is_using_typename_symbol() const;
+
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
 

@@ -727,6 +727,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             //         break;
             //     }
         case SK_USING:
+        case SK_USING_TYPENAME:
             {
                 // Two cases: a) the entity is actually dependent: it will have only one SK_DEPENDENT_ENTITY 
                 //            b) the entity is not dependent: it may have more than one element
@@ -744,10 +745,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 introduce_using_entities(
                         nodecl_null(),
-                        entry_list, context_of_being_instantiated, 
+                        entry_list, context_of_being_instantiated,
                         named_type_get_symbol(being_instantiated),
                         /* is_class_scope */ 1,
                         member_of_template->entity_specs.access,
+                        /* is_typename */ 0,
                         member_of_template->locus);
 
                 scope_entry_t* used_hub_symbol = xcalloc(1, sizeof(*used_hub_symbol));

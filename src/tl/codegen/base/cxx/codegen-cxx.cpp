@@ -4179,7 +4179,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            else if (member.is_using_symbol())
+            else if (member.is_using_symbol()
+                    || member.is_using_typename_symbol())
             {
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
@@ -4187,8 +4188,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
 
                 TL::Symbol entry = unresolved[0];
+                file << "using ";
 
-                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (member.is_using_typename_symbol())
+                    file << "typename ";
+
+                file << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
             }
             else if (member.is_enum()
                     || member.is_typedef())

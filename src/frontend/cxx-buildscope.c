@@ -250,7 +250,9 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t, 
+        char is_typename,
+        nodecl_t* nodecl_output);
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
@@ -753,7 +755,14 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         case AST_USING_DECLARATION_TYPENAME :
             {
                 // using A::b;
-                build_scope_using_declaration(a, decl_context, AS_UNKNOWN, nodecl_output);
+                // using typename A::b;
+                if (ASTType(a) == AST_USING_DECLARATION_TYPENAME)
+                    error_printf("%s: error: 'using typename' is only valid in member-declarations\n",
+                            ast_location(a));
+
+                build_scope_using_declaration(a, decl_context, AS_UNKNOWN,
+                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        nodecl_output);
                 break;
             }
         case AST_STATIC_ASSERT:
@@ -1174,17 +1183,18 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
 
 void introduce_using_entities(
         nodecl_t nodecl_name,
-        scope_entry_list_t* used_entities, 
-        decl_context_t decl_context, 
+        scope_entry_list_t* used_entities,
+        decl_context_t decl_context,
         scope_entry_t* current_class,
-        char is_class_scope, 
+        char is_class_scope,
         access_specifier_t current_access,
+        char is_typename,
         const locus_t* locus)
 {
-    scope_entry_list_t* existing_usings = 
+    scope_entry_list_t* existing_usings =
         query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name);
 
-    enum cxx_symbol_kind filter_usings[] = { SK_USING };
+    enum cxx_symbol_kind filter_usings[] = { SK_USING, SK_USING_TYPENAME };
 
     existing_usings = filter_symbol_kind_set(existing_usings, STATIC_ARRAY_LENGTH(filter_usings), filter_usings);
 
@@ -1273,14 +1283,15 @@ void introduce_using_entities(
             continue;
 
         scope_entry_t* original_entry = entry;
-        if (original_entry->kind == SK_USING)
+        if (original_entry->kind == SK_USING
+                || original_entry->kind == SK_USING_TYPENAME)
         {
             // We want the ultimate alias
             original_entry = original_entry->entity_specs.alias_to;
         }
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
-        used_name->kind = SK_USING;
+        used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_name->locus = locus;
         used_name->entity_specs.alias_to = original_entry;
         if (current_class != NULL)
@@ -1300,6 +1311,7 @@ void introduce_using_entities(
 static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         decl_context_t decl_context,
         access_specifier_t current_access,
+        char is_typename,
         nodecl_t* nodecl_output)
 {
     scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context,
@@ -1326,13 +1338,18 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         is_class_scope = 1;
     }
 
-    introduce_using_entities(nodecl_name, used_entities, decl_context, current_class, is_class_scope, current_access,
+    introduce_using_entities(nodecl_name, used_entities,
+            decl_context,
+            current_class,
+            is_class_scope,
+            current_access,
+            is_typename,
             nodecl_get_locus(nodecl_name));
 
     if (current_class != NULL)
     {
         scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
-        used_hub_symbol->kind = SK_USING;
+        used_hub_symbol->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
         used_hub_symbol->entity_specs.access = current_access;
         used_hub_symbol->locus = nodecl_get_locus(nodecl_name);
@@ -1356,8 +1373,8 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
     entry_list_free(used_entities);
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t current_access,
-        nodecl_t* nodecl_output)
+static void build_scope_using_declaration(AST a, decl_context_t decl_context,
+        access_specifier_t current_access, char is_typename, nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -1379,7 +1396,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, is_typename, nodecl_output);
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context,
@@ -1394,7 +1411,7 @@ static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, /* is_typename */ 0, nodecl_output);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -3803,7 +3820,8 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
-                && entry->kind != SK_GCC_BUILTIN_TYPE)
+                && entry->kind != SK_GCC_BUILTIN_TYPE
+                && entry->kind != SK_USING_TYPENAME)
         {
             if (!checking_ambiguity())
             {
@@ -3825,6 +3843,30 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(query_results));
 
+    // template < typename T >
+    // struct A
+    // {
+    //      struct MyStruct { int x };
+    // };
+    //
+    // template < typename T >
+    // struct B : public A<T>
+    // {
+    //      using typename A<T>::MyStruct;
+    //
+    //      MyStruct foo() // (1)
+    //      {
+    //      }
+    // };
+    //
+    // At (1), MyStruct is a simple type specifier. In this case we should do the same
+    // as gather_type_spec_from_dependent_typename function
+    if (entry->kind == SK_USING_TYPENAME)
+    {
+        ERROR_CONDITION(entry->entity_specs.alias_to->kind != SK_DEPENDENT_ENTITY, "Expecting a dependent entity", 0);
+        *type_info = entry->entity_specs.alias_to->type_information;
+        return;
+    }
     // Chances are that through class-scope lookup we have found the injected name
     if (entry->entity_specs.is_injected_class_name)
     {
@@ -4401,6 +4443,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             SK_TYPEDEF, 
             SK_DEPENDENT_ENTITY,
             SK_USING,
+            SK_USING_TYPENAME,
         };
 
         // We do not want to examine uninstantiated typenames
@@ -4422,7 +4465,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         scope_entry_t* result = entry_list_head(filtered_result_list);
         entry_list_free(filtered_result_list);
 
-        if (result->kind == SK_USING)
+        if (result->kind == SK_USING
+                || result->kind == SK_USING_TYPENAME)
         {
             result = entry_advance_aliases(result);
         }
@@ -9133,7 +9177,8 @@ static char find_function_declaration(AST declarator_id,
             continue;
 
         // Using symbols are filtered!
-        if (entry->kind == SK_USING)
+        if (entry->kind == SK_USING
+                || entry->kind == SK_USING_TYPENAME)
             continue;
 
         if (entry->kind != SK_FUNCTION
@@ -11212,8 +11257,11 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 break;
             }
         case AST_USING_DECLARATION :
+        case AST_USING_DECLARATION_TYPENAME :
             {
-                build_scope_using_declaration(a, inner_decl_context, current_access, nodecl_output);
+                build_scope_using_declaration(a, inner_decl_context, current_access, 
+                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        nodecl_output);
                 break;
             }
         case AST_MEMBER_DECLARATION_QUALIF:
@@ -14366,7 +14414,7 @@ nodecl_t internal_expression_parse(const char *source, decl_context_t decl_conte
 scope_entry_t* entry_advance_aliases(scope_entry_t* entry)
 {
     if (entry != NULL 
-            && entry->kind == SK_USING)
+            && (entry->kind == SK_USING))
         return entry_advance_aliases(entry->entity_specs.alias_to);
 
     return entry;
