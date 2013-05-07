@@ -794,15 +794,21 @@ namespace TL { namespace OpenMP {
                     return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
                     // 3. Extend the list of arguments adding the output argument
-                    Nodecl::NodeclBase new_arguments = func_call.get_arguments();
-
                     Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
                             return_arg_sym,
                             func_call.get_locus());
 
                     return_arg_nodecl.set_type(return_arg_sym.get_type().get_lvalue_reference_to());
 
-                    new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
+                    Nodecl::NodeclBase new_arguments = func_call.get_arguments();
+                    if (!new_arguments.is_null())
+                    {
+                        new_arguments.as<Nodecl::List>().append(return_arg_nodecl);
+                    }
+                    else
+                    {
+                        new_arguments = Nodecl::List::make(return_arg_nodecl);
+                    }
 
                     // 4. Create the new function call and encapsulate it in a ExpressionStatement
                     Nodecl::NodeclBase new_function_call =
