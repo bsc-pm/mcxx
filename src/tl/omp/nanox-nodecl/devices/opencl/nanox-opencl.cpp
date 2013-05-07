@@ -667,27 +667,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             structure_name,
             structure_type);
 
-    if (IS_FORTRAN_LANGUAGE
-            && current_function.is_in_module())
-    {
-        scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-        unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                unpacked_function.get_internal_symbol());
-
-        unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-        outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                outline_function.get_internal_symbol());
-        outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-    }
-
     Nodecl::NodeclBase outline_function_code, outline_function_body;
     build_empty_body_for_function(outline_function,
             outline_function_code,

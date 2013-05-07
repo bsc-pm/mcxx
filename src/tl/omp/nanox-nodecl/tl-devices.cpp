@@ -837,6 +837,17 @@ namespace TL { namespace Nanox {
                     get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
 
+        if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+            new_function_sym->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    new_function_sym);
+            new_function_sym->entity_specs.is_module_procedure = 1;
+        }
+
         function_context.function_scope->related_entry = new_function_sym;
         function_context.block_scope->related_entry = new_function_sym;
 
@@ -965,6 +976,17 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
         }
+        if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+            new_function_sym->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    new_function_sym);
+            new_function_sym->entity_specs.is_module_procedure = 1;
+        }
+
         return new_function_sym;
     }
 
