@@ -1050,6 +1050,8 @@ void LoweringVisitor::fill_arguments(
                             <<      "{"
                             <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
                             <<           "ol_args->" << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
+                            //  If the value can be captured safely, we should remove the dependence. See nanox ticket #818
+                            <<           as_symbol((*it)->get_symbol()) << " = 0;"
                             <<      "}"
                             << "}"
                             ;
