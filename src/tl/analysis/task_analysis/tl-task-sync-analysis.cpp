@@ -392,8 +392,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
     // Propagate predecessors
     {
-        AliveTaskSet tmp_alive_tasks_of_current = get_alive_in(current);
-
         ObjectList<Edge*> predecessors = current->get_entry_edges();
         for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
                 predecessor_it != predecessors.end();
@@ -405,16 +403,11 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             Node* predecessor = (*predecessor_it)->get_source();
             AliveTaskSet& alive_tasks_of_predecessor = get_alive_out(predecessor);
 
-            tmp_alive_tasks_of_current.insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
-        }
-
-        if (tmp_alive_tasks_of_current != get_alive_in(current))
-        {
-            get_alive_in(current) = tmp_alive_tasks_of_current;
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Propagating OUT(pred) into IN(current)" << std::endl;
-            changed = true;
+            get_alive_in(current).insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
         }
     }
+
+    AliveTaskSet initial_alive_out = get_alive_out(current);
 
     std::cerr << "["
         << current->get_id()
@@ -426,60 +419,14 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
     if (current->is_omp_task_node())
     {
-        // {
-        //     // Propagate predecessors
-        //     AliveTaskSet tmp_alive_tasks_of_current = get_alive_in(current);
-
-        //     ObjectList<Edge*> predecessors = current->get_entry_edges();
-        //     for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
-        //             predecessor_it != predecessors.end();
-        //             predecessor_it++)
-        //     {
-        //         if (!(*predecessor_it)->is_task_edge())
-        //             continue;
-
-        //         Node* predecessor = (*predecessor_it)->get_source();
-        //         AliveTaskSet& alive_tasks_of_predecessor = get_alive_in(predecessor);
-
-        //         tmp_alive_tasks_of_current.insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
-        //     }
-
-        //     if (tmp_alive_tasks_of_current != get_alive_in(current))
-        //     {
-        //         get_alive_in(current) = tmp_alive_tasks_of_current;
-        //         std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Propagating OUT(pred) into IN(current)" << std::endl;
-        //         changed = true;
-        //     }
-
-        //     std::cerr << "["
-        //         << current->get_id()
-        //         << ":" << current->get_type_as_string()
-        //         << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
-        //         << "]"
-        //         << "Before: IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
-        //         << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
-        // }
-        // Note that we do not propagate the code alive task set info inside this task
         int new_domain_id = next_domain_id++;
         compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, new_domain_id, next_domain_id);
     }
     else if (current->is_graph_node())
     {
-        if (get_alive_in(current) != get_alive_in(current->get_graph_entry_node()))
-        {
-            get_alive_in(current->get_graph_entry_node()) = get_alive_in(current);
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Updating IN(entry) of graph node using IN(current)" << std::endl;
-            changed = true;
-        }
-
+        get_alive_in(current->get_graph_entry_node()) = get_alive_in(current);
         compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, current_domain_id, next_domain_id);
-
-        if (get_alive_out(current) != get_alive_out(current->get_graph_exit_node()))
-        {
-            get_alive_out(current) = get_alive_out(current->get_graph_exit_node());
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Updating OUT(current) using OUT(exit)" << std::endl;
-            changed = true;
-        }
+        get_alive_out(current) = get_alive_out(current->get_graph_exit_node());
     }
     else if (current->is_omp_taskwait_node())
     {
@@ -496,17 +443,15 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 if (points_of_sync[alive_tasks_it->node].find(current) == points_of_sync[alive_tasks_it->node].end())
                 {
                     points_of_sync[alive_tasks_it->node].insert(current);
-                    std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                    std::cerr << __FILE__ << ":" << __LINE__
                         << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
-                    changed = true;
                 }
             }
             else
             {
                 points_of_sync[alive_tasks_it->node].insert(current);
-                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                std::cerr << __FILE__ << ":" << __LINE__
                     << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
-                changed = true;
             }
         }
 
@@ -519,11 +464,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             if (alive_tasks_it->domain != current_domain_id)
                 still_alive.insert(*alive_tasks_it);
         }
-        if (still_alive != get_alive_out(current))
-        {
-            get_alive_out(current) = still_alive;
-            changed = true;
-        }
+        get_alive_out(current) = still_alive;
     }
     else if (current->is_ompss_taskwait_on_node())
     {
@@ -541,31 +482,22 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 if (points_of_sync[alive_tasks_it->node].find(current) == points_of_sync[alive_tasks_it->node].end())
                 {
                     points_of_sync[alive_tasks_it->node].insert(current);
-                    std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
-                    changed = true;
+                    std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
                 }
             }
             else
             {
                 points_of_sync[alive_tasks_it->node].insert(current);
-                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
-                changed = true;
+                std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
             }
         }
-        if (!get_alive_out(current).empty())
-        {
-            get_alive_out(current).clear();
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__ << std::endl;
-            changed = true;
-        }
+        get_alive_out(current).clear();
     }
     else if (current->is_omp_task_creation_node())
     {
         ObjectList<Edge*> task_creation = get_task_creation_edges(current);
         ERROR_CONDITION(task_creation.size() != 1, "Too many creation edges", 0);
         Node* task = task_creation[0]->get_target();
-
-        AliveTaskSet out_task_set = get_alive_out(current);
 
         // Synchronize with existing tasks of the same domain
         for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
@@ -586,14 +518,14 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                             if (points_of_sync[alive_tasks_it->node].find(task) == points_of_sync[alive_tasks_it->node].end())
                             {
                                 points_of_sync[alive_tasks_it->node].insert(task);
-                                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                                std::cerr << __FILE__ << ":" << __LINE__
                                     << " task (among others) maybe synchronizes in this task execution" << std::endl;
                             }
                         }
                         else
                         {
                             points_of_sync[alive_tasks_it->node].insert(task);
-                            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                            std::cerr << __FILE__ << ":" << __LINE__
                                 << " task maybe synchronizes in this task execution" << std::endl;
                         }
 
@@ -603,7 +535,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                             size_t removed = get_alive_out(current).erase(*alive_tasks_it);
                             if (removed != 0)
                             {
-                                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                                std::cerr << __FILE__ << ":" << __LINE__
                                     << " task is not alive after this task" << std::endl;
                             }
                         }
@@ -612,7 +544,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                             std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
                             if (res.second)
                             {
-                                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                                std::cerr << __FILE__ << ":" << __LINE__
                                     << " task is (potentially) still alive after execution" << std::endl;
                             }
                         }
@@ -624,7 +556,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                         std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
                         if (res.second)
                         {
-                            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                            std::cerr << __FILE__ << ":" << __LINE__
                                 << " task is (for sure) still alive after execution" << std::endl;
                         }
                         break;
@@ -640,10 +572,9 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(AliveTaskItem(task, current_domain_id));
         if (res.second)
         {
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+            std::cerr << __FILE__ << ":" << __LINE__
                 << " new task alive in " << task->get_id() << " with domain " << current_domain_id << std::endl;
         }
-
 
         // All the alive tasks at the end of the task are also alive here
         if (task->is_graph_node())
@@ -656,17 +587,10 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 res = get_alive_out(current).insert(*alive_tasks_it);
                 if (res.second)
                 {
-                    std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                    std::cerr << __FILE__ << ":" << __LINE__
                         << " task created in task outlives its parent task" << std::endl;
                 }
             }
-        }
-
-        if (out_task_set != get_alive_out(current))
-        {
-            std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
-                << " OUT set has changed" << std::endl;
-            changed = true;
         }
     }
     else
@@ -679,13 +603,17 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
             if (res.second)
             {
-                std::cerr << "CHANGED " << __FILE__ << ":" << __LINE__
+                std::cerr << __FILE__ << ":" << __LINE__
                     << " task is still alive after creation" << std::endl;
             }
-            changed = changed || (res.second);
         }
     }
 
+    if (initial_alive_out != get_alive_out(current))
+    {
+        std::cerr << "[" << current->get_id() << "] OUT SET HAS CHANGED" << std::endl;
+        changed = true;
+    }
 
     std::cerr << "["
         << current->get_id()
