@@ -92,21 +92,21 @@ namespace TL { namespace OpenMP {
             module_function_tasks_set_t _module_function_tasks;
 
             // This information is computed by the TransformNonVoidFunctionCalls visitor
-            const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _funct_call_to_enclosing_expr_map;
-            const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& _enclosing_expr_to_return_vars_map;
+            const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _funct_call_to_enclosing_stmt_map;
+            const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& _enclosing_stmt_to_return_vars_map;
 
-            std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_expr_to_task_calls_map;
+            std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_stmt_to_task_calls_map;
 
         public:
 
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
-                    const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_expr_map,
-                    const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_expr_to_return_vars_map)
+                    const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
+                    const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map)
                 :
                     _function_task_set(function_task_set),
-                    _funct_call_to_enclosing_expr_map(funct_call_to_enclosing_expr_map),
-                    _enclosing_expr_to_return_vars_map(enclosing_expr_to_return_vars_map),
-                    _enclosing_expr_to_task_calls_map()
+                    _funct_call_to_enclosing_stmt_map(funct_call_to_enclosing_stmt_map),
+                    _enclosing_stmt_to_return_vars_map(enclosing_stmt_to_return_vars_map),
+                    _enclosing_stmt_to_task_calls_map()
             {
             }
 
@@ -149,18 +149,18 @@ namespace TL { namespace OpenMP {
                                 call.get_locus());
 
                         std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::const_iterator it =
-                            _funct_call_to_enclosing_expr_map.find(call);
+                            _funct_call_to_enclosing_stmt_map.find(call);
 
-                        if (it == _funct_call_to_enclosing_expr_map.end())
+                        if (it == _funct_call_to_enclosing_stmt_map.end())
                         {
                             call.replace(task_call);
                         }
                         else
                         {
                             // This was a nonvoid task call!
-                            Nodecl::NodeclBase enclosing_expr = it->second;
+                            Nodecl::NodeclBase enclosing_stmt = it->second;
 
-                            _enclosing_expr_to_task_calls_map[enclosing_expr].append(Nodecl::ExpressionStatement::make(task_call));
+                            _enclosing_stmt_to_task_calls_map[enclosing_stmt].append(Nodecl::ExpressionStatement::make(task_call));
 
                             // Remove from the enclosing list the expression statement which contains the task call
                             Nodecl::Utils::remove_from_enclosing_list(call.get_parent());
@@ -171,17 +171,17 @@ namespace TL { namespace OpenMP {
 
             void build_all_needed_task_expressions()
             {
-                for (std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> >::iterator it = _enclosing_expr_to_task_calls_map.begin();
-                        it != _enclosing_expr_to_task_calls_map.end();
+                for (std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> >::iterator it = _enclosing_stmt_to_task_calls_map.begin();
+                        it != _enclosing_stmt_to_task_calls_map.end();
                         ++it)
                 {
-                    Nodecl::NodeclBase enclosing_expr = it->first;
+                    Nodecl::NodeclBase enclosing_stmt = it->first;
                     TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
-                    std::set<TL::Symbol> return_arguments = _enclosing_expr_to_return_vars_map.find(enclosing_expr)->second;
+                    std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
 
-                    ERROR_CONDITION(!enclosing_expr.is<Nodecl::ExpressionStatement>(),
+                    ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ExpressionStatement>(),
                             "Unexpected '%s' node",
-                            ast_print_node_type(enclosing_expr.get_kind()));
+                            ast_print_node_type(enclosing_stmt.get_kind()));
 
                     Nodecl::NodeclBase inline_task;
                     {
@@ -198,7 +198,7 @@ namespace TL { namespace OpenMP {
                         TL::ObjectList<Nodecl::NodeclBase> input_alloca_dependence,
                             inout_dependences, output_dependences, assumed_firstprivates, alloca_exprs;
 
-                        Nodecl::ExpressionStatement expr_stmt = enclosing_expr.as<Nodecl::ExpressionStatement>();
+                        Nodecl::ExpressionStatement expr_stmt = enclosing_stmt.as<Nodecl::ExpressionStatement>();
                         if (expr_stmt.get_nest().is<Nodecl::AddAssignment>()
                                 || expr_stmt.get_nest().is<Nodecl::ArithmeticShrAssignment>()
                                 || expr_stmt.get_nest().is<Nodecl::Assignment>()
@@ -212,7 +212,7 @@ namespace TL { namespace OpenMP {
                                 || expr_stmt.get_nest().is<Nodecl::ModAssignment>()
                                 || expr_stmt.get_nest().is<Nodecl::MulAssignment>())
                         {
-                            Nodecl::Assignment assignment = enclosing_expr.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::Assignment>();
+                            Nodecl::Assignment assignment = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::Assignment>();
                             Nodecl::NodeclBase lhs_expr = assignment.get_lhs();
                             Nodecl::NodeclBase rhs_expr = assignment.get_rhs();
 
@@ -231,7 +231,7 @@ namespace TL { namespace OpenMP {
                         }
                         else
                         {
-                            nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(enclosing_expr);
+                            nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(enclosing_stmt);
                         }
 
 
@@ -255,7 +255,7 @@ namespace TL { namespace OpenMP {
                             }
                             else
                             {
-                                // The return arguments present in the enclosing expression are added as alloca input dependences
+                                // The return arguments present in the enclosing statement are added as alloca input dependences
                                 Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                                 sym_nodecl.set_type(sym.get_type());
 
@@ -330,7 +330,7 @@ namespace TL { namespace OpenMP {
 
                         inline_task = Nodecl::OpenMP::Task::make(
                                 exec_environment,
-                                Nodecl::List::make(enclosing_expr.shallow_copy()),
+                                Nodecl::List::make(enclosing_stmt.shallow_copy()),
                                 make_locus("", 0 ,0));
                     }
 
@@ -340,8 +340,8 @@ namespace TL { namespace OpenMP {
                                 Nodecl::List::make(task_calls),
                                 make_locus("", 0, 0)));
 
-                    Nodecl::Utils::prepend_items_before(enclosing_expr, task_expr);
-                    Nodecl::Utils::remove_from_enclosing_list(enclosing_expr);
+                    Nodecl::Utils::prepend_items_before(enclosing_stmt, task_expr);
+                    Nodecl::Utils::remove_from_enclosing_list(enclosing_stmt);
                 }
             }
 
@@ -628,8 +628,8 @@ namespace TL { namespace OpenMP {
             RefPtr<FunctionTaskSet> _function_task_set;
             std::map<TL::Symbol, TL::Symbol> _transformed_tasks;
 
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_expr_map;
-            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> > _enclosing_expr_to_return_vars_map;
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_stmt_map;
+            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> > _enclosing_stmt_to_return_vars_map;
 
         public:
 
@@ -637,8 +637,8 @@ namespace TL { namespace OpenMP {
                 : _counter(0),
                 _function_task_set(function_task_Set),
                 _transformed_tasks(),
-                _funct_call_to_enclosing_expr_map(),
-                _enclosing_expr_to_return_vars_map()
+                _funct_call_to_enclosing_stmt_map(),
+                _enclosing_stmt_to_return_vars_map()
             {
             }
 
@@ -825,22 +825,22 @@ namespace TL { namespace OpenMP {
                     Nodecl::NodeclBase expression_stmt =
                         Nodecl::ExpressionStatement::make(new_function_call);
 
-                    // 5. Prepend the new function call before the enclosing expression statement
+                    // 5. Prepend the new function call before the enclosing statement
                     // of the original function call
-                    Nodecl::NodeclBase enclosing_expr_stmt = func_call;
-                    while (!enclosing_expr_stmt.is_null()
-                            && !enclosing_expr_stmt.is<Nodecl::ExpressionStatement>())
+                    Nodecl::NodeclBase enclosing_stmt = func_call;
+                    while (!enclosing_stmt.is_null()
+                            && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
                     {
-                        enclosing_expr_stmt = enclosing_expr_stmt.get_parent();
+                        enclosing_stmt = enclosing_stmt.get_parent();
                     }
 
-                    ERROR_CONDITION(enclosing_expr_stmt.is_null(),
+                    ERROR_CONDITION(enclosing_stmt.is_null(),
                             "This node should be a Nodecl::ExpressionStatement", 0);
 
-                    // Update the map between function calls and their enclosing expressions
-                    _funct_call_to_enclosing_expr_map.insert(std::make_pair(new_function_call, enclosing_expr_stmt));
+                    // Update the map between function calls and their enclosing statement
+                    _funct_call_to_enclosing_stmt_map.insert(std::make_pair(new_function_call, enclosing_stmt));
 
-                    Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, expression_stmt);
+                    Nodecl::Utils::prepend_items_before(enclosing_stmt, expression_stmt);
 
                     // 6. Replace the original function call by the variable
                     Nodecl::NodeclBase dereference_return =
@@ -851,19 +851,19 @@ namespace TL { namespace OpenMP {
 
                     func_call.replace(dereference_return);
 
-                    // Update the map between enclosing expressions and their return arguments
-                    _enclosing_expr_to_return_vars_map[enclosing_expr_stmt].insert(return_arg_sym);
+                    // Update the map between enclosing statement and their return arguments
+                    _enclosing_stmt_to_return_vars_map[enclosing_stmt].insert(return_arg_sym);
                 }
             }
 
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_expression_map()
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_stmt_map()
             {
-                return _funct_call_to_enclosing_expr_map;
+                return _funct_call_to_enclosing_stmt_map;
             }
 
-            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& get_enclosing_expr_to_return_variables_map()
+            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& get_enclosing_stmt_to_return_variables_map()
             {
-                return _enclosing_expr_to_return_vars_map;
+                return _enclosing_stmt_to_return_vars_map;
             }
 
             void update_function_task_set()
@@ -1162,15 +1162,15 @@ namespace TL { namespace OpenMP {
         visitor.update_function_task_set();
 
         const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>&
-            funct_call_to_enclosing_expr_map = visitor.get_function_call_to_enclosing_expression_map();
+            funct_call_to_enclosing_stmt_map = visitor.get_function_call_to_enclosing_stmt_map();
 
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >&
-            enclosing_expr_to_return_vars_map = visitor.get_enclosing_expr_to_return_variables_map();
+            enclosing_stmt_to_return_vars_map = visitor.get_enclosing_stmt_to_return_variables_map();
 
         FunctionCallVisitor function_call_visitor(
                 function_task_set,
-                funct_call_to_enclosing_expr_map,
-                enclosing_expr_to_return_vars_map);
+                funct_call_to_enclosing_stmt_map,
+                enclosing_stmt_to_return_vars_map);
 
         function_call_visitor.walk(translation_unit);
         function_call_visitor.build_all_needed_task_expressions();
