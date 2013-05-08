@@ -67,10 +67,21 @@ namespace TL { namespace Analysis {
 
     };
 
+    enum SyncKind
+    {
+        Sync_Unknown = 0,
+        Sync_Strong = 1,
+        Sync_Weak = 2,
+    };
+
     typedef std::set<AliveTaskItem> AliveTaskSet;
     typedef std::map<Node*, AliveTaskSet> AliveTasks;
-    typedef std::set<Node*> PointOfSyncSet;
+    typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
+    typedef std::set<PointOfSyncInfo> PointOfSyncSet;
     typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
+
+    // bool operator<(const PointOfSyncInfo& a, const PointsOfSyncInfo& b);
+    // bool operator==(const PointOfSyncInfo& a, const PointsOfSyncInfo& b);
 
     struct LIBTL_CLASS TaskSynchronizations
     {

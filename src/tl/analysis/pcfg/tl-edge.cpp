@@ -115,8 +115,7 @@ namespace Analysis {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
             switch ( etype )
             {
-                case ALWAYS:        // No label needed
-                break;
+                case ALWAYS:
                 case CASE:
                 case CATCH:         label = get_data<std::string>( _EDGE_LABEL );
                 break;
