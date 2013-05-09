@@ -1049,7 +1049,9 @@ static Nodecl::NodeclBase fill_adapter_function(
                     argument_seq,
                     /* alternate name */ Nodecl::NodeclBase::null(),
                     /* function form */ Nodecl::NodeclBase::null(),
-                TL::Type::get_void_type()));
+                TL::Type::get_void_type(),
+                original_environment.get_locus()),
+                original_environment.get_locus());
 
     statements_of_task_list.append(call_to_original);
 
