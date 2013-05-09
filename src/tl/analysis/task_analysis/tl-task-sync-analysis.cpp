@@ -74,27 +74,22 @@ void TaskSynchronizations::compute_task_synchronizations()
         {
             std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
             Edge* edge = _graph->connect_nodes(it->first, (*jt).first, ALWAYS, "", /*is task edge*/ true);
-            if ((*jt).second == Sync_Strong)
-                edge->set_label("strong");
-            else if ((*jt).second == Sync_Weak)
-                edge->set_label("weak");
-            else
-                edge->set_label("unknown");
+            edge->set_label(sync_kind_to_str((*jt).second));
         }
     }
 
     Node* post_sync = _graph->create_unconnected_node(Nodecl::NodeclBase::null());
     post_sync->set_type(OMP_VIRTUAL_TASKSYNC);
 
-    Node* exit = root->get_graph_exit_node();
-    for (AliveTaskSet::iterator it = get_alive_in(exit).begin();
-            it != get_alive_in(exit).end();
-            it++)
-    {
-        std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
-        Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
-        edge->set_label("strong");
-    }
+    // Node* exit = root->get_graph_exit_node();
+    // for (AliveTaskSet::iterator it = get_alive_in(exit).begin();
+    //         it != get_alive_in(exit).end();
+    //         it++)
+    // {
+    //     std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+    //     Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
+    //     edge->set_label(sync_kind_to_str(Sync_strict));
+    // }
 }
 
 TaskSyncRel operator||(const TaskSyncRel& l, const TaskSyncRel r)
@@ -447,13 +442,13 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
             if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_Strong));
+                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
                 std::cerr << __FILE__ << ":" << __LINE__
                     << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
             }
             else
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_Strong));
+                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
                 std::cerr << __FILE__ << ":" << __LINE__
                     << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
             }
@@ -483,12 +478,12 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         {
             if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
             {
-                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_Strong));
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
                     std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
             }
             else
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_Strong));
+                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
                 std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
             }
         }
@@ -514,9 +509,9 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 case TaskSync_Unknown :
                 case TaskSync_Yes : // Note that we do something slightly different below
                     {
-                        SyncKind sync_kind = Sync_Weak;
+                        SyncKind sync_kind = Sync_maybe;
                         if (task_sync_rel == TaskSync_Yes)
-                            sync_kind = Sync_Strong;
+                            sync_kind = Sync_static;
 
                         if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
                         {

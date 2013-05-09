@@ -67,11 +67,32 @@ namespace TL { namespace Analysis {
 
     };
 
+
+#define SYNC_KIND_LIST \
+    SYNC_KIND(unknown) \
+    SYNC_KIND(strict) \
+    SYNC_KIND(static) \
+    SYNC_KIND(maybe)
+
     enum SyncKind
     {
-        Sync_Unknown = 0,
-        Sync_Strong = 1,
-        Sync_Weak = 2,
+#undef SYNC_KIND
+#define SYNC_KIND(X) Sync_##X,
+        SYNC_KIND_LIST
+#undef SYNC_KIND
+    };
+
+    inline std::string sync_kind_to_str(SyncKind sk)
+    {
+        switch (sk)
+        {
+#undef SYNC_KIND
+#define SYNC_KIND(X) case Sync_##X : return #X;
+        SYNC_KIND_LIST
+#undef SYNC_KIND
+            default: return "";
+        }
+        return "";
     };
 
     typedef std::set<AliveTaskItem> AliveTaskSet;
