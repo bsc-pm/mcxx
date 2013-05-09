@@ -3854,6 +3854,7 @@ OPERATOR_TABLE
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
 
+            TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
             push_declaring_entity(entry);
 
             // We do this because we want the type fully laid out if there is any bitfield
@@ -3882,13 +3883,17 @@ OPERATOR_TABLE
 
             if (!_deduce_use_statements)
             {
-                if (entry.get_access_specifier() == AS_PRIVATE)
+                if (entry.in_module().is_valid()
+                        && entry.in_module() == enclosing_declaring_symbol)
                 {
-                    file << ", PRIVATE";
-                }
-                else if (entry.get_access_specifier() == AS_PUBLIC)
-                {
-                    file << ", PUBLIC";
+                    if (entry.get_access_specifier() == AS_PRIVATE)
+                    {
+                        file << ", PRIVATE";
+                    }
+                    else if (entry.get_access_specifier() == AS_PUBLIC)
+                    {
+                        file << ", PUBLIC";
+                    }
                 }
             }
 
