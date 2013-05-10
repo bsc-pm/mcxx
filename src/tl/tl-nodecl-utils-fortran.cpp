@@ -34,4 +34,20 @@ namespace Nodecl { namespace Utils {
         }
     }
 
+    void Fortran::append_module_to_scope(TL::Symbol module,
+            TL::Scope scope)
+    {
+        ERROR_CONDITION(!module.is_valid() || !module.is_fortran_module(), "Symbol must be a Fortran module", 0);
+
+        scope_entry_t* used_modules_info
+            = scope.get_related_symbol().get_used_modules().get_internal_symbol();
+
+        P_LIST_ADD_ONCE(used_modules_info->entity_specs.related_symbols,
+                used_modules_info->entity_specs.num_related_symbols,
+                module.get_internal_symbol());
+
+        if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
+    }
+
 } }

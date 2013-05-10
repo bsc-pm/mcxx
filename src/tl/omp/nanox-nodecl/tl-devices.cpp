@@ -26,6 +26,7 @@
 
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
@@ -1121,6 +1122,35 @@ namespace TL { namespace Nanox {
         else return t;
     }
 
+    void add_used_types_rec(TL::Type t, TL::Scope sc)
+    {
+        if (t.is_named_class() && t.get_symbol().is_from_module())
+        {
+            Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+        }
+        else if (t.is_lvalue_reference())
+        {
+            add_used_types_rec(t.references_to(), sc);
+        }
+        else if (t.is_pointer())
+        {
+            add_used_types_rec(t.points_to(), sc);
+        }
+        else if (t.is_array())
+        {
+            add_used_types_rec(t.array_element(), sc);
+        }
+    }
+
+    void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc)
+    {
+        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            add_used_types_rec((*it)->get_in_outline_type(), sc);
+        }
+    }
 
 
 } }
