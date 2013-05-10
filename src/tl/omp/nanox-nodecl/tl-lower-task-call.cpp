@@ -966,7 +966,7 @@ static TL::Symbol new_function_symbol_adapter(
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
-    Nodecl::Utils::Fortran::copy_used_modules(
+    Nodecl::Utils::Fortran::append_used_modules(
             current_function.get_related_scope(),
             new_function_sym->related_decl_context);
 

@@ -670,7 +670,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             }
             fun_visitor.insert_extra_symbols(info._task_statements);
 
-            Nodecl::Utils::Fortran::copy_used_modules(
+            Nodecl::Utils::Fortran::append_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
 
@@ -812,7 +812,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         {
             TL::Symbol &function(*functions[i]);
 
-            Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+            Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
         }
 
