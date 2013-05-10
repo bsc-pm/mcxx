@@ -72,6 +72,7 @@ namespace TL { namespace Analysis {
     SYNC_KIND(unknown) \
     SYNC_KIND(strict) \
     SYNC_KIND(static) \
+    SYNC_KIND(post) \
     SYNC_KIND(maybe)
 
     enum SyncKind
@@ -95,8 +96,9 @@ namespace TL { namespace Analysis {
         return "";
     };
 
+    typedef std::set<AliveTaskItem> StaticSyncTaskSet;
     typedef std::set<AliveTaskItem> AliveTaskSet;
-    typedef std::map<Node*, AliveTaskSet> AliveTasks;
+
     typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
     typedef std::set<PointOfSyncInfo> PointOfSyncSet;
     typedef std::map<Node*, PointOfSyncSet> PointsOfSync;

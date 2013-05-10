@@ -26,6 +26,8 @@
 
 #include "tl-task-sync-analysis.hpp"
 #include "tl-datareference.hpp"
+#include <algorithm>
+#include <iterator>
 
 namespace TL { namespace Analysis {
 
@@ -42,6 +44,16 @@ static AliveTaskSet& get_alive_in(Node* n)
 static AliveTaskSet& get_alive_out(Node* n)
 {
     return n->get_data<AliveTaskSet>("alive_tasks_out");
+}
+
+static StaticSyncTaskSet& get_static_sync_in(Node* n)
+{
+    return n->get_data<StaticSyncTaskSet>("static_sync_in");
+}
+
+static StaticSyncTaskSet& get_static_sync_out(Node* n)
+{
+    return n->get_data<StaticSyncTaskSet>("static_sync_out");
 }
 
 void TaskSynchronizations::compute_task_synchronizations()
@@ -81,15 +93,18 @@ void TaskSynchronizations::compute_task_synchronizations()
     Node* post_sync = _graph->create_unconnected_node(Nodecl::NodeclBase::null());
     post_sync->set_type(OMP_VIRTUAL_TASKSYNC);
 
-    // Node* exit = root->get_graph_exit_node();
-    // for (AliveTaskSet::iterator it = get_alive_in(exit).begin();
-    //         it != get_alive_in(exit).end();
-    //         it++)
-    // {
-    //     std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
-    //     Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
-    //     edge->set_label(sync_kind_to_str(Sync_strict));
-    // }
+    Node* exit = root->get_graph_exit_node();
+    for (AliveTaskSet::iterator it = get_alive_in(exit).begin();
+            it != get_alive_in(exit).end();
+            it++)
+    {
+        if (get_static_sync_in(exit).find(*it) == get_static_sync_in(exit).end())
+        {
+            std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+            Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
+            edge->set_label(sync_kind_to_str(Sync_post));
+        }
+    }
 }
 
 TaskSyncRel operator||(const TaskSyncRel& l, const TaskSyncRel r)
@@ -394,6 +409,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
     // Propagate predecessors
     {
+        // IN_{AliveTaskSet}[current] = Union_{p:pred(current)} OUT_{AliveTaskSet}[p]
         ObjectList<Edge*> predecessors = current->get_entry_edges();
         for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
                 predecessor_it != predecessors.end();
@@ -407,17 +423,54 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
             get_alive_in(current).insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
         }
+
+        // IN_{StaticSyncTaskSet}[current] = Intersection_{p:pred(current)} OUT_{StaticSyncTaskSet}[p]
+        bool first = true;
+        StaticSyncTaskSet intersection;
+        for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
+                predecessor_it != predecessors.end();
+                predecessor_it++)
+        {
+            if ((*predecessor_it)->is_task_edge())
+                continue;
+
+            Node* predecessor = (*predecessor_it)->get_source();
+            if (first)
+            {
+                intersection = get_static_sync_out(predecessor);
+                std::cerr << "FIRST ISECT -> " << print_set(intersection) << std::endl;
+                first = false;
+            }
+            else
+            {
+                StaticSyncTaskSet tmp;
+                std::cerr << "CURRENT ISECT -> " << print_set(intersection) << std::endl;
+                std::cerr << "OPERAND ISECT -> " << print_set(get_static_sync_out(predecessor)) << std::endl;
+                std::set_intersection(intersection.begin(),
+                        intersection.end(),
+                        get_static_sync_out(predecessor).begin(),
+                        get_static_sync_out(predecessor).end(),
+                        std::inserter(tmp, tmp.begin()));
+                intersection = tmp;
+                std::cerr << "COMPUTED ISECT -> " << print_set(intersection) << std::endl;
+            }
+        }
+        get_static_sync_in(current) = intersection;
     }
 
     AliveTaskSet initial_alive_out = get_alive_out(current);
+    StaticSyncTaskSet initial_static_sync = get_static_sync_out(current);
 
     std::cerr << "["
         << current->get_id()
         << ":" << current->get_type_as_string()
         << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
         << "]"
-        << "Before: IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
-        << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
+        << "Before" << std::endl
+        << "  IN[alive] = " << print_set(get_alive_in(current)) << std::endl
+        << "  OUT[alive] = " << print_set(get_alive_out(current)) << std::endl
+        << "  IN[static_sync] = " << print_set(get_static_sync_in(current)) << std::endl
+        << "  OUT[static_sync] = " << print_set(get_static_sync_out(current)) << std::endl;
 
     if (current->is_omp_task_node())
     {
@@ -427,8 +480,12 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     else if (current->is_graph_node())
     {
         get_alive_in(current->get_graph_entry_node()) = get_alive_in(current);
+        get_static_sync_in(current->get_graph_entry_node()) = get_static_sync_in(current);
+
         compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, current_domain_id, next_domain_id);
+
         get_alive_out(current) = get_alive_out(current->get_graph_exit_node());
+        get_static_sync_out(current) = get_static_sync_out(current->get_graph_exit_node());
     }
     else if (current->is_omp_taskwait_node())
     {
@@ -442,15 +499,25 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
 
             if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                std::cerr << __FILE__ << ":" << __LINE__
-                    << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
+                if (get_static_sync_in(current).find(*alive_tasks_it) == get_static_sync_in(current).end())
+                {
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
+                    std::cerr << __FILE__ << ":" << __LINE__
+                        << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
+                }
+                else
+                {
+                    points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                }
             }
             else
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                std::cerr << __FILE__ << ":" << __LINE__
-                    << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
+                if (get_static_sync_in(current).find(*alive_tasks_it) == get_static_sync_in(current).end())
+                {
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
+                    std::cerr << __FILE__ << ":" << __LINE__
+                        << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
+                }
             }
         }
 
@@ -471,23 +538,34 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     }
     else if (current->is_omp_barrier_node())
     {
-        // Synchronize with everything
+        // Synchronize with every task alive but not statically synchronized
         for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
                 alive_tasks_it != get_alive_in(current).end();
                 alive_tasks_it++)
         {
             if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
             {
+                if (get_static_sync_in(current).find(*alive_tasks_it) == get_static_sync_in(current).end())
+                {
                     points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
                     std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
+                }
+                else
+                {
+                    points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                }
             }
             else
             {
-                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
+                if (get_static_sync_in(current).find(*alive_tasks_it) == get_static_sync_in(current).end())
+                {
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
+                    std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
+                }
             }
         }
         get_alive_out(current).clear();
+        get_static_sync_out(current).clear();
     }
     else if (current->is_omp_task_creation_node())
     {
@@ -507,7 +585,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
             switch (task_sync_rel)
             {
                 case TaskSync_Unknown :
-                case TaskSync_Yes : // Note that we do something slightly different below
+                case TaskSync_Yes :
                     {
                         SyncKind sync_kind = Sync_maybe;
                         if (task_sync_rel == TaskSync_Yes)
@@ -531,6 +609,12 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                         {
                             std::cerr << __FILE__ << ":" << __LINE__
                                 << " task is (potentially) still alive after execution" << std::endl;
+                        }
+
+                        if (task_sync_rel == TaskSync_Yes)
+                        {
+                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
+                            get_static_sync_out(current).insert(*alive_tasks_it);
                         }
                         break;
                     }
@@ -580,20 +664,12 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     else
     {
         // All other nodes just propagate OUT(X) = IN(X)
-        for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
-                alive_tasks_it != get_alive_in(current).end();
-                alive_tasks_it++)
-        {
-            std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
-            if (res.second)
-            {
-                std::cerr << __FILE__ << ":" << __LINE__
-                    << " task is still alive after creation" << std::endl;
-            }
-        }
+        get_alive_out(current) = get_alive_in(current);
+        get_static_sync_out(current) = get_static_sync_in(current);
     }
 
-    if (initial_alive_out != get_alive_out(current))
+    if (initial_alive_out != get_alive_out(current)
+            || initial_static_sync != get_static_sync_out(current))
     {
         std::cerr << "[" << current->get_id() << "] OUT SET HAS CHANGED" << std::endl;
         changed = true;
@@ -604,8 +680,11 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         << ":" << current->get_type_as_string()
         << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
         << "]"
-        << "After : IN(" << current->get_id() << ") = " << print_set(get_alive_in(current)) << " "
-        << "OUT(" << current->get_id() << ") = " << print_set(get_alive_out(current)) << std::endl;
+        << "After" << std::endl
+        << "  IN[alive] = " << print_set(get_alive_in(current)) << std::endl
+        << "  OUT[alive] = " << print_set(get_alive_out(current)) << std::endl
+        << "  IN[static_sync] = " << print_set(get_static_sync_in(current)) << std::endl
+        << "  OUT[static_sync] = " << print_set(get_static_sync_out(current)) << std::endl;
 
     ObjectList<Edge*> exit_edges = current->get_exit_edges();
     for (ObjectList<Edge*>::iterator edge_it = exit_edges.begin();
@@ -615,13 +694,5 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync, current_domain_id, next_domain_id);
     }
 }
-
-// bool operator<(const PointOfSyncInfo& a, const PointsOfSyncInfo& b)
-// {
-// }
-// 
-// bool operator==(const PointOfSyncInfo& a, const PointsOfSyncInfo& b)
-// {
-// }
 
 } }
