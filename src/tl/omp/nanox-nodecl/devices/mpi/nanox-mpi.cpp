@@ -681,6 +681,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         unpacked_function_scope);
             }
 
+            // Add also used types
+            add_used_types(data_items, unpacked_function.get_related_scope());
+
             // Now get all the needed internal functions and replicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(info._original_statements);
@@ -814,6 +817,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
 
             Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
+
+            add_used_types(data_items, function.get_related_scope());
         }
 
         // Generate ancillary code in C
