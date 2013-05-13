@@ -854,6 +854,11 @@ namespace TL
             }
 
             intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }        
 
 
