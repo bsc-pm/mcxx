@@ -133,6 +133,8 @@ namespace TL
 
                 // Reductions
                 OpenMP::Reduction *_reduction;
+                TL::Symbol _basic_reduction_function;
+                TL::Symbol _shared_symbol_in_outline;
 
                 TL::ObjectList<DependencyItem> _dependences;
 
@@ -163,6 +165,9 @@ namespace TL
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _base_address_expression(),
+                    _reduction(NULL),
+                    _basic_reduction_function(),
+                    _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
                     _is_lastprivate(),
@@ -303,6 +308,26 @@ namespace TL
                 OpenMP::Reduction* get_reduction_info() const
                 {
                     return _reduction;
+                }
+
+                TL::Symbol reduction_get_basic_function() const
+                {
+                    return _basic_reduction_function;
+                }
+
+                void reduction_set_basic_function(TL::Symbol sym)
+                {
+                    _basic_reduction_function = sym;
+                }
+
+                TL::Symbol reduction_get_shared_symbol_in_outline() const
+                {
+                    return _shared_symbol_in_outline;
+                }
+
+                void reduction_set_shared_symbol_in_outline(TL::Symbol sym)
+                {
+                    _shared_symbol_in_outline = sym;
                 }
 
                 void set_captured_value(Nodecl::NodeclBase captured_value)

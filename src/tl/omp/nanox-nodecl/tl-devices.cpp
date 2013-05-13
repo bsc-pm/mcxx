@@ -594,6 +594,8 @@ namespace TL { namespace Nanox {
                             && !sym.is_member()
                             && sym.is_allocatable();
 
+                        (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
+
                         // Private vector of partial reductions. This is a local pointer variable
                         // rdv stands for reduction vector
                         TL::Type private_reduction_vector_type = (*it)->get_private_type();
