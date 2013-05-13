@@ -48,7 +48,7 @@ namespace TL
             return *_vectorizer;
         }
 
-        Vectorizer::Vectorizer() : _svml_enabled(false), _ffast_math_enabled(false)
+        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _ffast_math_enabled(false)
         {
         }
 
@@ -88,18 +88,18 @@ namespace TL
                     VectorFunctionVersion(func_version, device, vector_length, target_type, priority));
         }
 
-        void Vectorizer::enable_svml()
+        void Vectorizer::enable_svml_sse()
         {
-            fprintf(stderr, "Enabling SVML\n");
+            fprintf(stderr, "Enabling SVML SSE\n");
 
             if (!_ffast_math_enabled)
             {
                 fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_enabled && _ffast_math_enabled)
+            if (!_svml_sse_enabled && _ffast_math_enabled)
             {
-                _svml_enabled = true;
+                _svml_sse_enabled = true;
 
                 // SVML SSE
                 TL::Source svml_sse_vector_math;
@@ -138,6 +138,58 @@ namespace TL
                             "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
             }
         }
+
+        void Vectorizer::enable_svml_knc()
+        {
+            fprintf(stderr, "Enabling SVML KNC\n");
+
+            if (!_ffast_math_enabled)
+            {
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+            }
+
+            if (!_svml_sse_enabled && _ffast_math_enabled)
+            {
+                _svml_sse_enabled = true;
+
+                // SVML SSE
+                TL::Source svml_sse_vector_math;
+
+                svml_sse_vector_math << "__m512 __svml_expf16(__m512);\n"
+                    << "__m512 __svml_sqrtf16(__m512);\n"
+                    << "__m512 __svml_logf16(__m512);\n"
+                    << "__m512 __svml_sinf16(__m512);\n"
+                    << "__m512 __svml_floorf16(__m512);\n"
+                    ;
+
+                // Parse SVML declarations
+                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
+                svml_sse_vector_math.parse_global(global_scope);
+
+                // Add SVML math function as vector version of the scalar one
+                _function_versioning.add_version("expf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_expf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sqrtf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_sqrtf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("logf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_logf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sinf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_sinf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("floorf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_floorf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+            }
+        }
+
 
         void Vectorizer::enable_ffast_math()
         {

@@ -35,6 +35,13 @@ namespace TL
     {
         class VectorLoweringPhase : public TL::CompilerPhase
         {
+            private:
+                bool _mic_enabled;
+
+                std::string _mic_enabled_str;
+
+                void set_mic(const std::string mic_enabled_str);
+
             public:
                 VectorLoweringPhase();
                 virtual void run(TL::DTO& dto);

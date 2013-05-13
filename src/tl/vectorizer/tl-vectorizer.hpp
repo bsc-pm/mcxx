@@ -48,7 +48,8 @@ namespace TL
             
             static FunctionVersioning _function_versioning;
 
-            bool _svml_enabled;
+            bool _svml_sse_enabled;
+            bool _svml_knc_enabled;
             bool _ffast_math_enabled;
 
             Vectorizer();
@@ -70,7 +71,8 @@ namespace TL
                         const std::string& device, const unsigned int vector_length, 
                         const TL::Type& target_type, const FunctionPriority priority);
 
-                void enable_svml();
+                void enable_svml_sse();
+                void enable_svml_knc();
                 void enable_ffast_math();
 
                 friend class VectorizerVisitorFor;

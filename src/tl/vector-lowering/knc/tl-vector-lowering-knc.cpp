@@ -378,18 +378,16 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
-
-            // Intrinsic name
-            intrin_src << "_mm512_and";
+            TL::Source casting_src;
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
+                casting_src << "_mm512_castps_si512i(";
             } 
             else if (type.is_integral_type())
             { 
-                intrin_src << "_epi32"; 
+                casting_src << "(";
             } 
             else
             {
@@ -400,12 +398,16 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
-            
+ 
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_and_epi32";
+
+           
             intrin_src << "(";
-            intrin_src << as_expression(node.get_lhs());
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
             intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ")";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -418,18 +420,15 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
-
-            // Intrinsic name
-            intrin_src << "_mm512_or";
+            TL::Source casting_src;
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
+                casting_src << "_mm512_castps_si512(";
             } 
             else if (type.is_integral_type())
             { 
-                intrin_src << "_epi32"; 
             } 
             else
             {
@@ -441,11 +440,15 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_or_epi32";
+
+
             intrin_src << "(";
-            intrin_src << as_expression(node.get_lhs());
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
             intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ")";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -458,18 +461,16 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
-
-            // Intrinsic name
-            intrin_src << "_mm512_xor";
+            TL::Source casting_src;
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
+                casting_src << "_mm512_castps_si512(";
             } 
             else if (type.is_integral_type())
             { 
-                intrin_src << "_epi32"; 
+                casting_src << "(";
             }
             else
             {
@@ -481,11 +482,14 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_xor_epi32";
+
             intrin_src << "(";
-            intrin_src << as_expression(node.get_lhs());
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
             intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ")";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -507,27 +511,27 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                intrin_src << "_mm512_xor_ps(_mm512_castsi128_ps(_mm512_set1_epi32(0x80000000)), ";
+                intrin_src << "_mm512_castsi512_ps(_mm512_xor_epi32(_mm512_set1_epi32(0x80000000), _mm512_castps_si512( ";
             } 
             else if (type.is_double()) 
             { 
-                intrin_src << "_mm512_xor_pd(_mm512_castsi128_pd(_mm512_set1_epi64(0x8000000000000000LL)), ";
+                intrin_src << "_mm512_castsi512_pd(_mm512_xor_epi32(_mm512_set1_epi64(0x8000000000000000LL), _mm512_castpd_si512(";
             }
             else if (type.is_signed_int() ||
                     type.is_unsigned_int())
             {
-                intrin_src << "_mm512_sub_epi32( _mm512_setzero_si128(),";
+                intrin_src << "(_mm512_sub_epi32( _mm512_setzero_si512(),";
             }
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int())
             {
-                intrin_src << "_mm512_sub_epi16( _mm512_setzero_si128(),";
+                intrin_src << "(_mm512_sub_epi16( _mm512_setzero_si512(),";
             }
             else if (type.is_char() ||
                     type.is_signed_char() ||
                     type.is_unsigned_char())
             {
-                intrin_src << "_mm512_sub_epi8( _mm512_setzero_si128(),";
+                intrin_src << "(_mm512_sub_epi8( _mm512_setzero_si512(),";
             }
             else
             {
@@ -539,7 +543,7 @@ namespace TL
             walk(node.get_rhs());
 
             intrin_src << as_expression(node.get_rhs());
-            intrin_src << ")";
+            intrin_src << ")))";
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -605,15 +609,15 @@ namespace TL
                 intrin_src << "_mm512_cvttps_epi32("; 
                 walk(node.get_nest());
                 intrin_src << "),"; 
-                intrin_src << "_mm512_castps_si128(";
+                intrin_src << "_mm512_castps_si512(";
                 walk(node.get_nest());
                 intrin_src << ")";
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << "),"; 
-                intrin_src << "_mm512_castps_si128(";
+                intrin_src << "_mm512_castps_si512(";
                 walk(node.get_nest());
                 intrin_src << ")";
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << ")"; 
             } 
             else if (src_type.is_float() &&
@@ -625,14 +629,14 @@ namespace TL
                 intrin_src << "_mm512_cvttps_epi32("; 
                 walk(node.get_nest());
                 intrin_src << "),"; 
-                intrin_src << "_mm512_castps_si128(";
+                intrin_src << "_mm512_castps_si512(";
                 walk(node.get_nest());
                 intrin_src << ")";
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << "),"; 
-                intrin_src << "_mm512_castps_si128(";
+                intrin_src << "_mm512_castps_si512(";
                 walk(node.get_nest());
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << "))"; 
             } 
             else if (src_type.is_signed_int() &&
@@ -645,10 +649,10 @@ namespace TL
                 walk(node.get_nest());
                 intrin_src << ","; 
                 walk(node.get_nest());
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << "),"; 
                 walk(node.get_nest());
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << ")"; 
             } 
             else if (src_type.is_signed_int() &&
@@ -660,11 +664,11 @@ namespace TL
                 walk(node.get_nest());
                 intrin_src << ","; 
                 walk(node.get_nest());
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << ")"; 
                 intrin_src << ",";
                 walk(node.get_nest());
-                //intrin_src << "_mm512_undefined_si128()"; 
+                //intrin_src << "_mm512_undefined_si512()"; 
                 intrin_src << ")"; 
             }
             */
@@ -688,32 +692,32 @@ namespace TL
             TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_src << "_mm512_set";
+            intrin_src << "_mm512_set1";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_src << "_ps1"; 
+                intrin_src << "_ps"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_src << "1_pd"; 
+                intrin_src << "_pd"; 
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "1_epi32"; 
+                intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
-                intrin_src << "1_epi16"; 
+                intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
-                intrin_src << "1_epi8"; 
+                intrin_src << "_epi8"; 
             } 
             else
             {
@@ -1121,15 +1125,15 @@ namespace TL
             // Handcoded implementations for float and double
             if (type.is_float()) 
             { 
-                intrin_src << "(_mm512_and_ps(";
+                intrin_src << "_mm512_castsi512_ps(_mm512_and_epi32(_mm512_castps_si512(";
                 intrin_src << as_expression(node.get_argument());
-                intrin_src << ", _mm512_castsi128_ps(_mm512_set1_epi32(0x7FFFFFFF))))"; 
+                intrin_src << "), _mm512_set1_epi32(0x7FFFFFFF)))"; 
             } 
             else if (type.is_double()) 
             { 
-                intrin_src << "(_mm512_and_pd(";
+                intrin_src << "_mm512_castsi512_pd(_mm512_and_epi32(_mm512_castpd_si512(";
                 intrin_src << as_expression(node.get_argument());
-                intrin_src << ", _mm512_castsi128_pd(_mm512_set1_epi64(0x7FFFFFFFFFFFFFFFLL))))"; 
+                intrin_src << "), _mm512_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
             }
             else
             {

@@ -7029,9 +7029,9 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
-                    prettyprint_in_buffer(a),
-                    print_declarator(*declarator_type));
+            // fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
+            //         prettyprint_in_buffer(a),
+            //         print_declarator(*declarator_type));
         }
     }
 

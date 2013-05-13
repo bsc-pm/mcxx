@@ -111,7 +111,7 @@ namespace TL
         {
             //TODO
             _remain_iterations = 2;
-            _unroll_factor = 4;
+            _unroll_factor = _vector_length/4;
         }
 
         Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)

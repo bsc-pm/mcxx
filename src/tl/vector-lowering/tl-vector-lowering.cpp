@@ -32,20 +32,37 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase()
+        VectorLoweringPhase::VectorLoweringPhase() : _mic_enabled(false)
         {
+            register_parameter("mic_enabled",
+                    "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
+                    _mic_enabled_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_mic, *this));
+        }
+
+        void VectorLoweringPhase::set_mic(const std::string mic_enabled_str)
+        {
+            if (mic_enabled_str == "1")
+            {
+                _mic_enabled = true;
+            }
         }
 
         void VectorLoweringPhase::run(TL::DTO& dto)
         {
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
-            //TODO
-            SSEVectorLowering sse_vector_lowering;
-            sse_vector_lowering.walk(translation_unit);
-
-            //KNCVectorLowering knc_vector_lowering;
-            //knc_vector_lowering.walk(translation_unit);
+           
+            if(_mic_enabled)
+            { 
+                KNCVectorLowering knc_vector_lowering;
+                knc_vector_lowering.walk(translation_unit);
+            }
+            else
+            {
+                SSEVectorLowering sse_vector_lowering;
+                sse_vector_lowering.walk(translation_unit);
+            }
         }
     }
 }

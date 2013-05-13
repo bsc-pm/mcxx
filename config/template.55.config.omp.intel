@@ -7,6 +7,7 @@ linker_name = @ICC@
 options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 {mic} preprocessor_options = -mmic
 {mic} compiler_options = -mmic
+{mic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
 
 [imcxx : omp-base]
 language = C++
@@ -17,5 +18,4 @@ linker_name = @ICPC@
 options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 {mic} preprocessor_options = -mmic
 {mic} compiler_options = -mmic
-
-
+{mic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
