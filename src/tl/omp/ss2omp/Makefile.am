@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -25,13 +25,13 @@
 ##########################################################################
 
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlss2omp.la
 
-libtlss2omp_la_CFLAGS = $(tl_cflags)
-libtlss2omp_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../superscalar
-libtlss2omp_la_LDFLAGS = $(tl_ldflags)
+libtlss2omp_la_CFLAGS = $(phases_cflags)
+libtlss2omp_la_CXXFLAGS = $(phases_cflags) -I $(srcdir)/../../superscalar
+libtlss2omp_la_LDFLAGS = $(phases_ldflags)
 
 END=
 

@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@ static void common_build_scope_pragma_custom_clause_argument(AST a,
         decl_context_t decl_context UNUSED_PARAMETER,
         nodecl_t *nodecl_output)
 {
-    *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a), ast_get_locus(a));
 }
 
 static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -50,7 +50,7 @@ static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_c
         nodecl_argument = nodecl_make_list_1(nodecl_argument);
     }
 
-    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, strtolower(ASTText(a)), ast_get_locus(a));
 }
 
 void common_build_scope_pragma_custom_line(
@@ -110,7 +110,7 @@ void common_build_scope_pragma_custom_line(
 
     *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, nodecl_end_clauses, 
             strtolower(ASTText(start_clauses)), 
-            ASTFileName(start_clauses), ASTLine(start_clauses));
+            ast_get_locus(start_clauses));
 }
 
 void common_build_scope_pragma_custom_declaration(AST a, 
@@ -136,7 +136,7 @@ void common_build_scope_pragma_custom_statement(AST a,
     nodecl_t nodecl_child = nodecl_null();
     function_for_child(ASTSon1(a), new_block_context(decl_context), &nodecl_child, info);
 
-    *nodecl_output = nodecl_make_pragma_custom_statement(*nodecl_pragma_line, nodecl_child, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_statement(*nodecl_pragma_line, nodecl_child, strtolower(ASTText(a)), ast_get_locus(a));
 }
 
 void common_build_scope_pragma_custom_directive(AST a, 
@@ -146,6 +146,6 @@ void common_build_scope_pragma_custom_directive(AST a,
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, &nodecl_pragma_line);
 
-    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(decl_context, ASTFileName(a), ASTLine(a));
-    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, nodecl_pragma_context, strtolower(ASTText(a)), ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(decl_context, ast_get_locus(a));
+    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line, nodecl_pragma_context, strtolower(ASTText(a)), ast_get_locus(a));
 }

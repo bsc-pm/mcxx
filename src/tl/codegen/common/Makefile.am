@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -26,7 +26,7 @@
 
 lib_LTLIBRARIES = libcodegen-common.la
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
 libcodegen_common_la_CFLAGS=$(tl_cflags)

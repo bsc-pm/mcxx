@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -428,14 +428,14 @@ namespace TL
 
     void SS2OpenMP::directive_not_implemented(PragmaCustomConstruct construct)
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: directive not implemented yet, skipping" << std::endl;
+        std::cerr << construct.get_ast().get_locus_str() << ": warning: directive not implemented yet, skipping" << std::endl;
         // Remove the directive
         construct.get_ast().remove_in_list();
     }
 
     void SS2OpenMP::construct_not_implemented(PragmaCustomConstruct construct)
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: construct not implemented yet, skipping" << std::endl;
+        std::cerr << construct.get_ast().get_locus_str() << ": warning: construct not implemented yet, skipping" << std::endl;
         // Remove the directive
         construct.get_ast().replace(construct.get_declaration());
     }

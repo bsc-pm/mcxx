@@ -238,8 +238,13 @@ AC_ARG_ENABLE([tl-openmp-nanox],
 
 nanox_include=""
 nanox_lib=""
+nanox_mic_include=""
+nanox__mic_lib=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
+NANOX_MIC_INCLUDES=""
+NANOX_MIC_LIBS=""
+
 
 if test x$is_enabled_openmpt = xyes;
 then
@@ -271,6 +276,30 @@ then
            ]
    )
 
+   AC_ARG_WITH([nanox-mic],
+           AS_HELP_STRING([--with-nanox-mic=dir], [Directory of Nanos++ MIC installation]),
+           [
+            nanox_mic_include="${withval}/include/nanox"
+            nanox_mic_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([nanox-mic-include],
+           AS_HELP_STRING([--with-nanox-mic-include=dir], [Directory of Nanos++ MIC headers]),
+           [
+            nanox_mic_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([nanox-mic-lib],
+           AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
+           [
+            nanox_mic_lib="${withval}"
+           ]
+   )
+   NANOX_MIC_INCLUDES="${nanox_mic_include}"
+   NANOX_MIC_LIBS="${nanox_mic_lib}"
+
    if test x$nanox_include = x -o x$nanox_lib = x;
    then
       AC_MSG_ERROR([OpenMP support requires '--with-nanox=dir'. See --help.])
@@ -290,6 +319,7 @@ then
 fi
 
 NANOX_INSTRUMENTATION=""
+NANOX_MIC_INSTRUMENTATION=""
 AC_MSG_CHECKING([whether used installation of Nanos++ has instrumentation support])
 if test -e "${nanox_lib}/instrumentation" -a -d "${nanox_lib}/instrumentation";
 then
@@ -304,9 +334,17 @@ else
  fi
 fi
 
+if test -e "${nanox_mic_lib}/instrumentation" -a -d "${nanox_mic_lib}/instrumentation";
+then
+  NANOX_MIC_INSTRUMENTATION="yes"
+fi
+
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_INSTRUMENTATION])
+AC_SUBST([NANOX_MIC_INCLUDES])
+AC_SUBST([NANOX_MIC_LIBS])
+AC_SUBST([NANOX_MIC_INSTRUMENTATION])
 
 
 dnl SIMD Support
@@ -442,20 +480,79 @@ AC_SUBST([gpu_valid])
 
 dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
 
+dnl --------------------- Support for FPGA tests in Nanox --------------------------------
+
+fpga_enabled=yes
+AC_MSG_CHECKING([if the use of FPGA devices was disabled])
+AC_ARG_ENABLE([nanox-fpga-device],
+  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the use of FPGA devices]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        fpga_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            fpga_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    fpga_enabled="yes"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+FPGA_CC=""
+AC_ARG_WITH([fpga-cc],
+AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler for arm]),
+	[
+		FPGA_CC="${withval}"
+	],
+	[
+		FPGA_CC="arm-linux-gnueabi-"
+	])
+
+AC_SUBST([FPGA_CC])
+
+if test x$fpga_enabled = xyes;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
+    COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
+fi
+dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
+
 
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
 opencl_valid=no
 DISABLE_OPENCL=""
-AC_MSG_CHECKING([if nanox has opencl enabled])
-AC_CHECK_FILES([${nanox_include}/nanos-opencl.h],opencl_valid=yes,)
-if test x$opencl_valid = xyes;
-then
+AC_MSG_CHECKING([if nanox has opencl header installed])
+#tests if opencl headers are usable and correct
+#backup vars before we do the tests
+CFLAGSBACKUP="$CFLAGS"
+CPPFLAGSBACKUP="$CPPFLAGS"
+CXXFLAGSBACKUP="$CXXFLAGS"
+
+CFLAGS="$CFLAGS -I$nanox_include"
+CPPFLAGS="$CPPFLAGS -I$nanox_include"
+CXXFLAGS="$CXXFLAGS -I$nanox_include"
+
+AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[ opencl_valid=no])
+
+CFLAGS="$CFLAGSBACKUP"
+CPPFLAGS="$CPPFLAGSBACKUP"
+CXXFLAGS="$CXXFLAGSBACKUP"
+
+if test x$opencl_valid = xyes; then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
-   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
    DISABLE_OPENCL="\#do not uncomment"
-fi
+fi 
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
@@ -463,6 +560,114 @@ INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
 COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
+
+dnl --------------------- Start MPI support in Mercurium --------------------------------
+
+mpi_found=no
+MPIMODULE=""
+#check the directory and get the right compiler path and name
+AC_ARG_WITH([mpi],
+AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
+   [
+      MPIPATH="${withval}"
+      MPI_CNAME=mpiicc
+      MPI_CXXNAME=mpiicpc
+      MPI_FORTNAME=mpiifort
+      if test -f $MPIPATH/$MPI_CNAME; then
+                    mpi_found=yes 
+                    MPICC=$MPIPATH/$MPI_CNAME
+                    MPICXX=$MPIPATH/$MPI_CXXNAME
+                    MPIFORT=$MPIPATH/$MPI_FORTNAME
+                    MPIMODULE=mpich
+      else
+                    mpi_valid=no
+      fi
+      #search in the path without bin
+      if test x$mpi_found = xno; then		
+         mpi_found=no
+			if test -f $MPIPATH/bin/$MPI_CNAME; then 
+                      mpi_found=yes 
+                      MPICC=$MPIPATH/bin/$MPI_CNAME
+                      MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+                      MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+                      MPIMODULE=mpich
+         else
+                      mpi_valid=no
+         fi
+       fi		
+       MPI_CNAME=mpicc
+       MPI_CXXNAME=mpicxx
+       MPI_FORTNAME=mpif90
+       if test -f $MPIPATH/$MPI_CNAME; then	
+                            mpi_found=yes 
+                            MPICC=$MPIPATH/$MPI_CNAME
+                            MPICXX=$MPIPATH/$MPI_CXXNAME
+                            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
+                            MPIMODULE=openmpi
+       else
+                      mpi_valid=no
+       fi
+       #search in the path without bin
+       if test x$mpi_found = xno; then		
+          mpi_found=no
+			 if test -f $MPIPATH/bin/$MPI_CNAME; then           
+            mpi_found=yes 
+            MPICC=$MPIPATH/bin/$MPI_CNAME
+            MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+            MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+            MPIMODULE=openmpi
+          else
+                       mpi_valid=no
+          fi
+       fi
+
+       if test x$mpi_found = xno; then
+          AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
+       fi
+	],
+	[
+		MPIPATH=""
+	]
+)
+
+mpi_valid=no
+DISABLE_MPI=""
+if test x$mpi_found = xyes; then
+    AC_MSG_CHECKING([if nanox has mpi enabled])
+    #tests if mpi headers are usable and correct
+    #backup vars before we do the tests
+    CFLAGSBACKUP="$CFLAGS"
+    CPPFLAGSBACKUP="$CPPFLAGS"
+    CXXFLAGSBACKUP="$CXXFLAGS"
+    CCBACKUP="$CC"
+
+    CC=$MPICC
+    CFLAGS="$CFLAGS -I$nanox_include"
+    CPPFLAGS="$CPPFLAGS -I$nanox_include"
+    CXXFLAGS="$CXXFLAGS -I$nanox_include"
+    AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
+
+    CFLAGS="$CFLAGSBACKUP"
+    CPPFLAGS="$CPPFLAGSBACKUP"
+    CXXFLAGS="$CXXFLAGSBACKUP"
+    CC="$CCBACKUP"
+fi
+if test x$mpi_valid = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+   COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
+else
+   DISABLE_MPI="\#do not uncomment"
+fi
+AC_SUBST([MPICC])
+AC_SUBST([MPICXX])
+AC_SUBST([MPIFORT])
+AC_SUBST([MPIMODULE])
+AC_SUBST([DISABLE_MPI])
+
+dnl --------------------- End MPI support in Mercurium --------------------------------
+
+
 
 dnl --------------------- OpenMP profile mode ---------------------
 
@@ -1223,6 +1428,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/Makefile
            src/tl/omp/nanox-nodecl/devices/Makefile
            src/tl/omp/nanox-nodecl/devices/smp/Makefile
+           src/tl/omp/nanox-nodecl/devices/fpga/Makefile
            src/tl/omp/nanox-nodecl/devices/cuda/Makefile
            src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/omp/nanox-nodecl/devices/mpi/Makefile
@@ -1298,6 +1504,7 @@ then
 	echo "   Nanos++ tests regions support:" $nanox_regions
 fi
 
+echo "   MPI testing enabled:" $mpi_valid
 echo "   GPU testing enabled:" $gpu_valid
 echo "   OpenCL testing enabled:" $opencl_valid
 echo ""

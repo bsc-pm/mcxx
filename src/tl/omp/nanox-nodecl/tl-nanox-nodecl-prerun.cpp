@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -98,7 +98,7 @@ void Lowering::pre_run(DTO& dto)
     }
     else
     {
-        running_error("Could not open Nanos++ include", 0);
+        running_error("Could not open Nanos++ include");
     }
 
     Source::source_language = SourceLanguage::C;

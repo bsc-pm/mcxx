@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -33,9 +33,9 @@ enum
     MCXX_MAX_AST_CHILDREN = 4,
 
     // Function limits
-    MCXX_MAX_FUNCTION_PARAMETERS = 256,
+    MCXX_MAX_FUNCTION_PARAMETERS = 1024,
     MCXX_MAX_FUNCTIONS_PER_CLASS = 1024,
-    MCXX_MAX_FUNCTION_CALL_ARGUMENTS = 256,
+    MCXX_MAX_FUNCTION_CALL_ARGUMENTS = 1024,
 
     // Class limits
     MCXX_MAX_CLASS_BASES = 256,
@@ -94,6 +94,9 @@ enum
 
     // Max Hollerith length
     MCXX_MAX_LENGTH_HOLLERITH_CONSTANT = 256,
+
+    // Max unparenthesized aggregates in initializers
+    MCXX_MAX_UNBRACED_AGGREGATES = 64,
 };
 
 #endif // CXX_LIMITS_H

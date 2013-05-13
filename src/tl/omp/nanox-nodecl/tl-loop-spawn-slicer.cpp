@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -99,6 +99,7 @@ namespace TL { namespace Nanox {
             << fill_const_wd_info(struct_arg_type_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
+                    /* is_function_task */ false,
                     /* wd_description */ enclosing_function.get_name(),
                     outline_info,
                     construct);
@@ -158,12 +159,22 @@ namespace TL { namespace Nanox {
         ::insert_entry(fill_outline_arguments_tree.retrieve_context().get_decl_context().current_scope,
                 slicer_descriptor.get_internal_symbol());
 
-        Source fill_slicer_descriptor_src;
+        Source fill_slicer_descriptor_src, extra_cxx_declarations;
+        if (IS_CXX_LANGUAGE)
+        {
+            extra_cxx_declarations << as_statement(
+                    Nodecl::CxxDef::make(
+                        /* context */ nodecl_null(),
+                        slicer_descriptor,
+                        construct.get_locus()));
+        }
+
         fill_slicer_descriptor_src
-            << slicer_descriptor.get_name() << ".lower = " << as_expression(lower) << ";"
-            << slicer_descriptor.get_name() << ".upper = " << as_expression(upper) << ";"
-            << slicer_descriptor.get_name() << ".step = " << as_expression(step) << ";"
-            << slicer_descriptor.get_name() << ".chunk = nanos_chunk;"
+            << extra_cxx_declarations
+            << as_symbol(slicer_descriptor) << ".lower = " << as_expression(lower) << ";"
+            << as_symbol(slicer_descriptor) << ".upper = " << as_expression(upper) << ";"
+            << as_symbol(slicer_descriptor) << ".step = " << as_expression(step) << ";"
+            << as_symbol(slicer_descriptor) << ".chunk = nanos_chunk;"
             ;
 
         FORTRAN_LANGUAGE()

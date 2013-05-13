@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -38,9 +38,8 @@
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "fortran03-buildscope.h"
-
+#include "cxx-graphviz.h"
 #include "tl-lower-task-common.hpp"
-
 namespace TL { namespace Nanox {
 
 typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
@@ -68,12 +67,12 @@ static void fill_map_parameters_to_arguments(
     {
         Nodecl::NodeclBase expression;
         TL::Symbol parameter_sym;
-        if (it->is<Nodecl::FortranNamedPairSpec>())
+        if (it->is<Nodecl::FortranActualArgument>())
         {
             // If this is a Fortran style argument use the symbol
-            Nodecl::FortranNamedPairSpec named_pair(it->as<Nodecl::FortranNamedPairSpec>());
+            Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
 
-            param_to_arg_expr[named_pair.get_name().get_symbol()] = named_pair.get_argument();
+            param_to_arg_expr[named_pair.get_symbol()] = named_pair.get_argument();
         }
         else
         {
@@ -111,8 +110,7 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
             TL::Symbol sym_2 = it->second;
             Nodecl::NodeclBase result = Nodecl::Symbol::make(
                     sym_2,
-                    sym_2.get_filename(),
-                    sym_2.get_line());
+                    sym_2.get_locus());
 
             result.set_type(sym_2.get_type());
 
@@ -204,7 +202,7 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
     {
         if (sym.is_saved_expression())
         {
-            return rewrite_expression_in_dependency_c(sym.get_value(), map);
+            return rewrite_expression_in_dependency_c(sym.get_value().shallow_copy(), map);
         }
 
         param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
@@ -287,40 +285,6 @@ static TL::Type rewrite_dependency_type_c(TL::Type t, const param_sym_to_arg_sym
     }
 }
 
-static Nodecl::NodeclBase rewrite_single_dependency_c(Nodecl::NodeclBase node, const param_sym_to_arg_sym_t& map)
-{
-    if (node.is_null())
-        return node;
-
-    node.set_type(rewrite_dependency_type_c(node.get_type(), map));
-
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-            it != children.end();
-            it++)
-    {
-        *it = rewrite_single_dependency_c(*it, map);
-    }
-
-    node.rechild(children);
-
-    // Update indexes where is due
-    if (node.is<Nodecl::ArraySubscript>())
-    {
-        Nodecl::ArraySubscript arr_subscr = node.as<Nodecl::ArraySubscript>();
-        arr_subscr.set_subscripts(
-                rewrite_expression_in_dependency_c(arr_subscr.get_subscripts(), map));
-    }
-    else if (node.is<Nodecl::Shaping>())
-    {
-        Nodecl::Shaping shaping = node.as<Nodecl::Shaping>();
-        shaping.set_shape(
-                rewrite_expression_in_dependency_c(shaping.get_shape(), map));
-    }
-
-    return node;
-}
-
 static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
         const TL::ObjectList<OutlineDataItem::DependencyItem>& deps,
         const param_sym_to_arg_sym_t& map)
@@ -400,8 +364,7 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
             new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
-            new_vla_dim->file = nodecl_get_filename(array_size.get_internal_nodecl());
-            new_vla_dim->line = nodecl_get_line(array_size.get_internal_nodecl());
+            new_vla_dim->locus = nodecl_get_locus(array_size.get_internal_nodecl());
 
             param_sym_to_arg_sym[old_vla_dim] = new_vla_dim;
 
@@ -431,7 +394,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    std::cerr << construct.get_locus_str() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
 
     // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
@@ -505,9 +468,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
 
-        // We must ensure that this OutlineDataItem is moved to the
-        // first position of the list of OutlineDataItems.
-        arguments_outline_info.move_at_begin(argument_outline_data_item);
+        argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
@@ -516,8 +477,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 Nodecl::Reference::make(
                     class_object,
                     new_symbol.get_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()));
+                    function_call.get_locus()));
     }
 
     OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
@@ -540,7 +500,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         if (found.empty())
         {
             internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
-                    arguments.get_locus().c_str(),
+                    arguments.get_locus_str().c_str(),
                     parameter.get_name().c_str());
         }
 
@@ -616,14 +576,42 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         param_to_args_map.add_map(parameter, new_symbol);
     }
 
-    //Add this map to target information, so DeviceProviders can translate
-    //Clauses in case it's needed, now we only add the same for every task, but in a future?
-    OutlineInfo::implementation_table_t args_implementation_table = arguments_outline_info.get_implementation_table();
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        arguments_outline_info.get_implementation_table();
     for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
             it != args_implementation_table.end();
             ++it)
     {
-       arguments_outline_info.set_param_arg_map(param_to_args_map, it->first);
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_sym)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
+            }
+            arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
+        }
     }
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
@@ -689,11 +677,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // The symbol which represents the object 'this' must be dereferenced
         Nodecl::NodeclBase nodecl_arg = Nodecl::Dereference::make(
                 Nodecl::Symbol::make(*args_it,
-                    function_call.get_filename(),
-                    function_call.get_line()),
+                    function_call.get_locus()),
                 args_it->get_type().points_to(),
-                function_call.get_filename(),
-                function_call.get_line());
+                function_call.get_locus());
 
         arg_list.append(nodecl_arg);
         args_it++;
@@ -706,8 +692,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase nodecl_arg;
 
         nodecl_arg = Nodecl::Symbol::make(*args_it,
-                function_call.get_filename(),
-                function_call.get_line());
+                function_call.get_locus());
         nodecl_arg.set_type(args_it->get_type());
 
         arg_list.append(nodecl_arg);
@@ -726,8 +711,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         // FIXME - Could this ever happen?
         function_form =
             Nodecl::CxxFunctionFormTemplateId::make(
-                    function_call.get_filename(),
-                    function_call.get_line());
+                    function_call.get_locus());
 
         TemplateParameters template_args =
             called.get_template_parameters();
@@ -742,10 +726,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_alternate_name().shallow_copy(),
                     function_form,
                     Type::get_void_type(),
-                    function_call.get_filename(),
-                    function_call.get_line()),
-                function_call.get_filename(),
-                function_call.get_line());
+                    function_call.get_locus()),
+                function_call.get_locus());
 
     TL::ObjectList<Nodecl::NodeclBase> list_stmt;
     list_stmt.append(expr_statement);
@@ -760,8 +742,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase expr_direct_call_to_function = 
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
-                    function_call.get_filename(),
-                    function_call.get_line());
+                    function_call.get_locus());
 
         Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
 
@@ -772,14 +753,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                         Nodecl::CompoundStatement::make(
                             Nodecl::List::make(new_construct),
                             Nodecl::NodeclBase::null(),
-                            function_call.get_filename(),
-                            function_call.get_line())),
+                            function_call.get_locus())),
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
                             Nodecl::List::make(expr_direct_call_to_function),
                             Nodecl::NodeclBase::null(),
-                            function_call.get_filename(),
-                            function_call.get_line())));
+                            function_call.get_locus())));
 
         new_code = if_then_else_statement;
     }
@@ -900,7 +879,6 @@ static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
-
         // out
         Nodecl::Utils::SimpleSymbolMap &symbol_map,
         TL::ObjectList<TL::Symbol> &save_expressions)
@@ -950,8 +928,7 @@ static TL::Symbol new_function_symbol_adapter(
     new_function_sym->entity_specs.is_user_declared = 1;
 
     new_function_sym->kind = SK_FUNCTION;
-    new_function_sym->file = "";
-    new_function_sym->line = 0;
+    new_function_sym->locus = make_locus("", 0, 0);
 
     function_context.function_scope->related_entry = new_function_sym;
     function_context.block_scope->related_entry = new_function_sym;
@@ -989,8 +966,12 @@ static TL::Symbol new_function_symbol_adapter(
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
-    Nodecl::Utils::Fortran::copy_used_modules(
+    Nodecl::Utils::Fortran::append_used_modules(
             current_function.get_related_scope(),
+            new_function_sym->related_decl_context);
+
+    Nodecl::Utils::Fortran::append_used_modules(
+            called_function.get_related_scope(),
             new_function_sym->related_decl_context);
 
     // Add USEd symbols
@@ -1068,7 +1049,9 @@ static Nodecl::NodeclBase fill_adapter_function(
                     argument_seq,
                     /* alternate name */ Nodecl::NodeclBase::null(),
                     /* function form */ Nodecl::NodeclBase::null(),
-                TL::Type::get_void_type()));
+                TL::Type::get_void_type(),
+                original_environment.get_locus()),
+                original_environment.get_locus());
 
     statements_of_task_list.append(call_to_original);
 
@@ -1126,22 +1109,14 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     if (current_function.is_nested_function())
     {
         error_printf("%s: error: call to task function '%s' from an internal subprogram is not supported\n",
-                construct.get_locus().c_str(),
+                construct.get_locus_str().c_str(),
                 called_task_function.get_qualified_name().c_str());
         return;
     }
 
-    std::cerr << construct.get_locus()
+    std::cerr << construct.get_locus_str()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
 
-    // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
-    //OutlineInfo parameters_outline_info(parameters_environment,current_function);
-
-    // Fill arguments outline info using parameters
-    //OutlineInfo arguments_outline_info;
-
-    
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
     ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
@@ -1149,31 +1124,29 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     TL::ObjectList<Symbol> save_expressions;
 
-    Nodecl::Utils::SimpleSymbolMap symbol_map;
+    Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
             current_function,
             called_task_function,
             ss.str(),
-
-            // out
-            symbol_map,
+            *symbol_map,
             save_expressions);
-    // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
+
     if (called_task_function.is_from_module())
     {
-        // If the symbol comes from a module, the environment 
+        // If the symbol comes from a module, the environment
         // will use the original symbol of the module
-        symbol_map.add_map(called_task_function.get_alias_to(), adapter_function);        
+        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
     }
 
+    // Get parameters outline info
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
-            symbol_map,
+            *symbol_map,
             parameters_environment,
             save_expressions,
-
             // Out
             new_task_construct,
             new_statements,
@@ -1181,34 +1154,96 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function,_function_task_set);
+    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
 
-    // Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+    Nodecl::Utils::SimpleSymbolMap params_to_data_items_map;
+    TL::ObjectList<OutlineDataItem*> data_items = new_outline_info.get_data_items();
+    TL::ObjectList<TL::Symbol> parameters = called_task_function.get_function_parameters();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
+            it != parameters.end();
+            ++it)
+    {
+
+        TL::Symbol parameter = *it;
+
+        // We search by parameter position here
+        ObjectList<OutlineDataItem*> found = data_items.find(
+                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                parameter.get_parameter_position_in(called_task_function));
+
+        if (found.empty())
+        {
+            internal_error("%s: error: cannot find parameter '%s' in OutlineInfo",
+                    construct.get_locus_str().c_str(),
+                    parameter.get_name().c_str());
+        }
+
+        TL::Symbol outline_data_item_sym = (*found.begin())->get_symbol();
+        params_to_data_items_map.add_map(parameter, outline_data_item_sym);
+    }
+
+    // For every existant implementation we should create a new map and store it in their target information
+    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
+    OutlineInfo::implementation_table_t args_implementation_table =
+        new_outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it)
+    {
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_task_function)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
+            }
+            new_outline_info.set_param_arg_map(*implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            new_outline_info.set_param_arg_map(params_to_data_items_map, current_implementor);
+        }
+    }
 
     emit_async_common(
             new_task_construct,
             adapter_function,
-            called_task_function, // Which one we want now?
+            called_task_function,
             new_statements,
             task_environment.priority,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
-            NULL);
+            /* parameter outline info */ NULL);
+
+    // Add a map from the original called task to the adapter function
+     symbol_map->add_map(called_task_function, adapter_function);
 
     // Now call the adapter function instead of the original
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
     adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
 
-    // Add a map from the original called task to the adapter function
-    symbol_map.add_map(called_task_function, adapter_function);
-
     // And replace everything with a call to the adapter function
     construct.replace(
-            Nodecl::Utils::deep_copy(function_call, construct, symbol_map)
+            Nodecl::Utils::deep_copy(function_call, construct, *symbol_map)
             );
 }
 

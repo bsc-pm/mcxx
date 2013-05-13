@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -142,11 +142,17 @@ namespace TL
 
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
+                // If not null, used to capture a value only under some conditions
+                Nodecl::NodeclBase _conditional_capture_value;
 
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+
+                // This outline data item represents the C++ this object
+                bool _is_cxx_this;
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
@@ -159,7 +165,8 @@ namespace TL
                     _base_address_expression(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _is_lastprivate()
+                    _is_lastprivate(),
+                    _is_cxx_this(false)
                 {
                 }
 
@@ -308,6 +315,16 @@ namespace TL
                     return _captured_value;
                 }
 
+                void set_conditional_capture_value(Nodecl::NodeclBase conditional_capture_value)
+                {
+                    _conditional_capture_value = conditional_capture_value;
+                }
+
+                Nodecl::NodeclBase get_conditional_capture_value() const
+                {
+                    return _conditional_capture_value;
+                }
+
                 bool get_is_lastprivate() const
                 {
                     return _is_lastprivate;
@@ -326,6 +343,16 @@ namespace TL
                 TL::Symbol get_base_symbol_of_argument() const
                 {
                     return _base_symbol_of_argument;
+                }
+
+                void set_is_cxx_this(bool b)
+                {
+                    _is_cxx_this = b;
+                }
+
+                bool get_is_cxx_this() const
+                {
+                    return _is_cxx_this;
                 }
         };
 
@@ -381,6 +408,9 @@ namespace TL
                 void set_file(TL::Symbol function_symbol,std::string file);
                 std::string get_file(TL::Symbol function_symbol);
 
+                void set_name(TL::Symbol function_symbol,std::string name);
+                std::string get_name(TL::Symbol function_symbol);
+
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
 
@@ -401,8 +431,6 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
-                // This is needed for the 'this' object
-                void move_at_begin(OutlineDataItem&);
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
@@ -430,12 +458,15 @@ namespace TL
                 void add_copies(Nodecl::List list, OutlineDataItem::CopyDirectionality copy_directionality);
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
+                void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr, Nodecl::NodeclBase condition);
                 void add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);
-                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item,
-                        bool &make_allocatable);
+                TL::Type add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
+                        OutlineDataItem* outline_data_item,
+                        bool &make_allocatable,
+                        Nodecl::NodeclBase &conditional_bound);
         };
     }
 }

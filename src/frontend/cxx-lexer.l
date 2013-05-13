@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -56,6 +56,8 @@
 /*!if CPLUSPLUS*/
 #include "cxx-parser-internal.h"
 /*!endif*/
+
+#include "mem.h"
 
 typedef 
 struct lexer_keyword_tag
@@ -192,6 +194,8 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
 
 
 %}
+
+%option noyyalloc noyyrealloc noyyfree
 
  /* Lexical conventions A.2 */
  /* A.2.1 */
@@ -420,28 +424,38 @@ type {
 
 [^\n]* {
 
+    char ignore_gcc_header = 0;
+
     const char* p = yytext;
     // Skip blanks
     while (*p == ' ' || *p == '\t')
         p++;
 
-    char ignore_gcc_header = 0;
-
-    const char* system_header_str = "system_header";
-    if (strncmp(p, system_header_str, strlen(system_header_str)) == 0)
+    // Now skip gcc|GCC
+    if (strncasecmp(p, "gcc", 3) == 0)
     {
-        p += strlen(system_header_str);
-        // Whitespace
-        if (*p == '\0'
-                || *p == ' '
-                || *p == '\t')
+        p += strlen("gcc");
+
+        // Skip blanks again
+        while (*p == ' ' || *p == '\t')
+            p++;
+
+        const char* system_header_str = "system_header";
+        if (strncmp(p, system_header_str, strlen(system_header_str)) == 0)
         {
-            // This is a #pragma GCC system_header
-            ignore_gcc_header = 1;
+            p += strlen(system_header_str);
+            // Whitespace
+            if (*p == '\0'
+                    || *p == ' '
+                    || *p == '\t')
+            {
+                // This is a #pragma GCC system_header
+                ignore_gcc_header = 1;
+            }
         }
     }
 
-    if (ignore_gcc_header)
+    if (!ignore_gcc_header)
     {
         parse_token_text();
         BEGIN(preprocess);
@@ -885,7 +899,7 @@ type {
     {
         if (include_counter == 0)
         {
-            top_level_include_t *new_top_level_include = calloc(1, sizeof(*new_top_level_include));
+            top_level_include_t *new_top_level_include = xcalloc(1, sizeof(*new_top_level_include));
 
             new_top_level_include->included_file = uniquestr(filename);
 
@@ -1203,27 +1217,27 @@ type {
  /* Special tokens for prettyprinted comments and preprocessor elements */
 @-C-@[^@]*@-CC-@ { 
 
-    char* t = strdup(yytext);
+    char* t = xstrdup(yytext);
     t[strlen(t) - strlen("@-CC-@")] = '\0';
 
     char *p = t;
     p += strlen("@-C-@");
 
     parse_token_text_str(p); 
-    free(t);
+    xfree(t);
 
     return PP_COMMENT; 
 }
 @-P-@[^@]*@-PP-@ { 
 
-    char* t = strdup(yytext);
+    char* t = xstrdup(yytext);
     t[strlen(t) - strlen("@-PP-@")] = '\0';
 
     char *p = t;
     p += strlen("@-P-@");
 
     parse_token_text_str(p); 
-    free(t);
+    xfree(t);
 
     return PP_TOKEN; 
 }
@@ -1601,7 +1615,7 @@ static void verbatim_buffer_append(const char* c)
         {
             // Enlarge verbatim buffer
             _verbatim_buffer_capacity += BUFF_SIZE;
-            _verbatim_buffer = realloc(_verbatim_buffer, sizeof(char) * _verbatim_buffer_capacity);
+            _verbatim_buffer = xrealloc(_verbatim_buffer, sizeof(char) * _verbatim_buffer_capacity);
             int i;
             for (i = _verbatim_buffer_length; i < _verbatim_buffer_capacity; i++)
             {
@@ -1621,7 +1635,7 @@ static void verbatim_buffer_append(const char* c)
 
 static void verbatim_buffer_free(void)
 {
-    free(_verbatim_buffer);
+    xfree(_verbatim_buffer);
     _verbatim_buffer = NULL;
     _verbatim_buffer_length = 0;
     _verbatim_buffer_capacity = 0;
@@ -1644,8 +1658,8 @@ static int compute_length_match(const char* lexed_directive,
 {
     int num_matches = 0;
     {
-    char* lexed = strdup(lexed_directive);
-    char* available = strdup(available_directive);
+    char* lexed = xstrdup(lexed_directive);
+    char* available = xstrdup(available_directive);
 
     char *next_lexed_info = NULL;
     char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
@@ -1670,8 +1684,8 @@ static int compute_length_match(const char* lexed_directive,
         }
     }
 
-    free(available);
-    free(lexed);
+    xfree(available);
+    xfree(lexed);
     }
 
     // Compute the length of the discards
@@ -1839,3 +1853,33 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
     UNUSED_PARAMETER static int input  (void);
 #endif
 #endif
+
+/*!if C99*/
+void * mc99alloc (size_t bytes)
+{
+    return xmalloc(bytes);
+}
+void * mc99realloc (void * ptr, size_t bytes)
+{
+    return xrealloc(ptr, bytes);
+}
+void   mc99free (void * ptr)
+{
+    xfree(ptr);
+}
+/*!endif*/
+
+/*!if CPLUSPLUS*/
+void * mcxxalloc (size_t bytes)
+{
+    return xmalloc(bytes);
+}
+void * mcxxrealloc (void * ptr, size_t bytes)
+{
+    return xrealloc(ptr, bytes);
+}
+void   mcxxfree (void * ptr)
+{
+    xfree(ptr);
+}
+/*!endif*/

@@ -95,7 +95,7 @@ compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [f
 case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
-            | NODECL_RANGE_LOOP_CONTROL([lower]expression, [upper]expression, [step]expression-opt) symbol
+            | NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
             | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
@@ -124,7 +124,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
     | string-literal
     | structured-value
 
-string-literal: NODECL_STRING_LITERAL() type const-value
+string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
 expression : literal
            | name
@@ -197,6 +197,8 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type const-value-opt
+# Ths one is used when we need an expression only for its type
+           | NODECL_DUMMY() type
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
 
@@ -207,11 +209,15 @@ initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
 
 fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
-argument : named-pair
-         | expression
-         | alt-return
+argument : expression
+         | default-arg
+         | fortran-actual-argument
 
-named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+fortran-actual-argument: NODECL_FORTRAN_ACTUAL_ARGUMENT([argument]fortran-argument) text-opt symbol-opt
+fortran-argument: expression
+                | alt-return
+
+default-arg: NODECL_DEFAULT_ARGUMENT([argument]expression)
 
 alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-opt
 
@@ -354,12 +360,18 @@ where-pair: NODECL_FORTRAN_WHERE_PAIR([mask] expression-opt, [statement] stateme
 # NODECL_FORTRAN_EQUIVALENCE
 #   This is used only for .equivalence variable which holds the equivalence of
 #   data storage
+# NODECL_FORTRAN_USE
+# NODECL_FORTRAN_USE_ONLY
+#   These are used only for .used_modules needed to faithfully regenerate the
+#   USE statements in each program unit.
 fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
                     | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
                     | NODECL_FORTRAN_BIND_C([name] expression)
                     | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
                     | NODECL_FORTRAN_HOLLERITH() type text const-value
+                    | NODECL_FORTRAN_USE([module]name, [renamed_items]name-seq-opt)
+                    | NODECL_FORTRAN_USE_ONLY([module]name, [only_items]name-seq)
 
 fortran-data-item : expression
                   | fortran-implied-do
@@ -472,6 +484,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*FILE([filename]text, [function_name]name)
+                 | NODECL_OPEN_M_P*NAME([name]text, [function_name]name)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 

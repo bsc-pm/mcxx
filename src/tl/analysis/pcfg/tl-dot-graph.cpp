@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -116,7 +116,7 @@ namespace Analysis {
             {
                 // Calculate the name of the new dot subgraph
                 std::stringstream node_id; node_id << current->get_id( );
-                std::string subgraph_label = node_id.str( ) + current->get_graph_type_as_string( )/* + "\n" + current->get_graph_label( ).prettyprint()*/;
+                std::string subgraph_label = "[" + node_id.str( ) + "] " + current->get_graph_type_as_string( )/* + "\n" + current->get_graph_label( ).prettyprint()*/;
 
                 std::stringstream ssgid; ssgid << subgraph_id;
                 std::string cluster_name = "cluster" + ssgid.str( );
@@ -292,7 +292,7 @@ namespace Analysis {
         {
             case ENTRY:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " ENTRY \\n"
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY \\n"
                         + "\", shape=box, fillcolor=lightgray, style=filled];\n";
 //                     dot_graph += indent + ss.str( ) + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
 
@@ -300,39 +300,40 @@ namespace Analysis {
             }
             case EXIT:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
 //                     dot_graph += indent + ss.str( ) + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                 break;
             }
             case UNCLASSIFIED_NODE:
             {
 //                     dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " UNCLASSIFIED_NODE\"]\n";
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " UNCLASSIFIED_NODE\"]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"]\n";
                 break;
             }
             case OMP_BARRIER:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BARRIER\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
                 break;
             }
             case OMP_FLUSH:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " FLUSH\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse]\n";
                 break;
             }
             case OMP_TASKWAIT:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " TASKWAIT\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
             case BREAK:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BREAK\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
                 break;
             }
             case CONTINUE:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " CONTINUE\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
                 break;
             }
             case ASM_OP:
@@ -362,7 +363,7 @@ namespace Analysis {
                 }
                 basic_block = basic_block.substr( 0, basic_block.size( ) - 2 );   // Remove the last back space
 
-                dot_graph += indent + ss.str( ) + "[label=\"{" + ss.str( ) + " " + basic_block + "}\", shape=record, "
+                dot_graph += indent + ss.str( ) + "[label=\"{[" + ss.str( ) + "] " + basic_block + "}\", shape=record, "
                            + basic_attrs + "];\n";
 
                 print_node_analysis_info( current, graph_analysis_info, /* cluster name */"",

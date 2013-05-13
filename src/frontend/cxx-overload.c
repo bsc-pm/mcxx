@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -94,8 +94,7 @@ static
 char is_better_function_flags(overload_entry_list_t* f,
         overload_entry_list_t* g,
         decl_context_t decl_context,
-        const char *filename,
-        int line);
+        const locus_t* locus);
 
 static type_t* result_type_after_conversion(scope_entry_t* conversor)
 {
@@ -117,8 +116,8 @@ static type_t* result_type_after_conversion(scope_entry_t* conversor)
     }
     else
     {
-        internal_error("Invalid conversor function %s at '%s:%d'\n", conversor->symbol_name,
-                conversor->file, conversor->line);
+        internal_error("Invalid conversor function %s at '%s'\n", conversor->symbol_name,
+                locus_to_str(conversor->locus));
     }
 
     return result;
@@ -129,8 +128,7 @@ static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_2,
         type_t* dest,
         decl_context_t decl_context,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
     // This checks all what is_better_function does but adds an additional
     // check for the initialization issue
@@ -157,13 +155,11 @@ static char is_better_initialization_ics(
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Checking if conversion %s at %s:%d is better than %s at %s:%d\n",
+        fprintf(stderr, "OVERLOAD: Checking if conversion %s at %s is better than %s at %s\n",
                 ics_1.conversor->symbol_name,
-                ics_1.conversor->file,
-                ics_1.conversor->line,
+                locus_to_str(ics_1.conversor->locus),
                 ics_2.conversor->symbol_name,
-                ics_2.conversor->file,
-                ics_2.conversor->line);
+                locus_to_str(ics_2.conversor->locus));
     }
 
     // Build proper arguments for is_better_function_flags
@@ -195,17 +191,15 @@ static char is_better_initialization_ics(
     if (is_better_function_flags(&ovl_entry_1,
                 &ovl_entry_2,
                 decl_context, 
-                filename, line))
+                locus))
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "OVERLOAD: Conversion %s at %s:%d is better than %s at %s:%d because it is a better function\n",
+            fprintf(stderr, "OVERLOAD: Conversion %s at %s is better than %s at %s because it is a better function\n",
                     ics_1.conversor->symbol_name,
-                    ics_1.conversor->file,
-                    ics_1.conversor->line,
+                    locus_to_str(ics_1.conversor->locus),
                     ics_2.conversor->symbol_name,
-                    ics_2.conversor->file,
-                    ics_2.conversor->line);
+                    locus_to_str(ics_2.conversor->locus));
         }
         return 1;
     }
@@ -214,7 +208,7 @@ static char is_better_initialization_ics(
     if (!is_better_function_flags(&ovl_entry_2,
                 &ovl_entry_1,
                 decl_context, 
-                filename, line))
+                locus))
     {
         // Get the converted type after the conversion
         type_t* converted_type_1 = result_type_after_conversion(ics_1.conversor);
@@ -235,14 +229,12 @@ static char is_better_initialization_ics(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Conversion %s at %s:%d is better than %s at %s:%d "
+                fprintf(stderr, "OVERLOAD: Conversion %s at %s is better than %s at %s "
                         "because converted type is better\n",
                         ics_1.conversor->symbol_name,
-                        ics_1.conversor->file,
-                        ics_1.conversor->line,
+                        locus_to_str(ics_1.conversor->locus),
                         ics_2.conversor->symbol_name,
-                        ics_2.conversor->file,
-                        ics_2.conversor->line);
+                        locus_to_str(ics_2.conversor->locus));
             }
             return 1;
         }
@@ -250,13 +242,11 @@ static char is_better_initialization_ics(
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Conversion %s at %s:%d is NOT better than %s at %s:%d\n",
+        fprintf(stderr, "OVERLOAD: Conversion %s at %s is NOT better than %s at %s\n",
                 ics_1.conversor->symbol_name,
-                ics_1.conversor->file,
-                ics_1.conversor->line,
+                locus_to_str(ics_1.conversor->locus),
                 ics_2.conversor->symbol_name,
-                ics_2.conversor->file,
-                ics_2.conversor->line);
+                locus_to_str(ics_2.conversor->locus));
     }
 
     return 0;
@@ -266,13 +256,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
-        const char* filename, int line);
+        const locus_t* locus);
 
 static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
-        const char* filename, int line)
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -283,7 +273,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
     }
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-            NULL, 0, /* mandatory */ 0);
+            make_locus("", 0, 0), /* mandatory */ 0);
 
     *result = invalid_ics;
 
@@ -310,7 +300,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                         &current,
                         no_user_defined_conversions,
                         is_implicit_argument,
-                        filename, line);
+                        locus);
 
                 if (current.kind == ICSK_INVALID)
                 {
@@ -338,7 +328,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 arguments, 1,
                 /* is_explicit */ 0,
                 decl_context,
-                filename, line,
+                locus,
                 conversors,
                 &candidates);
         entry_list_free(candidates);
@@ -380,7 +370,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
-                    filename, line);
+                    locus);
             
             if (init_ics.kind == ICSK_INVALID)
                 return;
@@ -413,7 +403,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
-                    filename, line);
+                    locus);
 
             if (init_ics.kind == ICSK_INVALID)
                 return;
@@ -438,7 +428,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     result,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 0,
-                    filename, line);
+                    locus);
         }
     }
 }
@@ -447,7 +437,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
-        const char* filename, int line)
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -474,7 +464,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         compute_ics_braced_list(orig, dest, decl_context, result, 
                 no_user_defined_conversions, 
                 is_implicit_argument, 
-                filename, line);
+                locus);
         return;
     }
 
@@ -493,8 +483,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 unresolved_overloaded_type_get_explicit_template_arguments(orig),
                 dest,
                 decl_context,
-                filename,
-                line);
+                locus);
         entry_list_free(unresolved_set);
 
         if (solved_function != NULL)
@@ -527,7 +516,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
 
-        instantiate_template_class_if_possible(symbol, decl_context, filename, line);
+        instantiate_template_class_if_possible(symbol, decl_context, locus);
 
     }
     // Given a class 'A' base of a class 'B'
@@ -538,7 +527,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     {
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
 
-        instantiate_template_class_if_possible(class_symbol, decl_context, filename, line);
+        instantiate_template_class_if_possible(class_symbol, decl_context, locus);
     }
 
     standard_conversion_t standard_conv;
@@ -569,7 +558,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             {
                 fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
             }
-            instantiate_template_class_if_possible(symbol, decl_context, filename, line);
+            instantiate_template_class_if_possible(symbol, decl_context, locus);
             DEBUG_CODE()
             {
                 fprintf(stderr, "ICS: Destination type instantiated\n");
@@ -642,21 +631,19 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "ICS: Considering user defined conversion '%s' declared at '%s:%d'\n",
+                fprintf(stderr, "ICS: Considering user defined conversion '%s' declared at '%s'\n",
                         conv_funct->symbol_name,
-                        conv_funct->file,
-                        conv_funct->line);
+                        locus_to_str(conv_funct->locus));
             }
 
             if (is_template_specialized_type(conv_funct->type_information))
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "ICS: Symbol '%s' at '%s:%d' is a template conversion function, "
+                    fprintf(stderr, "ICS: Symbol '%s' at '%s' is a template conversion function, "
                             "deducing its arguments\n",
                             conv_funct->symbol_name,
-                            conv_funct->file,
-                            conv_funct->line);
+                            locus_to_str(conv_funct->locus));
                 }
                 // This is a template so we have to get the proper specialization
 
@@ -672,7 +659,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 // Now deduce the arguments
                 if (!deduce_arguments_of_conversion(dest, specialization_function,
                             template_parameters, type_template_parameters,
-                            decl_context, &deduced_template_arguments, filename, line))
+                            decl_context, &deduced_template_arguments, locus))
                 {
                     DEBUG_CODE()
                     {
@@ -692,7 +679,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_arguments,
-                        decl_context, filename, line);
+                        decl_context, locus);
 
                 if (named_specialization_type == NULL)
                 {
@@ -739,7 +726,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     decl_context, &ics_call,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 1,
-                    filename, line);
+                    locus);
             first_sc = ics_call.first_sc;
 
             if (ics_call.kind == ICSK_STANDARD 
@@ -757,13 +744,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 {
                     fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
                             "ICS:     SCS1: %s -> %s\n"
-                            "ICS:     Conversion function: %s (%s:%d)\n"
+                            "ICS:     Conversion function: %s (%s)\n"
                             "ICS:     SCS2: %s -> %s\n",
                             print_declarator(current->first_sc.orig),
                             print_declarator(current->first_sc.dest),
                             current->conversor->symbol_name,
-                            current->conversor->file,
-                            current->conversor->line,
+                            locus_to_str(current->conversor->locus),
                             print_declarator(current->second_sc.orig),
                             print_declarator(current->second_sc.dest));
                 }
@@ -781,7 +767,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             fprintf(stderr, "ICS: Checking user-defined conversions by means of conversor constructors\n");
         }
         // Get the real class type
-        type_t* class_type = no_ref(dest);
+        type_t* class_type = get_unqualified_type(no_ref(dest));
 
         // Instantiate the destination if needed
         if (is_named_class_type(class_type))
@@ -792,7 +778,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
             }
 
-            instantiate_template_class_if_possible(symbol, decl_context, filename, line);
+            instantiate_template_class_if_possible(symbol, decl_context, locus);
 
             DEBUG_CODE()
             {
@@ -830,21 +816,19 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "ICS: Considering conversor constructor '%s' declared at '%s:%d'\n",
+                fprintf(stderr, "ICS: Considering conversor constructor '%s' declared at '%s'\n",
                         constructor->symbol_name,
-                        constructor->file,
-                        constructor->line);
+                        locus_to_str(constructor->locus));
             }
 
             if (is_template_specialized_type(constructor->type_information))
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "ICS: Symbol '%s' at '%s:%d' is a template conversor constructor, "
+                    fprintf(stderr, "ICS: Symbol '%s' at '%s' is a template conversor constructor, "
                             "deducing its arguments\n",
                             constructor->symbol_name,
-                            constructor->file,
-                            constructor->line);
+                            locus_to_str(constructor->locus));
                 }
                 // This is a template so we have to get the proper specialization
 
@@ -864,7 +848,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                             specialization_function,
                             template_parameters, type_template_parameters,
                             decl_context, 
-                            &deduced_template_arguments, filename, line,
+                            &deduced_template_arguments, locus,
                             /* explicit template arguments */ NULL))
                 {
                     DEBUG_CODE()
@@ -885,7 +869,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_arguments,
-                        decl_context, filename, line); 
+                        decl_context, locus); 
 
                 if (named_specialization_type == NULL)
                 {
@@ -965,13 +949,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 {
                     fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
                             "ICS:     SCS1: %s -> %s\n"
-                            "ICS:     Conversion function: %s (%s:%d)\n"
+                            "ICS:     Conversion function: %s (%s)\n"
                             "ICS:     SCS2: %s -> %s\n",
                             print_declarator(current->first_sc.orig),
                             print_declarator(current->first_sc.dest),
                             current->conversor->symbol_name,
-                            current->conversor->file,
-                            current->conversor->line,
+                            locus_to_str(current->conversor->locus),
                             print_declarator(current->second_sc.orig),
                             print_declarator(current->second_sc.dest));
                 }
@@ -1004,7 +987,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             if (is_better_initialization_ics(user_defined_conversions[i],
                         user_defined_conversions[current_best],
                         dest,
-                        decl_context, filename, line))
+                        decl_context, locus))
             {
                 // Update the best
                 current_best = i;
@@ -1021,7 +1004,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             if (!is_better_initialization_ics(user_defined_conversions[current_best],
                         user_defined_conversions[i],
                         dest,
-                        decl_context, filename, line))
+                        decl_context, locus))
             {
                 // It is not best, set it to ambiguous
                 result->is_ambiguous_ics = 1;
@@ -1048,13 +1031,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         print_declarator(dest));
                 fprintf(stderr, "ICS: Details of this user defined conversion\n"
                         "ICS:     SCS1: %s -> %s\n"
-                        "ICS:     Conversion function: %s (%s:%d)\n"
+                        "ICS:     Conversion function: %s (%s)\n"
                         "ICS:     SCS2: %s -> %s\n",
                         print_declarator(result->first_sc.orig),
                         print_declarator(result->first_sc.dest),
                         result->conversor->symbol_name,
-                        result->conversor->file,
-                        result->conversor->line,
+                        locus_to_str(result->conversor->locus),
                         print_declarator(result->second_sc.orig),
                         print_declarator(result->second_sc.dest));
             }
@@ -1064,23 +1046,23 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
 static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context, 
         implicit_conversion_sequence_t *result,
-        const char* filename, int line)
+        const locus_t* locus)
 {
     return compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
             /* is_implicit_argument */ 0,
-            filename, line);
+            locus);
 }
 
 char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
         char *ambiguous_conversion, scope_entry_t** conversor,
-        const char* filename, int line)
+        const locus_t* locus)
 {
     CXX_LANGUAGE()
     {
         implicit_conversion_sequence_t result;
         compute_ics(orig, dest, decl_context, &result, 
-                filename, line);
+                locus);
 
         *ambiguous_conversion = result.is_ambiguous_ics;
 
@@ -1582,7 +1564,7 @@ static char can_be_called_with_number_of_arguments_ovl(scope_entry_t* entry, int
 
 static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_functions,
         decl_context_t decl_context,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     overload_entry_list_t *result = NULL;
     candidate_t *it = candidate_functions;
@@ -1657,7 +1639,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                             &ics_to_candidate,
                             /* no_user_defined_conversions */ 1,
                             /* is_implicit_argument */ 1,
-                            filename, line);
+                            locus);
                 }
                 else
                 {
@@ -1681,7 +1663,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                     compute_ics(argument_types[i], 
                             parameter_type,
                             decl_context, 
-                            &ics_to_candidate, filename, line);
+                            &ics_to_candidate, locus);
                 }
 
                 if (ics_to_candidate.kind == ICSK_INVALID)
@@ -1701,7 +1683,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
             if (still_viable)
             {
-                overload_entry_list_t* new_result = counted_calloc(1, sizeof(*new_result), &_bytes_overload);
+                overload_entry_list_t* new_result = counted_xcalloc(1, sizeof(*new_result), &_bytes_overload);
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
@@ -1727,8 +1709,7 @@ static
 char is_better_function_flags(overload_entry_list_t* ovl_f,
         overload_entry_list_t* ovl_g,
         decl_context_t decl_context,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
     scope_entry_t* f = ovl_f->candidate->entry;
     scope_entry_t* g = ovl_g->candidate->entry;
@@ -1738,13 +1719,11 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     //
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Checking if [%s, %s:%d] is better than [%s, %s:%d]\n",
+        fprintf(stderr, "OVERLOAD: Checking if [%s, %s] is better than [%s, %s]\n",
                 print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                f->file,
-                f->line,
+                locus_to_str(f->locus),
                 print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                g->file,
-                g->line);
+                locus_to_str(g->locus));
     }
 
     int first_type = 0;
@@ -1798,15 +1777,13 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better"
-                        " than [%s, %s:%d] because some argument in the first"
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better"
+                        " than [%s, %s] because some argument in the first"
                         " function has a better ICS than the respective one in the second\n",
                         print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        f->file,
-                        f->line,
+                        locus_to_str(f->locus),
                         print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        g->file,
-                        g->line);
+                        locus_to_str(g->locus));
             }
             return 1;
         }
@@ -1819,14 +1796,12 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better than [%s, %s:%d] because "
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
                         "the first is not a template-specialization and the second is\n",
                         print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        f->file,
-                        f->line,
+                        locus_to_str(f->locus),
                         print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        g->file,
-                        g->line);
+                        locus_to_str(g->locus));
             }
             return 1;
         }
@@ -1836,14 +1811,12 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] and [%s, %s:%d] are template functions "
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
                         "so we have to check which one is more specialized\n",
                         print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        f->file,
-                        f->line,
+                        locus_to_str(f->locus),
                         print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        g->file,
-                        g->line);
+                        locus_to_str(g->locus));
             }
             // if ¬(f <= g) then f > g
             template_parameter_list_t* deduced_template_arguments = NULL;
@@ -1855,18 +1828,16 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
                                 template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
                         decl_context, &deduced_template_arguments, 
                         /* explicit_template_parameters */ NULL,
-                        filename, line, /* is_conversion */ 0))
+                        locus, /* is_conversion */ 0))
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d] is more "
-                            "specialized than template-function [%s, %s:%d]\n",
+                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s] is more "
+                            "specialized than template-function [%s, %s]\n",
                             print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                            f->file,
-                            f->line,
+                            locus_to_str(f->locus),
                             print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                            g->file,
-                            g->line);
+                            locus_to_str(g->locus));
                 }
                 return 1;
             }
@@ -1876,13 +1847,11 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     // It is not better (it might be equally good, though)
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] is NOT better than [%s, %s:%d]\n",
+        fprintf(stderr, "OVERLOAD: Found that [%s, %s] is NOT better than [%s, %s]\n",
                 print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                f->file,
-                f->line,
+                locus_to_str(f->locus),
                 print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                g->file,
-                g->line);
+                locus_to_str(g->locus));
     }
     return 0;
 }
@@ -1891,10 +1860,9 @@ static
 char is_better_function(overload_entry_list_t* f,
         overload_entry_list_t* g,
         decl_context_t decl_context,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
-    return is_better_function_flags(f, g, decl_context, filename, line);
+    return is_better_function_flags(f, g, decl_context, locus);
 }
 
 
@@ -1903,7 +1871,7 @@ char is_better_function(overload_entry_list_t* f,
  */
 scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
-        const char *filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors)
 {
     DEBUG_CODE()
@@ -1917,11 +1885,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             while (it != NULL)
             {
                 scope_entry_t* entry = entry_advance_aliases(it->entry);
-                fprintf(stderr, "OVERLOAD: Candidate %d: %s, %s:%d [%s] %s\n",
+                fprintf(stderr, "OVERLOAD: Candidate %d: %s, %s [%s] %s\n",
                         i,
                         entry->symbol_name,
-                        entry->file,
-                        entry->line,
+                        locus_to_str(entry->locus),
                         print_declarator(entry->type_information),
                         (entry->entity_specs.is_builtin ? "<builtin function>" : ""));
 
@@ -2017,7 +1984,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     
     // First get the viable functions
     overload_entry_list_t *viable_functions = compute_viable_functions(candidate_set, 
-            decl_context, filename, line);
+            decl_context, locus);
 
     if (viable_functions == NULL)
     {
@@ -2036,9 +2003,8 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             while (it != NULL)
             {
                 scope_entry_t* entry = entry_advance_aliases(it->candidate->entry);
-                fprintf(stderr, "OVERLOAD:    %s:%d: %s %s\n",
-                        entry->file,
-                        entry->line,
+                fprintf(stderr, "OVERLOAD:    %s: %s %s\n",
+                        locus_to_str(entry->locus),
                         print_decl_type_str(
                             entry->type_information,
                             entry->decl_context,
@@ -2057,7 +2023,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     while (it != NULL)
     {
         if (is_better_function(it, best_viable,
-                    decl_context, filename, line))
+                    decl_context, locus))
         {
             best_viable = it;
         }
@@ -2086,7 +2052,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         if (sym_best_viable != sym_current)
         {
             if (!is_better_function(best_viable, current, 
-                        decl_context, filename, line))
+                        decl_context, locus))
             {
                 DEBUG_CODE()
                 {
@@ -2159,11 +2125,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                 conversors[i] = best_viable->ics_arguments[i].conversor;
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s:%d\n",
+                    fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s\n",
                             i,
                             conversors[i]->symbol_name,
-                            conversors[i]->file,
-                            conversors[i]->line);
+                            locus_to_str(conversors[i]->locus));
                 }
             }
             else
@@ -2190,15 +2155,14 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_parameters,
         type_t* target_type,
         decl_context_t decl_context,
-        const char *filename,
-        int line)
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Solving the address of overload function-name '%s' at '%s:%d'\n",
+        fprintf(stderr, "OVERLOAD: Solving the address of overload function-name '%s' at '%s'\n",
                 /* use the first in the set */
                 overload_set != NULL ? entry_list_head(overload_set)->symbol_name : "<overload set empty>",
-                filename, line);
+                locus_to_str(locus));
     }
 
     // If the set is a singleton, try first a simpler approach
@@ -2269,12 +2233,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             DEBUG_CODE()
             {
                 fprintf(stderr, "OVERLOAD: When solving address of overload: checking '%s' "
-                        "against (target) overload '%s' ('%s' at '%s:%d')\n",
+                        "against (target) overload '%s' ('%s' at '%s')\n",
                         print_declarator(current_fun->type_information),
                         print_declarator(target_type),
                         current_fun->symbol_name,
-                        current_fun->file,
-                        current_fun->line);
+                        locus_to_str(current_fun->locus));
             }
             char can_match = 0;
 
@@ -2305,10 +2268,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "OVERLOAD: When solving address of overload: function "
-                            "'%s' at '%s:%d' matches the target type\n",
+                            "'%s' at '%s' matches the target type\n",
                             current_fun->symbol_name,
-                            current_fun->file,
-                            current_fun->line);
+                            locus_to_str(current_fun->locus));
                 }
                 viable_functions = entry_list_add(viable_functions, current_fun);
 
@@ -2388,7 +2350,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             argument_types, num_argument_types,
                             parameter_types, 
                             primary_symbol->decl_context,
-                            &deduced_template_arguments, filename, line,
+                            &deduced_template_arguments, locus,
                             explicit_template_parameters,
                             deduction_flags_empty()))
                 {
@@ -2401,7 +2363,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     }
 
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            deduced_template_arguments, decl_context, filename, line);
+                            deduced_template_arguments, decl_context, locus);
 
                     if (named_specialization_type != NULL)
                     {
@@ -2411,10 +2373,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                         {
                             fprintf(stderr, "OVERLOAD: When solving address of overload function: "
                                     "template function-name specialization "
-                                    "'%s' at ('%s:%d') is a matching specialization with type '%s'\n",
+                                    "'%s' at ('%s') is a matching specialization with type '%s'\n",
                                     named_symbol->symbol_name,
-                                    named_symbol->file,
-                                    named_symbol->line,
+                                    locus_to_str(named_symbol->locus),
                                     print_declarator(named_symbol->type_information));
                         }
 
@@ -2426,10 +2387,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             {
                                 fprintf(stderr, "OVERLOAD: When solving address of overload function: "
                                         "template function-name specialization "
-                                        "'%s' at ('%s:%d') is a matching specialization with type '%s' that matches the target type\n",
+                                        "'%s' at ('%s') is a matching specialization with type '%s' that matches the target type\n",
                                         named_symbol->symbol_name,
-                                        named_symbol->file,
-                                        named_symbol->line,
+                                        locus_to_str(named_symbol->locus),
                                         print_declarator(named_symbol->type_information));
                             }
                             viable_functions = entry_list_add(viable_functions, named_symbol);
@@ -2440,10 +2400,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             {
                                 fprintf(stderr, "OVERLOAD: When solving address of overload function: "
                                         "template function-name specialization "
-                                        "'%s' at ('%s:%d') is a matching specialization with type '%s' DOES NOT match the target type\n",
+                                        "'%s' at ('%s') is a matching specialization with type '%s' DOES NOT match the target type\n",
                                         named_symbol->symbol_name,
-                                        named_symbol->file,
-                                        named_symbol->line,
+                                        locus_to_str(named_symbol->locus),
                                         print_declarator(named_symbol->type_information));
                             }
                         }
@@ -2506,10 +2465,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         // More than one nonspecialized function matches the types
         DEBUG_CODE()
         {
-            fprintf(stderr, "OVERLOAD: When solving address of overload: solved to nonspecialized function '%s' at '%s:%d'\n",
+            fprintf(stderr, "OVERLOAD: When solving address of overload: solved to nonspecialized function '%s' at '%s'\n",
                     non_specialized->symbol_name,
-                    non_specialized->file,
-                    non_specialized->line);
+                    locus_to_str(non_specialized->locus));
         }
         return non_specialized;
     }
@@ -2547,7 +2505,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                         decl_context,
                         &deduced_template_arguments, 
                         /* explicit_template_parameters */ NULL,
-                        filename, line, /* is_conversion */ 0))
+                        locus, /* is_conversion */ 0))
             {
                 // if (!(a<=b)) it means that a > b
                 most_specialized = current;
@@ -2578,7 +2536,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             decl_context,
                             &deduced_template_arguments, 
                             /* explicit_template_parameters */ NULL,
-                            filename, line, /* is_conversion */ 0))
+                            locus, /* is_conversion */ 0))
                 {
                     DEBUG_CODE()
                     {
@@ -2595,10 +2553,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         DEBUG_CODE()
         {
             fprintf(stderr, "OVERLOAD: When solving address of overload: solved to matching "
-                    "specialization '%s' (at '%s:%d' with type '%s') since it is the most specialized\n",
+                    "specialization '%s' (at '%s' with type '%s') since it is the most specialized\n",
                     most_specialized->symbol_name,
-                    most_specialized->file,
-                    most_specialized->line,
+                    locus_to_str(most_specialized->locus),
                     print_declarator(most_specialized->type_information));
         }
 
@@ -2614,7 +2571,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors,
         // Output arguments
         scope_entry_list_t** candidates,
@@ -2622,7 +2579,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
 
-    instantiate_template_class_if_needed(named_type_get_symbol(class_type), decl_context, filename, line);
+    instantiate_template_class_if_needed(named_type_get_symbol(class_type), decl_context, locus);
 
     scope_entry_list_t* constructor_list = NULL;
 
@@ -2645,7 +2602,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         // Filter init constructors only
         if (init_constructors_only)
         {
-            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
+            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, locus, /* mandatory */ 1);
 
             int num_parameters = function_type_get_num_parameters(constructor->type_information);
             // Number of real parameters, ellipsis are counted as parameters
@@ -2689,7 +2646,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
             NULL, argument_types, num_arguments,
             decl_context,
-            filename, line, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_parameters */ NULL);
 
     scope_entry_t* augmented_conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
@@ -2712,7 +2669,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     // Now we have all the constructors, perform an overload resolution on them
     scope_entry_t* overload_resolution = solve_overload(candidate_set, 
             decl_context, 
-            filename, line, 
+            locus, 
             augmented_conversors);
 
     int i;
@@ -2730,7 +2687,7 @@ scope_entry_t* solve_constructor(
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors,
         scope_entry_list_t** candidates)
 {
@@ -2739,7 +2696,7 @@ scope_entry_t* solve_constructor(
             num_arguments,
             is_explicit,
             decl_context,
-            filename, line,
+            locus,
             conversors,
             candidates,
             /* init_constructors_only */ 0);
@@ -2751,7 +2708,7 @@ scope_entry_t* solve_init_list_constructor(
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors,
         scope_entry_list_t** candidates)
 {
@@ -2759,7 +2716,7 @@ scope_entry_t* solve_init_list_constructor(
     ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
             "This function expects a single argument of type braced initializer list", 0);
 
-    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, locus, /* mandatory */ 1);
 
     char has_initializer_list_ctor = 0;
     if (std_initializer_list_template != NULL)
@@ -2806,7 +2763,7 @@ scope_entry_t* solve_init_list_constructor(
                 num_arguments,
                 is_explicit,
                 decl_context,
-                filename, line,
+                locus,
                 conversors,
                 candidates,
                 /* init_constructors_only */ 1);
@@ -2818,7 +2775,7 @@ scope_entry_t* solve_init_list_constructor(
                 braced_list_type_get_num_types(argument_types[0]),
                 is_explicit,
                 decl_context,
-                filename, line,
+                locus,
                 conversors,
                 candidates,
                 /* init_constructors_only */ 0);
@@ -2830,7 +2787,7 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
-    candidate_t* result = counted_calloc(1, sizeof(*result), &_bytes_overload);
+    candidate_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_overload);
 
     result->next = candidate_set;
 

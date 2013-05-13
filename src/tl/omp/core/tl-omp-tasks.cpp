@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
 #include "cxx-diagnostic.h"
+#include "tl-predicateutils.hpp"
 
 namespace TL
 {
@@ -171,16 +172,26 @@ namespace TL
             }
             return _device_list;
         }
-        
+
         void TargetInfo::set_file(std::string filename)
         {
-            _file=filename;
+            _file = filename;
         }
-        
-        std::string TargetInfo::get_file() const{
+
+        std::string TargetInfo::get_file() const
+        {
             return _file;
         }
-        
+  
+        void TargetInfo::set_name(std::string name)
+        {
+            _name = name;
+        }
+
+        std::string TargetInfo::get_name() const
+        {
+            return _name;
+        }
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
             _target_symbol=funct_symbol;
@@ -351,32 +362,6 @@ namespace TL
             return (_map.find(sym) != _map.end());
         }
 
-        bool FunctionTaskSet::is_function_task_or_implements(Symbol sym) const
-        {
-            if (is_function_task(sym))
-                return true;
-
-            typedef std::map<Symbol, FunctionTaskInfo>::const_iterator iterator;
-
-            for (iterator it = _map.begin();
-                    it != _map.end();
-                    it++)
-            {
-                typedef ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator dev_iterator;
-                ObjectList<FunctionTaskInfo::implementation_pair_t> devices_and_implementations = it->second.get_devices_with_implementation();
-
-                for (dev_iterator dev_it = devices_and_implementations.begin();
-                        dev_it != devices_and_implementations.end();
-                        dev_it++)
-                {
-                    if (dev_it->second == sym)
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
         FunctionTaskInfo& FunctionTaskSet::get_function_task(Symbol sym)
         {
             return _map.find(sym)->second;
@@ -513,6 +498,14 @@ namespace TL
                 {
                     DataReference expr(nodecl);
 
+                    if (!expr.is_valid())
+                    {
+                        std::string dep_str = get_dependency_direction_name(_direction);
+
+                        std::cerr << nodecl.get_locus_str() << ": warning: ignoring invalid dependence " 
+                            << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
+                    }
+
                     return FunctionTaskDependency(expr, _direction);
                 }
         };
@@ -570,19 +563,21 @@ namespace TL
                             // be regarded as an error
                             if ((_direction & DEP_DIR_OUT) == DEP_DIR_OUT)
                             {
-                                error_printf("%s: error: output dependence '%s' "
+                                error_printf("%s: error: dependence %s(%s) "
                                         "only names a parameter. The value of a parameter is never copied out of a function "
                                         "so it cannot generate an output dependence\n",
-                                        expr.get_locus().c_str(),
+                                        expr.get_locus_str().c_str(),
+                                        get_dependency_direction_name(_direction).c_str(),
                                         expr.prettyprint().c_str());
                                 return true;
                             }
                             else
                             {
-                                std::cerr << expr.get_locus() << ": warning: "
-                                    "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                    "is always copied and cannot define an input dependence"
-                                    << std::endl;
+                                warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
+                                    "is always copied in and will never define such dependence\n",
+                                    expr.get_locus_str().c_str(),
+                                    get_dependency_direction_name(_direction).c_str(),
+                                    expr.prettyprint().c_str());
                                 return true;
                             }
                         }
@@ -602,7 +597,7 @@ namespace TL
         }
 
         // This visitor constructs a set with all the symbols of the tree
-        class GetAllSymbolsVisitor : public Nodecl::ExhaustiveVisitor<void>
+        class GetAllSymbolsVisitor : public Nodecl::NodeclVisitor<void>
         {
             private:
                 std::set<TL::Symbol> _symbols;
@@ -610,14 +605,46 @@ namespace TL
             public:
                 GetAllSymbolsVisitor() {}
 
-                void visit(const Nodecl::Symbol& node)
+                // Any node
+                void unhandled_node(const Nodecl::NodeclBase& node)
                 {
-                    _symbols.insert(node.get_symbol());
+                    if (node.get_symbol().is_valid())
+                    {
+                        _symbols.insert(node.get_symbol());
+                    }
+                    if (node.get_type().is_valid())
+                    {
+                        walk_types(node.get_type());
+                    }
+
+                    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                            it != children.end();
+                            it++)
+                    {
+                        walk(*it);
+                    }
                 }
 
                 const std::set<TL::Symbol>& get_all_symbols()
                 {
                     return _symbols;
+                }
+
+                void walk_types(TL::Type t)
+                {
+                    if (t.is_array())
+                    {
+                        walk(t.array_get_size());
+                    }
+                    else if (t.is_pointer())
+                    {
+                        walk_types(t.points_to());
+                    }
+                    else if (t.is_any_reference())
+                    {
+                        walk_types(t.references_to());
+                    }
                 }
         };
 
@@ -629,7 +656,8 @@ namespace TL
         //
         //  void foo(int* c) { }
         //
-        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses, Symbol function_symbol)
+        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+                Symbol function_symbol)
         {
             ObjectList<Nodecl::NodeclBase> updated_clauses;
             ObjectList<Symbol> function_parameters = function_symbol.get_function_parameters();
@@ -755,7 +783,7 @@ namespace TL
 
             if (!function_sym.is_function())
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to this declaration since it does not declare a function, skipping" << std::endl;
                 return;
             }
@@ -767,14 +795,14 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
                 return;
             }
 
             if (!function_type.returns().is_void())
             {
-                std::cerr << construct.get_locus()
+                std::cerr << construct.get_locus_str()
                     << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
                 return;
             }
@@ -782,17 +810,29 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
 
             dependence_list_check(input_arguments, DEP_DIR_IN);
-            dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN)));
+            dependence_list.append(input_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
-            dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUT)));
+            dependence_list.append(output_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(inout_arguments, DEP_DIR_INOUT);
-            dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT)));
+            dependence_list.append(inout_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(concurrent_arguments.map(FunctionTaskDependencyGenerator(DEP_CONCURRENT)));
+            dependence_list_check(concurrent_arguments, DEP_CONCURRENT);
+            dependence_list.append(concurrent_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list.append(commutative_arguments.map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE)));
+            dependence_list_check(commutative_arguments, DEP_COMMUTATIVE);
+            dependence_list.append(commutative_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
@@ -828,8 +868,9 @@ namespace TL
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.set_file(target_context.file);
-                target_info.append_to_ndrange(target_context.ndrange);
-                target_info.append_to_onto(target_context.onto);
+                target_info.set_name(target_context.name);
+                target_info.append_to_ndrange(update_clauses(target_context.ndrange, function_sym));
+                target_info.append_to_onto(update_clauses(target_context.onto, function_sym));
 
                 target_info.append_to_device_list(target_context.device_list);
 
@@ -850,7 +891,7 @@ namespace TL
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
             }
@@ -863,7 +904,7 @@ namespace TL
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 task_info.set_priority_clause_expression(expr_list[0]);
             }
@@ -879,7 +920,7 @@ namespace TL
                 if (str_list.size() != 1)
                 {
                     warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                            construct.get_locus().c_str());
+                            construct.get_locus_str().c_str());
                 }
                 else
                 {
@@ -889,7 +930,7 @@ namespace TL
                 }
             }
 
-            std::cerr << construct.get_locus()
+            std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
 
@@ -901,7 +942,7 @@ namespace TL
                 if (decl_context.current_scope == decl_context.global_scope)
                 {
                     std::cerr
-                        << construct.get_locus()
+                        << construct.get_locus_str()
                         << ": warning: !$OMP TASK at top level only applies to calls in the current file"
                         << std::endl
                         ;
@@ -909,7 +950,7 @@ namespace TL
                     if (!already_nagged)
                     {
                         std::cerr
-                            << construct.get_locus()
+                            << construct.get_locus_str()
                             << ": info: use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files"
                             << std::endl
                             ;
@@ -993,7 +1034,7 @@ namespace TL
                 
                 if(deadline_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1014,7 +1055,7 @@ namespace TL
                 
                 if(release_exprs.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task release_deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1034,7 +1075,7 @@ namespace TL
                 
                 if(on_error_args.size() != 1) 
                 {
-                    std::cerr << construct.get_locus()
+                    std::cerr << construct.get_locus_str()
                               << ": warning: '#pragma omp task onerror' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
@@ -1053,7 +1094,7 @@ namespace TL
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                  std::cerr << construct.get_locus()
+                                  std::cerr << construct.get_locus_str()
                                             << ": warning: '#pragma omp task onerror' "
                                             << "first token must be an identifier, skipping"
                                             << std::endl;
@@ -1071,14 +1112,14 @@ namespace TL
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "first token must be an identifier, skipping"
                                           << std::endl;
                             }
                             else if (tokens[1].first != (int)':')
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "second token must be a colon, skipping"
                                           << std::endl;
@@ -1086,7 +1127,7 @@ namespace TL
                             else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
                                      (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus()
+                                std::cerr << construct.get_locus_str()
                                           << ": warning: '#pragma omp task onerror' "
                                           << "third token must be an identifier, skipping"
                                           << std::endl;
@@ -1100,7 +1141,7 @@ namespace TL
                         default:
                         {
                             std::cerr 
-                                  << construct.get_locus()
+                                  << construct.get_locus_str()
                                   << ": warning: '#pragma omp task onerror' "
                                   << "has a wrong number of tokens. "
                                   << "It is expecting 'identifier:identifier' "

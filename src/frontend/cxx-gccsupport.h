@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -59,8 +59,7 @@ LIBMCXX_EXTERN void common_check_gxx_type_traits(type_t* lhs_type,
         type_t* gxx_trait_type,
         const char* trait_name,
         decl_context_t decl_context,
-        const char* filename,
-        int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void keep_gcc_attributes_in_symbol(

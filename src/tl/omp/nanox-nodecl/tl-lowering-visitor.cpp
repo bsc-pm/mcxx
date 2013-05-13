@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -32,6 +32,16 @@ namespace TL { namespace Nanox {
         : _lowering(lowering), _function_task_set(function_task_set)
     {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
+    }
+
+    void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
+    {
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Visit first the internal functions
+            walk(function_code.get_internal_functions());
+        }
+        walk(function_code.get_statements());
     }
 
     LoweringVisitor::~LoweringVisitor() { }

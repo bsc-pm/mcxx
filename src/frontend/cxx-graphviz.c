@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -51,7 +51,7 @@ static rb_red_blk_tree* pointer_set = NULL;
 
 static char* quote_protect(const char *c)
 {
-    char *result = calloc(2*strlen(c), sizeof(char));
+    char *result = xcalloc(2*strlen(c), sizeof(char));
 
     const char *p = c;
     char *q = result;
@@ -112,7 +112,7 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
     }
 
     fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%s\\n%s:%d\"]\n", 
-            (size_t)entry, symbol_name, entry->file, entry->line);
+            (size_t)entry, symbol_name, locus_get_filename(entry->locus), locus_get_line(entry->locus));
 
 
     if (!nodecl_is_null(entry->value))
@@ -244,7 +244,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
                     current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
-            free(quoted);
+            xfree(quoted);
         }
         else
         {

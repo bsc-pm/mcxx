@@ -29,8 +29,7 @@ void symbol_deep_copy(scope_entry_t* dest,
 
     dest->value = nodecl_deep_copy(source->value, new_decl_context, symbol_map);
 
-    dest->file = source->file;
-    dest->line = source->line;
+    dest->locus = source->locus;
 
     dest->do_not_print = source->do_not_print;
 

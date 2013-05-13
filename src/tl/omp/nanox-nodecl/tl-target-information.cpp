@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -57,17 +57,26 @@ namespace TL { namespace Nanox {
     {
         return _device_names;
     }
-    
+
     void TargetInformation::set_file(std::string file)
     {
-        _file=file;
+        _file = file;
     }
 
-    std::string TargetInformation::get_file()
+    std::string TargetInformation::get_file() const
     {
         return _file;
     }
-    
+
+    void TargetInformation::set_name(std::string name)
+    {
+        _name = name;
+    }
+
+    std::string TargetInformation::get_name() const
+    {
+        return _name;
+    }
 
     void TargetInformation::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {

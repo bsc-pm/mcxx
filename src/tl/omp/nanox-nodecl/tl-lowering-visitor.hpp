@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -54,6 +54,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
         virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+
+        virtual void visit(const Nodecl::FunctionCode& function_code);
 
     private:
 
@@ -189,6 +191,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source &struct_arg_type_name,
                 bool is_untied,
                 bool mandatory_creation,
+                bool is_function_task,
                 const std::string& wd_description,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct);
@@ -220,7 +223,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
-                Nodecl::NodeclBase &placeholder2);
+                Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &reduction_initialization,
+                Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_worksharing(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
@@ -232,8 +237,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-                Nodecl::NodeclBase& outline_placeholder2
-                );
+                Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& reduction_initialization,
+                Nodecl::NodeclBase& reduction_code);
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
         void loop_spawn_worksharing(
                 OutlineInfo& outline_info,
@@ -251,7 +257,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
-                Nodecl::NodeclBase &placeholder2);
+                Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &reduction_initialization,
+                Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_slicer(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
@@ -263,8 +271,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-                Nodecl::NodeclBase& outline_placeholder2
-                );
+                Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& reduction_initialization,
+                Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
         void loop_spawn_slicer(
                 OutlineInfo& outline_info,
@@ -275,15 +284,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor);
 
+        static bool there_are_reductions(OutlineInfo& outline_info);
+
         Source full_barrier_source();
 
-        Source reduction_initialization_code(
+        void reduction_initialization_code(
                 OutlineInfo& outline_info,
+                Nodecl::NodeclBase ref_tree,
                 Nodecl::NodeclBase construct);
 
         std::set<std::string> _lock_names;
 
-        Source perform_partial_reduction(OutlineInfo& outline_info);
+        void perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree);
 
         Nodecl::NodeclBase emit_critical_region(
                 const std::string lock_name,
@@ -321,6 +333,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 DataReference data_reference);
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
+        static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
+        static Nodecl::NodeclBase get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num);
 
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
@@ -330,6 +344,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
         reduction_map_t _reduction_map;
         TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 };

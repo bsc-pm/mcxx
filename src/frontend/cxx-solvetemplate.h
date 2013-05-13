@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -42,13 +42,12 @@ MCXX_BEGIN_DECLS
 LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_type,
         struct type_tag* specialized_type,
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename,
-        int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         template_parameter_list_t* explicit_template_parameters,
         struct type_tag* function_type, 
-        const char *filename, int line);
+        const locus_t* locus);
 
 MCXX_END_DECLS
 

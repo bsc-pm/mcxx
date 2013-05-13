@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,13 +24,13 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlomp-base.la
 
 END=
 
-libtlomp_base_la_CFLAGS = $(tl_cflags) \
+libtlomp_base_la_CFLAGS = $(phases_cflags) \
                           -I $(srcdir)/../core \
                           -I $(srcdir)/../../vectorizer \
                           -I $(srcdir)/../../analysis/singleton\
@@ -38,7 +38,7 @@ libtlomp_base_la_CFLAGS = $(tl_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           $(END)
 
-libtlomp_base_la_CXXFLAGS = $(tl_cflags) \
+libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                           -I $(srcdir)/../core \
                           -I $(srcdir)/../../vectorizer \
                           -I $(srcdir)/../../analysis/singleton\
@@ -46,8 +46,8 @@ libtlomp_base_la_CXXFLAGS = $(tl_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           $(END)
 
-libtlomp_base_la_LDFLAGS = $(tl_ldflags)
-libtlomp_base_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../../vectorizer/libtlvectorizer.la
+libtlomp_base_la_LDFLAGS = $(phases_ldflags)
+libtlomp_base_la_LIBADD = $(phases_libadd) ../core/libtlomp-core.la ../../vectorizer/libtlvectorizer.la
 
 
 libtlomp_base_la_SOURCES = \

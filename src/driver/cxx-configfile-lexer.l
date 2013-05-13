@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -35,6 +35,7 @@
 #include "cxx-utils.h"
 #include "uniquestr.h"
 #include "filename.h"
+#include "mem.h"
 
 char configfile_lexer_free_text = 0;
 
@@ -54,6 +55,8 @@ struct location_tag
 location_t current_location = { NULL, NULL, 1, 1};
 
 %}
+
+%option noyyalloc noyyrealloc noyyfree
 
 %x linecomment
 %x maybe_comes_option_line
@@ -272,3 +275,16 @@ UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
     UNUSED_PARAMETER static int input  (void);
 #endif
 #endif
+
+void * configfilealloc (size_t bytes)
+{
+    return xmalloc(bytes);
+}
+void * configfilerealloc (void * ptr, size_t bytes)
+{
+    return xrealloc(ptr, bytes);
+}
+void   configfilefree (void * ptr)
+{
+    xfree(ptr);
+}

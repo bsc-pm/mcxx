@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -33,6 +33,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+
+#include "mem.h"
 
 const char* strappend(const char* orig, const char* appended)
 {
@@ -69,7 +71,7 @@ const char** comma_separate_values(const char* value, int *num_elems)
 
     if (value != NULL)
     {
-        char* comma_string = strdup(value);
+        char* comma_string = xstrdup(value);
         char* current = strtok(comma_string, ",");
 
         while (current != NULL)
@@ -78,7 +80,7 @@ const char** comma_separate_values(const char* value, int *num_elems)
             current = strtok(NULL, ",");
         }
 
-        free(comma_string);
+        xfree(comma_string);
     }
 
     P_LIST_ADD(result, *num_elems, NULL);
@@ -94,16 +96,16 @@ const char** blank_separate_values(const char* value, int *num_elems)
 
     if (value != NULL)
     {
-        char* comma_string = strdup(value);
+        char* comma_string = xstrdup(value);
         char* current = strtok(comma_string, " \t");
 
         while (current != NULL)
         {
-            P_LIST_ADD(result, *num_elems, strdup(current));
+            P_LIST_ADD(result, *num_elems, xstrdup(current));
             current = strtok(NULL, " \t");
         }
 
-        free(comma_string);
+        xfree(comma_string);
     }
 
     P_LIST_ADD(result, *num_elems, NULL);
@@ -269,7 +271,7 @@ static int uniquestr_vsprintf(const char** out_str, const char* format, va_list 
 {
     int result;
     int size = 512;
-    char* c = calloc(size, sizeof(char));
+    char* c = xcalloc(size, sizeof(char));
     va_list va;
 
     va_copy(va, args);
@@ -280,15 +282,15 @@ static int uniquestr_vsprintf(const char** out_str, const char* format, va_list 
     {
         va_copy(va, args);
         size *= 2;
-        free(c);
-        c = calloc(size, sizeof(char));
+        xfree(c);
+        c = xcalloc(size, sizeof(char));
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }
 
     *out_str = uniquestr(c); 
 
-    free(c);
+    xfree(c);
     return result;
 }
 

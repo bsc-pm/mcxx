@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -288,23 +288,9 @@ namespace TL
                 compiler_phases[config].push_back(new_phase);
             }
 
-            static void phases_help(compilation_configuration_t* config)
+            static void single_phase_help(TL::CompilerPhase* phase)
             {
-                if (!compiler_phases[config].empty())
-                {
-                    std::cerr << std::endl;
-                    std::cerr << "Loaded compiler phases in this profile (in the order they will be run)" << std::endl;
-                    std::cerr << std::endl;
-
-                    compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
-
-                    for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
-                            it != compiler_phases_list.end();
-                            it++)
-                    {
 #define BLANK_INDENT "   "
-                        TL::CompilerPhase* phase = (*it);
-
                         std::cerr 
                             << "Phase: " << phase->get_phase_name() << std::endl 
                             << std::endl
@@ -332,6 +318,34 @@ namespace TL
 
                         std::cerr << std::endl;
 #undef BLANK_INDENT
+            }
+
+            static void phases_help(compilation_configuration_t* config)
+            {
+                if (!compiler_phases[config].empty()
+                    || config->codegen_phase != NULL)
+                {
+                    std::cerr << std::endl;
+                    std::cerr << "Loaded compiler phases in this profile (in the order they will be run)" << std::endl;
+                    std::cerr << std::endl;
+
+                    compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
+
+                    for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                            it != compiler_phases_list.end();
+                            it++)
+                    {
+                        TL::CompilerPhase* phase = (*it);
+                        single_phase_help(phase);
+                    }
+
+                    if (config->codegen_phase != NULL)
+                    {
+                        single_phase_help((TL::CompilerPhase*)config->codegen_phase);
+                    }
+                    else
+                    {
+                        std::cerr << "No codegen phase was loaded" << std::endl;
                     }
                 }
                 else
@@ -658,7 +672,7 @@ extern "C"
             fprintf(stderr, "COMPILERPHASES: DTO Initialized\n");
         }
 
-        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), translation_unit->input_filename, 0);
+        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), make_locus(translation_unit->input_filename, 0, 0));
         TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }

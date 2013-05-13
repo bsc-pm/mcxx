@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -27,11 +27,11 @@
 
 EXTRA_DIST=README
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlbasic_test.la
 
-COMMON_CFLAGS= -Wall $(tl_cflags)
+COMMON_CFLAGS= -Wall $(phases_cflags)
 
 libtlbasic_test_la_CXXFLAGS = $(COMMON_CFLAGS)
 
@@ -40,5 +40,5 @@ libtlbasic_test_la_SOURCES = \
 						tl-basic_test.cpp
 
 
-libtlbasic_test_la_LIBADD = $(tl_libadd)
-libtlbasic_test_la_LDFLAGS = $(tl_ldflags)
+libtlbasic_test_la_LIBADD = $(phases_libadd)
+libtlbasic_test_la_LDFLAGS = $(phases_ldflags)

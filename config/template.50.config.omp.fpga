@@ -1,0 +1,29 @@
+# fpgacc (FPGA-Zynq)
+[fpgacc: omp-base]
+language = C
+options =
+preprocessor_options =-include nanos-fpga.h
+linker_options = -lnanox-fpga-api
+compiler_phase = libtlnanox-fpga.so
+
+[fpgacxx: omp-base]
+language = C++
+options =
+preprocessor_options =-include nanos-fpga.h
+linker_options = -lnanox-fpga-api
+compiler_phase = libtlnanox-fpga.so
+
+# FPGA profile
+[fpga]
+language = C
+options =
+# cross compile for arm: ato some point, this is going to call a hardware build script
+preprocessor_name = @GCC@
+preprocessor_options = -E
+compiler_name = @GCC@
+compiler_options =
+linker_name = @GCC@
+linker_options = -Xlinker --add-needed
+target_options[fpgacc] = no_sublink no_embed
+target_options[fpgacc-dev] = no_sublink no_embed
+target_options[fpgacxx] = no_sublink no_embed

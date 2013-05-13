@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -46,6 +46,7 @@ namespace TL { namespace Nanox {
         std::string ompss_prefix = "ompss_";
         bool is_ompss_schedule = (schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix);
 
+#if 0
         if (_lowering->in_ompss_mode() != is_ompss_schedule)
         {
             if (_lowering->in_ompss_mode())
@@ -71,8 +72,9 @@ namespace TL { namespace Nanox {
                     ;
             }
         }
+#endif
 
-        if (_lowering->in_ompss_mode())
+        if (is_ompss_schedule)
         {
             lower_for_slicer(construct);
         }

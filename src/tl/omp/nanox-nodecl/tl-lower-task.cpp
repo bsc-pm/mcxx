@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -34,6 +34,7 @@
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
+#include "tl-compilerpipeline.hpp"
 
 #include "tl-lower-task-common.hpp"
 
@@ -41,10 +42,10 @@ using TL::Source;
 
 namespace TL { namespace Nanox {
 
-TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::NodeclBase construct)
+TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodecl::NodeclBase construct)
 {
     //FIXME: The 'construct' parameter is only used to obtain the line and the filename
-    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_devices);
+    std::map<int, Symbol>::iterator it = _declared_const_wd_type_map.find(num_implementations);
     if (it == _declared_const_wd_type_map.end())
     {
         std::stringstream ss;
@@ -52,7 +53,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
         {
             ss << "struct ";
         }
-        ss << "nanos_const_wd_definition_" << num_devices;
+        ss << "nanos_const_wd_definition_" << num_implementations;
 
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
@@ -67,7 +68,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
-        _declared_const_wd_type_map[num_devices] = new_class_symbol;
+        _declared_const_wd_type_map[num_implementations] = new_class_symbol;
 
         TL::Symbol base_class = sc.get_symbol_from_name("nanos_const_wd_definition_t");
         ERROR_CONDITION(!base_class.is_valid(), "Invalid symbol", 0);
@@ -82,8 +83,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -104,13 +104,12 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
 
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
                         ::get_user_defined_type(devices_class.get_internal_symbol()),
-                        const_value_to_nodecl( const_value_get_signed_int(num_devices)),
+                        const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -120,7 +119,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
         finish_class_type(new_class_type, 
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(), 
-                "", 0,
+                make_locus("", 0, 0),
                 // construct.get_filename().c_str(),
                 // construct.get_line(),
                 &nodecl_output);
@@ -137,8 +136,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_devices, Nodecl::Nodec
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
                     /* optative context */ nodecl_null(),
                     new_class_symbol,
-                    construct.get_filename(),
-                    construct.get_line());
+                    construct.get_locus());
 
             TL::ObjectList<Nodecl::NodeclBase> defs =
                 Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
@@ -160,6 +158,7 @@ Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
         bool mandatory_creation,
+        bool is_function_task,
         const std::string& wd_description,
         OutlineInfo& outline_info,
         Nodecl::NodeclBase construct)
@@ -181,26 +180,17 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_devices;
+    int num_implementations = 0;
     {
-        std::set<std::string> used_devices;
         for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
                 it != implementation_table.end();
                 ++it)
         {
             TargetInformation target_info = it->second;
-            ObjectList<std::string> devices = target_info.get_device_names();
-            for (ObjectList<std::string>::iterator it2 = devices.begin();
-                    it2 != devices.end();
-                    ++it2)
-            {
-                used_devices.insert(*it2);
-            }
+            num_implementations += target_info.get_device_names().size();
         }
-        num_devices = used_devices.size();
     }
-
-    TL::Symbol const_wd_type = declare_const_wd_type(num_devices, construct);
+    TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
 
@@ -208,6 +198,9 @@ Source LoweringVisitor::fill_const_wd_info(
            device_descriptions,
            opt_fortran_dynamic_init;
 
+    // In Fortran, the copies are filled in the function 'setCopies',
+    // after the creation of the WorkDescriptor. For this reason,
+    // we initialize the 'num_copies' and the 'num_dimensions' to zero
     Source result;
     result
         << ancillary_device_descriptions
@@ -217,12 +210,13 @@ Source LoweringVisitor::fill_const_wd_info(
         << /* ".data_alignment = " << */ alignment << ", \n"
         // We do not register copies at creation in Fortran
         << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
-        << /* ".num_devices = " << */ num_devices << ",\n"
+        << /* ".num_devices = " << */ num_implementations << ",\n"
         ;
+
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
         result
-            << /* ".num_dimensions = " */ num_copies_dimensions << ",\n"
+            << /* ".num_dimensions = " */ (!IS_FORTRAN_LANGUAGE ? num_copies_dimensions : 0) << ",\n"
             ;
     }
 
@@ -285,6 +279,7 @@ Source LoweringVisitor::fill_const_wd_info(
     // For every existant implementation (including the one which defines the task),
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
+    int fortran_device_index = 0;
     for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
@@ -293,10 +288,16 @@ Source LoweringVisitor::fill_const_wd_info(
         TargetInformation target_info = it->second;
         std::string implementor_outline_name = target_info.get_outline_name();
 
+        // The symbol 'real_called_task' will be invalid if the current task is
+        // a inline task. Otherwise, It will be the implementor symbol
+        TL::Symbol real_called_task =
+            (is_function_task) ?
+            implementor_symbol : TL::Symbol::invalid();
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
-                ++it2)
+                ++it2, ++fortran_device_index)
         {
             Source ancillary_device_description, device_description, aux_fortran_init;
 
@@ -316,7 +317,10 @@ Source LoweringVisitor::fill_const_wd_info(
                     implementor_outline_name,
                     arguments_structure,
                     current_function,
-                    target_info);
+                    target_info,
+                    fortran_device_index,
+                    outline_info.get_data_items(),
+                    real_called_task);
 
             device->get_device_descriptor(
                     info_implementor,
@@ -492,6 +496,7 @@ void LoweringVisitor::emit_async_common(
             struct_arg_type_name,
             is_untied,
             mandatory_creation,
+            is_function_task,
             wd_description,
             outline_info,
             construct);
@@ -534,6 +539,22 @@ void LoweringVisitor::emit_async_common(
             (is_function_task) ?
             implementor_symbol : TL::Symbol::invalid();
 
+        Nodecl::NodeclBase task_statements = statements;
+        if (is_function_task
+                && called_task != implementor_symbol)
+        {
+            // We cannot use the original statements because they contain a
+            // function call to the original function task instead of a call to
+            // the function specified in the 'implements' clause.
+            Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
+            symbol_map_copy_statements.add_map(called_task, implementor_symbol);
+
+            task_statements = Nodecl::Utils::deep_copy(
+                    statements,
+                    implementor_symbol.get_related_scope(),
+                    symbol_map_copy_statements);
+        }
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
@@ -549,6 +570,7 @@ void LoweringVisitor::emit_async_common(
                     outline_info.get_data_items(),
                     target_info,
                     statements,
+                    task_statements,
                     task_label,
                     structure_symbol,
                     real_called_task);
@@ -557,30 +579,9 @@ void LoweringVisitor::emit_async_common(
             Nodecl::Utils::SymbolMap *symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
-            // We cannot use the original statements because It contains a function
-            // call to the original function task and we really want to call to the
-            // function specified in the 'implements' clause. For this reason, we
-            // copy the tree and we replace the called task symbol with the
-            // implementor symbol
-            Nodecl::NodeclBase outline_statements_code;
-            if (is_function_task
-                    && called_task != implementor_symbol)
-            {
-                Nodecl::Utils::SimpleSymbolMap symbol_map_copy_statements;
-                symbol_map_copy_statements.add_map(called_task, implementor_symbol);
 
-                Nodecl::NodeclBase copy_statements = Nodecl::Utils::deep_copy(
-                        output_statements,
-                        implementor_symbol.get_related_scope(),
-                        symbol_map_copy_statements);
-                outline_statements_code =
-                    Nodecl::Utils::deep_copy(copy_statements, outline_placeholder, *symbol_map);
-            }
-            else
-            {
-                outline_statements_code =
+            Nodecl::NodeclBase outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
-            }
 
             delete symbol_map;
 
@@ -588,7 +589,11 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    if (is_function_task)
+    // In Fortran we don't need to remove the function task from the original source because:
+    //  - The function task is a smp task, or
+    //  - The function task is not a smp task and we only have it's declaration
+    if (!IS_FORTRAN_LANGUAGE
+            && is_function_task)
     {
         remove_fun_tasks_from_source_as_possible(implementation_table);
     }
@@ -744,9 +749,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         OutlineDataItem& argument_outline_data_item =
             outline_info.get_entity_for_symbol(this_symbol);
 
-        // We must ensure that this OutlineDataItem is moved to the
-        // first position of the list of OutlineDataItems.
-        outline_info.move_at_begin(argument_outline_data_item);
+        argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
@@ -873,26 +876,77 @@ void LoweringVisitor::fill_arguments(
                             }
                             else
                             {
+                                sym_type = sym_type.no_ref().get_unqualified_type();
                                 if ((*it)->get_captured_value().is_null())
                                 {
-                                    // Plain assignment is enough
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (& ol_args->" << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (& imm_args." << (*it)->get_field_name() << " )"
+                                            << as_type(sym_type)
+                                            << "( " << as_symbol((*it)->get_symbol()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        // Plain assignment is enough
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                                            ;
+                                    }
                                 }
                                 else
                                 {
                                     Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                                    Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                        fill_immediate_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                    }
 
-                                    fill_outline_arguments << 
-                                        "ol_args->" << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
-                                    fill_immediate_arguments << 
-                                        "imm_args." << (*it)->get_field_name() << " = " << as_expression(captured.shallow_copy()) << ";"
-                                        ;
+                                    if (IS_CXX_LANGUAGE
+                                            && sym_type.is_class()
+                                            && !sym_type.is_pod())
+                                    {
+                                        fill_outline_arguments <<
+                                            "new (&ol_args->" << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "new (&imm_args." << (*it)->get_field_name() << ")"
+                                            << as_type(sym_type)
+                                            << "(" << as_expression(captured.shallow_copy()) << ");"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        fill_outline_arguments <<
+                                            "ol_args->" << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                        fill_immediate_arguments <<
+                                            "imm_args." << (*it)->get_field_name()
+                                            << " = " << as_expression(captured.shallow_copy()) << ";"
+                                            ;
+                                    }
+
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "}";
+                                        fill_immediate_arguments << "}";
+                                    }
                                 }
                             }
                         }
@@ -939,8 +993,7 @@ void LoweringVisitor::fill_arguments(
                             base_expr = Nodecl::Reference::make(
                                     (*it)->get_base_address_expression().shallow_copy(),
                                     t,
-                                    base_expr.get_filename(),
-                                    base_expr.get_line());
+                                    base_expr.get_locus());
                         }
                         else
                         {
@@ -1009,6 +1062,12 @@ void LoweringVisitor::fill_arguments(
                         else
                         {
                             Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                            Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                                fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                            }
                             if (t.is_pointer())
                             {
                                 fill_outline_arguments <<
@@ -1026,6 +1085,11 @@ void LoweringVisitor::fill_arguments(
                                 fill_immediate_arguments <<
                                     "imm_args % " << (*it)->get_field_name() << " = " <<  as_expression(captured.shallow_copy()) << "\n"
                                     ;
+                            }
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "END IF\n";
+                                fill_immediate_arguments << "END IF\n";
                             }
                         }
                         break;
@@ -1055,11 +1119,11 @@ void LoweringVisitor::fill_arguments(
                         else
                         {
                             Source lbound_specifier;
-                            if (t.is_array())
+                            if (t.is_fortran_array())
                             {
                                 lbound_specifier << "(";
 
-                                int i, N = t.get_num_dimensions();
+                                int i, N = t.fortran_rank();
                                 for (i = 1; i <= N; i++)
                                 {
                                     if (i > 1)
@@ -1167,12 +1231,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (lower.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_lower_bound_" << lower_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_lower_bound_" << lower_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_lower_bound_" << lower_bound_index
                 << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 
@@ -1181,12 +1245,12 @@ void LoweringVisitor::fill_allocatable_dimensions(
 
         if (upper.is_null())
         {
-            fill_outline_arguments 
-                << "ol_args % mcc_upper_bound_" << upper_bound_index 
+            fill_outline_arguments
+                << "ol_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
-            fill_immediate_arguments 
-                << "imm_args % mcc_upper_bound_" << upper_bound_index 
+            fill_immediate_arguments
+                << "imm_args % mcc_upper_bound_" << upper_bound_index
                 << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
                 ;
 
@@ -1449,7 +1513,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
@@ -1467,6 +1531,8 @@ void LoweringVisitor::fill_copies_region(
             else
             {
                 TL::Type t = copy_type;
+                int rank = copy_type.fortran_rank();
+
                 while (t.is_array())
                 {
                     Nodecl::NodeclBase lower, upper, region_size;
@@ -1481,12 +1547,30 @@ void LoweringVisitor::fill_copies_region(
                         region_size = t.array_get_size();
                     }
 
+                    if (IS_FORTRAN_LANGUAGE
+                            && t.is_fortran_array())
+                    {
+                        if (lower.is_null())
+                        {
+                            lower = get_lower_bound(data_ref, rank);
+                        }
+                        if (upper.is_null())
+                        {
+                            upper = get_upper_bound(data_ref, rank);
+                        }
+                        if (region_size.is_null())
+                        {
+                            region_size = get_size_of_fortran_array(data_ref, rank);
+                        }
+                    }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
                     region_sizes.append(region_size);
 
                     t = t.array_element();
+
+                    rank--;
                 }
 
                 base_type = t;
@@ -1685,6 +1769,10 @@ struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
 
 };
 
+bool is_not_alnum(int charact) {
+    return !std::isalnum(charact);
+}
+
 void LoweringVisitor::emit_translation_function_nonregion(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -1697,7 +1785,10 @@ void LoweringVisitor::emit_translation_function_nonregion(
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
     Source fun_name;
-    fun_name << "nanos_xlate_fun_" << fun_num;
+    std::string filename = TL::CompilationProcess::get_current_file().get_filename();
+    //Remove non-alphanumeric characters from the string
+    filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
+    fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
     xlate_function_name = fun_name;
 
@@ -1761,7 +1852,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
-                    ctr.get_locus().c_str(),
+                    ctr.get_locus_str().c_str(),
                     (*it)->get_symbol().get_name().c_str(),
                     copies[0].expression.prettyprint().c_str());
         }
@@ -1828,8 +1919,11 @@ void LoweringVisitor::emit_translation_function_region(
         )
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
+    std::string filename = TL::CompilationProcess::get_current_file().get_filename();
+    //Remove non-alphanumeric characters from the string
+    filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
     Source fun_name;
-    fun_name << "nanos_xlate_fun_" << fun_num;
+    fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
     xlate_function_name = fun_name;
 
@@ -1983,7 +2077,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 ERROR_CONDITION(!dep_expr.is_valid(),
                         "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus().c_str(),
+                        dep_expr.get_locus_str().c_str(),
                         dep_expr.prettyprint().c_str(),
                         dep_expr.get_error_log().c_str());
 
@@ -2144,6 +2238,10 @@ void LoweringVisitor::fill_dependences_internal(
                             array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
                         }
 
+                        // Meaning that in this context A(:) is OK
+                        if (region_lb.is_null())
+                            region_lb = array_lb;
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -2151,6 +2249,9 @@ void LoweringVisitor::fill_dependences_internal(
                         lb = diff.parse_expression(ctr);
 
                         size = contiguous_array_type.array_get_region_size();
+
+                        if (size.is_null())
+                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
                     }
                     else
                     {
@@ -2242,7 +2343,7 @@ void LoweringVisitor::fill_dependences_internal(
     }
     else
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus().c_str());
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 
@@ -2257,18 +2358,60 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
     if (n.is_null()
             && IS_FORTRAN_LANGUAGE)
     {
-        // Craft a SIZE
-        Source src;
+        // Craft a SIZE if possible
+        TL::Symbol sym = data_reference.get_base_symbol();
 
-        Nodecl::NodeclBase expr = data_reference;
-        if (expr.is<Nodecl::ArraySubscript>())
+        if (sym.is_parameter()
+                && sym.get_type().no_ref().is_array()
+                && !sym.get_type().no_ref().array_requires_descriptor()
+                && fortran_dimension == fortran_get_rank_of_type(array_type.no_ref().get_internal_type()))
         {
-            expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+            Nodecl::NodeclBase expr = data_reference;
+            if (expr.is<Nodecl::ArraySubscript>())
+            {
+                expr = expr.as<Nodecl::ArraySubscript>().get_subscripts();
+
+                expr = expr.as<Nodecl::List>()[fortran_dimension - 1];
+
+                if (expr.is<Nodecl::Range>())
+                {
+                    // Use the subscript
+                    Source src;
+                    Nodecl::NodeclBase lower =  expr.as<Nodecl::Range>().get_lower().shallow_copy();
+                    if (lower.is_null())
+                    {
+                        lower = const_value_to_nodecl(const_value_get_signed_int(1));
+                    }
+                    src << "(" << as_expression(expr.as<Nodecl::Range>().get_upper().shallow_copy()) << ")"
+                        << " - "
+                        << "(" << as_expression(lower) << ")"
+                        << " + 1";
+                    n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+                }
+                else
+                {
+                    internal_error("Assumed size array does not have a range", 0);
+                }
+            }
+            else
+            {
+                internal_error("Assumed size array is not fully specified", 0);
+            }
         }
+        else
+        {
+            Source src;
 
-        src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+            Nodecl::NodeclBase expr = data_reference;
+            if (expr.is<Nodecl::ArraySubscript>())
+            {
+                expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+            }
 
-        n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+            src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
+
+            n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+        }
     }
 
     return n;
@@ -2284,8 +2427,35 @@ Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr,
         dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
     }
 
-    // The contiguous dimension in Fortran is always the number 1
     src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }

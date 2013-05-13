@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -57,7 +57,7 @@ void check_statement_placeholder(AST placeholder, decl_context_t decl_context UN
 {
     AST* p = decode_placeholder(ASTText(placeholder));
 
-    nodecl_t empty_stmt = nodecl_make_empty_statement(ASTFileName(placeholder), ASTLine(placeholder));
+    nodecl_t empty_stmt = nodecl_make_empty_statement(ast_get_locus(placeholder));
 
     nodecl_set_placeholder(empty_stmt, p);
 

@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -25,20 +25,20 @@
 ##########################################################################
 
 
-include ../../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 END=
 
 phases_LTLIBRARIES=libtlnanox-mpi.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+device_flags=$(phases_cflags) -I$(srcdir)/../.. \
 			 -I$(srcdir)/../../../nanos-common \
 			 -I$(srcdir)/../../../core
 
 libtlnanox_mpi_la_CFLAGS = $(device_flags)
 libtlnanox_mpi_la_CXXFLAGS = $(device_flags)
 
-libtlnanox_mpi_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags)
 
 libtlnanox_mpi_la_SOURCES = \
        nanox-mpi.hpp \

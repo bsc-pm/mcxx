@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -25,12 +25,13 @@
 ##########################################################################
 
 
-include ../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libcodegen-knc-module.la
 
 END=
 
+<<<<<<< HEAD:src/tl/codegen/vector/knc/Makefile.am
 libcodegen_knc_module_la_CFLAGS = $(tl_cflags) \
     -I $(srcdir)/../../common \
     $(END)
@@ -41,6 +42,18 @@ libcodegen_knc_module_la_CXXFLAGS = $(tl_cflags) \
 
 libcodegen_knc_module_la_LDFLAGS = $(tl_ldflags)
 libcodegen_knc_module_la_LIBADD = ../../common/libcodegen-common.la \
+=======
+libcodegen_sse_module_la_CFLAGS = $(phases_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_sse_module_la_CXXFLAGS = $(phases_cflags) \
+    -I $(srcdir)/../../common \
+    $(END)
+
+libcodegen_sse_module_la_LDFLAGS = $(phases_ldflags)
+libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
+>>>>>>> master:src/tl/codegen/vector/sse/Makefile.am
 					       $(END)
 
 

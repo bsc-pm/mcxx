@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -74,13 +74,25 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
             Nodecl::Utils::SimpleSymbolMap *_symbol_map;
             TL::Scope _scope;
+            TL::Symbol _reference_function;
+            std::set<TL::Symbol> _functions_visited;
+
+        private:
+
+            bool in_scope_of_reference_function(TL::Symbol sym)
+            {
+                return (TL::Symbol(sym.get_scope().get_decl_context().current_scope->related_entry) == _reference_function);
+            }
 
         public:
-            ExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map, TL::Scope new_scope)
-                : _scope(new_scope)
+            ExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map,
+                    TL::Scope new_scope,
+                    TL::Symbol reference_function)
+                : _scope(new_scope), _reference_function(reference_function)
             {
                 _symbol_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
                 symbol_map = _symbol_map;
+                _functions_visited.insert(reference_function);
             }
 
             virtual void visit(const Nodecl::FunctionCall &function_call)
@@ -104,9 +116,21 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             virtual void visit(const Nodecl::Symbol &node_sym)
             {
                 TL::Symbol sym = node_sym.get_symbol();
+                if (!in_scope_of_reference_function(sym))
+                    return;
+
                 if (sym.is_function())
                 {
                     _extra_insert_sym.insert(sym);
+
+                    if (sym.is_nested_function())
+                    {
+                        std::pair<std::set<TL::Symbol>::iterator, bool> p = _functions_visited.insert(sym);
+                        if (p.second)
+                        {
+                            walk(sym.get_function_code());
+                        }
+                    }
                 }
                 else if (sym.is_fortran_namelist())
                 {
@@ -119,10 +143,16 @@ namespace Nodecl { namespace Utils { namespace Fortran {
                 TL::Type t = node.get_type();
                 walk(node.get_items());
 
-                if (t.is_named_class())
+                if (t.is_named_class()
+                        && in_scope_of_reference_function(t.get_symbol()))
                 {
                     _extra_insert_sym.insert(t.get_symbol());
                 }
+            }
+
+            void insert_extra_symbol(TL::Symbol sym)
+            {
+                _extra_insert_sym.insert(sym);
             }
 
             void insert_extra_symbols(const Nodecl::NodeclBase &statements)
@@ -211,9 +241,11 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
     };
 
-    void copy_used_modules(TL::Scope orig_scope,
+    void append_used_modules(TL::Scope orig_scope,
             TL::Scope new_scope);
 
+    void append_module_to_scope(TL::Symbol module,
+            TL::Scope scope);
 } } }
 
 #endif // TL_NODECL_UTILS_FORTRAN_HPP
