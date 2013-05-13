@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -70,7 +70,8 @@ namespace Nodecl {
             void set_text(const std::string& str) { nodecl_set_text(_n, uniquestr(str.c_str())); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
             int get_line() const { return nodecl_get_line(_n); }
-            std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << ":" << this->get_line(); return ss.str(); }
+            std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
+            const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
             const nodecl_t& get_internal_nodecl() const { return _n; }
             nodecl_t& get_internal_nodecl() { return _n; }
             TL::ObjectList<NodeclBase> children() const {

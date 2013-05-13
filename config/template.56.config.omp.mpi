@@ -1,20 +1,39 @@
-# nvcc (CUDA)
-[mmpicc : omp-base]
+[mpimcc : omp-base]
 language = C
-preprocessor_name = mpiicc
-preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h
-compiler_name = mpiicc
+options= --variable=allow_shared_without_copies:1
+preprocessor_name = @MPICC@
+{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
+{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH
+compiler_name = @MPICC@
 compiler_options=  -mt_mpi
-linker_name = mpiicc
+linker_name = @MPICC@
 linker_options = -mt_mpi
 compiler_phase = libtlnanox-mpi.so
 
-[mmpicxx : omp-base]
+
+[mpimcxx : omp-base]
 language = C++
-preprocessor_name = mpiicpc
-preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h
-compiler_name = mpiicpc
+options= --variable=allow_shared_without_copies:1
+preprocessor_name = @MPICXX@
+{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH -DMPICH_IGNORE_CXX_SEEK
+{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH -DMPICH_IGNORE_CXX_SEEK
+compiler_name = @MPICXX@
 compiler_options=  -mt_mpi
-linker_name = mpiicpc
+linker_name = @MPICXX@
+linker_options = -mt_mpi
+compiler_phase = libtlnanox-mpi.so
+
+[mpimfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/mpi/@MPIMODULE@ --variable=allow_shared_without_copies:1
+preprocessor_name = @MPICC@
+{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
+{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH
+fortran_preprocessor_name = @MPIFORT@
+{!mmic} fortran_preprocessor_options = -cpp -P -mt_mpi -DX86_ARCH
+{mmic} fortran_preprocessor_options = -cpp -P -mt_mpi-DMIC_ARCH
+compiler_name = @MPIFORT@
+compiler_options= -mt_mpi
+linker_name = @MPIFORT@
 linker_options = -mt_mpi
 compiler_phase = libtlnanox-mpi.so

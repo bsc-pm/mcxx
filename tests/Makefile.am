@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -74,6 +74,7 @@ check-local : do-check preserve-check-log
 
 FORTRAN_DIRS=\
 			 $(BETS_DIRS)/01_fortran.dg \
+			 $(BETS_DIRS)/03_extensions_f.dg \
 			 $(BETS_DIRS)/07_phases_omp.dg/common/fortran \
 			 $(BETS_DIRS)/07_phases_ompss.dg/fortran \
 			 $(END)
@@ -93,6 +94,11 @@ CORE_DIRS=\
 		$(BETS_DIRS)/06_run_cxx.dg \
 		$(END)
 
+OMP_DIRS= \
+        $(BETS_DIRS)/07_phases_omp.dg \
+        $(BETS_DIRS)/07_phases_ompss.dg \
+        $(END)
+
 fortran-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(FORTRAN_DIRS)
@@ -104,6 +110,10 @@ core-check : prepare-check
 core-fortran-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
+
+omp-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(OMP_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \

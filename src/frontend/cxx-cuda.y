@@ -31,33 +31,33 @@ postfix_expression : cuda_kernel_call
 
 cuda_specifiers : CUDA_DEVICE
 {
-    $$ = ASTLeaf(AST_CUDA_DEVICE, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_DEVICE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | CUDA_GLOBAL
 {
-    $$ = ASTLeaf(AST_CUDA_GLOBAL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_GLOBAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | CUDA_HOST
 {
-    $$ = ASTLeaf(AST_CUDA_HOST, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_HOST, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | CUDA_CONSTANT
 {
-    $$ = ASTLeaf(AST_CUDA_CONSTANT, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_CONSTANT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | CUDA_SHARED
 {
-    $$ = ASTLeaf(AST_CUDA_SHARED, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_SHARED, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
 cuda_kernel_call : postfix_expression cuda_kernel_arguments '(' ')'
 {
-    $$ = ASTMake3(AST_CUDA_KERNEL_CALL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_CUDA_KERNEL_CALL, $1, $2, NULL, ast_get_locus($1), NULL);
 }
 | postfix_expression cuda_kernel_arguments '(' expression_list ')'
 {
-    $$ = ASTMake3(AST_CUDA_KERNEL_CALL, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_CUDA_KERNEL_CALL, $1, $2, $4, ast_get_locus($1), NULL);
 }
 ;
 
@@ -69,15 +69,15 @@ cuda_kernel_arguments : cuda_kernel_config_left cuda_kernel_config_list cuda_ker
 
 cuda_kernel_config_list : assignment_expression ',' assignment_expression ',' assignment_expression ',' assignment_expression
 {
-    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, $5, $7, ast_get_locus($1), NULL);
 }
 | assignment_expression ',' assignment_expression ',' assignment_expression
 {
-    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, $5, NULL, ast_get_locus($1), NULL);
 }
 | assignment_expression ',' assignment_expression
 {
-    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_CUDA_KERNEL_ARGUMENTS, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
 }
 ;
 

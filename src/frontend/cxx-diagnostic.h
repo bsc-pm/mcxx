@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -35,9 +35,9 @@ void diagnostics_reset(void);
 int diagnostics_get_error_count(void);
 int diagnostics_get_warn_count(void);
 
-void error_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
-void warn_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
-void info_printf(const char* format, ...) __attribute__((format(gnu_printf, 1, 2)));
+void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
+void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
 
 MCXX_END_DECLS
 

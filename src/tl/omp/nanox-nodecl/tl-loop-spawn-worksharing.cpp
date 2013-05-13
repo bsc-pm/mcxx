@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -79,11 +79,13 @@ namespace TL { namespace Nanox {
         Source call_outline_function;
 
         Source schedule_setup;
-
+        schedule_setup
+            <<     "int nanos_chunk;"
+            ;
         if (schedule.get_text() == "runtime")
         {
             schedule_setup
-                <<     "omp_sched_t nanos_runtime_sched;"
+                <<     "nanos_omp_sched_t nanos_runtime_sched;"
                 <<     "err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
                 <<     "if (err != NANOS_OK)"
                 <<         "nanos_handle_error(err);"
@@ -96,13 +98,10 @@ namespace TL { namespace Nanox {
                 <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
                 <<     "if (current_ws_policy == 0)"
                 <<         "nanos_handle_error(NANOS_UNIMPLEMENTED);"
-                ;
+                <<     "nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"
+            ;
         }
 
-        schedule_setup
-            <<     "int nanos_chunk;"
-            <<     "nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"
-            ;
 
         Source worksharing_creation;
 
@@ -122,6 +121,7 @@ namespace TL { namespace Nanox {
             << fill_const_wd_info(struct_arg_type_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
+                    /* is_function_task */ false,
                     /* wd_description */ enclosing_function.get_name(),
                     outline_info,
                     construct);

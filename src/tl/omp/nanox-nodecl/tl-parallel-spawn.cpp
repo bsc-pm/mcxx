@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -26,6 +26,7 @@
 
 
 #include "tl-source.hpp"
+#include "tl-nanos.hpp"
 #include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
@@ -109,18 +110,29 @@ namespace TL { namespace Nanox {
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
+                /* is_function_task */ false,
                 /* wd_description */ current_function.get_name(),
                 outline_info,
                 construct);
 
         Source num_threads;
-        if (num_replicas.is_null())
+
+        if (Nanos::Version::interface_is_at_least("openmp", 7))
         {
-            num_threads << "nanos_omp_get_max_threads()";
+            num_threads << "nanos_omp_get_num_threads_next_parallel("
+                << (num_replicas.is_null() ? "0" : as_expression(num_replicas))
+                << ")";
         }
         else
         {
-            num_threads << as_expression(num_replicas);
+            if (num_replicas.is_null())
+            {
+                num_threads << "nanos_omp_get_max_threads()";
+            }
+            else
+            {
+                num_threads << as_expression(num_replicas);
+            }
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,

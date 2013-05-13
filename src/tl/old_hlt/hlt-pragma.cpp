@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -112,7 +112,7 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
     TL::ObjectList<TL::Type> param_type_list;
     param_type_list.append(types[0]);
     
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_IV_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0])
@@ -161,7 +161,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     TL::ObjectList<TL::Type> param_type_list;
     param_type_list.append(types[0]);
 
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VR_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0])
@@ -208,7 +208,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
         param_type_list.append(types[i]);
     }
 
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_GF_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = TL::Type(types[0])
@@ -264,7 +264,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
         param_type_list.append(types[i]);
     }
 
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VC_NAME;
     result->kind = SK_FUNCTION;
 
@@ -315,7 +315,7 @@ static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded
     param_type_list.append(types[0]);
     param_type_list.append(types[1]);
 
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VI_NAME;
     result->kind = SK_FUNCTION;
 
@@ -362,7 +362,7 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     TL::ObjectList<TL::Type> params_list;
     params_list.append(types[0]);
 
-    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VE_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0]).get_generic_vector_to()
@@ -1028,7 +1028,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     }
     else
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
+        std::cerr << construct.get_ast().get_locus_str() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
     }
 
     ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
@@ -1736,7 +1736,7 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     {
         DEBUG_CODE()
         {
-            std::cerr << for_stmt.get_ast().get_locus() 
+            std::cerr << for_stmt.get_ast().get_locus_str() 
                 << ": warning: LoopSIMDization doesn't return a CompoundStatement." << std::endl;
         }
     }
@@ -1783,7 +1783,7 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
         FunctionDefinition func_def (construct.get_declaration(), construct.get_scope_link());
         if (construct.is_parameterized())
         {
-            std::cerr << construct.get_ast().get_locus() 
+            std::cerr << construct.get_ast().get_locus_str() 
                 << ": warning: unexpected parameters in #pragma hlt simd. Ignored." << std::endl;
         }
 
@@ -1814,7 +1814,7 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
         }
         else
         {
-           std::cerr << construct.get_ast().get_locus() << ": warning: unexpected #pragma hlt simd" << std::endl;
+           std::cerr << construct.get_ast().get_locus_str() << ": warning: unexpected #pragma hlt simd" << std::endl;
         }
     }
 }

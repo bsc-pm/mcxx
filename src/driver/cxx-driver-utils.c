@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -109,7 +109,7 @@ void temporal_files_cleanup(void)
 
             if (ret == -1)
             {
-                running_error("Execution of 'rm -fr' failed\n", 0);
+                running_error("Execution of 'rm -fr' failed\n");
             }
         }
     }
@@ -117,14 +117,28 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
+static char name_is_in_temporal_files(const char* name)
+{
+    temporal_file_list_t it = temporal_file_list;
+
+    while (it != NULL)
+    {
+        if (strcmp(it->info->name, name) == 0)
+            return 1;
+        it = it->next;
+    }
+
+    return 0;
+}
+
 static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary, char is_dir)
 {
-    temporal_file_t result = calloc(sizeof(*result), 1);
+    temporal_file_t result = xcalloc(sizeof(*result), 1);
     result->name = uniquestr(name);
     result->is_temporary = is_temporary;
     result->is_dir = is_dir;
 
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    temporal_file_list_t new_file_element = xcalloc(sizeof(*new_file_element), 1);
     new_file_element->info = result;
     new_file_element->next = temporal_file_list;
     temporal_file_list = new_file_element;
@@ -132,24 +146,33 @@ static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_t
     return result;
 }
 
+static void add_to_list_of_temporal_files_(const char* name, char is_temporary, char is_dir)
+{
+    // Do not add it twice
+    if (name_is_in_temporal_files(name))
+        return;
+
+    add_to_list_of_temporal_files(name, is_temporary, is_dir);
+}
+
 void mark_file_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 0);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 0, /* is_dir */ 0);
 }
 
 void mark_dir_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
 void mark_file_as_temporary(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 0);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 1, /* is_dir */ 0);
 }
 
 void mark_dir_as_temporary(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 1);
+    add_to_list_of_temporal_files_(name, /* is_temporary */ 1, /* is_dir */ 1);
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
@@ -318,7 +341,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 {
     int num = count_null_ended_array((void**)arguments);
 
-    const char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
+    const char** execvp_arguments = xcalloc(num + 1 + 1, sizeof(char*));
 
     execvp_arguments[0] = program_name;
 
@@ -386,7 +409,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard output", 0);
+                running_error("error: could not duplicate standard output");
             }
         }
         if (stderr_f != NULL)
@@ -404,7 +427,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard error", 0);
+                running_error("error: could not duplicate standard error");
             }
         }
 
@@ -452,9 +475,9 @@ static char* quote_string(const char *c)
     }
 
     if (num_quotes == 0)
-        return strdup(c);
+        return xstrdup(c);
 
-    char* result = calloc(sizeof(char), num_quotes + strlen(c) + 1);
+    char* result = xcalloc(sizeof(char), num_quotes + strlen(c) + 1);
 
     char *q = result;
     for (p = c; *p != '\0'; p++)
@@ -688,20 +711,20 @@ void run_gdb(void)
             int new_stdout = dup(fileno(output_dump));
             if (new_stdout < 0)
             {
-                running_error("error: could not duplicate standard output", 0);
+                running_error("error: could not duplicate standard output");
             }
             close(2);
             int new_stderr = dup(fileno(output_dump));
             if (new_stderr < 0)
             {
-                running_error("error: could not duplicate standard error", 0);
+                running_error("error: could not duplicate standard error");
             }
 
             char pid[16];
             snprintf(pid, 15, "%lu", (unsigned long)getppid());
             pid[15] = '\0';
 
-            char *program_path = strdup(compilation_process.argv[0]);
+            char *program_path = xstrdup(compilation_process.argv[0]);
 
             char *args[] = { "--batch", 
                 "--quiet",
@@ -850,13 +873,13 @@ static const char* find_home_unix(const char* progname)
     if (path_max <= 0)
         path_max = 4096;
 #endif
-    char* c = malloc(path_max * sizeof(char));
+    char* c = xmalloc(path_max * sizeof(char));
 
     if (strchr(progname, '/') == NULL)
     {
         char found = 0;
         // Use PATH to find ourselves
-        char* path_env = strdup(getenv("PATH"));
+        char* path_env = xstrdup(getenv("PATH"));
 
         char *current_dir = strtok(path_env, ":");
 
@@ -875,7 +898,7 @@ static const char* find_home_unix(const char* progname)
             current_dir = strtok(NULL, ":");
         }
 
-        free(path_env);
+        xfree(path_env);
 
         if (!found)
         {
@@ -894,7 +917,7 @@ static const char* find_home_unix(const char* progname)
 
     res = uniquestr(dirname(c));
 
-    free(c);
+    xfree(c);
 
     return res;
 }

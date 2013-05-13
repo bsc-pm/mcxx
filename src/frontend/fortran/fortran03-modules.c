@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -31,6 +31,8 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-scope.h"
+#include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
@@ -180,6 +182,7 @@ enum type_kind_table_tag
     TKT_VOID,
     TKT_INDIRECT,
     TKT_NAMED,
+    TKT_COMPUTED_FUNCTION
 } type_kind_table_t;
 
 typedef
@@ -561,7 +564,7 @@ static void define_schema(sqlite3* handle)
 
     {
         char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(INTEGER oid PRIMARY KEY, decl_context, name, kind, type, file, line, "
-                "value, bit_entity_specs, %s);", attr_field_names);
+                "value, bit_entity_specs, related_decl_context, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
@@ -717,7 +720,8 @@ static void prepare_statements(sqlite3* handle)
     } while (0)
 
     char* load_symbol_stmt_str = sqlite3_mprintf(
-            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line, value, bit_entity_specs, %s "
+            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line,"
+            " value, bit_entity_specs, related_decl_context, %s "
             "FROM symbol s, string_table str1, string_table str2 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.file;", 
             attr_field_names);
     DO_PREPARE_STATEMENT(_load_symbol_stmt, load_symbol_stmt_str);
@@ -902,7 +906,7 @@ static void* get_ptr_of_oid(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid
 
 static void insert_map_ptr(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid, void *ptr)
 {
-    sqlite3_int64* p = calloc(1, sizeof(*p));
+    sqlite3_int64* p = xcalloc(1, sizeof(*p));
     *p = oid;
 
     rb_tree_insert(_oid_map, p, ptr);
@@ -1358,6 +1362,14 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
             result = insert_type_ref_to_symbol(handle, t, TKT_NAMED, 0, sym_oid);
         }
     }
+    else if (is_computed_function_type(t))
+    {
+        int id = fortran_intrinsic_get_id(computed_function_type_get_computing_function(t));
+        ERROR_CONDITION((id == -1), "Attempt to store an unknown computed function type %p",
+                computed_function_type_get_computing_function(t));
+
+        result = insert_type_simple(handle, t, TKT_COMPUTED_FUNCTION, id);
+    }
     else
     {
         internal_error("Invalid type '%s'\n", print_declarator(t));
@@ -1565,7 +1577,7 @@ static int get_extra_gcc_attrs(void *datum,
 {
     extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
 
-    char *attr_value = strdup(values[0]);
+    char *attr_value = xstrdup(values[0]);
 
     char *q = strchr(attr_value, '|');
     ERROR_CONDITION(p == NULL, "Wrong field!", 0);
@@ -1577,13 +1589,13 @@ static int get_extra_gcc_attrs(void *datum,
     p->symbol->entity_specs.num_gcc_attributes++;
     ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
             "Too many gcc attributes", 0);
-    p->symbol->entity_specs.gcc_attributes = calloc(p->symbol->entity_specs.num_gcc_attributes, 
+    p->symbol->entity_specs.gcc_attributes = xcalloc(p->symbol->entity_specs.num_gcc_attributes, 
             sizeof(*p->symbol->entity_specs.gcc_attributes));
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
         _nodecl_wrap(load_ast(p->handle, safe_atoull(tree)));
 
-    free(attr_value);
+    xfree(attr_value);
 
     return 0;
 }
@@ -1595,7 +1607,7 @@ static int get_extra_function_parameter_info(void *datum,
 {
     extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
 
-    char *attr_value = strdup(values[0]);
+    char *attr_value = xstrdup(values[0]);
 
     char *q = strchr(attr_value, '|');
     ERROR_CONDITION(p == NULL, "Wrong field!", 0);
@@ -1621,7 +1633,7 @@ static int get_extra_function_parameter_info(void *datum,
             p->symbol->entity_specs.num_function_parameter_info,
             parameter_info);
 
-    free(attr_value);
+    xfree(attr_value);
 
     return 0;
 }
@@ -1633,7 +1645,7 @@ static int get_extra_default_argument_info(void *datum,
 {
     extra_default_argument_info_t* p = (extra_default_argument_info_t*)datum;
 
-    default_argument_info_t* d = calloc(1, sizeof(*d));
+    default_argument_info_t* d = xcalloc(1, sizeof(*d));
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
     d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoull(values[0])));
@@ -1650,22 +1662,22 @@ struct parameter_info_t
     char** names;
 };
 
-static void free_param_info(struct parameter_info_t *param_info, int num_rows)
+static void xfree_param_info(struct parameter_info_t *param_info, int num_rows)
 {
     int i;
     for (i = 0; i < num_rows; i++)
     {
-        free(param_info[i].values);
-        free(param_info[i].names);
+        xfree(param_info[i].values);
+        xfree(param_info[i].names);
     }
-    free(param_info);
+    xfree(param_info);
 }
 
 static char* safe_strdup(const char* c)
 {
     if (c == NULL)
         return NULL;
-    return strdup(c);
+    return xstrdup(c);
 }
 
 static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stmt, 
@@ -1681,7 +1693,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
     int num_rows = 0;
     int result_set_size = 4;
 
-    param_info = realloc(param_info, result_set_size * sizeof(*param_info));
+    param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
 
     int result_query = sqlite3_step(prepared_stmt);
     while(result_query != SQLITE_DONE)
@@ -1694,7 +1706,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
                     if (num_rows > result_set_size)
                     {
                         result_set_size *= 2;
-                        param_info = realloc(param_info, result_set_size * sizeof(*param_info));
+                        param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
                     }
 
                     int current_row = num_rows - 1;
@@ -1703,8 +1715,8 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
 
                     param_info[current_row].ncols = ncols;
 
-                    param_info[current_row].values = calloc(ncols, sizeof(*param_info[current_row].values));
-                    param_info[current_row].names = calloc(ncols, sizeof(*param_info[current_row].names));
+                    param_info[current_row].values = xcalloc(ncols, sizeof(*param_info[current_row].values));
+                    param_info[current_row].names = xcalloc(ncols, sizeof(*param_info[current_row].names));
                     int i;
                     for (i = 0; i < ncols; i++)
                     {
@@ -1721,7 +1733,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
             default:
                 {
                     *errmsg = sqlite3_errmsg(handle);
-                    free_param_info(param_info, num_rows);
+                    xfree_param_info(param_info, num_rows);
                     sqlite3_reset(prepared_stmt);
                     return result_query;
                 }
@@ -1738,7 +1750,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
         fun(datum, param_info[i].ncols, param_info[i].values, param_info[i].names);
     }
 
-    free_param_info(param_info, num_rows);
+    xfree_param_info(param_info, num_rows);
 
     *errmsg = NULL;
     return SQLITE_OK;
@@ -1892,6 +1904,7 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     sqlite3_uint64 type_id = insert_type(handle, symbol->type_information);
     sqlite3_uint64 value_oid = insert_nodecl(handle, symbol->value);
     sqlite3_uint64 decl_context_oid = insert_decl_context(handle, symbol->decl_context);
+    sqlite3_uint64 related_decl_context_oid = insert_decl_context(handle, symbol->related_decl_context);
 
     // module_packed_bits_t is declared in fortran03-modules-bits.h
     module_packed_bits_t module_packed_bits = synthesize_packed_bits(symbol);
@@ -1900,18 +1913,19 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
     // FIXME - Devise ways to make this a prepared statement
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
-            "bit_entity_specs, %s) "
-            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %s);",
+            "bit_entity_specs, related_decl_context, %s) "
+            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %llu, %s);",
             attr_field_names,
             P2ULL(symbol), // oid
             decl_context_oid, // decl_context
             get_oid_from_string_table(handle, symbol->symbol_name), // name
             symbol->kind, // kind
             type_id, // type
-            get_oid_from_string_table(handle, symbol->file), // file
-            symbol->line, // line
+            get_oid_from_string_table(handle, locus_get_filename(symbol->locus)), // file
+            locus_get_line(symbol->locus), // line
             value_oid,
             bit_str,
+            related_decl_context_oid,
             attribute_values);
     sqlite3_free(attribute_values);
 
@@ -1976,8 +1990,15 @@ static int get_symbol(void *datum,
     int line = safe_atoi(values[6]);
     sqlite3_uint64 value_oid = safe_atoull(values[7]);
     const char* bitfield_pack_str = uniquestr(values[8]);
+    sqlite3_uint64 related_decl_context_oid = safe_atoull(values[9]);
 
     (*result) = NULL;
+
+    // We need to load the bits for the early checks in the loaded symbol
+    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
+    entity_specifiers_t entity_specs;
+    memset(&entity_specs, 0, sizeof(entity_specs));
+    unpack_bits(&entity_specs, packed_bits);
 
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
@@ -2031,9 +2052,11 @@ static int get_symbol(void *datum,
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
                         && member->entity_specs.from_module == from_module
-                        && member->entity_specs.alias_to == alias_to)
+                        && member->entity_specs.alias_to == alias_to
+                        // A name can be repeated if one of them is a generic
+                        // specifier, so the name and module coordenates will be the same
+                        && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
                 {
-                    // fprintf(stderr, "SYMBOL %lld '%s.%s' WAS ALREADY LOADED IN ITS MODULE\n", 
                     //         oid,
                     //         in_module->symbol_name, member->symbol_name);
                     (*result) = member;
@@ -2049,17 +2072,16 @@ static int get_symbol(void *datum,
 
     if (*result == NULL)
     {
-        (*result) = calloc(1, sizeof(**result));
+        (*result) = xcalloc(1, sizeof(**result));
     }
 
     insert_map_ptr(handle, oid, *result);
 
     (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
-    (*result)->file = filename;
-    (*result)->line = line;
+    (*result)->locus = make_locus(filename, line, 0);
 
-    (*result)->extended_data = calloc(1, sizeof(*((*result)->extended_data)));
+    (*result)->extended_data = xcalloc(1, sizeof(*((*result)->extended_data)));
     extensible_struct_init(&(*result)->extended_data);
 
     // static int level = 0;
@@ -2076,6 +2098,8 @@ static int get_symbol(void *datum,
     (*result)->type_information = load_type(handle, type_oid);
 
     (*result)->decl_context = load_decl_context(handle, decl_context_oid);
+
+    (*result)->related_decl_context = load_decl_context(handle, related_decl_context_oid);
     // Add it to its scope
     if ((*result)->symbol_name != NULL)
     {
@@ -2084,8 +2108,9 @@ static int get_symbol(void *datum,
 
     (*result)->value = load_nodecl(handle, value_oid);
 
-    module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
-    unpack_bits((*result), packed_bits);
+    // Unpack bits again (we cannot directly write entity specs because we
+    // would be overwriting non-bits as well)
+    unpack_bits(&(*result)->entity_specs, packed_bits);
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 
@@ -2239,8 +2264,8 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
 
     for (i = 0; i < ncols; i++)
     {
-        free(values[i]);
-        free(names[i]);
+        xfree(values[i]);
+        xfree(names[i]);
     }
 
     return symbol_handle.symbol;
@@ -2377,7 +2402,7 @@ static int get_ast(void *datum,
     sqlite3_uint64 const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
     // char is_value_dependent = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
 
-    p->a = ASTLeaf(node_kind, filename, line, text);
+    p->a = ASTLeaf(node_kind, make_locus(filename, line, 0), text);
     AST a = p->a;
 
     insert_map_ptr(handle, oid, a);
@@ -2481,7 +2506,7 @@ static int get_type(void *datum,
     const char* types = values[7];
     const char* symbols = values[8];
 
-    nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+    nodecl_t nodecl_fake = nodecl_make_text("", make_locus("", 0, 0));
 
     // We early register the type to avoid troublesome loops
     *pt = _type_get_empty_type();
@@ -2564,7 +2589,7 @@ static int get_type(void *datum,
         }
         case TKT_CLASS:
         {
-            char *copy = strdup(symbols);
+            char *copy = xstrdup(symbols);
 
             _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
@@ -2583,7 +2608,7 @@ static int get_type(void *datum,
 
                 field = strtok_r(NULL, ",", &context);
             }
-            free(copy);
+            xfree(copy);
             break;
         }
         case TKT_FUNCTION:
@@ -2595,7 +2620,7 @@ static int get_type(void *datum,
 
             if (types != NULL)
             {
-                char *copy = strdup(types);
+                char *copy = xstrdup(types);
 
                 char *context = NULL;
                 char *field = strtok_r(copy, ",", &context);
@@ -2608,7 +2633,7 @@ static int get_type(void *datum,
                     num_parameters++;
                     field = strtok_r(NULL, ",", &context);
                 }
-                free(copy);
+                xfree(copy);
             }
 
             type_t* result = load_type(handle, ref);
@@ -2655,6 +2680,20 @@ static int get_type(void *datum,
 
             _type_assign_to(*pt, get_indirect_type(symbol));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_COMPUTED_FUNCTION:
+        {
+            // We keep the identifier in the kind_size field
+            int id = kind_size;
+
+            // We only allow Fortran intrinsics have computed function_types
+            computed_function_type_t fun = fortran_intrinsic_get_ptr(id);
+
+            ERROR_CONDITION((fun == NULL && id != 0), "Invalid intrinsic function id %d.\n"
+                    "You may have to rebuild your Fortran modules\n", id);
+
+            _type_assign_to(*pt, get_computed_function_type(fun));
             break;
         }
         default:
@@ -3074,10 +3113,10 @@ static int get_module_extra_name(void *data,
     if (num_items == 0)
         return 0;
 
-    fortran_modules_data_t *module_data = calloc(1, sizeof(*module_data));
+    fortran_modules_data_t *module_data = xcalloc(1, sizeof(*module_data));
     module_data->name = uniquestr(values[1]);
     module_data->num_items = num_items;
-    module_data->items = calloc(num_items, sizeof(*(module_data->items)));
+    module_data->items = xcalloc(num_items, sizeof(*(module_data->items)));
 
     char* query = sqlite3_mprintf("SELECT kind, value FROM module_extra_data WHERE oid_name = %llu ORDER BY (order_);",
             safe_atoull(values[0]));
@@ -3097,7 +3136,7 @@ static int get_module_extra_name(void *data,
     fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_module_info");
     if (extra_info_attr == NULL)
     {
-        extra_info_attr = calloc(1, sizeof(*extra_info_attr));
+        extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
         extensible_struct_set_field(p->module->extended_data, ".extra_module_info", extra_info_attr);
     }
 
@@ -3212,6 +3251,15 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
 
     dispose_storage(handle);
 }
+
+scope_entry_t* get_module_in_cache(const char* module_name)
+{
+    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name);
+    ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name);
+    scope_entry_t* module_sym = (scope_entry_t*)rb_node_get_info(query);
+    return module_sym;
+}
+
 
 #ifdef DEBUG_SQLITE3_MPRINTF
  #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc

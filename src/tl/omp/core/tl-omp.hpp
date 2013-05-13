@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -259,6 +259,7 @@ namespace TL
 
                 ObjectList<std::string> _device_list;
                 std::string _file;
+                std::string _name;
 
                 bool _copy_deps;
             public:
@@ -293,6 +294,8 @@ namespace TL
                 void set_file(std::string filename);
                 std::string get_file() const;
 
+                void set_name(std::string name);
+                std::string get_name() const;
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);
         };
@@ -430,6 +433,12 @@ namespace TL
                     return this->get_dependency_expression();
                 }
 
+                bool is_valid() const
+                {
+                    DataReference d = this->get_dependency_expression();
+                    return d.is_valid();
+                }
+
                 void module_write(ModuleWriter& mw)
                 {
                     this->DependencyItem::module_write(mw);
@@ -527,8 +536,6 @@ namespace TL
                 void add_function_task(Symbol sym, const FunctionTaskInfo&);
 
                 bool empty() const;
-
-                bool is_function_task_or_implements(Symbol sym) const;
 
                 // Fortran
                 void emit_module_info();

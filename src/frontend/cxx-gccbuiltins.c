@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -673,6 +673,7 @@ DEF_FUNCTION_TYPE_1 (BT_FN_COMPLEX_LONGDOUBLE_LONGDOUBLE,
 DEF_FUNCTION_TYPE_1 (BT_FN_PTR_UINT, BT_PTR, BT_UINT)
 DEF_FUNCTION_TYPE_1 (BT_FN_PTR_SIZE, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_INT, BT_INT, BT_INT)
+DEF_FUNCTION_TYPE_1 (BT_FN_INT_UINT16, BT_INT, BT_UINT16)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_UINT, BT_INT, BT_UINT)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_LONG, BT_INT, BT_LONG)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_ULONG, BT_INT, BT_ULONG)
@@ -1103,7 +1104,7 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
 {
     // FIXME - Not counted!
-    return calloc(sizeof(default_argument_info_t*), num_parameters);
+    return xcalloc(sizeof(default_argument_info_t*), num_parameters);
 }
 
 #define  DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
@@ -1116,8 +1117,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       new_builtin->entity_specs.is_builtin = 1; \
       new_builtin->do_not_print = 1; \
-      new_builtin->file = "(builtin-function)"; \
-      new_builtin->line = 0; \
+      new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
       new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \
@@ -1683,12 +1683,13 @@ DEF_GCC_BUILTIN        (BUILT_IN_APPLY_ARGS, "apply_args", BT_FN_PTR_VAR, ATTR_L
 DEF_GCC_BUILTIN        (BUILT_IN_BSWAP32, "bswap32", BT_FN_UINT32_UINT32, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_BSWAP64, "bswap64", BT_FN_UINT64_UINT64, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_CLEAR_CACHE, "__clear_cache", BT_FN_VOID_PTR_PTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "calloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST)
+DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "xcalloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLASSIFY_TYPE, "classify_type", BT_FN_INT_VAR, ATTR_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZ, "clz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZIMAX, "clzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZL, "clzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZLL, "clzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_GCC_BUILTIN        (BUILT_IN_CLZS, "clzs", BT_FN_INT_UINT16, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CONSTANT_P, "constant_p", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZIMAX, "ctzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
@@ -1752,7 +1753,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_ISUNORDERED, "isunordered", BT_FN_INT_VAR, ATTR
 DEF_LIB_BUILTIN        (BUILT_IN_LABS, "labs", BT_FN_LONG_LONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_C99_BUILTIN        (BUILT_IN_LLABS, "llabs", BT_FN_LONGLONG_LONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_LONGJMP, "longjmp", BT_FN_VOID_PTR_INT, ATTR_NORETURN_NOTHROW_LEAF_LIST)
-DEF_LIB_BUILTIN        (BUILT_IN_MALLOC, "malloc", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST)
+DEF_LIB_BUILTIN        (BUILT_IN_MALLOC, "xmalloc", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_NEXT_ARG, "next_arg", BT_FN_PTR_VAR, ATTR_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITY, "parity", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITYIMAX, "parityimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
@@ -1763,7 +1764,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTIMAX, "popcountimax", BT_FN_INT_UINTMAX
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTL, "popcountl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTLL, "popcountll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_PREFETCH, "prefetch", BT_FN_VOID_CONST_PTR_VAR, ATTR_NOVOPS_LEAF_LIST)
-DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "realloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST)
+DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "xrealloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN, "return", BT_FN_VOID_PTR, ATTR_NORETURN_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN_ADDRESS, "return_address", BT_FN_PTR_UINT, ATTR_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_SAVEREGS, "saveregs", BT_FN_PTR_VAR, ATTR_NULL)
@@ -2608,8 +2609,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
                     overloaded_function->decl_context.current_scope,
                     builtin_name);
-
-            // Fix the name
+            return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
             return_symbol->kind = SK_FUNCTION;
             return_symbol->type_information = current_function_type;
@@ -2663,7 +2663,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         { "union __m512",   &__m512_struct_type,  TT_UNION },
         { "union __m512d",  &__m512d_struct_type, TT_UNION },
         { "union __m512i",  &__m512i_struct_type, TT_UNION },
-        { NULL, NULL }
+        { NULL, NULL, TT_INVALID }
     };
 
     if (CURRENT_CONFIGURATION->enable_intel_vector_types)
@@ -2680,6 +2680,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             }
 
             scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            sym->locus = make_locus("(builtin-simd-type)", 0, 0);
             sym->kind = SK_CLASS;
             sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
 

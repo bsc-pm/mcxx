@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -40,20 +40,62 @@
 
 namespace TL { namespace OpenMP {
 
+    struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
+    {
+        struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
+        {
+            DataSharingEnvironment& _data_sharing;
+            ExtraDataSharing(DataSharingEnvironment& ds)
+                :_data_sharing(ds) { }
+            void visit(const Nodecl::Symbol& node)
+            {
+                TL::Symbol sym = node.get_symbol();
+                if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
+                        == DS_UNDEFINED)
+                {
+                    // Mark this as an implicit firstprivate
+                    _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
+                    std::cerr << node.get_locus_str() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                }
+            }
+
+            void visit(const Nodecl::ClassMemberAccess& node)
+            {
+                walk(node.get_lhs());
+                // Do not walk the rhs
+            }
+        };
+
+        ExtraDataSharing _extra_data_sharing;
+
+        DataRefVisitorDep(DataSharingEnvironment& ds)
+            : _extra_data_sharing(ds) { }
+
+        void visit_pre(const Nodecl::Shaping &node)
+        {
+            _extra_data_sharing.walk(node.get_shape());
+        }
+
+        void visit_pre(const Nodecl::ArraySubscript &node)
+        {
+            _extra_data_sharing.walk(node.get_subscripts());
+        }
+    };
+
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)
     {
+        DataRefVisitorDep data_ref_visitor_dep(data_sharing);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
         {
             DataReference expr(*it);
-            std::string warning;
             if (!expr.is_valid())
             {
                 std::cerr << expr.get_error_log();
-                std::cerr << expr.get_locus()
+                std::cerr << expr.get_locus_str()
                     << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
@@ -85,6 +127,8 @@ namespace TL { namespace OpenMP {
             }
 
             data_sharing.add_dependence(dep_item);
+
+            data_ref_visitor_dep.walk(expr);
         }
     }
 
@@ -202,7 +246,7 @@ namespace TL { namespace OpenMP {
             if (dep_attr == DEP_DIR_UNDEFINED)
             {
                 error_printf("%s: error: skipping item '%s' in 'depend' clause since it does not have any associated dependence-type\n",
-                        clause.get_locus().c_str(),
+                        clause.get_locus_str().c_str(),
                         it->c_str());
                 continue;
             }
@@ -245,6 +289,27 @@ namespace TL { namespace OpenMP {
         {
             ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
             add_data_sharings(expr_list, data_sharing, dep_attr);
+        }
+    }
+
+    std::string get_dependency_direction_name(DependencyDirection d)
+    {
+        switch (d)
+        {
+            case DEP_DIR_UNDEFINED:
+                return "<<undefined-dependence>>";
+            case DEP_DIR_IN:
+                return "in";
+            case DEP_DIR_OUT:
+                return "out";
+            case DEP_DIR_INOUT:
+                return "inout";
+            case DEP_CONCURRENT:
+                return "concurrent";
+            case DEP_COMMUTATIVE:
+                return "commutative";
+            default:
+                return "<<unknown-dependence-kind?>>";
         }
     }
 } }

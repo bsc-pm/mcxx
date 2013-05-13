@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -39,12 +39,9 @@ MCXX_BEGIN_DECLS
 #define MULTIFILE_SECTION ".mercurium"
 #define MULTIFILE_TAR_FILE "multifile.tar"
 
-// Directory handling
-char multifile_dir_exists(void);
-void multifile_remove_dir(void);
+// Extended info handling
 void multifile_init_dir(void);
 
-// Extended info handling
 char multifile_object_has_extended_info(const char* filename);
 void multifile_extract_extended_info(const char* filename);
 

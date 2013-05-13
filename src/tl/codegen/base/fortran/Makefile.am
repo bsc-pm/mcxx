@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -25,26 +25,26 @@
 ##########################################################################
 
 
-include ../../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libcodegen-fortran.la
 
-libcodegen_fortran_la_CFLAGS = $(tl_cflags) \
+libcodegen_fortran_la_CFLAGS = $(phases_cflags) \
 							   -I$(top_srcdir)/src/frontend \
 							   -I$(top_srcdir)/src/frontend/fortran \
 							   -I$(top_builddir)/src/frontend \
 							   -I$(top_builddir)/src/frontend/fortran \
 							   -I$(srcdir)/../../common
-libcodegen_fortran_la_CXXFLAGS = $(tl_cflags) \
+libcodegen_fortran_la_CXXFLAGS = $(phases_cflags) \
 							   -I$(top_srcdir)/src/frontend \
 							   -I$(top_srcdir)/src/frontend/fortran \
 							   -I$(top_builddir)/src/frontend \
 							   -I$(top_builddir)/src/frontend/fortran \
 						       -I$(srcdir)/../../common
 
-libcodegen_fortran_la_LDFLAGS = $(tl_ldflags)
+libcodegen_fortran_la_LDFLAGS = $(phases_ldflags)
 libcodegen_fortran_la_LIBADD = ../../common/libcodegen-common.la \
-						   $(tl_libadd) \
+						   $(phases_libadd) \
 						   $(END)
 
 END=

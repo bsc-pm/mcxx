@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -233,10 +233,15 @@ namespace Nodecl
                 _symbol_map[source] = target;
             }
 
+            const std::map<TL::Symbol, TL::Symbol>* get_simple_symbol_map() const
+            {
+                return &_symbol_map;
+            }
+
             private:
-            typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
-            symbol_map_t _symbol_map;
-            SymbolMap* _enclosing;
+                typedef std::map<TL::Symbol, TL::Symbol> symbol_map_t;
+                symbol_map_t _symbol_map;
+                SymbolMap* _enclosing;
         };
 
         struct LabelSymbolMap : public SymbolMap
@@ -284,7 +289,7 @@ namespace TL
         private:
             bool _is_omp_valid;
 
-            TL::Symbol _induction_var;
+            Nodecl::NodeclBase _induction_var;
 
             Nodecl::NodeclBase _lower_bound;
             Nodecl::NodeclBase _upper_bound;

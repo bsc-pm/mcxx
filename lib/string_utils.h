@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -60,8 +60,19 @@ LIBUTILS_EXTERN unsigned char contain_prefix_number(const char*);
 // Merge sort algorithm 
 LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order);
 
+
+#ifdef __GNUC__
+  #if (__GNUC__ == 4 && __GNUC_MINOR__ >= 4) || (__GNUC__ > 4)
+     #define CHECK_PRINTF_STR __attribute__ ((format (gnu_printf, 2, 3)))
+  #else
+     #define CHECK_PRINTF_STR __attribute__ ((format (printf, 2, 3)))
+  #endif
+#else
+  #define CHECK_PRINTF_STR
+#endif
+
 // Like asprintf but returning a uniquestr
-LIBUTILS_EXTERN int uniquestr_sprintf(const char** out_str, const char* format, ...);
+LIBUTILS_EXTERN CHECK_PRINTF_STR int uniquestr_sprintf(const char** out_str, const char* format, ...);
 
 LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 
@@ -76,14 +87,14 @@ LIBUTILS_EXTERN void unpack_pointer(const char* text, const char** prefix, void*
 #define P_LIST_ADD(list, size, elem)  \
 do { \
     (size)++; \
-    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))xrealloc((list), sizeof(*(list))*(size)); \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
 #define P_LIST_ADD_PREPEND(list, size, elem) \
 do {  \
     (size)++; \
-    (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
+    (list) = (__typeof__(list))xrealloc((list), sizeof(*(list))*(size)); \
     int _i; \
     for (_i = (size) - 1; _i > 0; _i--) \
     { \
@@ -138,7 +149,7 @@ do { \
             ((list)[_i -1]) = ((list)[_i]); \
         } \
         (size)--; \
-        (list) = (__typeof__(list))realloc((list), sizeof(*(list))*(size)); \
+        (list) = (__typeof__(list))xrealloc((list), sizeof(*(list))*(size)); \
     }\
 } while (0)
 

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -186,8 +186,6 @@
 "                           number of THREADS.\n" \
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
-"  --opencl-code-file=<options> Default file for OpenCL code,\n" \
-"                           can be overriden inside code by using the file clause\n" \
 "  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
@@ -268,7 +266,12 @@
 "                           __int64 builtin types\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
-"                           __m128, __m256 and __M512 as struct types\n" \
+"                           __m128, __m256 and __m512 as struct types\n" \
+"  --disable-locking        Disable locking when compiling.\n" \
+"                           Use this if your filesystem does not\n" \
+"                           support locking at file level. This \n" \
+"                           option is incompatible with parallel\n" \
+"                           compilation\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -350,7 +353,6 @@ typedef enum
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_OPENCL,
     OPTION_OPENCL_OPTIONS,
-    OPTION_OPENCL_FILE,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
@@ -376,6 +378,7 @@ typedef enum
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
+    OPTION_DISABLE_FILE_LOCKING,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -423,8 +426,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
-    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},    
-    {"opencl-code-file",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_FILE},
+    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
@@ -456,6 +458,7 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
+    {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     // sentinel
     {NULL, 0, 0}
 };
@@ -638,7 +641,7 @@ static void driver_initialization(int argc, const char* argv[])
         allocated_size = MINSIGSTKSZ;
     }
 
-    _alternate_signal_stack = malloc(allocated_size);
+    _alternate_signal_stack = xmalloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -682,18 +685,42 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.argc = argc;
 
     // Copy argv strings
-    compilation_process.argv = calloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.argv = xcalloc(compilation_process.argc, sizeof(const char*));
     memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
 
     // Original versions
     compilation_process.original_argc = argc;
-    compilation_process.original_argv = calloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.original_argv = xcalloc(compilation_process.argc, sizeof(const char*));
     memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
 
     compilation_process.exec_basename = give_basename(argv[0]);
 
     // Find my own directory
     compilation_process.home_directory = find_home(argv[0]);
+}
+
+static void ensure_codegen_is_loaded(void)
+{
+    if (CURRENT_CONFIGURATION->codegen_phase == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
+        }
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
+        }
+        else
+        {
+            internal_error("This compiler is not configured for C/C++/Fortran so a suitable codegen cannot be loaded", 0);
+        }
+    }
 }
 
 static void help_message(void)
@@ -703,6 +730,8 @@ static void help_message(void)
 
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
+    ensure_codegen_is_loaded();
+
     phases_help(CURRENT_CONFIGURATION);
 
     fprintf(stdout, "\n");
@@ -1183,7 +1212,7 @@ int parse_arguments(int argc, const char* argv[],
                         *value = '\0';
                         value++;
 
-                        external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
+                        external_var_t* new_external_var = xcalloc(1, sizeof(*new_external_var));
 
                         new_external_var->name = uniquestr(name);
                         new_external_var->value = uniquestr(value);
@@ -1300,12 +1329,12 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->enable_cuda = 1;
                         break;
-                    }                
+                    }
                 case OPTION_ENABLE_OPENCL:
                     {
                         CURRENT_CONFIGURATION->enable_opencl = 1;
                         break;
-                    }                
+                    }
                 case OPTION_OPENCL_OPTIONS:
                     {
                         //If we have build options, we also enable opencl
@@ -1313,16 +1342,6 @@ int parse_arguments(int argc, const char* argv[],
                         if (parameter_info.argument != NULL)
                         {
                             CURRENT_CONFIGURATION->opencl_build_options = parameter_info.argument;
-                        }
-                        break;
-                    }
-                case OPTION_OPENCL_FILE:
-                    {
-                        //If we have build options, we also enable opencl
-                        CURRENT_CONFIGURATION->enable_opencl = 1;
-                        if (parameter_info.argument != NULL)
-                        {
-                            CURRENT_CONFIGURATION->opencl_code_file = parameter_info.argument;
                         }
                         break;
                     }
@@ -1449,6 +1468,11 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->force_source_kind |=
                             (SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_PREPROCESSED);
+                        break;
+                    }
+                case OPTION_DISABLE_FILE_LOCKING:
+                    {
+                        CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
                 default:
@@ -2112,7 +2136,7 @@ static void enable_debug_flag(const char* flags)
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
 {
     parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) calloc(1, sizeof(parameter_linker_command_t));
+        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
     
      ptr_param->argument = str; 
     
@@ -2130,7 +2154,7 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 
-    (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+    (*existing_options) = xrealloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
 
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -2320,7 +2344,7 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->column_width = 132;
 
     // Add openmp as an implicit (disabled) flag
-    struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+    struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
 
@@ -2329,10 +2353,10 @@ static void initialize_default_values(void)
             new_parameter_flag);
 
     // Add hlt as an implicit flag
-    new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+    new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("hlt");
-    // This is redundant because of calloc, but make it explicit here anyway
+    // This is redundant because of xcalloc, but make it explicit here anyway
     new_parameter_flag->value = 0;
 
     P_LIST_ADD(compilation_process.parameter_flags, 
@@ -2607,7 +2631,7 @@ static void enable_hlt_phase(compilation_configuration_t* configuration)
 
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
-	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
 	cl->func = compiler_regular_phase_loader;
 	cl->data = (void*)uniquestr(library_name);
     P_LIST_ADD_PREPEND(configuration->phase_loader, 
@@ -2759,7 +2783,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
-                //  - AND we were NOT told to be free form (--free)
+                //  - AND we were NOT told to be xfree form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
@@ -2798,26 +2822,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
                
                 // Load codegen if not yet loaded
-                if (CURRENT_CONFIGURATION->codegen_phase == NULL)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "DRIVER: Loading codegen phase since it is not loaded yet\n");
-                    }
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-cxx.so");
-                    }
-                    else if (IS_FORTRAN_LANGUAGE)
-                    {
-                        compiler_special_phase_set_codegen(CURRENT_CONFIGURATION, "libcodegen-fortran.so");
-                    }
-                    else
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
-                }
+                ensure_codegen_is_loaded();
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
@@ -2940,15 +2945,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 driver_fortran_hide_mercurium_modules();
             }
 
-            // * Native compilation
-            if (!file_not_processed)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_COMPILE))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
-            }
-            else
-            {
-                // Do not process
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                // * Native compilation
+                if (!file_not_processed)
+                {
+                    native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
+                }
+                else
+                {
+                    // Do not process
+                    native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
+                }
             }
 
             // * Restore all the wrap modules for subsequent uses
@@ -3074,7 +3082,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
     ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     // The filename can be used in the future (e.g. in tl-nanos.cpp)
-    ast_set_filename(translation_unit->parsed_tree, translation_unit->input_filename);
+    ast_set_locus(translation_unit->parsed_tree, make_locus(translation_unit->input_filename, 0, 0));
     
     timing_end(&timing_parsing);
 
@@ -3090,7 +3098,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
 static AST get_translation_unit_node(void)
 {
-    return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+    return ASTMake1(AST_TRANSLATION_UNIT, NULL, make_locus("", 0, 0), NULL);
 }
 
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, 
@@ -3888,7 +3896,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n", 0);
+            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -3926,9 +3934,11 @@ static void embed_files(void)
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
         // We do not have to embed linker data
-        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                || current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+        {
             continue;
-
+        }
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
 
         if (CURRENT_CONFIGURATION->verbose)
@@ -4063,7 +4073,7 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker command arguments
-    for(j = 0; j < num_args_linker_command; j++, i++)
+    for(j = 0; j < num_args_linker_command; j++)
     {
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
@@ -4074,6 +4084,10 @@ static void link_files(const char** file_list, int num_files,
                 get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = 
                 fileextensions_lookup(extension, strlen(extension));
+
+            if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                continue;
+
             if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
             {
                 linker_args[i] = current_translation_unit->input_filename;
@@ -4088,6 +4102,7 @@ static void link_files(const char** file_list, int num_files,
         {
             linker_args[i] = compilation_configuration->linker_command[j]->argument;    
         }
+        i++;
     }
     //Adding multifile list or additional file list 
     for (j = 0; j < num_files; j++, i++)
@@ -4105,7 +4120,7 @@ static void link_files(const char** file_list, int num_files,
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed", 0);
+        running_error("Link failed");
     }
     timing_end(&timing_link);
 
@@ -4159,7 +4174,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable", 0);
+                    running_error("Error when embedding SPU executable");
                 }
 
                 remove(configuration->linked_output_filename);
@@ -4208,7 +4223,7 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler", 0);
+                    running_error("Error when complining embedding assembler");
                 }
 
                 remove(configuration->linked_output_filename);
@@ -4324,9 +4339,23 @@ static void link_objects(void)
     if (CURRENT_CONFIGURATION->do_not_link)
         return;
 
-    const char * file_list[compilation_process.num_translation_units + 1];
-
     int j;
+    int num_link_files = 0;
+    for (j = 0; j < compilation_process.num_translation_units; j++)
+    {
+        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
+        const char* extension = get_extension_filename(translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
+        num_link_files++;
+    }
+
+    const char * file_list[num_link_files + 1];
+
+    int index = 0;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
         translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
@@ -4334,20 +4363,25 @@ static void link_objects(void)
         const char* extension = get_extension_filename(translation_unit->input_filename);
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+            continue;
+
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
         {
-            file_list[j] = translation_unit->input_filename;
+            file_list[index] = translation_unit->input_filename;
         }
         else
         {
-            file_list[j] = translation_unit->output_filename;
-            mark_file_as_temporary(file_list[j]);
+            file_list[index] = translation_unit->output_filename;
+            mark_file_as_temporary(file_list[index]);
         }
+
+        index++;
     }
 
     int num_additional_files = 0;
     const char** additional_files = NULL;
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+    extract_files_and_sublink(file_list, num_link_files,
             &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
     // Additional files are those coming from secondary profiles
@@ -4588,11 +4622,11 @@ static void print_memory_report(void)
             c);
 
     print_human(c, mallinfo_report.uordblks);
-    fprintf(stderr, " - Total size of memory occupied by chunks handed out by malloc: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by chunks handed out by xmalloc: %s\n",
             c);
 
     print_human(c, mallinfo_report.fordblks);
-    fprintf(stderr, " - Total size of memory occupied by free (not in use) chunks: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by xfree (not in use) chunks: %s\n",
             c);
 
     print_human(c, mallinfo_report.keepcost);

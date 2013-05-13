@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -42,6 +42,8 @@ namespace Codegen
             virtual std::string codegen(const Nodecl::NodeclBase&);
 
         public:
+            CxxBase();
+
             virtual void push_scope(TL::Scope sc);
             virtual void pop_scope();
 
@@ -97,6 +99,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxParenthesizedInitializer &);
             Ret visit(const Nodecl::CxxSizeof &);
             Ret visit(const Nodecl::CxxAlignof &);
+            Ret visit(const Nodecl::DefaultArgument &);
             Ret visit(const Nodecl::DefaultStatement &);
             Ret visit(const Nodecl::Delete &);
             Ret visit(const Nodecl::DeleteArray &);
@@ -505,8 +508,10 @@ namespace Codegen
             bool is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type);
 
         protected:
-            // Needed by codegen of cuda
-            void walk_list(const Nodecl::List&, const std::string& separator);
+
+            void walk_list(const Nodecl::List&,
+                    const std::string& separator,
+                    bool parenthesize_elements = false);
 
             virtual void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

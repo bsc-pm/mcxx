@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,15 +24,15 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlinstr.la
 
 libtlinstr_la_CFLAGS = -Wall \
-                       $(tl_cflags)
+                       $(phases_cflags)
 
 libtlinstr_la_CXXFLAGS = -Wall \
-                       $(tl_cxxflags)
+                       $(phases_cxxflags)
 
 libtlinstr_la_SOURCES = \
 						tl-instrumentfilter.hpp \
@@ -42,5 +42,5 @@ libtlinstr_la_SOURCES = \
 						tl-instrumentation.hpp \
 						tl-instrumentation.cpp
 
-libtlinstr_la_LDFLAGS = $(tl_ldflags)
-libtlinstr_la_LIBADD = $(tl_libadd)
+libtlinstr_la_LDFLAGS = $(phases_ldflags)
+libtlinstr_la_LIBADD = $(phases_libadd)

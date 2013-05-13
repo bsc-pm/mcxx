@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -50,16 +50,23 @@ namespace TL
 
             bool has_implements;
             Symbol implements;
+
+            // The name of the file where the kernels are defined
             std::string file;
+
+            // The real name of the kernel
+            std::string name;
 
             bool copy_deps;
 
             TargetContext()
-                : device_list(), 
-                copy_in(), 
-                copy_out(), 
-                has_implements(), 
-                implements(), 
+                : device_list(),
+                copy_in(),
+                copy_out(),
+                has_implements(),
+                implements(),
+                file(),
+                name(),
                 copy_deps()
             {
             }

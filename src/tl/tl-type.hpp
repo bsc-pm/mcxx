@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -523,6 +523,15 @@ namespace TL
 
             //! States whether current type is an array-type
             bool is_array() const;
+
+            //! States whether current type is an array-type in Fortran terminology
+            // All fortran array are array types but not all array types are fortran arrays
+            // In particular CHARACTER(LEN=x) are arrays but not Fortran array
+            bool is_fortran_array() const;
+
+            //! Returns the rank of a fortran array type
+            int fortran_rank() const;
+
             //! Returns the element type of an array-type
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
@@ -702,6 +711,12 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
+            //! Qualifies current type with the qualifier of t
+            Type get_as_qualified_as(TL::Type t);
+
+            //! Adds the qualification of t to the current type
+            Type get_added_qualification_of(TL::Type t);
+
             //! States that the type is a template type
             /*!
               A template type is the type of a template-name like A and f
@@ -791,6 +806,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'void'
             static Type get_void_type(void);
+
+            //! Convenience function that returns a wrapped 'bool'
+            static Type get_bool_type(void);
 
             //! Convenience function that returns a wrapped 'signed char'
             static Type get_char_type(void);

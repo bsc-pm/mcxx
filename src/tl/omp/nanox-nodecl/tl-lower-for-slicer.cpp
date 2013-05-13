@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -42,9 +42,11 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             TL::Symbol slicer_descriptor,
             Nodecl::NodeclBase &placeholder1,
-            Nodecl::NodeclBase &placeholder2)
+            Nodecl::NodeclBase &placeholder2,
+            Nodecl::NodeclBase &reduction_initialization,
+            Nodecl::NodeclBase &reduction_code)
     {
-        Source for_code, reduction_code, lastprivate_code, reduction_initialization, step_initialization;
+        Source for_code, lastprivate_code, step_initialization;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
         if (ranges.size() > 1)
         {
@@ -101,7 +103,6 @@ namespace TL { namespace Nanox {
                     << "int nanos_step = " << slicer_descriptor.get_name() << ".step;"
                     ;
                 for_code
-                    << as_type(range.get_step().get_type()) << " nanos_step = " << as_expression(range.get_step()) << ";"
                     << "if (nanos_step > 0)"
                     << "{"
                     <<       instrument_loop_opt
@@ -136,9 +137,9 @@ namespace TL { namespace Nanox {
                     << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
                     << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
 
+                    << "nanos_err_t err;"
                     << "if (nanos_loop_init == 0)"
                     << "{"
-                    <<     "nanos_err_t err;"
                     <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
                     <<     "if (err != NANOS_OK) nanos_handle_error(err);"
 
@@ -181,14 +182,16 @@ namespace TL { namespace Nanox {
                         ;
                 }
                 instrument_loop_opt
-                    << "nanos_instrument_events(3, loop_events);"
+                    << "err = nanos_instrument_events(3, loop_events);"
+                    << "if (err != NANOS_OK) nanos_handle_error(err);"
                     ;
 
                 instrument_after_opt
                     << "loop_events[0].value = 0;"
                     << "loop_events[1].value = 0;"
                     << "loop_events[2].value = 1;"
-                    << "nanos_instrument_events(3, loop_events);"
+                    << "err = nanos_instrument_events(3, loop_events);"
+                    << "if (err != NANOS_OK) nanos_handle_error(err);"
                     ;
             }
         }
@@ -197,40 +200,46 @@ namespace TL { namespace Nanox {
             internal_error("Code unreachable", 0);
         }
 
-        Source distribute_loop_source;
+        Source distribute_loop_source, reduction_initialization_src, reduction_code_src;
         distribute_loop_source
             << "{"
-            << reduction_initialization
+            << reduction_initialization_src
             << "int nanos_lower = " << slicer_descriptor.get_name() << ".lower;"
             << "int nanos_upper = " << slicer_descriptor.get_name() << ".upper;"
             << step_initialization
             << instrument_before_opt
             << for_code
             << instrument_after_opt
-            << reduction_code
+            << reduction_code_src
             << "}"
             ;
 
-        reduction_initialization << reduction_initialization_code(outline_info, construct);
-        reduction_code << perform_partial_reduction(outline_info);
+
+        if (there_are_reductions(outline_info))
+        {
+            reduction_initialization_src << statement_placeholder(reduction_initialization);
+            reduction_code_src << statement_placeholder(reduction_code);
+        }
+
         lastprivate_code << update_lastprivates(outline_info);
 
         return distribute_loop_source;
     }
 
     void LoweringVisitor::distribute_loop_with_outline_slicer(
-           const Nodecl::OpenMP::For& construct,
-           Nodecl::List& distribute_environment,
-           Nodecl::List& ranges,
-           OutlineInfo& outline_info,
-           Nodecl::NodeclBase& statements,
-           TL::Symbol slicer_descriptor,
-           Source &outline_distribute_loop_source,
-           // Loop (in the outline distributed code)
-           Nodecl::NodeclBase& outline_placeholder1,
-           // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
-           Nodecl::NodeclBase& outline_placeholder2
-           )
+            const Nodecl::OpenMP::For& construct,
+            Nodecl::List& distribute_environment,
+            Nodecl::List& ranges,
+            OutlineInfo& outline_info,
+            Nodecl::NodeclBase& statements,
+            TL::Symbol slicer_descriptor,
+            Source &outline_distribute_loop_source,
+            // Loop (in the outline distributed code)
+            Nodecl::NodeclBase& outline_placeholder1,
+            // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
+            Nodecl::NodeclBase& outline_placeholder2,
+            Nodecl::NodeclBase& reduction_initialization,
+            Nodecl::NodeclBase& reduction_code)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -256,7 +265,11 @@ namespace TL { namespace Nanox {
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info, statements,
+        CreateOutlineInfo info(outline_name,
+                outline_info.get_data_items(),
+                target_info,
+                /* original task statements */ statements,
+                /* current task statements */ statements,
                 /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
 
         // List of device names
@@ -301,6 +314,12 @@ namespace TL { namespace Nanox {
                 outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder2, label_symbol_map2));
             }
 
+            if (there_are_reductions(outline_info))
+            {
+                reduction_initialization_code(outline_info, reduction_initialization, construct);
+                perform_partial_reduction(outline_info, reduction_code);
+            }
+
             outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
 
             delete symbol_map;
@@ -334,7 +353,7 @@ namespace TL { namespace Nanox {
         ss << "wsd_" << (int)arg_counter++;
 
         // Create a detached symbol. Will put in a scope later, in loop_spawn_slicer
-        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::calloc(1, sizeof(*slicer_descriptor_internal));
+        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::xcalloc(1, sizeof(*slicer_descriptor_internal));
         // This is a transient scope but it will be changed before inserting the symbol
         // to its final scope
         slicer_descriptor_internal->decl_context = construct.retrieve_context().get_decl_context();
@@ -345,17 +364,42 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->type_information = nanos_slicer_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
+        Scope  enclosing_scope = construct.retrieve_context();
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(environment, enclosing_function);
 
-        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2;
+        // Handle the special object 'this'
+        if (IS_CXX_LANGUAGE
+                && !enclosing_function.is_static()
+                && enclosing_function.is_member())
+        {
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+            Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+            sym_ref.set_type(this_symbol.get_type());
+
+            // The object 'this' may already have an associated OutlineDataItem
+            OutlineDataItem& argument_outline_data_item =
+                outline_info.get_entity_for_symbol(this_symbol);
+
+            argument_outline_data_item.set_is_cxx_this(true);
+
+            // This is a special kind of shared
+            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            argument_outline_data_item.set_base_address_expression(sym_ref);
+        }
+
+        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_slicer(construct,
                 distribute_environment,
                 ranges,
                 outline_info,
                 slicer_descriptor,
                 outline_placeholder1,
-                outline_placeholder2);
+                outline_placeholder2,
+                reduction_initialization,
+                reduction_code);
 
         distribute_loop_with_outline_slicer(construct,
                 distribute_environment, ranges,
@@ -364,7 +408,9 @@ namespace TL { namespace Nanox {
                 slicer_descriptor,
                 outline_distribute_loop_source,
                 outline_placeholder1,
-                outline_placeholder2);
+                outline_placeholder2,
+                reduction_initialization,
+                reduction_code);
     }
 
 } }

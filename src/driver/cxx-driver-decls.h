@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -55,6 +55,8 @@ typedef enum source_kind_tag
     SOURCE_KIND_FIXED_FORM = BITMAP(2),
     SOURCE_KIND_FREE_FORM = BITMAP(3),
     SOURCE_KIND_DO_NOT_PROCESS = BITMAP(4),
+    SOURCE_KIND_DO_NOT_COMPILE = BITMAP(5),
+    SOURCE_KIND_DO_NOT_LINK = BITMAP(6),
 } source_kind_t;
 #undef BITMAP
 
@@ -365,6 +367,13 @@ typedef struct compilation_configuration_tag
     // Directory where we unwrap the native modules
     const char* module_native_dir;
 
+    // Directory where we hold module locks
+    const char* lock_dir;
+    char disable_locking;
+
+    // Directory where we extract multifile info
+    const char* multifile_dir;
+
     // Fortran default kinds
     int default_integer_kind;
     int default_real_kind;
@@ -462,15 +471,12 @@ typedef struct compilation_configuration_tag
 
     // Enable CUDA
     char enable_cuda;
-    
+
     // Enable OPENCL
     char enable_opencl;
-    
+
     //OpenCL Build options
     const char* opencl_build_options;
-        
-    //OpenCL File options
-    const char* opencl_code_file;
 
     // Target options
     int num_target_option_maps;

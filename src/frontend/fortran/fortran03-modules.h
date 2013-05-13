@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -34,6 +34,8 @@ MCXX_BEGIN_DECLS
 
 void dump_module_info(scope_entry_t* module);
 void load_module_info(const char* module_name, scope_entry_t** module);
+
+scope_entry_t* get_module_in_cache(const char* module_name);
 
 // This is used in TL
 void extend_module_info(scope_entry_t* module, const char* domain, int num_items, tl_type_t* info);

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -61,6 +61,6 @@ struct extensions_table_t;
 ".s",   SOURCE_LANGUAGE_ASSEMBLER,   SOURCE_KIND_DO_NOT_PROCESS
 ".S",   SOURCE_LANGUAGE_ASSEMBLER,   SOURCE_KIND_DO_NOT_PROCESS
 ".cu",  SOURCE_LANGUAGE_CUDA,        SOURCE_KIND_DO_NOT_PROCESS
-".cl",  SOURCE_LANGUAGE_OPENCL,      SOURCE_KIND_DO_NOT_PROCESS
-".ocl", SOURCE_LANGUAGE_OPENCL,      SOURCE_KIND_DO_NOT_PROCESS
+".cl",  SOURCE_LANGUAGE_OPENCL,      SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_DO_NOT_COMPILE | SOURCE_KIND_DO_NOT_LINK
+".ocl", SOURCE_LANGUAGE_OPENCL,      SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_DO_NOT_COMPILE | SOURCE_KIND_DO_NOT_LINK
 %%

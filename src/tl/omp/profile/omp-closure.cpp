@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -607,7 +607,7 @@ namespace TL
                     }
                     else
                     {
-                        std::cerr << expr.get_ast().get_locus() << ": warning: call to '" 
+                        std::cerr << expr.get_ast().get_locus_str() << ": warning: call to '" 
                             << called_id.prettyprint() << "' cannot be profiled since no definition is available" << std::endl;
                         info_funops_param(expr);
                     }
@@ -615,7 +615,7 @@ namespace TL
             }
             else
             {
-                std::cerr << expr.get_ast().get_locus() << ": warning: indirect call '" 
+                std::cerr << expr.get_ast().get_locus_str() << ": warning: indirect call '" 
                     << called.prettyprint() << "' cannot be profiled" << std::endl;
             }
         }

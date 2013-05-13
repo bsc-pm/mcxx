@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -472,6 +472,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         {
             // Here we assume that casts in C always yield rvalues
             file << "(*";
+
+            // This avoids a warning in some compilers which complain on (T* const)e
+            t = t.get_unqualified_type();
         }
         file << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 
@@ -952,6 +955,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::DefaultArgument& node)
+{
+    internal_error("Code unreachable", 0);
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
@@ -995,7 +1003,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
-                node.get_locus().c_str());
+                node.get_locus_str().c_str());
     }
 }
 
@@ -1084,8 +1092,7 @@ void CxxBase::emit_range_loop_header(
         Nodecl::NodeclBase statement,
         const std::string& rel_op)
 {
-
-    TL::Symbol ind_var = lc.get_symbol();
+    TL::Symbol ind_var = lc.get_induction_variable().get_symbol();
     std::string ind_var_name = this->get_qualified_name(ind_var);
 
     indent();
@@ -1104,7 +1111,10 @@ void CxxBase::emit_range_loop_header(
 
     // I += S
     file << ind_var_name << " += ";
-    walk(lc.get_step());
+    if (!lc.get_step().is_null())
+        walk(lc.get_step());
+    else
+        file << "1";
 
     file << ")\n";
 
@@ -1146,11 +1156,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         Nodecl::NodeclBase upper = lc.get_upper();
         Nodecl::NodeclBase step = lc.get_step();
 
-        if (!step.is_null()
-                && step.is_constant())
+        if (step.is_null()
+                || step.is_constant())
         {
             std::string rel_op = " <= ";
-            const_value_t* v = step.get_constant();
+            const_value_t* v = NULL;
+            if (step.is_null())
+            {
+                v = const_value_get_signed_int(1);
+            }
+            else
+            {
+                v = step.get_constant();
+            }
             if (const_value_is_negative(v))
             {
                 rel_op = " >= ";
@@ -1201,13 +1219,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 }
 
 template <typename Iterator>
-CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first)
+CxxBase::Ret CxxBase::codegen_function_call_arguments(
+        Iterator begin,
+        Iterator end,
+        TL::Type function_type,
+        int ignore_n_first)
 {
     bool has_ellipsis = 0;
     TL::ObjectList<TL::Type> parameters_type = function_type.parameters(has_ellipsis);
     TL::ObjectList<TL::Type>::iterator type_it = parameters_type.begin();
     TL::ObjectList<TL::Type>::iterator type_end = parameters_type.end();
-
 
     Iterator arg_it = begin;
     while (arg_it != end
@@ -1222,15 +1243,27 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
     // Update begin if we have ignored any argument
     begin = arg_it;
+    bool default_arguments = false;
     while (arg_it != end)
     {
+        Nodecl::NodeclBase actual_arg = *arg_it;
+
+        if (actual_arg.is<Nodecl::DefaultArgument>())
+        {
+            // Default arguments are printed in a comment
+            if (!default_arguments)
+            {
+                file << "/* ";
+                default_arguments = true;
+            }
+
+            actual_arg = actual_arg.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
         if (arg_it != begin)
         {
             file << ", ";
         }
-
-        Nodecl::NodeclBase actual_arg = *arg_it;
-
 
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
@@ -1311,6 +1344,10 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
         state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
+
+    // Close the comment if needed
+    if (default_arguments)
+        file << " */";
 }
 
 template <typename Node>
@@ -1844,11 +1881,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -1921,11 +1963,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -1998,9 +2040,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         walk_type_for_symbols(
                 symbol_type,
-                &CxxBase::declare_symbol_if_nonlocal,
-                &CxxBase::define_symbol_if_nonlocal,
-                &CxxBase::define_nonlocal_entities_in_trees);
+                &CxxBase::declare_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_symbol_if_nonlocal_nonprototype,
+                &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
     }
 
     TL::Scope symbol_scope = symbol.get_scope();
@@ -2053,10 +2095,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             walk_type_for_symbols(*it,
                     &CxxBase::declare_symbol_always,
                     &CxxBase::define_symbol_always,
-                    &CxxBase::define_nonlocal_entities_in_trees);
+                    &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        define_nonlocal_entities_in_trees(statement);
+        define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
     int num_parameters = symbol.get_related_symbols().size();
@@ -2107,11 +2149,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "explicit ";
     }
 
-    std::string gcc_attributes = "";
-
+    std::string gcc_attributes;
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
     }
 
     std::string asm_specification = gcc_asm_specifier_to_str(symbol);
@@ -2199,11 +2246,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        file << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
     }
 
     indent();
-    file << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    file << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
 
 
     if (!initializers.is_null())
@@ -2608,26 +2655,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         if (nodecl_calls_to_constructor(initializer, init_real_type))
         {
             Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-            if (!constructor_args.empty());
-            {
-                for (Nodecl::List::iterator it = constructor_args.begin();
-                        it != constructor_args.end();
-                        it++)
-                {
-                    if (it != constructor_args.begin())
-                        file << ", ";
-                    Nodecl::NodeclBase current(*it);
-                    // Here we add extra parentheses lest the direct-initialization looked like
-                    // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                    //
-                    // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                    // "function (pointer to function() returning A) returning A"
-                    // [extra blanks added for clarity in the example above]
-                    file << "(";
-                    walk(current);
-                    file << ")";
-                }
-            }
+
+            // Here we add extra parentheses lest the direct-initialization looked like
+            // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+            //
+            // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+            // "function (pointer to function() returning A) returning A"
+            // [extra blanks added for clarity in the example above]
+            walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
         }
         else
         {
@@ -2900,7 +2935,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     file << quote_c_string(bytes, length, is_wchar);
 
-    ::free(bytes);
+    ::xfree(bytes);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
@@ -3768,6 +3803,18 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             internal_error("Invalid class kind", 0);
     }
 
+    std::string gcc_attributes;
+    if (symbol.has_gcc_attributes())
+    {
+        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     // 1. Declaration of the class key part
     C_LANGUAGE()
     {
@@ -3776,7 +3823,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             // The symbol is called 'struct/union X' in C. We should ignore the
@@ -3895,7 +3942,7 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // We generate the gcc attributes at this point (and not at the end of
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
-        file << class_key << " " << gcc_attributes_to_str(symbol) << ms_attributes_to_str(symbol);
+        file << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
         if (!symbol.is_anonymous_union())
         {
             file << " " << qualified_name;
@@ -4132,7 +4179,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            else if (member.is_using_symbol())
+            else if (member.is_using_symbol()
+                    || member.is_using_typename_symbol())
             {
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
@@ -4140,8 +4188,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
 
                 TL::Symbol entry = unresolved[0];
+                file << "using ";
 
-                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (member.is_using_typename_symbol())
+                    file << "typename ";
+
+                file << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
             }
             else if (member.is_enum()
                     || member.is_typedef())
@@ -4779,26 +4831,14 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
                         Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-                        if (!constructor_args.empty());
-                        {
-                            for (Nodecl::List::iterator it = constructor_args.begin();
-                                    it != constructor_args.end();
-                                    it++)
-                            {
-                                if (it != constructor_args.begin())
-                                    file << ", ";
-                                Nodecl::NodeclBase current(*it);
-                                // Here we add extra parentheses lest the direct-initialization looked like
-                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                                //
-                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                                // "function (pointer to function() returning A) returning A"
-                                // [extra blanks added for clarity in the example above]
-                                file << "(";
-                                walk(current);
-                                file << ")";
-                            }
-                        }
+
+                        // Here we add extra parentheses lest the direct-initialization looked like
+                        // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                        //
+                        // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                        // "function (pointer to function() returning A) returning A"
+                        // [extra blanks added for clarity in the example above]
+                        walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
                     }
                     else
                     {
@@ -4996,10 +5036,16 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
     }
 
+    std::string gcc_extension;
+    if (symbol.has_gcc_extension())
+    {
+        gcc_extension = "__extension__ ";
+    }
+
     if (!state.in_condition)
         indent();
 
-    file << decl_specifiers << gcc_attributes << declarator << bit_field;
+    file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
@@ -5087,10 +5133,16 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             {
                 gcc_attributes = gcc_attributes_to_str(symbol) + " ";
             }
+            std::string gcc_extension;
+            if (symbol.has_gcc_extension())
+            {
+                gcc_extension = "__extension__ ";
+            }
 
             move_to_namespace_of_symbol(symbol);
             indent();
-            file << "typedef "
+            file << gcc_extension
+                << "typedef "
                 << gcc_attributes
                 << this->get_declaration(symbol.get_type(),
                         symbol.get_scope(),
@@ -6151,20 +6203,40 @@ void CxxBase::set_indent_level(int n)
     state._indent_level = n;
 }
 
-void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, bool parenthesize_elements)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
-
+    bool default_argument = false;
     while (it != list.end())
     {
-        if (it != begin)
+        Nodecl::NodeclBase current_node = *it;
+
+        if (current_node.is<Nodecl::DefaultArgument>())
         {
-            file << separator;
+            if (!default_argument)
+            {
+                default_argument = true;
+                file << "/* ";
+            }
+            current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
         }
 
-        walk(*it);
+        if (it != begin)
+            file << separator;
+
+        if (parenthesize_elements)
+            file << "(";
+
+        walk(current_node);
+
+        if (parenthesize_elements)
+            file << ")";
+
         it++;
     }
+
+    if (default_argument)
+        file << " */";
 }
 
 void CxxBase::walk_expression_list(const Nodecl::List& node)
@@ -7301,6 +7373,12 @@ bool CxxBase::cuda_print_special_attributes()
 bool CxxBase::cuda_emit_always_extern_linkage()
 {
     return false;
+}
+
+CxxBase::CxxBase()
+{
+    set_phase_name("C/C++ codegen");
+    set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
 }
 
 } // Codegen

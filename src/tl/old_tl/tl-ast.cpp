@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -93,7 +93,7 @@ namespace TL
 
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free((void*)c);
+            xfree((void*)c);
         return result;
     }
 
@@ -110,7 +110,7 @@ namespace TL
         const char* c = prettyprint_in_buffer(this->_ast);
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free((void*)c);
+            xfree((void*)c);
         return result;
     }
 
@@ -1128,7 +1128,7 @@ namespace TL
                 auxiliar_handler_prettprint, const_cast<Functor<callback_result, AST_t>*>(&functor));
 
         std::string result(c);
-        free((void*)c);
+        xfree((void*)c);
         return result;
     } 
 

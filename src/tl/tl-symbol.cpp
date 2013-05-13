@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -606,6 +606,11 @@ namespace TL
         return _symbol->kind == SK_USING;
     }
 
+    bool Symbol::is_using_typename_symbol() const
+    {
+        return _symbol->kind == SK_USING_TYPENAME;
+    }
+
     bool Symbol::is_builtin() const
     {
         // Despite the name this applies to variables too
@@ -642,28 +647,25 @@ namespace TL
         return _symbol->do_not_print;
     }
 
-    std::string Symbol::get_locus() const
+    const locus_t* Symbol::get_locus() const
     {
-        std::stringstream ss;
+        return _symbol->locus;
+    }
 
-        ss << this->get_filename() << ":" << this->get_line();
-
-        return ss.str();
+    std::string Symbol::get_locus_str() const
+    {
+        return locus_to_str(_symbol->locus);
     }
 
     std::string Symbol::get_filename() const
     {
-        if (_symbol->file != NULL)
-            return _symbol->file;
-        else
-            return "(unknown file)";
+        return locus_get_filename(_symbol->locus);
     }
 
     int Symbol::get_line() const
     {
-        return _symbol->line;
+        return locus_get_line(_symbol->locus);
     }
-
 
     bool Symbol::is_fortran_common() const
     {
@@ -775,6 +777,11 @@ namespace TL
         return (_symbol->entity_specs.num_gcc_attributes > 0);
     }
 
+    bool Symbol::has_gcc_extension() const
+    {
+        return _symbol->entity_specs.gcc_extension;
+    }
+
     ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
     {
         ObjectList<GCCAttribute> result;
@@ -820,9 +827,9 @@ namespace TL
         return Nodecl::List(_attr.expression_list);
     }
 
-    Nodecl::Symbol Symbol::make_nodecl(const std::string& filename, int line) const
+    Nodecl::Symbol Symbol::make_nodecl(const locus_t* locus) const
     {
-        return Nodecl::Symbol::make(*this, filename, line);
+        return Nodecl::Symbol::make(*this, locus);
     }
 
     intent_kind_t Symbol::get_intent_kind() const
@@ -890,5 +897,12 @@ namespace TL
     std::string Symbol::get_from_module_name() const
     {
         return _symbol->entity_specs.from_module_name;
+    }
+
+    bool Symbol::is_unnamed()
+    {
+        return (_symbol->kind == SK_CLASS
+                || _symbol->kind == SK_ENUM)
+            && _symbol->entity_specs.is_unnamed;
     }
 }

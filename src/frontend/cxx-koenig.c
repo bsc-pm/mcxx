@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -453,7 +453,7 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         instantiate_template_class_if_possible(
                 named_type_get_symbol(type_info),
                 named_type_get_symbol(type_info)->decl_context,
-                /* filename */ NULL, /* line */ 0);
+                make_locus("", 0, 0));
     }
 
     add_associated_class(koenig_info, named_type_get_symbol(type_info));

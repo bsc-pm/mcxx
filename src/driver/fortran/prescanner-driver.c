@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -147,7 +147,7 @@ static void tool_initialization(int argc, const char* argv[])
 		allocated_size = MINSIGSTKSZ;
 	}
 
-	_alternate_signal_stack = malloc(allocated_size);
+	_alternate_signal_stack = xmalloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -202,8 +202,8 @@ static void parse_parameters(int argc, char* argv[])
 	prescanner.pad_strings = 1;
 	prescanner.output_filename = NULL;
 	prescanner.num_include_directories = 1;
-	prescanner.include_directories = calloc(1, sizeof(*prescanner.include_directories));
-	prescanner.include_directories[0] = strdup(".");
+	prescanner.include_directories = xcalloc(1, sizeof(*prescanner.include_directories));
+	prescanner.include_directories[0] = xstrdup(".");
 	prescanner.output_include_directory = NULL;
 
 	char c;
@@ -214,7 +214,7 @@ static void parse_parameters(int argc, char* argv[])
 		{
 			case 'o' :
 				{
-					prescanner.output_filename = strdup(optarg);
+					prescanner.output_filename = xstrdup(optarg);
 					break;
 				}
 			case 'w' :
@@ -255,9 +255,9 @@ static void parse_parameters(int argc, char* argv[])
 				}
 			case 'I' :
 				{
-					char* directory = strdup(optarg);
+					char* directory = xstrdup(optarg);
 					prescanner.num_include_directories++;
-					prescanner.include_directories = realloc(prescanner.include_directories, 
+					prescanner.include_directories = xrealloc(prescanner.include_directories, 
 							prescanner.num_include_directories * sizeof(*prescanner.include_directories));
 					prescanner.include_directories[prescanner.num_include_directories-1] = directory;
 
@@ -273,11 +273,11 @@ static void parse_parameters(int argc, char* argv[])
 						break;
 					}
 
-					char* directory = strdup(optarg);
+					char* directory = xstrdup(optarg);
 					prescanner.output_include_directory = directory;
 
 					prescanner.num_include_directories++;
-					prescanner.include_directories = realloc(prescanner.include_directories, 
+					prescanner.include_directories = xrealloc(prescanner.include_directories, 
 							prescanner.num_include_directories * sizeof(*prescanner.include_directories));
 					prescanner.include_directories[prescanner.num_include_directories-1] = directory;
 					break;
@@ -327,5 +327,5 @@ static void parse_parameters(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	prescanner.input_filename = strdup(argv[optind]);
+	prescanner.input_filename = xstrdup(argv[optind]);
 }

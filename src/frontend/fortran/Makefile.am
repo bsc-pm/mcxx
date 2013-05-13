@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -209,7 +209,7 @@ CLEANFILES += prescanner-scanner.h
 
 prescanner-scanner.h : $(srcdir)/prescanner-identifier.h $(srcdir)/prescanner.l
 if FLEX_BUILDING
-	$(FLEX_verbose)$(FLEX) -d -i -oprescanner-scanner.h -8 $(srcdir)/prescanner.l
+	$(FLEX_verbose)$(FLEX) -Pprescanner -d -i -oprescanner-scanner.h -8 $(srcdir)/prescanner.l
 else
 	@echo "*** ERROR: file prescanner.l was modified but no suitable flex was found during configure ***"
 	@exit 1

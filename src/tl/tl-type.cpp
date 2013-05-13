@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -36,6 +36,8 @@
 #include "cxx-scope.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
+
+#include "fortran03-typeutils.h"
 
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
@@ -113,7 +115,7 @@ namespace TL
     {
         if (!IS_FORTRAN_LANGUAGE)
         {
-            running_error("This function cannot be called if we are not in Fortran", 0);
+            running_error("This function cannot be called if we are not in Fortran");
         }
 
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
@@ -213,8 +215,7 @@ namespace TL
                 region_upper_bound,
                 const_value_to_nodecl(const_value_get_one(4, 1)),
                 region_lower_bound.get_type(),
-                region_lower_bound.get_filename(),
-                region_lower_bound.get_line());
+                region_lower_bound.get_locus());
 
         type_t* array_to = get_array_type_bounds_with_regions(
                 result_type,
@@ -255,7 +256,7 @@ namespace TL
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
    
-        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
 
         for (i=0; i<num_parameters; i++)
         {
@@ -316,6 +317,19 @@ namespace TL
     bool Type::is_array() const
     {
         return (is_array_type(_type_info));
+    }
+
+    bool Type::is_fortran_array() const
+    {
+        return (fortran_is_array_type(_type_info));
+    }
+
+    int Type::fortran_rank() const
+    {
+        if (!is_fortran_array())
+            return 0;
+        else
+            return (fortran_get_rank_of_type(_type_info));
     }
 
     bool Type::is_vector_type() const
@@ -593,6 +607,10 @@ namespace TL
         return Type(::get_void_type());
     }
     
+    Type Type::get_bool_type(void)
+    {
+        return Type(::get_bool_type());
+    }
     Type Type::get_char_type(void)
     {
         return Type(::get_char_type());
@@ -806,6 +824,19 @@ namespace TL
         // Might return itself if already restrict qualified
         return get_cv_qualified_type(this->_type_info, 
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
+    }
+
+    Type Type::get_as_qualified_as(TL::Type t)
+    {
+        cv_qualifier_t cv = get_cv_qualifier(t._type_info);
+        return get_cv_qualified_type(this->_type_info, cv);
+    }
+
+    Type Type::get_added_qualification_of(TL::Type t)
+    {
+        cv_qualifier_t cv = get_cv_qualifier(t._type_info);
+        return get_cv_qualified_type(this->_type_info,
+                (cv_qualifier_t)(cv | get_cv_qualifier(this->_type_info)));
     }
 
     Type Type::no_ref()

@@ -29,17 +29,17 @@ subparsing : SUBPARSE_OPENMP_DECLARE_REDUCTION omp_declare_reduction EOS
 
 omp_declare_reduction : omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner
 {
-    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, NULL, ast_get_locus($1), NULL);
 }
 | omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner ':' omp_dr_initializer
 {
-    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, $7, ast_get_locus($1), NULL);
 }
 ;
 
 omp_dr_reduction_id : omp_dr_operator
 {
-    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | omp_dr_identifier
 {
@@ -81,13 +81,13 @@ omp_dr_typename : declaration_type_spec
 
 omp_dr_combiner : name '=' expr
 {
-    $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 
 omp_dr_initializer : name '=' expr
 {
-    $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ast_get_locus($1), NULL);
 }
 | function_reference
 {

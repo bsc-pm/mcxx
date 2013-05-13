@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -71,9 +71,7 @@ namespace TL { namespace Nanox {
             // The object 'this' may already have an associated OutlineDataItem
             OutlineDataItem& argument_outline_data_item = outline_info.get_entity_for_symbol(this_symbol);
 
-            // We must ensure that this OutlineDataItem is moved to the
-            // first position of the list of OutlineDataItems.
-            outline_info.move_at_begin(argument_outline_data_item);
+            argument_outline_data_item.set_is_cxx_this(true);
 
             // This is a special kind of shared
             argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
@@ -82,24 +80,28 @@ namespace TL { namespace Nanox {
 
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        Source outline_source, reduction_code, reduction_initialization;
+        Source outline_source, reduction_code_src, reduction_initialization_src;
         Nodecl::NodeclBase inner_placeholder;
         outline_source
             << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "err = nanos_enter_team();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << reduction_initialization
+            << reduction_initialization_src
             << statement_placeholder(inner_placeholder)
-            << reduction_code
+            << reduction_code_src
             << "err = nanos_omp_barrier();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "err = nanos_leave_team();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             ;
 
-        reduction_initialization << reduction_initialization_code(outline_info, construct);
-        reduction_code << perform_partial_reduction(outline_info);
+        Nodecl::NodeclBase reduction_initialization, reduction_code;
+        if (there_are_reductions(outline_info))
+        {
+            reduction_initialization_src << statement_placeholder(reduction_initialization);
+            reduction_code_src << statement_placeholder(reduction_code);
+        }
 
         // Outline
 
@@ -113,8 +115,14 @@ namespace TL { namespace Nanox {
         TL::Symbol called_task_dummy;
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
-                statements, /* task_label */ Nodecl::NodeclBase::null(),  structure_symbol, called_task_dummy);
+        CreateOutlineInfo info(outline_name,
+                outline_info.get_data_items(),
+                target_info,
+                /* original statements */ statements,
+                /* current task statements */ statements,
+                /* task_label */ Nodecl::NodeclBase::null(),
+                structure_symbol,
+                called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names(function_symbol);
@@ -141,6 +149,12 @@ namespace TL { namespace Nanox {
             if (IS_FORTRAN_LANGUAGE)
             {
                 Source::source_language = SourceLanguage::Current;
+            }
+
+            if (there_are_reductions(outline_info))
+            {
+                reduction_initialization_code(outline_info, reduction_initialization, construct);
+                perform_partial_reduction(outline_info, reduction_code);
             }
 
             Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);

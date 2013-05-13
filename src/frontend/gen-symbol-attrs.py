@@ -3,6 +3,12 @@
 import sys
 import string
 
+import inspect
+
+def lineno():
+    """Returns the current line number in our program."""
+    return inspect.currentframe().f_back.f_lineno
+
 f = open(sys.argv[1])
 
 if (len(sys.argv) >= 3):
@@ -175,7 +181,7 @@ def insert_extra_attr_code(_type, name, suffix):
         elif type_name == "function_parameter_info_t":
             _insert_code.append("insert_extra_function_parameter_info(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
         else:
-            sys.stderr.write("%s: info: typeof '%s' is not handled\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s:%d: warning: typeof '%s' is not handled\n" % (sys.argv[0], lineno(), type_name))
     else:
         pass
     return _insert_code
@@ -248,7 +254,7 @@ def get_extra_load_code(_type, num_name, list_name):
         else:
             pass
     else:
-        sys.stderr.write("%s: warning: unknown array type '%s'\n" % (sys.argv[0], _type))
+        sys.stderr.write("%s:%d: warning: unknown array type '%s'\n" % (sys.argv[0], lineno(), _type))
     return string.join(result, "\n");
 
 def get_load_code(_type, name):
@@ -308,14 +314,24 @@ def get_load_code(_type, name):
         result.append(get_extra_load_code(type_name, num_name, list_name))
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        if type_name == "intent_kind_t" or type_name == "access_specifier_t" or type_name == "_size_t":
+        if type_name in ["intent_kind_t", "access_specifier_t", "_size_t"]:
             result.append("int i;");
             result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
             result.append("{")
             result.append("   sym->entity_specs." + name + " = safe_atoull(values[i]);")
             result.append("}")
+        elif type_name == "simplify_function_t":
+            result.append("int i;");
+            result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+            result.append("{")
+            result.append("   int id = safe_atoull(values[i]);")
+            result.append("   simplify_function_t fun = fortran_simplify_function_get_ptr(id);" )
+            result.append("   ERROR_CONDITION(fun == NULL && id != 0, " \
+                "\"Invalid identifier %d for simplification function.\\nYou may have to rebuild your Fortran modules\", id);")
+            result.append("   sym->entity_specs." + name + " = fortran_simplify_function_get_ptr(safe_atoull(values[i]));")
+            result.append("}")
         else:
-            sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
         pass
     elif (_type == "scope"):
         result.append("// Scope is not stored (yet)");
@@ -324,7 +340,7 @@ def get_load_code(_type, name):
         # Booleans are handled apart
         pass
     else :
-        sys.stderr.write("%s: info: not handling '%s'\n" % (sys.argv[0], type_name))
+        sys.stderr.write("%s:%d: warning: not handling '%s'\n" % (sys.argv[0], lineno(), type_name))
         pass
     result.append("}");
     return string.join(result, "\n");
@@ -381,8 +397,12 @@ def print_fortran_modules_functions(lines):
                 attr_names.append(name)
                 _format.append("%llu")
                 sprintf_arguments.append("(unsigned long long)(sym->entity_specs.%s)" % (name))
+            elif type_name == "simplify_function_t":
+                attr_names.append(name);
+                _format.append("%d")
+                sprintf_arguments.append("fortran_simplify_function_get_id(sym->entity_specs.%s)" % (name))
             else:
-                sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
+                sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
       else:
           pass
     print "#ifndef FORTRAN03_MODULES_BITS_H"
@@ -448,7 +468,7 @@ def print_fortran_modules_functions(lines):
     print "return result;"
     print "}"
 
-    print "static void unpack_bits(scope_entry_t* sym, module_packed_bits_t bitpack)"
+    print "static void unpack_bits(entity_specifiers_t *entity_specs, module_packed_bits_t bitpack)"
     print "{"
     for l in lines:
       fields = l.split("|");
@@ -456,7 +476,7 @@ def print_fortran_modules_functions(lines):
       if name[1] == "*":
           continue;
       if _type == "bool":
-          print "sym->entity_specs.%s = bitpack.%s;" % (name, name)
+          print "entity_specs->%s = bitpack.%s;" % (name, name)
     print "}"
 
     print "#endif // FORTRAN03_MODULES_BITS_H"
@@ -497,10 +517,10 @@ def print_deep_copy_entity_specs(lines):
           print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
       elif (_type.startswith("typeof")):
             type_name = get_up_to_matching_paren(_type[len("typeof"):])
-            if type_name in ["intent_kind_t", "access_specifier_t", "_size_t"]:
+            if type_name in ["intent_kind_t", "access_specifier_t", "_size_t", "simplify_function_t"]:
                 print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
             else:
-                sys.stderr.write("%s: warning: not handling typeof '%s'\n" % (sys.argv[0], type_name))
+                sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
       elif _type.startswith("array"):
           type_name = get_up_to_matching_paren(_type[len("array"):])
           field_names = name.split(",")
@@ -531,7 +551,7 @@ def print_deep_copy_entity_specs(lines):
                   print "default_argument_info_t* copied = NULL;"
                   print "if (source_default_arg != NULL)"
                   print "{"
-                  print "  copied = calloc(1, sizeof(*copied));"
+                  print "  copied = xcalloc(1, sizeof(*copied));"
                   print "  copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
                   print "  copied->context = decl_context;"
                   print "}"
@@ -547,11 +567,11 @@ def print_deep_copy_entity_specs(lines):
               print "param_info.function = symbol_map->map(symbol_map, param_info.function);"
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, param_info);" % (list_name, num_name)
           else:
-              sys.stderr.write("%s: warning: not handling type array of type '%s'\n" % (sys.argv[0], _type))
+              sys.stderr.write("%s:%d: warning: not handling type array of type '%s'\n" % (sys.argv[0], lineno(), _type))
           print "}"
           print "}"
       else:
-          sys.stderr.write("%s: warning: not handling type '%s'\n" % (sys.argv[0], _type))
+          sys.stderr.write("%s:%d: warning: not handling type '%s'\n" % (sys.argv[0], lineno(), _type))
     print """
     }
     """

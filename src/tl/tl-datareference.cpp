@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -47,23 +47,23 @@ namespace TL
             { 
                 _data_ref._is_valid = false;
                 _data_ref._error_log = 
-                    tree.get_locus() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
+                    tree.get_locus_str() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
             }
 
             // Symbol
-            virtual void visit(const Nodecl::Symbol& sym)
+            virtual void visit(const Nodecl::Symbol& n)
             {
-                _data_ref._base_symbol = sym.get_symbol();
+                _data_ref._base_symbol = n.get_symbol();
 
                 TL::Type t;
 
-                if (sym.get_type().is_valid())
+                if (n.get_type().is_valid())
                 {
-                    t = sym.get_type();
+                    t = n.get_type();
                 }
                 else
                 {
-                    t = sym.get_symbol().get_type();
+                    t = n.get_symbol().get_type();
                 }
 
                 if (t.is_any_reference())
@@ -71,10 +71,24 @@ namespace TL
 
                 _data_ref._data_type = t;
                 _data_ref._base_address = Nodecl::Reference::make(
-                        sym.shallow_copy(),
+                        n.shallow_copy(),
                         t.get_pointer_to(),
-                        sym.get_filename(),
-                        sym.get_line());
+                        n.get_locus());
+
+                if (IS_FORTRAN_LANGUAGE
+                        && _data_ref == n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+                    if (sym.is_parameter()
+                            && sym.get_type().no_ref().is_array()
+                            && !sym.get_type().no_ref().array_requires_descriptor()
+                            && sym.get_type().no_ref().array_get_size().is_null())
+                    {
+                        // This is a 'A' where A is an assumed size array.
+                        // We cannot accept this case
+                        _data_ref._is_valid = false;
+                    }
+                }
             }
 
             virtual void visit(const Nodecl::Dereference& derref)
@@ -219,8 +233,7 @@ namespace TL
                                     item.shallow_copy(),
                                     /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
                                     item.get_type(),
-                                    item.get_filename(),
-                                    item.get_line());
+                                    item.get_locus());
 
                         rebuilt_type =
                             get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
@@ -330,12 +343,10 @@ namespace TL
                                     _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
                 else if (IS_CXX_LANGUAGE
                         && member.get_member().get_kind() == NODECL_SYMBOL
@@ -348,12 +359,10 @@ namespace TL
                                     member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
                 else
                 {
@@ -363,12 +372,10 @@ namespace TL
                                     _data_ref._base_address,
                                     member.get_member().shallow_copy(),
                                     t,
-                                    member.get_filename(),
-                                    member.get_line()
+                                    member.get_locus()
                                     ),
                                 t.get_pointer_to(),
-                                member.get_filename(),
-                                member.get_line());
+                                member.get_locus());
                 }
             }
 
@@ -475,8 +482,7 @@ namespace TL
                             current_index->shallow_copy(),
                             current_lower->shallow_copy(),
                             current_index->get_type(),
-                            current_index->get_filename(),
-                            current_index->get_line());
+                            current_index->get_locus());
             }
             else
             {
@@ -491,21 +497,17 @@ namespace TL
                             current_index->shallow_copy(),
                             current_lower->shallow_copy(),
                             current_index->get_type(),
-                            current_index->get_filename(),
-                            current_index->get_line()),
+                            current_index->get_locus()),
                         Nodecl::Mul::make(
                             current_size->shallow_copy(),
                             Nodecl::ParenthesizedExpression::make(
                                 next_indexing,
                                 next_indexing.get_type(),
-                                next_indexing.get_filename(),
-                                next_indexing.get_line()),
+                                next_indexing.get_locus()),
                             current_size->get_type(),
-                            current_size->get_filename(),
-                            current_size->get_line()),
+                            current_size->get_locus()),
                         current_index->get_type(),
-                        current_index->get_filename(),
-                        current_index->get_line());
+                        current_index->get_locus());
 
                 return result;
             }
@@ -562,11 +564,9 @@ namespace TL
                         Nodecl::ParenthesizedExpression::make(
                             index_expression,
                             index_expression.get_type(),
-                            index_expression.get_filename(),
-                            index_expression.get_line()),
+                            index_expression.get_locus()),
                         index_type,
-                        index_expression.get_filename(),
-                        index_expression.get_line()
+                        index_expression.get_locus()
                         );
 
             return result;
@@ -607,11 +607,9 @@ namespace TL
                     Nodecl::ParenthesizedExpression::make(
                         index_expression,
                         index_expression.get_type(),
-                        index_expression.get_filename(),
-                        index_expression.get_line()),
+                        index_expression.get_locus()),
                     index_expression.get_type(),
-                    index_expression.get_filename(),
-                    index_expression.get_line()
+                    index_expression.get_locus()
                     );
 
             return result;
@@ -643,8 +641,7 @@ namespace TL
                 return Nodecl::Reference::make(
                         expr.shallow_copy(),
                         t.get_pointer_to(),
-                        expr.get_filename(),
-                        expr.get_line());
+                        expr.get_locus());
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())
@@ -687,7 +684,7 @@ namespace TL
         return get_address_of_symbol_helper(*this, /* reference */ true);
     }
 
-    Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type) const
+    Nodecl::NodeclBase DataReference::compute_sizeof_of_type(TL::Type relevant_type, bool ignore_regions) const
     {
         if (relevant_type.is_any_reference())
             relevant_type = relevant_type.references_to();
@@ -695,7 +692,7 @@ namespace TL
         if (relevant_type.is_array())
         {
             Nodecl::NodeclBase lower_bound, upper_bound;
-            if (!relevant_type.array_is_region())
+            if (!relevant_type.array_is_region() || ignore_regions)
             {
                 relevant_type.array_get_bounds(lower_bound, upper_bound);
             }
@@ -726,38 +723,31 @@ namespace TL
                             Nodecl::ParenthesizedExpression::make(
                                 upper_bound,
                                 TL::Type::get_int_type(),
-                                upper_bound.get_filename(),
-                                upper_bound.get_line()),
+                                upper_bound.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound,
                                 TL::Type::get_int_type(),
-                                lower_bound.get_filename(),
-                                lower_bound.get_line()),
+                                lower_bound.get_locus()),
                             TL::Type::get_int_type(),
-                            upper_bound.get_filename(),
-                            upper_bound.get_line()),
+                            upper_bound.get_locus()),
                         const_value_to_nodecl(const_value_get_signed_int(1)),
                         TL::Type::get_int_type(),
-                        lower_bound.get_filename(),
-                        lower_bound.get_line());
+                        lower_bound.get_locus());
             }
 
-            Nodecl::NodeclBase element_size = compute_sizeof_of_type(relevant_type.array_element());
+            Nodecl::NodeclBase element_size = compute_sizeof_of_type(relevant_type.array_element(), ignore_regions);
 
             return Nodecl::Mul::make(
                     Nodecl::ParenthesizedExpression::make(
                         element_size,
                         TL::Type::get_int_type(),
-                        element_size.get_filename(),
-                        element_size.get_line()),
+                        element_size.get_locus()),
                     Nodecl::ParenthesizedExpression::make(
                         array_size,
                         TL::Type::get_int_type(),
-                        array_size.get_filename(),
-                        array_size.get_line()),
+                        array_size.get_locus()),
                     TL::Type::get_int_type(),
-                    element_size.get_filename(),
-                    element_size.get_line());
+                    element_size.get_locus());
 
             return array_size;
         }
@@ -844,25 +834,25 @@ namespace TL
                     }
                 }
 
+                // This means that it is OK to specify A(:)
+                if (lower.is_null())
+                    lower = lower_bound;
+
                 Nodecl::NodeclBase current_index =
                     Nodecl::ParenthesizedExpression::make(
                             Nodecl::Minus::make(
                                 Nodecl::ParenthesizedExpression::make(
                                     lower.shallow_copy(),
                                     TL::Type::get_int_type(),
-                                    lower.get_filename(),
-                                    lower.get_line()),
+                                    expr.get_locus()),
                                 Nodecl::ParenthesizedExpression::make(
                                     lower_bound.shallow_copy(),
                                     TL::Type::get_int_type(),
-                                    lower_bound.get_filename(),
-                                    lower_bound.get_line()),
+                                    lower_bound.get_locus()),
                                 TL::Type::get_int_type(),
-                                lower.get_filename(),
-                                lower.get_line()),
+                                expr.get_locus()),
                             TL::Type::get_int_type(),
-                            lower.get_filename(),
-                            lower.get_line());
+                            expr.get_locus());
 
                 indexes.append(current_index);
                 if (t.is_array())
@@ -884,7 +874,11 @@ namespace TL
                         }
                         else
                         {
-                            return Nodecl::NodeclBase::null();
+                            if ((it + 1) != subscripts.end())
+                            {
+                                return Nodecl::NodeclBase::null();
+                            }
+                            current_size = Nodecl::NodeclBase::null();
                         }
                     }
                     sizes.append(current_size.shallow_copy());
@@ -940,21 +934,39 @@ namespace TL
             }
 
             result = Nodecl::Mul::make(
-                    const_value_to_nodecl(
-                        const_value_get_integer(type_get_size(t.get_internal_type()),
-                                type_get_size(get_ptrdiff_t_type()), 1)),
+                    compute_sizeof_of_type(t, /* ignore regions */ true),
                     Nodecl::ParenthesizedExpression::make(result, result.get_type()),
                     get_ptrdiff_t_type(),
-                    result.get_filename(),
-                    result.get_line());
+                    result.get_locus());
 
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
+
             // a.b[e]
-            if (subscripted.is<Nodecl::ClassMemberAccess>())
+            // (p[e1])[e] -> This only happens when indexing a pointer p
+            if (subscripted.is<Nodecl::ClassMemberAccess>()
+                    || subscripted.is<Nodecl::ArraySubscript>())
             {
-                internal_error("Form a.b[e] not yet implemented", 0);
+                DataReference subscripted_expr_ref = DataReference(subscripted);
+                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+
+                result = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                        Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                        get_ptrdiff_t_type(),
+                        expr.get_locus());
             }
-            // ([shape]p])[e]
+            // (*p)[e]
+            else if (subscripted.is<Nodecl::Dereference>())
+            {
+                DataReference subscripted_expr_ref = DataReference(subscripted.as<Nodecl::Dereference>().get_rhs());
+                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted.as<Nodecl::Dereference>().get_rhs(), subscripted_expr_ref, scope);
+
+                result = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                        Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                        get_ptrdiff_t_type(),
+                        expr.get_locus());
+            }
             else if (subscripted.is<Nodecl::Shaping>())
             {
                 Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
@@ -967,12 +979,6 @@ namespace TL
                                 "C"),
                             get_ptrdiff_t_type()),
                         get_ptrdiff_t_type());
-            }
-            // This only happens when indexing a pointer p
-            // (p[e1])[e]
-            else if (subscripted.is<Nodecl::ArraySubscript>())
-            {
-                internal_error("Form (p[e1])[e] not yet implemented", 0);
             }
             // a[e]
             else if (subscripted.is<Nodecl::Symbol>())
@@ -995,19 +1001,18 @@ namespace TL
                         Nodecl::Reference::make(
                             expr,
                             expr.get_type().get_pointer_to(),
-                            expr.get_filename(), expr.get_line()),
+                            expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_filename(), expr.get_line()),
+                        "C", expr.get_locus()),
                     Nodecl::Cast::make(
                         Nodecl::Reference::make(
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs(),
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs().get_type().get_pointer_to(),
-                            expr.get_filename(), expr.get_line()),
+                            expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_filename(), expr.get_line()),
+                        "C", expr.get_locus()),
                     get_ptrdiff_t_type(),
-                    expr.get_filename(),
-                    expr.get_line());
+                    expr.get_locus());
 
             return result;
         }

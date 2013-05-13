@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,15 +24,15 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtest_analysis.la
 
-libtest_analysis_la_CFLAGS = $(tl_cflags)
-libtest_analysis_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../common \
+libtest_analysis_la_CFLAGS = $(phases_cflags)
+libtest_analysis_la_CXXFLAGS = $(phases_cflags) -I $(srcdir)/../common \
                                -I $(srcdir)/../singleton -I $(srcdir)/../pcfg
-libtest_analysis_la_LDFLAGS = $(tl_ldflags)
-libtest_analysis_la_LIBADD = $(tl_libadd) ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la \
+libtest_analysis_la_LDFLAGS = $(phases_ldflags)
+libtest_analysis_la_LIBADD = $(phases_libadd) ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la \
                              ../pcfg/libpcfg.la
 
 END=

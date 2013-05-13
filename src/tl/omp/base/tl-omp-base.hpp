@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -54,8 +54,13 @@ namespace TL
 
                 std::string _simd_enabled_str;
                 bool _simd_enabled;
+                void set_simd(const std::string &simd_enabled_str);
 
-                void set_simd(const std::string simd_enabled_str);
+                std::string _allow_shared_without_copies_str;
+                void set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str);
+
+                std::string _discard_unused_data_sharings_str;
+                void set_discard_unused_data_sharings(const std::string &discard_unused_data_sharings);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

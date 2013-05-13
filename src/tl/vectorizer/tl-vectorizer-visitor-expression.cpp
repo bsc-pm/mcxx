@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -54,7 +54,7 @@ namespace TL
                         get_qualified_vector_to(n.get_type(), _vector_length),
                         n.get_filename(),
                         n.get_line());
-
+            
             n.replace(vector_add);
         }
 
@@ -301,15 +301,12 @@ namespace TL
                                     Nodecl::ParenthesizedExpression::make(
                                         lhs.shallow_copy(),
                                         basic_type,
-                                        n.get_filename(),
-                                        n.get_line()),
+                                        n.get_locus()),
                                     basic_type.get_pointer_to(),
-                                    n.get_filename(),
-                                    n.get_line()),
+                                    n.get_locus()),
                                 n.get_rhs().shallow_copy(),
                                 vector_type,
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_store);
                 }
@@ -365,11 +362,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -386,11 +381,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -407,11 +400,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -428,11 +419,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -495,14 +484,11 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     n.shallow_copy(),
                                     basic_type,
-                                    n.get_filename(),
-                                    n.get_line()),
+                                    n.get_locus()),
                                 basic_type.get_pointer_to(),
-                                n.get_filename(),
-                                n.get_line()),
+                                n.get_locus()),
                             vector_type,
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_load);
             }
@@ -570,12 +556,12 @@ namespace TL
                 if (best_version.is<Nodecl::FunctionCode>())
                 {
                     new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
-                        make_nodecl(n.get_filename(), n.get_line());
+                        make_nodecl(n.get_locus());
                 }
                 else if (best_version.is<Nodecl::Symbol>())
                 {
                     new_called = best_version.as<Nodecl::Symbol>().get_symbol().
-                        make_nodecl(n.get_filename(), n.get_line());
+                        make_nodecl(n.get_locus());
                 }
                 else
                 {

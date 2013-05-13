@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -163,8 +163,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
     /*
      * Vector support
      */
-    if (strcmp(attribute_name, "vector_size") == 0
-            || strcmp(attribute_name, "__vector_size__") == 0)
+    if (expression_list != NULL
+            && (strcmp(attribute_name, "vector_size") == 0
+                || strcmp(attribute_name, "__vector_size__") == 0))
     {
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
@@ -218,7 +219,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
         gather_info->is_vector = 1;
         gather_info->vector_size = 16;
     }
-    else if (strcmp(attribute_name, "altivec") == 0)
+    else if (expression_list != NULL
+            && strcmp(attribute_name, "altivec") == 0)
     {
         do_not_keep_attribute = 1;
         AST argument = advance_expression_nest(ASTSon1(expression_list));
@@ -233,37 +235,36 @@ void gather_one_gcc_attribute(const char* attribute_name,
                 gather_info->vector_size = 16;
 
                 nodecl_expression_list = 
-                    nodecl_make_list_1(nodecl_make_text("vector__", ASTFileName(argument), ASTLine(argument)));
+                    nodecl_make_list_1(nodecl_make_text("vector__", ast_get_locus(argument)));
             }
         }
     }
-    else if (strcmp(attribute_name, "aligned") == 0
-            || strcmp(attribute_name, "__aligned__") == 0)
+    else if (expression_list != NULL
+            && (strcmp(attribute_name, "aligned") == 0
+                || strcmp(attribute_name, "__aligned__") == 0))
     {
-        if (expression_list != NULL)
+        if (ASTSon0(expression_list) != NULL)
         {
-            if (ASTSon0(expression_list) != NULL)
-            {
-                running_error("%s: error: attribute 'aligned' only allows one argument",
-                        ast_location(expression_list));
-            }
-
-            // Evaluate the expression
-            nodecl_t nodecl_dummy;
-            AST argument = ASTSon1(expression_list);
-            if (!check_expression(argument, decl_context, &nodecl_dummy))
-            {
-                running_error("%s: Invalid expression '%s'\n",
-                        ast_location(expression_list),
-                        prettyprint_in_buffer(argument));
-            }
-
-            nodecl_expression_list =
-                nodecl_make_list_1(nodecl_make_text(prettyprint_in_buffer(argument), ASTFileName(argument), ASTLine(argument)));
+            running_error("%s: error: attribute 'aligned' only allows one argument",
+                    ast_location(expression_list));
         }
+
+        // Evaluate the expression
+        nodecl_t nodecl_dummy;
+        AST argument = ASTSon1(expression_list);
+        if (!check_expression(argument, decl_context, &nodecl_dummy))
+        {
+            running_error("%s: Invalid expression '%s'\n",
+                    ast_location(expression_list),
+                    prettyprint_in_buffer(argument));
+        }
+
+        nodecl_expression_list =
+            nodecl_make_list_1(nodecl_make_text(prettyprint_in_buffer(argument), ast_get_locus(argument)));
     }
-    else if (strcmp(attribute_name, "mode") == 0
-            || strcmp(attribute_name, "__mode__") == 0)
+    else if (expression_list != NULL
+            && (strcmp(attribute_name, "mode") == 0
+                || strcmp(attribute_name, "__mode__") == 0))
     {
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
@@ -280,7 +281,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
             const char *size_mode = ASTText(argument);
 
             nodecl_expression_list = 
-                nodecl_make_list_1(nodecl_make_text(size_mode, ASTFileName(argument), ASTLine(argument)));
+                nodecl_make_list_1(nodecl_make_text(size_mode, ast_get_locus(argument)));
 
             // FIXME - Can a vector mode start with two underscores ?
             if (size_mode[0] != 'V')
@@ -370,7 +371,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                         ast_location(expression_list));
 
                 // Skip first character
-                char *number_of_elements_str = strdup(&size_mode[1]);
+                char *number_of_elements_str = xstrdup(&size_mode[1]);
                 char *p = number_of_elements_str;
 
                 while (isdigit(*p))
@@ -476,7 +477,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                     }
                 }
 
-                free(number_of_elements_str);
+                xfree(number_of_elements_str);
             }
         }
         else
@@ -534,7 +535,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                 AST expr = ASTSon1(it);
 
                 nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list,
-                        nodecl_make_text(prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
+                        nodecl_make_text(prettyprint_in_buffer(expr), ast_get_locus(expr)));
             }
         }
     }
@@ -554,8 +555,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
     }
 }
 
-void gather_gcc_attribute(AST attribute, 
-        gather_decl_spec_t* gather_info, 
+void gather_gcc_attribute(AST attribute,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(attribute) != AST_GCC_ATTRIBUTE,
@@ -606,7 +607,7 @@ void keep_gcc_attributes_in_symbol(
     if (entry->entity_specs.num_gcc_attributes == 0)
     {
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
-        entry->entity_specs.gcc_attributes = calloc(
+        entry->entity_specs.gcc_attributes = xcalloc(
                 entry->entity_specs.num_gcc_attributes,
                 sizeof(*entry->entity_specs.gcc_attributes));
         memcpy(entry->entity_specs.gcc_attributes, 
@@ -636,7 +637,7 @@ void keep_gcc_attributes_in_symbol(
             {
                 entry->entity_specs.num_gcc_attributes++;
 
-                entry->entity_specs.gcc_attributes = realloc(entry->entity_specs.gcc_attributes,
+                entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
                         sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
                 entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
             }
@@ -1198,25 +1199,24 @@ void common_check_gxx_type_traits(type_t* lhs_type,
         type_t* gxx_trait_type,
         const char* trait_name,
         decl_context_t decl_context,
-        const char* filename,
-        int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     if (is_dependent_type(lhs_type)
             || (rhs_type != NULL
                 && is_dependent_type(rhs_type)))
     {
-        nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, filename, line);
+        nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, locus);
         nodecl_t nodecl_rhs_type_opt =
             (rhs_type == NULL) ?
-            nodecl_null() : nodecl_make_type(lhs_type, filename, line);
+            nodecl_null() : nodecl_make_type(lhs_type, locus);
 
         *nodecl_output = nodecl_make_gxx_trait(
                 nodecl_lhs_type,
                 nodecl_rhs_type_opt,
                 gxx_trait_type,
                 trait_name,
-                filename, line);
+                locus);
 
         // This is like a constant expression with a dependent value
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -1234,7 +1234,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
     if (!found)
     {
-        internal_error("Unknown trait '%s' at '%s:%d'\n", trait_name, filename, line);
+        internal_error("Unknown trait '%s' at '%s:%d'\n", trait_name, locus);
     }
 
     // We are one ahead
@@ -1242,7 +1242,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
     if (type_traits_fun_list[i].trait_calculus == NULL)
     {
-        internal_error("Unimplemented trait '%s' at '%s:%d'\n", trait_name, filename, line);
+        internal_error("Unimplemented trait '%s' at '%s:%d'\n", trait_name, locus);
     }
     else
     {
@@ -1260,7 +1260,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
             // false
             val = const_value_get_zero(type_get_size(t), 0);
         }
-        *nodecl_output = nodecl_make_boolean_literal(t, val, filename, line);
+        *nodecl_output = nodecl_make_boolean_literal(t, val, locus);
     }
 }
 
@@ -1272,7 +1272,7 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     first_type = compute_type_for_type_id_tree(first_type_id, decl_context);
     if (is_error_type(first_type))
     {
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
 
@@ -1285,7 +1285,7 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
 
         if (is_error_type(second_type))
         {
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
             return;
         }
     }
@@ -1296,8 +1296,7 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
             get_bool_type(),
             trait_name,
             decl_context,
-            ASTFileName(expression),
-            ASTLine(expression),
+            ast_get_locus(expression),
             nodecl_output);
 }
 

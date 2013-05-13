@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,28 +24,28 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libtlomp-simd.la
 
 END=
 
-libtlomp_simd_la_CFLAGS = $(tl_cflags) \
+libtlomp_simd_la_CFLAGS = $(phases_cflags) \
                           -I $(srcdir)/../../vectorizer \
                           -I $(srcdir)/../../analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           $(END)
 
-libtlomp_simd_la_CXXFLAGS = $(tl_cflags) \
+libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
                           -I $(srcdir)/../../vectorizer \
                           -I $(srcdir)/../../analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           $(END)
 
-libtlomp_simd_la_LDFLAGS = $(tl_ldflags)
-libtlomp_simd_la_LIBADD = $(tl_libadd) ../../vectorizer/libtlvectorizer.la
+libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
+libtlomp_simd_la_LIBADD = $(phases_libadd) ../../vectorizer/libtlvectorizer.la
 
 
 libtlomp_simd_la_SOURCES = \

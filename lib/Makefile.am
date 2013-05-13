@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -69,6 +69,8 @@ libmcxx_utils_la_SOURCES = \
                           string_utils.c \
                           red_black_tree.c \
                           red_black_tree.h \
+                          mem.c \
+                          mem.h \
                           $(END)
 
 libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)

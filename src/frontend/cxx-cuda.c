@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -110,8 +110,7 @@ void cuda_kernel_symbols_for_function_body(
                     block_context.current_scope, 
                     cuda_builtins[i].name);
 
-            cuda_sym->line = ASTLine(function_body);
-            cuda_sym->file = ASTFileName(function_body);
+            cuda_sym->locus = ast_get_locus(function_body);
 
             cuda_sym->kind = SK_VARIABLE;
             cuda_sym->type_information = cuda_builtins[i].type;
@@ -125,8 +124,7 @@ void cuda_kernel_symbols_for_function_body(
 void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda_kernel_args, 
         nodecl_t nodecl_call_args, 
         decl_context_t decl_context,
-        const char* filename, 
-        int line,
+        const locus_t* locus,
         nodecl_t *nodecl_output)
 {
     type_t* dim3_type = cuda_get_dim3_type();
@@ -182,7 +180,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
                         get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
                         decl_context, 
                         &ambiguous_conversion, &conversor,
-                        filename, line)
+                        locus)
                     && !ambiguous_conversion);
         }
 
@@ -191,12 +189,12 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                        nodecl_get_locus(nodecl_arg),
+                        nodecl_locus_to_str(nodecl_arg),
                         kernel_args[i].position,
                         codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
                         print_type_str(dest_type, decl_context));
             }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
+            *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
     }
@@ -207,7 +205,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
     *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_cuda_kernel_args,
             nodecl_plain_call,
             get_void_type(),
-            filename, line);
+            locus);
 }
 
 void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -216,15 +214,14 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     AST cuda_kernel_args = ASTSon1(expression);
     AST call_args = ASTSon2(expression);
 
-    const char* filename = ASTFileName(expression);
-    int line = ASTLine(expression);
+    const locus_t* locus = ast_get_locus(expression);
 
     nodecl_t nodecl_postfix = nodecl_null();
     check_expression(postfix_expr, decl_context, &nodecl_postfix);
 
     if (nodecl_is_err_expr(nodecl_postfix))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -232,7 +229,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     AST arg_0 = ASTSon0(cuda_kernel_args);
     if (!check_expression(arg_0, decl_context, &nodecl_kernel_arg_0))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -240,7 +237,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     AST arg_1 = ASTSon1(cuda_kernel_args);
     if (!check_expression(arg_1, decl_context, &nodecl_kernel_arg_1))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -249,7 +246,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     if (arg_2 != NULL
             && !check_expression(arg_2, decl_context, &nodecl_kernel_arg_2))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -258,7 +255,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     if (arg_3 != NULL
             && !check_expression(arg_3, decl_context, &nodecl_kernel_arg_3))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -279,7 +276,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     if (!nodecl_is_null(nodecl_argument_list) 
             && nodecl_is_err_expr(nodecl_argument_list))
     {
-        *nodecl_output = nodecl_make_err_expr(filename, line);
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -310,7 +307,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                 is_dependent = 1;
             }
         }
-        free(list);
+        xfree(list);
     }
 
     nodecl_t function_form = nodecl_null();
@@ -320,8 +317,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
     {
         function_form =
             nodecl_make_cxx_function_form_template_id(
-                    nodecl_get_filename(nodecl_postfix),
-                    nodecl_get_line(nodecl_postfix));
+                    nodecl_get_locus(nodecl_postfix));
 
         template_parameter_list_t* template_args =
             nodecl_get_template_parameters(nodecl_postfix);
@@ -339,10 +335,9 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                         /* alternate_name */ nodecl_null(),
                         function_form,
                         get_unknown_dependent_type(),
-                        filename, line),
+                        locus),
                     get_unknown_dependent_type(),
-                    filename,
-                    line);
+                    locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
@@ -351,6 +346,6 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
             nodecl_cuda_kernel_args,
             nodecl_argument_list,
             decl_context,
-            filename, line,
+            locus,
             nodecl_output);
 }
