@@ -1305,6 +1305,14 @@ namespace TL
             node.replace(function_call);
         }
 
+        void SSEVectorLowering::visit(const Nodecl::ParenthesizedExpression& node)
+        {
+            walk(node.get_nest());
+            Nodecl::NodeclBase n(node);
+        
+            n.set_type(node.get_nest().get_type());
+        }
+
         Nodecl::NodeclVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
             fprintf(stderr, "SSE Lowering: Unknown node %s at %s.\n",

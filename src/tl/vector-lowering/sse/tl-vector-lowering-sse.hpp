@@ -69,6 +69,8 @@ namespace TL
 
                 void visit(const Nodecl::VectorFunctionCall& node);
                 void visit(const Nodecl::VectorFabs& node);
+                
+                void visit(const Nodecl::ParenthesizedExpression& node);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

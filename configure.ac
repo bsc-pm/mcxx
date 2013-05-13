@@ -297,6 +297,21 @@ then
             nanox_mic_lib="${withval}"
            ]
    )
+
+   if test x$nanox_mic_include = x -o x$nanox_mic_lib = x;
+   then
+           nanox_mic_include=$nanox_include
+           nanox_mic_lib=$nanox_lib
+   fi
+   NANOX_MIC_INCLUDES="${nanox_mic_include}"
+   NANOX_MIC_LIBS="${nanox_mic_lib}"
+
+   AC_ARG_WITH([nanox-mic-lib],
+           AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
+           [
+            nanox_mic_lib="${withval}"
+           ]
+   )
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
 

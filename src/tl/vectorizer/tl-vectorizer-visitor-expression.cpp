@@ -587,7 +587,7 @@ namespace TL
                             const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
                             i = const_value_add(i, ind_var_increment))
                     {
-                        literal_list.append(const_value_to_nodecl(i));
+                        literal_list.prepend(const_value_to_nodecl(i));
                     }
 
                     Nodecl::List offset = Nodecl::List::make(literal_list);
