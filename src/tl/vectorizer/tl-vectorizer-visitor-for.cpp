@@ -375,12 +375,12 @@ namespace TL
             else if (lhs_const_flag && rhs_const_flag)
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. BOTH expressions are CONSTANT.", node.get_locus().c_str());
+                        "condition. BOTH expressions are CONSTANT.", locus_to_str(node.get_locus()));
             }
             else
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. BOTH expressions are NOT CONSTANT.", node.get_locus().c_str());
+                        "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
             }
         }
 
@@ -425,15 +425,13 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     node.get_rhs(),
                                     node.get_type(),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
                                         Vectorizer::_analysis_scopes->back(),
                                         lhs),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 node.get_type(),
                                 node.get_locus()),
                             node.get_type(),
@@ -462,8 +460,7 @@ namespace TL
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
                                     const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_filename(),
-                                    node.get_line()),
+                                    node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(

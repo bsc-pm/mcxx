@@ -52,8 +52,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
             
             n.replace(vector_add);
         }
@@ -68,8 +67,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_minus);
         }
@@ -84,8 +82,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_mul);
         }
@@ -100,8 +97,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_div);
         }
@@ -117,8 +113,7 @@ namespace TL
                     Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
                             get_qualified_vector_to(n.get_type(), _vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_prom);
             }
@@ -130,8 +125,7 @@ namespace TL
                     Nodecl::VectorNeg::make(
                             n.get_rhs().shallow_copy(),
                             get_qualified_vector_to(n.get_type(), _vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_neg);
             }
@@ -147,8 +141,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_lt);
         }
@@ -163,8 +156,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_gt);
         }
@@ -179,8 +171,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_eq);
         }
@@ -195,8 +186,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_ba);
         }
@@ -211,8 +201,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_bo);
         }
@@ -227,8 +216,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_lo);
         }
@@ -243,8 +231,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_lo);
         }
@@ -261,8 +248,7 @@ namespace TL
                         n.get_true().shallow_copy(),
                         n.get_false().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_cond);
         }
@@ -331,8 +317,7 @@ namespace TL
                                 strides,
                                 n.get_rhs().shallow_copy(),
                                 vector_type,
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_scatter);
                 }
@@ -346,8 +331,7 @@ namespace TL
                             lhs.shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             vector_type,
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_assignment);
             }
@@ -437,8 +421,7 @@ namespace TL
                 Nodecl::VectorConversion::make(
                         n.get_nest().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_conv);
         }
@@ -451,8 +434,7 @@ namespace TL
                 Nodecl::VectorConversion::make(
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_conv);
         }
@@ -510,8 +492,7 @@ namespace TL
                             base.shallow_copy(),
                             strides,
                             vector_type,
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_gather);
             }
@@ -536,8 +517,7 @@ namespace TL
                     Nodecl::VectorFabs::make(
                             n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
                             get_qualified_vector_to(n.get_type(), _vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_fabs_call);
             }
@@ -576,8 +556,7 @@ namespace TL
                             n.get_alternate_name().shallow_copy(),
                             n.get_function_form().shallow_copy(),
                             get_qualified_vector_to(n.get_type(), _vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_function_call);
             }
@@ -624,19 +603,15 @@ namespace TL
                                     Nodecl::VectorPromotion::make(
                                         n.shallow_copy(),
                                         ind_var_type,
-                                        n.get_filename(),
-                                        n.get_line()),
+                                        n.get_locus()),
                                     Nodecl::VectorLiteral::make(
                                         offset,
                                         offset_type,
-                                        n.get_filename(),
-                                        n.get_line()),
+                                        n.get_locus()),
                                     get_qualified_vector_to(n.get_type(), _vector_length),
-                                    n.get_filename(),
-                                    n.get_line()),
+                                    n.get_locus()),
                                 get_qualified_vector_to(n.get_type(), _vector_length),
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_induction_var);
                 }
@@ -661,8 +636,7 @@ namespace TL
                     //Nodecl::Symbol
                     Nodecl::Symbol new_sym =
                         Nodecl::Symbol::make(tl_sym,
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
 
@@ -677,8 +651,7 @@ namespace TL
                         Nodecl::VectorPromotion::make(
                                 n.shallow_copy(),
                                 get_qualified_vector_to(sym_type, _vector_length),
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_prom);
                 }
@@ -697,8 +670,7 @@ namespace TL
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_prom);
         }
@@ -709,8 +681,7 @@ namespace TL
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(vector_prom);
         }

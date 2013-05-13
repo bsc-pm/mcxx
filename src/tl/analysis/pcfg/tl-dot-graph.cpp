@@ -312,29 +312,18 @@ namespace Analysis {
             }
             case OMP_BARRIER:
             {
-<<<<<<< HEAD
                 dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BARRIER\", shape=diamond]\n";
-=======
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
->>>>>>> master
                 break;
             }
             case OMP_FLUSH:
             {
-<<<<<<< HEAD
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " FLUSH\", shape=ellipse]\n";
-=======
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse]\n";
->>>>>>> master
                 break;
             }
             case OMP_TASKWAIT:
             {
-<<<<<<< HEAD
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " TASKWAIT\", shape=ellipse]\n";
-=======
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
->>>>>>> master
                 break;
             }
             case BREAK:
