@@ -944,7 +944,7 @@ namespace Analysis {
     }
 
 
-    bool ExtensibleGraph::is_in_loop( Node* current )
+    bool ExtensibleGraph::node_is_in_loop( Node* current )
     {
         bool res = false;
 
@@ -962,17 +962,20 @@ namespace Analysis {
         return res;
     }
 
-    bool ExtensibleGraph::is_in_conditional_branch( Node* current )
+    bool ExtensibleGraph::node_is_in_conditional_branch( Node* current, Node* max_outer )
     {
         bool res = false;
 
         Node* outer_node = current->get_outer_node( );
-        while( ( outer_node != NULL ) && !res )
+        while( ( outer_node != NULL ) && !res
+               && ( ( max_outer == NULL ) ? true : ( outer_node->get_id( ) != max_outer->get_id( ) ) ) )
         {
-            if( outer_node->is_ifelse_statement( ) || outer_node->is_switch_statement( ) )
+            if( outer_node->is_ifelse_statement( ) || outer_node->is_switch_statement( )
+                || outer_node->is_loop_node( ) )
             {
                 res = true;
             }
+            outer_node = outer_node->get_outer_node( );
         }
 
         return res;

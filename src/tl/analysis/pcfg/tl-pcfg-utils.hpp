@@ -230,7 +230,7 @@ namespace Analysis {
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
 
         //! Container to store TASK nodes to be used when synchronizations are reached
-        std::stack<ObjectList<Node*> > _tasks_to_sync;
+        std::vector<ObjectList<ObjectList<Node*> > > _tasks_to_sync;
         //! Integer indicating the level of nested tasks we are traversing
         unsigned int _task_level;
 
