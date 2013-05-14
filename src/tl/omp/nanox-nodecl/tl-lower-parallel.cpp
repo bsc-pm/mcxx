@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-devices.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanox {
 
@@ -48,7 +49,19 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();
 
+        if (_lowering->in_ompss_mode())
+        {
+                warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
+                        locus_to_str(construct.get_locus()));
+        }
+
         walk(statements);
+
+        if (_lowering->in_ompss_mode())
+        {
+            construct.replace(statements);
+            return;
+        }
 
         // Get the new statements
         statements = construct.get_statements();
