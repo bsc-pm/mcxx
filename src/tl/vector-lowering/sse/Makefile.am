@@ -41,7 +41,7 @@ libtlvector_lowering_sse_la_LIBADD = $(END)
 
 
 libtlvector_lowering_sse_la_SOURCES = \
-	 tl_vector_lowering_sse.hpp \
+	 tl-vector-lowering-sse.hpp \
 	 tl-vector-lowering-sse.cpp \
   	 $(END)
 
