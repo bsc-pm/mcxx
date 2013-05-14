@@ -734,6 +734,17 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         bool has_input_value_dep = current_item->has_an_input_value_dependence();
         if (has_input_value_dep)
         {
+            // The current parameter has an input value dependence. If this
+            // parameter appears in an other dependence we need Its value
+            // during the creation of the task because It will be used to
+            // calculate this other dependence.
+            //
+            // Example:
+            //
+            //      #pragma omp task in(n) inout([n] v)
+            //      void foo(int n, int* v) { ... }
+            //
+            // We need the value of 'n' to calculate the inout dependence over the array 'v'.
             depended_by_other_deps = InputValueUtils::any_dep_depends_on_this_input_value_dep(data_items, current_item);
         }
 
@@ -821,7 +832,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
             if (depended_by_other_deps)
             {
-                // This is a bit tricky
+                // The current parameter has an input value dependence and It appears in another dependence
+
+                //This code is a bit tricky
                 Nodecl::NodeclBase dummy_expr = Nodecl::Utils::deep_copy(argument, new_block_context_sc);
                 TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
                 TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
@@ -837,6 +850,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                         toplevel_lvalue_subexpressions,
                         nontoplevel_lvalue_subexpressions);
 
+                // The new_symbol variable cannot be initialized at this point
+                // because It may have input value dependences!
                 new_symbol.get_internal_symbol()->value = nodecl_null();
             }
 
