@@ -1198,6 +1198,17 @@ namespace TL { namespace OpenMP {
                 // Update the map between function calls and their enclosing statement
                 _funct_call_to_enclosing_stmt_map.insert(std::make_pair(new_function_call, enclosing_stmt));
 
+                // Add the definition of the return variables (only for C++)
+                CXX_LANGUAGE()
+                {
+                    Nodecl::Utils::prepend_items_before(
+                            enclosing_stmt,
+                            Nodecl::CxxDef::make(
+                                /* context */ nodecl_null(),
+                                return_arg_sym,
+                                func_call.get_locus()));
+                }
+
                 Nodecl::Utils::prepend_items_before(enclosing_stmt, expression_stmt);
 
                 // 6. Replace the original function call by the variable
