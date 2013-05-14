@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -24,17 +24,44 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_VECTOR_PHASE_HPP
-#define CODEGEN_VECTOR_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
 
-namespace Codegen
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+
+template <typename T>
+struct A
 {
-    class CodegenVectorPhase : public TL::CompilerPhase
-    {
-        virtual void run(TL::DTO& dto);
-    };
-}
+    void foo(int*);
 
-#endif // CODEGEN_VECTOR_PHASE_HPP
+    struct MyStruct
+    {
+    };
+};
+
+template <typename T>
+struct B : A<T>
+{
+    using typename A<T>::MyStruct;
+
+     MyStruct bar();
+
+    using A<T>::foo;
+    void foo(float*);
+};
+
+void g()
+{
+    B<int> b;
+
+     A<int>::MyStruct m = b.bar();
+
+    float r;
+    b.foo(&r);
+
+    int i;
+    b.foo(&i);
+}

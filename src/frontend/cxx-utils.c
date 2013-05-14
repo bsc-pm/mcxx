@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -24,17 +24,22 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
 #include <stdlib.h>
+#include "mem.h"
 
-void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
+void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
 {
-    if (counter != NULL)
+    if (size == 0
+            || nmemb == 0)
     {
-        (*counter) += size;
+        // Ensure a NULL when we allocate 0 bytes
+        return NULL;
     }
 
-    return calloc(nmemb, size);
+    if (counter != NULL)
+    {
+        (*counter) += (size * nmemb);
+    }
+
+    return xcalloc(nmemb, size);
 }

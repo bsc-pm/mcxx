@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "cxx-ast.h"
+#include "cxx-locus.h"
 #include "cxx-limits.h"
 
 #include "cxx-lexer.h"
@@ -61,8 +62,7 @@ struct AST_tag
     struct AST_tag* parent; 
 
     // Node locus
-    unsigned int line; 
-    const char* filename;
+    const locus_t* locus;
 
     // Textual information linked to the node
     // normally the symbol or the literal
@@ -135,16 +135,15 @@ long long unsigned int ast_instantiation_used_memory(void)
 
 AST ast_make(node_t type, int num_children UNUSED_PARAMETER, 
         AST child0, AST child1, AST child2, AST child3, 
-        const char* file, unsigned int line, const char *text)
+        const locus_t* location, const char *text)
 {
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
     result->parent = NULL;
 
     result->node_type = type;
 
-    result->line = line;
-    result->filename = file;
+    result->locus = location;
 
 #define ADD_SON(n) \
     ast_set_child(result, n, child##n);
@@ -171,12 +170,7 @@ AST ast_get_parent(const_AST a)
 
 unsigned int ast_get_line(const_AST a)
 {
-    return a->line;
-}
-
-void ast_set_line(AST a, int line)
-{
-    a->line = line;
+    return locus_get_line(a->locus);
 }
 
 const char* ast_get_text(const_AST a)
@@ -235,7 +229,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = counted_calloc(sizeof(*a->children), 
+    a->children = counted_xcalloc(sizeof(*a->children), 
             (count_bitmap(a->bitmap_sons)), 
             &_bytes_due_to_astmake);
 
@@ -261,9 +255,9 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         }
     }
 
-    // Now free the old children (if any)
+    // Now xfree the old children (if any)
     if (old_children != NULL)
-        free(old_children);
+        xfree(old_children);
 
     // Count this free
     _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
@@ -370,7 +364,7 @@ static void ast_copy_one_node(AST dest, AST orig)
 
 AST ast_duplicate_one_node(AST orig)
 {
-    AST dest = ASTLeaf(AST_INVALID_NODE, NULL, 0, NULL);
+    AST dest = ASTLeaf(AST_INVALID_NODE, make_locus(NULL, 0, 0), NULL);
     ast_copy_one_node(dest, orig);
 
     return dest;
@@ -512,8 +506,8 @@ static void ast_copy_extended_data(AST new, const_AST orig)
         ast_set_field(new, field_name, data);
     }
 
-    free(keys);
-    free(values);
+    xfree(keys);
+    xfree(values);
 }
 
 // Use this to fix extended data pointing to other ASTs
@@ -563,8 +557,8 @@ static void ast_fix_extended_data(AST new, const_AST orig)
         ast_fix_one_ast_field(new, orig, tl_data_index[i].field_name, tl_data_index[i].ast);
     }
 
-    free(keys);
-    free(values);
+    xfree(keys);
+    xfree(values);
 }
 
 AST ast_copy(const_AST a)
@@ -572,7 +566,7 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
     ast_copy_one_node(result, (AST)a);
 
@@ -587,7 +581,7 @@ AST ast_copy(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
+        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -634,7 +628,7 @@ AST ast_copy_for_instantiation(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_instantiation);
+    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_instantiation);
 
     ast_copy_one_node(result, (AST)a);
 
@@ -655,7 +649,7 @@ AST ast_copy_for_instantiation(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
+        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy_for_instantiation(a->ambig[i]);
@@ -678,7 +672,7 @@ AST ast_list_leaf(AST a)
 {
     ERROR_CONDITION(a == NULL, "Invalid tree", 0);
     AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
-            ast_get_filename(a), ast_get_line(a), ast_get_text(a));
+            ast_get_locus(a), ast_get_text(a));
 
     return result;
 }
@@ -697,7 +691,7 @@ AST ast_list(AST list, AST last_elem)
     }
 
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            filename, ast_get_line(last_elem), ast_get_text(last_elem));
+            make_locus(filename, ast_get_line(last_elem), 0), ast_get_text(last_elem));
 
     return a;
 }
@@ -821,21 +815,7 @@ char ast_equal (const_AST ast1, const_AST ast2)
 
 const char* ast_location(const_AST a)
 {
-    if (a == NULL)
-        return "";
-
-    const char* result = NULL;
-
-    if (a->filename == NULL)
-    {
-        uniquestr_sprintf(&result, "<unknown file>:%u", a->line);
-    }
-    else
-    {
-        uniquestr_sprintf(&result, "%s:%u", a->filename, a->line);
-    }
-
-    return result;
+    return locus_to_str(a->locus);
 }
 
 // Trees are copied
@@ -848,7 +828,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
             int original_son0 = son0->num_ambig;
 
             son0->num_ambig += son1->num_ambig;
-            son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 
             int i;
             for (i = 0; i < son1->num_ambig; i++)
@@ -861,7 +841,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         else
         {
             son0->num_ambig++;
-            son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = ast_copy(son1);
 
             return son0;
@@ -870,21 +850,20 @@ AST ast_make_ambiguous(AST son0, AST son1)
     else if (ASTType(son1) == AST_AMBIGUITY)
     {
         son1->num_ambig++;
-        son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
+        son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = ast_copy(son0);
 
         return son1;
     }
     else
     {
-        AST result = ASTLeaf(AST_AMBIGUITY, NULL, 0, NULL);
+        AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
+        result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
         result->ambig[0] = ast_copy(son0);
         result->ambig[1] = ast_copy(son1);
-        result->line = son0->line;
-        result->filename = son0->filename;
+        result->locus = son0->locus;
 
         return result;
     }
@@ -932,10 +911,10 @@ void ast_free(AST a)
         }
 
         // This will uncover dangling references
-        free(a->children);
+        xfree(a->children);
         _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
         memset(a, 0, sizeof(*a));
-        free(a);
+        xfree(a);
 
         _bytes_due_to_astmake -= sizeof(*a);
     }
@@ -1004,14 +983,19 @@ void ast_replace_with_ambiguity(AST a, int n)
     }
 }
 
-const char *ast_get_filename(const_AST a)
+const locus_t* ast_get_locus(const_AST a)
 {
-    return a->filename;
+    return a->locus;
 }
 
-void ast_set_filename(AST a, const char* str)
+void ast_set_locus(AST a, const locus_t* locus)
 {
-    a->filename = str;
+    a->locus = locus;
+}
+
+const char *ast_get_filename(const_AST a)
+{
+    return locus_get_filename(a->locus);
 }
 
 int ast_node_size(void)

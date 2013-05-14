@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -115,6 +115,11 @@ namespace TL
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
+                void get_data_implicit_attributes_of_indirectly_accessible_symbols(
+                        TL::PragmaCustomStatement construct,
+                        DataSharingEnvironment& data_sharing,
+                        ObjectList<Nodecl::Symbol>& nonlocal_symbols);
+
                 void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info(PragmaCustomLine construct, 
@@ -155,6 +160,7 @@ namespace TL
                            TL::Symbol function_symbol);
 
                 bool _discard_unused_data_sharings;
+                bool _allow_shared_without_copies;
             public:
                 Core();
 
@@ -171,6 +177,8 @@ namespace TL
                 static bool _silent_declare_reduction;
 
                 void set_discard_unused_data_sharings(bool b) { _discard_unused_data_sharings = b; }
+
+                void set_allow_shared_without_copies(bool b) { _allow_shared_without_copies = b; }
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

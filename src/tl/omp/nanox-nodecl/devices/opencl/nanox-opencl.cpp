@@ -408,6 +408,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
 
     output_statements = task_statements;
 
@@ -421,12 +422,12 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
 
 
         if (IS_FORTRAN_LANGUAGE)
             running_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
 
@@ -511,7 +512,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (!found)
         {
             running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
         }
     }
     else
@@ -537,7 +538,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (ocl_files == 0)
         {
             running_error("%s: error: No file specified for kernel '%s'\n",
-                    original_statements.get_locus().c_str(),
+                    original_statements.get_locus_str().c_str(),
                     called_task.get_name().c_str());
         }
     }
@@ -596,16 +597,48 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         // Insert extra symbols
         TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
 
-        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map, unpacked_function_scope);
+        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+                unpacked_function_scope,
+                current_function);
+        if (is_function_task)
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
         fun_visitor.insert_extra_symbols(task_statements);
 
-        Nodecl::Utils::Fortran::copy_used_modules(
+        Nodecl::Utils::Fortran::append_used_modules(
                 original_statements.retrieve_context(),
                 unpacked_function_scope);
 
+        if (is_function_task)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(
+                    info._called_task.get_related_scope(),
+                    unpacked_function_scope);
+        }
+
+        // Add also used types
+        add_used_types(data_items, unpacked_function.get_related_scope());
+
+        // Now get all the needed internal functions and replicate them in the outline
+        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+        internal_functions.walk(info._original_statements);
+
+        Nodecl::List l;
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                it2 = internal_functions.function_codes.begin();
+                it2 != internal_functions.function_codes.end();
+                it2++)
+        {
+            l.append(
+                    Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
+                    );
+        }
+
+        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+
         extra_declarations
             << "IMPLICIT NONE\n";
-
     }
     else if (IS_CXX_LANGUAGE)
     {
@@ -614,8 +647,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                     /* optative context */ nodecl_null(),
                     unpacked_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
+                    original_statements.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
         }
     }
@@ -639,27 +671,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             structure_name,
             structure_type);
 
-    if (IS_FORTRAN_LANGUAGE
-            && current_function.is_in_module())
-    {
-        scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-        unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                unpacked_function.get_internal_symbol());
-
-        unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-        outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                outline_function.get_internal_symbol());
-        outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-    }
-
     Nodecl::NodeclBase outline_function_code, outline_function_body;
     build_empty_body_for_function(outline_function,
             outline_function_code,
@@ -673,19 +684,14 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_arguments, cleanup_code;
 
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-    if (IS_CXX_LANGUAGE
-            && !is_function_task
-            && current_function.is_member()
-            && !current_function.is_static()
-            && it != data_items.end())
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
     {
-        ++it;
-    }
+        if (!is_function_task
+                && (*it)->get_is_cxx_this())
+            continue;
 
-    for (; it != data_items.end(); it++)
-    {
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
@@ -818,8 +824,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                         /* optative context */ nodecl_null(),
                         outline_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
+                        original_statements.get_locus());
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
         }
@@ -848,8 +853,10 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         {
             TL::Symbol &function(*functions[i]);
 
-            Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+            Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
+
+            add_used_types(data_items, function.get_related_scope());
         }
 
         // Generate ancillary code in C
@@ -867,8 +874,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 outline_function,
                 outline_function_body,
                 info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
+                original_statements.get_locus(),
                 instrument_before,
                 instrument_after);
     }

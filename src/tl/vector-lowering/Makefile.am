@@ -24,31 +24,33 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include $(top_srcdir)/src/tl/Makefile.phases
+include ../Makefile.phases
 
-SUBDIRS = sse .
+SUBDIRS = sse knc .
 
 
-lib_LTLIBRARIES = libcodegen-vector.la
+phases_LTLIBRARIES = libtlvector-lowering.la
 
 END=
 
-libcodegen_vector_la_CFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/vector/sse \
-    -I $(top_srcdir)/src/tl/vectorizer \
+libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
+
+libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
+
+libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)
+
+libtlvector_lowering_la_SOURCES = \
+    tl-vector-lowering.cpp \
+    tl-vector-lowering.hpp \
 	$(END)
 
-libcodegen_vector_la_CXXFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/vector/sse \
-    -I $(top_srcdir)/src/tl/vectorizer \
-	$(END)
-
-libcodegen_vector_la_LDFLAGS = $(tl_ldflags)
-libcodegen_vector_la_SOURCES = \
-    codegen-vector-phase.cpp \
-    codegen-vector-phase.hpp \
-	$(END)
-
-libcodegen_vector_la_LIBADD = sse/libcodegen-sse-module.la \
-					       $(END)
-
+libtlvector_lowering_la_LIBADD = \
+    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
+    $(END)

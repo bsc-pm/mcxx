@@ -2,22 +2,9 @@
 
 #include "fortran03-buildscope.h"
 
-namespace Nodecl { namespace Utils {
+#include "mem.h"
 
-    void Fortran::copy_used_modules(TL::Scope orig_scope,
-            TL::Scope new_scope)
-    {
-        // Copy USEd modules symbol
-        scope_entry_t* original_used_modules_info
-            = orig_scope.get_related_symbol().get_used_modules().get_internal_symbol();
-        if (original_used_modules_info != NULL)
-        {
-            scope_entry_t* new_used_modules_info
-                = ::get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
-            new_used_modules_info->entity_specs.related_symbols = original_used_modules_info->entity_specs.related_symbols;
-            new_used_modules_info->entity_specs.num_related_symbols = original_used_modules_info->entity_specs.num_related_symbols;
-        }
-    }
+namespace Nodecl { namespace Utils {
 
     void Fortran::append_used_modules(TL::Scope orig_scope,
             TL::Scope new_scope)
@@ -31,36 +18,36 @@ namespace Nodecl { namespace Utils {
             scope_entry_t* new_used_modules_info
                 = ::get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
 
-            int total_related_symbols = new_used_modules_info->entity_specs.num_related_symbols
-                + original_used_modules_info->entity_specs.num_related_symbols;
-
-            //FIXME: Memory leaks
-            scope_entry_t**  list_related_symbols = (scope_entry_t**)
-                malloc(total_related_symbols * sizeof(*new_used_modules_info->entity_specs.related_symbols));
-
-            int index = 0;
-            // Copy all the symbols of the new_used_modules_info to the new list
-            for (int j = 0; j < new_used_modules_info->entity_specs.num_related_symbols; j++, index++)
-            {
-                list_related_symbols[index] = new_used_modules_info->entity_specs.related_symbols[j];
-
-                // Make sure the module has been loaded...
-                if (!list_related_symbols[index]->entity_specs.is_builtin)
-                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
-            }
             // Append all the symbols of the original_used_modules_info  to the new list
-            for (int j = 0; j < original_used_modules_info->entity_specs.num_related_symbols; j++, index++)
+            for (int j = 0; j < original_used_modules_info->entity_specs.num_related_symbols; j++)
             {
-                list_related_symbols[index] = original_used_modules_info->entity_specs.related_symbols[j];
+                scope_entry_t* appended_module =
+                        original_used_modules_info->entity_specs.related_symbols[j];
+                P_LIST_ADD_ONCE(new_used_modules_info->entity_specs.related_symbols,
+                        new_used_modules_info->entity_specs.num_related_symbols,
+                        appended_module);
 
                 // Make sure the module has been loaded...
-                if (!list_related_symbols[index]->entity_specs.is_builtin)
-                    fortran_load_module(list_related_symbols[index]->symbol_name, /* intrinsic */ 0, "", 0);
+                if (!appended_module->entity_specs.is_builtin)
+                    fortran_load_module(appended_module->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
             }
-
-            new_used_modules_info->entity_specs.related_symbols = list_related_symbols;
-            new_used_modules_info->entity_specs.num_related_symbols = total_related_symbols;
         }
+    }
+
+    void Fortran::append_module_to_scope(TL::Symbol module,
+            TL::Scope scope)
+    {
+        ERROR_CONDITION(!module.is_valid() || !module.is_fortran_module(), "Symbol must be a Fortran module", 0);
+
+        scope_entry_t* used_modules_info
+            = scope.get_related_symbol().get_used_modules().get_internal_symbol();
+
+        P_LIST_ADD_ONCE(used_modules_info->entity_specs.related_symbols,
+                used_modules_info->entity_specs.num_related_symbols,
+                module.get_internal_symbol());
+
+        if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
     }
 
 } }

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -83,8 +83,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -105,8 +104,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
@@ -121,7 +119,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         finish_class_type(new_class_type, 
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(), 
-                "", 0,
+                make_locus("", 0, 0),
                 // construct.get_filename().c_str(),
                 // construct.get_line(),
                 &nodecl_output);
@@ -138,8 +136,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
                     /* optative context */ nodecl_null(),
                     new_class_symbol,
-                    construct.get_filename(),
-                    construct.get_line());
+                    construct.get_locus());
 
             TL::ObjectList<Nodecl::NodeclBase> defs =
                 Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
@@ -183,7 +180,16 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_implementations = implementation_table.size();
+    int num_implementations = 0;
+    {
+        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TargetInformation target_info = it->second;
+            num_implementations += target_info.get_device_names().size();
+        }
+    }
     TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
@@ -743,9 +749,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         OutlineDataItem& argument_outline_data_item =
             outline_info.get_entity_for_symbol(this_symbol);
 
-        // We must ensure that this OutlineDataItem is moved to the
-        // first position of the list of OutlineDataItems.
-        outline_info.move_at_begin(argument_outline_data_item);
+        argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
@@ -904,6 +908,12 @@ void LoweringVisitor::fill_arguments(
                                 else
                                 {
                                     Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                                    Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                        fill_immediate_arguments << "if (" << as_expression(condition.shallow_copy()) << ") {";
+                                    }
 
                                     if (IS_CXX_LANGUAGE
                                             && sym_type.is_class()
@@ -930,6 +940,12 @@ void LoweringVisitor::fill_arguments(
                                             "imm_args." << (*it)->get_field_name()
                                             << " = " << as_expression(captured.shallow_copy()) << ";"
                                             ;
+                                    }
+
+                                    if (!condition.is_null())
+                                    {
+                                        fill_outline_arguments << "}";
+                                        fill_immediate_arguments << "}";
                                     }
                                 }
                             }
@@ -977,8 +993,7 @@ void LoweringVisitor::fill_arguments(
                             base_expr = Nodecl::Reference::make(
                                     (*it)->get_base_address_expression().shallow_copy(),
                                     t,
-                                    base_expr.get_filename(),
-                                    base_expr.get_line());
+                                    base_expr.get_locus());
                         }
                         else
                         {
@@ -1047,6 +1062,12 @@ void LoweringVisitor::fill_arguments(
                         else
                         {
                             Nodecl::NodeclBase captured = (*it)->get_captured_value();
+                            Nodecl::NodeclBase condition = (*it)->get_conditional_capture_value();
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                                fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
+                            }
                             if (t.is_pointer())
                             {
                                 fill_outline_arguments <<
@@ -1064,6 +1085,11 @@ void LoweringVisitor::fill_arguments(
                                 fill_immediate_arguments <<
                                     "imm_args % " << (*it)->get_field_name() << " = " <<  as_expression(captured.shallow_copy()) << "\n"
                                     ;
+                            }
+                            if (!condition.is_null())
+                            {
+                                fill_outline_arguments << "END IF\n";
+                                fill_immediate_arguments << "END IF\n";
                             }
                         }
                         break;
@@ -1487,7 +1513,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
@@ -1505,6 +1531,8 @@ void LoweringVisitor::fill_copies_region(
             else
             {
                 TL::Type t = copy_type;
+                int rank = copy_type.fortran_rank();
+
                 while (t.is_array())
                 {
                     Nodecl::NodeclBase lower, upper, region_size;
@@ -1519,12 +1547,30 @@ void LoweringVisitor::fill_copies_region(
                         region_size = t.array_get_size();
                     }
 
+                    if (IS_FORTRAN_LANGUAGE
+                            && t.is_fortran_array())
+                    {
+                        if (lower.is_null())
+                        {
+                            lower = get_lower_bound(data_ref, rank);
+                        }
+                        if (upper.is_null())
+                        {
+                            upper = get_upper_bound(data_ref, rank);
+                        }
+                        if (region_size.is_null())
+                        {
+                            region_size = get_size_of_fortran_array(data_ref, rank);
+                        }
+                    }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
                     region_sizes.append(region_size);
 
                     t = t.array_element();
+
+                    rank--;
                 }
 
                 base_type = t;
@@ -1806,7 +1852,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
-                    ctr.get_locus().c_str(),
+                    ctr.get_locus_str().c_str(),
                     (*it)->get_symbol().get_name().c_str(),
                     copies[0].expression.prettyprint().c_str());
         }
@@ -2031,7 +2077,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 ERROR_CONDITION(!dep_expr.is_valid(),
                         "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus().c_str(),
+                        dep_expr.get_locus_str().c_str(),
                         dep_expr.prettyprint().c_str(),
                         dep_expr.get_error_log().c_str());
 
@@ -2192,6 +2238,10 @@ void LoweringVisitor::fill_dependences_internal(
                             array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
                         }
 
+                        // Meaning that in this context A(:) is OK
+                        if (region_lb.is_null())
+                            region_lb = array_lb;
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -2199,6 +2249,9 @@ void LoweringVisitor::fill_dependences_internal(
                         lb = diff.parse_expression(ctr);
 
                         size = contiguous_array_type.array_get_region_size();
+
+                        if (size.is_null())
+                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
                     }
                     else
                     {
@@ -2290,7 +2343,7 @@ void LoweringVisitor::fill_dependences_internal(
     }
     else
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus().c_str());
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 
@@ -2374,8 +2427,35 @@ Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr,
         dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
     }
 
-    // The contiguous dimension in Fortran is always the number 1
     src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
+
+    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
+{
+    Source src;
+    Nodecl::NodeclBase expr = dep_expr;
+    if (dep_expr.is<Nodecl::ArraySubscript>())
+    {
+        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
+    }
+
+    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }

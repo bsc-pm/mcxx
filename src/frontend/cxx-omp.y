@@ -29,17 +29,17 @@ subparsing : SUBPARSE_OPENMP_DECLARE_REDUCTION omp_declare_reduction
 
 omp_declare_reduction : omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner
 {
-    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, NULL, ast_get_locus($1), NULL);
 }
 | omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_combiner ':' omp_dr_initializer
 {
-    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_OMP_DECLARE_REDUCTION, $1, $3, $5, $7, ast_get_locus($1), NULL);
 }
 ;
 
 omp_dr_reduction_id : omp_dr_operator
 {
-    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | omp_dr_identifier
 {
@@ -49,7 +49,7 @@ omp_dr_reduction_id : omp_dr_operator
 
 omp_dr_identifier : IDENTIFIER
 {
-    $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
@@ -102,18 +102,18 @@ omp_dr_combiner : expression
 /*!if C99*/
 omp_dr_initializer : id_expression initializer %merge<ambiguityHandler>
 {
-    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTFileName($1), ASTLine($1), NULL);
-    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ASTFileName($1), ASTLine($1), NULL);
+    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ast_get_locus($1), NULL);
+    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ast_get_locus($1), NULL);
 
-    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ast_get_locus($1), NULL);
 }
 | postfix_expression '(' ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ast_get_locus($1), NULL);
 }
 | postfix_expression '(' expression_list ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 /*!endif*/
@@ -122,18 +122,18 @@ omp_dr_initializer : id_expression initializer %merge<ambiguityHandler>
 /* Here there is the usual T(x) ambiguity. Easily solvable checking if T is omp_priv or not */
 omp_dr_initializer : unqualified_name initializer %merge<ambiguityHandler>
 {
-    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTFileName($1), ASTLine($1), NULL);
-    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ASTFileName($1), ASTLine($1), NULL);
+    AST declarator_id = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ast_get_locus($1), NULL);
+    AST declarator = ASTMake1(AST_DECLARATOR, declarator_id, ast_get_locus($1), NULL);
 
-    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_INIT_DECLARATOR, declarator, $2, ast_get_locus($1), NULL);
 }
 | postfix_expression '(' ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ast_get_locus($1), NULL);
 }
 | postfix_expression '(' expression_list ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 /*!endif*/
@@ -146,7 +146,7 @@ omp_depend_item : id_expression
 {
     // Note that this is to be interpreted as a [lower:size] (not [lower:upper]),
     // so we create an AST_ARRAY_SECTION_SIZE here
-    $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, NULL, ast_get_locus($1), NULL);
 }
 ;
 

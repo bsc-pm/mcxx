@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -173,7 +173,7 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 			mf03_delete_buffer(scan_line);
 		}
 		
-		free(line);
+		xfree(line);
 	}
 }
 
@@ -284,7 +284,7 @@ static char* read_whole_line(FILE* input)
 	int buffer_size = 1024;
 	int was_eof;
 	int length_read;
-	char* temporal_buffer = calloc(buffer_size, sizeof(char));
+	char* temporal_buffer = xcalloc(buffer_size, sizeof(char));
 	// We read buffer_size-1 characters
 	if (fgets(temporal_buffer, buffer_size, input) == NULL)
     {
@@ -296,7 +296,7 @@ static char* read_whole_line(FILE* input)
 
 	if (temporal_buffer[0] == '\0')
 	{
-		free(temporal_buffer);
+		xfree(temporal_buffer);
 		return NULL;
 	}
 
@@ -305,7 +305,7 @@ static char* read_whole_line(FILE* input)
 
 	while ((temporal_buffer[length_read - 1] != '\n') && !was_eof)
 	{
-		temporal_buffer = realloc(temporal_buffer, 2*sizeof(char)*buffer_size);
+		temporal_buffer = xrealloc(temporal_buffer, 2*sizeof(char)*buffer_size);
 		if (fgets(&temporal_buffer[length_read], buffer_size, input) == NULL)
         {
             if (ferror(input))

@@ -1,9 +1,9 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -955,6 +955,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
     file << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::DefaultArgument& node)
+{
+    internal_error("Code unreachable", 0);
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
@@ -998,7 +1003,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
-                node.get_locus().c_str());
+                node.get_locus_str().c_str());
     }
 }
 
@@ -1214,13 +1219,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 }
 
 template <typename Iterator>
-CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator end, TL::Type function_type, int ignore_n_first)
+CxxBase::Ret CxxBase::codegen_function_call_arguments(
+        Iterator begin,
+        Iterator end,
+        TL::Type function_type,
+        int ignore_n_first)
 {
     bool has_ellipsis = 0;
     TL::ObjectList<TL::Type> parameters_type = function_type.parameters(has_ellipsis);
     TL::ObjectList<TL::Type>::iterator type_it = parameters_type.begin();
     TL::ObjectList<TL::Type>::iterator type_end = parameters_type.end();
-
 
     Iterator arg_it = begin;
     while (arg_it != end
@@ -1235,15 +1243,27 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
     // Update begin if we have ignored any argument
     begin = arg_it;
+    bool default_arguments = false;
     while (arg_it != end)
     {
+        Nodecl::NodeclBase actual_arg = *arg_it;
+
+        if (actual_arg.is<Nodecl::DefaultArgument>())
+        {
+            // Default arguments are printed in a comment
+            if (!default_arguments)
+            {
+                file << "/* ";
+                default_arguments = true;
+            }
+
+            actual_arg = actual_arg.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
         if (arg_it != begin)
         {
             file << ", ";
         }
-
-        Nodecl::NodeclBase actual_arg = *arg_it;
-
 
         bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
         state.do_not_derref_rebindable_reference = false;
@@ -1324,6 +1344,10 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(Iterator begin, Iterator e
 
         state.do_not_derref_rebindable_reference = old_do_not_derref_rebindable_ref;
     }
+
+    // Close the comment if needed
+    if (default_arguments)
+        file << " */";
 }
 
 template <typename Node>
@@ -2631,26 +2655,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         if (nodecl_calls_to_constructor(initializer, init_real_type))
         {
             Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-            if (!constructor_args.empty());
-            {
-                for (Nodecl::List::iterator it = constructor_args.begin();
-                        it != constructor_args.end();
-                        it++)
-                {
-                    if (it != constructor_args.begin())
-                        file << ", ";
-                    Nodecl::NodeclBase current(*it);
-                    // Here we add extra parentheses lest the direct-initialization looked like
-                    // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                    //
-                    // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                    // "function (pointer to function() returning A) returning A"
-                    // [extra blanks added for clarity in the example above]
-                    file << "(";
-                    walk(current);
-                    file << ")";
-                }
-            }
+
+            // Here we add extra parentheses lest the direct-initialization looked like
+            // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+            //
+            // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+            // "function (pointer to function() returning A) returning A"
+            // [extra blanks added for clarity in the example above]
+            walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
         }
         else
         {
@@ -2923,7 +2935,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     file << quote_c_string(bytes, length, is_wchar);
 
-    ::free(bytes);
+    ::xfree(bytes);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
@@ -4167,7 +4179,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            else if (member.is_using_symbol())
+            else if (member.is_using_symbol()
+                    || member.is_using_typename_symbol())
             {
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
@@ -4175,8 +4188,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
 
                 TL::Symbol entry = unresolved[0];
+                file << "using ";
 
-                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (member.is_using_typename_symbol())
+                    file << "typename ";
+
+                file << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
             }
             else if (member.is_enum()
                     || member.is_typedef())
@@ -4814,26 +4831,14 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
                         Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
-                        if (!constructor_args.empty());
-                        {
-                            for (Nodecl::List::iterator it = constructor_args.begin();
-                                    it != constructor_args.end();
-                                    it++)
-                            {
-                                if (it != constructor_args.begin())
-                                    file << ", ";
-                                Nodecl::NodeclBase current(*it);
-                                // Here we add extra parentheses lest the direct-initialization looked like
-                                // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                                //
-                                // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                                // "function (pointer to function() returning A) returning A"
-                                // [extra blanks added for clarity in the example above]
-                                file << "(";
-                                walk(current);
-                                file << ")";
-                            }
-                        }
+
+                        // Here we add extra parentheses lest the direct-initialization looked like
+                        // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                        //
+                        // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                        // "function (pointer to function() returning A) returning A"
+                        // [extra blanks added for clarity in the example above]
+                        walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
                     }
                     else
                     {
@@ -6198,20 +6203,40 @@ void CxxBase::set_indent_level(int n)
     state._indent_level = n;
 }
 
-void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, bool parenthesize_elements)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
-
+    bool default_argument = false;
     while (it != list.end())
     {
-        if (it != begin)
+        Nodecl::NodeclBase current_node = *it;
+
+        if (current_node.is<Nodecl::DefaultArgument>())
         {
-            file << separator;
+            if (!default_argument)
+            {
+                default_argument = true;
+                file << "/* ";
+            }
+            current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
         }
 
-        walk(*it);
+        if (it != begin)
+            file << separator;
+
+        if (parenthesize_elements)
+            file << "(";
+
+        walk(current_node);
+
+        if (parenthesize_elements)
+            file << ")";
+
         it++;
     }
+
+    if (default_argument)
+        file << " */";
 }
 
 void CxxBase::walk_expression_list(const Nodecl::List& node)

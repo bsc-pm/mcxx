@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -55,14 +55,14 @@ struct implicit_info_tag
 
 static implicit_letter_set_t* allocate_implicit_letter_set(void)
 {
-    implicit_letter_set_t* result = counted_calloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_letter_set_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
 
     return result;
 }
 
 static implicit_info_data_t* allocate_implicit_info_data(void)
 {
-    implicit_info_data_t* result = counted_calloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_data_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
 
     result->implicit_letter_set = allocate_implicit_letter_set();
 
@@ -71,7 +71,7 @@ static implicit_info_data_t* allocate_implicit_info_data(void)
     
 static implicit_info_t* allocate_implicit_info(void)
 {
-    implicit_info_t* result = counted_calloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = allocate_implicit_letter_set();
@@ -81,7 +81,7 @@ static implicit_info_t* allocate_implicit_info(void)
 
 static implicit_info_t* allocate_implicit_info_sharing_set(implicit_info_t* implicit_letter_set)
 {
-    implicit_info_t* result = counted_calloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = implicit_letter_set->data->implicit_letter_set;
@@ -181,7 +181,7 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
     return result;
 }
 
-static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
 {
     // Special names for operators and other non regularly named stuff will not get here
     if (('a' <= tolower(name[0]))
@@ -199,10 +199,9 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus
         sym->type_information = implicit_type;
         sym->entity_specs.is_implicit_basic_type = 1;
         
-        if (locus != NULL)
+        if (location != NULL)
         {
-            sym->file = ASTFileName(locus);
-            sym->line = ASTLine(locus);
+            sym->locus = ast_get_locus(location);
         }
 
         return sym;
@@ -232,11 +231,11 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
-scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST location, const char* name)
 {
-    ERROR_CONDITION(locus == NULL, "Locus is needed", 0);
+    ERROR_CONDITION(location == NULL, "Locus is needed", 0);
 
-    scope_entry_t* result = fortran_query_name_str(decl_context, name, ASTFileName(locus), ASTLine(locus));
+    scope_entry_t* result = fortran_query_name_str(decl_context, name, ast_get_locus(location));
 
     if (result == NULL)
     {
@@ -248,7 +247,7 @@ scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST 
             {
                 fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
-            result = new_implicit_symbol(decl_context, locus, name);
+            result = new_implicit_symbol(decl_context, location, name);
             if(result != NULL)
             {
                 result->kind = SK_VARIABLE;
@@ -273,9 +272,9 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
     return result;
 }
 
-scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
+scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
 {
-    scope_entry_t* new_entry = new_implicit_symbol(decl_context, locus, name);
+    scope_entry_t* new_entry = new_implicit_symbol(decl_context, location, name);
     add_unknown_kind_symbol(decl_context, new_entry);
     return new_entry;
 }
@@ -373,16 +372,15 @@ static void diagnostic_ambiguity(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        info_printf("%s:%d: info: name '%s' first bound here\n",
-                entry->file, entry->line, entry->symbol_name);
+        info_printf("%s: info: name '%s' first bound here\n",
+                locus_to_str(entry->locus), entry->symbol_name);
     }
     entry_list_iterator_free(it);
 }
 
 scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
         const char* unqualified_name,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     scope_entry_t* result = NULL;
     decl_context_t current_decl_context = decl_context;
@@ -400,7 +398,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                    error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
                     diagnostic_ambiguity(result_list);
                 }
             }
@@ -424,17 +422,44 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
 
 static char symbol_is_intrinsic_function(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
-    return sym != NULL 
-        && sym->entity_specs.is_builtin;
+    return sym != NULL
+        && sym->kind == SK_FUNCTION
+        && sym->entity_specs.is_builtin
+        // Generic ones
+        && (sym->entity_specs.emission_template == NULL
+                // Or specific intrinsics whose name is not the same as their generic
+                || (sym->entity_specs.emission_template != NULL
+                    && strcasecmp(sym->entity_specs.emission_template->symbol_name, sym->symbol_name) != 0));
+}
+
+static char symbol_is_intrinsic_function_not_from_module(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return symbol_is_intrinsic_function(sym, data)
+        && sym->entity_specs.from_module == NULL;
+}
+
+static char symbol_is_generic_intrinsic_function(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return symbol_is_intrinsic_function(sym, data)
+        && sym->entity_specs.emission_template == NULL
+        && is_computed_function_type(sym->type_information);
+}
+
+
+static char symbol_is_generic_intrinsic_function_not_from_module(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return symbol_is_generic_intrinsic_function(sym, data)
+        && sym->entity_specs.from_module == NULL;
 }
 
 scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
 {
     decl_context_t global_context = fortran_get_context_of_intrinsics(decl_context);
-    
+
     scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name));
 
-    scope_entry_list_t* result_list = filter_symbol_using_predicate(global_list, symbol_is_intrinsic_function, NULL);
+    scope_entry_list_t* result_list = filter_symbol_using_predicate(global_list,
+            symbol_is_intrinsic_function_not_from_module, NULL);
     entry_list_free(global_list);
 
     scope_entry_t* result = NULL;
@@ -442,7 +467,7 @@ scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, con
     {
         result = entry_list_head(result_list);
     }
-    
+
     return result;
 }
 
@@ -468,7 +493,22 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
 }
 #endif
 
-static char one_name_is_generic_specifier(scope_entry_list_t* entry_list)
+static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    return sym != NULL
+        && sym->kind == SK_FUNCTION
+        && sym->entity_specs.is_generic_spec;
+}
+
+static char symbol_is_generic_specifier_or_generic_intrinsic(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+{
+    sym = fortran_get_ultimate_symbol(sym);
+
+    return symbol_is_generic_specifier(sym, data)
+        || symbol_is_generic_intrinsic_function(sym, data);
+}
+
+static char a_name_is_established_generic(scope_entry_list_t* entry_list)
 {
     if (entry_list == 0)
         return 0;
@@ -481,7 +521,7 @@ static char one_name_is_generic_specifier(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        if (entry->entity_specs.is_generic_spec)
+        if (symbol_is_generic_specifier_or_generic_intrinsic(entry, NULL))
         {
             entry_list_iterator_free(it);
             return 1;
@@ -492,10 +532,9 @@ static char one_name_is_generic_specifier(scope_entry_list_t* entry_list)
     return 0;
 }
 
-static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PARAMETER)
+static char no_name_has_been_established_generic(scope_entry_list_t* entry_list)
 {
-    return sym != NULL 
-        && sym->entity_specs.is_generic_spec;
+    return !a_name_is_established_generic(entry_list);
 }
 
 // This routine performs a usual Fortran lookup unless it finds a generic
@@ -504,10 +543,9 @@ static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PA
 // the enclosing one
 //
 // See ticket #923
-scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context, 
+scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context,
         const char* unqualified_name,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     scope_entry_list_t* result_list = NULL;
     decl_context_t current_decl_context = decl_context;
@@ -519,18 +557,18 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             && current_scope != NULL)
     {
         current_decl_context.current_scope = current_scope;
-        scope_entry_list_t* entry_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
+        scope_entry_list_t* entry_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));
         if (entry_list != NULL)
         {
             // If we find more than one name but not all are generic specifiers
             // this is an ambiguity case
             if (entry_list_size(entry_list) > 1)
             {
-                if (one_name_is_generic_specifier(entry_list))
+                if (a_name_is_established_generic(entry_list))
                 {
-                    // Get all the generic specifiers only
-                    scope_entry_list_t* generic_specifiers = filter_symbol_using_predicate(entry_list, 
-                            symbol_is_generic_specifier, NULL);
+                    // Get all the generic specifiers and generic interfaces only
+                    scope_entry_list_t* generic_specifiers = filter_symbol_using_predicate(entry_list,
+                            symbol_is_generic_specifier_or_generic_intrinsic, NULL);
                     entry_list_free(entry_list);
                     entry_list = generic_specifiers;
                 }
@@ -540,7 +578,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                     {
                         if (!checking_ambiguity())
                         {
-                            error_printf("%s:%d: error: name '%s' is ambiguous\n", filename, line, unqualified_name);
+                            error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
                             diagnostic_ambiguity(entry_list);
                         }
                     }
@@ -554,19 +592,46 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
 
             // If no name is not a generic specifier do not continue
             // the lookup
-            if (!one_name_is_generic_specifier(entry_list))
-            {
-                keep_trying = 0;
-            }
+            keep_trying = !no_name_has_been_established_generic(entry_list);
 
-            // Add all the symbols found
+            // Add all the symbols found.
+            // First the generic specifiers (if any)
             scope_entry_list_iterator_t* it = NULL;
             for (it = entry_list_iterator_begin(entry_list);
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
-                // Some symbols in the global scope must be ignored
+                if (!(decl_context.global_scope == current_scope
+                            && current->entity_specs.is_global_hidden)
+                        && symbol_is_generic_specifier(current, NULL))
+                {
+                    result_list = entry_list_add_once(result_list, current);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            // Second the intrinsics the generic intrinsics (if any)
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* current = entry_list_iterator_current(it);
+                if (!(decl_context.global_scope == current_scope
+                            && current->entity_specs.is_global_hidden)
+                        && symbol_is_generic_intrinsic_function(current, NULL))
+                {
+                    result_list = entry_list_add_once(result_list, current);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            // Finally all the remaining symbols
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* current = entry_list_iterator_current(it);
                 if (!(decl_context.global_scope == current_scope
                             && current->entity_specs.is_global_hidden))
                 {
@@ -579,6 +644,16 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
         }
 
         current_scope = current_scope->contained_in;
+    }
+
+    if (a_name_is_established_generic(result_list))
+    {
+        scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, unqualified_name);
+        if (intrinsic != NULL
+                && symbol_is_generic_intrinsic_function_not_from_module(intrinsic, NULL))
+        {
+            result_list = entry_list_add_once(result_list, intrinsic);
+        }
     }
 
     return result_list;

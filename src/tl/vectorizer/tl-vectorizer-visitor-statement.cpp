@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -26,8 +26,6 @@
 
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-
-
 
 #include "tl-vectorizer.hpp"
 
@@ -71,22 +69,19 @@ namespace TL
 
         void VectorizerVisitorStatement::visit(const Nodecl::ObjectInit& n)
         {
-            if(n.has_symbol())
+            TL::Symbol sym = n.get_symbol();
+
+            // Vectorizing symbol type
+            sym.set_type(get_qualified_vector_to(sym.get_type(), _vector_length));
+
+            // Vectorizing initialization
+            Nodecl::NodeclBase init = sym.get_value();
+            if(!init.is_null())
             {
-                TL::Symbol sym = n.get_symbol();
-
-                // Vectorizing symbol type
-                sym.set_type(sym.get_type().get_vector_to(_vector_length));
-
-                // Vectorizing initialization
-                Nodecl::NodeclBase init = sym.get_value();
-                if(!init.is_null())
-                {
-                    VectorizerVisitorExpression visitor_expression(
-                            _device, _vector_length, _unroll_factor, _target_type, 
-                            _simd_inner_scope);
-                    visitor_expression.walk(init);
-                }
+                VectorizerVisitorExpression visitor_expression(
+                        _device, _vector_length, _unroll_factor, _target_type, 
+                        _simd_inner_scope);
+                visitor_expression.walk(init);
             }
         }
 

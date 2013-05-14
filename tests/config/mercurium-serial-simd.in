@@ -18,6 +18,7 @@ MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --
 MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
+
 COMMON_NANOX_CFLAGS=-DNANOX
 
 cat <<EOF
@@ -26,12 +27,26 @@ compile_versions="\${compile_versions} nanox_mercurium"
 test_CC_nanox_mercurium="\${MCC}"
 test_CXX_nanox_mercurium="\${MCXX}"
 
-test_CFLAGS_nanox_mercurium="--simd -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="--simd ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_mercurium="--simd --openmp -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="--simd --openmp ${COMMON_NANOX_CFLAGS}"
 
 test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
 
 EOF
+
+
+if [ ! -z "@ICC@" ];
+then
+cat <<EOF
+IMCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_imcc"
+test_CC_nanox_imcc="\${IMCC}"
+test_CFLAGS_nanox_imcc="--simd --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="--simd --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
+EOF
+fi
+
 
 cat <<EOF
 exec_versions="1thread"

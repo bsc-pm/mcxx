@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -60,7 +60,7 @@ static std::string fpga_outline_name(const std::string &name)
     return "fpga_" + name;
 }
 
-static void print_ast_dot(const Nodecl::NodeclBase &node)
+UNUSED_PARAMETER static void print_ast_dot(const Nodecl::NodeclBase &node)
 {
     std::cerr << std::endl << std::endl;
     ast_dump_graphviz(nodecl_get_ast(node.get_internal_nodecl()), stderr);
@@ -73,7 +73,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for FPGA devices is not supported yet\n", 0);
+        running_error("Fortran for FPGA devices is not supported yet\n");
 
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
@@ -88,7 +88,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
     const TL::Scope & called_scope = called_task.get_scope();
@@ -269,8 +269,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                 /* optative context */ nodecl_null(),
                 unpacked_function,
-                original_statements.get_filename(),
-                original_statements.get_line());
+                original_statements.get_locus());
         Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
     }
 
@@ -308,8 +307,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 outline_function,
                 outline_function_body,
                 info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
+                original_statements.get_locus(),
                 instrument_before,
                 instrument_after);
     }
@@ -327,8 +325,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 
     output_statements = Nodecl::EmptyStatement::make(
-                original_statements.get_filename(),
-                original_statements.get_line());
+                original_statements.get_locus());
 }
 
 DeviceFPGA::DeviceFPGA()
@@ -658,7 +655,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
     DataReference datareference(expr);
     if (!datareference.is_valid())
     {
-        internal_error("invalid data reference (%s)", datareference.get_locus().c_str());
+        internal_error("invalid data reference (%s)", datareference.get_locus_str().c_str());
     }
     Type type = datareference.get_data_type();
 
@@ -668,7 +665,7 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
         if (!cp_size.is_constant())
         {
             internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s; %s)",
-                    datareference.get_locus().c_str(), cp_size.prettyprint().c_str());
+                    datareference.get_locus_str().c_str(), cp_size.prettyprint().c_str());
         }
         elems = const_value_cast_to_4(cp_size.get_constant());
     }
@@ -679,13 +676,13 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
         if (!lower.is_constant() || !upper.is_constant())
         {
             internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
-                    datareference.get_locus().c_str());
+                    datareference.get_locus_str().c_str());
         }
         elems = const_value_cast_to_4(upper.get_constant()) - const_value_cast_to_4(lower.get_constant()) + 1;
     }
     else //it's a trap!
     {
-        internal_error("Data copies must be an array region expression (%d)", datareference.get_locus().c_str());
+        internal_error("Data copies must be an array region expression (%d)", datareference.get_locus_str().c_str());
     }
     return elems;
 }
@@ -783,7 +780,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             if (copies.size() > 1)
             {
                 internal_error("Only one copy per object (in/out/inout) is allowed (%s)",
-                        expr.get_locus().c_str());
+                        expr.get_locus_str().c_str());
             }
 
             /*
@@ -808,7 +805,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
             else
             {
                 internal_error("invalid type for input/output, only pointer and array is allowed (%d)",
-                        expr.get_locus().c_str());
+                        expr.get_locus_str().c_str());
             }
 
             std::string par_simple_decl = elem_type.get_simple_declaration(scope, field_name);

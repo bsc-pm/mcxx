@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -26,7 +26,7 @@
 
 END=
 
-SUBDIRS = . codegen analysis vectorizer omp hlt
+SUBDIRS = . codegen analysis vectorizer omp vector-lowering hlt
 
 DIST_SUBDIRS= analysis \
               vectorizer \
@@ -36,6 +36,7 @@ DIST_SUBDIRS= analysis \
               testing \
 			  hlt \
               old_hlt \
+              vector-lowering \
               codegen \
               $(END)
 

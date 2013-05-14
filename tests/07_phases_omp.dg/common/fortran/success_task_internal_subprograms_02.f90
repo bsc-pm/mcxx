@@ -20,7 +20,7 @@ PROGRAM MAIN
 
     !$OMP TASKWAIT
 
-    IF (X /= 1) STOP 1
+    IF (X /= 2) STOP 1
     IF (Z /= 2) STOP 2
 
     CONTAINS

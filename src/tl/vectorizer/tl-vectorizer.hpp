@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -48,7 +48,8 @@ namespace TL
             
             static FunctionVersioning _function_versioning;
 
-            bool _svml_enabled;
+            bool _svml_sse_enabled;
+            bool _svml_knc_enabled;
             bool _ffast_math_enabled;
 
             Vectorizer();
@@ -70,7 +71,8 @@ namespace TL
                         const std::string& device, const unsigned int vector_length, 
                         const TL::Type& target_type, const FunctionPriority priority);
 
-                void enable_svml();
+                void enable_svml_sse();
+                void enable_svml_knc();
                 void enable_ffast_math();
 
                 friend class VectorizerVisitorFor;
@@ -80,6 +82,8 @@ namespace TL
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
         };
+
+        TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
     }
 }
 

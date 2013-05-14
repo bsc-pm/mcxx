@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -675,14 +675,14 @@ namespace TL
         {
             // We allow common names in expressions
             scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)),
-                    ASTFileName(ASTSon0(a)), ASTLine(ASTSon0(a)));
+                    ast_get_locus(ASTSon0(a)));
             if (entry != NULL)
             {
-                *nodecl_output = ::nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
+                *nodecl_output = ::nodecl_make_symbol(entry, ast_get_locus(a));
             }
             else
             {
-                *nodecl_output = ::nodecl_make_err_expr(ASTFileName(a), ASTLine(a));
+                *nodecl_output = ::nodecl_make_err_expr(ast_get_locus(a));
             }
         }
         else

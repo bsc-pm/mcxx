@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -128,7 +128,7 @@ LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, int line, const char* filename);
+        const char* template_name, decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
@@ -139,7 +139,7 @@ LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explici
 LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
-        decl_context_t decl_context, const char* filename, int line);
+        decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -149,7 +149,7 @@ LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 // This is a plain '0'
 LIBMCXX_EXTERN type_t* get_zero_type(void);
 // This is a plain 'false'
-LIBMCXX_EXTERN type_t* get_false_bool_type(void);
+LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 // This is for g++'s '__null'
 LIBMCXX_EXTERN type_t* get_null_type(void);
 
@@ -526,17 +526,17 @@ LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const locus_t* locus);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
         decl_context_t decl_context, 
-        const char* filename, int line);
+        const locus_t* locus);
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);

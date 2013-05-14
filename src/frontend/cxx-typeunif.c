@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -63,7 +63,7 @@ static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context, 
-        const char *filename, int line, deduction_flags_t flags);
+        const locus_t* locus, deduction_flags_t flags);
 
 // Will try to find a substitution to unificate t1 to t2
 //
@@ -71,7 +71,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
 //        T**   cannot be unificated to   Q*
 //
 void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set, 
-        decl_context_t decl_context, const char *filename, int line,
+        decl_context_t decl_context, const locus_t* locus,
         deduction_flags_t flags)
 {
     cv_qualifier_t cv_qualif_1 = CV_NONE;
@@ -90,7 +90,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
     {
         // Special case for unresolved overloaded function types:
         //  - try all cases in the hope that any will match
-        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, filename, line, flags);
+        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, locus, flags);
         // Nothing else must be done with this t2
         return;
     }
@@ -103,7 +103,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
         for (i = 0; i < num_types; i++)
         {
             unificate_two_types(t1, braced_list_type_get_type_num(t2, i), 
-                    deduction_set, decl_context, filename, line, flags);
+                    deduction_set, decl_context, locus, flags);
         }
 
         // Nothing else remains
@@ -152,7 +152,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type));
             }
 
-            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+            deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -211,7 +211,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type));
             }
 
-            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+            deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -312,7 +312,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                 print_declarator(current_deduced_parameter.type));
                     }
 
-                    deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                    deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                     *new_deduced_parameter = current_deduced_parameter;
 
                     P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -346,7 +346,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                         i);
                             }
                             unificate_two_types(current_arg_1->type, current_arg_2->type, 
-                                    deduction_set, decl_context, filename, line, flags);
+                                    deduction_set, decl_context, locus, flags);
                         }
                         break;
                     case TPK_NONTYPE:
@@ -439,7 +439,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(t2));
             }
 
-            instantiate_template_class_if_needed(named_type_get_symbol(t2), decl_context, filename, line);
+            instantiate_template_class_if_needed(named_type_get_symbol(t2), decl_context, locus);
 
             DEBUG_CODE()
             {
@@ -455,7 +455,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line, flags);
+                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, locus, flags);
             }
             entry_list_iterator_free(it);
             entry_list_free(all_bases);
@@ -473,23 +473,23 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             && is_pointer_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, filename, line, flags);
+                decl_context, locus, flags);
         return;
     }
     else if (is_lvalue_reference_type(t1)
             && is_lvalue_reference_type(t2))
     {
         unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
-                decl_context, filename, line, flags);
+                decl_context, locus, flags);
         return;
     }
     else if (is_pointer_to_member_type(t1)
             && is_pointer_to_member_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, filename, line, flags);
+                decl_context, locus, flags);
         unificate_two_types(pointer_to_member_type_get_class_type(t1),
-                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, filename, line,
+                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, locus,
                 flags);
         return;
     }
@@ -510,7 +510,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 array_type_get_element_type(t2),
                 deduction_set,
                 decl_context,
-                filename, line, flags);
+                locus, flags);
 
         return;
     }
@@ -521,7 +521,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 function_type_get_return_type(t2), 
                 deduction_set, 
                 decl_context,
-                filename, line, flags);
+                locus, flags);
 
         if (function_type_get_num_parameters(t1) == function_type_get_num_parameters(t2)
                 && (function_type_get_has_ellipsis(t1) == function_type_get_has_ellipsis(t2)))
@@ -538,7 +538,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 type_t* par2 = function_type_get_parameter_type_num(t2, i);
 
                 unificate_two_types(par1, par2, deduction_set,
-                        decl_context, filename, line, flags);
+                        decl_context, locus, flags);
             }
         }
 
@@ -598,7 +598,7 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
         }
     }
 
-    deduction_t* result = counted_calloc(1, sizeof(*result), &_bytes_typeunif);
+    deduction_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_typeunif);
     switch (s1->kind)
     {
         case SK_TEMPLATE_PARAMETER:
@@ -826,7 +826,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
             if (!found)
             {
-                deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                 *new_deduced_parameter = current_deduced_parameter;
 
                 P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -1187,13 +1187,13 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
                 codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
                 codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
     }
-    deduction_set_t* deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
+    deduction_set_t* deduction_set = counted_xcalloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
     char c = equivalent_dependent_expressions(left_tree, right_tree,  
             &deduction_set, flags);
 
     // Free it, it is unused after this
-    free(deduction_set);
+    xfree(deduction_set);
 
     DEBUG_CODE()
     {
@@ -1208,7 +1208,7 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context,
-        const char *filename, int line,
+        const locus_t* locus,
         deduction_flags_t flags)
 {
     DEBUG_CODE()
@@ -1251,13 +1251,13 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
             if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
                         /* num_arguments */ 0, specialization_type, 
                         template_parameters, type_template_parameters,
-                        decl_context, &deduced_template_arguments, filename, line, 
+                        decl_context, &deduced_template_arguments, locus, 
                         explicit_template_parameters))
             {
                 // Now get a specialized template type for this
                 // function (this will sign it in if it does not exist)
                 type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                        deduced_template_arguments, decl_context, filename, line);
+                        deduced_template_arguments, decl_context, locus);
 
                 // Update entry and its function type
                 entry = named_type_get_symbol(named_specialization_type);
@@ -1285,16 +1285,15 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUNIF: Trying unification with %s '%s' at '%s:%d' of type '%s'\n",
+            fprintf(stderr, "TYPEUNIF: Trying unification with %s '%s' at '%s' of type '%s'\n",
                     is_template ? "[template]" : "",
                     entry->symbol_name,
-                    entry->file,
-                    entry->line,
+                    locus_to_str(entry->locus),
                     print_declarator(function_type));
         }
 
         // Now perform deduction
-        unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line, flags);
+        unificate_two_types(t1, function_type, deduction_set, decl_context, locus, flags);
     }
     entry_list_iterator_free(it);
     entry_list_free(overloaded_set);

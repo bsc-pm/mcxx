@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -672,7 +672,7 @@ extern "C"
             fprintf(stderr, "COMPILERPHASES: DTO Initialized\n");
         }
 
-        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), translation_unit->input_filename, 0);
+        translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), make_locus(translation_unit->input_filename, 0, 0));
         TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -323,7 +323,6 @@ namespace TL { namespace Nanox {
             {
                 Source::source_language = SourceLanguage::C;
             }
-
             Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
 
             if (IS_FORTRAN_LANGUAGE)
@@ -381,7 +380,7 @@ namespace TL { namespace Nanox {
         ss << "wsd_" << (int)arg_counter++;
 
         // Create a detached symbol. Will put in a scope later, in loop_spawn
-        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::calloc(1, sizeof(*slicer_descriptor_internal));
+        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::xcalloc(1, sizeof(*slicer_descriptor_internal));
         // This is a transient scope but it will be changed before inserting the symbol
         // to its final scope
         slicer_descriptor_internal->decl_context = construct.retrieve_context().get_decl_context();
@@ -392,8 +391,31 @@ namespace TL { namespace Nanox {
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
+        Scope  enclosing_scope = construct.retrieve_context();
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(environment, enclosing_function);
+
+        // Handle the special object 'this'
+        if (IS_CXX_LANGUAGE
+                && !enclosing_function.is_static()
+                && enclosing_function.is_member())
+        {
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+            Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
+            sym_ref.set_type(this_symbol.get_type());
+
+            // The object 'this' may already have an associated OutlineDataItem
+            OutlineDataItem& argument_outline_data_item =
+                outline_info.get_entity_for_symbol(this_symbol);
+
+            argument_outline_data_item.set_is_cxx_this(true);
+
+            // This is a special kind of shared
+            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            argument_outline_data_item.set_base_address_expression(sym_ref);
+        }
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,

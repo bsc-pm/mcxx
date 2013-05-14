@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -250,7 +250,9 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t, 
+        char is_typename,
+        nodecl_t* nodecl_output);
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
@@ -303,7 +305,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
         nodecl_t* nodecl_output);
 
 static void call_destructors_of_classes(decl_context_t block_context, 
-        const char* filename, int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output);
 
 typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_stack_t;
@@ -422,7 +424,7 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
 
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
 {
-    return counted_calloc(sizeof(default_argument_info_t*), num_parameters, &_bytes_used_buildscope);
+    return counted_xcalloc(sizeof(default_argument_info_t*), num_parameters, &_bytes_used_buildscope);
 }
 
 // This function initialize global symbols that exist in every translation unit
@@ -437,8 +439,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     builtin_va_list->defined = 1;
     builtin_va_list->type_information = get_gcc_builtin_va_list_type();
     builtin_va_list->do_not_print = 1;
-    builtin_va_list->file = "(global scope)";
-    builtin_va_list->entity_specs.is_builtin = 1;
+    builtin_va_list->locus = make_locus("(global scope)", 0, 0);
 
     CXX_LANGUAGE()
     {
@@ -453,7 +454,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword->value = const_value_to_nodecl(val);
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
-            null_keyword->file = "(global scope)";
+            null_keyword->locus = make_locus("(global scope)", 0, 0);
             // This should be renamed one day into 'builtin_symbol'
             null_keyword->entity_specs.is_builtin = 1;
         }
@@ -476,7 +477,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             global_operator_new->entity_specs.default_argument_info 
                 = empty_default_argument_info( /* num_parameters */ 1);
 
-            global_operator_new->file = "(global scope)";
+            global_operator_new->locus = make_locus("(global scope)", 0, 0);
         }
         // Version for arrays
         {
@@ -496,7 +497,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             global_operator_new->entity_specs.default_argument_info 
                 = empty_default_argument_info(/* num_parameters */ 1);
 
-            global_operator_new->file = "(global scope)";
+            global_operator_new->locus = make_locus("(global scope)", 0, 0);
         }
 
         {
@@ -516,7 +517,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             global_operator_delete->entity_specs.default_argument_info
                 = empty_default_argument_info(/* num_parameters */ 1);
 
-            global_operator_delete->file = "(global scope)";
+            global_operator_delete->locus = make_locus("(global scope)", 0, 0);
         }
         {
             scope_entry_t* global_operator_delete;
@@ -535,7 +536,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             global_operator_delete->entity_specs.default_argument_info
                 = empty_default_argument_info(/* num_parameters */ 1);
 
-            global_operator_delete->file = "(global scope)";
+            global_operator_delete->locus = make_locus("(global scope)", 0, 0);
         }
     }
 
@@ -608,7 +609,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 strappend(base_name, "_max"));
         max_sym->kind = SK_VARIABLE;
         max_sym->type_information = get_const_qualified_type(current_type);
-        max_sym->file = "(global scope)";
+        max_sym->locus = make_locus("(global scope)", 0, 0);
         max_sym->value = const_value_to_nodecl(value_max);
         max_sym->entity_specs.is_user_declared = 1;
 
@@ -616,7 +617,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 strappend(base_name, "_min"));
         min_sym->kind = SK_VARIABLE;
         min_sym->type_information = get_const_qualified_type(current_type);
-        min_sym->file = "(global scope)";
+        min_sym->locus = make_locus("(global scope)", 0, 0);
         min_sym->value = const_value_to_nodecl(value_min);
         min_sym->entity_specs.is_user_declared = 1;
     }
@@ -754,7 +755,14 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         case AST_USING_DECLARATION_TYPENAME :
             {
                 // using A::b;
-                build_scope_using_declaration(a, decl_context, AS_UNKNOWN, nodecl_output);
+                // using typename A::b;
+                if (ASTType(a) == AST_USING_DECLARATION_TYPENAME)
+                    error_printf("%s: error: 'using typename' is only valid in member-declarations\n",
+                            ast_location(a));
+
+                build_scope_using_declaration(a, decl_context, AS_UNKNOWN,
+                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        nodecl_output);
                 break;
             }
         case AST_STATIC_ASSERT:
@@ -788,7 +796,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_unknown_pragma(ASTText(a), ASTFileName(a), ASTLine(a)));
+                            nodecl_make_unknown_pragma(ASTText(a), ast_get_locus(a)));
                 break;
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
@@ -831,7 +839,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_source_comment(ASTText(a), ASTFileName(a), ASTLine(a)));
+                            nodecl_make_source_comment(ASTText(a), ast_get_locus(a)));
 
                 break;
             }
@@ -839,7 +847,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_preprocessor_line(ASTText(a), ASTFileName(a), ASTLine(a)));
+                            nodecl_make_preprocessor_line(ASTText(a), ast_get_locus(a)));
 
                 break;
             }
@@ -847,7 +855,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_verbatim(ASTText(a), ASTFileName(a), ASTLine(a)));
+                            nodecl_make_verbatim(ASTText(a), ast_get_locus(a)));
                 break;
             }
         default :
@@ -871,14 +879,14 @@ static void build_scope_asm_definition(AST a,
     if (volatile_optional != NULL)
     {
         text_list = nodecl_append_to_list(text_list, 
-                nodecl_make_text("volatile", ASTFileName(volatile_optional), ASTLine(volatile_optional)));
+                nodecl_make_text("volatile", ast_get_locus(volatile_optional)));
     }
 
     text_list = nodecl_append_to_list(text_list, 
-            nodecl_make_text(ASTText(string_literal), ASTFileName(string_literal), ASTLine(string_literal)));
+            nodecl_make_text(ASTText(string_literal), ast_get_locus(string_literal)));
 
     nodecl_t nodecl_gcc_asm = nodecl_make_asm_definition(
-            text_list, ASTFileName(a), ASTLine(a));
+            text_list, ast_get_locus(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
@@ -922,13 +930,13 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     nodecl_t nodecl_identifier = nodecl_null();
                     if (identifier != NULL)
                     {
-                        nodecl_identifier = nodecl_make_text(ASTText(identifier), ASTFileName(identifier), ASTLine(identifier));
+                        nodecl_identifier = nodecl_make_text(ASTText(identifier), ast_get_locus(identifier));
                     }
 
                     nodecl_t nodecl_constraint = nodecl_null();
                     if (constraint != NULL)
                     {
-                        nodecl_constraint = nodecl_make_text(ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
+                        nodecl_constraint = nodecl_make_text(ASTText(constraint), ast_get_locus(constraint));
                     }
 
                     nodecl_t nodecl_asm_param = 
@@ -936,7 +944,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                                 nodecl_identifier,
                                 nodecl_constraint,
                                 nodecl_expr,
-                                ASTFileName(asm_operand), ASTLine(asm_operand));
+                                ast_get_locus(asm_operand));
 
                     nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
                             nodecl_asm_param);
@@ -955,7 +963,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
     if (specs != NULL)
     {
         nodecl_specs = nodecl_make_list_1(
-                nodecl_make_text(ASTText(specs), ASTFileName(specs), ASTLine(specs)));
+                nodecl_make_text(ASTText(specs), ast_get_locus(specs)));
     }
 
     nodecl_t nodecl_gcc_asm = 
@@ -965,7 +973,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                 nodecl_asm_params[2],
                 nodecl_specs,
                 ASTText(ASTSon0(asm_parms)),
-                ASTFileName(a), ASTLine(a));
+                ast_get_locus(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
@@ -1074,7 +1082,7 @@ static void build_scope_explicit_instantiation(AST a,
 
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                    decl_context, ASTFileName(a), ASTLine(a));
+                    decl_context, ast_get_locus(a));
 
         *nodecl_output = (is_expl_inst_decl) ?
             nodecl_make_list_1(
@@ -1082,16 +1090,14 @@ static void build_scope_explicit_instantiation(AST a,
                         declarator_name_opt,
                         nodecl_context,
                         entry,
-                        ASTFileName(a),
-                        ASTLine(a)))
+                        ast_get_locus(a)))
             :
             nodecl_make_list_1(
                     nodecl_make_cxx_explicit_instantiation(
                         declarator_name_opt,
                         nodecl_context,
                         entry,
-                        ASTFileName(a),
-                        ASTLine(a)));
+                        ast_get_locus(a)));
     }
 }
 
@@ -1167,11 +1173,9 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
                 nodecl_make_context(
                     /* optional statement sequence */ nodecl_null(),
                     decl_context,
-                    ASTFileName(a),
-                    ASTLine(a)),
+                    ast_get_locus(a)),
                 entry,
-                ASTFileName(a),
-                ASTLine(a));
+                ast_get_locus(a));
 
     *nodecl_output =
         nodecl_make_list_1(cxx_using_namespace);
@@ -1179,17 +1183,18 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
 
 void introduce_using_entities(
         nodecl_t nodecl_name,
-        scope_entry_list_t* used_entities, 
-        decl_context_t decl_context, 
+        scope_entry_list_t* used_entities,
+        decl_context_t decl_context,
         scope_entry_t* current_class,
-        char is_class_scope, 
+        char is_class_scope,
         access_specifier_t current_access,
-        const char* filename, int line)
+        char is_typename,
+        const locus_t* locus)
 {
-    scope_entry_list_t* existing_usings = 
+    scope_entry_list_t* existing_usings =
         query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name);
 
-    enum cxx_symbol_kind filter_usings[] = { SK_USING };
+    enum cxx_symbol_kind filter_usings[] = { SK_USING, SK_USING_TYPENAME };
 
     existing_usings = filter_symbol_kind_set(existing_usings, STATIC_ARRAY_LENGTH(filter_usings), filter_usings);
 
@@ -1228,8 +1233,8 @@ void introduce_using_entities(
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s:%d: error: '%s' is not a member of a base class\n",
-                                filename, line,
+                        error_printf("%s: error: '%s' is not a member of a base class\n",
+                                locus_to_str(locus),
                                 get_qualified_symbol_name(entry, 
                                     decl_context));
                     }
@@ -1278,16 +1283,16 @@ void introduce_using_entities(
             continue;
 
         scope_entry_t* original_entry = entry;
-        if (original_entry->kind == SK_USING)
+        if (original_entry->kind == SK_USING
+                || original_entry->kind == SK_USING_TYPENAME)
         {
             // We want the ultimate alias
             original_entry = original_entry->entity_specs.alias_to;
         }
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
-        used_name->kind = SK_USING;
-        used_name->file = filename;
-        used_name->line = line;
+        used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
+        used_name->locus = locus;
         used_name->entity_specs.alias_to = original_entry;
         if (current_class != NULL)
         {
@@ -1306,6 +1311,7 @@ void introduce_using_entities(
 static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         decl_context_t decl_context,
         access_specifier_t current_access,
+        char is_typename,
         nodecl_t* nodecl_output)
 {
     scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context,
@@ -1318,7 +1324,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: entity '%s' in using-declaration is unknown",
-                    nodecl_get_locus(nodecl_name),
+                    nodecl_locus_to_str(nodecl_name),
                     codegen_to_str(nodecl_name, decl_context));
         }
         return;
@@ -1332,17 +1338,21 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         is_class_scope = 1;
     }
 
-    introduce_using_entities(nodecl_name, used_entities, decl_context, current_class, is_class_scope, current_access,
-            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+    introduce_using_entities(nodecl_name, used_entities,
+            decl_context,
+            current_class,
+            is_class_scope,
+            current_access,
+            is_typename,
+            nodecl_get_locus(nodecl_name));
 
     if (current_class != NULL)
     {
-        scope_entry_t* used_hub_symbol = counted_calloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
-        used_hub_symbol->kind = SK_USING;
+        scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
+        used_hub_symbol->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
         used_hub_symbol->entity_specs.access = current_access;
-        used_hub_symbol->line = nodecl_get_line(nodecl_name);
-        used_hub_symbol->file = nodecl_get_filename(nodecl_name);
+        used_hub_symbol->locus = nodecl_get_locus(nodecl_name);
 
         class_type_add_member(current_class->type_information, used_hub_symbol);
     }
@@ -1355,18 +1365,16 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
                         nodecl_make_context(
                             /* optional statement sequence */ nodecl_null(),
                             decl_context,
-                            nodecl_get_filename(nodecl_name),
-                            nodecl_get_line(nodecl_name)),
+                            nodecl_get_locus(nodecl_name)),
                         entry,
-                        nodecl_get_filename(nodecl_name),
-                        nodecl_get_line(nodecl_name)));
+                        nodecl_get_locus(nodecl_name)));
     }
 
     entry_list_free(used_entities);
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t current_access,
-        nodecl_t* nodecl_output)
+static void build_scope_using_declaration(AST a, decl_context_t decl_context,
+        access_specifier_t current_access, char is_typename, nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -1388,7 +1396,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, is_typename, nodecl_output);
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context,
@@ -1403,7 +1411,7 @@ static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_
     if (nodecl_is_err_expr(nodecl_name))
         return;
 
-    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, nodecl_output);
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, /* is_typename */ 0, nodecl_output);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -1646,11 +1654,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 *nodecl_output,
                                 nodecl_make_list_1(nodecl_make_object_init(
                                         vla_dim, 
-                                        ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                                        ast_get_locus(init_declarator)))); 
                     }
 
                     current_gather_info.num_vla_dimension_symbols = 0;
-                    free(current_gather_info.vla_dimension_symbols);
+                    xfree(current_gather_info.vla_dimension_symbols);
                     current_gather_info.vla_dimension_symbols = NULL;
                 }
 
@@ -1664,18 +1672,16 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: redefined entity '%s', first declared in '%s:%d'\n",
+                        error_printf("%s: error: redefined entity '%s', first declared in '%s'\n",
                                 ast_location(declarator),
                                 get_qualified_symbol_name(entry, decl_context),
-                                entry->file,
-                                entry->line);
+                                locus_to_str(entry->locus));
                     }
                 }
                 else
                 {
                     // Update the location
-                    entry->file = ast_get_filename(declarator);
-                    entry->line = ast_get_line(declarator);
+                    entry->locus = ast_get_locus(declarator);
                 }
 
                 if (is_array_type(declarator_type)
@@ -1763,7 +1769,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         if (!is_dependent_type(declarator_type))
                         {
                             check_default_initialization_and_destruction_declarator(entry, decl_context, 
-                                    ASTFileName(declarator), ASTLine(declarator));
+                                    ast_get_locus(declarator));
                         }
                     }
                 }
@@ -1816,7 +1822,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                     *nodecl_output,
                                     nodecl_make_list_1(nodecl_make_object_init(
                                             entry, 
-                                            ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                                            ast_get_locus(init_declarator)))); 
                         }
             }
 
@@ -1825,8 +1831,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             {
                 nodecl_t asm_spec = nodecl_make_gcc_asm_spec(
                         ASTText(ASTSon0(asm_specification)), 
-                        ASTFileName(asm_specification), 
-                        ASTLine(asm_specification));
+                        ast_get_locus(asm_specification));
                 entry->entity_specs.asm_specification = asm_spec;
             }
 
@@ -1836,7 +1841,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
             }
 
-            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const char*, int) =
+            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
                     (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
             CXX_LANGUAGE()
@@ -1847,8 +1852,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             make_cxx_decl_or_def(
                                 /* optative context */ nodecl_null(),
                                 entry,
-                                ASTFileName(init_declarator),
-                                ASTLine(init_declarator))));
+                                ast_get_locus(init_declarator))));
             }
         }
     }
@@ -1946,13 +1950,13 @@ void build_scope_decl_specifier_seq(AST a,
                     || gather_info->is_long)
             {
                 // Manually add the int tree to make things easier
-                ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
                 type_spec = ASTSon1(a);
             }
             // This is a GCC extension
             else if (gather_info->is_complex)
             {
-                ast_set_child(a, 1, ASTLeaf(AST_DOUBLE_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                ast_set_child(a, 1, ASTLeaf(AST_DOUBLE_TYPE, ast_get_locus(a), NULL));
                 type_spec = ASTSon1(a);
             }
             else
@@ -2139,7 +2143,7 @@ void build_scope_decl_specifier_seq(AST a,
             }
 
             // Manually add the int tree to make things easier
-            ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+            ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
             type_spec = ASTSon1(a);
 
             *type_info = get_signed_int_type();
@@ -2867,10 +2871,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             // We create a fake symbol with the right context and an alias to
             // the real friend (entry)
             alias_to_entry =
-                counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+                counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
             alias_to_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            alias_to_entry->file = ASTFileName(a);
-            alias_to_entry->line = ASTLine(a);
+            alias_to_entry->locus = ast_get_locus(a);
 
             alias_to_entry->symbol_name = class_name;
             alias_to_entry->decl_context = decl_context;
@@ -2896,10 +2899,9 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     {
         if (is_dependent_type(class_symbol->type_information))
         {
-            class_entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+            class_entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
             class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            class_entry->file = ASTFileName(a);
-            class_entry->line = ASTLine(a);
+            class_entry->locus = ast_get_locus(a);
 
             if(gather_info->is_template)
             {
@@ -2907,8 +2909,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 class_entry->type_information = get_new_template_type(decl_context.template_parameters,
                         get_new_class_type(decl_context, class_kind),
                         ASTText(id_expression), decl_context,
-                        ASTLine(id_expression),
-                        ASTFileName(id_expression));
+                        ast_get_locus(id_expression));
                 template_type_set_related_symbol(class_entry->type_information, class_entry);
 
                 // Get the primary class
@@ -2917,8 +2918,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
                 // Update some fields
                 primary_symbol->kind = SK_DEPENDENT_FRIEND_CLASS;
-                primary_symbol->line = ASTLine(a);
-                primary_symbol->file = ASTFileName(a);
+                primary_symbol->locus = ast_get_locus(a);
 
                 primary_symbol->entity_specs.is_friend = 1;
                 primary_symbol->entity_specs.is_friend_declared = 1;
@@ -2951,8 +2951,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
             scope_entry_t* new_class = NULL;
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
-            new_class->line = ASTLine(id_expression);
-            new_class->file = ASTFileName(id_expression);
+            new_class->locus = ast_get_locus(id_expression);
             
             new_class->entity_specs.is_friend = 1;
             new_class->entity_specs.is_friend_declared = 1;
@@ -2965,8 +2964,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 new_class->type_information = get_new_template_type(decl_context.template_parameters,
                         get_new_class_type(decl_context, class_kind),
                         ASTText(id_expression), decl_context,
-                        ASTLine(id_expression),
-                        ASTFileName(id_expression));
+                        ast_get_locus(id_expression));
                 template_type_set_related_symbol(new_class->type_information, new_class);
 
                 if (decl_context.current_scope->kind == CLASS_SCOPE)
@@ -2982,8 +2980,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 class_entry = named_type_get_symbol(template_type_get_primary_type(new_class->type_information));
 
                 // Update some fields
-                class_entry->line = ASTLine(a);
-                class_entry->file = ASTFileName(a);
+                class_entry->locus = ast_get_locus(a);
 
                 class_entry->entity_specs.is_friend = 1;
                 class_entry->entity_specs.is_friend_declared = 1;
@@ -3272,8 +3269,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             scope_entry_t* new_class = NULL;
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
-            new_class->line = ASTLine(id_expression);
-            new_class->file = ASTFileName(id_expression);
+            new_class->locus = ast_get_locus(id_expression);
 
             new_class->entity_specs.is_friend =
                 new_class->entity_specs.is_friend || class_gather_info.is_friend;
@@ -3306,12 +3302,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                     new_class->type_information = get_new_template_type(decl_context.template_parameters,
                             get_new_class_type(decl_context, class_kind),
                             ASTText(id_expression), decl_context,
-                            ASTLine(id_expression),
-                            ASTFileName(id_expression));
+                            ast_get_locus(id_expression));
                     template_type_set_related_symbol(new_class->type_information, new_class);
 
-                    new_class->line = ASTLine(a);
-                    new_class->file = ASTFileName(a);
+                    new_class->locus = ast_get_locus(a);
 
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
@@ -3327,8 +3321,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                             template_type_get_primary_type(new_class->type_information)
                             );
                     // Update some fields
-                    class_entry->line = ASTLine(a);
-                    class_entry->file = ASTFileName(a);
+                    class_entry->locus = ast_get_locus(a);
 
                     class_type = class_entry->type_information;
                 }
@@ -3413,7 +3406,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Class type found already declared in %s:%d, using it\n", entry->file, entry->line);
+            fprintf(stderr, "BUILDSCOPE: Class type found already declared in %s, using it\n", locus_to_str(entry->locus));
         }
 
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
@@ -3496,7 +3489,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                    decl_context, ASTFileName(a), ASTLine(a));
+                    decl_context, ast_get_locus(a));
 
         // Remember the declaration
         *nodecl_output =
@@ -3506,8 +3499,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                         nodecl_make_cxx_decl(
                             nodecl_context,
                             class_entry,
-                            ASTFileName(a),
-                            ASTLine(a))));
+                            ast_get_locus(a))));
     }
 }
 
@@ -3569,7 +3561,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s:%d: error: '%s' is not an enum-name\n", current_entry->file, current_entry->line, current_entry->symbol_name);
+                error_printf("%s: error: '%s' is not an enum-name\n", 
+                        locus_to_str(current_entry->locus), current_entry->symbol_name);
             }
             *type_info = get_error_type();
             return;
@@ -3632,8 +3625,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             }
 
             scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context.current_scope, enum_name);
-            new_enum->line = ASTLine(id_expression);
-            new_enum->file = ASTFileName(id_expression);
+            new_enum->locus = ast_get_locus(id_expression);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context);
 
@@ -3670,7 +3662,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Enum type found in %s:%d, using it\n", entry->file, entry->line);
+            fprintf(stderr, "BUILDSCOPE: Enum type found in %s, using it\n", locus_to_str(entry->locus));
         }
 
         *type_info = get_user_defined_type(entry);
@@ -3685,8 +3677,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                         nodecl_make_cxx_decl(
                             /* optative context */ nodecl_null(),
                             entry,
-                            ASTFileName(a),
-                            ASTLine(a))));
+                            ast_get_locus(a))));
     }
 }
 
@@ -3829,7 +3820,8 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
-                && entry->kind != SK_GCC_BUILTIN_TYPE)
+                && entry->kind != SK_GCC_BUILTIN_TYPE
+                && entry->kind != SK_USING_TYPENAME)
         {
             if (!checking_ambiguity())
             {
@@ -3851,6 +3843,30 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(query_results));
 
+    // template < typename T >
+    // struct A
+    // {
+    //      struct MyStruct { int x };
+    // };
+    //
+    // template < typename T >
+    // struct B : public A<T>
+    // {
+    //      using typename A<T>::MyStruct;
+    //
+    //      MyStruct foo() // (1)
+    //      {
+    //      }
+    // };
+    //
+    // At (1), MyStruct is a simple type specifier. In this case we should do the same
+    // as gather_type_spec_from_dependent_typename function
+    if (entry->kind == SK_USING_TYPENAME)
+    {
+        ERROR_CONDITION(entry->entity_specs.alias_to->kind != SK_DEPENDENT_ENTITY, "Expecting a dependent entity", 0);
+        *type_info = entry->entity_specs.alias_to->type_information;
+        return;
+    }
     // Chances are that through class-scope lookup we have found the injected name
     if (entry->entity_specs.is_injected_class_name)
     {
@@ -3867,8 +3883,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
                 entry->symbol_name,
-                ast_get_filename(a),
-                ast_get_line(a));
+                ast_get_locus(a));
 
         nodecl_t nodecl_name = nodecl_simple_name;
 
@@ -3880,16 +3895,14 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                     // this template id will require a 'template '
                     "template ",
                     template_specialized_type_get_template_arguments(entry->type_information),
-                    ast_get_filename(a),
-                    ast_get_line(a));
+                    ast_get_locus(a));
         }
 
         // Craft a dependent typename since we will need it later for proper updates
         (*type_info) = build_dependent_typename_for_entry(
                 get_function_or_class_where_symbol_depends(entry),
                 nodecl_name,
-                ast_get_filename(a),
-                ast_get_line(a));
+                ast_get_locus(a));
     }
     else
     {
@@ -4054,8 +4067,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             }
 
             new_enum = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
-            new_enum->line = ASTLine(enum_name);
-            new_enum->file = ASTFileName(enum_name);
+            new_enum->locus = ast_get_locus(enum_name);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context);
             new_enum->entity_specs.is_user_declared = 1;
@@ -4071,16 +4083,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
+            new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_enum_anon_%d", anonymous_enums);
+            new_enum = counted_xcalloc(1, sizeof(*new_enum), &_bytes_used_buildscope);
+            new_enum->symbol_name = symbol_name;
+            new_enum->decl_context = decl_context;
         }
         anonymous_enums++;
 
-        new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
-        new_enum->line = ASTLine(a);
-        new_enum->file = ASTFileName(a);
+        new_enum->locus = ast_get_locus(a);
         new_enum->kind = SK_ENUM;
         new_enum->type_information = get_new_enum_type(decl_context);
 
@@ -4153,8 +4167,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             // Note that enums do not define an additional scope
             scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
-            enumeration_item->line = ASTLine(enumeration_name);
-            enumeration_item->file = ASTFileName(enumeration_name);
+            enumeration_item->locus = ast_get_locus(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
 
             if (decl_context.current_scope->kind == CLASS_SCOPE)
@@ -4258,8 +4271,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                                 nodecl_shallow_copy(base_enumerator),
                                 const_value_to_nodecl(const_value_get_signed_int(delta)),
                                 get_unknown_dependent_type(),
-                                nodecl_get_filename(base_enumerator),
-                                nodecl_get_line(base_enumerator));
+                                nodecl_get_locus(base_enumerator));
                         nodecl_expr_set_is_value_dependent(add_one, 1);
 
                         enumeration_item->value = add_one;
@@ -4353,8 +4365,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         nodecl_make_cxx_def(
                             /* optative context */ nodecl_null(),
                             new_enum,
-                            ASTFileName(a),
-                            ASTLine(a))));
+                            ast_get_locus(a))));
     }
 }
 
@@ -4432,6 +4443,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             SK_TYPEDEF, 
             SK_DEPENDENT_ENTITY,
             SK_USING,
+            SK_USING_TYPENAME,
         };
 
         // We do not want to examine uninstantiated typenames
@@ -4453,7 +4465,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         scope_entry_t* result = entry_list_head(filtered_result_list);
         entry_list_free(filtered_result_list);
 
-        if (result->kind == SK_USING)
+        if (result->kind == SK_USING
+                || result->kind == SK_USING_TYPENAME)
         {
             result = entry_advance_aliases(result);
         }
@@ -4479,7 +4492,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             }
 
             // If the entity (being an independent one) has not been completed, then instantiate it
-            instantiate_template_class_if_needed(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
+            instantiate_template_class_if_needed(base_class_symbol, decl_context, ast_get_locus(base_specifier));
 
             result = base_class_symbol;
         }
@@ -4660,8 +4673,7 @@ static void build_scope_ctor_initializer(
         AST ctor_initializer, 
         scope_entry_t* function_entry,
         decl_context_t decl_context,
-        const char* filename,
-        int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     decl_context.decl_flags = DF_NONE;
@@ -4719,8 +4731,7 @@ static void build_scope_ctor_initializer(
                 nodecl_t nodecl_cxx_init = nodecl_make_cxx_member_init(
                         nodecl_name, nodecl_init,
                         get_unknown_dependent_type(),
-                        ASTFileName(mem_initializer_id),
-                        ASTLine(mem_initializer_id));
+                        ast_get_locus(mem_initializer_id));
 
                 *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_cxx_init);
                 continue;
@@ -4843,8 +4854,7 @@ static void build_scope_ctor_initializer(
             nodecl_t nodecl_object_init = nodecl_make_member_init(
                     nodecl_init,
                     entry,
-                    ASTFileName(id_expression),
-                    ASTLine(id_expression));
+                    ast_get_locus(id_expression));
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
         }
@@ -4864,7 +4874,7 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+        check_default_initialization(entry, entry->decl_context, locus, &constructor);
     }
     entry_list_iterator_free(it);
 
@@ -4877,7 +4887,7 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+        check_default_initialization(entry, entry->decl_context, locus, &constructor);
     }
     entry_list_iterator_free(it);
 
@@ -4890,7 +4900,7 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+        check_default_initialization(entry, entry->decl_context, locus, &constructor);
     }
     entry_list_iterator_free(it);
 }
@@ -4943,7 +4953,7 @@ static void apply_function_to_data_layout_members(
 struct check_constructor_helper
 {
     const char* filename;
-    int line;
+    const locus_t* locus;
     char has_const;
 };
 
@@ -4953,7 +4963,7 @@ static void ensure_default_constructor_is_emitted(scope_entry_t* entry, void* da
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* constructor = NULL;
-    check_default_initialization(entry, entry->decl_context, p->filename, p->line, &constructor);
+    check_default_initialization(entry, entry->decl_context, p->locus, &constructor);
 }
 
 static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
@@ -4963,7 +4973,7 @@ static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
 
     scope_entry_t* constructor = NULL;
     check_copy_constructor(entry, entry->decl_context, p->has_const,
-            p->filename, p->line, &constructor);
+            p->locus, &constructor);
 }
 
 static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
@@ -4973,7 +4983,7 @@ static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, voi
 
     scope_entry_t* constructor = NULL;
     check_copy_assignment_operator(entry, entry->decl_context, p->has_const,
-            p->filename, p->line, &constructor);
+            p->locus, &constructor);
 }
 
 static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
@@ -4986,7 +4996,7 @@ static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
-    ensure_function_is_emitted(destructor, p->filename, p->line);
+    ensure_function_is_emitted(destructor, p->locus);
     ERROR_CONDITION(destructor == NULL, "Bad class %s lacking destructor", 
             print_type_str(get_user_defined_type(entry), entry->decl_context));
 }
@@ -4998,19 +5008,18 @@ static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 // Currently they do not generate nodecl (we are unsure what we would do with it) but maybe
 // they will have to in the future
 
-static void emit_implicit_default_constructor(scope_entry_t* entry, const char* filename, int line)
+static void emit_implicit_default_constructor(scope_entry_t* entry, const locus_t* locus)
 {
     entry->entity_specs.is_non_emitted = 0;
     entry->entity_specs.emission_handler = NULL;
 
-    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = 0 };
+    struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_default_constructor_is_emitted, &l);
 }
 
 static void emit_implicit_copy_constructor(scope_entry_t* entry,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     entry->entity_specs.is_non_emitted = 0;
     entry->entity_specs.emission_handler = NULL;
@@ -5018,14 +5027,13 @@ static void emit_implicit_copy_constructor(scope_entry_t* entry,
     char has_const = is_const_qualified_type(
             no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
 
-    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
+    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_copy_constructor_is_emitted, &l);
 }
 
 static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
-        const char* filename, 
-        int line)
+        const locus_t* locus)
 {
     entry->entity_specs.is_non_emitted = 0;
     entry->entity_specs.emission_handler = NULL;
@@ -5033,19 +5041,18 @@ static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
     char has_const = is_const_qualified_type(
             no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
 
-    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
+    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_copy_assignment_operator_is_emitted, &l);
 }
 
 static void emit_implicit_destructor(scope_entry_t* entry,
-        const char* filename,
-        int line)
+        const locus_t* locus)
 {
     entry->entity_specs.is_non_emitted = 0;
     entry->entity_specs.emission_handler = NULL;
 
-    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = 0 };
+    struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_destructor_is_emitted, &l);
 }
@@ -5055,7 +5062,7 @@ static void emit_implicit_destructor(scope_entry_t* entry,
 //
 // FIXME - This function is HUGE
 static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_context_t decl_context,
-        const char *filename, int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     // Finish the class creating implicit special members
@@ -5083,10 +5090,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_entry_t *data_member = entry_list_iterator_current(it);
             DEBUG_CODE()
             {
-                fprintf(stderr, "BUILDSCOPE: Completing member '%s' at '%s:%d' with type '%s'\n",
+                fprintf(stderr, "BUILDSCOPE: Completing member '%s' at '%s' with type '%s'\n",
                         data_member->symbol_name,
-                        data_member->file,
-                        data_member->line,
+                        locus_to_str(data_member->locus),
                         print_type_str(data_member->type_information, decl_context));
             }
 
@@ -5106,7 +5112,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
 
-                instantiate_template_class_if_needed(named_type_sym, decl_context, filename, line);
+                instantiate_template_class_if_needed(named_type_sym, decl_context, locus);
             }
             DEBUG_CODE()
             {
@@ -5185,10 +5191,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "BUILDSCOPE: Function '%s' of '%s:%d' is inheritedly virtual\n",
+                            fprintf(stderr, "BUILDSCOPE: Function '%s' of '%s' is inheritedly virtual\n",
                                     print_decl_type_str(entry->type_information, decl_context, entry->symbol_name),
-                                    entry->file,
-                                    entry->line);
+                                    locus_to_str(entry->locus));
                         }
                     }
                 }
@@ -5242,8 +5247,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 constructor_name);
 
         implicit_default_constructor->kind = SK_FUNCTION;
-        implicit_default_constructor->file = filename;
-        implicit_default_constructor->line = line;
+        implicit_default_constructor->locus = locus;
         implicit_default_constructor->entity_specs.is_member = 1;
         implicit_default_constructor->entity_specs.access = AS_PUBLIC;
         implicit_default_constructor->entity_specs.class_type = type_info;
@@ -5265,7 +5269,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         // nodecl_t nodecl_ctor_initializer = nodecl_null();
         // build_scope_ctor_initializer(/* ctor_initializer */ NULL,
         //         implicit_default_constructor, decl_context,
-        //         filename, line,
+        //         locus,
         //         &nodecl_ctor_initializer);
 
 
@@ -5436,8 +5440,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 constructor_name);
 
         implicit_copy_constructor->kind = SK_FUNCTION;
-        implicit_copy_constructor->file = filename;
-        implicit_copy_constructor->line = line;
+        implicit_copy_constructor->locus = locus;
         implicit_copy_constructor->entity_specs.is_member = 1;
         implicit_copy_constructor->entity_specs.access = AS_PUBLIC;
         implicit_copy_constructor->entity_specs.class_type = type_info;
@@ -5609,8 +5612,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 STR_OPERATOR_ASSIGNMENT);
 
         implicit_copy_assignment_function->kind = SK_FUNCTION;
-        implicit_copy_assignment_function->file = filename;
-        implicit_copy_assignment_function->line = line;
+        implicit_copy_assignment_function->locus = locus;
         implicit_copy_assignment_function->entity_specs.is_member = 1;
         implicit_copy_assignment_function->entity_specs.access = AS_PUBLIC;
         implicit_copy_assignment_function->entity_specs.class_type = type_info;
@@ -5736,8 +5738,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 );
 
         implicit_destructor->kind = SK_FUNCTION;
-        implicit_destructor->file = filename;
-        implicit_destructor->line = line;
+        implicit_destructor->locus = locus;
         implicit_destructor->type_information = destructor_type;
         implicit_destructor->entity_specs.is_member = 1;
         implicit_destructor->entity_specs.access = AS_PUBLIC;
@@ -5826,12 +5827,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 }
 
 void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
-        const char *filename, int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     CXX_LANGUAGE()
     {
-        finish_class_type_cxx(class_type, type_info, decl_context, filename, line, nodecl_output);
+        finish_class_type_cxx(class_type, type_info, decl_context, locus, nodecl_output);
     }
 }
 
@@ -5961,25 +5962,20 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         {
             member->entity_specs.is_member_of_anonymous = 1;
             member->entity_specs.anonymous_accessor =
-                nodecl_make_symbol(accessor_symbol,
-                        accessor_symbol->file,
-                        accessor_symbol->line);
+                nodecl_make_symbol(accessor_symbol, accessor_symbol->locus);
         }
         else
         {
             member->entity_specs.is_member_of_anonymous = 1;
 
             nodecl_t nodecl_symbol = nodecl_make_symbol(accessor_symbol,
-                             accessor_symbol->file,
-                             accessor_symbol->line);
+                             accessor_symbol->locus);
             nodecl_set_type(nodecl_symbol, lvalue_ref(accessor_symbol->type_information));
 
             nodecl_t nodecl_accessor = cxx_integrate_field_accesses(nodecl_symbol,
                     member->entity_specs.anonymous_accessor);
             nodecl_set_type(nodecl_accessor, lvalue_ref(member->type_information));
-            nodecl_set_location(nodecl_accessor,
-                         accessor_symbol->file,
-                         accessor_symbol->line);
+            nodecl_set_locus(nodecl_accessor, accessor_symbol->locus);
 
             member->entity_specs.anonymous_accessor = nodecl_accessor;
         }
@@ -6008,7 +6004,7 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     const char* accessing_name = class_symbol->symbol_name;
     C_LANGUAGE()
     {
-        // Transform "union X" or "struct X" -> "X" 
+        // Transform "union X" or "struct X" -> "X"
         const char* c = NULL;
         if ((c = has_prefix("union ", accessing_name)) != NULL)
         { }
@@ -6021,17 +6017,16 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     }
     accessing_name = strappend("var_", accessing_name);
 
-    scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context, 
-            class_symbol->decl_context.current_scope, 
+    scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context,
+            class_symbol->decl_context.current_scope,
             accessing_name);
 
     accessor_symbol->kind = SK_VARIABLE;
-    accessor_symbol->file = class_symbol->file;
-    accessor_symbol->line = class_symbol->line;
+    accessor_symbol->locus = class_symbol->locus;
     accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
-    class_symbol->entity_specs.anonymous_accessor = 
-        nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);
+    class_symbol->entity_specs.anonymous_accessor =
+        nodecl_make_symbol(accessor_symbol, class_symbol->locus);
 
     // Sign in members in the appropiate enclosing scope
     insert_symbols_in_enclosing_context(decl_context, class_symbol, accessor_symbol);
@@ -6324,23 +6319,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "BUILDSCOPE: Class '%s' already declared as %p in scope %p (%s:%d)\n", 
+                fprintf(stderr, "BUILDSCOPE: Class '%s' already declared as %p in scope %p (%s)\n", 
                         prettyprint_in_buffer(class_id_expression),
                         class_entry, 
                         class_entry->decl_context.current_scope,
-                        class_entry->file,
-                        class_entry->line);
+                        locus_to_str(class_entry->locus));
             }
 
             if (class_entry->defined)
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: class '%s' already defined in %s:%d\n",
+                    error_printf("%s: class '%s' already defined in %s\n",
                             ast_location(class_id_expression),
                             get_qualified_symbol_name(class_entry, class_entry->decl_context),
-                            class_entry->file,
-                            class_entry->line);
+                            locus_to_str(class_entry->locus));
                 }
                 *type_info = get_error_type();
                 return;
@@ -6450,8 +6443,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         prettyprint_in_buffer(class_id_expression), class_entry, decl_context.current_scope);
             }
 
-            class_entry->line = ASTLine(class_id_expression);
-            class_entry->file = ASTFileName(class_id_expression);
+            class_entry->locus = ast_get_locus(class_id_expression);
 
             // Create the class type for this newly created class
             if (!gather_info->is_template)
@@ -6466,15 +6458,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 if (ASTType(class_id_expression) != AST_TEMPLATE_ID)
                 {
                     class_entry->kind = SK_TEMPLATE;
-                    class_entry->type_information = get_new_template_type(decl_context.template_parameters, 
+                    class_entry->type_information = get_new_template_type(decl_context.template_parameters,
                             get_new_class_type(decl_context, class_kind),
                             ASTText(class_id_expression), decl_context,
-                            ASTLine(class_id_expression), 
-                            ASTFileName(class_id_expression));
+                            ast_get_locus(class_id_expression));
                     template_type_set_related_symbol(class_entry->type_information, class_entry);
 
-                    class_entry->file = ASTFileName(class_id_expression);
-                    class_entry->line = ASTLine(class_id_expression);
+                    class_entry->locus = ast_get_locus(class_id_expression);
 
                     // Set it as a member if needed
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
@@ -6482,7 +6472,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         class_entry->entity_specs.is_member = 1;
                         // FIXME
                         // class_entry->entity_specs.access = current_access;
-                        class_entry->entity_specs.class_type = 
+                        class_entry->entity_specs.class_type =
                             get_user_defined_type(decl_context.current_scope->related_entry);
                     }
 
@@ -6491,8 +6481,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                             template_type_get_primary_type(class_entry->type_information)
                             );
                     // Update some fields
-                    class_entry->file = ASTFileName(class_id_expression);
-                    class_entry->line = ASTLine(class_id_expression);
+                    class_entry->locus = ast_get_locus(class_id_expression);
 
                     class_type = class_entry->type_information;
                 }
@@ -6533,25 +6522,27 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // Give it a fake name
         static int anonymous_classes = 0;
+
         const char* symbol_name;
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+            class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+            class_entry = counted_xcalloc(1, sizeof(*class_entry), &_bytes_used_buildscope);
+            class_entry->symbol_name = symbol_name;
+            class_entry->decl_context = decl_context;
         }
         anonymous_classes++;
-
-        class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
 
         class_entry->kind = SK_CLASS;
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
         class_type = class_entry->type_information;
 
-        class_entry->line = ASTLine(a);
-        class_entry->file = ASTFileName(a);
+        class_entry->locus = ast_get_locus(a);
 
         class_entry->entity_specs.is_unnamed = 1;
 
@@ -6648,21 +6639,24 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
     }
 
-    // Inject the class symbol in the scope
+    // Inject the class symbol in the scope if not unnamed
     CXX_LANGUAGE()
     {
-        scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-                inner_decl_context.current_scope, 
-                class_entry->symbol_name);
+        if (!class_entry->entity_specs.is_unnamed)
+        {
+            scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
+                    inner_decl_context.current_scope,
+                    class_entry->symbol_name);
 
-        *injected_symbol = *class_entry;
-        injected_symbol->do_not_print = 1;
+            *injected_symbol = *class_entry;
+            injected_symbol->do_not_print = 1;
 
-        injected_symbol->entity_specs.is_member = 1;
-        injected_symbol->entity_specs.access = AS_PUBLIC;
-        injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
+            injected_symbol->entity_specs.is_member = 1;
+            injected_symbol->entity_specs.access = AS_PUBLIC;
+            injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
-        injected_symbol->entity_specs.is_injected_class_name = 1;
+            injected_symbol->entity_specs.is_injected_class_name = 1;
+        }
     }
 
     access_specifier_t current_access;
@@ -6696,7 +6690,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
     nodecl_t nodecl_finish_class = nodecl_null();
-    finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a), &nodecl_finish_class);
+    finish_class_type(class_type, *type_info, decl_context, ast_get_locus(a), &nodecl_finish_class);
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_finish_class);
     set_is_complete_type(class_type, /* is_complete */ 1);
     set_is_complete_type(get_actual_class_type(class_type), /* is_complete */ 1);
@@ -6735,7 +6729,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                    decl_context, ASTFileName(a), ASTLine(a));
+                    decl_context, ast_get_locus(a));
 
         *nodecl_output =
             nodecl_concat_lists(
@@ -6744,8 +6738,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         nodecl_make_cxx_def(
                             nodecl_context,
                             class_entry,
-                            ASTFileName(a),
-                            ASTLine(a))));
+                            ast_get_locus(a))));
     }
 
     ERROR_CONDITION(class_entry != NULL
@@ -7041,9 +7034,9 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
-                    prettyprint_in_buffer(a),
-                    print_declarator(*declarator_type));
+            // fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
+            //         prettyprint_in_buffer(a),
+            //         print_declarator(*declarator_type));
         }
     }
 
@@ -7218,8 +7211,7 @@ static void set_array_type(type_t** declarator_type,
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
                 new_vla_dim->kind = SK_VARIABLE;
-                new_vla_dim->file = ASTFileName(constant_expr);
-                new_vla_dim->line = ASTLine(constant_expr);
+                new_vla_dim->locus = ast_get_locus(constant_expr);
                 new_vla_dim->value = nodecl_expr;
                 new_vla_dim->type_information = get_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr)));
 
@@ -7232,7 +7224,7 @@ static void set_array_type(type_t** declarator_type,
                         gather_info->num_vla_dimension_symbols,
                         new_vla_dim);
 
-                nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->file, new_vla_dim->line);
+                nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->locus);
                 nodecl_set_type(nodecl_expr, new_vla_dim->type_information);
             }
             else if (decl_context.current_scope->kind == PROTOTYPE_SCOPE)
@@ -7307,8 +7299,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
                 new_parameter->kind = SK_VARIABLE;
                 new_parameter->type_information = get_signed_int_type();
-                new_parameter->file = ASTFileName(kr_id);
-                new_parameter->line = ASTLine(kr_id);
+                new_parameter->locus = ast_get_locus(kr_id);
 
                 parameter_info[num_parameters].is_ellipsis = 0;
                 parameter_info[num_parameters].type_info = get_signed_int_type();
@@ -7486,7 +7477,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 {
                     uniquestr_sprintf(&arg_name, "mcc_arg_%d_%d", function_declarator_nesting_level, num_parameters);
                 }
-                AST declarator_id = ASTLeaf(AST_SYMBOL, ASTFileName(parameter_decl_spec_seq), ASTLine(parameter_decl_spec_seq), arg_name);
+                AST declarator_id = ASTLeaf(AST_SYMBOL, ast_get_locus(parameter_decl_spec_seq), arg_name);
                 entry = register_new_variable_name(declarator_id, type_info, &param_decl_gather_info, param_decl_context);
                 entry->do_not_print = 1;
             }
@@ -7545,7 +7536,7 @@ static void set_function_parameter_clause(type_t** function_type,
                         param_decl_gather_info.vla_dimension_symbols[i]);
             }
 
-            free(param_decl_gather_info.vla_dimension_symbols);
+            xfree(param_decl_gather_info.vla_dimension_symbols);
 
             num_parameters++;
         }
@@ -7946,7 +7937,7 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
                 if (function_symbol->entity_specs.default_argument_info[i] == NULL)
                 {
                     function_symbol->entity_specs.default_argument_info[i] 
-                        = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                        = (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
                 }
                 function_symbol->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                 function_symbol->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
@@ -8037,7 +8028,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
                 AST operator_id = ASTLeaf(AST_SYMBOL,
-                        ASTFileName(declarator_id), ASTLine(declarator_id),
+                        ast_get_locus(declarator_id),
                         operator_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(operator_id, ast_get_parent(declarator_id));
@@ -8058,7 +8049,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
                 AST operator_id = ASTLeaf(AST_SYMBOL,
-                        ASTFileName(declarator_id), ASTLine(declarator_id),
+                        ast_get_locus(declarator_id),
                         operator_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(operator_id, ast_get_parent(declarator_id));
@@ -8100,8 +8091,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 char* conversion_function_name = get_conversion_function_name(decl_context, declarator_id, 
                         &conversion_type_info, nodecl_output);
                 AST conversion_id = ASTLeaf(AST_SYMBOL, 
-                        ASTFileName(declarator_id),
-                        ASTLine(declarator_id), 
+                        ast_get_locus(declarator_id), 
                         conversion_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(conversion_id, ast_get_parent(declarator_id));
@@ -8166,7 +8156,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
 {
     dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
-    dest->entity_specs.related_symbols = counted_calloc(dest->entity_specs.num_related_symbols, 
+    dest->entity_specs.related_symbols = counted_xcalloc(dest->entity_specs.num_related_symbols, 
             sizeof(*dest->entity_specs.related_symbols), &_bytes_used_buildscope);
 
     int i;
@@ -8179,7 +8169,7 @@ static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
 static void set_parameters_as_related_symbols(scope_entry_t* entry, 
         gather_decl_spec_t* gather_info,
         char is_definition,
-        const char* filename, int line);
+        const locus_t* locus);
 
 /*
  * This function registers a new typedef name.
@@ -8209,9 +8199,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                     error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n", 
                             ast_location(declarator_id), 
                             prettyprint_in_buffer(declarator_id));
-                    info_printf("%s:%d: info: previous declaration of '%s'\n",
-                            entry->file,
-                            entry->line,
+                    info_printf("%s: info: previous declaration of '%s'\n",
+                            locus_to_str(entry->locus),
                             entry->symbol_name);
                 }
                 return NULL;
@@ -8246,9 +8235,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                     error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n", 
                             ast_location(declarator_id), 
                             prettyprint_in_buffer(declarator_id));
-                    info_printf("%s:%d: info: previous declaration of '%s'\n",
-                            entry->file,
-                            entry->line,
+                    info_printf("%s: info: previous declaration of '%s'\n",
+                            locus_to_str(entry->locus),
                             entry->symbol_name);
                 }
                 return NULL;
@@ -8265,7 +8253,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                             && !nodecl_is_null(gather_info->arguments_info[i].argument))
                     {
                         entry->entity_specs.default_argument_info[i] 
-                            = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                            = (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
 
                         entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                         entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
@@ -8283,6 +8271,29 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         return entry;
     }
 
+    // C++ If we are in this case
+    //
+    // typedef struct { int x; } A, B;
+    // typedef enum { int x; } A, B;
+    //
+    // The first declarator-id (A) must become the class-name (or enum-name) of
+    // the type being declared, while B will still be a plain typedef-name
+    CXX_LANGUAGE()
+    {
+        if ((is_named_class_type(declarator_type) || is_named_enumerated_type(declarator_type))
+                && named_type_get_symbol(declarator_type)->entity_specs.is_unnamed)
+        {
+            scope_entry_t* unnamed_symbol = named_type_get_symbol(declarator_type);
+
+            unnamed_symbol->symbol_name = ASTText(declarator_id);
+            unnamed_symbol->entity_specs.is_unnamed = 0;
+
+            insert_entry(unnamed_symbol->decl_context.current_scope, unnamed_symbol);
+
+            return unnamed_symbol;
+        }
+    }
+
     scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
 
     DEBUG_CODE()
@@ -8290,8 +8301,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         fprintf(stderr, "BUILDSCOPE: Registering typedef '%s'\n", ASTText(declarator_id));
     }
 
-    entry->line = ASTLine(declarator_id);
-    entry->file = ASTFileName(declarator_id);
+    entry->locus = ast_get_locus(declarator_id);
     entry->entity_specs.is_user_declared = 1;
 
     // Dealing with typedefs against function types
@@ -8316,7 +8326,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
 
         entry->entity_specs.num_parameters = gather_info->num_parameters;
-        entry->entity_specs.default_argument_info = counted_calloc(entry->entity_specs.num_parameters,
+        entry->entity_specs.default_argument_info = counted_xcalloc(entry->entity_specs.num_parameters,
                 sizeof(*(entry->entity_specs.default_argument_info)), 
                 &_bytes_used_buildscope);
         int i;
@@ -8325,7 +8335,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 entry->entity_specs.default_argument_info[i] = 
-                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                    (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
                 entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
                 entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
             }
@@ -8337,7 +8347,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry->entity_specs.exceptions = gather_info->exceptions;
 
         set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0, 
-                ASTFileName(declarator_id), ASTLine(declarator_id));
+                ast_get_locus(declarator_id));
     }
 
     // Case 2 - typedef against a typedef that was a functional declarator typedef ...
@@ -8434,11 +8444,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             scope_entry_t* entry = entry_list_head(check_list);
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: incompatible redeclaration of '%s' (look at '%s:%d')\n",
+                error_printf("%s: error: incompatible redeclaration of '%s' (look at '%s')\n",
                         ast_location(declarator_id),
                         prettyprint_in_buffer(declarator_id),
-                        entry->file,
-                        entry->line);
+                        locus_to_str(entry->locus));
             }
             return NULL;
         }
@@ -8453,8 +8462,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         scope_entry_t* entry = NULL;
         entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
 
-        entry->line = ASTLine(declarator_id);
-        entry->file = ASTFileName(declarator_id);
+        entry->locus = ast_get_locus(declarator_id);
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
@@ -8516,8 +8524,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->type_information = declarator_type;
 
             new_entry->kind = SK_FUNCTION;
-            new_entry->line = ASTLine(declarator_id);
-            new_entry->file = ASTFileName(declarator_id);
+            new_entry->locus = ast_get_locus(declarator_id);
 
             new_entry->entity_specs.linkage_spec = linkage_current_get_name();
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
@@ -8538,8 +8545,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 set_parameters_as_related_symbols(new_entry, 
                         gather_info, 
                         /* is_definition */ 0,
-                        ASTFileName(declarator_id),
-                        ASTLine(declarator_id));
+                        ast_get_locus(declarator_id));
             }
         }
         else /* gather_info->is_template */
@@ -8580,15 +8586,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     declarator_type,
                     function_name,
                     template_context,
-                    ASTLine(declarator_id),
-                    ASTFileName(declarator_id));
+                    ast_get_locus(declarator_id));
 
             new_entry->type_information = template_type;
 
             // This is a template, not a plain function
             new_entry->kind = SK_TEMPLATE;
-            new_entry->line = ASTLine(declarator_id);
-            new_entry->file = ASTFileName(declarator_id);
+            new_entry->locus = ast_get_locus(declarator_id);
 
             new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = 0;
@@ -8611,8 +8615,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     template_type_get_primary_type(template_type));
 
             // Update info
-            new_entry->line = ASTLine(declarator_id);
-            new_entry->file = ASTFileName(declarator_id);
+            new_entry->locus = ast_get_locus(declarator_id);
 
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
 
@@ -8620,8 +8623,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             set_parameters_as_related_symbols(new_entry,
                     gather_info,
                     /* is_definition */ 0,
-                    ASTFileName(declarator_id),
-                    ASTLine(declarator_id));
+                    ast_get_locus(declarator_id));
         }
 
         DEBUG_CODE()
@@ -8653,7 +8655,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
         new_entry->entity_specs.default_argument_info = 
-            counted_calloc(gather_info->num_parameters, 
+            counted_xcalloc(gather_info->num_parameters, 
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
         
@@ -8677,7 +8679,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 new_entry->entity_specs.default_argument_info[i] = 
-                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), 
+                    (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), 
                             &_bytes_used_buildscope);
                 new_entry->entity_specs.default_argument_info[i]->argument = 
                     gather_info->arguments_info[i].argument;
@@ -8759,8 +8761,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         set_parameters_as_related_symbols(entry, 
                 gather_info, 
                 /* is_definition */ 0,
-                ASTFileName(declarator_id),
-                ASTLine(declarator_id));
+                ast_get_locus(declarator_id));
 
         // An existing function was found
         CXX_LANGUAGE()
@@ -8967,12 +8968,11 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 }
         }
 
-        func_templ = counted_calloc(1, sizeof(*func_templ), &_bytes_used_buildscope);
+        func_templ = counted_xcalloc(1, sizeof(*func_templ), &_bytes_used_buildscope);
         func_templ->symbol_name = declarator_name;
 
         func_templ->kind = SK_TEMPLATE;
-        func_templ->line = ASTLine(declarator_id);
-        func_templ->file = ASTFileName(declarator_id);
+        func_templ->locus = ast_get_locus(declarator_id);
         func_templ->entity_specs.is_friend = 1;
         func_templ->entity_specs.is_friend_declared = 1;
 
@@ -8981,7 +8981,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
         func_templ->type_information =
             get_new_template_type(decl_context.template_parameters, declarator_type,
-                    ASTText(declarator_id), decl_context, ASTLine(declarator_id), ASTFileName(declarator_id));
+                    ASTText(declarator_id), decl_context, ast_get_locus(declarator_id));
 
         // Perhaps we may need to update some entity specs of the primary symbol
         type_t* primary_type = template_type_get_primary_type(func_templ->type_information);
@@ -8996,11 +8996,10 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     //We create a new symbol always
     scope_entry_t* new_entry =
-        counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+        counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
 
     new_entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-    new_entry->file = ASTFileName(declarator_id);
-    new_entry->line = ASTLine(declarator_id);
+    new_entry->locus = ast_get_locus(declarator_id);
 
     new_entry->type_information = declarator_type;
 
@@ -9019,14 +9018,14 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
     new_entry->entity_specs.default_argument_info =
-        counted_calloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+        counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
     int i;
     for (i = 0; i < gather_info->num_parameters; i++)
     {
         if (!nodecl_is_null(gather_info->arguments_info[i].argument))
         {
             new_entry->entity_specs.default_argument_info[i] =
-                (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
             new_entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
             new_entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
         }
@@ -9178,7 +9177,8 @@ static char find_function_declaration(AST declarator_id,
             continue;
 
         // Using symbols are filtered!
-        if (entry->kind == SK_USING)
+        if (entry->kind == SK_USING
+                || entry->kind == SK_USING_TYPENAME)
             continue;
 
         if (entry->kind != SK_FUNCTION
@@ -9217,12 +9217,11 @@ static char find_function_declaration(AST declarator_id,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s:%d' (%s)\n",
-                    prettyprint_in_buffer(declarator_id), 
+            fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
+                    prettyprint_in_buffer(declarator_id),
                     ast_location(declarator_id),
                     print_declarator(function_type_being_declared),
-                    considered_symbol->file, 
-                    considered_symbol->line,
+                    locus_to_str(considered_symbol->locus),
                     print_declarator(considered_symbol->type_information)
                    );
         }
@@ -9235,12 +9234,11 @@ static char find_function_declaration(AST declarator_id,
             equal_entry = considered_symbol;
             DEBUG_CODE()
             {
-                fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s:%d'\n",
+                fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s'\n",
                         prettyprint_in_buffer(declarator_id), 
                         ast_location(declarator_id),
                         considered_symbol->symbol_name,
-                        considered_symbol->file,
-                        considered_symbol->line);
+                        locus_to_str(considered_symbol->locus));
             }
         }
         else
@@ -9252,11 +9250,10 @@ static char find_function_declaration(AST declarator_id,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s:%d')\n", 
+                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s')\n", 
                                 ast_location(declarator_id),
                                 ASTText(declarator_id),
-                                entry->file,
-                                entry->line
+                                locus_to_str(entry->locus)
                                 );
                     }
                     return 0;
@@ -9282,10 +9279,9 @@ static char find_function_declaration(AST declarator_id,
             && gather_info->is_friend
             && is_dependent_type(declarator_type))
     {
-        scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        scope_entry_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_buildscope);
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
-        result->file = ASTFileName(declarator_id);
-        result->line = ASTLine(declarator_id);
+        result->locus = ast_get_locus(declarator_id);
         
         if (ASTType(declarator_id) == AST_TEMPLATE_ID)
         {
@@ -9314,9 +9310,7 @@ static char find_function_declaration(AST declarator_id,
                 entry_list,
                 explicit_template_parameters,
                 function_type_being_declared,
-                ASTFileName(declarator_id),
-                ASTLine(declarator_id)
-                );
+                ast_get_locus(declarator_id));
 
         if (result != NULL)
         {
@@ -9485,7 +9479,7 @@ static void push_new_template_header_level(decl_context_t decl_context,
     (*template_context) = decl_context;
     // A new level of template nesting
     (*template_context).template_parameters =
-        counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
+        counted_xcalloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
 
     (*template_context).template_parameters->is_explicit_specialization = is_explicit_specialization;
     (*template_context).template_parameters->enclosing = decl_context.template_parameters;
@@ -9834,7 +9828,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             entry->defined = 1;
         }
 
-        nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const char*, int) =
+        nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         // Keep declaration
@@ -9844,8 +9838,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                     make_cxx_decl_or_def(
                         /* optative context */ nodecl_null(),
                         entry,
-                        ASTFileName(init_declarator),
-                        ASTLine(init_declarator))));
+                        ast_get_locus(init_declarator))));
     }
 }
 
@@ -9924,7 +9917,7 @@ static void build_scope_template_template_parameter(AST a,
     // Construct parameter information
     decl_context_t template_params_context = template_context;
 
-    template_params_context.template_parameters = counted_calloc(1, 
+    template_params_context.template_parameters = counted_xcalloc(1, 
             sizeof(*template_params_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
@@ -9950,13 +9943,11 @@ static void build_scope_template_template_parameter(AST a,
                 template_parameters->num_parameters);
     }
 
-    scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+    scope_entry_t* new_entry = counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
     new_entry->symbol_name = template_parameter_name;
     new_entry->decl_context = template_context;
 
-
-    new_entry->line = ASTLine(a);
-    new_entry->file = ASTFileName(a);
+    new_entry->locus = ast_get_locus(a);
 
     new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 
@@ -9969,11 +9960,11 @@ static void build_scope_template_template_parameter(AST a,
 
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
-            new_entry->line, new_entry->file);
+            new_entry->locus);
 
     template_type_set_related_symbol(new_entry->type_information, new_entry);
 
-    template_parameter_t *template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t *template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = new_entry;
 
     template_parameter_value_t* default_argument = NULL;
@@ -10022,7 +10013,7 @@ static void build_scope_template_template_parameter(AST a,
             return;
         }
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), 
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), 
                 &_bytes_used_buildscope);
         // We need a named type
         default_argument->type = get_user_defined_type(entry);
@@ -10091,20 +10082,19 @@ static void build_scope_type_template_parameter(AST a,
         file = ASTFileName(a);
     }
 
-    scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+    scope_entry_t* new_entry = counted_xcalloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
     new_entry->decl_context = template_context;
     new_entry->symbol_name = template_parameter_name;
 
 
-    new_entry->line = line;
-    new_entry->file = file;
+    new_entry->locus = make_locus(file, line, 0);
     new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
     new_entry->entity_specs.is_template_parameter = 1;
     new_entry->entity_specs.template_parameter_nesting = nesting;
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
-    template_parameter_t* template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t* template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = new_entry;
 
     template_parameter_value_t *default_argument = NULL;
@@ -10127,7 +10117,7 @@ static void build_scope_type_template_parameter(AST a,
                 &gather_info, type_info, &declarator_type,
                 template_context, abstract_decl,nodecl_output);
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_TYPE;
@@ -10193,7 +10183,7 @@ static void build_scope_nontype_template_parameter(AST a,
                 nesting, 
                 template_parameters->num_parameters);
     }
-    entry = counted_calloc(1, sizeof(*entry), &_bytes_used_buildscope);
+    entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
     entry->symbol_name = template_parameter_name;
     entry->decl_context = template_context;
 
@@ -10206,7 +10196,7 @@ static void build_scope_nontype_template_parameter(AST a,
     entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // Save its symbol
-    template_parameter_t* template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
+    template_parameter_t* template_parameter = counted_xcalloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
     template_parameter->entry = entry;
     template_parameter_value_t* default_argument = NULL;
     if (default_expression != NULL)
@@ -10222,7 +10212,7 @@ static void build_scope_nontype_template_parameter(AST a,
             }
         }
 
-        default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
+        default_argument = counted_xcalloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
         default_argument->value = nodecl_expr;
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
@@ -10277,8 +10267,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
 
     scope_entry_t* alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
 
-    alias_entry->line = ASTLine(alias_ident);
-    alias_entry->file = ASTFileName(alias_ident);
+    alias_entry->locus = ast_get_locus(alias_ident);
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_decl_context = entry->related_decl_context;
 }
@@ -10353,8 +10342,7 @@ static void build_scope_namespace_definition(AST a,
             entry = new_symbol(decl_context, decl_context.current_scope, ASTText(namespace_name));
             namespace_context = new_namespace_context(decl_context, entry);
 
-            entry->line = ASTLine(namespace_name);
-            entry->file = ASTFileName(namespace_name);
+            entry->locus = ast_get_locus(namespace_name);
             entry->kind = SK_NAMESPACE;
             entry->related_decl_context = namespace_context;
             entry->entity_specs.is_user_declared = 1;
@@ -10421,8 +10409,7 @@ static void build_scope_namespace_definition(AST a,
             scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, unnamed_namespace);
             namespace_context = new_namespace_context(decl_context, entry);
 
-            entry->line = ASTLine(a);
-            entry->file = ASTFileName(a);
+            entry->locus = ast_get_locus(a);
             entry->kind = SK_NAMESPACE;
             entry->related_decl_context = namespace_context;
 
@@ -10668,10 +10655,9 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: function already defined at '%s:%d'\n",
+            error_printf("%s: function already defined at '%s'\n",
                     ast_location(a),
-                    entry->file,
-                    entry->line);
+                    locus_to_str(entry->locus));
         }
         return;
     }
@@ -10736,14 +10722,13 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
 static void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         char is_definition,
-        const char* filename,
-        int line)
+        const locus_t* locus)
 {
     if (entry->entity_specs.related_symbols == NULL)
     {
         // Allocated for the first time
         entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-        entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
                 sizeof(*entry->entity_specs.related_symbols),
                 &_bytes_used_buildscope);
     }
@@ -10751,11 +10736,11 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     {
         if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
         {
-            // A mismatching number of parameters, realloc
-            free(entry->entity_specs.related_symbols);
+            // A mismatching number of parameters, xrealloc
+            xfree(entry->entity_specs.related_symbols);
 
             entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-            entry->entity_specs.related_symbols = counted_calloc(gather_info->num_parameters,
+            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
                     sizeof(*entry->entity_specs.related_symbols),
                     &_bytes_used_buildscope);
         }
@@ -10772,8 +10757,8 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s:%d: error: parameter %d does not have name\n",
-                            filename, line, i + 1);
+                    error_printf("%s: error: parameter %d does not have name\n",
+                            locus_to_str(locus), i + 1);
                 }
             }
         }
@@ -10962,14 +10947,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     if (previous_symbol != NULL
             && previous_symbol != entry)
     {
-        internal_error("inconsistent symbol created %s at '%s:%d' [%s] vs %s at '%s:%d' [%s] \n", 
+        internal_error("inconsistent symbol created %s at '%s' [%s] vs %s at '%s' [%s] \n", 
                 previous_symbol->symbol_name,
-                previous_symbol->file,
-                previous_symbol->line,
+                locus_to_str(previous_symbol->locus),
                 print_declarator(previous_symbol->type_information),
                 entry->symbol_name,
-                entry->file,
-                entry->line,
+                locus_to_str(entry->locus),
                 print_declarator(entry->type_information)
                 );
     }
@@ -10988,11 +10971,10 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: function '%s' already defined (look at '%s:%d')\n",
+            error_printf("%s: error: function '%s' already defined (look at '%s')\n",
                     ast_location(a),
                     funct_name,
-                    entry->file,
-                    entry->line);
+                    locus_to_str(entry->locus));
         }
         return NULL;
     }
@@ -11018,8 +11000,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // Keep parameter names
     set_parameters_as_related_symbols(entry, &gather_info,
             /* is_definition */ 1,
-            ASTFileName(a),
-            ASTLine(a));
+            ast_get_locus(a));
 
     // Function_body
     AST function_body = ASTSon2(a);
@@ -11044,8 +11025,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
 
-            this_symbol->line = ASTLine(function_body);
-            this_symbol->file = ASTFileName(function_body);
+            this_symbol->locus = ast_get_locus(function_body);
 
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
@@ -11082,7 +11062,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 location = a;
             build_scope_ctor_initializer(ctor_initializer, 
                     entry, block_context, 
-                    ASTFileName(location), ASTLine(location),
+                    ast_get_locus(location),
                     &nodecl_initializers);
         }
         else
@@ -11166,12 +11146,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                         nodecl_vla_init,
                         nodecl_make_object_init(
                             vla_dim, 
-                            ASTFileName(statement), 
-                            ASTLine(statement))); 
+                            ast_get_locus(statement))); 
             }
 
             gather_info.num_vla_dimension_symbols = 0;
-            free(gather_info.vla_dimension_symbols);
+            xfree(gather_info.vla_dimension_symbols);
             gather_info.vla_dimension_symbols = NULL;
 
             // Note that we are prepending an object init list for VLAs
@@ -11182,12 +11161,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
         {
-            call_destructors_of_classes(block_context, ASTFileName(statement), ASTLine(statement), &nodecl_destructors);
+            call_destructors_of_classes(block_context, ast_get_locus(statement), &nodecl_destructors);
         }
 
         // We manually create a compound statement here for nodecl
         body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors, 
-                ASTFileName(statement), ASTLine(statement));
+                ast_get_locus(statement));
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
     {
@@ -11202,7 +11181,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     linkage_pop();
 
-    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*,const char*, int) = NULL;
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
 
     ptr_nodecl_make_func_code = is_dependent_function(entry)
         ? &nodecl_make_template_function_code : &nodecl_make_function_code;
@@ -11212,11 +11191,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             nodecl_make_context(
                 nodecl_make_list_1(body_nodecl),
                 block_context,
-                ASTFileName(a), ASTLine(a)),
+                ast_get_locus(a)),
             nodecl_initializers,
             /* internal_functions */ nodecl_null(),
             entry,
-            ASTFileName(a), ASTLine(a));
+            ast_get_locus(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_function_def);
 
@@ -11278,8 +11257,11 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 break;
             }
         case AST_USING_DECLARATION :
+        case AST_USING_DECLARATION_TYPENAME :
             {
-                build_scope_using_declaration(a, inner_decl_context, current_access, nodecl_output);
+                build_scope_using_declaration(a, inner_decl_context, current_access, 
+                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        nodecl_output);
                 break;
             }
         case AST_MEMBER_DECLARATION_QUALIF:
@@ -11570,10 +11552,9 @@ static void update_member_function_info(AST declarator_name,
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
+                        fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s' is a constructor\n", 
                                 entry->symbol_name,
-                                entry->file,
-                                entry->line);
+                                locus_to_str(entry->locus));
                     }
 
                     if (!entry->entity_specs.is_explicit
@@ -11581,10 +11562,9 @@ static void update_member_function_info(AST declarator_name,
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a conversor constructor\n", 
+                            fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s' is a conversor constructor\n", 
                                     entry->symbol_name,
-                                    entry->file,
-                                    entry->line);
+                                    locus_to_str(entry->locus));
                         }
                         entry->entity_specs.is_conversor_constructor = 1;
                     }
@@ -12119,14 +12099,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     {
                         // This cannot be a template
                         nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(entry->symbol_name, 
-                                ast_get_filename(decl_spec_seq),
-                                ast_get_line(decl_spec_seq));
+                                ast_get_locus(decl_spec_seq));
 
                         member_type = build_dependent_typename_for_entry(
                                 named_type_get_symbol(class_info),
                                 nodecl_name,
-                                ast_get_filename(decl_spec_seq),
-                                ast_get_line(decl_spec_seq));
+                                ast_get_locus(decl_spec_seq));
                     }
                 }
             }
@@ -12815,8 +12793,7 @@ struct call_to_destructor_data_tag
 {
     nodecl_t* nodecl_output;
     scope_t* scope;
-    const char* filename;
-    int line;
+    const locus_t* locus;
 } call_to_destructor_data_t;
 
 static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
@@ -12832,16 +12809,16 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             && !entry->entity_specs.is_extern)
     {
         instantiate_template_class_if_needed(named_type_get_symbol(entry->type_information), 
-                entry->decl_context, destructor_data->filename, destructor_data->line);
+                entry->decl_context, destructor_data->locus);
 
         nodecl_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), NULL, 0),
-                        nodecl_make_list_1(nodecl_make_symbol(entry, NULL, 0)),
+                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), make_locus("", 0, 0)),
+                        nodecl_make_list_1(nodecl_make_symbol(entry, make_locus("", 0, 0))),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
-                        NULL, 0), NULL, 0);
+                        make_locus("", 0, 0)), make_locus("", 0, 0));
 
         *(destructor_data->nodecl_output) = nodecl_append_to_list(
                 *(destructor_data->nodecl_output), 
@@ -12852,15 +12829,13 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
 }
 
 static void call_destructors_of_classes(decl_context_t block_context, 
-        const char* filename,
-        int line,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     call_to_destructor_data_t call_to_destructor_data = { 
         .nodecl_output = nodecl_output,
         .scope = block_context.current_scope,
-        .filename = filename,
-        .line = line,
+        .locus = locus
     };
 
     scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
@@ -12900,15 +12875,15 @@ static void build_scope_compound_statement(AST a,
     nodecl_t nodecl_destructors = nodecl_null();
     CXX_LANGUAGE()
     {
-        call_destructors_of_classes(block_context, ASTFileName(a), ASTLine(a), &nodecl_destructors);
+        call_destructors_of_classes(block_context, ast_get_locus(a), &nodecl_destructors);
     }
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
                 nodecl_make_list_1(
-                    nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ASTFileName(a), ASTLine(a))
+                    nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ast_get_locus(a))
                     ),
-                block_context, ASTFileName(a), ASTLine(a)));
+                block_context, ast_get_locus(a)));
 }
 
 static void build_scope_implicit_compound_statement(AST list, 
@@ -12993,7 +12968,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 }
             }
 
-            *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
+            *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
         }
         CXX_LANGUAGE()
         {
@@ -13002,7 +12977,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
-                            &ambiguous_conversion, &conversor, ASTFileName(initializer), ASTLine(initializer)))
+                            &ambiguous_conversion, &conversor, ast_get_locus(initializer)))
                 {
                     if (!checking_ambiguity())
                     {
@@ -13012,20 +12987,20 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                     }
                 }
 
-                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
+                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
                 if (conversor != NULL)
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
                             "I expected a conversion function!", 0);
-                    *nodecl_output = cxx_nodecl_make_function_call(nodecl_make_symbol(conversor, ASTFileName(initializer), ASTLine(initializer)),
+                    *nodecl_output = cxx_nodecl_make_function_call(nodecl_make_symbol(conversor, ast_get_locus(initializer)),
                             nodecl_make_list_1(*nodecl_output),
                             /* function_form */ nodecl_null(),
-                            function_type_get_return_type(conversor->type_information), ASTFileName(initializer), ASTLine(initializer));
+                            function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));
                 }
             }
             else
             {
-                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
+                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
             }
         }
 
@@ -13070,9 +13045,9 @@ static void build_scope_while_statement(AST a,
                 nodecl_make_list_1(
                     nodecl_make_while_statement(nodecl_condition, nodecl_statement, 
                         /* loop_name */ nodecl_null(),
-                        ASTFileName(a), ASTLine(a))),
+                        ast_get_locus(a))),
                 block_context,
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -13124,7 +13099,7 @@ static void build_scope_expression_statement(AST a,
             }
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
-            diagnostic_candidates(candidates, ASTFileName(expr), ASTLine(expr));
+            diagnostic_candidates(candidates, ast_get_locus(expr));
 
             return;
         }
@@ -13139,8 +13114,7 @@ static void build_scope_expression_statement(AST a,
                 *nodecl_output,
                 nodecl_make_object_init(
                     vla_dimension_symbol,
-                    ASTFileName(expr),
-                    ASTLine(expr)));
+                    ast_get_locus(expr)));
 
         vla_dimension_symbol = pop_vla_dimension_symbol();
     }
@@ -13148,7 +13122,7 @@ static void build_scope_expression_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             *nodecl_output,
-            nodecl_make_expression_statement(nodecl_expr, ASTFileName(expr), ASTLine(expr)));
+            nodecl_make_expression_statement(nodecl_expr, ast_get_locus(expr)));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -13177,9 +13151,9 @@ static void build_scope_if_else_statement(AST a,
             nodecl_make_context(
                 nodecl_make_list_1(
                     nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, 
-                        ASTFileName(a), ASTLine(a))),
+                        ast_get_locus(a))),
                 block_context,
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -13277,16 +13251,16 @@ static void build_scope_for_statement(AST a,
 
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
-            ASTFileName(a), ASTLine(a));
+            ast_get_locus(a));
     *nodecl_output = 
         nodecl_make_list_1(
                 nodecl_make_context(
                     nodecl_make_list_1(
                         nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
                             /* loop name */ nodecl_null(),
-                            ASTFileName(a), ASTLine(a))),
+                            ast_get_locus(a))),
                     block_context,
-                    ASTFileName(a), ASTLine(a)
+                    ast_get_locus(a)
                     ));
 }
 
@@ -13309,9 +13283,9 @@ static void build_scope_switch_statement(AST a,
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
                 nodecl_make_list_1(
-                    nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a))),
+                    nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ast_get_locus(a))),
                 block_context,
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
@@ -13324,8 +13298,7 @@ scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
     {
         sym_label = new_symbol(decl_context, decl_context.function_scope, ASTText(label));
         sym_label->kind = SK_LABEL;
-        sym_label->line = ASTLine(label);
-        sym_label->file = ASTFileName(label);
+        sym_label->locus = ast_get_locus(label);
     }
     else
     {
@@ -13344,7 +13317,7 @@ static void build_scope_goto_statement(AST a,
     scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_goto_statement(sym_label, ASTFileName(a), ASTLine(a)));
+            nodecl_make_goto_statement(sym_label, ast_get_locus(a)));
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -13362,12 +13335,12 @@ static void build_scope_labeled_statement(AST a,
     if (nodecl_is_null(nodecl_statement))
     {
         // It can be null because of declarations, just use an empty statement instead
-        nodecl_statement = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
+        nodecl_statement = nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(a)));
     }
 
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_labeled_statement(nodecl_statement, sym_label, ASTFileName(a), ASTLine(a)));
+                nodecl_make_labeled_statement(nodecl_statement, sym_label, ast_get_locus(a)));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -13380,7 +13353,7 @@ static void build_scope_default_statement(AST a,
 
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a)));
+            nodecl_make_default_statement(nodecl_statement, ast_get_locus(a)));
 }
 
 static void build_scope_case_statement(AST a, 
@@ -13406,8 +13379,7 @@ static void build_scope_case_statement(AST a,
             nodecl_make_case_statement(
                 nodecl_make_list_1(nodecl_expr), 
                 nodecl_statement, 
-                ASTFileName(a), 
-                ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 static void build_scope_return_statement(AST a, 
@@ -13490,7 +13462,7 @@ static void build_scope_return_statement(AST a,
 
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_return_statement(nodecl_return, ASTFileName(a), ASTLine(a)));
+                nodecl_make_return_statement(nodecl_return, ast_get_locus(a)));
 }
 
 static void build_scope_try_block(AST a, 
@@ -13552,7 +13524,7 @@ static void build_scope_try_block(AST a,
 
                 if (entry != NULL)
                 {
-                    exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
+                    exception_name = nodecl_make_object_init(entry, ast_get_locus(declarator));
 
                     keep_gcc_attributes_in_symbol(entry, &gather_info);
                     keep_ms_declspecs_in_symbol(entry, &gather_info);
@@ -13568,11 +13540,9 @@ static void build_scope_try_block(AST a,
                             nodecl_make_context(
                                 nodecl_catch_statement,
                                 block_context,
-                                ASTFileName(exception_declaration), 
-                                ASTLine(exception_declaration))),
+                                ast_get_locus(exception_declaration))),
                         declarator_type,
-                        ASTFileName(exception_declaration), 
-                        ASTLine(exception_declaration)));
+                        ast_get_locus(exception_declaration)));
         }
         else
         {
@@ -13592,7 +13562,7 @@ static void build_scope_try_block(AST a,
 
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any, ASTFileName(a), ASTLine(a)));
+            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any, ast_get_locus(a)));
 }
 
 static void build_scope_do_statement(AST a, 
@@ -13617,7 +13587,7 @@ static void build_scope_do_statement(AST a,
 
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_do_statement(nodecl_statement, 
-                nodecl_expr, ASTFileName(a), ASTLine(a)));
+                nodecl_expr, ast_get_locus(a)));
 }
 
 static void build_scope_empty_statement(AST a, 
@@ -13625,7 +13595,7 @@ static void build_scope_empty_statement(AST a,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
+            nodecl_make_empty_statement(ast_get_locus(a)));
 }
 
 static void build_scope_break(AST a, 
@@ -13635,7 +13605,7 @@ static void build_scope_break(AST a,
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_break_statement(
                 /* construct_name */ nodecl_null(),
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 static void build_scope_continue(AST a, 
@@ -13645,7 +13615,7 @@ static void build_scope_continue(AST a,
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_continue_statement(
                 /* construct_name */ nodecl_null(),
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
@@ -13736,8 +13706,7 @@ static void finish_pragma_declaration(
         nodecl_t nodecl_pragma_line,
         nodecl_t nodecl_decl,
         const char* text,
-        const char* filename,
-        int line,
+        const locus_t* locus,
         nodecl_t *nodecl_output)
 {
     // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
@@ -13768,12 +13737,12 @@ static void finish_pragma_declaration(
                     nodecl_make_pragma_custom_declaration(
                         nodecl_shallow_copy(nodecl_pragma_line), 
                         nodecl_null(), 
-                        nodecl_make_pragma_context(decl_context, entry->file, entry->line),
+                        nodecl_make_pragma_context(decl_context, entry->locus),
                         nodecl_make_pragma_context(
                             get_prototype_context_if_any(decl_context, entry, gather_spec), 
-                            entry->file, entry->line),
+                            entry->locus),
                         entry, 
-                        text, filename, line));
+                        text, locus));
         }
     }
     else
@@ -13800,9 +13769,9 @@ static void finish_pragma_declaration(
                         nodecl_shallow_copy(pragma_context),
                         nodecl_shallow_copy(prototype_context),
                         nodecl_get_symbol(list[i]), 
-                        text, filename, line));
+                        text, locus));
         }
-        free(list);
+        xfree(list);
     }
 
     entry_list_free(declared_symbols);
@@ -13841,7 +13810,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_decl,
-            ASTText(a), ASTFileName(a), ASTLine(a),
+            ASTText(a), ast_get_locus(a),
             nodecl_output);
 
     if (pragma_nesting == 0)
@@ -13901,7 +13870,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
             gather_decl_spec_list,
             decl_context,
             nodecl_pragma_line, nodecl_member_decl,
-            ASTText(a), ASTFileName(a), ASTLine(a),
+            ASTText(a), ast_get_locus(a),
             nodecl_output);
 
     if (pragma_nesting == 0)
@@ -13926,7 +13895,7 @@ static void build_scope_upc_synch_statement(AST a,
     else
     {
         nodecl_expression = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ast_get_locus(a));
     }
 
     nodecl_expression = nodecl_make_list_1(nodecl_expression);
@@ -13947,7 +13916,7 @@ static void build_scope_upc_synch_statement(AST a,
        CHECK(UPC_FENCE)
     END_CHECKS
 
-    *nodecl_output = nodecl_make_upc_sync_statement(nodecl_expression, stmt_name, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_upc_sync_statement(nodecl_expression, stmt_name, ast_get_locus(a));
 }
 
 static void build_scope_upc_forall_statement(AST a, 
@@ -13990,7 +13959,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_condition = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ast_get_locus(a));
     }
 
     nodecl_t nodecl_iter = nodecl_null();
@@ -14001,7 +13970,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_iter = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ast_get_locus(a));
     }
 
     nodecl_t nodecl_affinity = nodecl_null();
@@ -14012,7 +13981,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ast_get_locus(a));
     }
 
     nodecl_t* list[] = { 
@@ -14057,7 +14026,7 @@ static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_co
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
-        *nodecl_output = nodecl_make_err_statement(ASTFileName(a), ASTLine(a));
+        *nodecl_output = nodecl_make_err_statement(ast_get_locus(a));
         return;
     }
 
@@ -14066,7 +14035,7 @@ static void build_scope_fortran_allocate_statement(AST a, decl_context_t decl_co
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_fortran_allocate_statement(nodecl_allocate_list, 
                 nodecl_opt_value,
-                ASTFileName(a), ASTLine(a)));
+                ast_get_locus(a)));
 }
 
 #define STMT_HANDLER(type, hndl) [type] = { .handler = (hndl) }
@@ -14445,7 +14414,7 @@ nodecl_t internal_expression_parse(const char *source, decl_context_t decl_conte
 scope_entry_t* entry_advance_aliases(scope_entry_t* entry)
 {
     if (entry != NULL 
-            && entry->kind == SK_USING)
+            && (entry->kind == SK_USING))
         return entry_advance_aliases(entry->entity_specs.alias_to);
 
     return entry;

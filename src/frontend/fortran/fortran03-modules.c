@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -32,6 +32,7 @@
 #include "cxx-typeutils.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-scope.h"
+#include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
@@ -181,6 +182,7 @@ enum type_kind_table_tag
     TKT_VOID,
     TKT_INDIRECT,
     TKT_NAMED,
+    TKT_COMPUTED_FUNCTION
 } type_kind_table_t;
 
 typedef
@@ -904,7 +906,7 @@ static void* get_ptr_of_oid(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid
 
 static void insert_map_ptr(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid, void *ptr)
 {
-    sqlite3_int64* p = calloc(1, sizeof(*p));
+    sqlite3_int64* p = xcalloc(1, sizeof(*p));
     *p = oid;
 
     rb_tree_insert(_oid_map, p, ptr);
@@ -1362,8 +1364,11 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     }
     else if (is_computed_function_type(t))
     {
-        // We do not store this case (it is actually a pointer to a function)
-        result = insert_type_simple(handle, t, TKT_VOID, 0);
+        int id = fortran_intrinsic_get_id(computed_function_type_get_computing_function(t));
+        ERROR_CONDITION((id == -1), "Attempt to store an unknown computed function type %p",
+                computed_function_type_get_computing_function(t));
+
+        result = insert_type_simple(handle, t, TKT_COMPUTED_FUNCTION, id);
     }
     else
     {
@@ -1572,7 +1577,7 @@ static int get_extra_gcc_attrs(void *datum,
 {
     extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
 
-    char *attr_value = strdup(values[0]);
+    char *attr_value = xstrdup(values[0]);
 
     char *q = strchr(attr_value, '|');
     ERROR_CONDITION(p == NULL, "Wrong field!", 0);
@@ -1584,13 +1589,13 @@ static int get_extra_gcc_attrs(void *datum,
     p->symbol->entity_specs.num_gcc_attributes++;
     ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
             "Too many gcc attributes", 0);
-    p->symbol->entity_specs.gcc_attributes = calloc(p->symbol->entity_specs.num_gcc_attributes, 
+    p->symbol->entity_specs.gcc_attributes = xcalloc(p->symbol->entity_specs.num_gcc_attributes, 
             sizeof(*p->symbol->entity_specs.gcc_attributes));
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
         _nodecl_wrap(load_ast(p->handle, safe_atoull(tree)));
 
-    free(attr_value);
+    xfree(attr_value);
 
     return 0;
 }
@@ -1602,7 +1607,7 @@ static int get_extra_function_parameter_info(void *datum,
 {
     extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
 
-    char *attr_value = strdup(values[0]);
+    char *attr_value = xstrdup(values[0]);
 
     char *q = strchr(attr_value, '|');
     ERROR_CONDITION(p == NULL, "Wrong field!", 0);
@@ -1628,7 +1633,7 @@ static int get_extra_function_parameter_info(void *datum,
             p->symbol->entity_specs.num_function_parameter_info,
             parameter_info);
 
-    free(attr_value);
+    xfree(attr_value);
 
     return 0;
 }
@@ -1640,7 +1645,7 @@ static int get_extra_default_argument_info(void *datum,
 {
     extra_default_argument_info_t* p = (extra_default_argument_info_t*)datum;
 
-    default_argument_info_t* d = calloc(1, sizeof(*d));
+    default_argument_info_t* d = xcalloc(1, sizeof(*d));
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
     d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoull(values[0])));
@@ -1657,22 +1662,22 @@ struct parameter_info_t
     char** names;
 };
 
-static void free_param_info(struct parameter_info_t *param_info, int num_rows)
+static void xfree_param_info(struct parameter_info_t *param_info, int num_rows)
 {
     int i;
     for (i = 0; i < num_rows; i++)
     {
-        free(param_info[i].values);
-        free(param_info[i].names);
+        xfree(param_info[i].values);
+        xfree(param_info[i].names);
     }
-    free(param_info);
+    xfree(param_info);
 }
 
 static char* safe_strdup(const char* c)
 {
     if (c == NULL)
         return NULL;
-    return strdup(c);
+    return xstrdup(c);
 }
 
 static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stmt, 
@@ -1688,7 +1693,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
     int num_rows = 0;
     int result_set_size = 4;
 
-    param_info = realloc(param_info, result_set_size * sizeof(*param_info));
+    param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
 
     int result_query = sqlite3_step(prepared_stmt);
     while(result_query != SQLITE_DONE)
@@ -1701,7 +1706,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
                     if (num_rows > result_set_size)
                     {
                         result_set_size *= 2;
-                        param_info = realloc(param_info, result_set_size * sizeof(*param_info));
+                        param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
                     }
 
                     int current_row = num_rows - 1;
@@ -1710,8 +1715,8 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
 
                     param_info[current_row].ncols = ncols;
 
-                    param_info[current_row].values = calloc(ncols, sizeof(*param_info[current_row].values));
-                    param_info[current_row].names = calloc(ncols, sizeof(*param_info[current_row].names));
+                    param_info[current_row].values = xcalloc(ncols, sizeof(*param_info[current_row].values));
+                    param_info[current_row].names = xcalloc(ncols, sizeof(*param_info[current_row].names));
                     int i;
                     for (i = 0; i < ncols; i++)
                     {
@@ -1728,7 +1733,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
             default:
                 {
                     *errmsg = sqlite3_errmsg(handle);
-                    free_param_info(param_info, num_rows);
+                    xfree_param_info(param_info, num_rows);
                     sqlite3_reset(prepared_stmt);
                     return result_query;
                 }
@@ -1745,7 +1750,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
         fun(datum, param_info[i].ncols, param_info[i].values, param_info[i].names);
     }
 
-    free_param_info(param_info, num_rows);
+    xfree_param_info(param_info, num_rows);
 
     *errmsg = NULL;
     return SQLITE_OK;
@@ -1916,8 +1921,8 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
             get_oid_from_string_table(handle, symbol->symbol_name), // name
             symbol->kind, // kind
             type_id, // type
-            get_oid_from_string_table(handle, symbol->file), // file
-            symbol->line, // line
+            get_oid_from_string_table(handle, locus_get_filename(symbol->locus)), // file
+            locus_get_line(symbol->locus), // line
             value_oid,
             bit_str,
             related_decl_context_oid,
@@ -2067,17 +2072,16 @@ static int get_symbol(void *datum,
 
     if (*result == NULL)
     {
-        (*result) = calloc(1, sizeof(**result));
+        (*result) = xcalloc(1, sizeof(**result));
     }
 
     insert_map_ptr(handle, oid, *result);
 
     (*result)->symbol_name = name;
     (*result)->kind = symbol_kind;
-    (*result)->file = filename;
-    (*result)->line = line;
+    (*result)->locus = make_locus(filename, line, 0);
 
-    (*result)->extended_data = calloc(1, sizeof(*((*result)->extended_data)));
+    (*result)->extended_data = xcalloc(1, sizeof(*((*result)->extended_data)));
     extensible_struct_init(&(*result)->extended_data);
 
     // static int level = 0;
@@ -2133,38 +2137,6 @@ static int get_symbol(void *datum,
         }
         entry_list_iterator_free(it);
         entry_list_free(members);
-    }
-    // Intrinsic functions require a bit more of work
-    else if ((*result)->kind == SK_FUNCTION
-            && (*result)->entity_specs.is_builtin)
-    {
-        scope_entry_t* entry_intrinsic = NULL;
-        if ((*result)->entity_specs.from_module != NULL)
-        {
-            scope_entry_t* ultimate_symbol = fortran_get_ultimate_symbol(*result);
-
-            scope_entry_t* module = get_module_in_cache(ultimate_symbol->entity_specs.in_module->symbol_name);
-
-            ERROR_CONDITION(module == NULL, "Unknown intrinsic module '%s'\n", 
-                    ultimate_symbol->entity_specs.in_module->symbol_name);
-
-            ERROR_CONDITION(!module->entity_specs.is_builtin, "%s is not an intrinsic module but %s.%s is an intrinsic function",
-                    module->symbol_name,
-                    module->symbol_name,
-                    (*result)->symbol_name);
-            scope_entry_list_t* res = fortran_query_module_for_name(module, ultimate_symbol->symbol_name);
-            if (res != NULL)
-                entry_intrinsic = entry_list_head(res);
-            entry_list_free(res);
-        }
-        else
-        {
-            entry_intrinsic = fortran_query_intrinsic_name_str(CURRENT_COMPILED_FILE->global_decl_context,
-                    (*result)->symbol_name);
-        }
-        ERROR_CONDITION(entry_intrinsic == NULL, "Invalid intrinsic '%s'\n", (*result)->symbol_name);
-
-        copy_intrinsic_function_info(*result, entry_intrinsic);
     }
 
     // This is a (top-level) module. Keep in the module symbol cache
@@ -2292,8 +2264,8 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
 
     for (i = 0; i < ncols; i++)
     {
-        free(values[i]);
-        free(names[i]);
+        xfree(values[i]);
+        xfree(names[i]);
     }
 
     return symbol_handle.symbol;
@@ -2430,7 +2402,7 @@ static int get_ast(void *datum,
     sqlite3_uint64 const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
     // char is_value_dependent = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
 
-    p->a = ASTLeaf(node_kind, filename, line, text);
+    p->a = ASTLeaf(node_kind, make_locus(filename, line, 0), text);
     AST a = p->a;
 
     insert_map_ptr(handle, oid, a);
@@ -2534,7 +2506,7 @@ static int get_type(void *datum,
     const char* types = values[7];
     const char* symbols = values[8];
 
-    nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+    nodecl_t nodecl_fake = nodecl_make_text("", make_locus("", 0, 0));
 
     // We early register the type to avoid troublesome loops
     *pt = _type_get_empty_type();
@@ -2617,7 +2589,7 @@ static int get_type(void *datum,
         }
         case TKT_CLASS:
         {
-            char *copy = strdup(symbols);
+            char *copy = xstrdup(symbols);
 
             _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
@@ -2636,7 +2608,7 @@ static int get_type(void *datum,
 
                 field = strtok_r(NULL, ",", &context);
             }
-            free(copy);
+            xfree(copy);
             break;
         }
         case TKT_FUNCTION:
@@ -2648,7 +2620,7 @@ static int get_type(void *datum,
 
             if (types != NULL)
             {
-                char *copy = strdup(types);
+                char *copy = xstrdup(types);
 
                 char *context = NULL;
                 char *field = strtok_r(copy, ",", &context);
@@ -2661,7 +2633,7 @@ static int get_type(void *datum,
                     num_parameters++;
                     field = strtok_r(NULL, ",", &context);
                 }
-                free(copy);
+                xfree(copy);
             }
 
             type_t* result = load_type(handle, ref);
@@ -2708,6 +2680,20 @@ static int get_type(void *datum,
 
             _type_assign_to(*pt, get_indirect_type(symbol));
             _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            break;
+        }
+        case TKT_COMPUTED_FUNCTION:
+        {
+            // We keep the identifier in the kind_size field
+            int id = kind_size;
+
+            // We only allow Fortran intrinsics have computed function_types
+            computed_function_type_t fun = fortran_intrinsic_get_ptr(id);
+
+            ERROR_CONDITION((fun == NULL && id != 0), "Invalid intrinsic function id %d.\n"
+                    "You may have to rebuild your Fortran modules\n", id);
+
+            _type_assign_to(*pt, get_computed_function_type(fun));
             break;
         }
         default:
@@ -3127,10 +3113,10 @@ static int get_module_extra_name(void *data,
     if (num_items == 0)
         return 0;
 
-    fortran_modules_data_t *module_data = calloc(1, sizeof(*module_data));
+    fortran_modules_data_t *module_data = xcalloc(1, sizeof(*module_data));
     module_data->name = uniquestr(values[1]);
     module_data->num_items = num_items;
-    module_data->items = calloc(num_items, sizeof(*(module_data->items)));
+    module_data->items = xcalloc(num_items, sizeof(*(module_data->items)));
 
     char* query = sqlite3_mprintf("SELECT kind, value FROM module_extra_data WHERE oid_name = %llu ORDER BY (order_);",
             safe_atoull(values[0]));
@@ -3150,7 +3136,7 @@ static int get_module_extra_name(void *data,
     fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_module_info");
     if (extra_info_attr == NULL)
     {
-        extra_info_attr = calloc(1, sizeof(*extra_info_attr));
+        extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
         extensible_struct_set_field(p->module->extended_data, ".extra_module_info", extra_info_attr);
     }
 

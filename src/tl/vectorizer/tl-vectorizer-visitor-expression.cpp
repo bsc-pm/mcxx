@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -51,10 +51,9 @@ namespace TL
                 Nodecl::VectorAdd::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
-
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
+            
             n.replace(vector_add);
         }
 
@@ -67,9 +66,8 @@ namespace TL
                 Nodecl::VectorMinus::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_minus);
         }
@@ -83,9 +81,8 @@ namespace TL
                 Nodecl::VectorMul::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_mul);
         }
@@ -99,9 +96,8 @@ namespace TL
                 Nodecl::VectorDiv::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_div);
         }
@@ -116,9 +112,8 @@ namespace TL
                 const Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
-                            n.get_type().get_vector_to(_vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            get_qualified_vector_to(n.get_type(), _vector_length),
+                            n.get_locus());
 
                 n.replace(vector_prom);
             }
@@ -129,9 +124,8 @@ namespace TL
                 const Nodecl::VectorNeg vector_neg =
                     Nodecl::VectorNeg::make(
                             n.get_rhs().shallow_copy(),
-                            n.get_type().get_vector_to(_vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            get_qualified_vector_to(n.get_type(), _vector_length),
+                            n.get_locus());
 
                 n.replace(vector_neg);
             }
@@ -146,9 +140,8 @@ namespace TL
                 Nodecl::VectorLowerThan::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_lt);
         }
@@ -162,9 +155,8 @@ namespace TL
                 Nodecl::VectorGreaterThan::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_gt);
         }
@@ -178,9 +170,8 @@ namespace TL
                 Nodecl::VectorEqual::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_eq);
         }
@@ -194,9 +185,8 @@ namespace TL
                 Nodecl::VectorBitwiseAnd::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_ba);
         }
@@ -210,9 +200,8 @@ namespace TL
                 Nodecl::VectorBitwiseOr::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_bo);
         }
@@ -226,9 +215,8 @@ namespace TL
                 Nodecl::VectorLogicalAnd::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_lo);
         }
@@ -242,9 +230,8 @@ namespace TL
                 Nodecl::VectorLogicalOr::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_lo);
         }
@@ -260,9 +247,8 @@ namespace TL
                         n.get_condition().shallow_copy(),
                         n.get_true().shallow_copy(),
                         n.get_false().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_cond);
         }
@@ -274,11 +260,13 @@ namespace TL
 
             // Computing new vector type
             TL::Type vector_type = n.get_type();
+            /*
             if (vector_type.is_lvalue_reference())
             {
                 vector_type = vector_type.references_to();
             }
-            vector_type = vector_type.get_vector_to(_vector_length);
+            */
+            vector_type = get_qualified_vector_to(vector_type, _vector_length);
 
             if(lhs.is<Nodecl::ArraySubscript>())
             {
@@ -299,15 +287,12 @@ namespace TL
                                     Nodecl::ParenthesizedExpression::make(
                                         lhs.shallow_copy(),
                                         basic_type,
-                                        n.get_filename(),
-                                        n.get_line()),
+                                        n.get_locus()),
                                     basic_type.get_pointer_to(),
-                                    n.get_filename(),
-                                    n.get_line()),
+                                    n.get_locus()),
                                 n.get_rhs().shallow_copy(),
                                 vector_type,
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_store);
                 }
@@ -318,10 +303,10 @@ namespace TL
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
                     const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
 
+                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
+
                     ERROR_CONDITION(subscripts.size() > 1,
                             "Vectorizer: Scatter on multidimensional array is not supported yet!", 0);
-
-                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
 
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
@@ -332,8 +317,7 @@ namespace TL
                                 strides,
                                 n.get_rhs().shallow_copy(),
                                 vector_type,
-                                n.get_filename(),
-                                n.get_line());
+                                n.get_locus());
 
                     n.replace(vector_scatter);
                 }
@@ -346,13 +330,11 @@ namespace TL
                     Nodecl::VectorAssignment::make(
                             lhs.shallow_copy(),
                             n.get_rhs().shallow_copy(),
-                            vector_type.get_lvalue_reference_to(),
-                            n.get_filename(),
-                            n.get_line());
+                            vector_type,
+                            n.get_locus());
 
                 n.replace(vector_assignment);
             }
-
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::AddAssignment& n)
@@ -364,11 +346,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -385,11 +365,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -406,11 +384,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -427,11 +403,9 @@ namespace TL
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             n.get_type(),
-                            n.get_filename(),
-                            n.get_line()),
+                            n.get_locus()),
                         n.get_type(),
-                        n.get_filename(),
-                        n.get_line());
+                        n.get_locus());
 
             n.replace(assignment);
 
@@ -446,9 +420,8 @@ namespace TL
             const Nodecl::VectorConversion vector_conv =
                 Nodecl::VectorConversion::make(
                         n.get_nest().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_conv);
         }
@@ -460,9 +433,8 @@ namespace TL
             const Nodecl::VectorConversion vector_conv =
                 Nodecl::VectorConversion::make(
                         n.get_rhs().shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_conv);
         }
@@ -475,7 +447,7 @@ namespace TL
             {
                 vector_type = vector_type.references_to();
             }
-            vector_type = vector_type.get_vector_to(_vector_length);
+            vector_type = get_qualified_vector_to(vector_type, _vector_length);
 
             TL::Type basic_type = n.get_type();
             if (basic_type.is_lvalue_reference())
@@ -494,14 +466,11 @@ namespace TL
                                 Nodecl::ParenthesizedExpression::make(
                                     n.shallow_copy(),
                                     basic_type,
-                                    n.get_filename(),
-                                    n.get_line()),
+                                    n.get_locus()),
                                 basic_type.get_pointer_to(),
-                                n.get_filename(),
-                                n.get_line()),
+                                n.get_locus()),
                             vector_type,
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_load);
             }
@@ -523,8 +492,7 @@ namespace TL
                             base.shallow_copy(),
                             strides,
                             vector_type,
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_locus());
 
                 n.replace(vector_gather);
             }
@@ -547,10 +515,9 @@ namespace TL
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
-                            n.get_arguments().shallow_copy(),
-                            n.get_type().get_vector_to(_vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _vector_length),
+                            n.get_locus());
 
                 n.replace(vector_fabs_call);
             }
@@ -569,12 +536,12 @@ namespace TL
                 if (best_version.is<Nodecl::FunctionCode>())
                 {
                     new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
-                        make_nodecl(n.get_filename(), n.get_line());
+                        make_nodecl(n.get_locus());
                 }
                 else if (best_version.is<Nodecl::Symbol>())
                 {
                     new_called = best_version.as<Nodecl::Symbol>().get_symbol().
-                        make_nodecl(n.get_filename(), n.get_line());
+                        make_nodecl(n.get_locus());
                 }
                 else
                 {
@@ -588,9 +555,8 @@ namespace TL
                             n.get_arguments().shallow_copy(),
                             n.get_alternate_name().shallow_copy(),
                             n.get_function_form().shallow_copy(),
-                            n.get_type().get_vector_to(_vector_length),
-                            n.get_filename(),
-                            n.get_line());
+                            get_qualified_vector_to(n.get_type(), _vector_length),
+                            n.get_locus());
 
                 n.replace(vector_function_call);
             }
@@ -598,8 +564,9 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
-            TL::Symbol sym = n.get_symbol();
-            TL::Type sym_type = sym.get_type();
+            TL::Type sym_type = n.get_type();
+
+            //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
             if (!sym_type.is_vector())
             {
@@ -610,7 +577,8 @@ namespace TL
                 {
                     std::cerr << "Basic IV: " << n.prettyprint() << "\n";
 
-                    TL::ObjectList<Nodecl::NodeclBase> int_literal_list;
+                    // Computing IV offset {0, 1, 2, 3}
+                    TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
                     const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
                             Vectorizer::_analysis_scopes->back(), n);
@@ -619,65 +587,79 @@ namespace TL
                             const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
                             i = const_value_add(i, ind_var_increment))
                     {
-                        int_literal_list.append(const_value_to_nodecl(i));
+                        literal_list.prepend(const_value_to_nodecl(i));
                     }
 
-                    Nodecl::List offset = Nodecl::List::make(int_literal_list);
+                    Nodecl::List offset = Nodecl::List::make(literal_list);
+
+                    // IV cannot be a reference
+                    TL::Type ind_var_type = get_qualified_vector_to(n.get_type(), _vector_length).no_ref();
+
+                    TL::Type offset_type = ind_var_type;
 
                     Nodecl::ParenthesizedExpression vector_induction_var =
                         Nodecl::ParenthesizedExpression::make(
                                 Nodecl::VectorAdd::make(
                                     Nodecl::VectorPromotion::make(
                                         n.shallow_copy(),
-                                        n.get_type().get_vector_to(_vector_length),
-                                        n.get_filename(),
-                                        n.get_line()),
+                                        ind_var_type,
+                                        n.get_locus()),
                                     Nodecl::VectorLiteral::make(
                                         offset,
-                                        n.get_type().get_vector_to(_vector_length),
-                                        n.get_filename(),
-                                        n.get_line()),
-                                    n.get_type().get_vector_to(_vector_length),
-                                    n.get_filename(),
-                                    n.get_line()),
-                                n.get_type().get_vector_to(_vector_length),
-                                n.get_filename(),
-                                n.get_line());
+                                        offset_type,
+                                        n.get_locus()),
+                                    get_qualified_vector_to(n.get_type(), _vector_length),
+                                    n.get_locus()),
+                                get_qualified_vector_to(n.get_type(), _vector_length),
+                                n.get_locus());
 
                     n.replace(vector_induction_var);
+                }
+                // Vectorize symbols declared in the SIMD scope
+                else if (is_declared_in_scope(
+                            _simd_inner_scope.get_decl_context().current_scope,
+                            n.get_symbol().get_scope().get_decl_context().current_scope))
+                {
+                    //std::cerr << "NS scalar_type: " << n.prettyprint() << std::endl;
+
+                    TL::Symbol tl_sym = n.get_symbol();
+                    TL::Type tl_sym_type = tl_sym.get_type();
+
+                    //TL::Symbol
+                    if (tl_sym_type.is_scalar_type())
+                    {
+                        //std::cerr << "TS scalar_type: " << n.prettyprint() << std::endl;
+                        tl_sym.set_type(get_qualified_vector_to(tl_sym_type, _vector_length));
+                        tl_sym_type = tl_sym.get_type();
+                    }
+
+                    //Nodecl::Symbol
+                    Nodecl::Symbol new_sym =
+                        Nodecl::Symbol::make(tl_sym,
+                                n.get_locus());
+
+                    new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
+
+                    n.replace(new_sym);
                 }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
                             Vectorizer::_analysis_scopes->back(),
                             n))
                 {
-                    if (sym_type.is_scalar_type())
-                    {
-                        const Nodecl::VectorPromotion vector_prom =
-                            Nodecl::VectorPromotion::make(
-                                    n.shallow_copy(),
-                                    sym_type.get_vector_to(_vector_length),
-                                    n.get_filename(),
-                                    n.get_line());
+                    const Nodecl::VectorPromotion vector_prom =
+                        Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                get_qualified_vector_to(sym_type, _vector_length),
+                                n.get_locus());
 
-                        n.replace(vector_prom);
-                    }
-                }
-                // Vectorize symbols declared in the SIMD scope
-                else if (is_declared_in_scope(
-                            _simd_inner_scope.get_decl_context().current_scope,
-                            sym.get_scope().get_decl_context().current_scope))
-                {
-                    if (sym_type.is_scalar_type())
-                    {
-                        sym.set_type(sym_type.get_vector_to(_vector_length));
-                    }
+                    n.replace(vector_prom);
                 }
                 else
                 {
                     //TODO: If you are from outside of the loop -> Vector local copy.
                     running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV or Constant or Local.",
-                            sym.get_name().c_str());
+                            n.get_symbol().get_name().c_str());
                 }
             }
         }
@@ -687,9 +669,8 @@ namespace TL
             const Nodecl::VectorPromotion vector_prom =
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_prom);
         }
@@ -699,9 +680,8 @@ namespace TL
             const Nodecl::VectorPromotion vector_prom =
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
-                        n.get_type().get_vector_to(_vector_length),
-                        n.get_filename(),
-                        n.get_line());
+                        get_qualified_vector_to(n.get_type(), _vector_length),
+                        n.get_locus());
 
             n.replace(vector_prom);
         }
@@ -728,23 +708,8 @@ namespace TL
                 return true;
             else
             {
-                printf ("False: %p != %p\n", target_scope, symbol_scope);
                 return false;
             }
         }
-
-/*
-        VectorizerVectorEvolution::VectorizerVectorEvolution()
-        {
-        }
-
-        void VectorizerVectorEvolution::visit(const Nodecl::Symbol& n) const
-        {
-        }
-
-        void VectorizerVectorEvolution::visit(const Nodecl::List& n) const
-        {
-        }
-        */
     }
 }

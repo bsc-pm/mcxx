@@ -143,8 +143,6 @@ namespace OpenMP {
         }
 
                 // Remove user-scoped variables from auto-scoped variables and reset environment
-        const std::string filename = n.get_filename( );
-        int line = n.get_line( );
         private_ext_syms = autosc_vars.get_private_vars( );
         if( !private_ext_syms.empty( ) )
         {
@@ -168,7 +166,7 @@ namespace OpenMP {
                 {
                     Nodecl::OpenMP::Private private_node =
                     Nodecl::OpenMP::Private::make( Nodecl::List::make( purged_autosc_private_vars ),
-                                                        filename, line);
+                                                        n.get_locus( ) );
                     environ.append( private_node );
                 }
         }
@@ -196,7 +194,7 @@ namespace OpenMP {
             {
                 Nodecl::OpenMP::Firstprivate firstprivate_node =
                         Nodecl::OpenMP::Firstprivate::make( Nodecl::List::make( purged_autosc_firstprivate_vars ),
-                                                            filename, line);
+                                                            n.get_locus( ) );
                 environ.append( firstprivate_node );
             }
         }
@@ -224,7 +222,7 @@ namespace OpenMP {
                 {
                     Nodecl::OpenMP::Shared shared_node =
                     Nodecl::OpenMP::Shared::make( Nodecl::List::make( purged_autosc_shared_vars ),
-                                                        filename, line);
+                                                  n.get_locus( ) );
                     environ.append( shared_node );
                 }
         }

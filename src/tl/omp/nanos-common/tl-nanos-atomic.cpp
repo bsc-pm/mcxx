@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -343,7 +343,7 @@ namespace TL { namespace Nanos {
         AST_t atomic_tree;
         if (!critical_body.is_expression())
         {
-            std::cerr << atomic_construct.get_ast().get_locus() << ": warning: 'atomic' construct requires an expression statement" << std::endl;
+            std::cerr << atomic_construct.get_ast().get_locus_str() << ": warning: 'atomic' construct requires an expression statement" << std::endl;
             atomic_tree = inefficient_atomic(atomic_construct);
         }
         else
@@ -352,7 +352,7 @@ namespace TL { namespace Nanos {
             bool using_builtin = false;
             if (!allowed_expressions_critical(expr, using_builtin))
             {
-                std::cerr << atomic_construct.get_ast().get_locus() << ": warning: 'atomic' expression cannot be implemented efficiently" << std::endl;
+                std::cerr << atomic_construct.get_ast().get_locus_str() << ": warning: 'atomic' expression cannot be implemented efficiently" << std::endl;
                 atomic_tree = inefficient_atomic(atomic_construct);
             }
             else
@@ -360,12 +360,12 @@ namespace TL { namespace Nanos {
                 if (using_builtin)
                 {
                     atomic_tree = builtin_atomic_int_op(atomic_construct, expr);
-                    std::cerr << atomic_construct.get_ast().get_locus() << ": info: 'atomic' construct implemented using atomic builtins" << std::endl;
+                    std::cerr << atomic_construct.get_ast().get_locus_str() << ": info: 'atomic' construct implemented using atomic builtins" << std::endl;
                 }
                 else
                 {
                     atomic_tree = compare_and_exchange(atomic_construct, expr);
-                    std::cerr << atomic_construct.get_ast().get_locus() << ": info: 'atomic' construct implemented using compare and exchange" << std::endl;
+                    std::cerr << atomic_construct.get_ast().get_locus_str() << ": info: 'atomic' construct implemented using compare and exchange" << std::endl;
                 }
             }
 

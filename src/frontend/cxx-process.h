@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -54,7 +54,7 @@ LIBMCXXPROCESS_EXTERN translation_unit_t* add_new_file_to_compilation_process(
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);
 
-LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN;
+LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN CHECK_PRINTF(1, 2);
 
 #define BUG_URL "\nPlease report a bug at " \
                 "http://pm.bsc.es/projects/mcxx/newticket " \

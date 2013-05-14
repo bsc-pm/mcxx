@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -71,29 +71,21 @@ namespace TL
             TL::ObjectList<TL::Type> parameters_vector_type;
             
             TL::ObjectList<TL::Type>::iterator it_type;
-            TL::ObjectList<TL::Symbol>::iterator it_sym;
-
-            for(it_sym = parameters.begin(), it_type = parameters_type.begin();
+            TL::ObjectList<TL::Symbol>::iterator it_param_sym;
+            
+            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
                     it_type != parameters_type.end();
-                    it_sym++, it_type++)
+                    it_param_sym++, it_type++)
             {
-                TL::ObjectList<Nodecl::Symbol> sym_ocurrences = 
-                    Nodecl::Utils::get_all_symbols_occurrences((*it_sym).make_nodecl("", 0));
+                TL::Type sym_type = get_qualified_vector_to((*it_type), _vector_length);
 
-                for (TL::ObjectList<Nodecl::Symbol>::iterator it_occurrence = sym_ocurrences.begin();
-                        it_occurrence != sym_ocurrences.end();
-                        it_occurrence++)
-                {
-                    if((*it_type).is_scalar_type())
-                    {
-                        (*it_occurrence).get_symbol().set_type((*it_type).get_vector_to(_vector_length));
-                    }
-                }
+                // Set type to parameter TL::Symbol
+                (*it_param_sym).set_type(sym_type);
 
-                parameters_vector_type.append((*it_type).get_vector_to(_vector_length));
+                parameters_vector_type.append(sym_type);
             }
 
-            vect_func_sym.set_type(func_type.returns().get_vector_to(_vector_length).
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _vector_length).
                     get_function_returning(parameters_vector_type));
 
             // Vectorize function statements

@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -65,8 +65,7 @@ namespace TL { namespace OpenMP {
             TL::Symbol _omp_priv;
             TL::Symbol _omp_orig;
 
-            std::string _filename;
-            int _line;
+            const locus_t* _locus;
 
             TL::Symbol _symbol;
 
@@ -173,18 +172,14 @@ namespace TL { namespace OpenMP {
                 return _combiner;
             }
 
-            void set_locus(const std::string& filename, int line)
+            void set_locus(const locus_t* locus)
             {
-                _filename = filename;
-                _line = line;
+                _locus = locus;
             }
 
-            std::string get_locus() const
+            std::string get_locus_str() const
             {
-                std::stringstream ss;
-                ss << _filename << ":" << _line;
-
-                return ss.str();
+                return ::locus_to_str(_locus);
             }
 
             static bool is_builtin(const std::string& op_name);

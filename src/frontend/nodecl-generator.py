@@ -301,6 +301,7 @@ def generate_check_routines(rule_map):
     print "#include \"cxx-nodecl.h\""
     print "#include \"cxx-utils.h\""
     print "#include \"cxx-exprtype.h\""
+    print "#include \"mem.h\""
     print ""
     print "static void nodecl_check_nullable_rule(nodecl_t n, void (*fun)(nodecl_t))"
     print "{"
@@ -317,7 +318,7 @@ def generate_check_routines(rule_map):
     print "   {"
     print "      fun(list[i]);"
     print "   }"
-    print "   free(list);"
+    print "   xfree(list);"
     print "}"
     print "static void nodecl_check_nullable_list_rule(nodecl_t n, void (*fun)(nodecl_t))"
     print "{"
@@ -442,6 +443,7 @@ def generate_nodecl_classes_fwd_decls(rule_map):
     print "#define TL_NODECL_FWD_HPP"
     print ""
     print "#include \"tl-nodecl-base-fwd.hpp\""
+    print "#include \"mem.h\""
     print ""
     print "namespace Nodecl {"
     classes = get_all_class_names_and_namespaces(rule_map)
@@ -467,6 +469,7 @@ def generate_visitor_class_header(rule_map):
     print "#include <tl-objectlist.hpp>"
     print "#include <tl-nodecl.hpp>"
     print "#include \"cxx-utils.h\""
+    print "#include \"mem.h\""
     print ""
     print "namespace Nodecl {"
     print ""
@@ -667,6 +670,7 @@ def generate_visitor_class_impl(rule_map):
     print "#include <tl-nodecl-visitor.hpp>"
     print "#include <tl-nodecl.hpp>"
     print "#include \"cxx-utils.h\""
+    print "#include \"mem.h\""
     print ""
     print "namespace Nodecl {"
     print ""
@@ -705,6 +709,7 @@ def generate_copy_visitor_class_header(rule_map):
     print ""
     print "#include \"tl-nodecl-visitor.hpp\""
     print "#include \"tl-nodecl-copy-visitor-base.hpp\""
+    print "#include \"mem.h\""
     print ""
     print "namespace Nodecl {"
     print "   class ShallowCopyVisitor : public CopyVisitorBase"
@@ -767,13 +772,11 @@ def generate_copy_visitor_class_impl(rule_map):
              print "template_parameter_list_t* template_parameters = nodecl_get_template_parameters(n.get_internal_nodecl());"
              factory_arguments.append("template_parameters")
          if nodecl_class.needs_decl_context:
-             print "TL::Scope sc = nodecl_get_decl_context(n.get_internal_nodecl());";
+             print "TL::Scope sc = nodecl_get_decl_context(n.get_internal_nodecl());"
              factory_arguments.append("sc")
 
-         print "const std::string &filename = n.get_filename();"
-         factory_arguments.append("filename")
-         print "int line = n.get_line();"
-         factory_arguments.append("line")
+         print "const locust_t* &location = nodecl_get_locus(n.get_internal_nodecl());"
+         factory_arguments.append("location")
 
          print "return %s::make(%s);" % (qualified_name, string.join(factory_arguments, ", "))
 
@@ -807,10 +810,8 @@ def generate_copy_visitor_class_impl(rule_map):
              print "TL::Scope sc = nodecl_get_decl_context(n.get_internal_nodecl());";
              factory_arguments.append("sc")
 
-         print "const std::string &filename = n.get_filename();"
-         factory_arguments.append("filename")
-         print "int line = n.get_line();"
-         factory_arguments.append("line")
+         print "const locust_t* &location = nodecl_get_locus(n.get_internal_nodecl());"
+         factory_arguments.append("location")
 
          print "return %s::make(%s);" % (qualified_name, string.join(factory_arguments, ", "))
 
@@ -823,9 +824,10 @@ def generate_nodecl_classes_base(rule_map):
    print "#ifndef TL_NODECL_HPP"
    print "#define TL_NODECL_HPP"
    print ""
-   print "#include \"tl-nodecl-base.hpp\""
    print "#include <string>"
    print "#include <sstream>"
+   print "#include \"tl-nodecl-base.hpp\""
+   print "#include \"mem.h\""
    
    print "namespace Nodecl {"
 
@@ -858,8 +860,7 @@ def generate_nodecl_classes_base(rule_map):
        if nodecl_class.needs_decl_context:
            factory_parameters.append("TL::Scope scope");
 
-       factory_parameters.append("const std::string &filename = \"\"")
-       factory_parameters.append("int line = 0")
+       factory_parameters.append("const locus_t *location = ::make_locus(\"\", 0, 0)");
 
        print "    // Factory method"
        print "    static %s make(%s);" % (class_name, string.join(factory_parameters, ", "))
@@ -882,6 +883,7 @@ def generate_nodecl_classes_specs(rule_map):
    print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
    print "#include \"cxx-utils.h\""
    print "#include \"tl-nodecl.hpp\""
+   print "#include \"mem.h\""
    print ""
    print "namespace Nodecl {"
    classes_and_children = get_all_class_names_and_children_names_namespaces(rule_map)
@@ -911,11 +913,8 @@ def generate_nodecl_classes_specs(rule_map):
            factory_parameters.append("TL::Scope scope");
            factory_arguments.append("scope.get_decl_context()");
 
-       factory_parameters.append("const std::string &filename")
-       factory_arguments.append("::uniquestr(filename.c_str())");
-
-       factory_parameters.append("int line")
-       factory_arguments.append("line");
+       factory_parameters.append("const locus_t* location")
+       factory_arguments.append("location");
 
        nodecl_make_name = "nodecl_make_%s" % (nodecl_class.base_name_to_underscore_lowercase())
 
@@ -938,6 +937,7 @@ def generate_routines_header(rule_map):
    print "#include \"cxx-scope-fwd.h\""
    print "#include \"cxx-type-fwd.h\""
    print "#include \"cxx-cexpr-fwd.h\""
+   print "#include \"mem.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
    print ""
@@ -966,8 +966,7 @@ def generate_routines_header(rule_map):
            param_list_nodecl.append("template_parameter_list_t*");
        if rhs_rule.needs_decl_context:
            param_list_nodecl.append("decl_context_t");
-       param_list_nodecl.append("const char* filename");
-       param_list_nodecl.append("int line");
+       param_list_nodecl.append("const locus_t* location");
 
        print "nodecl_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
    print ""
@@ -980,10 +979,11 @@ def generate_routines_header(rule_map):
 def generate_routines_impl(rule_map):
    print "/* Autogenerated file. DO NOT MODIFY. */"
    print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
+   print "#include <stdlib.h>"
    print "#include \"cxx-nodecl-output.h\""
    print "#include \"cxx-exprtype.h\""
    print "#include \"cxx-utils.h\""
-   print "#include <stdlib.h>"
+   print "#include \"mem.h\""
    print ""
    for i in range(2, 7):
         params = map(lambda x : "nodecl_t element%d" % (x) , range(0, i))
@@ -1022,8 +1022,7 @@ def generate_routines_impl(rule_map):
            param_list_nodecl.append("template_parameter_list_t* template_parameters");
        if rhs_rule.needs_decl_context:
            param_list_nodecl.append("decl_context_t decl_context");
-       param_list_nodecl.append("const char* filename");
-       param_list_nodecl.append("int line");
+       param_list_nodecl.append("const locus_t* location");
        if not param_list_nodecl:
            raise Exception("Empty list!")
 
@@ -1040,7 +1039,7 @@ def generate_routines_impl(rule_map):
           if not subrule_ref.is_nullable():
               print "if (nodecl_is_null(checked_tree))"
               print "{"
-              print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
+              print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s. Location: %%s\\n\", locus_to_str(location));" % (i, key)
               print "}"
           if subrule_ref.is_nullable():
              print "if (!nodecl_is_null(checked_tree))"
@@ -1048,7 +1047,7 @@ def generate_routines_impl(rule_map):
           if subrule_ref.is_seq():
              print " if (!nodecl_is_list(checked_tree))"
              print " {"
-             print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
+             print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s\\n\", locus_to_str(location));" % (i, key)
              print " }"
              print "int i, num_items = 0;"
              print "nodecl_t* list_items = nodecl_unpack_list(checked_tree, &num_items);"
@@ -1058,11 +1057,11 @@ def generate_routines_impl(rule_map):
           checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
           print "if (%s)" % (string.join(checks, "\n&& "))
           print "{"
-          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s:%%d\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), filename, line);" % (i, key)
+          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), locus_to_str(location));" % (i, key)
           print "}"
           if subrule_ref.is_seq():
              print "}"
-             print "free(list_items);"
+             print "xfree(list_items);"
           if subrule_ref.is_nullable():
              print "}"
           i = i + 1
@@ -1072,22 +1071,22 @@ def generate_routines_impl(rule_map):
        print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result.tree = ASTLeaf(%s, filename, line, NULL);" % (rhs_rule.name_to_underscore())
+          print "  result.tree = ASTLeaf(%s, location, NULL);" % (rhs_rule.name_to_underscore())
        else:
-          print "  result.tree = ASTMake%d(%s, %s, filename, line, NULL);" % (num_children, rhs_rule.name_to_underscore(), \
+          print "  result.tree = ASTMake%d(%s, %s, location, NULL);" % (num_children, rhs_rule.name_to_underscore(), \
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
-           print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s:%d\", filename, line);"
+           print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_symbol(result, symbol);"
        if rhs_rule.needs_type:
-           print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s:%d\", filename, line);"
+           print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_type(result, type);"
        if rhs_rule.needs_text:
-           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s:%d\", filename, line);"
+           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_text(result, text);"
        if rhs_rule.needs_cval:
-           print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s:%d\", filename, line);"
+           print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_constant(result, cval);"
        if rhs_rule.needs_template_parameters:
            print "  nodecl_set_template_parameters(result, template_parameters);"
@@ -1146,6 +1145,7 @@ def generate_c_visitor_def(rule_map):
     print """
 #include "cxx-nodecl-visitor.h"
 #include "cxx-utils.h"
+#include "mem.h"
 
 void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
 {
@@ -1196,6 +1196,7 @@ def generate_c_shallow_copy_def(rule_map):
     print "#include \"cxx-nodecl-output.h\""
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-utils.h\""
+    print "#include \"mem.h\""
     print "/* Autogenerated file. DO NOT MODIFY. */"
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
 
@@ -1272,10 +1273,8 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
         if needs_attr("decl_context"):
             factory_arguments.append("decl_context")
 
-        print "const char* filename = nodecl_get_filename(n);"
-        factory_arguments.append("filename")
-        print "int line = nodecl_get_line(n);"
-        factory_arguments.append("line")
+        print "const locus_t* location = nodecl_get_locus(n);"
+        factory_arguments.append("location")
         print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
 
         if may_have_attr("symbol"):
@@ -1315,6 +1314,7 @@ def generate_c_deep_copy_def(rule_map):
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-typeutils.h\""
     print "#include \"cxx-utils.h\""
+    print "#include \"mem.h\""
     print "/* Autogenerated file. DO NOT MODIFY. */"
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
 
@@ -1414,10 +1414,9 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         if needs_attr("decl_context"):
             factory_arguments.append("decl_context")
 
-        print "const char* filename = nodecl_get_filename(n);"
-        factory_arguments.append("filename")
-        print "int line = nodecl_get_line(n);"
-        factory_arguments.append("line")
+        print "const locus_t* location = nodecl_get_locus(n);"
+        factory_arguments.append("location")
+
         print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
 
         if may_have_attr("symbol"):

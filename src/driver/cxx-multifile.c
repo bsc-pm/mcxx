@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -87,7 +87,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, arguments_objcopy) != 0)
     {
-        running_error("Error when extracting the object file data", 0);
+        running_error("Error when extracting the object file data");
     }
 
     // Now extract the tar
@@ -103,7 +103,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program("tar", arguments_tar) != 0)
     {
-        running_error("Error when extracting the object file tar", 0);
+        running_error("Error when extracting the object file tar");
     }
 
     // Now remove the file
@@ -142,9 +142,9 @@ void multifile_extract_extended_info(const char* filename)
 
         if (execute_program(CURRENT_CONFIGURATION->target_ar, list_arguments) != 0)
         {
-            running_error("Error while extracting members of archive", 0);
+            running_error("Error while extracting members of archive");
         }
-        free(full_path);
+        xfree(full_path);
 
         // Go back to previous directory
         chdir(current_directory);
@@ -202,14 +202,14 @@ char multifile_object_has_extended_info(const char* filename)
     if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
                 arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
-        running_error("Error when identifying object file", 0);
+        running_error("Error when identifying object file");
     }
 
     FILE* stdout_file = fopen(temp->name, "r");
 
     if (stdout_file == NULL)
     {
-        running_error("Error when examining output of 'objdump'", 0);
+        running_error("Error when examining output of 'objdump'");
     }
 
     char line[256];
@@ -384,7 +384,7 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     embed_bfd_data_t* embed_data = NULL;
     if (*data == NULL)
     {
-        (*data) = calloc(1, sizeof(embed_bfd_data_t));
+        (*data) = xcalloc(1, sizeof(embed_bfd_data_t));
          embed_data = (embed_bfd_data_t*)(*data);
         
         // Create the temporal directory

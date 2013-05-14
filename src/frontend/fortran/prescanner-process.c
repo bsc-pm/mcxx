@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -85,7 +85,7 @@ static void remove_inlined_comments(void);
 static void normalize_line(prescanner_t*, char** line);
 static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
-static void free_line_t(line_t* l);
+static void xfree_line_t(line_t* l);
 
 static void fortran_prescanner_process(prescanner_t* prescanner);
 
@@ -203,7 +203,7 @@ static void handle_include_line(
     {
         running_error("%s:%d: error: too many levels of nesting (> %d)",
                 prescanner->input_filename,
-                iter->line,
+                iter->line_number,
                 maximum_nesting_level);
     }
     maximum_nesting_level++;
@@ -238,9 +238,9 @@ static void handle_include_line(
     // Now, recursive processing
     fortran_prescanner_process(prescanner);
 
-    free(included_filename);
-    free(new_included_filename);
-    free(fortran_literal_filename);
+    xfree(included_filename);
+    xfree(new_included_filename);
+    xfree(fortran_literal_filename);
 
     maximum_nesting_level--;
 
@@ -367,7 +367,7 @@ static void join_continuated_lines(prescanner_t* prescanner)
 			line_t* old_line = iter;
 			iter = iter->next;
 
-			free_line_t(old_line);
+			xfree_line_t(old_line);
 		}
 		else // Not a continuating one
 		{
@@ -441,10 +441,10 @@ static void join_two_lines(prescanner_t* prescanner, line_t* starting_line, line
 	}
 
 	// This is the easy one
-	// First we reallocate starting_line because we will append continuation_line to it
+	// First we xreallocate starting_line because we will append continuation_line to it
 	int new_length = strlen(starting_line->line) + strlen(continuation_line->line) + 1;
 
-	starting_line->line = (char*)realloc(starting_line->line, sizeof(char)*new_length);
+	starting_line->line = (char*)xrealloc(starting_line->line, sizeof(char)*new_length);
 
 	// If we pad the lines but we are not in a string, the padding that
 	// cut_lines added is undesirable and we remove it
@@ -468,7 +468,7 @@ static void join_two_lines(prescanner_t* prescanner, line_t* starting_line, line
 			discarded = comment;
 			comment = comment->next;
 			// Discard comment
-			free_line_t(discarded);
+			xfree_line_t(discarded);
 			// Each comment counts as one line
 			starting_line->joined_lines++;
 		}
@@ -644,7 +644,7 @@ static void read_lines(prescanner_t* prescanner)
 	{
 		// We will start with a width + 10 buffer size
 		int buffer_size = prescanner->width + 10;
-		char* line_buffer = (char*)calloc(buffer_size, sizeof(char));
+		char* line_buffer = (char*)xcalloc(buffer_size, sizeof(char));
 
 		// Read till '\n' or till buffer_size-1
 		if (fgets(line_buffer, buffer_size, prescanner->input_file) == NULL)
@@ -670,7 +670,7 @@ static void read_lines(prescanner_t* prescanner)
 				fprintf(stderr, "DEBUG: Enlarging after having read @%s|\n", line_buffer);
 			}
 			// Enlarge exponentially
-			line_buffer = (char*) realloc(line_buffer, 2*buffer_size*sizeof(char));
+			line_buffer = (char*) xrealloc(line_buffer, 2*buffer_size*sizeof(char));
 
 			// We read from the former end
 			if (fgets(&line_buffer[length_read], buffer_size, prescanner->input_file) == NULL)
@@ -706,12 +706,12 @@ static void read_lines(prescanner_t* prescanner)
         if (is_blank_string(line_buffer))
         {
             // Merrily ignore this line
-            free(line_buffer);
+            xfree(line_buffer);
         }
         else
         {
 
-            line_t* new_line = (line_t*) calloc(1, sizeof(line_t));
+            line_t* new_line = (line_t*) xcalloc(1, sizeof(line_t));
 
             DEBUG_CODE()
             {
@@ -757,7 +757,7 @@ static char* get_filename_include(char* c, regmatch_t sub_matching[])
 {
 	// Interesting information is in sub_matching[1]
 	int i;
-	char* filename = calloc((sub_matching[1].rm_eo - sub_matching[1].rm_so), sizeof(char));
+	char* filename = xcalloc((sub_matching[1].rm_eo - sub_matching[1].rm_so), sizeof(char));
 	char delim = c[sub_matching[1].rm_so];
 
 	// +1 and -1sub_matching[1].rm_so to jump over delimiters
@@ -787,7 +787,7 @@ static char* fortran_literal(char* c)
 		p++;
 	}
 
-	char* result = calloc(strlen(c) + num_quotes + 1, sizeof(char));
+	char* result = xcalloc(strlen(c) + num_quotes + 1, sizeof(char));
 	int i = 0;
 	p = c;	
 
@@ -809,7 +809,7 @@ static char* fortran_literal(char* c)
 
 static char* create_new_filename(char* c)
 {
-       char* result = calloc(strlen(c) + strlen(INCLUDES_PREFIX) + 1, sizeof(char));
+       char* result = xcalloc(strlen(c) + strlen(INCLUDES_PREFIX) + 1, sizeof(char));
        strcat(result, INCLUDES_PREFIX);
        strcat(result, c);
        return result;
@@ -828,7 +828,7 @@ static void normalize_line(prescanner_t *prescanner, char** line)
 	int real_size = (int)strlen(*line) < prescanner->width ? prescanner->width + 10 : (int)strlen(*line) + 10;
 	real_size += strlen(EMPTY_LABEL);
 
-	normalized_string = calloc(real_size, sizeof(char));
+	normalized_string = xcalloc(real_size, sizeof(char));
 
 	strcat(normalized_string, EMPTY_LABEL);
 
@@ -845,7 +845,7 @@ static void normalize_line(prescanner_t *prescanner, char** line)
 
 	strcat(normalized_string, &(*line)[1]);
 
-	free(*line);
+	xfree(*line);
 	*line = normalized_string;
 }
 
@@ -860,12 +860,12 @@ static void continuate_lines(prescanner_t* prescanner)
 		{
 			// We must cut this line
 			// TODO - Check for overruns
-			char* c = calloc(strlen(&iter->line[prescanner->width]) + 2, sizeof(char));
+			char* c = xcalloc(strlen(&iter->line[prescanner->width]) + 2, sizeof(char));
 			sprintf(c, "&%s", &iter->line[prescanner->width]);
 			iter->line[prescanner->width] = '\0';
 			strcat(iter->line, "&");
 
-			line_t* new_line = (line_t*)calloc(1, sizeof(*new_line));
+			line_t* new_line = (line_t*)xcalloc(1, sizeof(*new_line));
 			new_line->line = c;
 			new_line->line_number = 0;
 			new_line->next = iter->next;
@@ -879,10 +879,10 @@ static void continuate_lines(prescanner_t* prescanner)
 	}
 }
 
-static void free_line_t(line_t* l)
+static void xfree_line_t(line_t* l)
 {
-	free(l->line);
-	free(l);
+	xfree(l->line);
+	xfree(l);
 }
 
 static void manage_included_file(
@@ -898,7 +898,7 @@ static void manage_included_file(
 	for (i = 0; i < prescanner->num_include_directories; i++)
 	{
 		FILE* handle;
-		char* full_name = calloc(strlen(prescanner->include_directories[i]) +
+		char* full_name = xcalloc(strlen(prescanner->include_directories[i]) +
 				strlen("/") + strlen(included_filename) + 1, sizeof(char));
 
 		strcat(full_name, prescanner->include_directories[i]);
@@ -917,7 +917,7 @@ static void manage_included_file(
 			char* full_output_name;
 			if (prescanner->output_include_directory == NULL)
 			{
-				full_output_name = calloc(strlen(prescanner->include_directories[i]) +
+				full_output_name = xcalloc(strlen(prescanner->include_directories[i]) +
 						strlen("/"INCLUDES_PREFIX) + strlen(included_filename) + 1, sizeof(char));
 
 				strcat(full_output_name, prescanner->include_directories[i]);
@@ -926,7 +926,7 @@ static void manage_included_file(
 			}
 			else
 			{
-				full_output_name = calloc(strlen(prescanner->output_include_directory) +
+				full_output_name = xcalloc(strlen(prescanner->output_include_directory) +
 						strlen("/"INCLUDES_PREFIX) + strlen(included_filename) + 1, sizeof(char));
 
 				strcat(full_output_name, prescanner->output_include_directory);
@@ -949,6 +949,6 @@ static void manage_included_file(
 			return;
 		}
 
-		free(full_name);
+		xfree(full_name);
 	}
 }

@@ -9,6 +9,7 @@
 #include "cxx-typeenviron.h"
 #include "cxx-typeutils.h"
 #include "fortran03-typeenviron.h"
+#include "mem.h"
 
 static void new_option_list(option_list_t* list);
 static void add_to_option_list(option_list_t* list, p_compilation_configuration_line);
@@ -31,6 +32,10 @@ static flag_expr_t* flag_and(flag_expr_t* op1, flag_expr_t* op2);
 static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2);
 
 static void register_implicit_names(flag_expr_t* flag_expr);
+
+#define YYMALLOC xmalloc
+#define YYFREE xfree
+#define YYREALLOC xrealloc
 
 %}
 
@@ -306,10 +311,10 @@ static void register_implicit_names(flag_expr_t* flag_expr)
     {
         if (flag_expr->kind == FLAG_OP_NAME)
         {
-            struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+            struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
             new_parameter_flag->name = flag_expr->text;
-            // This is redundant because of calloc, but make it explicit here anyway
+            // This is redundant because of xcalloc, but make it explicit here anyway
             new_parameter_flag->value = 0;
 
             P_LIST_ADD(compilation_process.parameter_flags, 
@@ -326,7 +331,7 @@ static void register_implicit_names(flag_expr_t* flag_expr)
 
 static flag_expr_t* new_flag(void)
 {
-    flag_expr_t* result = calloc(1, sizeof(*result));
+    flag_expr_t* result = xcalloc(1, sizeof(*result));
     return result;
 }
 
@@ -382,7 +387,7 @@ static p_compilation_configuration_line process_option_line(
     // fprintf(stderr, "--> PROCESSING OPTION LINE -> '%s' = '%s'\n", 
     //         name->option_name, option_value);
 
-    char* option_value_tmp = strdup(option_value);
+    char* option_value_tmp = xstrdup(option_value);
     {
         // Trim the option value
         char *p = &option_value_tmp[strlen(option_value_tmp) - 1];
@@ -394,13 +399,13 @@ static p_compilation_configuration_line process_option_line(
         }
     }
 
-    result = calloc(1, sizeof(*result));
+    result = xcalloc(1, sizeof(*result));
 
     result->name = uniquestr(name->option_name);
     result->index = uniquestr(name->option_index);
     result->value = uniquestr(option_value_tmp);
 
-    free(option_value_tmp);
+    xfree(option_value_tmp);
 
     result->flag_expr = flag_expr;
 

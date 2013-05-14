@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -292,10 +292,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase ref_tree,
                 Nodecl::NodeclBase construct);
+        void reduction_initialization_code_slicer(
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase ref_tree,
+                Nodecl::NodeclBase construct);
 
         std::set<std::string> _lock_names;
 
         void perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree);
+        void perform_partial_reduction_slicer(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree,
+                Nodecl::Utils::SymbolMap*& symbol_map);
 
         Nodecl::NodeclBase emit_critical_region(
                 const std::string lock_name,
@@ -333,6 +339,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 DataReference data_reference);
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
+        static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
+        static Nodecl::NodeclBase get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num);
 
         void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
         void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
@@ -340,10 +348,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
-        reduction_map_t _reduction_map;
+        reduction_map_t _reduction_map_openmp;
+        reduction_map_t _reduction_map_ompss;
         TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
         TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
         TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
+        TL::Symbol create_reduction_function_slicer(OutlineDataItem* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct);
 
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);

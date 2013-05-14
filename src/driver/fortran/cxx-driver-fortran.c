@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -171,7 +171,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         const char* home = getenv("HOME");
         if (home == NULL)
         {
-            running_error("Error: $HOME not defined\n", 0);
+            running_error("Error: $HOME not defined\n");
         }
 
         CURRENT_CONFIGURATION->lock_dir = strappend(home, "/.mercurium_locks");
@@ -181,7 +181,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         {
             if (errno != EEXIST)
             {
-                running_error("%s: error: cannot create lock dir '%s'. Reason: %s\n",
+                running_error("Error: cannot create lock dir '%s'. Reason: %s\n",
                         CURRENT_CONFIGURATION->lock_dir,
                         strerror(errno));
             }
@@ -455,7 +455,7 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when unwrapping module. tar failed", 0);
+        running_error("Error when unwrapping module. tar failed");
     }
 
     if (CURRENT_CONFIGURATION->verbose)
@@ -490,7 +490,7 @@ static void register_module_for_later_wrap(const char* module_name, const char* 
         if (strcasecmp(CURRENT_COMPILED_FILE->modules_to_wrap[i]->module_name, module_name) == 0)
             return;
     }
-    module_to_wrap_info_t *module_to_wrap = calloc(1, sizeof(*module_to_wrap));
+    module_to_wrap_info_t *module_to_wrap = xcalloc(1, sizeof(*module_to_wrap));
 
     module_to_wrap->module_name = module_name;
     module_to_wrap->mercurium_file = mf03_filename;
@@ -555,7 +555,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when wrapping a module: tar failed\n", 0);
+        running_error("Error when wrapping a module: tar failed\n");
     }
 
     unlock_modules(lock_fd, lock_filename);
@@ -593,10 +593,10 @@ void driver_fortran_wrap_all_modules(void)
 
         wrap_module_file(module_to_wrap);
 
-        free(module_to_wrap);
+        xfree(module_to_wrap);
     }
 
-    free(CURRENT_COMPILED_FILE->modules_to_wrap);
+    xfree(CURRENT_COMPILED_FILE->modules_to_wrap);
     CURRENT_COMPILED_FILE->num_modules_to_wrap = 0;
 }
 
@@ -611,10 +611,10 @@ void driver_fortran_discard_all_modules(void)
         // The native file will not exist
         mark_file_for_cleanup(module_to_wrap->mercurium_file);
 
-        free(module_to_wrap);
+        xfree(module_to_wrap);
     }
 
-    free(CURRENT_COMPILED_FILE->modules_to_wrap);
+    xfree(CURRENT_COMPILED_FILE->modules_to_wrap);
     CURRENT_COMPILED_FILE->num_modules_to_wrap = 0;
 }
 

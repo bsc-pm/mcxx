@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -67,6 +67,8 @@ libmcxx_process_la_SOURCES = \
 libmcxx_la_SOURCES = \
   cxx-limits.h \
   cxx-macros.h \
+  cxx-locus.h \
+  cxx-locus.c \
   cxx-asttype.h \
   cxx-asttype.c \
   cxx-ast.c \

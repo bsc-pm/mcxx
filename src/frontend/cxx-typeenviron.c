@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -766,7 +766,7 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     // Cases: previous_offset == NULL means we are at the beginning
     // current_offset == NULL means we are the largest offset
 
-    offset_info_t* new_offset_info = counted_calloc(1, 
+    offset_info_t* new_offset_info = counted_xcalloc(1, 
             sizeof(*new_offset_info), &_bytes_due_to_type_environment);
     new_offset_info->offset = offset;
 

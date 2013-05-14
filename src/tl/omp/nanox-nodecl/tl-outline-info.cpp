@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -41,6 +41,22 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_field_name(std::string name)
     {
+        // Adjust names first
+        if (IS_CXX_LANGUAGE
+                && name == "this")
+            name = "this_";
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            // Builtin identifiers that became reserved names in later versions
+            // of gcc
+            if (name == "__PRETTY_FUNCTION__" // g++
+                    || name == "__FUNCTION__") // gcc
+                name = strtolower(name.c_str());
+            else if (name == "__func__") // C99
+                name = "__function__";
+        }
+
         int times_name_appears = 0;
         for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
@@ -52,10 +68,6 @@ namespace TL { namespace Nanox {
                 times_name_appears++;
             }
         }
-
-        if (IS_CXX_LANGUAGE
-                && name == "this")
-            name = "this_";
 
         std::stringstream ss;
         ss << name;
@@ -190,6 +202,7 @@ namespace TL { namespace Nanox {
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+        outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
 
         TL::Type t = sym.get_type();
         if (t.is_any_reference())
@@ -205,7 +218,6 @@ namespace TL { namespace Nanox {
         }
 
         outline_info.set_private_type(t);
-        outline_info.set_sharing(OutlineDataItem::SHARING_PRIVATE);
     }
 
     void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
@@ -233,12 +245,12 @@ namespace TL { namespace Nanox {
         new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, "", 0);
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
         sym_ref.set_type(t.get_lvalue_reference_to());
 
         this->add_capture_with_value(
                 new_addr_symbol,
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), "", 0));
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), make_locus("", 0, 0)));
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
@@ -250,7 +262,8 @@ namespace TL { namespace Nanox {
             OutlineDataItem* outline_data_item)
     {
         bool make_allocatable = false;
-        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item, make_allocatable);
+        Nodecl::NodeclBase conditional_bound;
+        TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item, make_allocatable, conditional_bound);
         if (t.is_any_reference())
             t = t.references_to();
 
@@ -278,16 +291,17 @@ namespace TL { namespace Nanox {
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions_rec(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item,
-            bool &make_allocatable)
+            bool &make_allocatable,
+            Nodecl::NodeclBase &conditional_bound)
     {
         if (t.is_lvalue_reference())
         {
-            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable);
+            TL::Type res = add_extra_dimensions_rec(sym, t.references_to(), outline_data_item, make_allocatable, conditional_bound);
             return res.get_lvalue_reference_to();
         }
         else if (t.is_pointer())
         {
-            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable);
+            TL::Type res = add_extra_dimensions_rec(sym, t.points_to(), outline_data_item, make_allocatable, conditional_bound);
             return res.get_pointer_to().get_as_qualified_as(t);
         }
         else if (t.is_function())
@@ -312,7 +326,7 @@ namespace TL { namespace Nanox {
                 this->add_capture(array_size.get_symbol());
             }
 
-            t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
+            t = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable, conditional_bound);
             return t.get_array_to(array_size, _sc);
         }
         else if (IS_FORTRAN_LANGUAGE
@@ -329,6 +343,37 @@ namespace TL { namespace Nanox {
                     && outline_data_item != NULL
                     && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED))
                 return t;
+
+            if (sym.is_allocatable()
+                    && outline_data_item != NULL
+                    && ((outline_data_item->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+                        || (outline_data_item->get_sharing() == OutlineDataItem::SHARING_REDUCTION))
+                    && conditional_bound.is_null())
+            {
+                Counter& counter = CounterManager::get_counter("array-allocatable");
+                std::stringstream ss;
+                ss << "mcc_is_allocated_" << (int)counter++;
+
+                TL::Symbol is_allocated_sym = _sc.new_symbol(ss.str());
+                is_allocated_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                is_allocated_sym.get_internal_symbol()->type_information = fortran_get_default_logical_type();
+
+                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                TL::Type sym_type = sym.get_type();
+
+                if (!sym_type.is_any_reference())
+                    sym_type = sym_type.get_lvalue_reference_to();
+                symbol_ref.set_type(sym_type);
+
+                Source allocated_src;
+                allocated_src << "ALLOCATED(" << as_expression(symbol_ref) << ")";
+
+                Nodecl::NodeclBase allocated_tree = allocated_src.parse_expression(_sc);
+
+                this->add_capture_with_value(is_allocated_sym, allocated_tree);
+
+                conditional_bound = allocated_tree;
+            }
 
             if (lower.is_null())
             {
@@ -359,7 +404,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -375,15 +420,14 @@ namespace TL { namespace Nanox {
                                 sym_type.no_ref().points_to().get_lvalue_reference_to());
                     }
 
-
                     Source lbound_src;
                     lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
+                    
                     Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
 
-                    this->add_capture_with_value(bound_sym, lbound_tree);
+                    this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
 
-                    result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_lower = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -420,7 +464,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -441,9 +485,9 @@ namespace TL { namespace Nanox {
 
                     Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
 
-                    this->add_capture_with_value(bound_sym, ubound_tree);
+                    this->add_capture_with_value(bound_sym, ubound_tree, conditional_bound);
 
-                    result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_upper = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -480,7 +524,7 @@ namespace TL { namespace Nanox {
                 result_upper = upper;
             }
 
-            TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable);
+            TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable, conditional_bound);
             if (make_allocatable)
             {
                 res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
@@ -533,7 +577,7 @@ namespace TL { namespace Nanox {
         else
         {
             internal_error("%s: data reference '%s' must be valid at this point!\n",
-                    node.get_locus().c_str(),
+                    node.get_locus_str().c_str(),
                     Codegen::get_current().codegen_to_str(node, node.retrieve_context()).c_str()
                     );
         }
@@ -566,7 +610,7 @@ namespace TL { namespace Nanox {
             else
             {
                 internal_error("%s: data reference '%s' must be valid at this point!\n",
-                        it->get_locus().c_str(),
+                        it->get_locus_str().c_str(),
                         Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                         );
             }
@@ -616,6 +660,11 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr)
     {
+        add_capture_with_value(sym, expr, Nodecl::NodeclBase::null());
+    }
+
+    void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr, Nodecl::NodeclBase condition)
+    {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
 
@@ -646,6 +695,7 @@ namespace TL { namespace Nanox {
         }
 
         outline_info.set_captured_value(expr);
+        outline_info.set_conditional_capture_value(condition);
     }
 
     void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction)
@@ -703,12 +753,12 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
-                            it->get_locus().c_str(),
+                            it->get_locus_str().c_str(),
                             sym.get_name().c_str());
                 }
                 if (!l.empty())
                 {
-                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus().c_str());
+                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus_str().c_str());
                 }
             }
 
@@ -934,22 +984,6 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return *(_data_env_items.back());
-    }
-
-    void OutlineInfo::move_at_begin(OutlineDataItem& item)
-    {
-        TL::ObjectList<OutlineDataItem*> new_list;
-        new_list.append(&item);
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
-                it != _data_env_items.end();
-                it++)
-        {
-            if (*it != &item)
-            {
-                new_list.append(*it);
-            }
-        }
-        std::swap(_data_env_items, new_list);
     }
 
     void OutlineInfo::move_at_end(OutlineDataItem& item)

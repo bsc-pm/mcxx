@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -106,8 +106,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
-        reduction_map_t::iterator it = _reduction_map.find(red);
-        if (it != _reduction_map.end())
+        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
+        if (it != _reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -171,7 +171,7 @@ namespace TL { namespace Nanox {
         function_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
-        _reduction_map[red] = function_sym;
+        _reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
@@ -180,8 +180,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
-        reduction_map_t::iterator it = _reduction_map.find(red);
-        if (it != _reduction_map.end())
+        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
+        if (it != _reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -252,7 +252,7 @@ namespace TL { namespace Nanox {
                             expanded_combiner)),
                     Nodecl::NodeclBase::null()));
 
-        _reduction_map[red] = function_sym;
+        _reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
@@ -331,7 +331,7 @@ namespace TL { namespace Nanox {
         if (!Nanos::Version::interface_is_at_least("master", 5023))
         {
             running_error("%s: error: a newer version of Nanos++ (>=5023) is required for reductions support\n",
-                    construct.get_locus().c_str());
+                    construct.get_locus_str().c_str());
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
@@ -409,7 +409,7 @@ namespace TL { namespace Nanox {
             Source num_scalars;
 
             TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
-
+            (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
                 << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
