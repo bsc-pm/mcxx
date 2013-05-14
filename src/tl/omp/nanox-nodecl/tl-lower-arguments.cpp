@@ -237,7 +237,7 @@ namespace TL { namespace Nanox {
         else if (related_symbol.is_in_module())
         {
             // Add the newly created argument as a structure
-            TL::Symbol module = construct.retrieve_context().get_related_symbol().in_module();
+            TL::Symbol module = related_symbol.in_module();
 
             new_class_symbol.get_internal_symbol()->entity_specs.in_module = module.get_internal_symbol();
             new_class_symbol.get_internal_symbol()->entity_specs.access = AS_PRIVATE;

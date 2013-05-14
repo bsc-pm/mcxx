@@ -46,12 +46,21 @@ namespace TL
             Nodecl::ForStatement epilog;
 
             // Get analysis info
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                    Nodecl::Utils::get_enclosing_function(for_statement).get_function_code()
-                        .as<Nodecl::FunctionCode>(),
-                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                    Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 2);
+            Nodecl::NodeclBase enclosing_func = 
+                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
+
+            if ((Vectorizer::_analysis_info == 0) || 
+                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
+            {
+                if (Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                        enclosing_func.as<Nodecl::FunctionCode>(),
+                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                        Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
+            }
 
             // Push ForStatement as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -73,15 +82,22 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
+            TL::Scope inner_scope_of_for = for_statement.get_statement().retrieve_context();
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                inner_scope_of_for = for_statement.get_statement().as<Nodecl::List>().front().retrieve_context();
+            }
+
             VectorizerVisitorStatement visitor_stmt(_device,
                     _vector_length,
                     _unroll_factor,
                     _target_type,
-                    for_statement.get_statement().retrieve_context());
+                    inner_scope_of_for);
             visitor_stmt.walk(for_statement.get_statement());
 
-            delete Vectorizer::_analysis_info;
+            Vectorizer::_analysis_scopes->pop_back();
             delete Vectorizer::_analysis_scopes;
+            Vectorizer::_analysis_scopes = 0;
 
             if (_remain_iterations)
             {
@@ -95,7 +111,7 @@ namespace TL
         {
             //TODO
             _remain_iterations = 2;
-            _unroll_factor = 4;
+            _unroll_factor = _vector_length/4;
         }
 
         Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
@@ -196,27 +212,27 @@ namespace TL
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::Equal& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::LowerThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::LowerOrEqualThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterOrEqualThan& node)
         {
-            visit_condition(node.as<Nodecl::NodeclBase>());
+            visit_condition(node);
         }
 
         void VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
@@ -359,12 +375,12 @@ namespace TL
             else if (lhs_const_flag && rhs_const_flag)
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are constant.", node.get_locus_str().c_str());
+                        "condition. BOTH expressions are CONSTANT.", locus_to_str(node.get_locus()));
             }
             else
             {
                 running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
-                        "condition. Both expressions are not constant.", node.get_locus_str().c_str());
+                        "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
             }
         }
 
@@ -386,56 +402,12 @@ namespace TL
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
         {
-            const Nodecl::NodeclBase rhs = node.get_rhs();
-
-            if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
-                        rhs))
-            {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            rhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                node.get_type(),
-                                Vectorizer::_analysis_info->get_induction_variable_increment(
-                                    Vectorizer::_analysis_scopes->back(),
-                                    rhs),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus());
-
-                node.replace(new_node);
-            }
+            visit_increment(node, node.get_rhs());
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
-            const Nodecl::NodeclBase rhs = node.get_rhs();
-            if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
-                        rhs))
-            {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            rhs.shallow_copy(),
-                            Nodecl::Mul::make(
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
-                                    node.get_locus()),
-                                Nodecl::IntegerLiteral::make(
-                                    node.get_type(),
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        Vectorizer::_analysis_scopes->back(),
-                                        rhs),
-                                    node.get_locus()),
-                                node.get_type(),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus());
-
-                node.replace(new_node);
-            }
+            visit_increment(node, node.get_rhs());
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
@@ -475,6 +447,34 @@ namespace TL
             walk(node.get_rhs());
         }
 
+        void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
+        {
+            if (Vectorizer::_analysis_info->is_induction_variable(
+                        Vectorizer::_analysis_scopes->back(),
+                        lhs))
+            {
+                const Nodecl::AddAssignment new_node =
+                    Nodecl::AddAssignment::make(
+                            lhs.shallow_copy(),
+                            Nodecl::Mul::make(
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_unsigned_int_type(),
+                                    const_value_get_unsigned_int(_unroll_factor),
+                                    node.get_locus()),
+                                Nodecl::IntegerLiteral::make(
+                                    node.get_type(),
+                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                        Vectorizer::_analysis_scopes->back(),
+                                        lhs),
+                                    node.get_locus()),
+                                node.get_type(),
+                                node.get_locus()),
+                            node.get_type(),
+                            node.get_locus());
+
+                node.replace(new_node);
+            }
+        }
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Next Visitor: Unknown node "

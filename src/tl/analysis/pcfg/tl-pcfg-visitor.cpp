@@ -321,29 +321,6 @@ namespace Analysis {
         return merge_nodes(n, previous_nodes);
     }
 
-//     Node* PCFGVisitor::merge_nodes(Node* subscripted, Node* subscript)
-//     {
-//         if(subscripted->get_data<Node_type>(_NODE_TYPE) || subscript->get_data<Node_type>(_NODE_TYPE))
-//         {
-//
-//         }
-//         else
-//         {
-//             ObjectList<Nodecl::NodeclBase> lhs = subscripted->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             ObjectList<Nodecl::NodeclBase> rhs = subscript->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             if(lhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscripted value not correct. It must have just one statement", 0);
-//             }
-//             if(rhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscript value not correct. It must have just one statement", 0);
-//             }
-//
-//
-//         }
-//     }
-
     // ************************************************************************************** //
     // ******************************** Non visiting methods ******************************** //
 
@@ -385,41 +362,33 @@ namespace Analysis {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label = "dafault";
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
-            Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
-            if( e != NULL )
-            {   // The edge between the nodes did not exist previously
-                if( !case_val.is_null( ) )
-                {
-                    label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
-                }
-                e->set_label( label );
-
-                if( case_stmts.back( )->get_type( ) != BREAK )
-                {
-                    _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
-                }
+            Edge* e;
+            if( case_stmts[0]->is_break_node( ) )
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, _utils->_switch_nodes.top( )->_exit, CASE );
             }
             else
-            {   // If the nodes where already connected, then the edge must have two labels
-                ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
-                for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( ); it != case_entry_edges.end( ); ++it )
-                {
-                    if( ( *it )->get_source( )->get_id( ) == _utils->_switch_condition_nodes.top( )->get_id( ) )
-                    {
-                        e = *it;
-                        break;
-                    }
-                }
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_stmts[0], CASE );
+            }
 
-                label = e->get_label( );
-                label += ", " + std::string(codegen_to_str( case_val.get_internal_nodecl( ),
-                                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) ) );
-                e->set_label( label );
+            std::string label;
+            if( !case_val.is_null( ) )
+            {
+                label = case_val.prettyprint( );
+            }
+            else
+            {
+                label = "dafault";
+            }
+            e->set_label( label );
+
+            if( case_stmts.back( )->get_type( ) != BREAK )
+            {
+                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
             }
         }
         else
@@ -607,7 +576,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
-        Node* break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
+        // The only case when '_utils->_last_nodes' can be empy is when a Case Statement has no statements
+        Node* break_node;
+        if( _utils->_last_nodes.empty( ) )
+            break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, BREAK );
+        else
+            break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, break_node );
@@ -673,6 +647,11 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
         return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundExpression& n )
+    {
+        return walk( n.get_nest( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundStatement& n )
@@ -920,7 +899,7 @@ namespace Analysis {
             _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_init );
         }
 
-        // Create the natural loop graph node
+        // Create the loop graph node
         Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_FOR );
         int n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
@@ -939,6 +918,7 @@ namespace Analysis {
         _utils->_continue_nodes.push( _utils->_nested_loop_nodes.top( )->_next );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );    // This list of nodes returned here will never be used
+
         _utils->_continue_nodes.pop();
         _utils->_break_nodes.pop();
 
@@ -996,6 +976,61 @@ namespace Analysis {
         _pcfg->_function_sym = n.get_symbol( );
 
         return walk( n.get_statements( ) );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
+    {
+        // Create the asm definition graph node
+        Node* asm_def_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, ASM_DEF );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_def_graph_node );
+
+        Node* entry_node = asm_def_graph_node->get_graph_entry_node( );
+        Node* exit_node = asm_def_graph_node->get_graph_exit_node( );
+
+        // Build the node containing the asm function text
+        Nodecl::Text text = Nodecl::Text::make( n.get_text( ) );
+        Node* text_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), text );
+        text_node->set_asm_info( ASM_DEF_TEXT );
+        _pcfg->connect_nodes( entry_node, text_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, text_node );
+
+        // Build the node containing the output operands
+        ObjectList<Node*> op0 = walk( n.get_operands0( ) );
+        if( !op0.empty( ) )
+        {
+            op0[0]->set_asm_info( ASM_DEF_OUTPUT_OPS );
+        }
+
+        // Build the node containing the input operands
+        ObjectList<Node*> op1 = walk( n.get_operands1( ) );
+        op1[0]->set_asm_info( ASM_DEF_INPUT_OPS );
+
+        // Build the node containing the clobbered registers
+        ObjectList<Node*> op2 = walk( n.get_operands2( ) );
+        if( !op2.empty( ) )
+        {
+            op2[0]->set_asm_info( ASM_DEF_CLOBBERED_REGS );
+        }
+
+//         walk( n.get_specs( ) );      // Specs are not used for any analysis
+
+        // Link properly the exit node
+        exit_node->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+        _utils->_outer_nodes.pop( );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_def_graph_node );
+        return ObjectList<Node*>( 1, asm_def_graph_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmOperand& n )
+    {
+        Node* asm_op_node = new Node( _utils->_nid, ASM_OP, _utils->_outer_nodes.top( ), n );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_op_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_op_node );
+
+        return ObjectList<Node*>( 1, asm_op_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
@@ -1319,6 +1354,10 @@ namespace Analysis {
     {
         PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+
+        // Set the task related to this clause to have auto-scoping enabled
+        _utils->_environ_entry_exit.top( ).first->get_outer_node( )->set_auto_scoping_enabled( );
+
         return ObjectList<Node*>( );
     }
 
@@ -1846,6 +1885,15 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
+    {
+        ObjectList<Node*> current_last_nodes = _utils->_last_nodes;
+        ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
+        Node* parenthesized_node = merge_nodes( n, expression_nodes );
+        _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
+        return ObjectList<Node*>( 1, parenthesized_node );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Plus& n )
     {
         return visit_unary_node( n, n.get_rhs( ) );
@@ -1959,10 +2007,11 @@ namespace Analysis {
 
         // Compose the statements nodes
         _utils->_last_nodes.clear( );
-        _utils->_switch_condition_nodes.push( cond_node_l[0] );
+        _utils->_switch_nodes.push( new PCFGSwitch( cond_node_l[0], exit_node ) );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
+        _utils->_switch_nodes.pop( );
 
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
@@ -1997,6 +2046,11 @@ namespace Analysis {
         }
 
         // Create the node
+        return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Text& n )
+    {
         return visit_literal_node( n );
     }
 

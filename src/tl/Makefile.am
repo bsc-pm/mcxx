@@ -26,7 +26,7 @@
 
 END=
 
-SUBDIRS = . codegen analysis vectorizer omp hlt
+SUBDIRS = . codegen analysis vectorizer omp vector-lowering hlt
 
 DIST_SUBDIRS= analysis \
               vectorizer \

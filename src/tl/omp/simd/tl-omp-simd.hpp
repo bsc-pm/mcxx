@@ -49,14 +49,17 @@ namespace TL
                 std::string _simd_enabled_str;
                 std::string _svml_enabled_str;
                 std::string _ffast_math_enabled_str;
+                std::string _mic_enabled_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
                 bool _ffast_math_enabled;
+                bool _mic_enabled;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
                 void set_ffast_math(const std::string ffast_math_enabled_str);
+                void set_mic(const std::string set_mic_enabled_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -64,8 +67,11 @@ namespace TL
             private:
                 TL::Vectorization::Vectorizer& _vectorizer;
 
+                unsigned int _vector_length;
+                std::string _device_name;
+
             public:
-                SimdVisitor(bool ffast_math_enabled, bool svml_enabled);
+                SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled);
                 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);

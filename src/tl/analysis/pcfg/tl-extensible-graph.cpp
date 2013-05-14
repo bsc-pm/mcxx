@@ -62,7 +62,7 @@ namespace Analysis {
                         Node* new_source = nodes_m[( *it )->get_source( )];
                         Node* new_target = nodes_m[old_node];
                         new_parents.append(new_source);
-                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_task_edge( ),
+                        new_entry_edges.append(new Edge(new_source, new_target, (*it)->is_task_edge( ),
                                                         (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(new_parents, nodes_m[old_node], new_entry_edges);
@@ -76,7 +76,7 @@ namespace Analysis {
                         Node* new_source = nodes_m[old_node];
                         Node* new_target = nodes_m[(*it)->get_target( )];
                         new_children.append(new_target);
-                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_back_edge( ), (*it)->is_back_edge( ),
+                        new_exit_edges.append(new Edge(new_source, new_target, (*it)->is_task_edge( ),
                                                         (*it)->get_type( ), (*it)->get_label( ) ));
                     }
                     connect_nodes(nodes_m[old_node], new_children, new_exit_edges);
@@ -141,16 +141,28 @@ namespace Analysis {
     }
 
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
-                                          bool is_back_edge, bool is_task_edge )
+                                          bool is_task_edge )
     {
-        Edge* new_edge;
+        Edge* edge;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
             {
-                new_edge = new Edge( parent, child, is_back_edge, is_task_edge, etype, label );
-                parent->set_exit_edge( new_edge );
-                child->set_entry_edge( new_edge );
+                edge = new Edge( parent, child, is_task_edge, etype, label );
+                parent->set_exit_edge( edge );
+                child->set_entry_edge( edge );
+            }
+            else
+            {
+                ObjectList<Edge*> exit_edges = parent->get_exit_edges( );
+                for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
+                {
+                    if( ( *it )->get_target( )->get_id( ) == child->get_id( ) )
+                    {
+                        edge = *it;
+                        break;
+                    }
+                }
             }
         }
         else
@@ -158,7 +170,7 @@ namespace Analysis {
             internal_error( "Using a NULL node when connecting two nodes. Parent is NULL? '%s', Child is NULL? '%s'",
                             ( parent == NULL ) ? "true" : "false", ( child == NULL ) ? "true" : "false" );
         }
-        return new_edge;
+        return edge;
     }
 
     void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
@@ -213,7 +225,7 @@ namespace Analysis {
         for( ; it != parents.end( ), itt != etypes.end( ), itl != labels.end( );
              ++it, ++itt, ++itl )
         {
-            connect_nodes( *it, child, *itt, *itl, /*is_back_edge*/ false, is_task_edge );
+            connect_nodes( *it, child, *itt, *itl, is_task_edge );
         }
 
         if( it != parents.end( ) || itt != etypes.end( ) || itl != labels.end( ) )
@@ -224,11 +236,11 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label, bool is_back_edge )
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            connect_nodes( *it, child, etype, label, is_back_edge );
+            connect_nodes( *it, child, etype, label );
         }
     }
 
@@ -637,6 +649,40 @@ namespace Analysis {
         return result;
     }
 
+    bool ExtensibleGraph::is_constant_in_context( Node* context, Nodecl::NodeclBase c )
+    {
+        bool result = true;
+
+        Nodecl::List cs;
+        if( c.is<Nodecl::List>( ) )
+        {
+            cs = c.as<Nodecl::List>( );
+        }
+        else
+        {
+            cs.append( c );
+        }
+
+        for( Nodecl::List::iterator it = cs.begin( ); it != cs.end( ) && result; ++it )
+        {
+            if( !it->is_constant( ) )
+            {
+                ObjectList<Nodecl::NodeclBase> memory_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
+                    itm != memory_accesses.end( ) && result; ++itm )
+                    {
+                        if ( Utils::ext_sym_set_contains_nodecl( *itm, context->get_killed_vars( ) )
+                            || Utils::ext_sym_set_contains_nodecl( *itm, context->get_undefined_behaviour_vars( ) ) )
+                        {
+                            result = false;
+                        }
+                    }
+            }
+        }
+
+        return result;
+    }
+
     void ExtensibleGraph::clear_visits(Node* current)
     {
         if( current->is_visited( ) )
@@ -733,6 +779,20 @@ namespace Analysis {
             for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
             {
                 clear_visits_backwards( *it );
+            }
+        }
+    }
+
+    void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
+    {
+        if( current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( false );
+
+            ObjectList<Node*> parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            {
+                clear_visits_aux_backwards( *it );
             }
         }
     }
@@ -881,6 +941,41 @@ namespace Analysis {
         }
 
         return NULL;
+    }
+
+
+    bool ExtensibleGraph::is_in_loop( Node* current )
+    {
+        bool res = false;
+
+        Node* outer_node = current->get_outer_node( );
+        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
+        {
+            outer_node = outer_node->get_outer_node( );
+        }
+
+        if( ( outer_node != NULL ) && outer_node->is_loop_node( ) )
+        {
+            res = true;
+        }
+
+        return res;
+    }
+
+    bool ExtensibleGraph::is_in_conditional_branch( Node* current )
+    {
+        bool res = false;
+
+        Node* outer_node = current->get_outer_node( );
+        while( ( outer_node != NULL ) && !res )
+        {
+            if( outer_node->is_ifelse_statement( ) || outer_node->is_switch_statement( ) )
+            {
+                res = true;
+            }
+        }
+
+        return res;
     }
 
     void ExtensibleGraph::print_global_vars( ) const

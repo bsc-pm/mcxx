@@ -316,8 +316,8 @@ namespace TL { namespace Nanox {
 
             if (there_are_reductions(outline_info))
             {
-                reduction_initialization_code(outline_info, reduction_initialization, construct);
-                perform_partial_reduction(outline_info, reduction_code);
+                reduction_initialization_code_slicer(outline_info, reduction_initialization, construct);
+                perform_partial_reduction_slicer(outline_info, reduction_code, symbol_map);
             }
 
             outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));

@@ -31,13 +31,11 @@
 namespace TL {
 namespace Analysis {
 
-    Edge::Edge( Node *source, Node *target, bool is_back_edge_, bool is_task_edge_,
-                Edge_type type, std::string label )
+    Edge::Edge( Node *source, Node *target, bool is_task_edge_, Edge_type type, std::string label )
         : _source( source ), _target( target )
     {
         set_data( _EDGE_TYPE, type );
         set_data( _EDGE_LABEL, label );
-        set_data( _IS_BACK_EDGE, is_back_edge_ );
         set_data( _IS_TASK_EDGE, is_task_edge_ );
     }
 
@@ -87,26 +85,11 @@ namespace Analysis {
                 break;
                 case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED";
                 break;
-                default: std::cerr << " ** Edge.cpp :: get_label() ** "
-                                   << "warning: Unexpected type '" << etype << "' while getting "
-                                   << "the Edge type as a string" << std::endl;
+                default:                WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             }
         }
 
         return result;
-    }
-
-    bool Edge::is_back_edge( )
-    {
-        if ( has_key( _IS_BACK_EDGE ) )
-        {
-            return get_data<bool>( _IS_BACK_EDGE );
-        }
-        else
-        {
-            internal_error( "Edge between '%d' and '%d 'without attribute _IS_BACK. This attribute is mandatory for all edges",
-                            _source->get_id( ), _target->get_id( ) );
-        }
     }
 
     bool Edge::is_task_edge( )
@@ -132,22 +115,18 @@ namespace Analysis {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
             switch ( etype )
             {
-                case TRUE_EDGE:     label = "TRUE";
-                break;
-                case FALSE_EDGE:    label = "FALSE";
-                break;
                 case ALWAYS:        // No label needed
                 break;
                 case CASE:
-                case CATCH:         {
-                                        label = get_data<std::string>( _EDGE_LABEL );
-                                        break;
-                                    }
+                case CATCH:         label = get_data<std::string>( _EDGE_LABEL );
+                break;
+                case FALSE_EDGE:    label = "FALSE";
+                break;
                 case GOTO_EDGE:     label = get_data<std::string>( _EDGE_LABEL );
-                                    break;
-                default:            std::cerr << " ** Edge.cpp :: get_label() ** "
-                                              << "warning: Unexpected type '" << etype << "' while getting "
-                                              << "the Edge label" << std::endl;
+                break;
+                case TRUE_EDGE:     label = "TRUE";
+                break;
+                default:            WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             };
         }
 

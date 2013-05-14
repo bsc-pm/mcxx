@@ -36,7 +36,7 @@ namespace TL {
         
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
-            _simd_enabled(false), _svml_enabled(false), _ffast_math_enabled(false)
+            _simd_enabled(false), _svml_enabled(false), _ffast_math_enabled(false), _mic_enabled(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -56,6 +56,11 @@ namespace TL {
                     "If set to '1' enables ffast_math operations, otherwise it is disabled",
                     _ffast_math_enabled_str,
                     "0").connect(functor(&Simd::set_ffast_math, *this));
+
+            register_parameter("mic_enabled",
+                    "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
+                    _mic_enabled_str,
+                    "0").connect(functor(&Simd::set_mic, *this));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -81,6 +86,15 @@ namespace TL {
                 _ffast_math_enabled = true;
             }
         }
+
+        void Simd::set_mic(const std::string mic_enabled_str)
+        {
+            if (mic_enabled_str == "1")
+            {
+                _mic_enabled = true;
+            }
+        }
+ 
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -96,37 +110,52 @@ namespace TL {
 
             if (_simd_enabled)
             {
-                SimdVisitor simd_visitor(_ffast_math_enabled, _svml_enabled);
+                SimdVisitor simd_visitor(_ffast_math_enabled, _svml_enabled, _mic_enabled);
                 simd_visitor.walk(translation_unit);
             }
         }
 
-        SimdVisitor::SimdVisitor(bool ffast_math_enabled, bool svml_enabled)
+        SimdVisitor::SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
             if (ffast_math_enabled)
                 _vectorizer.enable_ffast_math();
 
-            if (svml_enabled)
-                _vectorizer.enable_svml();
+            if (mic_enabled)
+            {
+                _vector_length = 64;
+                _device_name = "knc";
+
+                if (svml_enabled)
+                    _vectorizer.enable_svml_knc();
+            }
+            else
+            {
+                _vector_length = 16;
+                _device_name = "smp";
+
+                if (svml_enabled)
+                    _vectorizer.enable_svml_sse();
+            }
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
         {
-            printf("SIMD\n");
-
             Nodecl::NodeclBase for_statement = simd_node.get_statement();
 
             // Vectorize for
             Nodecl::NodeclBase epilog = 
-                _vectorizer.vectorize(for_statement.as<Nodecl::ForStatement>(), 
-                        "smp", 16, NULL); 
+                    _vectorizer.vectorize(for_statement.as<Nodecl::ForStatement>(), 
+                            _device_name, _vector_length, NULL); 
 
             // Add epilog
             if (!epilog.is_null())
             {
                 simd_node.append_sibling(epilog);
             }
+
+            // Remove Simd node
+            simd_node.replace(for_statement);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
@@ -144,17 +173,23 @@ namespace TL {
 
             // Vectorize function
             _vectorizer.vectorize(vectorized_func_code, 
-                    "smp", 16, NULL); 
+                    _device_name, _vector_length, NULL); 
 
             // Set new name
-            std::string vectorized_func_name = 
-                "__" + sym.get_name() + "_sse_16" ; // + device + vectorlength
+            std::stringstream vectorized_func_name; 
+            
+            vectorized_func_name <<"__" 
+                << sym.get_name() 
+                << "_" 
+                << _device_name 
+                << "_" 
+                << _vector_length;
 
-            vectorized_func_code.get_symbol().set_name(vectorized_func_name);
+            vectorized_func_code.get_symbol().set_name(vectorized_func_name.str());
 
             // Add SIMD version to vector function versioning
             _vectorizer.add_vector_function_version(sym.get_name(), vectorized_func_code, 
-                    "smp", 16, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
+                    _device_name, _vector_length, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
 
             // Append vectorized function code to scalar function
             simd_node.append_sibling(vectorized_func_code);

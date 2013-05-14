@@ -26,6 +26,7 @@
 
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
@@ -595,6 +596,8 @@ namespace TL { namespace Nanox {
                             && !sym.is_member()
                             && sym.is_allocatable();
 
+                        (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
+
                         // Private vector of partial reductions. This is a local pointer variable
                         // rdv stands for reduction vector
                         TL::Type private_reduction_vector_type = (*it)->get_private_type();
@@ -839,6 +842,17 @@ namespace TL { namespace Nanox {
                     get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
 
+        if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+            new_function_sym->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    new_function_sym);
+            new_function_sym->entity_specs.is_module_procedure = 1;
+        }
+
         function_context.function_scope->related_entry = new_function_sym;
         function_context.block_scope->related_entry = new_function_sym;
 
@@ -967,6 +981,17 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
         }
+        if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+            new_function_sym->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    new_function_sym);
+            new_function_sym->entity_specs.is_module_procedure = 1;
+        }
+
         return new_function_sym;
     }
 
@@ -1101,6 +1126,35 @@ namespace TL { namespace Nanox {
         else return t;
     }
 
+    void add_used_types_rec(TL::Type t, TL::Scope sc)
+    {
+        if (t.is_named_class() && t.get_symbol().is_from_module())
+        {
+            Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+        }
+        else if (t.is_lvalue_reference())
+        {
+            add_used_types_rec(t.references_to(), sc);
+        }
+        else if (t.is_pointer())
+        {
+            add_used_types_rec(t.points_to(), sc);
+        }
+        else if (t.is_array())
+        {
+            add_used_types_rec(t.array_element(), sc);
+        }
+    }
+
+    void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc)
+    {
+        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            add_used_types_rec((*it)->get_in_outline_type(), sc);
+        }
+    }
 
 
 } }

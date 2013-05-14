@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,27 +24,33 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+include ../Makefile.phases
 
-include $(top_srcdir)/src/tl/Makefile.phases
+SUBDIRS = sse knc .
 
-phases_LTLIBRARIES = libcodegen-sse-module.la
+
+phases_LTLIBRARIES = libtlvector-lowering.la
 
 END=
 
-libcodegen_sse_module_la_CFLAGS = $(phases_cflags) \
-    -I $(srcdir)/../../common \
+libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
+
+libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               $(END)
+
+libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)
+
+libtlvector_lowering_la_SOURCES = \
+    tl-vector-lowering.cpp \
+    tl-vector-lowering.hpp \
+	$(END)
+
+libtlvector_lowering_la_LIBADD = \
+    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(END)
-
-libcodegen_sse_module_la_CXXFLAGS = $(phases_cflags) \
-    -I $(srcdir)/../../common \
-    $(END)
-
-libcodegen_sse_module_la_LDFLAGS = $(phases_ldflags)
-libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
-					       $(END)
-
-
-libcodegen_sse_module_la_SOURCES = \
-	 codegen-sse-module.hpp \
-	 codegen-sse-module.cpp \
-  	 $(END)

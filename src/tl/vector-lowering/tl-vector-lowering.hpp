@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,19 +24,41 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-vector-phase.hpp"
-#include "codegen-phase.hpp"
-#include "codegen-sse-module.hpp"
-//#include "tl-vectorizer.hpp"
+#ifndef VECTOR_LOWERING_PHASE_HPP
+#define VECTOR_LOWERING_PHASE_HPP
 
-namespace Codegen
+#include "tl-compilerphase.hpp"
+
+namespace TL
 {
-    void CodegenVectorPhase::run(TL::DTO& dto)
+    namespace Vectorization
     {
-        // Set Codegen Vector Module
-        CodegenPhase& current_codegen = Codegen::get_current();
-        current_codegen.set_module_vector(new SSEModuleVisitor(&current_codegen)); // TODO
+        class VectorLoweringPhase : public TL::CompilerPhase
+        {
+            private:
+                bool _mic_enabled;
+
+                std::string _mic_enabled_str;
+
+                void set_mic(const std::string mic_enabled_str);
+
+            public:
+                VectorLoweringPhase();
+                virtual void run(TL::DTO& dto);
+        };
+
+
+        /*
+        class VectorLoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            public:
+                VectorLoweringVisitor();
+                
+                virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
+                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
+        };
+        */
     }
 }
 
-EXPORT_PHASE(Codegen::CodegenVectorPhase);
+#endif // VECTOR_LOWERING_PHASE_HPP

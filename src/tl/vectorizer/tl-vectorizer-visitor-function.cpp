@@ -44,9 +44,16 @@ namespace TL
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
             // Get analysis info
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
-                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
-                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 1);
+            if ((Vectorizer::_analysis_info == 0) || 
+                    (Vectorizer::_analysis_info->get_nodecl_origin() != function_code))
+            {
+                if(Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+            }
 
             // Push FunctionCode as scope for analysis
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
@@ -58,17 +65,27 @@ namespace TL
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
+            TL::ObjectList<TL::Symbol> parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_type = func_type.parameters();
 
             TL::ObjectList<TL::Type> parameters_vector_type;
-            for(TL::ObjectList<TL::Type>::iterator it = parameters_type.begin();
-                    it != parameters_type.end();
-                    it++)
+            
+            TL::ObjectList<TL::Type>::iterator it_type;
+            TL::ObjectList<TL::Symbol>::iterator it_param_sym;
+            
+            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
+                    it_type != parameters_type.end();
+                    it_param_sym++, it_type++)
             {
-                parameters_vector_type.append((*it).get_vector_to(_vector_length));
+                TL::Type sym_type = get_qualified_vector_to((*it_type), _vector_length);
+
+                // Set type to parameter TL::Symbol
+                (*it_param_sym).set_type(sym_type);
+
+                parameters_vector_type.append(sym_type);
             }
 
-            vect_func_sym.set_type(func_type.returns().get_vector_to(_vector_length).
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _vector_length).
                     get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
@@ -80,7 +97,9 @@ namespace TL
                     function_code.get_statements().retrieve_context());
             visitor_stmt.walk(function_code.get_statements());
 
-            delete Vectorizer::_analysis_info;
+            Vectorizer::_analysis_scopes->pop_back();
+            delete Vectorizer::_analysis_scopes;
+            Vectorizer::_analysis_scopes = 0;
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 

@@ -210,24 +210,32 @@ void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outli
         if (!(*it)->get_symbol().is_valid())
             continue;
 
-        if ((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
-            continue;
-
         TL::Source lvalue_subexpressions_code;
         OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
         if (toplevel_lvalue != NULL)
         {
             check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
-        }
+            TL::Source update_outline_data_item;
+            code
+                <<"{"
+                <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                <<      "nanos_err_t err;"
+                <<      lvalue_subexpressions_code
+                <<      update_outline_data_item
+                <<"}"
+                ;
 
-        code
-            <<"{"
-            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
-            <<      "nanos_err_t err;"
-            <<      lvalue_subexpressions_code
-            <<      as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");"
-            <<"}"
-            ;
+            if (toplevel_lvalue->expression.get_type().is_lvalue_reference())
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
+            }
+            else
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
+            }
+        }
 
     }
     code << comment("End check pendant writes on lvalue nontoplevel subexpressions");

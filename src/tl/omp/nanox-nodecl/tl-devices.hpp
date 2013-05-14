@@ -254,6 +254,8 @@ namespace TL { namespace Nanox {
             typedef std::map<std::string, DeviceProvider*> nanox_devices_map_t;
             nanox_devices_map_t _nanox_devices;
     };
+
+    void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc);
 } }
 
 #endif // NANOX_DEVICES_H

@@ -332,9 +332,9 @@ namespace TL
             return (fortran_get_rank_of_type(_type_info));
     }
 
-    bool Type::is_vector() const
+    bool Type::is_vector_type() const
     {
-        return (is_vector_type(_type_info));
+        return (::is_vector_type(_type_info));
     }
 
     bool Type::is_generic_vector() const
@@ -1015,7 +1015,7 @@ namespace TL
         {
             return this->references_to().basic_type();
         }
-        else if (this->is_vector())
+        else if (this->is_vector_type())
         {
             return this->vector_element().basic_type();
         }
