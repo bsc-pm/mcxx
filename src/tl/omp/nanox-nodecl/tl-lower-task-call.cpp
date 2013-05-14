@@ -386,191 +386,220 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
         handle_nonconstant_value_dimensions(t.references_to(), new_decl_context, symbol_map, param_sym_to_arg_sym, stmt_initializations);
     }
 }
-
-// This function generates the dependences of every lvalue subexpression of the
-// expression 'expr'. It also express the 'expr' tree in terms of the new local
-// variables (update_expr).
-// params:
-// - The toplevel_lvalue_subexpressions list is used to detect if a expression has
-// been handled previously and, if it happens, reuse the same OutlineDataItem
-// - The nontoplevel_lvalue_subexpressions list is used to avoid the creation of an
-// InputValueDependence previously created by an other expression (avoid repetitions)
-//
-static void generate_dependences_of_expression(
-        OutlineInfoRegisterEntities& outline_register_entities,
-        TL::Scope new_block_context_sc,
-        Nodecl::NodeclBase expr,
-        Nodecl::NodeclBase update_expr,
-        OutlineDataItem::InputValueDependence* enclosing_lvalue,
-        TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
-        TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
+namespace InputValueUtils
 {
-    if (expr.is_null())
-        return;
-
-    bool traverse_expression = true;
-
-    TL::Symbol new_symbol = TL::Symbol::invalid();
-    if (expr.get_type().is_lvalue_reference())
+    // This function generates the dependences of every lvalue subexpression of the
+    // expression 'expr'. It also express the 'expr' tree in terms of the new local
+    // variables (update_expr).
+    // params:
+    // - The toplevel_lvalue_subexpressions list is used to detect if a expression has
+    // been handled previously and, if it happens, reuse the same OutlineDataItem
+    // - The nontoplevel_lvalue_subexpressions list is used to avoid the creation of an
+    // InputValueDependence previously created by an other expression (avoid repetitions)
+    //
+    static void generate_dependences_of_expression(
+            OutlineInfoRegisterEntities& outline_register_entities,
+            TL::Scope new_block_context_sc,
+            Nodecl::NodeclBase expr,
+            Nodecl::NodeclBase update_expr,
+            OutlineDataItem::InputValueDependence* enclosing_lvalue,
+            TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
+            TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
     {
-        if (enclosing_lvalue == NULL)
+        if (expr.is_null())
+            return;
+
+        bool traverse_expression = true;
+
+        TL::Symbol new_symbol = TL::Symbol::invalid();
+        if (expr.get_type().is_lvalue_reference())
         {
-            // The expression is a top level lvalue
-            // Is it repeated?
-            bool create_new_outline_data_item = true;
-            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                    it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
-                    it++)
+            if (enclosing_lvalue == NULL)
             {
-                create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
-                if (!create_new_outline_data_item)
+                // The expression is a top level lvalue
+                // Is it repeated?
+                bool create_new_outline_data_item = true;
+                for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+                        it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
+                        it++)
                 {
-                    new_symbol = it->second;
+                    create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
+                    if (!create_new_outline_data_item)
+                    {
+                        new_symbol = it->second;
+                    }
                 }
-            }
 
-            traverse_expression = create_new_outline_data_item;
+                traverse_expression = create_new_outline_data_item;
 
-            if (create_new_outline_data_item)
-            {
-                Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+                if (create_new_outline_data_item)
+                {
+                    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
 
-                // Create a new variable
-                std::stringstream ss;
-                ss << "mcc_arg_" << (int)arg_counter;
-                new_symbol = new_block_context_sc.new_symbol(ss.str());
-                arg_counter++;
+                    // Create a new variable
+                    std::stringstream ss;
+                    ss << "mcc_arg_" << (int)arg_counter;
+                    new_symbol = new_block_context_sc.new_symbol(ss.str());
+                    arg_counter++;
 
-                // FIXME - Wrap this sort of things
-                new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    // FIXME - Wrap this sort of things
+                    new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
+                    new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-                outline_register_entities.add_shared_with_capture(new_symbol);
+                    outline_register_entities.add_shared_with_capture(new_symbol);
 
-                OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
-                outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
-                enclosing_lvalue = new_dependence;
+                    OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+                    outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
+                    enclosing_lvalue = new_dependence;
 
-                // Update the set of visited toplevel lvalue subexpressions
-                toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
-            }
-        }
-        else
-        {
-            bool generate_new_dependence = true;
-
-            if (expr.get_type().no_ref().is_array())
-            {
-                generate_new_dependence = false;
+                    // Update the set of visited toplevel lvalue subexpressions
+                    toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
+                }
             }
             else
             {
-                // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
-                // We should not create a new InputValueDependence
-                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
-                        it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
-                        it++)
+                bool generate_new_dependence = true;
+
+                if (expr.get_type().no_ref().is_array())
                 {
-                    generate_new_dependence = !Nodecl::Utils::equal_nodecls(*it, expr);
+                    generate_new_dependence = false;
+                }
+                else
+                {
+                    // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
+                    // We should not create a new InputValueDependence
+                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
+                            it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
+                            it++)
+                    {
+                        generate_new_dependence = !Nodecl::Utils::equal_nodecls(*it, expr);
+                    }
+
+                    traverse_expression = generate_new_dependence;
                 }
 
-                traverse_expression = generate_new_dependence;
-            }
+                if (generate_new_dependence)
+                {
+                    // New dependence for the enclosing lvalue
+                    OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+                    enclosing_lvalue->depends_on.append(new_dependence);
+                    enclosing_lvalue = new_dependence;
 
-            if (generate_new_dependence)
-            {
-                // New dependence for the enclosing lvalue
-                OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
-                enclosing_lvalue->depends_on.append(new_dependence);
-                enclosing_lvalue = new_dependence;
-
-                // Update the set of visited nontoplevel lvalue subexpressions
-                nontoplevel_lvalue_subexpressions.append(expr);
+                    // Update the set of visited nontoplevel lvalue subexpressions
+                    nontoplevel_lvalue_subexpressions.append(expr);
+                }
             }
         }
-    }
 
-    if (traverse_expression)
-    {
-        if (expr.is<Nodecl::List>())
+        if (traverse_expression)
         {
-            Nodecl::List l_expr = expr.as<Nodecl::List>();
-            Nodecl::List l_update_expr = expr.as<Nodecl::List>();
-            for (unsigned int i = 0; i < l_expr.size(); ++i)
+            if (expr.is<Nodecl::List>())
             {
-                generate_dependences_of_expression(
-                        outline_register_entities,
-                        new_block_context_sc,
-                        l_expr[i],
-                        l_update_expr[i],
-                        enclosing_lvalue,
-                        toplevel_lvalue_subexpressions,
-                        nontoplevel_lvalue_subexpressions);
+                Nodecl::List l_expr = expr.as<Nodecl::List>();
+                Nodecl::List l_update_expr = expr.as<Nodecl::List>();
+                for (unsigned int i = 0; i < l_expr.size(); ++i)
+                {
+                    generate_dependences_of_expression(
+                            outline_register_entities,
+                            new_block_context_sc,
+                            l_expr[i],
+                            l_update_expr[i],
+                            enclosing_lvalue,
+                            toplevel_lvalue_subexpressions,
+                            nontoplevel_lvalue_subexpressions);
+                }
+            }
+            else
+            {
+                TL::ObjectList<Nodecl::NodeclBase> expr_children = expr.children();
+                TL::ObjectList<Nodecl::NodeclBase> update_expr_children = update_expr.children();
+                for (unsigned int i = 0; i < expr_children.size(); ++i)
+                {
+                    generate_dependences_of_expression(
+                            outline_register_entities,
+                            new_block_context_sc,
+                            expr_children[i],
+                            update_expr_children[i],
+                            enclosing_lvalue,
+                            toplevel_lvalue_subexpressions,
+                            nontoplevel_lvalue_subexpressions);
+                }
             }
         }
-        else
+
+        // Finally, we should update the expression, using the new local variables
+        if (new_symbol.is_valid())
         {
-            TL::ObjectList<Nodecl::NodeclBase> expr_children = expr.children();
-            TL::ObjectList<Nodecl::NodeclBase> update_expr_children = update_expr.children();
-            for (unsigned int i = 0; i < expr_children.size(); ++i)
-            {
-                generate_dependences_of_expression(
-                        outline_register_entities,
-                        new_block_context_sc,
-                        expr_children[i],
-                        update_expr_children[i],
-                        enclosing_lvalue,
-                        toplevel_lvalue_subexpressions,
-                        nontoplevel_lvalue_subexpressions);
-            }
+            Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
+            new_symbol_nodecl.set_type(new_symbol.get_type());
+            update_expr.replace(Nodecl::Dereference::make(new_symbol_nodecl,
+                        new_symbol.get_type().points_to().get_lvalue_reference_to(),
+                        new_symbol_nodecl.get_locus()));
         }
     }
 
-    // Finally, we should update the expression, using the new local variables
-    if (new_symbol.is_valid())
-    {
-        Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
-        new_symbol_nodecl.set_type(new_symbol.get_type());
-        update_expr.replace(Nodecl::Dereference::make(new_symbol_nodecl,
-                    new_symbol.get_type().points_to(),
-                    new_symbol_nodecl.get_locus()));
-    }
-}
-
-static Nodecl::NodeclBase handle_input_value_dependence(
+    static Nodecl::NodeclBase handle_input_value_dependence(
             OutlineInfoRegisterEntities& outline_register_entities,
             TL::Scope new_block_context_sc,
             Nodecl::NodeclBase expr,
             TL::Source& declarations_src)
-{
-    Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
-    TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
-    TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
-
-    generate_dependences_of_expression(outline_register_entities,
-            new_block_context_sc,
-            expr,
-            update_expr,
-            /* enclosing lvalue */ NULL,
-            toplevel_lvalue_subexpressions,
-            nontoplevel_lvalue_subexpressions);
-
-    // We need to define explicitly these objects in C++
-    CXX_LANGUAGE()
     {
-        for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                it != toplevel_lvalue_subexpressions.end();
+        Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
+        TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
+        TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
+
+        generate_dependences_of_expression(outline_register_entities,
+                new_block_context_sc,
+                expr,
+                update_expr,
+                /* enclosing lvalue */ NULL,
+                toplevel_lvalue_subexpressions,
+                nontoplevel_lvalue_subexpressions);
+
+        // We need to define explicitly these objects in C++
+        CXX_LANGUAGE()
+        {
+            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+                    it != toplevel_lvalue_subexpressions.end();
+                    it++)
+            {
+                TL::Symbol new_outline_data_item = it->second;
+                declarations_src << as_statement(
+                        Nodecl::CxxDef::make(
+                            /* context */ Nodecl::NodeclBase::null(),
+                            new_outline_data_item));
+            }
+        }
+        return update_expr;
+    }
+
+    static bool any_dep_depends_on_this_input_value_dep(
+            const TL::ObjectList<OutlineDataItem*>& data_items,
+            OutlineDataItem* current_item)
+    {
+        TL::Symbol parameter = current_item->get_symbol();
+
+        bool depended_by_other_deps = false;
+        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                it != data_items.end() && !depended_by_other_deps;
                 it++)
         {
-            TL::Symbol new_outline_data_item = it->second;
-            declarations_src << as_statement(
-                    Nodecl::CxxDef::make(
-                        /* context */ Nodecl::NodeclBase::null(),
-                        new_outline_data_item));
+            if (current_item == *it)
+                continue;
+
+            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+            for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
+                    dep_it != deps.end() && !depended_by_other_deps;
+                    dep_it++)
+            {
+                TL::DataReference dep_expr(dep_it->expression);
+                TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
+                depended_by_other_deps = dep_expr_syms.contains(parameter);
+            }
         }
+        return depended_by_other_deps;
     }
-    return update_expr;
 }
 
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct)
@@ -700,9 +729,18 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         ERROR_CONDITION(found.size() > 1, "unreachable code", 0);
 
         OutlineDataItem* current_item = found[0];
-        if (current_item->has_an_input_value_dependence())
+
+        bool depended_by_other_deps = false;
+        bool has_input_value_dep = current_item->has_an_input_value_dependence();
+        if (has_input_value_dep)
         {
-            Nodecl::NodeclBase new_updated_argument = handle_input_value_dependence(
+            depended_by_other_deps = InputValueUtils::any_dep_depends_on_this_input_value_dep(data_items, current_item);
+        }
+
+        if (has_input_value_dep
+                && !depended_by_other_deps)
+        {
+            Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
                     outline_register_entities,
                     new_block_context_sc,
                     argument,
@@ -779,6 +817,27 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             else
             {
                 outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+            }
+
+            if (depended_by_other_deps)
+            {
+                // This is a bit tricky
+                Nodecl::NodeclBase dummy_expr = Nodecl::Utils::deep_copy(argument, new_block_context_sc);
+                TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
+                TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
+
+                OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(argument);
+                outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
+
+                InputValueUtils::generate_dependences_of_expression(outline_register_entities,
+                        new_block_context_sc,
+                        argument,
+                        dummy_expr,
+                        /* enclosing lvalue */ new_dependence,
+                        toplevel_lvalue_subexpressions,
+                        nontoplevel_lvalue_subexpressions);
+
+                new_symbol.get_internal_symbol()->value = nodecl_null();
             }
 
             param_to_args_map.add_map(parameter, new_symbol);
