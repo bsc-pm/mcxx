@@ -3829,6 +3829,14 @@ static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PA
         {
             nodecl_set_type(*nodecl_output, entry->type_information);
         }
+
+        if (is_pointer_type(entry->type_information))
+        {
+            *nodecl_output = nodecl_make_dereference(
+                    *nodecl_output,
+                    lvalue_ref(pointer_type_get_pointee_type(entry->type_information)),
+                    nodecl_get_locus(*nodecl_output));
+        }
     }
     else
     {
@@ -3845,18 +3853,30 @@ static char is_name_of_funtion_call(AST expr)
 }
 #endif
 
-static void check_symbol_of_called_name(AST sym, 
+static void check_symbol_of_called_name(AST sym,
         decl_context_t decl_context, 
         scope_entry_list_t** call_list, 
         char is_call_stmt)
 {
-    if (ASTType(sym) != AST_SYMBOL)
+    if (ASTType(sym) != AST_SYMBOL
+            && ASTType(sym) != AST_SYMBOL_LITERAL_REF)
     {
         if (!checking_ambiguity())
         {
             error_printf("%s: error: expression is not a valid procedure designator\n", ast_location(sym));
         }
         *call_list = NULL;
+        return;
+    }
+
+    if (ASTType(sym) == AST_SYMBOL_LITERAL_REF)
+    {
+        nodecl_t nodecl_output = nodecl_null();
+        check_symbol_literal(sym, decl_context, &nodecl_output);
+        if (nodecl_get_symbol(nodecl_output) != NULL)
+        {
+            *call_list = entry_list_new(nodecl_get_symbol(nodecl_output));
+        }
         return;
     }
 

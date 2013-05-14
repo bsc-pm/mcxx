@@ -75,11 +75,6 @@ namespace Analysis {
                             nodecl_t iv = ( *it )->get_variable( ).get_nodecl( ).get_internal_nodecl( );
                             WARNING_MESSAGE( "Induction Variable '%s' not found in the RD_IN set of loop '%d'",
                                              codegen_to_str( iv, nodecl_retrieve_context( iv ) ), current->get_id( ) );
-                            for( Utils::ext_sym_map::iterator itrd = rdi.begin( ); itrd != rdi.end( ); ++itrd )
-                            {
-                                nodecl_t n = itrd->first.get_nodecl( ).get_internal_nodecl( );
-                                std::cerr << "  - " << codegen_to_str( n, nodecl_retrieve_context( n ) ) << std::endl;
-                            }
                         }
 
                         // Loop limits
@@ -110,7 +105,12 @@ namespace Analysis {
                         }
                         if( condition_node != NULL )
                         {
-                            Nodecl::NodeclBase condition_stmt = condition_node->get_statements()[0];
+                            ObjectList<Nodecl::NodeclBase> stmts = condition_node->get_statements( );
+                            if( stmts.empty( ) )
+                            {   // The condition node is a composite node
+                                stmts.append( condition_node->get_graph_label( ) );
+                            }
+                            Nodecl::NodeclBase condition_stmt = stmts[0];
                             get_loop_limits( condition_stmt, current->get_id( ) );
                         }
 

@@ -52,7 +52,11 @@ namespace Analysis {
         std::ofstream dot_pcfg;
 
         char buffer[1024];
-        getcwd(buffer, 1024);
+        char* err = getcwd(buffer, 1024);
+        if( err == NULL )
+        {
+            internal_error ( "An error occurred while getting the path of the current directory", 0 );
+        }
 
         // Create the directory of dot files if it has not been previously created
         struct stat st;
@@ -153,10 +157,10 @@ namespace Analysis {
                 std::stringstream sss;
                 if( !current->is_graph_node( ) )
                 {
-                    if( (!current->has_key(_OUTER_NODE) ) ||
-                        (current->has_key(_OUTER_NODE) &&
-                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) ) ||
-                            current->is_entry_node( ) ) ) )
+                    if( ( !current->has_key( _OUTER_NODE ) ) ||
+                        ( current->has_key( _OUTER_NODE ) &&
+                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) )
+                              || current->is_entry_node( ) ) ) )
                     {
                         sss << current->get_id( );
                         get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
@@ -172,7 +176,6 @@ namespace Analysis {
                     if( !current->get_entry_edges( ).empty( ) && !exit_node->get_entry_edges( ).empty( ) )
                     {
                         sss << exit_node->get_id( );
-                        ObjectList<Edge*> exit_edges = current->get_exit_edges( );
                     }
                     else
                     {
@@ -203,7 +206,7 @@ namespace Analysis {
                         std::string extra_edge_attrs = "";
                         if( ( *it )->is_task_edge( ) )
                         {
-                            extra_edge_attrs = ", style=dotted";
+                            extra_edge_attrs = ", style=dashed";
                         }
 
                         if( belongs_to_the_same_graph( *it ) )
@@ -216,10 +219,10 @@ namespace Analysis {
                         }
                         else
                         {
-                            if( !current->is_graph_node( ) )
-                            {
-                                get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-                            }
+//                             if( !current->is_graph_node( ) )
+//                             {
+//                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
+//                             }
                             std::string mes = sss.str( ) + " -> " + sst.str( ) +
                                               " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
@@ -236,6 +239,43 @@ namespace Analysis {
                                             std::string indent, int& subgraph_id,
                                             bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
     {
+        switch( current->get_graph_type( ) )
+        {
+            case ASM_DEF:
+                dot_graph += "color=lightsteelblue;\n";
+                break;
+            case COND_EXPR:
+            case FUNC_CALL:
+            case IF_ELSE:
+            case SPLIT_STMT:
+            case SWITCH:
+                dot_graph += "color=grey45;\n";
+                break;
+            case LOOP_DOWHILE:
+            case LOOP_FOR:
+            case LOOP_WHILE:
+                dot_graph += "color=maroon4;\n";
+                break;
+            case EXTENSIBLE_GRAPH:
+                dot_graph += "color=white;\n";
+                break;
+            case OMP_ATOMIC:
+            case OMP_CRITICAL:
+            case OMP_LOOP:
+            case OMP_PARALLEL:
+            case OMP_SECTION:
+            case OMP_SECTIONS:
+            case OMP_SINGLE:
+            case OMP_TASK:
+                dot_graph += "color=red4;\nstyle=bold;\n";
+                break;
+            case SIMD:
+            case SIMD_FUNCTION:
+                dot_graph += "color=indianred2;\n";
+                break;
+            default:
+                internal_error( "Unexpected node type while printing dot\n", 0 );
+        };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );
         get_nodes_dot_data( entry_node, dot_graph, graph_analysis_info, outer_edges, outer_nodes, indent+"\t", subgraph_id,
@@ -272,6 +312,7 @@ namespace Analysis {
             }
             case OMP_BARRIER:
             {
+                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BARRIER\", shape=diamond]\n";
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
                 break;
             }
@@ -295,6 +336,7 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
                 break;
             }
+            case ASM_OP:
             case GOTO:
             case NORMAL:
             case LABELED:
@@ -309,15 +351,13 @@ namespace Analysis {
                     if( it->is<Nodecl::ObjectInit>( ) )
                     {
                         Symbol it_s = it->as<Nodecl::ObjectInit>( ).get_symbol( );
-                        aux_str = it_s.get_name( ) + " = " ;
-                        aux_str += codegen_to_str( it_s.get_value( ).get_internal_nodecl( ),
-                                                   nodecl_retrieve_context(it_s.get_value( ).get_internal_nodecl( ) ) );
+                        aux_str = it_s.get_name( ) + " = " + it_s.get_value( ).prettyprint( );
                     }
                     else
                     {
-                        aux_str = codegen_to_str(it->get_internal_nodecl( ),
-                                                    nodecl_retrieve_context(it->get_internal_nodecl( ) ));
+                        aux_str = it->prettyprint( );
                     }
+
                     makeup_dot_block(aux_str);
                     basic_block += aux_str + "\\n";
                 }
@@ -384,7 +424,7 @@ namespace Analysis {
                 dot_analysis_info += "[ltail=" + cluster_name + "]\n";
             dot_analysis_info += "\n";
         }
-        if( current->is_task_node( ) )
+        if( current->is_omp_task_node( ) )
         {
             std::string auto_scope_str = print_node_data_sharing( current, auto_scoping );
             if( !auto_scope_str.empty() )
@@ -573,21 +613,13 @@ namespace Analysis {
 
         for( Utils::ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            if( it->get_nodecl( ).is_null( ) )
-            {
-                result += it->get_name( ) + ", ";
-            }
-            else
-            {
-                nodecl_t n = it->get_nodecl( ).get_internal_nodecl( );
-                result += std::string( codegen_to_str( n, nodecl_retrieve_context( n ) ) ) + ", ";
-            }
+            result += it->get_nodecl( ).prettyprint( ) + ", ";
         }
 
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
-            makeup_dot_block(result);
+            makeup_dot_block( result );
         }
 
         return result;

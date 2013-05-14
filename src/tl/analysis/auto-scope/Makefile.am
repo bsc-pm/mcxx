@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,31 +24,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include $(top_srcdir)/src/tl/Makefile.phases
+include ../../Makefile.phases
 
-SUBDIRS = sse .
+lib_LTLIBRARIES = libauto_scope.la
 
+libauto_scope_la_CFLAGS = $(tl_cflags)
+libauto_scope_la_CXXFLAGS = $(tl_cflags)\
+                           -I $(srcdir)/../../ \
+                           -I $(srcdir)/../common -I $(srcdir)/../pcfg
+libauto_scope_la_LDFLAGS = $(tl_ldflags)
+libauto_scope_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
-lib_LTLIBRARIES = libcodegen-vector.la
 
 END=
 
-libcodegen_vector_la_CFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/vector/sse \
-    -I $(top_srcdir)/src/tl/vectorizer \
-	$(END)
-
-libcodegen_vector_la_CXXFLAGS=$(tl_cflags) \
-    -I $(top_srcdir)/src/tl/codegen/vector/sse \
-    -I $(top_srcdir)/src/tl/vectorizer \
-	$(END)
-
-libcodegen_vector_la_LDFLAGS = $(tl_ldflags)
-libcodegen_vector_la_SOURCES = \
-    codegen-vector-phase.cpp \
-    codegen-vector-phase.hpp \
-	$(END)
-
-libcodegen_vector_la_LIBADD = sse/libcodegen-sse-module.la \
-					       $(END)
-
+libauto_scope_la_SOURCES = \
+                          tl-auto-scope.hpp \
+                          tl-auto-scope.cpp \
+                          $(END)

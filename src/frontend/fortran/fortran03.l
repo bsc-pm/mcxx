@@ -838,6 +838,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     RETURN_TOKEN(TYPE_LITERAL_REF);
 }
 
+@SYMBOL-LITERAL-REF@ {
+    parse_token_text();
+    RETURN_TOKEN(SYMBOL_LITERAL_REF);
+}
+
 @EXPRESSION@ {
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_EXPRESSION);

@@ -1216,7 +1216,7 @@ static TL::Symbol new_function_symbol_adapter(
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
-    Nodecl::Utils::Fortran::copy_used_modules(
+    Nodecl::Utils::Fortran::append_used_modules(
             current_function.get_related_scope(),
             new_function_sym->related_decl_context);
 
@@ -1299,7 +1299,9 @@ static Nodecl::NodeclBase fill_adapter_function(
                     argument_seq,
                     /* alternate name */ Nodecl::NodeclBase::null(),
                     /* function form */ Nodecl::NodeclBase::null(),
-                TL::Type::get_void_type()));
+                TL::Type::get_void_type(),
+                original_environment.get_locus()),
+                original_environment.get_locus());
 
     statements_of_task_list.append(call_to_original);
 

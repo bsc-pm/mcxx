@@ -27,6 +27,7 @@
 #ifndef TL_LIVENESS_HPP
 #define TL_LIVENESS_HPP
 
+#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -51,14 +52,16 @@ namespace Analysis {
          * Live In (X) = Upper Exposed (X) + ( Live Out (X) - Killed (X) )
          */
         void solve_live_equations( Node* current );
-        void solve_live_equations_rec( Node* current, bool& changed );
+        void solve_live_equations_rec( Node* current, bool& changed, Node* container_task );
 
         void solve_specific_live_in_tasks( Node* current );
 
-        bool task_is_in_loop( Node* current );
+        //! Computes Live Out information:
+        //! Live Out (X) = Union of all Live In (Y), for all Y successors of X
+        Utils::ext_sym_set compute_live_out( Node* current, Node* container_task );
 
         //! Propagates liveness information from inner to outer nodes
-        void set_graph_node_liveness( Node* current );
+        void set_graph_node_liveness( Node* current, Node* container_task );
 
     public:
         //! Constructor

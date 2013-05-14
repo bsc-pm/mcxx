@@ -3,20 +3,50 @@
 [analysiscc : plaincc]
 options = --openmp
 {openmp} compiler_phase = libtlomp-base.so
+{openmp} compiler_phase = libcodegen-vector.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-{analysis} compiler_phase = libtest_analysis.so
 {simd} options = --variable=simd_enabled:1
+{svml} options = --variable=svml_enabled:1
+{svml} linker_options = -lsvml
+{ffast-math} options = --variable=ffast_math_enabled:1
+{ffast-math} compiler_options = -ffast-math
+{analysis} compiler_phase = libtest_analysis.so
+{pcfg} options = --variable=pcfg_enabled:1
+{use_def} options = --variable=use_def_enabled:1
+{liveness} options = --variable=liveness_enabled:1
+{reaching-defs} options = --variable=reaching_defs_enabled:1
+{induction-vars} options = --variable=induction_vars_enabled:1
+{auto-scope} compiler_phase = libtlomp_auto_scope.so
+{auto-scope} options = --variable=auto_scope_enabled:1
+{openmp} compiler_phase = libtlomp-simd.so
+{openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
+{openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysiscxx : plaincxx]
 {openmp} compiler_phase = libtlomp-base.so
+{openmp} compiler_phase = libcodegen-vector.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-{analysis} compiler_phase = libtest_analysis.so
 {simd} options = --variable=simd_enabled:1
+{svml} options = --variable=svml_enabled:1
+{svml} linker_options = -lsvml
+{ffast-math} options = --variable=ffast_math_enabled:1
+{ffast-math} compiler_options = -ffast-math
+{analysis} compiler_phase = libtest_analysis.so
+{pcfg} options = --variable=pcfg_enabled:1
+{use-def} options = --variable=use_def_enabled:1
+{liveness} options = --variable=liveness_enabled:1
+{reaching-defs} options = --variable=reaching_defs_enabled:1
+{induction-vars} options = --variable=induction_vars_enabled:1
+{auto-scope} compiler_phase = libtlomp_auto_scope.so
+{auto-scope} options = --variable=auto_scope_enabled:1
+{openmp} compiler_phase = libtlomp-simd.so
+{openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
+{openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so

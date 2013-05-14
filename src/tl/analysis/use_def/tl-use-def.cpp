@@ -44,7 +44,7 @@ namespace Analysis {
             : _graph( graph )
     {}
 
-    void UseDef::compute_usage( ObjectList<TL::Symbol> visited_functions,
+    void UseDef::compute_usage( std::set<TL::Symbol> visited_functions,
                                 ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                                 bool ipa, Utils::nodecl_set ipa_arguments )
     {
@@ -54,7 +54,7 @@ namespace Analysis {
         ExtensibleGraph::clear_visits( graph );
     }
 
-    void UseDef::compute_usage_rec( Node* current, ObjectList<TL::Symbol>& visited_functions,
+    void UseDef::compute_usage_rec( Node* current, std::set<TL::Symbol>& visited_functions,
                                     ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
                                     bool ipa, Utils::nodecl_set ipa_arguments )
     {
@@ -65,12 +65,23 @@ namespace Analysis {
             if( current->is_exit_node( ) )
                 return;
 
-            if( current->is_graph_node( ) )
+            if( current->is_graph_node( )
+                && !current->is_asm_def_node( ) && !current->is_asm_op_node( ) )
             {
                 // Use-def info is computed from inner nodes to outer nodes
                 compute_usage_rec( current->get_graph_entry_node( ),
                                    visited_functions, visited_global_vars,
                                    ipa, ipa_arguments );
+
+                if( current->is_split_statement( ) )
+                {   // Propagate the info from the subpart of the split node to the whole node
+                    Node* split_node = current->get_graph_exit_node( )->get_parents( )[0];
+                    Node* split_subpart = split_node->get_parents( )[0];
+
+                    split_node->set_ue_var( split_subpart->get_ue_vars( ) );
+                    split_node->set_killed_var( split_subpart->get_killed_vars( ) );
+                    split_node->set_undefined_behaviour_var( split_subpart->get_undefined_behaviour_vars( ) );
+                }
 
                 // Propagate usage info from inner to outer nodes
                 ExtensibleGraph::clear_visits( current );
@@ -86,7 +97,8 @@ namespace Analysis {
                                      ipa, _graph->get_scope( ), ipa_arguments );
                     uv.compute_statement_usage( *it );
 
-                    visited_functions.insert( uv.get_visited_functions( ) );
+                    std::set<TL::Symbol> visited_functions_ = uv.get_visited_functions( );
+                    visited_functions.insert( visited_functions_.begin( ), visited_functions_.end( ) );
                     visited_global_vars.insert( uv.get_visited_global_variables( ) );
                 }
             }
@@ -230,12 +242,12 @@ namespace Analysis {
             }
 
             // Append to current node info from children
+            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
+                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
             undef_vars = compute_use_def_with_children( undef_children, undef_vars,
                                                         killed_vars, undef_vars, /*compute_undef*/ '1' );
             killed_vars = compute_use_def_with_children( killed_children, killed_vars,
                                                          killed_vars, undef_vars, /*compute_undef*/ '0' );
-            ue_vars = compute_use_def_with_children( ue_children, ue_vars,
-                                                     killed_vars, undef_vars, /*compute_undef*/ '0' );
 
             use_def.append( ue_vars );
             use_def.append( killed_vars );
@@ -337,10 +349,18 @@ namespace Analysis {
         for( ; itp != parameters.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
-            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) &&
-                ita->has_symbol( ) )
+            if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )
             {
-                non_ref_params_to_args[*itp] = *ita;
+                // If some memory access in the argument is a symbol, then we add the tuple to the map
+                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
+                {
+                    if( it->has_symbol( ) )
+                    {
+                        non_ref_params_to_args[*itp] = *ita;
+                        break;
+                    }
+                }
             }
         }
 
@@ -348,10 +368,10 @@ namespace Analysis {
     }
 
     UsageVisitor::UsageVisitor( Node* n,
-                                ObjectList<Symbol> visited_functions,
+                                std::set<Symbol> visited_functions,
                                 ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
                                 bool ipa, Scope sc, Utils::nodecl_set ipa_arguments )
-        : _node( n ), _define( false ), _actual_nodecl( Nodecl::NodeclBase::null( ) ),
+        : _node( n ), _define( false ), _current_nodecl( Nodecl::NodeclBase::null( ) ),
           _visited_functions( visited_functions ), _visited_global_vars( visited_global_vars ),
           _ipa( ipa ), _sc( sc ), _ipa_arguments( ipa_arguments )
     { }
@@ -360,7 +380,7 @@ namespace Analysis {
     {
         _node = v._node;
         _define = v._define;
-        _actual_nodecl = v._actual_nodecl;
+        _current_nodecl = v._current_nodecl;
         _visited_functions = v._visited_functions;
         _visited_global_vars = v._visited_global_vars;
         _ipa = v._ipa;
@@ -368,7 +388,7 @@ namespace Analysis {
         _ipa_arguments = v._ipa_arguments;
     }
 
-    ObjectList<Symbol> UsageVisitor::get_visited_functions( ) const
+    std::set<Symbol> UsageVisitor::get_visited_functions( ) const
     {
         return _visited_functions;
     }
@@ -382,7 +402,7 @@ namespace Analysis {
     {
         // When IPA, only global variables and referenced parameters are in context
         // Otherwise, any variable is in context
-        if ( ( _ipa && ( !var.retrieve_context( ).scope_is_enclosed_by( _sc )
+        if( ( _ipa && ( !var.retrieve_context( ).scope_is_enclosed_by( _sc )
                          || ( _ipa_arguments.find( var ) != _ipa_arguments.end( ) ) ) )
                || !_ipa )
         {
@@ -421,7 +441,7 @@ namespace Analysis {
         }
     }
 
-    UsageVisitor::Ret UsageVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void UsageVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         nodecl_t internal_n = n.get_internal_nodecl( );
         WARNING_MESSAGE( "Unhandled node '%s' with type '%s 'during Use-Def Analysis'",
@@ -429,11 +449,11 @@ namespace Analysis {
                          ast_print_node_type( n.get_kind( ) ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
+    void UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
     {
         // Traverse the use of both the lhs and the rhs
-        walk( rhs );
         walk( lhs );
+        walk( rhs );
 
         // Traverse the definition of the lhs
         _define = true;
@@ -457,6 +477,7 @@ namespace Analysis {
             ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( arg );
             for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
             {
+                // Set all arguments as upper exposed
                 _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
             }
         }
@@ -549,9 +570,8 @@ namespace Analysis {
         TL::Symbol func_sym = called_sym.get_symbol( );
 
         // The function called must be analyzed only in case it has not been analyzed previously
-        if( !_visited_functions.contains( func_sym ) )
+        if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
         {
-            _visited_functions.append( func_sym );
             Nodecl::FunctionCode called_func =
                 func_sym.get_function_code( ).as<Nodecl::FunctionCode>( );
 
@@ -577,9 +597,11 @@ namespace Analysis {
                 _visited_global_vars.insert( pcfg->get_global_variables( ) );
 
                 // Compute the Use-Def variables of the code
+                _visited_functions.insert( func_sym );
                 UseDef ue( pcfg );
                 ue.compute_usage( _visited_functions, _visited_global_vars,
                                   /* ipa */ true, get_arguments_list( renaming_map ) );
+                _visited_functions.erase( func_sym );
 
                 // Set the node usage
                 Node* pcfg_node = pcfg->get_graph( );
@@ -739,7 +761,8 @@ namespace Analysis {
             }
         }
         else
-        {   // We are in a recursive call
+        {
+            // We are in a recursive call
             // Set the value passed parameters as upper exposed
             ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
             Nodecl::List args = arguments.as<Nodecl::List>( );
@@ -760,105 +783,161 @@ namespace Analysis {
         }
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    void UsageVisitor::unary_in_de_crement_visit( Nodecl::NodeclBase rhs )
+    {
+        // Use of the rhs
+        walk( rhs );
+
+        // Definition of the rhs
+        _define = true;
+        Nodecl::NodeclBase current_nodecl = _current_nodecl;
+        _current_nodecl = Nodecl::NodeclBase::null( );
+        walk( rhs );
+        _current_nodecl = current_nodecl;
+        _define = false;
+
+    }
+
+    void UsageVisitor::visit( const Nodecl::AddAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::ArraySubscript& n )
+    void UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        if(_actual_nodecl.is_null( ) )
-            _actual_nodecl = n;
-    }
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ArraySubscript& n )
-    {
-        walk( n.get_subscripted( ) );
-        _define = false;        // We may come form a LHS walk and subscripts not defined!
-        walk( n.get_subscripts( ) );
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Assignment& n )
+    void UsageVisitor::visit( const Nodecl::ArraySubscript& n )
     {
-        Nodecl::NodeclBase assig = n;
-        walk( n.get_rhs( ) );
+        Nodecl::NodeclBase current_nodecl = _current_nodecl;
+        bool define = _define;
+
+        // Use of the subscripts
+        _define = false;
+        _current_nodecl = Nodecl::NodeclBase::null( );
+        walk( n.get_subscripts( ) );
+
+        // Use of the ArraySubscript
+        if( current_nodecl.is_null( ) )
+        {
+            _define = define;
+            _current_nodecl = n;
+        }
+        walk( n.get_subscripted( ) );
+        _current_nodecl = Nodecl::NodeclBase::null( );
+
+        // If we were traversing some object, then the use of that access
+        if( !current_nodecl.is_null( ) )
+        {
+            _define = define;   // Just in case
+            _current_nodecl = current_nodecl;
+            walk( n.get_subscripted( ) );
+        }
+    }
+
+    void UsageVisitor::visit( const Nodecl::Assignment& n )
+    {
         _define = true;
         walk( n.get_lhs( ) );
         _define = false;
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
-    {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
-    {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
-    {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
-    {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
-    {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::ClassMemberAccess& n )
-    {
-        if( _actual_nodecl.is_null( ) )
-            _actual_nodecl = n;
-    }
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        // walk( n.get_lhs( ) );  // In a member access, the use/definition is always of the member, not the base
-        walk( n.get_member( ) );
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::Dereference& n )
-    {
-        if( _actual_nodecl.is_null( ) )
-            _actual_nodecl = n;
-    }
-
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Dereference& n )
-    {
         walk( n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::DivAssignment& n )
+    void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::FunctionCall& n )
+    void UsageVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void UsageVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void UsageVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void UsageVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    {
+        if( _current_nodecl.is_null( ) )
+            _current_nodecl = n;
+
+        // walk( n.get_lhs( ) );  // In a member access, the use/definition is always of the member, not the base
+        walk( n.get_member( ) );
+
+        if( !_current_nodecl.is_null( ) )
+            _current_nodecl = Nodecl::NodeclBase::null( );
+    }
+
+    void UsageVisitor::visit( const Nodecl::Dereference& n )
+    {
+        Nodecl::NodeclBase current_nodecl = _current_nodecl;
+        bool define = _define;
+
+        // Use of the Dereferenced variable
+        _define = false;
+        _current_nodecl = Nodecl::NodeclBase::null( );
+        walk( n.get_rhs( ) );
+
+        // Use of the Dereference
+        if( current_nodecl.is_null( ) )
+        {
+            _define = define;
+            _current_nodecl = n;
+        }
+        walk( n.get_rhs( ) );
+        _current_nodecl = Nodecl::NodeclBase::null( );
+
+        // If we were traversing some object, then the use of that access
+        if( !current_nodecl.is_null( ) )
+        {
+            _define = define;       // Just in case
+            _current_nodecl = current_nodecl;
+            walk( n.get_rhs( ) );
+        }
+
+        if( current_nodecl.is_null( ) )
+            _current_nodecl = Nodecl::NodeclBase::null( );
+    }
+
+    void UsageVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void UsageVisitor::visit( const Nodecl::FunctionCall& n )
     {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::MinusAssignment& n )
+    void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ModAssignment& n )
+    void UsageVisitor::visit( const Nodecl::ModAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::MulAssignment& n )
+    void UsageVisitor::visit( const Nodecl::MulAssignment& n )
     {
         binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::ObjectInit& n )
+    void UsageVisitor::visit( const Nodecl::ObjectInit& n )
     {
         Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus() );
         _node->set_killed_var( Utils::ExtendedSymbol( n_sym ) );
@@ -867,87 +946,70 @@ namespace Analysis {
         walk( n.get_symbol( ).get_value( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::PointerToMember& n )
+    void UsageVisitor::visit( const Nodecl::PointerToMember& n )
     {
         internal_error( "PointerToMemeber not yet implemented in UsageVisitor.", 0 );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Postdecrement& n )
+    void UsageVisitor::visit( const Nodecl::Postdecrement& n )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        walk( rhs );
-        _define = true;
-        walk( rhs );
-        _define = false;
+        unary_in_de_crement_visit( n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Postincrement& n )
+    void UsageVisitor::visit( const Nodecl::Postincrement& n )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        walk( rhs );
-        _define = true;
-        walk( rhs );
-        _define = false;
+        unary_in_de_crement_visit( n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Predecrement& n )
+    void UsageVisitor::visit( const Nodecl::Predecrement& n )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        walk( rhs );
-        _define = true;
-        walk( rhs );
-        _define = false;
+        unary_in_de_crement_visit( n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Preincrement& n )
+    void UsageVisitor::visit( const Nodecl::Preincrement& n )
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        walk( rhs );
-        _define = true;
-        walk( rhs );
-        _define = false;
+        unary_in_de_crement_visit( n.get_rhs( ) );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Range& n )
+    void UsageVisitor::visit( const Nodecl::Range& n )
     {
         walk( n.get_lower() );
         walk( n.get_upper() );
         walk( n.get_stride() );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit_pre( const Nodecl::Reference& n )
+    void UsageVisitor::visit( const Nodecl::Reference& n )
     {
-        if( _actual_nodecl.is_null( ) )
-            _actual_nodecl = n;
-    }
+        if( _current_nodecl.is_null( ) )
+            _current_nodecl = n;
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Reference& n )
-    {
         walk( n.get_rhs( ) );
+
+        if( !_current_nodecl.is_null( ) )
+            _current_nodecl = Nodecl::NodeclBase::null( );
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::Symbol& n )
+    void UsageVisitor::visit( const Nodecl::Symbol& n )
     {
-        Nodecl::NodeclBase defined_var = n;
-        if( !_actual_nodecl.is_null( ) )
+        Nodecl::NodeclBase var_in_use = n;
+        if( !_current_nodecl.is_null( ) )
         {
-            defined_var = _actual_nodecl;
-            _actual_nodecl = Nodecl::NodeclBase::null( );
+            var_in_use = _current_nodecl;
         }
 
-        if( variable_is_in_context( defined_var ) )
+        if( variable_is_in_context( var_in_use ) )
         {
             if( _define )
-                _node->set_killed_var( Utils::ExtendedSymbol( defined_var ) );
+                _node->set_killed_var( Utils::ExtendedSymbol( var_in_use ) );
             else
             {
-                if( !Utils::ext_sym_set_contains_nodecl( defined_var, _node->get_killed_vars() ) )
-                    _node->set_ue_var( Utils::ExtendedSymbol( defined_var ) );
+                if( !Utils::ext_sym_set_contains_nodecl( var_in_use, _node->get_killed_vars() ) )
+                    _node->set_ue_var( Utils::ExtendedSymbol( var_in_use ) );
             }
         }
     }
 
-    UsageVisitor::Ret UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
+    void UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }

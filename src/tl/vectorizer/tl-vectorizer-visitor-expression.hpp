@@ -47,6 +47,8 @@ namespace TL
                 bool is_declared_in_scope(const scope_t *const target_scope , 
                         const scope_t *const symbol_scope) const;
 
+                //void vector_evolution(const Nodecl::NodeclBase& n) const;
+
             public:
                 VectorizerVisitorExpression(const std::string& device,
                         const unsigned int vector_length,
@@ -64,6 +66,8 @@ namespace TL
                 virtual void visit(const Nodecl::GreaterThan& n);
                 virtual void visit(const Nodecl::Equal& n);
                 virtual void visit(const Nodecl::BitwiseAnd& n);
+                virtual void visit(const Nodecl::BitwiseOr& n);
+                virtual void visit(const Nodecl::LogicalAnd& n);
                 virtual void visit(const Nodecl::LogicalOr& n);
                 virtual void visit(const Nodecl::ConditionalExpression& n);
 
