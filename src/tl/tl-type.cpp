@@ -255,13 +255,8 @@ namespace TL
         int i;
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
-<<<<<<< HEAD
    
         parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
-=======
-
-        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
->>>>>>> analysis
 
         for (i=0; i<num_parameters; i++)
         {
@@ -337,11 +332,7 @@ namespace TL
             return (fortran_get_rank_of_type(_type_info));
     }
 
-<<<<<<< HEAD
-    bool Type::is_vector_type() const
-=======
     bool Type::is_vector() const
->>>>>>> analysis
     {
         return (::is_vector_type(_type_info));
     }

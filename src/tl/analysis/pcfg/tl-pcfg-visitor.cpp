@@ -1742,6 +1742,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, parallel_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ParallelSimdFor& n )
+    {
+        std::cerr << "Ignoring Pragma ParallelSimdFor '" << n.prettyprint( ) << "'" << std::endl;
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
     {
         PCFGClause current_clause( PRIORITY, n.get_priority( ) );
@@ -1860,6 +1866,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, simd_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFor& n )
+    {
+        std::cerr << "Ignoring Pragma SimdFor '" << n.prettyprint( ) << "'" << std::endl;
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
         Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD_FUNCTION );

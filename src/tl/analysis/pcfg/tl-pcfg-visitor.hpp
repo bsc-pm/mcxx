@@ -301,6 +301,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
+        Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
         Ret visit( const Nodecl::OpenMP::Private& n );
         Ret visit( const Nodecl::OpenMP::Reduction& n );
@@ -310,6 +311,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
         Ret visit( const Nodecl::OpenMP::Simd& n );
+        Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Target& n );

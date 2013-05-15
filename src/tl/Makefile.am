@@ -36,6 +36,7 @@ DIST_SUBDIRS= analysis \
               testing \
 			  hlt \
               old_hlt \
+              vector-lowering \
               codegen \
               $(END)
 
