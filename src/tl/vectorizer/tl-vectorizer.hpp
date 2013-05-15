@@ -62,6 +62,10 @@ namespace TL
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type);
+                Nodecl::NodeclBase vectorize(const Nodecl::OpenMP::For& openmp_for, 
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type);
                 void vectorize(const Nodecl::FunctionCode& func_code,
                         const std::string& device,
                         const unsigned int vector_length,

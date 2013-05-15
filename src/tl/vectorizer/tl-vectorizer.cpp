@@ -71,6 +71,17 @@ namespace TL
             return visitor_for.walk(for_statement);
         }
 
+        Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::OpenMP::For& openmp_for,
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type)
+        {
+            VectorizerVisitorFor visitor_for(device, vector_length, target_type);
+
+            return visitor_for.walk(openmp_for);
+        }
+
+
         void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
                 const std::string& device,
                 const unsigned int vector_length,

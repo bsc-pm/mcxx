@@ -1203,6 +1203,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
                        for_statement.shallow_copy(),
+                       Nodecl::List(),
                        for_statement.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
@@ -1228,6 +1229,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::SimdFunction simd_func =
                 Nodecl::OpenMP::SimdFunction::make(
                         node.shallow_copy(),
+                        Nodecl::List(),
                         node.get_locus());
 
             node.replace(simd_func);
@@ -1241,13 +1243,13 @@ namespace TL { namespace OpenMP {
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
+        PragmaCustomLine pragma_line = stmt.get_pragma_line();
+
         // Skipping AST_LIST_NODE
         Nodecl::NodeclBase statements = stmt.get_statements();
 
         if (_simd_enabled)
         {
-            /*
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -1267,33 +1269,28 @@ namespace TL { namespace OpenMP {
             ERROR_CONDITION(ast_list_node2.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(),
+            Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
-                    ast_print_node_type(node.get_kind()));
-
-            // Vectorize for
-            Nodecl::NodeclBase epilog =
-                _vectorizer.vectorize(node.as<Nodecl::ForStatement>(),
-                        "smp", 16, NULL);
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
-                //node.append_sibling(epilog);
-            }
+                    ast_print_node_type(for_statement.get_kind()));
 
             // for_handler_post
-            PragmaCustomLine pragma_line = stmt.get_pragma_line();
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
-            Nodecl::NodeclBase code = loop_handler_post(
-                    stmt, node, barrier_at_end, false);
+            Nodecl::OpenMP::For omp_for = loop_handler_post(
+                    stmt, for_statement, barrier_at_end, false).as<Nodecl::List>().front()
+                .as<Nodecl::OpenMP::For>();
+
+            Nodecl::OpenMP::SimdFor omp_simd_for_node =
+               Nodecl::OpenMP::SimdFor::make(
+                       omp_for,
+                       Nodecl::List(),
+                       for_statement.get_locus());
 
             // Removing #pragma
             pragma_line.diagnostic_unused_clauses();
-            stmt.replace(code);
-            */
+            //stmt.replace(code);
+            stmt.replace(omp_simd_for_node);
         }
         else
         {

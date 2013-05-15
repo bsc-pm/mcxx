@@ -44,8 +44,9 @@ namespace TL
                 unsigned int _remain_iterations;
                 unsigned int _unroll_factor;
 
-                void analyze_loop(const Nodecl::ForStatement& for_statement);
-                Nodecl::ForStatement get_epilog(const Nodecl::ForStatement& for_statement);
+                void analyze_loop(const Nodecl::NodeclBase& loop);
+                Nodecl::ForStatement get_epilog(const Nodecl::NodeclBase& for_inner_statement,
+                        const Nodecl::LoopControl& loop_control, TL::Scope sc);
 
             public:
                 VectorizerVisitorFor(const std::string device,
@@ -53,6 +54,11 @@ namespace TL
                         const TL::Type& target_type);
 
                 virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
+                virtual Nodecl::NodeclBase visit(const Nodecl::OpenMP::For& openmp_for);
+
+                void common_for_compound_visit(
+                        const Nodecl::NodeclBase& for_inner_statement,
+                        const TL::Scope& for_inner_scope);
 
                 Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

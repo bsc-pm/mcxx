@@ -25,11 +25,6 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-simd.hpp"
-//#include "tl-nodecl-utils.hpp"
-//#include "cxx-diagnostic.h"
-//#include "cxx-cexpr.h"
-//#include "fortran03-scope.h"
-//#include "tl-predicateutils.hpp"
 
 namespace TL { 
     namespace OpenMP {
@@ -195,6 +190,55 @@ namespace TL {
             simd_node.append_sibling(vectorized_func_code);
         }
 
+        void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
+        {
+            Nodecl::OpenMP::For openmp_for = simd_node.get_openmp_for().as<Nodecl::OpenMP::For>();
+            Nodecl::OpenMP::ForRange for_range = openmp_for.get_ranges().as<Nodecl::List>().front()
+                .as<Nodecl::OpenMP::ForRange>();
+            Nodecl::NodeclBase for_environment = openmp_for.get_environment();
+
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase statements = openmp_for.get_statements();
+            ERROR_CONDITION(!statements.is<Nodecl::List>(), 
+                    "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
+            Nodecl::List ast_list_node = statements.as<Nodecl::List>();
+            ERROR_CONDITION(ast_list_node.size() != 1, 
+                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
+
+            // Skipping NODECL_CONTEXT
+            Nodecl::NodeclBase context = ast_list_node.front();
+            ERROR_CONDITION(!context.is<Nodecl::Context>(), 
+                    "'pragma omp simd for' Expecting a NODECL_CONTEXT", 0);
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
+            ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
+                    "'pragma omp simd for' Expecting an AST_LIST_NODE (2)", 0);
+            Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
+            ERROR_CONDITION(ast_list_node2.size() != 1, 
+                    "AST_LIST_NODE after '#pragma omp simd for' must be equal to 1 (2)", 0);
+
+            Nodecl::NodeclBase compound_statement = ast_list_node2.front();
+            ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(), 
+                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd for'", 
+                    ast_print_node_type(compound_statement.get_kind()));
+
+            // Vectorize for
+            Nodecl::NodeclBase epilog = _vectorizer.vectorize(openmp_for, 
+                    _device_name, _vector_length, NULL); 
+
+            // Add epilog
+            if (!epilog.is_null())
+            {
+                simd_node.append_sibling(epilog);
+            }
+
+            // Remove Simd node
+            simd_node.replace(openmp_for);
+        }
+
+
         /*
         void Simd::simd_for_handler_pre(TL::PragmaCustomStatement) { }
         void Simd::simd_for_handler_post(TL::PragmaCustomStatement stmt) 
@@ -243,7 +287,7 @@ namespace TL {
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
-            Nodecl::NodeclSimd code = loop_handler_post(
+            Nodecl::NodeclBase code = loop_handler_post(
                     stmt, node, barrier_at_end, false);
 
             // Removing #pragma
@@ -254,11 +298,6 @@ namespace TL {
             // Remove #pragma
             stmt.replace(statements);
         }
-    }
-
-    void Simd::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
-    void Simd::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt) 
-    {
     }
     */
     } 
