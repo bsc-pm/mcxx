@@ -112,13 +112,10 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         length--;
     }
 
-#define LONG_MESSAGE_SIZE 1024
-    char* long_message = xcalloc(sizeof(char), LONG_MESSAGE_SIZE);
+    char *long_message = NULL;
 
     va_start(ap, function_name);
-    vsnprintf(long_message, LONG_MESSAGE_SIZE-1, sanitized_message, ap);
-    long_message[LONG_MESSAGE_SIZE-1] = '\0';
-#undef LONG_MESSAGE_SIZE
+    vasprintf(&long_message, sanitized_message, ap);
 
     char* kind_copy = xstrdup(kind);
 
