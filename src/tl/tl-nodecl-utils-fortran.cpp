@@ -40,7 +40,7 @@ namespace Nodecl { namespace Utils {
         ERROR_CONDITION(!module.is_valid() || !module.is_fortran_module(), "Symbol must be a Fortran module", 0);
 
         scope_entry_t* used_modules_info
-            = scope.get_related_symbol().get_used_modules().get_internal_symbol();
+            = ::get_or_create_used_modules_symbol_info(scope.get_decl_context());
 
         P_LIST_ADD_ONCE(used_modules_info->entity_specs.related_symbols,
                 used_modules_info->entity_specs.num_related_symbols,
