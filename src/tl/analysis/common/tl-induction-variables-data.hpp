@@ -104,6 +104,9 @@ namespace Utils {
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var );
 
+    InductionVariableData* get_induction_variable_from_list( ObjectList<InductionVariableData*> ivs,
+                                                             Nodecl::NodeclBase var );
+    
     InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
                                                              Nodecl::NodeclBase var );
 

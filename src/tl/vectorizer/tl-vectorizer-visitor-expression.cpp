@@ -301,7 +301,7 @@ namespace TL
                     const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
-                    const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>(); 
+                    const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
 
                     std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
 
@@ -310,7 +310,7 @@ namespace TL
 
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
-                    
+
                     const Nodecl::VectorScatter vector_scatter =
                         Nodecl::VectorScatter::make(
                                 base.shallow_copy(),
@@ -477,7 +477,7 @@ namespace TL
             else // Vector Gather
             {
                 const Nodecl::NodeclBase base = n.get_subscripted();
-                const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>(); 
+                const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
 
                 ERROR_CONDITION(subscripts.size() > 1,
                     "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
@@ -506,7 +506,7 @@ namespace TL
                     ast_print_node_type(called.get_kind()));
 
             Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
-            
+
             // Vectorizing arguments
             walk(n.get_arguments());
 
@@ -568,7 +568,7 @@ namespace TL
 
             //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
-            if (!sym_type.is_vector_type())
+            if (!sym_type.is_vector())
             {
                // Vectorize BASIC induction variable
                 if (Vectorizer::_analysis_info->is_basic_induction_variable(
@@ -583,7 +583,7 @@ namespace TL
                     const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
                             Vectorizer::_analysis_scopes->back(), n);
 
-                    for(const_value_t *i = const_value_get_zero(4, 0); 
+                    for(const_value_t *i = const_value_get_zero(4, 0);
                             const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_unroll_factor)));
                             i = const_value_add(i, ind_var_increment))
                     {

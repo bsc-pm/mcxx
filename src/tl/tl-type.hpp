@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
   
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -67,7 +67,7 @@ namespace TL
             //! States whether this template argument is actually a default template argument of some template parameter
             bool is_default() const;
     };
-    
+
     //! This class wraps a context of template parameters and its arguments
     class LIBTL_CLASS TemplateParameters : public Object
     {
@@ -78,7 +78,7 @@ namespace TL
 
             bool operator==(TemplateParameters t) const;
             bool operator!=(TemplateParameters t) const;
-            
+
             bool is_valid() const;
 
             /* Do not use it unless directed to do so */
@@ -89,7 +89,7 @@ namespace TL
 
             //! Returns the number of parameters in the current parameter level
             int get_num_parameters() const;
-            
+
             typedef enum template_parameter_kind TemplateParameterKind;
 
             //! Returns the n-th template parameter as a pair of the symbol and its kind
@@ -109,7 +109,7 @@ namespace TL
 
             bool get_is_explicit_specialization() const;
     };
-    
+
     //! This class wraps a type in the compiler type system
     class LIBTL_CLASS Type : public Object
     {
@@ -121,13 +121,13 @@ namespace TL
             }
 
             static std::string get_type_name_str(type_t* type, const std::string& symbol_name);
-            static void get_type_name_str_internal(type_t* type_info, 
+            static void get_type_name_str_internal(type_t* type_info,
                     const std::string &symbol_name, std::string& left, std::string& right);
             static std::string get_cv_qualifier_str(type_t* type_info);
             static std::string get_simple_type_name_str_internal(type_t* simple_type);
             static std::string get_simple_type_name_str(type_t* simple_type);
             static bool declarator_needs_parentheses(type_t* type_info);
-            static std::string get_declaration_str_internal(type_t* type_info, 
+            static std::string get_declaration_str_internal(type_t* type_info,
                     const std::string& symbol_name, const std::string& initializer, bool semicolon);
         public:
 
@@ -201,14 +201,14 @@ namespace TL
             }
 
             //! Returns a string with a C/C++ declaration
-            std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
+            std::string get_simple_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
             //! Returns a string with a C/C++ declaration
             std::string get_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             //! Returns a string with a C/C++ declaration and suitable initializer
-            std::string get_declaration_with_initializer(Scope sc, 
+            std::string get_declaration_with_initializer(Scope sc,
                     const std::string& symbol_name, const std::string& initializer,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
@@ -220,7 +220,7 @@ namespace TL
             std::string get_fortran_declaration(Scope sc, const std::string& symbol_name, TypeDeclFlags flags = NORMAL_DECLARATION);
 
             //! Basic type
-            /*! Returns the basic type on which this type is built 
+            /*! Returns the basic type on which this type is built
              * Note that if the type is originally a scalar it will
              * return the same type.
              */
@@ -239,7 +239,7 @@ namespace TL
             Type get_pointer_to();
 
             //! Returns a vector to the current type
-            /*! 
+            /*!
              * \param vector_size The size of the vector in bytes.
              */
             Type get_vector_to(unsigned int vector_size);
@@ -248,15 +248,15 @@ namespace TL
             Type get_generic_vector_to();
 
             //! Returns an array to the current type
-            /*! 
+            /*!
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
              * \param scope Scope of \a expression_array
              */
             Type get_array_to(Nodecl::NodeclBase expression_array, Scope scope);
 
             //! Returns an array to the current type
-            /*! 
-             * Use this for arrays with empty dimension including C99 
+            /*!
+             * Use this for arrays with empty dimension including C99
              * wildcard sized arrays
              */
             Type get_array_to();
@@ -270,56 +270,56 @@ namespace TL
             Type get_array_to(const std::string& str);
 
             //! Returns a ranged array to the current type
-            /*! 
-             * \param lower_bound The lower bound expression of the array. 
-             * \param upper_bound The upper bound expression of the array. 
+            /*!
+             * \param lower_bound The lower bound expression of the array.
+             * \param upper_bound The upper bound expression of the array.
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
             Type get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
 
             //! Returns a ranged array to the current type with descriptor
-            /*! 
-             * \param lower_bound The lower bound expression of the array. 
-             * \param upper_bound The upper bound expression of the array. 
+            /*!
+             * \param lower_bound The lower bound expression of the array.
+             * \param upper_bound The upper bound expression of the array.
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
             Type get_array_to_with_descriptor(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
-            
+
             //! Returns a ranged array to the current type with descriptor
-            /*! 
-             * \param lower_bound The lower bound expression of the array. 
-             * \param upper_bound The upper bound expression of the array. 
+            /*!
+             * \param lower_bound The lower bound expression of the array.
+             * \param upper_bound The upper bound expression of the array.
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
-            Type get_array_to_with_region(Nodecl::NodeclBase lower_bound, 
-                    Nodecl::NodeclBase upper_bound, 
+            Type get_array_to_with_region(Nodecl::NodeclBase lower_bound,
+                    Nodecl::NodeclBase upper_bound,
                     Nodecl::NodeclBase region_lower_bound,
                     Nodecl::NodeclBase region_upper_bound,
                     Scope scope);
 
             //! Gets a lvalue reference (C++) to the current type
             Type get_lvalue_reference_to();
-            
+
             //! Gets a rvalue reference (C++2011) to the current type
             Type get_rvalue_reference_to();
-            
+
             //! Gets a rebindable reference (Mercurium extension) to the current type
             Type get_rebindable_reference_to();
 
-            //! Returns a function to the current list of parameter types 
-            /*! 
+            //! Returns a function to the current list of parameter types
+            /*!
              * \param type_list List of parameter types of the function.
              * \param has_ellipsis Will be set to true if the function type has ellipsis
              */
             Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
 
-            //! Returns a function to the current list of parameter types 
-            /*! 
+            //! Returns a function to the current list of parameter types
+            /*!
              * \param type_list List of parameter types of the function.
              * \param nonadjusted_type_list List of nonadjusted parameter types of the function
              * \param has_ellipsis Will be set to true if the function type has ellipsis
              */
-            Type get_function_returning(const ObjectList<Type>& type_list, 
+            Type get_function_returning(const ObjectList<Type>& type_list,
                     const ObjectList<Type>& nonadjusted_type_list,
                     bool has_ellipsis = false);
 
@@ -338,7 +338,7 @@ namespace TL
             bool operator<(Type t) const;
 
             // Basic types
-            //! States whether this type is an integral type 
+            //! States whether this type is an integral type
             /*!
              * An integral type is any 'int', 'bool', 'character',
              * 'wchar_t'. In C, it also includes enum types.
@@ -394,7 +394,7 @@ namespace TL
 
             //! States if this type is a builtin type
             bool is_builtin();
-            
+
             //! States wheter this is a direct type
             /*!
              * \deprecated Use instead is_scalar_type
@@ -432,7 +432,7 @@ namespace TL
             bool is_named() const;
 
             //! Advances over typedefs
-            /*! 
+            /*!
               This function advances over a typedef as many times
               as needed until it reaches a type that is not a typedef.
               */
@@ -447,7 +447,7 @@ namespace TL
                 bool is_virtual;
                 access_specifier_t access_specifier;
 
-                BaseInfo(TL::Symbol _base, 
+                BaseInfo(TL::Symbol _base,
                         bool _is_virtual,
                         access_specifier_t _access_specifier);
             };
@@ -481,7 +481,7 @@ namespace TL
             //! For a function type, it returns a list of parameter types
             /*
              * \return A list of types of the parameters
-             * Note that these types are the originals of the first 
+             * Note that these types are the originals of the first
              * declaration of the function. They may or may not be what you expect.
              */
             ObjectList<Type> nonadjusted_parameters() const;
@@ -494,8 +494,8 @@ namespace TL
             ObjectList<Type> nonadjusted_parameters(bool &has_ellipsis) const;
 
             //! For a function type it states whether it has been declared with prototype
-            /*! 
-             * This is only meaningful in C because in C++ all functions have prototype 
+            /*!
+             * This is only meaningful in C because in C++ all functions have prototype
              */
             bool lacks_prototype() const;
 
@@ -517,7 +517,7 @@ namespace TL
 
             //! Current class is a base of t
             bool is_base_class(Type t) const;
-            
+
             //! Current class is a derived class of t
             bool is_derived_class(Type t) const;
 
@@ -538,7 +538,7 @@ namespace TL
             bool array_has_size() const;
 
             //! Returns the expression of the array dimension
-            Nodecl::NodeclBase array_get_size() const; 
+            Nodecl::NodeclBase array_get_size() const;
 
             //! States whether the frontend flagged this array as requiring an in-memory descriptor
             /*!
@@ -564,13 +564,13 @@ namespace TL
             //! States that this array type has region attached to it
             bool array_is_region() const;
 
-            //! This returns the bounds of the array region 
+            //! This returns the bounds of the array region
             /*! See array_get_bounds for an explanation of the returned Nodecl::NodeclBase */
             void array_get_region_bounds(Nodecl::NodeclBase& region_lower, Nodecl::NodeclBase& region_upper) const;
 
-            //! This returns the expression of the array region size 
+            //! This returns the expression of the array region size
             Nodecl::NodeclBase array_get_region_size() const;
-            
+
             //! [C and Fortran] States whether current array is a VLA
             /*!
              * There are no VLAs in Fortran but this attribute will be true for
@@ -581,7 +581,7 @@ namespace TL
             bool array_is_vla() const;
 
             //! States whether current type is a vector-type
-            bool is_vector_type() const;
+            bool is_vector() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
@@ -589,7 +589,7 @@ namespace TL
 
 
             //! States whether this type represents an unresolved overload type
-            /*! 
+            /*!
               Unresolved overloads are expressions whose type cannot be
               determine because they designate an overloaded function name
               */
@@ -620,7 +620,7 @@ namespace TL
              * \endcode
              */
             bool is_dependent_typename() const;
-            
+
             bool is_dependent() const;
 
             //! Decomposes the dependent typename into its entry symbol and its syntactic part
@@ -685,7 +685,7 @@ namespace TL
 
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_data_members() const;
-            
+
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_members() const;
 
@@ -750,10 +750,10 @@ namespace TL
 
             //! Returns the template parameters of a specialized template type
             TemplateParameters template_specialized_type_get_template_parameters() const;
-            
+
             //! Returns the template arguments of a specialized template type
             TemplateParameters template_specialized_type_get_template_arguments() const;
-            
+
 
             //! Returns the related template type of a specialized template type
             /*!
@@ -762,7 +762,7 @@ namespace TL
             Type get_related_template_type() const;
 
             //! Returns the symbol of this template type
-            /*! 
+            /*!
              * \note Do not confuse with get_related_template_type which only applies for specialized_template types
              */
             Symbol get_related_template_symbol() const;
@@ -797,7 +797,7 @@ namespace TL
             /*!  These types include all the integer types and floating types */
             static ObjectList<Type> get_arithmetic_types();
             //! Returns all the integer types
-            /*! These types include all variants of char 
+            /*! These types include all variants of char
               and int including all long, short and unsigned varieties */
             static ObjectList<Type> get_integer_types();
             //! Returns all the floating types
@@ -812,41 +812,41 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'signed char'
             static Type get_char_type(void);
-            
+
             //! Convenience function that returns a wrapped 'unsigned char'
             static Type get_unsigned_char_type(void);
 
             //! Convenience function that returns a wrapped 'signed short int'
             static Type get_short_int_type(void);
-            
+
             //! Convenience function that returns a wrapped 'unsigned short int'
             static Type get_unsigned_short_int_type(void);
 
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
-            
+
             //! Convenience function that returns a wrapped 'unsigned int'
             static Type get_unsigned_int_type(void);
 
             //! Convenience function that returns a wrapped 'signed long int'
             static Type get_long_int_type(void);
-            
+
             //! Convenience function that returns a wrapped 'unsigned long int'
             static Type get_unsigned_long_int_type(void);
 
             //! Convenience function that returns a wrapped 'signed long long int'
             static Type get_long_long_int_type(void);
-            
+
             //! Convenience function that returns a wrapped 'unsigned long long int'
             static Type get_unsigned_long_long_int_type(void);
 
             //! Convenience function that returns a wrapped 'float'
             static Type get_float_type(void);
-            
+
             //! Convenience function that returns a wrapped 'double'
             static Type get_double_type(void);
     };
-    
+
     //! @}
 }
 

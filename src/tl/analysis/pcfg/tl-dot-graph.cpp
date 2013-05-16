@@ -312,7 +312,6 @@ namespace Analysis {
             }
             case OMP_BARRIER:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " BARRIER\", shape=diamond]\n";
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
                 break;
             }
@@ -324,6 +323,11 @@ namespace Analysis {
             case OMP_TASKWAIT:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
+                break;
+            }
+            case OMP_VIRTUAL_TASKSYNC:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
                 break;
             }
             case BREAK:
@@ -399,30 +403,39 @@ namespace Analysis {
             std::string id = "-0" + node_id.str( );
             color = "blue";
             dot_analysis_info += "\t" + id + "[label=\"" + usage_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
         if( !liveness_str.empty() )
         {
             std::string id = "-00" + node_id.str( );
             color = "green3";
             dot_analysis_info += "\t" + id + "[label=\"" + liveness_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
         if( !reach_defs_str.empty() )
         {
             std::string id = "-000" + node_id.str( );
             color = "red2";
             dot_analysis_info += "\t" + id + "[label=\"" + reach_defs_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
         if( current->is_omp_task_node( ) )
         {
@@ -432,10 +445,13 @@ namespace Analysis {
                 std::string id = "-0000" + node_id.str( );
                 color = "darkgoldenrod1";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_scope_str + " \", shape=box, color=" + color + "]\n";
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-                if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                if( !current->is_extended_graph_node( ) )
+                {
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    if( !cluster_name.empty() )
+                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                    dot_analysis_info += "\n";
+                }
             }
 
             std::string auto_deps_str = print_node_deps( current, auto_deps );
@@ -444,10 +460,13 @@ namespace Analysis {
                 std::string id = "-00000" + node_id.str( );
                 color = "skyblue3";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_deps_str + " \", shape=box, color=" + color + "]\n";
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-                if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                if( !current->is_extended_graph_node( ) )
+                {
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    if( !cluster_name.empty() )
+                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                    dot_analysis_info += "\n";
+                }
             }
         }
     }
