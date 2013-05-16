@@ -1647,32 +1647,35 @@ namespace Analysis {
         // Not needed
         // walk( n.get_ranges( ) );
 
-        // Create the new graph node containing the for
-        Node* for_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_LOOP );
-        _pcfg->connect_nodes( _utils->_last_nodes, for_node );
+#warning Sara: Please update this code
+        internal_error("Not yet implemented", 0);
 
-        Node* for_entry = for_node->get_graph_entry_node( );
-        Node* for_exit = for_node->get_graph_exit_node( );
+        // // Create the new graph node containing the for
+        // Node* for_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_LOOP );
+        // _pcfg->connect_nodes( _utils->_last_nodes, for_node );
 
-        // Traverse the statements of the current sections
-        _utils->_last_nodes = ObjectList<Node*>( 1, for_entry );
-        walk( n.get_statements( ) );
+        // Node* for_entry = for_node->get_graph_entry_node( );
+        // Node* for_exit = for_node->get_graph_exit_node( );
 
-        for_exit->set_id( ++( _utils->_nid ) );
-        _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
-        _utils->_outer_nodes.pop( );
+        // // Traverse the statements of the current sections
+        // _utils->_last_nodes = ObjectList<Node*>( 1, for_entry );
+        // walk( n.get_statements( ) );
 
-        // Set clauses info to the for node
-        PCFGPragmaInfo current_pragma;
-        _utils->_pragma_nodes.push( current_pragma );
-        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_entry, for_exit ) );
-        walk( n.get_environment( ) );
-        for_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
-        _utils->_pragma_nodes.pop( );
-        _utils->_environ_entry_exit.pop( );
+        // for_exit->set_id( ++( _utils->_nid ) );
+        // _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
+        // _utils->_outer_nodes.pop( );
 
-        _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
-        return ObjectList<Node*>( 1, for_node );
+        // // Set clauses info to the for node
+        // PCFGPragmaInfo current_pragma;
+        // _utils->_pragma_nodes.push( current_pragma );
+        // _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_entry, for_exit ) );
+        // walk( n.get_environment( ) );
+        // for_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        // _utils->_pragma_nodes.pop( );
+        // _utils->_environ_entry_exit.pop( );
+
+        // _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
+        // return ObjectList<Node*>( 1, for_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )

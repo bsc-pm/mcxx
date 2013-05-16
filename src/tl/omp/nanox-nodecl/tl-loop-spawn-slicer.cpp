@@ -36,25 +36,19 @@ namespace TL { namespace Nanox {
     void LoweringVisitor::loop_spawn_slicer(OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::List distribute_environment,
-            Nodecl::List ranges,
+            Nodecl::RangeLoopControl& range,
             const std::string& outline_name,
             TL::Symbol structure_symbol,
             TL::Symbol slicer_descriptor)
     {
-        if (ranges.size() != 1)
-        {
-            internal_error("Only ranges of 1 dimension implemented", 0);
-        }
-
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
         Nodecl::OpenMP::Schedule schedule = distribute_environment.find_first<Nodecl::OpenMP::Schedule>();
         ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
 
-        Nodecl::RangeLoopControl distribute_range = ranges[0].as<Nodecl::RangeLoopControl>();
-        Nodecl::NodeclBase lower = distribute_range.get_lower();
-        Nodecl::NodeclBase upper = distribute_range.get_upper();
-        Nodecl::NodeclBase step = distribute_range.get_step();
+        Nodecl::NodeclBase lower = range.get_lower();
+        Nodecl::NodeclBase upper = range.get_upper();
+        Nodecl::NodeclBase step = range.get_step();
 
         Source struct_size;
         Source dynamic_size;

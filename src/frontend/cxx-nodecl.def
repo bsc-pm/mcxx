@@ -496,7 +496,7 @@ reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [ranges]range-loop-control-seq, [statements]statement-seq)
+for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
 
 # atomic
 atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]exec-environment-seq-opt, [statements]statement-seq)
