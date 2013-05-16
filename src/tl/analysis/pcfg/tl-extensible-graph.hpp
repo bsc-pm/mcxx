@@ -125,7 +125,8 @@ namespace Analysis {
                                  std::vector<std::string>& outer_edges,
                                  std::vector<Node*>& outer_nodes,
                                  std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
 
         //! Prints both nodes and edges within a pcfg subgraph
                     //! Prints nodes and relations between them in a string in a recursive way.
@@ -141,7 +142,8 @@ namespace Analysis {
                                std::vector<std::string>& outer_edges,
                                std::vector<Node*>& outer_nodes,
                                std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                               bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
         void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
@@ -172,7 +174,7 @@ namespace Analysis {
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                        std::string cluster_name,
-                                       bool usage, bool liveness, bool reaching_defs,
+                                       bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                        bool auto_scoping, bool auto_deps );
 
     public:
@@ -347,7 +349,8 @@ namespace Analysis {
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
 
 
         // *** Getters and Setters *** //

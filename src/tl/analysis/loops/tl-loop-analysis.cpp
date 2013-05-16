@@ -58,6 +58,7 @@ namespace Analysis {
                 compute_loop_ranges_rec( current->get_graph_entry_node( ) );
 
                 // If the graph is a loop, compute the current ranges
+                // For OpenMP::For nodes, the loop ranges have been already computed since they are synthesized in the ForRange nodecl
                 if( current->is_loop_node( ) )
                 {
                     ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );

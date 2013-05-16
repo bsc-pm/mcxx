@@ -1362,7 +1362,7 @@ namespace Analysis {
     ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             if( has_key( _INDUCTION_VARS ))
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
@@ -1377,7 +1377,7 @@ namespace Analysis {
 
     void Node::set_induction_variable( Utils::InductionVariableData* iv )
     {
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )

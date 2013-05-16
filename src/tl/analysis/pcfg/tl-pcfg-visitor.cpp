@@ -1443,13 +1443,13 @@ namespace Analysis {
 
         atomic_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, atomic_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set possible implicit flushes
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( atomic_entry, atomic_exit ) );
         walk( n.get_environment( ) );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, atomic_node );
         return ObjectList<Node*>( 1, atomic_node );
     }
@@ -1542,7 +1542,6 @@ namespace Analysis {
 
         critical_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, critical_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses and possible implicit flushes
         PCFGPragmaInfo current_pragma;
@@ -1553,7 +1552,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, critical_node );
+        
         return ObjectList<Node*>( 1, critical_node );
 
     }
@@ -1604,7 +1605,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, environ_entry );
 
         // Create the flush node
-        Node* entry_flush = _pcfg->create_flush_node( environ_entry->get_outer_node( ) );
+        Node* entry_flush = _pcfg->create_flush_node( _utils->_outer_nodes.top( ) );
         int n_connects = entry_children.size( );
         _pcfg->connect_nodes( entry_flush, entry_children,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
@@ -1628,7 +1629,7 @@ namespace Analysis {
         _utils->_last_nodes = exit_parents;
 
         // Create the flush node
-        Node* exit_flush = _pcfg->create_flush_node( environ_exit->get_outer_node( ) );
+        Node* exit_flush = _pcfg->create_flush_node( _utils->_outer_nodes.top( ) );
         _pcfg->connect_nodes( exit_flush, environ_exit );
 
         // Restore current info
@@ -1660,9 +1661,8 @@ namespace Analysis {
 
         for_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
-        _utils->_outer_nodes.pop( );
 
-        // Set clauses info to the for node
+        // Set clauses info and implicit synchronizations to the for node
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_entry, for_exit ) );
@@ -1671,6 +1671,7 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
         return ObjectList<Node*>( 1, for_node );
     }
@@ -1704,8 +1705,8 @@ namespace Analysis {
         Node* master_exit = master_node->get_graph_exit_node( );
         master_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, master_exit );
+        
         _utils->_outer_nodes.pop( );
-
         _utils->_last_nodes = ObjectList<Node*>( 1, master_node );
         return ObjectList<Node*>( 1, master_node );
 
@@ -1738,7 +1739,6 @@ namespace Analysis {
 
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node );
-
         return ObjectList<Node*>( 1, parallel_node );
     }
 
@@ -1825,7 +1825,6 @@ namespace Analysis {
 
         sections_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, sections_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1836,6 +1835,7 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, sections_node );
         return ObjectList<Node*>( 1, sections_node );
     }
@@ -1918,7 +1918,6 @@ namespace Analysis {
 
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
-
         return ObjectList<Node*>( 1, single_node );
     }
 
