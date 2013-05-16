@@ -83,6 +83,100 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    // Some bits have been shamelessly copied from tl-lower-task-call.cpp
+    typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
+
+    class InstantiateExecEnvironment : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            sym_to_argument_expr_t& _sym_to_arg;
+
+        public:
+            InstantiateExecEnvironment(sym_to_argument_expr_t& sym_to_arg)
+                : _sym_to_arg(sym_to_arg)
+            {
+            }
+
+            void visit(const Nodecl::Symbol& n)
+            {
+                sym_to_argument_expr_t::iterator it = _sym_to_arg.find(n.get_symbol());
+                if (it == _sym_to_arg.end())
+                    return;
+
+                n.replace(it->second.shallow_copy());
+                // Crude
+                const_cast<Nodecl::Symbol&>(n).set_type(rewrite_type(n.get_type()));
+            }
+
+            void unhandled_node(const Nodecl::NodeclBase & n)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                        it != children.end();
+                        it++)
+                {
+                    walk(*it);
+                }
+                // Crude
+                const_cast<Nodecl::NodeclBase&>(n).set_type(rewrite_type(n.get_type()));
+            }
+
+            TL::Type rewrite_type(TL::Type t)
+            {
+                if (!t.is_valid())
+                    return t;
+
+                if (t.is_lvalue_reference())
+                {
+                    return rewrite_type(t.references_to()).get_lvalue_reference_to();
+                }
+                else if (t.is_pointer())
+                {
+                    return (rewrite_type(t.points_to())).get_pointer_to();
+                }
+                else if (t.is_array())
+                {
+                    TL::Type element_type = rewrite_type(t.array_element());
+
+                    Nodecl::NodeclBase lower_bound, upper_bound;
+                    t.array_get_bounds(lower_bound, upper_bound);
+
+                    lower_bound = lower_bound.shallow_copy();
+                    this->walk(lower_bound);
+
+                    upper_bound = upper_bound.shallow_copy();
+                    this->walk(upper_bound);
+
+                    if (!t.array_is_region())
+                    {
+                        return element_type.get_array_to(lower_bound, upper_bound,
+                                CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                    else
+                    {
+                        Nodecl::NodeclBase region_lower_bound, region_upper_bound;
+                        t.array_get_region_bounds(region_lower_bound, region_upper_bound);
+
+                        region_lower_bound = region_lower_bound.shallow_copy();
+                        this->walk(region_lower_bound);
+
+                        region_upper_bound = region_upper_bound.shallow_copy();
+                        this->walk(region_upper_bound);
+
+                        return element_type.get_array_to_with_region(
+                                lower_bound, upper_bound,
+                                region_lower_bound, region_upper_bound,
+                                CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                }
+                else
+                {
+                    // Best effort
+                    return t;
+                }
+            }
+    };
+
     class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -127,11 +221,14 @@ namespace TL { namespace OpenMP {
                         FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
                         Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
+                        Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
 
                         Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                                 exec_env,
                                 // Do we need to copy this?
                                 call.shallow_copy(),
+                                // Site environment, do not use it
+                                call_site_exec_env,
                                 call.get_locus());
 
                         call.replace(task_call);
@@ -379,6 +476,60 @@ namespace TL { namespace OpenMP {
                 }
 
                 return Nodecl::List::make(result_list);
+            }
+
+            void fill_map_parameters_to_arguments(
+                    TL::Symbol function,
+                    Nodecl::List arguments,
+                    sym_to_argument_expr_t& param_to_arg_expr)
+            {
+                int i = 0;
+                Nodecl::List::iterator it = arguments.begin();
+
+                // If the current function is a non-static function and It is member of a
+                // class, the first argument of the arguments list represents the object of
+                // this class. Skip it!
+                if (IS_CXX_LANGUAGE
+                        && !function.is_static()
+                        && function.is_member())
+                {
+                    it++;
+                }
+
+                for (; it != arguments.end(); it++, i++)
+                {
+                    Nodecl::NodeclBase expression;
+                    TL::Symbol parameter_sym;
+                    if (it->is<Nodecl::FortranActualArgument>())
+                    {
+                        // If this is a Fortran style argument use the symbol
+                        Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
+
+                        param_to_arg_expr[named_pair.get_symbol()] = named_pair.get_argument();
+                    }
+                    else
+                    {
+                        // Get the i-th parameter of the function
+                        ERROR_CONDITION(((signed int)function.get_related_symbols().size() <= i), "Too many parameters", 0);
+                        TL::Symbol parameter = function.get_related_symbols()[i];
+                        param_to_arg_expr[parameter] = *it;
+                    }
+                }
+            }
+
+            Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call)
+            {
+                sym_to_argument_expr_t param_to_arg_expr;
+                Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
+                TL::Symbol called_sym = call.get_symbol();
+                fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
+
+                Nodecl::NodeclBase result = exec_env.shallow_copy();
+
+                InstantiateExecEnvironment instantiate_visitor(param_to_arg_expr);
+                instantiate_visitor.walk(result);
+
+                return result;
             }
     };
 
