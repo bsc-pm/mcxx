@@ -1968,6 +1968,9 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_ia64, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_ia64, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_ia64, long_double, binary_float_80_intel)
+#ifdef HAVE_QUADMATH_H
+    DEFINE_FLOAT_TYPE(linux_ia64, float128, binary_float_128);
+#endif
 
     linux_ia64.sizeof_pointer = 8;
     linux_ia64.alignof_pointer = 8;
