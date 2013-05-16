@@ -144,7 +144,7 @@ namespace TL
 
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
-                void collapse_loop_first(Nodecl::NodeclBase& construct);
+                void collapse_check_loop(TL::PragmaCustomStatement construct);
 
                 void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src);
                 void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src);

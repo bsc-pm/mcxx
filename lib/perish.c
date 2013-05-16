@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 
 // This is a tiny library used for tests so they kill themselves after some minutes
 // lest they hang
@@ -36,6 +37,7 @@
 static void terminating_signal_handler(int sig)
 {
     // Kill ourselves
+    fprintf(stderr, "[%d] PROCESS HAS LASTED MORE THAN %d MINUTES. KILLING ITSELF\n", getpid(), MINUTES);
     raise(SIGKILL);
 }
 
