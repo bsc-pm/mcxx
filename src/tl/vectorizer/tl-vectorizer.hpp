@@ -30,7 +30,6 @@
 #include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-visitor-expression.hpp"
 #include <string>
 #include <list>
 
@@ -38,42 +37,59 @@ namespace TL
 { 
     namespace Vectorization
     {
+        class VectorizerEnvironment
+        {
+            private:
+                const std::string& _device;
+                const unsigned int _vector_length;
+                const unsigned int _unroll_factor;
+
+                const TL::Type& _target_type;
+                const TL::Scope& _simd_body_scope;
+
+            public:
+                VectorizerEnvironment(const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type,
+                        const TL::Scope& simd_body_scope);
+
+            friend class Vectorizer;
+            friend class VectorizerVisitorFor;
+            friend class VectorizerVisitorLoopCond;
+            friend class VectorizerVisitorLoopNext;
+            friend class VectorizerVisitorFunction;
+            friend class VectorizerVisitorStatement;
+            friend class VectorizerVisitorExpression;
+        };
+
         class Vectorizer
         {
             private:
-            static Vectorizer* _vectorizer;
+                static Vectorizer* _vectorizer;
+                static FunctionVersioning _function_versioning;
 
-            static Analysis::AnalysisStaticInfo *_analysis_info;
-            static std::list<Nodecl::NodeclBase> *_analysis_scopes;
-            
-            static FunctionVersioning _function_versioning;
+                static Analysis::AnalysisStaticInfo *_analysis_info;
+                static std::list<Nodecl::NodeclBase> *_analysis_scopes;
 
-            bool _svml_sse_enabled;
-            bool _svml_knc_enabled;
-            bool _ffast_math_enabled;
+                bool _svml_sse_enabled;
+                bool _svml_knc_enabled;
+                bool _ffast_math_enabled;
 
-            Vectorizer();
+                Vectorizer();
 
             public:
                 ~Vectorizer();
                 static Vectorizer& get_vectorizer();
 
                 Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
-                        const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
-                Nodecl::NodeclBase vectorize(const Nodecl::OpenMP::For& openmp_for, 
-                        const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
+                        const VectorizerEnvironment& environment);
                 void vectorize(const Nodecl::FunctionCode& func_code,
-                        const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
+                        const VectorizerEnvironment& environment);
 
-                void add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,
-                        const std::string& device, const unsigned int vector_length, 
-                        const TL::Type& target_type, const FunctionPriority priority);
+                void add_vector_function_version(const std::string& func_name, 
+                        const Nodecl::NodeclBase& func_version, const std::string& device, 
+                        const unsigned int vector_length, const TL::Type& target_type, 
+                        const FunctionPriority priority);
 
                 void enable_svml_sse();
                 void enable_svml_knc();

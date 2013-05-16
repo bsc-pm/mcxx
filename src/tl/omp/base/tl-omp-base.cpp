@@ -1170,12 +1170,25 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
-        // Skipping AST_LIST_NODE
-        Nodecl::NodeclBase statements = stmt.get_statements();
-
         if (_simd_enabled)
         {
+            // SIMD Clauses
+            // TODO: Common!
+            PragmaCustomLine pragma_line = stmt.get_pragma_line();
+            Nodecl::List environment;
+
+            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
+            
+            if (suitable_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorSuitable::make(
+                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase statements = stmt.get_statements();
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -1203,7 +1216,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
                        for_statement.shallow_copy(),
-                       Nodecl::List(),
+                       environment,
                        for_statement.get_locus());
 
             pragma_line.diagnostic_unused_clauses();

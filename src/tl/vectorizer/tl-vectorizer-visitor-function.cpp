@@ -33,11 +33,8 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFunction::VectorizerVisitorFunction(
-                const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type) : 
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+        VectorizerVisitorFunction::VectorizerVisitorFunction(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -59,9 +56,6 @@ namespace TL
             Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
             Vectorizer::_analysis_scopes->push_back(function_code);
 
-            //TODO
-            _unroll_factor = 4;
-
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
@@ -77,7 +71,7 @@ namespace TL
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
-                TL::Type sym_type = get_qualified_vector_to((*it_type), _vector_length);
+                TL::Type sym_type = get_qualified_vector_to((*it_type), _environment._vector_length);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
@@ -85,16 +79,11 @@ namespace TL
                 parameters_vector_type.append(sym_type);
             }
 
-            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _vector_length).
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _environment._vector_length).
                     get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(
-                    _device, 
-                    _vector_length,
-                    _unroll_factor,                    
-                    _target_type,
-                    function_code.get_statements().retrieve_context());
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
 
             Vectorizer::_analysis_scopes->pop_back();

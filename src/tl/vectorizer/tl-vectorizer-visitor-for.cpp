@@ -33,11 +33,8 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFor::VectorizerVisitorFor(
-                const std::string device,
-                const unsigned int vector_length,
-                const TL::Type& target_type) :
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+        VectorizerVisitorFor::VectorizerVisitorFor(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -45,111 +42,9 @@ namespace TL
         {
             Nodecl::ForStatement epilog;
 
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase for_body = for_statement.get_statement();
-
-            // TODO: ???
-            analyze_loop(for_statement);
-
-            if (_remain_iterations)
-            {
-                // Save original ForStatement as Epilog
-                epilog = get_epilog(for_body,
-                        for_statement.get_loop_header().as<Nodecl::LoopControl>(),
-                        for_statement.retrieve_context());
-            }
-
-
-            Nodecl::NodeclBase for_body_scope;
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                for_body_scope = for_body.as<Nodecl::List>().front();
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-            // Push ForStatement as scope for analysis
-            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
-            Vectorizer::_analysis_scopes->push_back(for_statement);
-
-            common_for_compound_visit(for_body, for_body_scope.retrieve_context());
-
-            // Vectorizing Loop Header
-            VectorizerVisitorLoopHeader visitor_loop_header(_unroll_factor);
-            visitor_loop_header.walk(for_statement.get_loop_header());
-
-            Vectorizer::_analysis_scopes->pop_back();
-            delete Vectorizer::_analysis_scopes;
-            Vectorizer::_analysis_scopes = 0;
-
-            if (_remain_iterations)
-            {
-                return epilog;
-            }
-
-            return Nodecl::NodeclBase::null();
-        }
-
-        Nodecl::NodeclBase VectorizerVisitorFor::visit(const Nodecl::OpenMP::For& openmp_for)
-        {
-            Nodecl::ForStatement epilog;
-
-            Nodecl::OpenMP::ForRange for_range = openmp_for.get_ranges().as<Nodecl::List>().front()
-                .as<Nodecl::OpenMP::ForRange>();
- 
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase for_inner_statement = openmp_for.get_statements();
-
-            // TODO: ???
-            analyze_loop(openmp_for);
-
-            if (_remain_iterations)
-            {
-/*                Nodecl::LoopControl loop_control = make;
-                // Save original ForStatement as Epilog
-                epilog = get_epilog(for_inner_statement,
-                        loop_control);
-                        */
-            }
-
-
-            Nodecl::NodeclBase for_body;
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                for_body = for_inner_statement.as<Nodecl::List>().front();
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-            // Push ForStatement as scope for analysis
-            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
-            Vectorizer::_analysis_scopes->push_back(openmp_for);
-
-            common_for_compound_visit(for_inner_statement, for_body.retrieve_context());
-
-            Vectorizer::_analysis_scopes->pop_back();
-            delete Vectorizer::_analysis_scopes;
-            Vectorizer::_analysis_scopes = 0;
-
-            if (_remain_iterations)
-            {
-                return epilog;
-            }
-
-            return Nodecl::NodeclBase::null();
-        }
-
-        void VectorizerVisitorFor::common_for_compound_visit(
-                const Nodecl::NodeclBase& for_inner_statement,
-                const TL::Scope& for_inner_scope)
-        {
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
-                Nodecl::Utils::get_enclosing_function(for_inner_statement).get_function_code();
+                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
 
             if ((Vectorizer::_analysis_info == 0) || 
                 (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
@@ -161,46 +56,73 @@ namespace TL
                         enclosing_func.as<Nodecl::FunctionCode>(),
                         Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                         Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+                        Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
             }
 
-            VectorizerVisitorStatement visitor_stmt(_device,
-                    _vector_length,
-                    _unroll_factor,
-                    _target_type,
-                    for_inner_scope);
-            visitor_stmt.walk(for_inner_statement);
+            // Push ForStatement as scope for analysis
+            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
+            Vectorizer::_analysis_scopes->push_back(for_statement);
+
+
+            // TODO: ???
+            analyze_loop(for_statement);
+
+
+            if (_remain_iterations)
+            {
+                // Save original ForStatement as Epilog
+                epilog = get_epilog(for_statement);
+            }
+
+            // Vectorizing Loop Header
+            VectorizerVisitorLoopHeader visitor_loop_header(_environment);
+            visitor_loop_header.walk(for_statement.get_loop_header());
+
+            // Loop Body Vectorization
+            TL::Scope inner_scope_of_for = for_statement.get_statement().retrieve_context();
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                inner_scope_of_for = for_statement.get_statement().as<Nodecl::List>().front().retrieve_context();
+            }
+
+            VectorizerVisitorStatement visitor_stmt(_environment);
+            visitor_stmt.walk(for_statement.get_statement());
+
+            Vectorizer::_analysis_scopes->pop_back();
+            delete Vectorizer::_analysis_scopes;
+            Vectorizer::_analysis_scopes = 0;
+
+            if (_remain_iterations)
+            {
+                return epilog;
+            }
+
+            return Nodecl::NodeclBase::null();
         }
 
-        void VectorizerVisitorFor::analyze_loop(const Nodecl::NodeclBase& loop)
+        void VectorizerVisitorFor::analyze_loop(const Nodecl::ForStatement& for_statement)
         {
             //TODO
             _remain_iterations = 2;
-            _unroll_factor = _vector_length/4;
         }
 
-        Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::NodeclBase& for_inner_statement,
-                const Nodecl::LoopControl& loop_control,
-                TL::Scope sc)
+        Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
         {
-            Nodecl::ForStatement for_statement = Nodecl::ForStatement::make(
-                    loop_control.shallow_copy(), for_inner_statement.shallow_copy(), 
-                    Nodecl::NodeclBase::null(), loop_control.get_locus());
-
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
-                    for_statement, sc).as<Nodecl::ForStatement>();
+                    for_statement, for_statement).as<Nodecl::ForStatement>();
 
-            Nodecl::LoopControl new_loop_control =
+            Nodecl::LoopControl loop_control =
                 epilog.get_loop_header().as<Nodecl::LoopControl>();
 
-            new_loop_control.set_init(Nodecl::NodeclBase::null());
+            loop_control.set_init(Nodecl::NodeclBase::null());
 
             return epilog;
         }
 
+
         Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Vectorizer For Visitor: Unknown node "
+            std::cerr << "For Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus_str()
                 << std::endl;
@@ -208,9 +130,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -221,17 +142,17 @@ namespace TL
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            VectorizerVisitorLoopCond visitor_loop_cond(_unroll_factor);
+            VectorizerVisitorLoopCond visitor_loop_cond(_environment);
             visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
-            VectorizerVisitorLoopNext visitor_loop_next(_unroll_factor);
+            VectorizerVisitorLoopNext visitor_loop_next(_environment);
             visitor_loop_next.walk(loop_control.get_next());
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopHeader::unhandled_node(const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Vectorizer Loop Header Visitor: Unknown node "
+            std::cerr << "Loop Header Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus_str()
                 << std::endl;
@@ -274,9 +195,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -342,7 +262,7 @@ namespace TL
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    const_value_get_unsigned_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 step.get_type(),
                                 node.get_locus()),
@@ -405,7 +325,7 @@ namespace TL
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    const_value_get_unsigned_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 step.get_type(),
                                 node.get_locus()),
@@ -464,9 +384,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -529,7 +448,7 @@ namespace TL
                             Nodecl::Mul::make(
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    const_value_get_unsigned_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
@@ -545,7 +464,6 @@ namespace TL
                 node.replace(new_node);
             }
         }
-
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Next Visitor: Unknown node "

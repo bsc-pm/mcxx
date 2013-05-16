@@ -26,21 +26,14 @@
 
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-
 #include "tl-vectorizer.hpp"
 
 namespace TL 
 {
     namespace Vectorization
     {
-        VectorizerVisitorStatement::VectorizerVisitorStatement(
-                const std::string& device,
-                const unsigned int vector_length,
-                const unsigned int unroll_factor,
-                const TL::Type& target_type,
-                const TL::Scope& simd_inner_scope) : 
-            _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor), 
-            _target_type(target_type), _simd_inner_scope(simd_inner_scope)
+        VectorizerVisitorStatement::VectorizerVisitorStatement(const VectorizerEnvironment& environment)
+            : _environment(environment)
         {
         }
 
@@ -62,8 +55,7 @@ namespace TL
 
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
-            VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _unroll_factor, _target_type, _simd_inner_scope);
+            VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -72,24 +64,20 @@ namespace TL
             TL::Symbol sym = n.get_symbol();
 
             // Vectorizing symbol type
-            sym.set_type(get_qualified_vector_to(sym.get_type(), _vector_length));
+            sym.set_type(get_qualified_vector_to(sym.get_type(), _environment._vector_length));
 
             // Vectorizing initialization
             Nodecl::NodeclBase init = sym.get_value();
             if(!init.is_null())
             {
-                VectorizerVisitorExpression visitor_expression(
-                        _device, _vector_length, _unroll_factor, _target_type, 
-                        _simd_inner_scope);
+                VectorizerVisitorExpression visitor_expression(_environment);
                 visitor_expression.walk(init);
             }
         }
 
         void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
         {
-            VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _unroll_factor,
-                    _target_type, _simd_inner_scope);
+            VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(n.get_value());
         }
 

@@ -33,12 +33,20 @@ namespace TL
 {
     namespace Vectorization
     {
+        VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type,
+                const TL::Scope& simd_body_scope) : 
+            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
+            _target_type(target_type), _simd_body_scope(simd_body_scope)
+        {
+        }
+
+
         Vectorizer *Vectorizer::_vectorizer = 0;
-        
-        Analysis::AnalysisStaticInfo *Vectorizer::_analysis_info = 0;
-        std::list<Nodecl::NodeclBase> *Vectorizer::_analysis_scopes = 0;
-        
         FunctionVersioning Vectorizer::_function_versioning;
+        Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
+        std::list<Nodecl::NodeclBase>* Vectorizer::_analysis_scopes = 0;
 
         Vectorizer& Vectorizer::get_vectorizer()
         {
@@ -54,40 +62,20 @@ namespace TL
 
         Vectorizer::~Vectorizer()
         {
-            if (_analysis_info != 0)
-                delete _analysis_info;
-
-            if (_analysis_scopes != 0)
-                delete _analysis_scopes;
         }
 
         Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
-                const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type)
+                const VectorizerEnvironment& environment)
         {
-            VectorizerVisitorFor visitor_for(device, vector_length, target_type);
+            VectorizerVisitorFor visitor_for(environment);
 
             return visitor_for.walk(for_statement);
         }
 
-        Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::OpenMP::For& openmp_for,
-                const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type)
-        {
-            VectorizerVisitorFor visitor_for(device, vector_length, target_type);
-
-            return visitor_for.walk(openmp_for);
-        }
-
-
         void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
-                const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type)
+                const VectorizerEnvironment& environment)
         {
-            VectorizerVisitorFunction visitor_function(device, vector_length, target_type);
+            VectorizerVisitorFunction visitor_function(environment);
             visitor_function.walk(func_code);
         }
 
@@ -95,7 +83,13 @@ namespace TL
                 const std::string& device, const unsigned int vector_length, 
                 const TL::Type& target_type, const FunctionPriority priority )
         {
-            _function_versioning.add_version(func_name, 
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "VECTORIZER: Adding '%s' function version (device=%s, vector_length=%u, priority=%d)\n",
+                        func_name.c_str(), device.c_str(), vector_length, priority);
+            }
+
+            _function_versioning.add_version(func_name,
                     VectorFunctionVersion(func_version, device, vector_length, target_type, priority));
         }
 

@@ -26,6 +26,8 @@
 
 #include "tl-omp-simd.hpp"
 
+using namespace TL::Vectorization;
+
 namespace TL { 
     namespace OpenMP {
         
@@ -136,12 +138,18 @@ namespace TL {
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
         {
-            Nodecl::NodeclBase for_statement = simd_node.get_statement();
+            Nodecl::ForStatement for_statement = simd_node.get_statement().as<Nodecl::ForStatement>();
+            Nodecl::List simd_environment = simd_node.get_simd_environment().as<Nodecl::List>();
 
             // Vectorize for
+            VectorizerEnvironment vectorizer_environment(
+                    _device_name,
+                    _vector_length, 
+                    NULL,
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+            
             Nodecl::NodeclBase epilog = 
-                    _vectorizer.vectorize(for_statement.as<Nodecl::ForStatement>(), 
-                            _device_name, _vector_length, NULL); 
+                    _vectorizer.vectorize(for_statement, vectorizer_environment); 
 
             // Add epilog
             if (!epilog.is_null())
@@ -167,8 +175,13 @@ namespace TL {
                 Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
 
             // Vectorize function
-            _vectorizer.vectorize(vectorized_func_code, 
-                    _device_name, _vector_length, NULL); 
+            VectorizerEnvironment vectorizer_environment(
+                    _device_name,
+                    _vector_length, 
+                    NULL,
+                    vectorized_func_code.get_statements().retrieve_context());
+
+            _vectorizer.vectorize(vectorized_func_code, vectorizer_environment); 
 
             // Set new name
             std::stringstream vectorized_func_name; 
@@ -223,10 +236,10 @@ namespace TL {
             ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(), 
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd for'", 
                     ast_print_node_type(compound_statement.get_kind()));
-
+/*
             // Vectorize for
             Nodecl::NodeclBase epilog = _vectorizer.vectorize(openmp_for, 
-                    _device_name, _vector_length, NULL); 
+                   _device_name, _vector_length, NULL); 
 
             // Add epilog
             if (!epilog.is_null())
@@ -236,6 +249,7 @@ namespace TL {
 
             // Remove Simd node
             simd_node.replace(openmp_for);
+*/
         }
 
 
