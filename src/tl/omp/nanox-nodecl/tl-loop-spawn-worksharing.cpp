@@ -51,7 +51,7 @@ namespace TL { namespace Nanox {
         Nodecl::OpenMP::Schedule schedule = distribute_environment.find_first<Nodecl::OpenMP::Schedule>();
         ERROR_CONDITION(schedule.is_null(), "Schedule tree is missing", 0);
 
-        Nodecl::OpenMP::ForRange distribute_range = ranges[0].as<Nodecl::OpenMP::ForRange>();
+        Nodecl::RangeLoopControl distribute_range = ranges[0].as<Nodecl::RangeLoopControl>();
         Nodecl::NodeclBase lower = distribute_range.get_lower();
         Nodecl::NodeclBase upper = distribute_range.get_upper();
         Nodecl::NodeclBase step = distribute_range.get_step();

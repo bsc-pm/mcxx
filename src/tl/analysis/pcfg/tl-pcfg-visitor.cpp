@@ -1675,15 +1675,6 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_node );
     }
 
-    // Currently not used since we don't traverse OpenMP::For::get_ranges
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
-    {
-        internal_error( "ForRange not yet implemented", 0 );
-//         walk( n.get_lower( ) );
-//         walk( n.get_upper( ) );
-//         walk( n.get_step( ) );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( IF, n.get_condition( ) );

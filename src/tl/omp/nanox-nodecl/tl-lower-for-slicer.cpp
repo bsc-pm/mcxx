@@ -54,10 +54,9 @@ namespace TL { namespace Nanox {
         }
         else if (ranges.size() == 1)
         {
-            Nodecl::Range range_item = ranges.front().as<Nodecl::Range>();
+            Nodecl::RangeLoopControl range = ranges.front().as<Nodecl::RangeLoopControl>();
 
-            TL::Symbol ind_var = range_item.get_symbol();
-            Nodecl::OpenMP::ForRange range(range_item.as<Nodecl::OpenMP::ForRange>());
+            TL::Symbol ind_var = range.get_induction_variable().get_symbol();
 
             // Mark the induction variable as a private entity
             OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
