@@ -254,12 +254,7 @@ namespace TL
 
             // Computing new vector type
             TL::Type vector_type = n.get_type();
-            /*
-            if (vector_type.is_lvalue_reference())
-            {
-                vector_type = vector_type.references_to();
-            }
-            */
+            
             vector_type = get_qualified_vector_to(vector_type, _environment._vector_length);
 
             if(lhs.is<Nodecl::ArraySubscript>())
@@ -274,6 +269,22 @@ namespace TL
                     {
                         basic_type = basic_type.references_to();
                     }
+
+                    if(Vectorizer::_analysis_info->is_simd_aligned_access(
+                            Vectorizer::_analysis_scopes->back(),
+                            lhs,
+                            TL::ObjectList<TL::Symbol>(),
+                            _environment._unroll_factor,
+                            16))
+                    {
+                        printf("VECTORIZER: Store access '%s' is ALIGNED\n",
+                                lhs.prettyprint().c_str());
+                    }
+                    else
+                    {
+                        printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
+                                lhs.prettyprint().c_str());
+                    } 
 
                     const Nodecl::VectorStore vector_store =
                         Nodecl::VectorStore::make(
@@ -449,11 +460,44 @@ namespace TL
                 basic_type = basic_type.references_to();
             }
 
-            // Vector Load
-            if (Vectorizer::_analysis_info->is_adjacent_access(
+            // Vector Promotion from ArraySubscript
+            if (Vectorizer::_analysis_info->is_constant_access(
                         Vectorizer::_analysis_scopes->back(),
                         n))
             {
+
+                std::cerr << "Constant access: " << n.prettyprint() << "\n";
+
+                const Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion::make(
+                            n.shallow_copy(),
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_prom);
+            }
+            // Vector Load
+            else if (Vectorizer::_analysis_info->is_adjacent_access(
+                        Vectorizer::_analysis_scopes->back(),
+                        n))
+            {
+
+                if(Vectorizer::_analysis_info->is_simd_aligned_access(
+                            Vectorizer::_analysis_scopes->back(),
+                            n,
+                            TL::ObjectList<TL::Symbol>(),
+                            _environment._unroll_factor,
+                            16))
+                {
+                    printf("VECTORIZER: Load access '%s' is ALIGNED\n",
+                            n.prettyprint().c_str());
+                }
+                else
+                {
+                    printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
+                            n.prettyprint().c_str());
+                } 
+
                 const Nodecl::VectorLoad vector_load =
                     Nodecl::VectorLoad::make(
                             Nodecl::Reference::make(

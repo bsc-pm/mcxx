@@ -400,6 +400,26 @@ namespace Analysis {
         return result;
     }
 
+    bool AnalysisStaticInfo::is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_constant_access( n );
+        }
+
+        return result;
+    }
+
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                                                      ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const 
     {
