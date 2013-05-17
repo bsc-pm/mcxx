@@ -290,10 +290,25 @@ TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
     // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
     Nodecl::NodeclBase task_node_source = source->get_graph_label();
     ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
-    ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task source node here got a %s", 
+    ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+            && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
+            "Expecting an OpenMP::Task or OpenMP::TaskCall source node here got a %s", 
             ast_print_node_type(task_node_source.get_kind()));
-    Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
-    Nodecl::List task_source_env = task_source.get_environment().as<Nodecl::List>();
+    Nodecl::List task_source_env;
+    if (task_node_source.is<Nodecl::OpenMP::Task>())
+    {
+        Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
+        task_source_env = task_source.get_environment().as<Nodecl::List>();
+    }
+    else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
+    {
+        Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
+        task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
     Nodecl::NodeclBase source_dep_in;
     Nodecl::NodeclBase source_dep_out;
@@ -314,10 +329,25 @@ TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
     // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
     Nodecl::NodeclBase task_node_target = target->get_graph_label();
     ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
-    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>(), "Expecting an OpenMP::Task target node here got a %s", 
+    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
+            && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
+            "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
             ast_print_node_type(task_node_target.get_kind()));
-    Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
-    Nodecl::List task_target_env = task_target.get_environment().as<Nodecl::List>();
+    Nodecl::List task_target_env;
+    if (task_node_target.is<Nodecl::OpenMP::Task>())
+    {
+        Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
+        task_target_env = task_target.get_environment().as<Nodecl::List>();
+    }
+    else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
+    {
+        Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
+        task_target_env = task_target.get_site_environment().as<Nodecl::List>();
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
     Nodecl::NodeclBase target_dep_in;
     Nodecl::NodeclBase target_dep_out;

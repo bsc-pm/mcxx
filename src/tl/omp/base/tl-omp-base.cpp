@@ -177,6 +177,31 @@ namespace TL { namespace OpenMP {
             }
     };
 
+    class SimplifyExecEnvironment : public Nodecl::ExhaustiveVisitor<void>
+    {
+        public:
+
+            virtual void visit(const Nodecl::Reference& node)
+            {
+                walk(node.get_rhs());
+                if (node.get_rhs().is<Nodecl::Dereference>())
+                {
+                    // &*a => a
+                    node.replace(node.get_rhs().as<Nodecl::Dereference>().get_rhs());
+                }
+            }
+
+            virtual void visit(const Nodecl::Dereference& node)
+            {
+                walk(node.get_rhs());
+                if (node.get_rhs().is<Nodecl::Reference>())
+                {
+                    // *&a => a
+                    node.replace(node.get_rhs().as<Nodecl::Reference>().get_rhs());
+                }
+            }
+    };
+
     class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -521,13 +546,17 @@ namespace TL { namespace OpenMP {
             {
                 sym_to_argument_expr_t param_to_arg_expr;
                 Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
-                TL::Symbol called_sym = call.get_symbol();
+                TL::Symbol called_sym = call.get_called().get_symbol();
                 fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
                 Nodecl::NodeclBase result = exec_env.shallow_copy();
 
                 InstantiateExecEnvironment instantiate_visitor(param_to_arg_expr);
                 instantiate_visitor.walk(result);
+
+                // Simplify dependences
+                SimplifyExecEnvironment simplify_env;
+                simplify_env.walk(result);
 
                 return result;
             }
