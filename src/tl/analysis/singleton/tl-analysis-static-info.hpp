@@ -124,7 +124,7 @@ namespace Analysis {
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
-            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, ObjectList<Symbol> suitable_syms, 
+            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List suitable_expressions, 
                                          int unroll_factor, int alignment ) const;
 
             
@@ -199,7 +199,7 @@ namespace Analysis {
 
             //! Returns true if the given nodecl is aligned to a given value
             bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                         ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const;
+                                         const Nodecl::List suitable_expressions, int unroll_factor, int alignment ) const;
             
             // *** Queries about Auto-Scoping *** //
 
@@ -359,19 +359,21 @@ namespace Analysis {
     private:
         const Nodecl::NodeclBase _subscripted;
         const ObjectList<Utils::InductionVariableData*> _induction_variables;
-        const ObjectList<Symbol> _suitable_syms;
+        const Nodecl::List _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
         
+        bool is_suitable_expression(Nodecl::NodeclBase n);
+
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
                                   ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  ObjectList<Symbol> suitable_syms, int unroll_factor, int type_size);
+                                  Nodecl::List suitable_expressions, int unroll_factor, int type_size);
         
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
-        
+
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::IntegerLiteral& n );

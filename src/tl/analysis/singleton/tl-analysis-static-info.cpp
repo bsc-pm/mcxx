@@ -416,12 +416,12 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_constant_access( n );
         }
-
-        return result;
+//DISABLE!!
+        return false;
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                                     ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const 
+                                                     const Nodecl::List suitable_expressions, int unroll_factor, int alignment ) const 
     {
         bool result = false;
         
@@ -435,7 +435,7 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_simd_aligned_access( n, suitable_syms, unroll_factor, alignment );
+            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
         }
         
         return result;

@@ -63,7 +63,9 @@ namespace TL
                 void visit(const Nodecl::VectorLiteral& node);
                 void visit(const Nodecl::VectorAssignment& node);
                 void visit(const Nodecl::VectorLoad& node);
+                void visit(const Nodecl::UnalignedVectorLoad& node);
                 void visit(const Nodecl::VectorStore& node);
+                void visit(const Nodecl::UnalignedVectorStore& node);
                 void visit(const Nodecl::VectorGather& node);
                 void visit(const Nodecl::VectorScatter& node);
 

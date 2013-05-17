@@ -36,9 +36,10 @@ namespace TL
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const TL::Type& target_type,
-                const TL::Scope& simd_body_scope) : 
+                const TL::Scope& simd_body_scope,
+                const Nodecl::List& suitable_expr_list) : 
             _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
-            _target_type(target_type), _simd_body_scope(simd_body_scope)
+            _target_type(target_type), _simd_body_scope(simd_body_scope), _suitable_expr_list(suitable_expr_list)
         {
         }
 

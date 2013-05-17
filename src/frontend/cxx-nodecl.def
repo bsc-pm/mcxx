@@ -184,8 +184,10 @@ expression : literal
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression) type const-value-opt 
            | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt 
+           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression) type const-value-opt 
            | NODECL_VECTOR_PROMOTION([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq) type const-value-opt 
@@ -484,7 +486,9 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*VECTOR_SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
                  | NODECL_OPEN_M_P*VECTOR_MASK()
-                 | NODECL_OPEN_M_P*VECTOR_NOMASK()
+                 | NODECL_OPEN_M_P*VECTOR_IN_BRANCH()
+                 | NODECL_OPEN_M_P*VECTOR_NO_MASK()
+                 | NODECL_OPEN_M_P*VECTOR_NOT_IN_BRANCH()
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -529,10 +533,10 @@ simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
 
-simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [simd_environment]exec-environment-seq-opt)
-simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [simd_environment]exec-environment-seq-opt)
-simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] for-construct, [simd_environment]exec-environment-seq-opt)
-parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [simd_environment]exec-environment-seq-opt)
+simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] exec-environment-seq-opt)
+simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] exec-environment-seq-opt)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] for-construct, [environment] exec-environment-seq-opt)
+parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] exec-environment-seq-opt)
 
 ##############################
 # CUDA                       #

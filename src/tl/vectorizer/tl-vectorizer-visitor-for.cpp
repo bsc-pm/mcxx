@@ -261,10 +261,10 @@ namespace TL
                                     step.get_type(),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_environment._unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
-                                step.get_type(),
+                                TL::Type::get_int_type(),
                                 node.get_locus()),
                             step.get_type(),
                             node.get_locus());
@@ -285,8 +285,8 @@ namespace TL
                                     Nodecl::Minus::make(
                                         new_step,
                                         Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_unsigned_int_type(),
-                                            const_value_get_unsigned_int(1),
+                                            TL::Type::get_int_type(),
+                                            const_value_get_signed_int(1),
                                             node.get_locus()),
                                         rhs_type,
                                         node.get_locus()),
@@ -324,8 +324,8 @@ namespace TL
                                     step.get_type(),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_environment._unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 step.get_type(),
                                 node.get_locus()),
@@ -348,8 +348,8 @@ namespace TL
                                     Nodecl::Minus::make(
                                         new_step,
                                         Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_unsigned_int_type(),
-                                            const_value_get_unsigned_int(1),
+                                            TL::Type::get_int_type(),
+                                            const_value_get_signed_int(1),
                                             node.get_locus()),
                                         lhs_type,
                                         node.get_locus()),
@@ -447,8 +447,8 @@ namespace TL
                             lhs.shallow_copy(),
                             Nodecl::Mul::make(
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_environment._unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),

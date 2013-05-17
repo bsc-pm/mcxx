@@ -46,12 +46,14 @@ namespace TL
 
                 const TL::Type& _target_type;
                 const TL::Scope& _simd_body_scope;
+                const Nodecl::List& _suitable_expr_list;
 
             public:
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,
-                        const TL::Scope& simd_body_scope);
+                        const TL::Scope& simd_body_scope, 
+                        const Nodecl::List& suitable_expr_list);
 
             friend class Vectorizer;
             friend class VectorizerVisitorFor;

@@ -140,14 +140,23 @@ namespace TL {
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
         {
             Nodecl::ForStatement for_statement = simd_node.get_statement().as<Nodecl::ForStatement>();
-            Nodecl::List simd_environment = simd_node.get_simd_environment().as<Nodecl::List>();
+            Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
+
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = simd_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
 
             // Vectorize for
             VectorizerEnvironment vectorizer_environment(
                     _device_name,
                     _vector_length, 
                     NULL,
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                    suitable_expresions);
             
             Nodecl::NodeclBase epilog = 
                     _vectorizer.vectorize(for_statement, vectorizer_environment); 
@@ -165,7 +174,8 @@ namespace TL {
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
         {
             Nodecl::OpenMP::For omp_for = simd_node.get_openmp_for().as<Nodecl::OpenMP::For>();
-            Nodecl::List omp_environment = omp_for.get_environment().as<Nodecl::List>();
+            Nodecl::List omp_simd_for_environment = simd_node.get_environment().as<Nodecl::List>();
+            Nodecl::List omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase loop = omp_for.get_loop();
@@ -175,12 +185,21 @@ namespace TL {
 
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_simd_for_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
             // Vectorize for
             VectorizerEnvironment vectorizer_environment(
                     _device_name,
                     _vector_length, 
                     NULL,
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                    suitable_expresions);
 
             Nodecl::NodeclBase epilog = _vectorizer.vectorize(for_statement,
                     vectorizer_environment); 
@@ -190,8 +209,8 @@ namespace TL {
             {
                 Nodecl::List single_environment;
 
-                Nodecl::NodeclBase barrier = omp_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
-                Nodecl::NodeclBase flush = omp_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
+                Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
+                Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
 
                 if (!barrier.is_null())
                 {
@@ -222,6 +241,7 @@ namespace TL {
         {
             Nodecl::FunctionCode function_code = simd_node.get_statement()
                 .as<Nodecl::FunctionCode>();
+            Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
             
             // Remove SimdFunction node
             simd_node.replace(function_code);
@@ -231,12 +251,22 @@ namespace TL {
             Nodecl::FunctionCode vectorized_func_code = 
                 Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
 
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
+
             // Vectorize function
             VectorizerEnvironment vectorizer_environment(
                     _device_name,
                     _vector_length, 
                     NULL,
-                    vectorized_func_code.get_statements().retrieve_context());
+                    vectorized_func_code.get_statements().retrieve_context(),
+                    suitable_expresions);
 
             _vectorizer.vectorize(vectorized_func_code, vectorizer_environment); 
 

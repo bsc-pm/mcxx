@@ -270,36 +270,52 @@ namespace TL
                         basic_type = basic_type.references_to();
                     }
 
+                    // Aligned
                     if(Vectorizer::_analysis_info->is_simd_aligned_access(
                             Vectorizer::_analysis_scopes->back(),
                             lhs,
-                            TL::ObjectList<TL::Symbol>(),
+                            _environment._suitable_expr_list,
                             _environment._unroll_factor,
-                            16))
+                            _environment._vector_length))
                     {
                         printf("VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
+
+                        const Nodecl::VectorStore vector_store =
+                            Nodecl::VectorStore::make(
+                                    Nodecl::Reference::make(
+                                        Nodecl::ParenthesizedExpression::make(
+                                            lhs.shallow_copy(),
+                                            basic_type,
+                                            n.get_locus()),
+                                        basic_type.get_pointer_to(),
+                                        n.get_locus()),
+                                    n.get_rhs().shallow_copy(),
+                                    vector_type,
+                                    n.get_locus());
+
+                        n.replace(vector_store);
                     }
-                    else
+                    else // Unaligned
                     {
                         printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
                                 lhs.prettyprint().c_str());
-                    } 
 
-                    const Nodecl::VectorStore vector_store =
-                        Nodecl::VectorStore::make(
-                                Nodecl::Reference::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        lhs.shallow_copy(),
-                                        basic_type,
+                        const Nodecl::UnalignedVectorStore vector_store =
+                            Nodecl::UnalignedVectorStore::make(
+                                    Nodecl::Reference::make(
+                                        Nodecl::ParenthesizedExpression::make(
+                                            lhs.shallow_copy(),
+                                            basic_type,
+                                            n.get_locus()),
+                                        basic_type.get_pointer_to(),
                                         n.get_locus()),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                n.get_rhs().shallow_copy(),
-                                vector_type,
-                                n.get_locus());
+                                    n.get_rhs().shallow_copy(),
+                                    vector_type,
+                                    n.get_locus());
 
-                    n.replace(vector_store);
+                        n.replace(vector_store);
+                    } 
                 }
                 else // Vector Scatter
                 {
@@ -481,36 +497,50 @@ namespace TL
                         Vectorizer::_analysis_scopes->back(),
                         n))
             {
-
+                // Aligned
                 if(Vectorizer::_analysis_info->is_simd_aligned_access(
                             Vectorizer::_analysis_scopes->back(),
                             n,
-                            TL::ObjectList<TL::Symbol>(),
+                            _environment._suitable_expr_list,
                             _environment._unroll_factor,
-                            16))
+                            _environment._vector_length))
                 {
                     printf("VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
-                }
-                else
+
+                    const Nodecl::VectorLoad vector_load =
+                        Nodecl::VectorLoad::make(
+                                Nodecl::Reference::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        n.shallow_copy(),
+                                        basic_type,
+                                        n.get_locus()),
+                                    basic_type.get_pointer_to(),
+                                    n.get_locus()),
+                                vector_type,
+                                n.get_locus());
+
+                    n.replace(vector_load);
+               }
+                else // Unaligned
                 {
                     printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
                             n.prettyprint().c_str());
-                } 
 
-                const Nodecl::VectorLoad vector_load =
-                    Nodecl::VectorLoad::make(
-                            Nodecl::Reference::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    n.shallow_copy(),
-                                    basic_type,
+                    const Nodecl::UnalignedVectorLoad vector_load =
+                        Nodecl::UnalignedVectorLoad::make(
+                                Nodecl::Reference::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        n.shallow_copy(),
+                                        basic_type,
+                                        n.get_locus()),
+                                    basic_type.get_pointer_to(),
                                     n.get_locus()),
-                                basic_type.get_pointer_to(),
-                                n.get_locus()),
-                            vector_type,
-                            n.get_locus());
+                                vector_type,
+                                n.get_locus());
 
-                n.replace(vector_load);
+                    n.replace(vector_load);
+                } 
             }
             else // Vector Gather
             {
