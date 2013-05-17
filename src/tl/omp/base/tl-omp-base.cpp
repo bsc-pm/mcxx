@@ -179,11 +179,12 @@ namespace TL { namespace OpenMP {
                     TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
                     std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
 
-                    ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ExpressionStatement>(),
+                    ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ExpressionStatement>()
+                            && !enclosing_stmt.is<Nodecl::ObjectInit>(),
                             "Unexpected '%s' node",
                             ast_print_node_type(enclosing_stmt.get_kind()));
 
-                    Nodecl::NodeclBase inline_task;
+                    Nodecl::NodeclBase join_task;
                     {
                         // The inline tasks are always SMP tasks
                         Nodecl::List exec_environment;
@@ -192,32 +193,44 @@ namespace TL { namespace OpenMP {
                                     nodecl_null(),
                                     make_locus("", 0, 0)));
 
-
                         TL::ObjectList<Nodecl::Symbol> nonlocal_symbols;
 
                         TL::ObjectList<Nodecl::NodeclBase> input_alloca_dependence,
                             inout_dependences, output_dependences, assumed_firstprivates, alloca_exprs;
 
-                        Nodecl::ExpressionStatement expr_stmt = enclosing_stmt.as<Nodecl::ExpressionStatement>();
-                        if (expr_stmt.get_nest().is<Nodecl::AddAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::ArithmeticShrAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::Assignment>()
-                                || expr_stmt.get_nest().is<Nodecl::BitwiseAndAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::BitwiseOrAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::BitwiseShlAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::BitwiseShrAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::BitwiseXorAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::DivAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::MinusAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::ModAssignment>()
-                                || expr_stmt.get_nest().is<Nodecl::MulAssignment>())
+                        if (enclosing_stmt.is<Nodecl::ExpressionStatement>())
                         {
-                            Nodecl::Assignment assignment = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::Assignment>();
-                            Nodecl::NodeclBase lhs_expr = assignment.get_lhs();
-                            Nodecl::NodeclBase rhs_expr = assignment.get_rhs();
+                            Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
+                            expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+                            if (expr.is<Nodecl::AddAssignment>())
+                                get_assignment_expressions<Nodecl::AddAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::ArithmeticShrAssignment>())
+                                get_assignment_expressions<Nodecl::ArithmeticShrAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::Assignment>())
+                                get_assignment_expressions<Nodecl::Assignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::BitwiseAndAssignment>())
+                                get_assignment_expressions<Nodecl::BitwiseAndAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::BitwiseOrAssignment>())
+                                get_assignment_expressions<Nodecl::BitwiseOrAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::BitwiseShlAssignment>())
+                                get_assignment_expressions<Nodecl::BitwiseShlAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::BitwiseShrAssignment>())
+                                get_assignment_expressions<Nodecl::BitwiseShrAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::BitwiseXorAssignment>())
+                                get_assignment_expressions<Nodecl::BitwiseXorAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::DivAssignment>())
+                                get_assignment_expressions<Nodecl::DivAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::MinusAssignment>())
+                                get_assignment_expressions<Nodecl::MinusAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::ModAssignment>())
+                                get_assignment_expressions<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
+                            else if (expr.is<Nodecl::MulAssignment>())
+                                get_assignment_expressions<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
+                            else
+                                internal_error("Unexpected '%s' node\n", ast_print_node_type(expr.get_kind()));
 
                             // Create the output depedence
-                            if (expr_stmt.get_nest().is<Nodecl::Assignment>())
+                            if (expr.is<Nodecl::Assignment>())
                             {
                                 output_dependences.append(lhs_expr.shallow_copy());
                             }
@@ -229,12 +242,44 @@ namespace TL { namespace OpenMP {
                             // Obtain the nonlocal symbols from the right expression
                             nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(rhs_expr);
                         }
+                        else if (enclosing_stmt.is<Nodecl::ObjectInit>())
+                        {
+                            TL::Symbol sym = enclosing_stmt.as<Nodecl::ObjectInit>().get_symbol();
+                            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                            sym_nodecl.set_type(sym.get_type());
+
+                            // The symbol initialized in this ObjectInit will be an output dependence of the inline task
+                            output_dependences.append(sym_nodecl);
+
+                            // Create the statements of the join task
+                            Nodecl::NodeclBase new_expr_stmt =
+                                Nodecl::ExpressionStatement::make(
+                                    Nodecl::Assignment::make(
+                                        sym_nodecl,
+                                        sym.get_value(),
+                                        sym_nodecl.get_type(),
+                                        make_locus("", 0, 0)));
+
+                            // Replace the ObjectInit by the new ExpressionStatement
+                            enclosing_stmt.replace(new_expr_stmt);
+
+                            nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(sym.get_value());
+
+                            // The initialization of the 'sym' symbol will be done in the join task.
+                            // For this reason we remove the value of the symbol
+                            sym.get_internal_symbol()->value = nodecl_null();
+
+                            // In C++ We also need to define explicitly this symbol
+                            CXX_LANGUAGE()
+                            {
+                                Nodecl::Utils::prepend_items_before(enclosing_stmt,
+                                        Nodecl::CxxDef::make( /* context */ nodecl_null(), sym, make_locus("", 0,0)));
+                            }
+                        }
                         else
                         {
-                            nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(enclosing_stmt);
+                            internal_error("Unexpected '%s' node\n", ast_print_node_type(enclosing_stmt.get_kind()));
                         }
-
-
 
                         for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
                                 it2 != nonlocal_symbols.end();
@@ -328,7 +373,7 @@ namespace TL { namespace OpenMP {
                                         make_locus("", 0, 0)));
                         }
 
-                        inline_task = Nodecl::OpenMP::Task::make(
+                        join_task = Nodecl::OpenMP::Task::make(
                                 exec_environment,
                                 Nodecl::List::make(enclosing_stmt.shallow_copy()),
                                 make_locus("", 0 ,0));
@@ -336,9 +381,10 @@ namespace TL { namespace OpenMP {
 
                     Nodecl::NodeclBase task_expr = Nodecl::ExpressionStatement::make(
                             Nodecl::OpenMP::TaskExpression::make(
-                                inline_task,
+                                join_task,
                                 Nodecl::List::make(task_calls),
                                 make_locus("", 0, 0)));
+
 
                     Nodecl::Utils::prepend_items_before(enclosing_stmt, task_expr);
                     Nodecl::Utils::remove_from_enclosing_list(enclosing_stmt);
@@ -582,6 +628,13 @@ namespace TL { namespace OpenMP {
 
                 return Nodecl::List::make(result_list);
             }
+
+            template < typename T>
+            void get_assignment_expressions(Nodecl::NodeclBase expr, Nodecl::NodeclBase& lhs_expr, Nodecl::NodeclBase& rhs_expr)
+            {
+                lhs_expr = expr.as<T>().get_lhs();
+                rhs_expr = expr.as<T>().get_rhs();
+            }
     };
 
 
@@ -652,6 +705,15 @@ namespace TL { namespace OpenMP {
                 _function_task_set(function_task_set),
                 _transformed_task_map()
             {
+            }
+
+            virtual void visit(const Nodecl::ObjectInit& object_init)
+            {
+                TL::Symbol sym = object_init.get_symbol();
+                if (sym.get_value().is_null())
+                    return;
+
+                walk(sym.get_value());
             }
 
             virtual void visit(const Nodecl::FunctionCall& func_call)
@@ -725,7 +787,7 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    internal_error("Unexpected node '%s'\n", ast_print_node_type(function_called_code.get_kind()));
+                    internal_error("Unexpected '%s' node\n", ast_print_node_type(function_called_code.get_kind()));
                 }
 
                 Nodecl::Utils::SimpleSymbolMap translation_map;
@@ -1054,6 +1116,7 @@ namespace TL { namespace OpenMP {
         private:
 
             int _counter;
+            Nodecl::NodeclBase _enclosing_stmt;
 
             RefPtr<FunctionTaskSet> _function_task_set;
             const std::map<TL::Symbol, TL::Symbol>& _transformed_task_map;
@@ -1069,6 +1132,7 @@ namespace TL { namespace OpenMP {
                     const std::map<TL::Symbol, TL::Symbol>& transformed_tasks)
                 :
                     _counter(0),
+                    _enclosing_stmt(nodecl_null()),
                     _function_task_set(function_task_Set),
                     _transformed_task_map(transformed_tasks),
                     _funct_call_to_enclosing_stmt_map(),
@@ -1078,19 +1142,27 @@ namespace TL { namespace OpenMP {
                         it != _transformed_task_map.end();
                         it++)
                 {
+
                     _transformed_tasks.insert(it->second);
                 }
 
             }
 
-            // virtual void visit(const Nodecl::ObjectInit& object_init)
-            // {
-            //     TL::Symbol sym = object_init.get_symbol();
-            //     if (sym.get_value().is_null())
-            //         return;
+            virtual void visit(const Nodecl::ObjectInit& object_init)
+            {
+                TL::Symbol sym = object_init.get_symbol();
+                if (sym.get_value().is_null())
+                    return;
 
-            //     walk(sym.get_value());
-            // }
+                // Save the old enclosing expr statement
+                Nodecl::NodeclBase old_enclosing_stmt = _enclosing_stmt;
+                _enclosing_stmt = object_init;
+
+                walk(sym.get_value());
+
+                // Restore the old enclosing expr statement
+                _enclosing_stmt = old_enclosing_stmt;
+            }
 
             virtual void visit(const Nodecl::FunctionCall& func_call)
             {
@@ -1134,15 +1206,32 @@ namespace TL { namespace OpenMP {
                 // Create a new function call to the new void function. Replace the original
                 // function call by the variable used to store the result value
 
-                // 1. Create the new called entity
+                // Obtain the enclosing statement of the current function call
+                Nodecl::NodeclBase enclosing_stmt;
+                if (_enclosing_stmt.is_null())
+                {
+                    enclosing_stmt = func_call;
+                    while (!enclosing_stmt.is_null()
+                            && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
+                    {
+                        enclosing_stmt = enclosing_stmt.get_parent();
+                    }
+                    ERROR_CONDITION(enclosing_stmt.is_null(), "The enclosing expression cannot be a NULL node", 0);
+                }
+                else
+                {
+                    enclosing_stmt = _enclosing_stmt;
+                }
+
+                // Create the new called entity
                 Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
                         transformed_task,
                         func_call.get_locus());
 
                 called_entity.set_type(transformed_task.get_type());
 
-                // 2. Declare a new variable which represents the return of the original function as an argument
-                Scope scope = func_call.retrieve_context();
+                // Declare a new variable which represents the return of the original function as an argument
+                Scope scope = enclosing_stmt.retrieve_context();
 
                 std::stringstream ss;
                 ss << "mcc_ret_" << _counter;
@@ -1153,7 +1242,7 @@ namespace TL { namespace OpenMP {
                 return_arg_sym.get_internal_symbol()->type_information = return_type.get_internal_type();
                 return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-                // 3. Extend the list of arguments adding the output argument
+                // Extend the list of arguments adding the output argument
                 Nodecl::NodeclBase return_arg_nodecl = Nodecl::Symbol::make(
                         return_arg_sym,
                         func_call.get_locus());
@@ -1170,7 +1259,7 @@ namespace TL { namespace OpenMP {
                     new_arguments = Nodecl::List::make(return_arg_nodecl);
                 }
 
-                // 4. Create the new function call and encapsulate it in a ExpressionStatement
+                // Create the new function call and encapsulate it in a ExpressionStatement
                 Nodecl::NodeclBase new_function_call =
                     Nodecl::FunctionCall::make(
                             called_entity,
@@ -1182,18 +1271,6 @@ namespace TL { namespace OpenMP {
 
                 Nodecl::NodeclBase expression_stmt =
                     Nodecl::ExpressionStatement::make(new_function_call);
-
-                // 5. Prepend the new function call before the enclosing statement
-                // of the original function call
-                Nodecl::NodeclBase enclosing_stmt = func_call;
-                while (!enclosing_stmt.is_null()
-                        && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
-                {
-                    enclosing_stmt = enclosing_stmt.get_parent();
-                }
-
-                ERROR_CONDITION(enclosing_stmt.is_null(),
-                        "This node should be a Nodecl::ExpressionStatement", 0);
 
                 // Update the map between function calls and their enclosing statement
                 _funct_call_to_enclosing_stmt_map.insert(std::make_pair(new_function_call, enclosing_stmt));
@@ -1208,10 +1285,10 @@ namespace TL { namespace OpenMP {
                                 return_arg_sym,
                                 func_call.get_locus()));
                 }
-
+                // Prepend the new function call before the enclosing statement of the original function call
                 Nodecl::Utils::prepend_items_before(enclosing_stmt, expression_stmt);
 
-                // 6. Replace the original function call by the variable
+                // Replace the original function call by the variable
                 Nodecl::NodeclBase dereference_return =
                     Nodecl::Dereference::make(
                             return_arg_nodecl,
