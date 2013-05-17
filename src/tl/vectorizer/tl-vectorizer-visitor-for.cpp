@@ -364,12 +364,12 @@ namespace TL
             }
             else if (lhs_const_flag && rhs_const_flag)
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
+                running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                         "condition. BOTH expressions are CONSTANT.", locus_to_str(node.get_locus()));
             }
             else
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
+                running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                         "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
             }
         }
