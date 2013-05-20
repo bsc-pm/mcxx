@@ -187,24 +187,15 @@ namespace Analysis {
 //                     detect_derived_induction_variables( entry, current );
                 }
                 else if( current->is_omp_loop_node( ) )
-                {   // Induction variables are stored in the LoopRange
-                    Nodecl::NodeclBase label = current->get_graph_label( );
-                    if( !label.is<Nodecl::OpenMP::For>( ) )
+                {   //Propagate induction variables from the inner loop to the omp loop node
+                    Node* loop_entry_node = current->get_graph_entry_node( )->get_children( )[0];
+                    Node* loop_node = loop_entry_node->get_children( )[0];
+                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs = 
+                    _induction_vars.equal_range( loop_node->get_id( ) );
+                    for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
                     {
-                        internal_error( "Unexpected nodecl '%s' while traversing OmpFor node.\n", 0 );
-                    }
-                    Nodecl::List ranges = label.as<Nodecl::OpenMP::For>( ).get_ranges( ).as<Nodecl::List>( );
-                    for( Nodecl::List::iterator it = ranges.begin( ); it != ranges.end( ); ++it )
-                    {
-                        Nodecl::OpenMP::ForRange range = it->as<Nodecl::OpenMP::ForRange>( );
-                        Nodecl::Symbol iv = Nodecl::Symbol::make( range.get_symbol( ), range.get_locus( ) );
-                        Utils::InductionVariableData* ivd = 
-                                new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ), Utils::BASIC_IV, iv );
-                        ivd->set_lb( range.get_lower( ) );
-                        ivd->set_ub( range.get_upper( ) );
-                        ivd->set_increment( range.get_step( ) );
-                        current->set_induction_variable( ivd );
-                        _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( current->get_id( ), ivd ) );
+                        current->set_induction_variable( it->second );
+                        _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( current->get_id( ), it->second ) );
                     }
                 }
             }

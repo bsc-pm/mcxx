@@ -1700,6 +1700,19 @@ struct floating_type_info_tag binary_float_64 =
     .emax = +1024,
 };
 
+// Use this one for architectures where long double has the same characteristics as double
+struct floating_type_info_tag binary_float_64_bis =
+{ 
+    .size_of = 8, 
+    .align_of = 8, 
+    .bits = 64,
+
+    .base = 2,
+    .p = 52,
+    .emin = -1021,
+    .emax = +1024,
+};
+
 struct floating_type_info_tag binary_float_80_intel =
 { 
     .size_of = 12, 
@@ -1955,6 +1968,9 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_ia64, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_ia64, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_ia64, long_double, binary_float_80_intel)
+#ifdef HAVE_QUADMATH_H
+    DEFINE_FLOAT_TYPE(linux_ia64, float128, binary_float_128);
+#endif
 
     linux_ia64.sizeof_pointer = 8;
     linux_ia64.alignof_pointer = 8;
@@ -2311,7 +2327,7 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_arm_eabi, double, binary_float_64)
     // Note: long double in ARM is the same as a double
-    DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_64_bis)
 
     // Data pointer
     linux_arm_eabi.sizeof_pointer = 4;

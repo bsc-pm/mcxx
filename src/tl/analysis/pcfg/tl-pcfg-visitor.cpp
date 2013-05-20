@@ -1645,9 +1645,6 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::For& n )
     {
-        // Not needed
-        // walk( n.get_ranges( ) );
-
         // Create the new graph node containing the for
         Node* for_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_LOOP );
         _pcfg->connect_nodes( _utils->_last_nodes, for_node );
@@ -1657,12 +1654,12 @@ namespace Analysis {
 
         // Traverse the statements of the current sections
         _utils->_last_nodes = ObjectList<Node*>( 1, for_entry );
-        walk( n.get_statements( ) );
+        walk( n.get_loop( ) );
 
         for_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
 
-        // Set clauses info and implicit synchronizations to the for node
+        // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_entry, for_exit ) );
@@ -1674,15 +1671,6 @@ namespace Analysis {
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
         return ObjectList<Node*>( 1, for_node );
-    }
-
-    // Currently not used since we don't traverse OpenMP::For::get_ranges
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
-    {
-        internal_error( "ForRange not yet implemented", 0 );
-//         walk( n.get_lower( ) );
-//         walk( n.get_upper( ) );
-//         walk( n.get_step( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )

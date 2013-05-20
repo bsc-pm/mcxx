@@ -104,7 +104,6 @@ namespace TL { namespace Nanox {
             }
 
             Nodecl::NodeclBase switch_body = switch_statements;
-
             if (!IS_FORTRAN_LANGUAGE)
             {
                 switch_body = Nodecl::CompoundStatement::make(
@@ -122,18 +121,33 @@ namespace TL { namespace Nanox {
                         index_reference,
                         switch_body);
 
-            Nodecl::NodeclBase range = Nodecl::OpenMP::ForRange::make(
+            Nodecl::NodeclBase range = Nodecl::RangeLoopControl::make(
+                    Nodecl::Symbol::make(index_symbol, sections.get_locus()),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(0)),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(index - 1)),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(1)),
-                    index_symbol,
                     sections.get_locus());
+
+            Nodecl::NodeclBase for_body = switch_statement;
+            if (!IS_FORTRAN_LANGUAGE)
+            {
+                for_body = Nodecl::CompoundStatement::make(
+                        Nodecl::List::make(for_body),
+                        Nodecl::NodeclBase::null(),
+                        sections.get_locus());
+            }
+
+            Nodecl::NodeclBase for_statement = Nodecl::ForStatement::make(
+                    range,
+                    Nodecl::List::make(for_body),
+                    /* name */ Nodecl::NodeclBase::null(),
+                    sections.get_locus());
+
 
             Nodecl::OpenMP::For for_construct =
                 Nodecl::OpenMP::For::make(
                         execution_environment,
-                        Nodecl::List::make(range),
-                        Nodecl::List::make(switch_statement),
+                        for_statement,
                         sections.get_locus());
 
             return for_construct;
