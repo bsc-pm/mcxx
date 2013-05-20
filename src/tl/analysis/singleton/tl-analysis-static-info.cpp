@@ -76,7 +76,17 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
-        return ( _killed.find( Utils::ExtendedSymbol( n ) ) == _killed.end( ) );
+        bool is_constant = true;
+        ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses( n );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = n_mem_accesses.begin( ); it != n_mem_accesses.end( ); ++it )
+        {
+            if( _killed.find( Utils::ExtendedSymbol( *it ) ) != _killed.end( ) )
+            {    
+                is_constant = false;
+                break;
+            }
+        }
+        return is_constant;
     }
 
     bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
@@ -408,7 +418,7 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
+                             "Cannot resolve whether the accesses to '%s' are constant.'",
                              scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
         }
         else
@@ -416,8 +426,8 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_constant_access( n );
         }
-//DISABLE!!
-        return false;
+
+        return result;
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
