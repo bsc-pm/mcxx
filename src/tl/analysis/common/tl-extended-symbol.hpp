@@ -74,12 +74,6 @@ namespace Utils {
 
             Symbol get_symbol( ) const;
 
-//             //! Returns the name of the wrapped symbol.
-//             std::string get_name( ) const;
-
-//             //! Returns the type of the wrapped symbol.
-//             Type get_type( ) const;
-
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;
 
