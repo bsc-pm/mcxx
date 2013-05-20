@@ -997,6 +997,51 @@ namespace TL
             node.replace(function_call);
         }
 
+        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorLoad& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_loadu";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps("; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd("; 
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_src << "_si128(("; 
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
+
+                intrin_src << ")"; 
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -1005,6 +1050,53 @@ namespace TL
 
             // Intrinsic name
             intrin_src << "_mm_store";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps("; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd("; 
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_src << "_si128((";
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
+                intrin_src << ")";
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
+        { 
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_storeu";
 
             // Postfix
             if (type.is_float()) 

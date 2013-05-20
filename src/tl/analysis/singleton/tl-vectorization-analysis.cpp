@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-analysis-static-info.hpp"
+#include <algorithm>
 
 namespace TL  {
 namespace Analysis {
@@ -74,8 +75,29 @@ namespace Analysis {
         
         return result;
     }
+ 
+    bool NodeclStaticInfo::is_constant_access( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = true;
         
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, ObjectList<Symbol> suitable_syms, 
+        if( n.is<Nodecl::ArraySubscript>( ) )
+        {
+            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+            Nodecl::List::iterator it = subscript.begin( );
+            for( ; it != subscript.end( ); ++it )
+            {   // All dimensions must be constant
+                if( !is_constant( *it ) )
+                {
+                    result = false;
+                    break;
+                }
+            }
+        }
+        
+        return result;
+    }
+        
+    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List suitable_expressions, 
                                                    int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -97,9 +119,13 @@ namespace Analysis {
         
         Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>( ).get_subscripted( );
         Nodecl::NodeclBase subscript = *( subscripts.begin( ) );
-        SuitableAlignmentVisitor sa_v( subscripted, _induction_variables, suitable_syms, unroll_factor, alignment );
+
+        int type_size = subscripted.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( subscripted, _induction_variables, suitable_expressions, unroll_factor, type_size );
         int subscript_alignment = sa_v.walk( subscript );
-        if( subscript_alignment % alignment == 0 )
+        
+        if( (subscript_alignment % alignment) == 0 )
             result = true;
         
         return result;
@@ -115,12 +141,13 @@ namespace Analysis {
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
                                                         ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment )
-            : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_syms( suitable_syms ), 
-              _unroll_factor( unroll_factor ), _alignment( alignment )
-    {}
+                                                        Nodecl::List suitable_expressions, int unroll_factor, int type_size)
+            : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_expressions( suitable_expressions ), 
+              _unroll_factor( unroll_factor ), _type_size(type_size)
+    {
+    }
     
-    int SuitableAlignmentVisitor::join_list( ObjectList<int>& list )
+    int SuitableAlignmentVisitor::join_list( ObjectList<int>& list ) 
     {
         int result = 0;
         for( ObjectList<int>::iterator it = list.begin( ); it != list.end( ); ++it )
@@ -129,45 +156,82 @@ namespace Analysis {
         }
         return result;
     }
+
+    bool SuitableAlignmentVisitor::is_suitable_expression(Nodecl::NodeclBase n)
+    {
+        if( _suitable_expressions.end() == std::find_if(_suitable_expressions.begin(), _suitable_expressions.end(), 
+                std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
+            return false;
+
+        return true;
+    }
     
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
-        int result = -1;
-        
-        int lhs_mod = walk( n.get_lhs( ) );
-        int rhs_mod = walk( n.get_rhs( ) );
-        
-        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
-            result = lhs_mod + rhs_mod;
-        
-        return result;
-    }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n )
-    {
-        int result = -1;
-        
-        int lhs_mod = walk( n.get_lhs( ) );
-        int rhs_mod = walk( n.get_rhs( ) );
-        
-        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
-            result = lhs_mod - rhs_mod;
-        
-        return result;
-    }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n )
-    {
-        int result = -1;
-        
-        if( _suitable_syms.contains( n.get_symbol( ) ) )
+        if (is_suitable_expression(n))
         {
-            result = 0;
+            return 0;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+            return lhs_mod + rhs_mod;
+        
+        return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+            return lhs_mod - rhs_mod;
+        
+        return -1;
+    }
+ 
+    int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::Conversion& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        return walk(n.get_nest());
+    }
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        return walk(n.get_nest());
+    }
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
         }
         else if( n.is_constant( ) )
         {
-            result = ( ( const_value_cast_to_signed_int( n.get_constant( ) ) * _subscripted.get_type( ).get_size( ) )
-                       % _alignment );
+            return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
@@ -182,17 +246,27 @@ namespace Analysis {
                 v.walk( incr );
                 if( incr.is_constant( ) )
                 {
-                    int n_align = const_value_cast_to_signed_int( lb.get_constant( ) ) 
+                    return (const_value_cast_to_signed_int( lb.get_constant( ) ) 
                                   + ( const_value_cast_to_signed_int( incr.get_constant( ) ) 
-                                      * _unroll_factor * _subscripted.get_type( ).get_size( ) );
-                    result = ( n_align % _alignment );
+                                      * _unroll_factor)) * _type_size;
                 }
             }
         }
         
-        return result;
+        return -1;
     }
-    
+
+    int SuitableAlignmentVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
+    {
+        std::cerr << "Suitable Alignment Visitor: Unknown node "
+            << ast_print_node_type(n.get_kind())
+            << " at " << n.get_locus_str()
+            << std::endl;
+
+        return Ret();
+    }
+
+
     // ********************** END visitor retrieving suitable simd alignment *********************** //
     // ********************************************************************************************* //
     

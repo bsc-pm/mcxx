@@ -36,16 +36,10 @@ namespace TL
         class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const std::string _device;
-                const unsigned int _vector_length;
-                const TL::Type _target_type;
-
-                unsigned int _unroll_factor;
+                const VectorizerEnvironment& _environment;
 
             public:
-                VectorizerVisitorFunction(const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type);
+                VectorizerVisitorFunction(const VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::FunctionCode& function_code);
 

@@ -33,11 +33,8 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFor::VectorizerVisitorFor(
-                const std::string device,
-                const unsigned int vector_length,
-                const TL::Type& target_type) :
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+        VectorizerVisitorFor::VectorizerVisitorFor(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -78,7 +75,7 @@ namespace TL
             }
 
             // Vectorizing Loop Header
-            VectorizerVisitorLoopHeader visitor_loop_header(_unroll_factor);
+            VectorizerVisitorLoopHeader visitor_loop_header(_environment);
             visitor_loop_header.walk(for_statement.get_loop_header());
 
             // Loop Body Vectorization
@@ -88,11 +85,7 @@ namespace TL
                 inner_scope_of_for = for_statement.get_statement().as<Nodecl::List>().front().retrieve_context();
             }
 
-            VectorizerVisitorStatement visitor_stmt(_device,
-                    _vector_length,
-                    _unroll_factor,
-                    _target_type,
-                    inner_scope_of_for);
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(for_statement.get_statement());
 
             Vectorizer::_analysis_scopes->pop_back();
@@ -111,7 +104,6 @@ namespace TL
         {
             //TODO
             _remain_iterations = 2;
-            _unroll_factor = _vector_length/4;
         }
 
         Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
@@ -138,9 +130,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -151,11 +142,11 @@ namespace TL
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            VectorizerVisitorLoopCond visitor_loop_cond(_unroll_factor);
+            VectorizerVisitorLoopCond visitor_loop_cond(_environment);
             visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
-            VectorizerVisitorLoopNext visitor_loop_next(_unroll_factor);
+            VectorizerVisitorLoopNext visitor_loop_next(_environment);
             visitor_loop_next.walk(loop_control.get_next());
         }
 
@@ -204,9 +195,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopCond::VectorizerVisitorLoopCond(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -271,10 +261,10 @@ namespace TL
                                     step.get_type(),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
-                                step.get_type(),
+                                TL::Type::get_int_type(),
                                 node.get_locus()),
                             step.get_type(),
                             node.get_locus());
@@ -295,8 +285,8 @@ namespace TL
                                     Nodecl::Minus::make(
                                         new_step,
                                         Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_unsigned_int_type(),
-                                            const_value_get_unsigned_int(1),
+                                            TL::Type::get_int_type(),
+                                            const_value_get_signed_int(1),
                                             node.get_locus()),
                                         rhs_type,
                                         node.get_locus()),
@@ -334,8 +324,8 @@ namespace TL
                                     step.get_type(),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 step.get_type(),
                                 node.get_locus()),
@@ -358,8 +348,8 @@ namespace TL
                                     Nodecl::Minus::make(
                                         new_step,
                                         Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_unsigned_int_type(),
-                                            const_value_get_unsigned_int(1),
+                                            TL::Type::get_int_type(),
+                                            const_value_get_signed_int(1),
                                             node.get_locus()),
                                         lhs_type,
                                         node.get_locus()),
@@ -374,12 +364,12 @@ namespace TL
             }
             else if (lhs_const_flag && rhs_const_flag)
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
+                running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                         "condition. BOTH expressions are CONSTANT.", locus_to_str(node.get_locus()));
             }
             else
             {
-                running_error("Vectorizer (%s): The loop is not vectorizable because of the loop "
+                running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                         "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
             }
         }
@@ -394,9 +384,8 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(
-                const unsigned int unroll_factor) :
-            _unroll_factor(unroll_factor)
+        VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(const VectorizerEnvironment& environment) :
+            _environment(environment)
         {
         }
 
@@ -458,8 +447,8 @@ namespace TL
                             lhs.shallow_copy(),
                             Nodecl::Mul::make(
                                 Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_unsigned_int_type(),
-                                    const_value_get_unsigned_int(_unroll_factor),
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),

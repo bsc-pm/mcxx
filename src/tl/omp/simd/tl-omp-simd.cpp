@@ -25,11 +25,9 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-simd.hpp"
-//#include "tl-nodecl-utils.hpp"
-//#include "cxx-diagnostic.h"
-//#include "cxx-cexpr.h"
-//#include "fortran03-scope.h"
-//#include "tl-predicateutils.hpp"
+#include "tl-nodecl-utils.hpp"
+
+using namespace TL::Vectorization;
 
 namespace TL { 
     namespace OpenMP {
@@ -141,12 +139,27 @@ namespace TL {
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
         {
-            Nodecl::NodeclBase for_statement = simd_node.get_statement();
+            Nodecl::ForStatement for_statement = simd_node.get_statement().as<Nodecl::ForStatement>();
+            Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
+
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = simd_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
 
             // Vectorize for
+            VectorizerEnvironment vectorizer_environment(
+                    _device_name,
+                    _vector_length, 
+                    NULL,
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                    suitable_expresions);
+            
             Nodecl::NodeclBase epilog = 
-                    _vectorizer.vectorize(for_statement.as<Nodecl::ForStatement>(), 
-                            _device_name, _vector_length, NULL); 
+                    _vectorizer.vectorize(for_statement, vectorizer_environment); 
 
             // Add epilog
             if (!epilog.is_null())
@@ -158,10 +171,77 @@ namespace TL {
             simd_node.replace(for_statement);
         }
 
+        void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
+        {
+            Nodecl::OpenMP::For omp_for = simd_node.get_openmp_for().as<Nodecl::OpenMP::For>();
+            Nodecl::List omp_simd_for_environment = simd_node.get_environment().as<Nodecl::List>();
+            Nodecl::List omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase loop = omp_for.get_loop();
+            ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), 
+                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd for'", 
+                    ast_print_node_type(loop.get_kind()));
+
+            Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
+
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_simd_for_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
+            // Vectorize for
+            VectorizerEnvironment vectorizer_environment(
+                    _device_name,
+                    _vector_length, 
+                    NULL,
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                    suitable_expresions);
+
+            Nodecl::NodeclBase epilog = _vectorizer.vectorize(for_statement,
+                    vectorizer_environment); 
+
+            // Add epilog
+            if (!epilog.is_null())
+            {
+                Nodecl::List single_environment;
+
+                Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
+                Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
+
+                if (!barrier.is_null())
+                {
+                    // Move barrier from omp for to single
+                    single_environment.append(barrier.shallow_copy());
+                    Nodecl::Utils::remove_from_enclosing_list(barrier);
+                }
+                if (!flush.is_null())
+                {
+                    // Move flush from omp for to single
+                    single_environment.append(flush.shallow_copy());
+                    Nodecl::Utils::remove_from_enclosing_list(flush);
+                }
+
+
+                Nodecl::OpenMP::Single single_epilog =
+                    Nodecl::OpenMP::Single::make(single_environment,
+                            epilog, epilog.get_locus());
+
+                simd_node.append_sibling(single_epilog);
+            }
+
+            // Remove Simd node
+            simd_node.replace(omp_for);
+        }
+
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
         {
             Nodecl::FunctionCode function_code = simd_node.get_statement()
                 .as<Nodecl::FunctionCode>();
+            Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
             
             // Remove SimdFunction node
             simd_node.replace(function_code);
@@ -171,9 +251,24 @@ namespace TL {
             Nodecl::FunctionCode vectorized_func_code = 
                 Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
 
+            Nodecl::List suitable_expresions;
+
+            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            if(!omp_suitable.is_null())
+            {
+                suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
+
             // Vectorize function
-            _vectorizer.vectorize(vectorized_func_code, 
-                    _device_name, _vector_length, NULL); 
+            VectorizerEnvironment vectorizer_environment(
+                    _device_name,
+                    _vector_length, 
+                    NULL,
+                    vectorized_func_code.get_statements().retrieve_context(),
+                    suitable_expresions);
+
+            _vectorizer.vectorize(vectorized_func_code, vectorizer_environment); 
 
             // Set new name
             std::stringstream vectorized_func_name; 
@@ -194,73 +289,6 @@ namespace TL {
             // Append vectorized function code to scalar function
             simd_node.append_sibling(vectorized_func_code);
         }
-
-        /*
-        void Simd::simd_for_handler_pre(TL::PragmaCustomStatement) { }
-        void Simd::simd_for_handler_post(TL::PragmaCustomStatement stmt) 
-    {
-        // Skipping AST_LIST_NODE 
-        Nodecl::NodeclSimd statements = stmt.get_statements();
-
-        if (_simd_enabled)
-        {
-            ERROR_CONDITION(!statements.is<Nodecl::List>(), 
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
-            Nodecl::List ast_list_node = statements.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node.size() != 1, 
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
-
-            // Skipping NODECL_CONTEXT
-            Nodecl::NodeclSimd context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(), 
-                    "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
-
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclSimd in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(), 
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
-            Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1, 
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
-
-            Nodecl::NodeclSimd node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), 
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'", 
-                    ast_print_node_type(node.get_kind()));
-
-            // Vectorize for
-            Nodecl::NodeclSimd epilog = 
-                _vectorizer.vectorize(node.as<Nodecl::ForStatement>(),
-                        "smp", 16, NULL); 
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
-                //node.append_sibling(epilog);
-            }
-
-            // for_handler_post
-            PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
-
-            Nodecl::NodeclSimd code = loop_handler_post(
-                    stmt, node, barrier_at_end, false);
-
-            // Removing #pragma
-            stmt.replace(code);
-        }
-        else
-        {
-            // Remove #pragma
-            stmt.replace(statements);
-        }
-    }
-
-    void Simd::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
-    void Simd::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt) 
-    {
-    }
-    */
     } 
 }
 

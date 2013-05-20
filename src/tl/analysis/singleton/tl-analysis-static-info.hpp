@@ -122,7 +122,9 @@ namespace Analysis {
             
             bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
 
-            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, ObjectList<Symbol> suitable_syms, 
+            bool is_constant_access( const Nodecl::NodeclBase& n ) const;
+
+            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List suitable_expressions, 
                                          int unroll_factor, int alignment ) const;
 
             
@@ -192,9 +194,12 @@ namespace Analysis {
             //! Returns true if the given nodecl is an array accessed by adjacent positions
             bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            //! Returns true if the given nodecl is an array accessed by a constant expression
+            bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
             //! Returns true if the given nodecl is aligned to a given value
             bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                         ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const;
+                                         const Nodecl::List suitable_expressions, int unroll_factor, int alignment ) const;
             
             // *** Queries about Auto-Scoping *** //
 
@@ -352,24 +357,31 @@ namespace Analysis {
     class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
     {
     private:
-        Nodecl::NodeclBase _subscripted;
-        ObjectList<Utils::InductionVariableData*> _induction_variables;
-        ObjectList<Symbol> _suitable_syms;
-        int _unroll_factor;
-        int _alignment;
+        const Nodecl::NodeclBase _subscripted;
+        const ObjectList<Utils::InductionVariableData*> _induction_variables;
+        const Nodecl::List _suitable_expressions;
+        const int _unroll_factor;
+        const int _type_size;
         
+        bool is_suitable_expression(Nodecl::NodeclBase n);
+
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
                                   ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment );
+                                  Nodecl::List suitable_expressions, int unroll_factor, int type_size);
         
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
-        
+
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::Minus& n );
+        Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::Conversion& n );
+        Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Symbol& n );
+
+        Ret unhandled_node(const Nodecl::NodeclBase& n);
     };
     
     // ********************** END visitor retrieving suitable simd alignment *********************** //

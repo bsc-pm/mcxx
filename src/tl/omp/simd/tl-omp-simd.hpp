@@ -74,6 +74,7 @@ namespace TL
                 SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled);
                 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
+                virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
         };
     }

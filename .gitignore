@@ -139,4 +139,6 @@ tests/test.log
 tests/test.log.xml
 test.log
 test.log.xml
+config/50.config.omp.fpga
+config/57.config.omp.all
 

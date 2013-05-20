@@ -545,6 +545,11 @@ namespace Nodecl
         return res;
     }
 
+    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
+    {
+        return equal_nodecls(n1, n2, false);
+    }
+
     bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
