@@ -395,14 +395,14 @@ namespace InputValueUtils
     // - The toplevel_lvalue_subexpressions list is used to detect if a expression has
     // been handled previously and, if it happens, reuse the same OutlineDataItem
     // - The nontoplevel_lvalue_subexpressions list is used to avoid the creation of an
-    // InputValueDependence previously created by an other expression (avoid repetitions)
+    // TaskwaitOnNode previously created by an other expression (avoid repetitions)
     //
     static void generate_dependences_of_expression(
             OutlineInfoRegisterEntities& outline_register_entities,
             TL::Scope new_block_context_sc,
             Nodecl::NodeclBase expr,
             Nodecl::NodeclBase update_expr,
-            OutlineDataItem::InputValueDependence* enclosing_lvalue,
+            OutlineDataItem::TaskwaitOnNode* enclosing_lvalue,
             TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
             TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
     {
@@ -449,8 +449,8 @@ namespace InputValueUtils
 
                     outline_register_entities.add_shared_with_capture(new_symbol);
 
-                    OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
-                    outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
+                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
+                    outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
                     enclosing_lvalue = new_dependence;
 
                     // Update the set of visited toplevel lvalue subexpressions
@@ -468,7 +468,7 @@ namespace InputValueUtils
                 else
                 {
                     // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
-                    // We should not create a new InputValueDependence
+                    // We should not create a new TaskwaitOnNode
                     for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
                             it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
                             it++)
@@ -482,7 +482,7 @@ namespace InputValueUtils
                 if (generate_new_dependence)
                 {
                     // New dependence for the enclosing lvalue
-                    OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(expr);
+                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
                     enclosing_lvalue->depends_on.append(new_dependence);
                     enclosing_lvalue = new_dependence;
 
@@ -574,15 +574,38 @@ namespace InputValueUtils
         return update_expr;
     }
 
-    static bool any_dep_depends_on_this_input_value_dep(
+    static bool any_clause_depends_on_this_input_value_parameter(
             const TL::ObjectList<OutlineDataItem*>& data_items,
-            OutlineDataItem* current_item)
+            const TaskEnvironmentVisitor& task_environment,
+            OutlineDataItem* current_item,
+            bool& depended_by_priority)
     {
+        bool depended_by_other_clause = false;
         TL::Symbol parameter = current_item->get_symbol();
 
-        bool depended_by_other_deps = false;
+        if (!task_environment.priority.is_null())
+        {
+            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.priority);
+            depended_by_other_clause = dep_expr_syms.contains(parameter);
+
+            if (depended_by_other_clause)
+            {
+                depended_by_priority = true;
+                return true;
+            }
+        }
+
+        if (!task_environment.if_condition.is_null())
+        {
+            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.if_condition);
+            depended_by_other_clause = dep_expr_syms.contains(parameter);
+
+            if (depended_by_other_clause)
+                return true;
+        }
+
         for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                it != data_items.end() && !depended_by_other_deps;
+                it != data_items.end() && !depended_by_other_clause;
                 it++)
         {
             if (current_item == *it)
@@ -590,15 +613,15 @@ namespace InputValueUtils
 
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
-                    dep_it != deps.end() && !depended_by_other_deps;
+                    dep_it != deps.end() && !depended_by_other_clause;
                     dep_it++)
             {
                 TL::DataReference dep_expr(dep_it->expression);
                 TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
-                depended_by_other_deps = dep_expr_syms.contains(parameter);
+                depended_by_other_clause = dep_expr_syms.contains(parameter);
             }
         }
-        return depended_by_other_deps;
+        return depended_by_other_clause;
     }
 }
 
@@ -730,12 +753,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         OutlineDataItem* current_item = found[0];
 
-        bool depended_by_other_deps = false;
+        bool depended_by_other_clause = false, depended_by_priority = false;
         bool has_input_value_dep = current_item->has_an_input_value_dependence();
         if (has_input_value_dep)
         {
             // The current parameter has an input value dependence. If this
-            // parameter appears in an other dependence we need Its value
+            // parameter appears in an other clause we need Its value
             // during the creation of the task because It will be used to
             // calculate this other dependence.
             //
@@ -745,11 +768,13 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             //      void foo(int n, int* v) { ... }
             //
             // We need the value of 'n' to calculate the inout dependence over the array 'v'.
-            depended_by_other_deps = InputValueUtils::any_dep_depends_on_this_input_value_dep(data_items, current_item);
+            depended_by_other_clause =
+                InputValueUtils::any_clause_depends_on_this_input_value_parameter(data_items,
+                        task_environment, current_item, depended_by_priority);
         }
 
         if (has_input_value_dep
-                && !depended_by_other_deps)
+                && !depended_by_other_clause)
         {
             Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
                     outline_register_entities,
@@ -830,17 +855,24 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
             }
 
-            if (depended_by_other_deps)
+            if (depended_by_other_clause)
             {
-                // The current parameter has an input value dependence and It appears in another dependence
+                // The current parameter has an input value dependence and It appears in another clause
 
                 //This code is a bit tricky
                 Nodecl::NodeclBase dummy_expr = Nodecl::Utils::deep_copy(argument, new_block_context_sc);
                 TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
                 TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
 
-                OutlineDataItem::InputValueDependence* new_dependence = new OutlineDataItem::InputValueDependence(argument);
-                outline_register_entities.set_input_value_dependence(new_symbol, new_dependence);
+                OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(argument);
+                if (depended_by_priority)
+                {
+                    outline_register_entities.set_taskwait_on_before_wd_creation(new_symbol, new_dependence);
+                }
+                else
+                {
+                    outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
+                }
 
                 InputValueUtils::generate_dependences_of_expression(outline_register_entities,
                         new_block_context_sc,

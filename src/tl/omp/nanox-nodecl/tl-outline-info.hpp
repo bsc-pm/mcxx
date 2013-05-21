@@ -106,20 +106,24 @@ namespace TL
                         : expression(expr_), directionality(dir_) { }
                 };
 
-                // This structure is only used by input dependences over parameters passed by value.
-                // We use it to store:
-                //  - The current expression
-                //  - The lvalue subexpressions of the current expression
-                struct InputValueDependence
+                // The first level of TaskwaitOnNode does not generate taskwaits!
+                struct TaskwaitOnNode
                 {
                     Nodecl::NodeclBase expression;
-                    TL::ObjectList<InputValueDependence*> depends_on;
+                    TL::ObjectList<TaskwaitOnNode*> depends_on;
 
-                    InputValueDependence(Nodecl::NodeclBase expr_)
+                    TaskwaitOnNode(Nodecl::NodeclBase expr_)
                         : expression(expr_) { }
 
-                    InputValueDependence(Nodecl::NodeclBase expr_, TL::ObjectList<InputValueDependence*> depends_on_)
-                        : expression(expr_), depends_on(depends_on_) { }
+                    ~TaskwaitOnNode()
+                    {
+                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
+                                it != depends_on.end();
+                                it++)
+                        {
+                            delete (*it);
+                        }
+                    }
                 };
 
                 enum AllocationPolicyFlags
@@ -173,7 +177,8 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
-                InputValueDependence* _input_value_dependence;
+                TaskwaitOnNode* _taskwait_on_before_wd_creation;
+                TaskwaitOnNode* _taskwait_on_after_wd_creation;
 
                 bool _is_lastprivate;
 
@@ -195,11 +200,18 @@ namespace TL
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _input_value_dependence(NULL),
+                    _taskwait_on_before_wd_creation(NULL),
+                    _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
-            {
-            }
+                {
+                }
+
+                ~OutlineDataItem()
+                {
+                    delete _taskwait_on_before_wd_creation;
+                    delete _taskwait_on_after_wd_creation;
+                }
 
                 //! Returns the symbol of this item
                 Symbol get_symbol() const
@@ -413,15 +425,26 @@ namespace TL
                     return has_input_value;
                 }
 
-                InputValueDependence* get_input_value_dependence() const
+                TaskwaitOnNode* get_taskwait_on_before_wd_creation() const
                 {
-                    return _input_value_dependence;
+                    return _taskwait_on_before_wd_creation;
                 }
 
-                void set_input_value_dependence(InputValueDependence* input_value_dep)
+                void set_taskwait_on_before_wd_creation(TaskwaitOnNode* taskwait_on)
                 {
-                    _input_value_dependence = input_value_dep;
+                    _taskwait_on_before_wd_creation = taskwait_on;
                 }
+
+                TaskwaitOnNode* get_taskwait_on_after_wd_creation() const
+                {
+                    return _taskwait_on_after_wd_creation;
+                }
+
+                void set_taskwait_on_after_wd_creation(TaskwaitOnNode* taskwait_on)
+                {
+                    _taskwait_on_after_wd_creation = taskwait_on;
+                }
+
                 void set_is_cxx_this(bool b)
                 {
                     _is_cxx_this = b;
@@ -547,8 +570,8 @@ namespace TL
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
 
-                OutlineDataItem::InputValueDependence* get_input_value_dependence(TL::Symbol symbol) const;
-                void set_input_value_dependence(TL::Symbol symbol, OutlineDataItem::InputValueDependence* input_value_dep);
+                void set_taskwait_on_before_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
+                void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
         };
     }
 }
