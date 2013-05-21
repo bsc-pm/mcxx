@@ -238,7 +238,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Source get_loop_distribution_source_worksharing(
                 const Nodecl::OpenMP::For &construct,
                 Nodecl::List& distribute_environment,
-                Nodecl::List& ranges,
+                Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
@@ -248,7 +248,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void distribute_loop_with_outline_worksharing(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
-                Nodecl::List& ranges,
+                Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
                 TL::Symbol slicer_descriptor,
@@ -264,7 +264,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::List distribute_environment,
-                Nodecl::List ranges,
+                Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor);
@@ -272,7 +272,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Source get_loop_distribution_source_slicer(
                 const Nodecl::OpenMP::For &construct,
                 Nodecl::List& distribute_environment,
-                Nodecl::List& ranges,
+                Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
@@ -282,7 +282,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void distribute_loop_with_outline_slicer(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
-                Nodecl::List& ranges,
+                Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
                 TL::Symbol slicer_descriptor,
@@ -298,7 +298,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::List distribute_environment,
-                Nodecl::List ranges,
+                Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor);

@@ -1216,8 +1216,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This function _modifies_ construct to reflect the new reality!
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1247,8 +1246,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1282,8 +1280,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1308,8 +1305,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();

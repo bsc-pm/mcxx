@@ -801,6 +801,11 @@ namespace TL { namespace OpenMP {
                     directive.get_locus())
         );
 
+        // Set implicit barrier at the exit of the combined worksharing
+        execution_environment.append(
+            Nodecl::OpenMP::BarrierAtEnd::make(
+                directive.get_locus()));
+        
         Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
@@ -1031,14 +1036,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::For::make(
                     execution_environment,
                     // This is a list because of multidimensional distribution
-                    Nodecl::List::make(
-                        Nodecl::OpenMP::ForRange::make(
-                            for_statement.get_lower_bound(),
-                            for_statement.get_upper_bound(),
-                            for_statement.get_step(),
-                            for_statement.get_induction_variable(),
-                            for_statement.get_locus())),
-                    for_statement.get_statement(),
+                    for_statement,
                     directive.get_locus());
 
         Nodecl::NodeclBase code = Nodecl::List::make(distribute);
@@ -1093,7 +1091,12 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_locus())
         );
-
+        
+        // Set implicit barrier at the exit of the combined worksharing
+        execution_environment.append(
+                Nodecl::OpenMP::BarrierAtEnd::make(
+                    directive.get_locus()));
+        
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
         Nodecl::NodeclBase parallel_code
@@ -1395,6 +1398,11 @@ namespace TL { namespace OpenMP {
                     directive.get_locus())
         );
 
+        // Set implicit barrier at the exit of the combined worksharing
+        execution_environment.append(
+                Nodecl::OpenMP::BarrierAtEnd::make(
+                    directive.get_locus()));
+        
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
@@ -1446,6 +1454,11 @@ namespace TL { namespace OpenMP {
                     directive.get_locus())
         );
 
+        // Set implicit barrier at the exit of the combined worksharing
+        execution_environment.append(
+                Nodecl::OpenMP::BarrierAtEnd::make(
+                    directive.get_locus()));
+        
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
 
         Nodecl::NodeclBase parallel_code

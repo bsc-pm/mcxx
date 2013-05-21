@@ -46,7 +46,6 @@ namespace Analysis {
     {
         if( !current->is_visited( ) )
         {
-            std::cerr << "[compute_auto_scoping_rec] -->  " << current->get_id( ) << std::endl;
             current->set_visited( true );
 
             if( current->is_exit_node( ) )
@@ -70,10 +69,6 @@ namespace Analysis {
             {
                 compute_auto_scoping_rec( *it );
             }
-        }
-        else
-        {
-            std::cerr << "[compute_auto_scoping_rec]  -->  " << current->get_id() << " VISITED" << std::endl;
         }
     }
 
@@ -119,7 +114,7 @@ namespace Analysis {
             }
 
             // If the current task is created in a loop, then it is simultaneous with itself
-            bool is_in_loop = ExtensibleGraph::is_in_loop( task );
+            bool is_in_loop = ExtensibleGraph::node_is_in_loop( task );
 
             // Scope non-undefined behavior variables
             Utils::ext_sym_set scoped_vars;
@@ -158,7 +153,7 @@ namespace Analysis {
             }
             else
             {
-                if( current->is_omp_barrier_node( ) && !ExtensibleGraph::is_in_conditional_branch( current ) )
+                if( current->is_omp_barrier_node( ) && !ExtensibleGraph::node_is_in_conditional_branch( current ) )
                 {   // A barrier placed in a non-conditional place is the Last Synchronization point
                     _last_sync = current;
                 }
@@ -200,7 +195,6 @@ namespace Analysis {
     {
         if( !current->is_visited( ) )
         {
-            std::cerr << "[compute_task_auto_scoping_rec]  -->  " << current->get_id() << std::endl;
             current->set_visited( true );
 
             if( current->is_graph_node( ) )
@@ -246,8 +240,8 @@ namespace Analysis {
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
             ObjectList<Node*> uses_out = var_uses_out_task( task, ei );
-//                             ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
-//                             ExtensibleGraph::clear_visits_aux(task);
+            ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
+            ExtensibleGraph::clear_visits_aux(task);
 
             if( uses_out.empty( ) )
             {
@@ -501,6 +495,8 @@ namespace Analysis {
             for( ObjectList<Node*>::iterator itc = it_children.begin( ); itc != it_children.end( ); ++itc )
             {
                 uses.append( uses_from_node_to_node( *itc, _next_sync, ei, task ) );
+                ( *itc )->set_visited( false );
+                _next_sync->set_visited( false );
             }
         }
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )

@@ -402,6 +402,56 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
+    bool Node::is_omp_atomic_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
+    }
+
+    bool Node::is_omp_barrier_node( )
+    {
+        return ( get_type( ) == OMP_BARRIER );
+    }
+
+    bool Node::is_omp_critical_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+    }
+
+    bool Node::is_omp_flush_node( )
+    {
+        return ( get_type( ) == OMP_FLUSH );
+    }
+
+    bool Node::is_omp_loop_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_LOOP ) );
+    }
+
+    bool Node::is_omp_master_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_MASTER ) );
+    }
+
+    bool Node::is_omp_parallel_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_PARALLEL ) );
+    }
+
+    bool Node::is_omp_section_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTION ) );
+    }
+
+    bool Node::is_omp_sections_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
+    }
+
+    bool Node::is_omp_single_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
+    }
+
     bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
@@ -412,19 +462,9 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKWAIT );
     }
 
-    bool Node::is_omp_barrier_node( )
+    bool Node::is_omp_taskyield_node( )
     {
-        return ( get_type( ) == OMP_BARRIER );
-    }
-
-    bool Node::is_omp_atomic_node( )
-    {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
-    }
-
-    bool Node::is_omp_critical_node( )
-    {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+        return ( get_type( ) == OMP_TASKYIELD );
     }
 
     bool Node::is_connected( )
@@ -521,22 +561,23 @@ namespace Analysis {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
             switch( ntype )
             {
-                case ASM_OP:             type = "ASM_OP";           break;
-                case BREAK:              type = "BREAK";            break;
-                case CONTINUE:           type = "CONTINUE";         break;
-                case ENTRY:              type = "ENTRY";            break;
-                case EXIT:               type = "EXIT";             break;
-                case FUNCTION_CALL:      type = "FUNCTION_CALL";    break;
-                case GOTO:               type = "GOTO";             break;
-                case LABELED:            type = "LABELED";          break;
-                case NORMAL:             type = "NORMAL";           break;
-                case OMP_BARRIER:        type = "OMP_BARRIER";      break;
-                case OMP_FLUSH:          type = "OMP_FLUSH";        break;
-                case OMP_TASKWAIT:       type = "OMP_TASKWAIT";     break;
-                case OMP_TASKYIELD:      type = "OMP_TASKYIELD";    break;
-                case GRAPH:              type = "GRAPH";            break;
-                case UNCLASSIFIED_NODE:  type = "UNCLASSIFIED";     break;
-                default:                 WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
+                case ASM_OP:                type = "ASM_OP";                break;
+                case BREAK:                 type = "BREAK";                 break;
+                case CONTINUE:              type = "CONTINUE";              break;
+                case ENTRY:                 type = "ENTRY";                 break;
+                case EXIT:                  type = "EXIT";                  break;
+                case FUNCTION_CALL:         type = "FUNCTION_CALL";         break;
+                case GOTO:                  type = "GOTO";                  break;
+                case LABELED:               type = "LABELED";               break;
+                case NORMAL:                type = "NORMAL";                break;
+                case OMP_BARRIER:           type = "OMP_BARRIER";           break;
+                case OMP_FLUSH:             type = "OMP_FLUSH";             break;
+                case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
+                case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
+                case GRAPH:                 type = "GRAPH";                 break;
+                case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
+                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else
@@ -1321,7 +1362,7 @@ namespace Analysis {
     ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             if( has_key( _INDUCTION_VARS ))
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
@@ -1336,7 +1377,7 @@ namespace Analysis {
 
     void Node::set_induction_variable( Utils::InductionVariableData* iv )
     {
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )
@@ -1568,7 +1609,7 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_sc_private_vars( )
     {
         Utils::ext_sym_set sc_private_vars;
-        if(has_key(_SC_PRIVATE))
+        if( has_key( _SC_PRIVATE ) )
             sc_private_vars = get_data<Utils::ext_sym_set>( _SC_PRIVATE );
         return sc_private_vars;
     }
@@ -1681,6 +1722,19 @@ namespace Analysis {
             sc_race_vars = get_data<Utils::ext_sym_set>( _SC_RACE );
         sc_race_vars.insert( es );
         set_data( _SC_RACE, sc_race_vars );
+    }
+
+    Utils::AutoScopedVariables Node::get_auto_scoped_variables( )
+    {
+        Utils::ext_sym_set private_vars = get_sc_private_vars( );
+        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+        Utils::ext_sym_set race_vars = get_sc_race_vars( );
+        Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+        Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
+
+        Utils::AutoScopedVariables res( private_vars, firstprivate_vars, race_vars,
+                                        shared_vars, undef_vars );
+        return res;
     }
 
     // ************* END getters and setters for auto-scoping analysis ************** //
@@ -1855,14 +1909,6 @@ namespace Analysis {
             Utils::ext_sym_set race_vars = get_sc_race_vars( );
             Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
             Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
-
-//             if( !private_vars.empty( ) || !firstprivate_vars.empty( ) || !race_vars.empty( )
-//                 || !shared_vars.empty( ) || !undef_vars.empty( ) )
-//             {
-//                 std::cerr << "Task #pragma omp task '"
-//                           << get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).prettyprint( )
-//                           << "'" << std::endl;
-//             }
 
             if( !private_vars.empty( ) )
                 std::cerr << "   Variables autoscoped as private: "             << print_set( private_vars )      << std::endl;

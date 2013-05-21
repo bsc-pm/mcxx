@@ -32,7 +32,7 @@
 #include <map>
 
 #include "tl-builtin.hpp"
-#include "tl-extended-symbol.hpp"
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -258,20 +258,44 @@ namespace Analysis {
             //! Returns true when the node is an ASM_OP node
             bool is_asm_op_node( );
 
-            //! Returns true when the node is a TASK node
+            //! Returns true when the node is an OpenMP ATOMIC node
+            bool is_omp_atomic_node( );
+
+            //! Returns true when the node is an OpenMP BARRIER node
+            bool is_omp_barrier_node( );
+
+            //! Returns true when the node is an OpenMP CRITICAL node
+            bool is_omp_critical_node( );
+
+            //! Returns true when the node is an OpenMP FLUSH node
+            bool is_omp_flush_node( );
+
+            //! Returns true when the node is an OpenMP LOOP node
+            bool is_omp_loop_node( );
+
+            //! Returns true when the node is an OpenMP MASTER node
+            bool is_omp_master_node( );
+
+            //! Returns true when the node is an OpenMP PARALLEL node
+            bool is_omp_parallel_node( );
+
+            //! Returns true when the node is an OpenMP SECTION node
+            bool is_omp_section_node( );
+
+            //! Returns true when the node is an OpenMP SECTIONS node
+            bool is_omp_sections_node( );
+
+            //! Returns true when the node is an OpenMP SINGLE node
+            bool is_omp_single_node( );
+
+            //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 
             //! Returns true when the node is a TASKWAIT node
             bool is_omp_taskwait_node( );
 
-            //! Returns true when the node is a BARRIER node
-            bool is_omp_barrier_node( );
-
-            //! Returns true when the node is an ATOMIC node
-            bool is_omp_atomic_node( );
-
-            //! Returns true when the node is a CRITICAL node
-            bool is_omp_critical_node( );
+            //! Returns true when the node is a TASKYIELD node
+            bool is_omp_taskyield_node( );
 
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected( );
@@ -318,7 +342,7 @@ namespace Analysis {
             //! Set the exit node of a graph node. Only valid for graph nodes
             void set_graph_exit_node( Node* node );
 
-            //! Returns the nodecl containing the label of the graph node (Only valid for graph nodes)
+            //! Returns the nodecl contained in the graph node (Only valid for graph nodes)
             //! If the graph doesn't have a label, a null Nodecl is returned
             Nodecl::NodeclBase get_graph_label( );
 
@@ -576,6 +600,8 @@ namespace Analysis {
             Utils::ext_sym_set get_sc_race_vars( );
             void set_sc_race_var( Utils::ExtendedSymbol es );
             void set_sc_race_var( Utils::ext_sym_set es_list );
+
+            Utils::AutoScopedVariables get_auto_scoped_variables( );
 
             // ************* END getters and setters for auto-scoping analysis ************** //
             // ****************************************************************************** //

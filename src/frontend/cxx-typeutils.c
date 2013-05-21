@@ -977,6 +977,7 @@ type_t* get_unsigned_int128_type(void)
 static int num_float_types = 0;
 static type_t* float_types[MAX_DIFFERENT_FLOATS];
 
+#if 0
 static char same_floating_info(floating_type_info_t* info1, floating_type_info_t* info2)
 {
     ERROR_CONDITION(info1 == NULL || info2 == NULL, "Invalid floating info", 0);
@@ -988,6 +989,7 @@ static char same_floating_info(floating_type_info_t* info1, floating_type_info_t
         && info1->emin == info2->emin
         && info1->emax == info2->emax;
 }
+#endif
 
 type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
 {
@@ -996,7 +998,7 @@ type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
     {
         type_t* current_type = float_types[i];
 
-        if (same_floating_info(current_type->type->floating_info, info))
+        if (current_type->type->floating_info == info)
         {
             return current_type;
         }
