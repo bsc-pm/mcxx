@@ -112,6 +112,15 @@ namespace TL
                     TaskwaitOnNode(Nodecl::NodeclBase expr_)
                         : expression(expr_) { }
 
+                    ~TaskwaitOnNode()
+                    {
+                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
+                                it != depends_on.end();
+                                it++)
+                        {
+                            delete (*it);
+                        }
+                    }
                 };
 
                 enum AllocationPolicyFlags
@@ -195,6 +204,11 @@ namespace TL
                 {
                 }
 
+                ~OutlineDataItem()
+                {
+                    delete _taskwait_on_before_wd_creation;
+                    delete _taskwait_on_after_wd_creation;
+                }
 
                 //! Returns the symbol of this item
                 Symbol get_symbol() const
