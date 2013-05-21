@@ -114,6 +114,7 @@ namespace TL
                     << "__m128 __svml_sqrtf4(__m128);\n"
                     << "__m128 __svml_logf4(__m128);\n"
                     << "__m128 __svml_sinf4(__m128);\n"
+                    << "__m128 __svml_sincosf4(__m128, __m128*, __m128*);\n"
                     << "__m128 __svml_floorf4(__m128);\n"
                     ;
 
@@ -137,6 +138,10 @@ namespace TL
                 _function_versioning.add_version("sinf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(),
+                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sincosf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_sincosf4").make_nodecl(),
                             "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("floorf",
                         VectorFunctionVersion( 
@@ -165,6 +170,7 @@ namespace TL
                     << "__m512 __svml_sqrtf16(__m512);\n"
                     << "__m512 __svml_logf16(__m512);\n"
                     << "__m512 __svml_sinf16(__m512);\n"
+                    << "__m512 __svml_sincosf16(__m512, __m512*, __m512*);\n"
                     << "__m512 __svml_floorf16(__m512);\n"
                     ;
 
@@ -188,6 +194,10 @@ namespace TL
                 _function_versioning.add_version("sinf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sinf16").make_nodecl(),
+                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sincosf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_sincosf16").make_nodecl(),
                             "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("floorf",
                         VectorFunctionVersion( 

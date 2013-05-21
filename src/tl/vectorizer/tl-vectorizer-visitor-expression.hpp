@@ -74,6 +74,8 @@ namespace TL
                 virtual void visit(const Nodecl::Symbol& n);
                 virtual void visit(const Nodecl::IntegerLiteral& n);
                 virtual void visit(const Nodecl::FloatingLiteral& n);
+                
+                virtual void visit(const Nodecl::Reference& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

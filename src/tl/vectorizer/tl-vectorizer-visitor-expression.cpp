@@ -771,10 +771,23 @@ namespace TL
             n.replace(vector_prom);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::Reference& n)
+        {
+            walk(n.get_rhs());
+
+            const Nodecl::Reference reference =
+                Nodecl::Reference::make(
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(reference);
+        } 
+
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
                 const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Unknown 'Expression' node "
+            std::cerr << "Vectorizer: Unknown 'Expression' node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus()
                 << std::endl;
