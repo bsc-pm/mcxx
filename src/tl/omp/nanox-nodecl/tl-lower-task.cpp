@@ -154,13 +154,13 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
     }
 }
 
-void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataItem::InputValueDependence* c, TL::Source& code)
+void LoweringVisitor::check_pendant_writes_on_subexpressions(OutlineDataItem::TaskwaitOnNode* c, TL::Source& code)
 {
     if (c != NULL)
     {
         for (unsigned int i = 0; i < c->depends_on.size(); ++i)
         {
-            check_pendant_writes_on_lvalue_subexpressions(c->depends_on[i], code);
+            check_pendant_writes_on_subexpressions(c->depends_on[i], code);
 
             TL::Source dependency_regions, dependency_init, dependence;
             code
@@ -198,9 +198,13 @@ void LoweringVisitor::check_pendant_writes_on_lvalue_subexpressions(OutlineDataI
     }
 }
 
-void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outline_info, TL::Source& code)
+void LoweringVisitor::generate_mandatory_taskwaits(
+        OutlineInfo& outline_info,
+        TL::Source& taskwait_on_before_wd_creation_opt,
+        TL::Source& taskwait_on_after_wd_creation_opt)
 {
-    code << comment("Check pendant writes on lvalue nontoplevel subexpressions");
+    taskwait_on_before_wd_creation_opt << comment("Check pendant writes on subexpressions");
+    taskwait_on_after_wd_creation_opt << comment("Check pendant writes on subexpressions");
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -211,12 +215,12 @@ void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outli
             continue;
 
         TL::Source lvalue_subexpressions_code;
-        OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
+        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
         if (toplevel_lvalue != NULL)
         {
-            check_pendant_writes_on_lvalue_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
+            check_pendant_writes_on_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
             TL::Source update_outline_data_item;
-            code
+            taskwait_on_after_wd_creation_opt
                 <<"{"
                 <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
                 <<      "nanos_err_t err;"
@@ -225,7 +229,33 @@ void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outli
                 <<"}"
                 ;
 
-            if (toplevel_lvalue->expression.get_type().is_lvalue_reference())
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
+            }
+            else
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
+            }
+        }
+
+        toplevel_lvalue = (*it)->get_taskwait_on_before_wd_creation();
+        if (toplevel_lvalue != NULL)
+        {
+            check_pendant_writes_on_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
+            TL::Source update_outline_data_item;
+            taskwait_on_before_wd_creation_opt
+                <<"{"
+                <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                <<      "nanos_err_t err;"
+                <<      lvalue_subexpressions_code
+                <<      update_outline_data_item
+                <<"}"
+                ;
+
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
             {
                 update_outline_data_item
                     << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
@@ -238,7 +268,8 @@ void LoweringVisitor::fill_check_dependences_over_dependences(OutlineInfo& outli
         }
 
     }
-    code << comment("End check pendant writes on lvalue nontoplevel subexpressions");
+    taskwait_on_before_wd_creation_opt << comment("End check pendant writes on subexpressions");
+    taskwait_on_after_wd_creation_opt << comment("End check pendant writes on subexpressions");
 }
 
 
@@ -519,7 +550,8 @@ void LoweringVisitor::emit_async_common(
            const_wd_info,
            dynamic_wd_info,
            xlate_function_name,
-           check_dependences_over_dependences;
+           taskwait_on_after_wd_creation_opt,
+           taskwait_on_before_wd_creation_opt;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
@@ -697,6 +729,7 @@ void LoweringVisitor::emit_async_common(
         << "{"
         // Devices related to this task
         <<     const_wd_info
+        <<     taskwait_on_before_wd_creation_opt
         <<     dynamic_wd_info
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
@@ -708,7 +741,7 @@ void LoweringVisitor::emit_async_common(
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
-        <<     check_dependences_over_dependences
+        <<     taskwait_on_after_wd_creation_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -735,7 +768,7 @@ void LoweringVisitor::emit_async_common(
         << "}"
         ;
 
-    fill_check_dependences_over_dependences(outline_info, check_dependences_over_dependences);
+    generate_mandatory_taskwaits(outline_info, taskwait_on_before_wd_creation_opt, taskwait_on_after_wd_creation_opt);
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
@@ -1047,7 +1080,7 @@ void LoweringVisitor::fill_arguments(
 
                  case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                     {
-                        OutlineDataItem::InputValueDependence* toplevel_lvalue = (*it)->get_input_value_dependence();
+                        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
                         TL::Source common_code;
                         common_code
                             <<      as_type(TL::Type::get_bool_type()) << " result = 0;"

@@ -183,15 +183,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
-        void check_pendant_writes_on_lvalue_subexpressions(
-                OutlineDataItem::InputValueDependence* c,
+        void check_pendant_writes_on_subexpressions(
+                OutlineDataItem::TaskwaitOnNode* c,
                 // out
                 TL::Source& code);
 
-        void fill_check_dependences_over_dependences(
+        void generate_mandatory_taskwaits(
                 OutlineInfo& outline_info,
                 // out
-                TL::Source& code);
+                TL::Source& taskwait_on_before_wd_creation_opt,
+                TL::Source& taskwait_on_after_wd_creation_opt);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,

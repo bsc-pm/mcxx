@@ -772,17 +772,18 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
-    OutlineDataItem::InputValueDependence* OutlineInfoRegisterEntities::get_input_value_dependence(TL::Symbol symbol) const
+    void OutlineInfoRegisterEntities::set_taskwait_on_before_wd_creation(TL::Symbol symbol,
+            OutlineDataItem::TaskwaitOnNode* taskwait_on)
     {
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        return outline_info.get_input_value_dependence();
+        outline_info.set_taskwait_on_before_wd_creation(taskwait_on);
     }
 
-    void OutlineInfoRegisterEntities::set_input_value_dependence(TL::Symbol symbol,
-            OutlineDataItem::InputValueDependence* input_value_dep)
+    void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
+            OutlineDataItem::TaskwaitOnNode* taskwait_on)
     {
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        outline_info.set_input_value_dependence(input_value_dep);
+        outline_info.set_taskwait_on_after_wd_creation(taskwait_on);
     }
 
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
