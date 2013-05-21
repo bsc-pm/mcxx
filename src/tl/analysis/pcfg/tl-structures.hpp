@@ -51,6 +51,8 @@ namespace Analysis {
         OMP_FLUSH,
         OMP_TASKWAIT,
         OMP_TASKYIELD,
+        OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
+                             //! when the function that creates the task has ended
         // COMPOSITE
         GRAPH                //! Composite node
     };

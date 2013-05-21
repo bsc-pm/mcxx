@@ -95,8 +95,10 @@ compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [f
 case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
-            | NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
+            | range-loop-control
             | NODECL_UNBOUNDED_LOOP_CONTROL()
+
+range-loop-control : NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
@@ -501,8 +503,7 @@ reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [ranges]for-range-seq, [statements]statement-seq)
-for-range : NODECL_OPEN_M_P*FOR_RANGE([lower]expression, [upper]expression, [step]expression) symbol
+for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
 
 # atomic
 atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]exec-environment-seq-opt, [statements]statement-seq)

@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
   
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -2409,7 +2409,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
             file << (unsigned long long)v;
         }
     }
-} 
+}
 
 CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
 {
@@ -2976,7 +2976,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector_type())
+        if (type.no_ref().is_vector())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;
@@ -5950,7 +5950,7 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                     define_entities_in_tree);
         }
     }
-    else if (t.is_vector_type())
+    else if (t.is_vector())
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
@@ -7349,8 +7349,8 @@ TL::Type CxxBase::fix_references(TL::Type t)
         }
 
         TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters, 
-                nonadjusted_fixed_parameters, 
+                fixed_parameters,
+                nonadjusted_fixed_parameters,
                 has_ellipsis);
 
         fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));

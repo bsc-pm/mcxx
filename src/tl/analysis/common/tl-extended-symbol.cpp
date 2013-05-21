@@ -203,37 +203,6 @@ namespace Utils {
         return s;
     }
 
-//     std::string ExtendedSymbol::get_name( ) const
-//     {
-//         std::string name = "";
-//
-//         ObjectList<Symbol> syms = Nodecl::Utils::get_all_symbols( _n );
-//         for(ObjectList<Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
-//         {
-//             if( it->is_valid( ) )
-//                 name += ( it->get_name( ) + "  " );
-//         }
-//
-//         return name;
-//     }
-
-//     Type ExtendedSymbol::get_type() const
-//     {
-//         Type res( NULL );
-//
-//         ObjectList<Symbol> syms = Nodecl::Utils::get_all_symbols( _n );
-//         for( ObjectList<Symbol>::iterator it = syms.begin( ); it != syms.end( ); ++it )
-//         {
-//             if( it->is_valid( ) )
-//             {
-//                 res = it->get_type( );
-//                 break;
-//             }
-//         }
-//
-//         return res;
-//     }
-
     Nodecl::NodeclBase ExtendedSymbol::get_nodecl( ) const
     {
         return _n;

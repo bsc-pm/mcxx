@@ -63,6 +63,7 @@ namespace Nodecl
         bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
+        bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                            bool skip_conversion_nodecls = false);
         int cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
@@ -209,9 +210,9 @@ namespace Nodecl
 
         struct SimpleSymbolMap : public SymbolMap
         {
-            SimpleSymbolMap() 
+            SimpleSymbolMap()
                 : _symbol_map(), _enclosing(NULL) { }
-            SimpleSymbolMap(SymbolMap* enclosing) 
+            SimpleSymbolMap(SymbolMap* enclosing)
                 : _symbol_map(), _enclosing(enclosing) { }
 
             virtual TL::Symbol map(TL::Symbol s)
