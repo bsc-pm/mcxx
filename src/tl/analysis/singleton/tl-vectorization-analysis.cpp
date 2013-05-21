@@ -197,7 +197,23 @@ namespace Analysis {
         
         return -1;
     }
- 
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+
+        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+            return lhs_mod * rhs_mod;
+
+        return -1;
+    }
+
     int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
